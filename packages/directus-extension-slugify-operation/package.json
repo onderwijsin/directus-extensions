@@ -1,6 +1,6 @@
 {
 	"name": "directus-extension-slugify-operation",
-	"description": "Please enter a description for your extension",
+	"description": "A Directus extension that adds a slugify operation for flows",
 	"icon": "extension",
 	"version": "1.0.0",
 	"keywords": [
