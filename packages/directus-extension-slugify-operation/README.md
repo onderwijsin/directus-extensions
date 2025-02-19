@@ -20,3 +20,4 @@ That's it! Happy slugifying 😁
 
 ## To do
 - [ ] fix bug where if only one of the input fields is provided, it shoudl look up the exsiting values of the other fields (which means a service is needed)
+- check lang and getSlug implementation of https://github.com/muratgozel/directus-operation-slugify
