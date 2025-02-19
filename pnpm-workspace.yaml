@@ -1,0 +1,2 @@
+packages:
+  - "packages/*"  # All extensions will be inside the `packages` folder
