@@ -18,3 +18,5 @@ You can also manually set a slug. If the `$trigger.payload[output_key]` contains
 
 That's it! Happy slugifying 😁
 
+## To do
+- [ ] fix bug where if only one of the input fields is provided, it shoudl look up the exsiting values of the other fields (which means a service is needed)
