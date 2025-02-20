@@ -8,8 +8,8 @@ const collection = 'redirects';
 
 
 export default defineHook(async (
-	{ filter, action },
-	{ getSchema, services }
+	{ action },
+	{ getSchema, services, emitter }
 ) => {
 
 	/* STEP 1: Create redirect collection, fields and relations, or update existing ones with inproper config */
@@ -20,19 +20,20 @@ export default defineHook(async (
 
 	/* STEP 3: add redirect config fields to directus_settings */
 	await addFieldsToDirectusSettings({ services, getSchema });
+	
 
-
-	// Example hooks
-	filter('items.create', () => {
-		console.log('Creating Item!');
+	action('items.delete', () => {
+		// get collections that use slug interface
+		// check if deleted slug or namesapce + slug has a redirect.destination
+		// If so, delete the redirect
+		// Recursively check if the deleted redirect.origin is present in collection as redirect.destination, if so, delete the redirect
 	});
 
-	action('items.create', () => {
-		console.log('Item created!');
-	});
 
-	action('items.update', () => {
-		console.log('Item updated!');
-	});
+	emitter.onAction('slug.update', async (payload: SlugUpdateEvent) => {
+		// init items service
+		// create redirect from old slug to new slug
+		// check for infinite redirect loops and handle accordingly
+	})
 
 });

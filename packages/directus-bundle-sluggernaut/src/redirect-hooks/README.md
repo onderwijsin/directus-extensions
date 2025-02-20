@@ -29,7 +29,7 @@ It's perfectly fine to manually add redirects to the collection. That's it! Happ
 - [x] Setup extension with boilerplate
 - [x] Implement redirect collection
 - [x] Add README
-- [ ] Find collections that use slug interface
+- [ ] Find collections that use slug interface. Is needed for `items.delete` action
 - [ ] Listen to `slug.update` event with emitter.onAction()
 - [ ] implement hooks
 - [ ] implement infinite redirect loops
