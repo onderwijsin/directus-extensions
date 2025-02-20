@@ -1,11 +1,35 @@
+import { locales, extensions } from './constants';
 import { defineOperationApi } from '@directus/extensions-sdk';
+import slugify from 'slugify';
+import type { PrimaryKey, Accountability } from '@directus/types';
+import type { ItemsService } from '@directus/api/dist/services';
+
+slugify.extend(extensions)
+
+const localeValues = locales.map((locale) => locale.value);
+type Locale = typeof localeValues[number];
 
 type Options = {
-	fields: string[];
-	output_key: string;
-	make_unique: boolean;
-	lowercase: boolean;
+	fields?: string[];
+	output_key?: string;
+	locale?: Locale
+	make_unique?: boolean;
+	lowercase?: boolean;
 };
+
+
+interface Data {
+	$trigger?: {
+		payload?: {
+			[key: string]: string;
+		}
+		event: string
+		collection: string;
+		keys: Array<PrimaryKey>
+	};
+	$accountability?: Accountability
+	
+}
 
 function randomString(length: number): string {
 	const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -17,45 +41,76 @@ function randomString(length: number): string {
 	return result;
 }
 
-const normalizeString = (str: string) => str.normalize('NFD')
-	.replace(/[\u0300-\u036f]/g, '')
-	.replace(/\s+/g, '-')  // Replace spaces with hyphens
-	.replace(/[^\w\s-]/g, '')  // Allow only alphanumeric, spaces, and hyphens
-	.replace(/[\s_-]+/g, '-')  // Convert spaces, underscores, and multiple hyphens to single hyphen
-	.replace(/^-+|-+$/g, '')   // Remove leading/trailing hyphens
-	.trim()
-
+	
 export default defineOperationApi<Options>({
 	id: 'slugify',
-	handler: ({ fields, output_key, make_unique, lowercase }, { data }) => {
-		if (!data.$trigger || typeof data.$trigger !== 'object' || !('payload' in (data.$trigger as unknown as Object))) return {}
+	handler: async ({ fields, output_key, locale, make_unique, lowercase }, context) => {
+		const { data }: { data: Data } = context;
 
-		// If slug was manually provided, return that. But normalize it first.
-		if  ((data.$trigger as any).payload[output_key]) {
-			return { 
-				...(data.$trigger as any).payload, 
-				[output_key]: normalizeString((data.$trigger as any).payload[output_key])
-			};
+		console.log(data)
+		if (!data.$trigger || !data.$trigger.payload) return {}
+
+
+		// Apply default options, since directus does not support default values in flows
+		if (!fields?.length) fields = ['title'];
+		if (!output_key) output_key = 'slug';
+		if (!locale) locale = 'nl';
+		else if (locale === 'en') locale = undefined; // Slugify uses 'en' as default locale
+		if (make_unique === undefined) make_unique = false;
+		if (lowercase === undefined) lowercase = true;
+
+
+		// If slug was manually provided, use that as a value
+		let value = ''
+		if  (data.$trigger.payload[output_key]) {
+			value = (data.$trigger as any).payload[output_key]
+		} else {
+			let values = fields.map(field => data.$trigger?.payload?.[field]).filter(Boolean);
+
+			// If not all fields are filled and the trigger is an update event, fetch existing values for unmodified fields
+			// We cant differentiate output for multiple keys, so we only support a single key
+			// If multiple items were edited, we'll only use the input key
+			if (!!values.length && values.length < fields.length && data.$trigger?.event.includes('.update') && data.$trigger.keys.length === 1) {
+				const missingValues = fields.filter(field => !data.$trigger?.payload?.[field])
+
+				const { services, getSchema } = context;
+				const { ItemsService }= services;
+				const itemsService: ItemsService = new ItemsService(data.$trigger.collection, {
+					schema: await getSchema(),
+					accountability: data.$accountability
+				});
+
+				const item = await itemsService.readMany(data.$trigger.keys, {
+					fields: missingValues
+				})
+
+				values = fields.map(field => data.$trigger?.payload?.[field] || item[0]?.[field]).filter(Boolean);
+			}
+
+			value = values.join('-')
 		}
 
-		let value = fields.map(field => (data.$trigger as any).payload[field]).filter(Boolean).join('-');
-
-		// If input fields were not edited return trigger data.
+		
+		// If no relevant input was provided return trigger data.
 		if (!value) return { ...(data.$trigger as any).payload };
 
-		// Normalize accents using Unicode decomposition
-		let slug = normalizeString(value);
-			
-		if (lowercase) {
-			slug = slug.toLowerCase();
+		// Slugify the value with options
+		let slug = slugify(value, {
+			replacement: '-',
+			locale: locale,
+			lower: lowercase,
+			trim: true,
+			strict: true,
+			remove: /[*+~.()'"?!:@]/g
+		});
+
+		if (make_unique) {
+			slug += `-${randomString(6)}`;
 		}
 
-		if (make_unique) { 
-			slug += ('-' + randomString(6))
-		}
 
 		return {
-			...(data.$trigger as any).payload,
+			...data.$trigger.payload,
 			[output_key]: slug
 		};
 

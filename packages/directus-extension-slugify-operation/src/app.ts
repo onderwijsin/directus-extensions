@@ -1,11 +1,13 @@
 import { defineOperationApp } from '@directus/extensions-sdk';
+import { locales } from './constants';
+
 
 export default defineOperationApp({
 	id: 'slugify',
 	name: 'Slugify',
 	icon: 'box',
 	description: 'This operation will slugify input strings.',
-	overview: ({ fields, output_key, make_unique, lowercase }) => [
+	overview: ({ fields, output_key, locale, make_unique, lowercase }) => [
 		{
 			label: 'Fields',
 			text: fields.join(', '),
@@ -13,6 +15,10 @@ export default defineOperationApp({
 		{
 			label: 'Output key',
 			text: output_key,
+		},
+		{
+			label: 'Locale',
+			text: locale,
 		},
 		{
 			label: 'Make unique',
@@ -45,6 +51,7 @@ export default defineOperationApp({
 				},
 				note: 'Add fieldkeys of string values to slugify. If multiple keys are provided, they will be joined with a dash'
 			},
+			schema: { default_value: `['title']` }
 		},
 		{
 			field: 'output_key',
@@ -54,7 +61,26 @@ export default defineOperationApp({
 				interface: 'input',
 				note: 'The field key where the slug will be stored',
 				required: true
-			}
+			},
+			schema: { default_value: 'slug' }
+		},
+		{
+			field: 'locale',
+			name: 'Locale',
+			type: 'string',
+			meta: {
+				width: 'full',
+				interface: "select-dropdown",
+				options: {
+					choices: locales.map((locale) => ({
+						text: locale.label,
+						value: locale.value
+					})),
+					allowOther: false
+				},
+				note: 'The locale determines the character set used for the slug'
+			},
+			schema: { default_value: 'en' }
 		},
 		{
 			field: 'make_unique',
@@ -65,6 +91,7 @@ export default defineOperationApp({
 				interface: 'checkbox',
 				note: 'If enabled, the slug will be made unique by appending a random string to it',
 			},
+			schema: { default_value: false }
 		},
 		{
 			field: 'lowercase',
@@ -75,6 +102,7 @@ export default defineOperationApp({
 				interface: 'checkbox',
 				note: 'If enabled, all character in the slug will be lowercased'
 			},
+			schema: { default_value: true }
 		}
 	],
 });
