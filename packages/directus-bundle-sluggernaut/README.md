@@ -1,2 +1,2 @@
 # Sluggernaut
-Experimenting with an all in one bundle to handle slugs, redirects and route management
+Experimenting with an all in one bundle to handle slugs, redirects and route management. Bundle might be a good solution for seamless integration between slug creation/mutation, and automating redirects
