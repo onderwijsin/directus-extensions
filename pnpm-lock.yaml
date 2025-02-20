@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  packages/directus-extension-redirects:
+  packages/directus-bundle-sluggernaut:
     devDependencies:
       '@directus/api':
         specifier: ^24.0.1
@@ -25,6 +25,9 @@ importers:
       typescript:
         specifier: ^5.7.3
         version: 5.7.3
+      vue:
+        specifier: ^3.5.13
+        version: 3.5.13(typescript@5.7.3)
 
   packages/directus-extension-slugify-operation:
     dependencies:
