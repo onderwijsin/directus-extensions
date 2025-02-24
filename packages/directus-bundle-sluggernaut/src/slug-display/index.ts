@@ -2,7 +2,7 @@ import { defineDisplay } from '@directus/extensions-sdk';
 import DisplayComponent from './display.vue';
 
 export default defineDisplay({
-	id: 'custom',
+	id: 'oslug_display',
 	name: 'Custom',
 	icon: 'box',
 	description: 'This is my custom display!',

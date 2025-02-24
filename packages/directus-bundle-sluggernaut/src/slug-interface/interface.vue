@@ -1,5 +1,5 @@
 <template>
-	<input :value="value" @input="handleChange($event.target.value)" />
+	<input :value="value" @input="handleChange" />
 </template>
 
 <script lang="ts">
@@ -16,7 +16,8 @@ export default defineComponent({
 	setup(props, { emit }) {
 		return { handleChange };
 
-		function handleChange(value: string): void {
+		function handleChange(event: Event): void {
+			const value = (event.target as HTMLInputElement).value;
 			emit('input', value);
 		}
 	},
