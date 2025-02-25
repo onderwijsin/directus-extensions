@@ -3,3 +3,7 @@ type SlugUpdateEvent = {
     newValue: string
     collection: string
 }
+
+type SlugDeleteEvent = {
+    slugs: string[]
+}
