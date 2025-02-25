@@ -7,8 +7,8 @@ The all in one bundle for your slugging needs! This bundle adds four extensions 
 
 ## Features
 - Slugify one or multiple input values into a URL safe value, with optional configurations
-- Both the display and interface contain a 'Copy to clipboard' button
-- Creates a redirect collection
+- Adds a display and interface for your slug field, which work seamlessly with the hook extensions.
+- Creates a redirect collection that can be utilized by front end applications
 - Automagically creates redirects if slug values are changed
 
 ## Configuration: pre installation
@@ -34,6 +34,7 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
    - You allow null values.
    - You do NOT require a value to be set on creation.
    - It's best to disable manual editing of the slug field.
+4. (Optional) Configure access policies for the newly created redirect collection. By default, these are only accessable by admin users. We recommend using access filters in the public policy based on the `is_active`, `start_date` and `end_date` field. 
 
 
 ## Gotchas
