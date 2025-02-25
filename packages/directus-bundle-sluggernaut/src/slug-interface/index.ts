@@ -37,7 +37,7 @@ export default defineInterface({
 			name: 'Locale',
 			type: 'string',
 			meta: {
-				width: 'full',
+				width: 'half',
 				interface: "select-dropdown",
 				options: {
 					choices: locales.map((locale) => ({
@@ -49,6 +49,17 @@ export default defineInterface({
 				note: 'The locale determines the character set used for the slug'
 			},
 			schema: { default_value: 'en' }
+		},
+		{
+			field: 'on_create',
+			name: 'On create only',
+			type: 'boolean',
+			meta: {
+				width: 'half',
+				interface: 'checkbox',
+				note: 'If enabled, the slug will be made generated only once',
+			},
+			schema: { default_value: false }
 		},
 		{
 			field: 'make_unique',
@@ -73,6 +84,7 @@ export default defineInterface({
 			schema: { default_value: true }
 		}
 	],
+	group: 'standard',
 	types: ['string'],
 	recommendedDisplays: ['oslug_display'],
 });

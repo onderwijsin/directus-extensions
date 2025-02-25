@@ -14,10 +14,19 @@ export const locales = [
     { label: "English", value: "en" }
 ] as const
 
-export const extensions = {
-    '@': 'at',
-    '#': 'hash',
-    '%': 'percent',
-    '+': 'plus',
-    '=': 'equal'
+
+export const translations = {
+    bg: "Плъзгачът ще бъде генериран автоматично",
+    de: "Slug wird automatisch generiert",
+    es: "El slug se generará automáticamente",
+    fr: "Le slug sera généré automatiquement",
+    pt: "O slug será gerado automaticamente",
+    uk: "Слаг буде автоматично згенеровано",
+    vi: "Slug sẽ được tạo tự động",
+    da: "Slug vil blive genereret automatisk",
+    nb: "Slug vil bli automatisk generert",
+    it: "Il slug verrà generato automaticamente",
+    nl: "De slug wordt automatisch gegenereerd",
+    sv: "Slug kommer att genereras automatiskt",
+    en: "Slug will be auto generated"
 }

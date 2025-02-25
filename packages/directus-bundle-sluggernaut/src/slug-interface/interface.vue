@@ -1,9 +1,24 @@
 <template>
-	<input :value="value" @input="handleChange" />
+	<div class="field-wrapper">
+		<VInput :model-value="value" :disabled="disabled" :placeholder="placeholder" @update:model-value="handleChange" />
+		<div v-if="isSupported" class="copy-btn">
+			<button @click.stop="copy(value)">
+				<VIcon  
+					:name="!copied ? 'content_copy' : 'check'" 
+					:small="true"
+					color="#878787"
+				/>
+			</button>
+		</div>
+	</div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
+import { useClipboard } from '@vueuse/core'
+import { translations } from './constants';
+
+type Translations = typeof translations;
 
 export default defineComponent({
 	props: {
@@ -11,15 +26,48 @@ export default defineComponent({
 			type: String,
 			default: null,
 		},
+		disabled: {
+			type: Boolean,
+			default: false,
+		},
+		locale: {
+			type: String,
+			default: 'en'
+		}
 	},
 	emits: ['input'],
 	setup(props, { emit }) {
-		return { handleChange };
 
-		function handleChange(event: Event): void {
-			const value = (event.target as HTMLInputElement).value;
+		function handleChange(value: string): void {
 			emit('input', value);
+		}
+
+		const { copy, copied, isSupported } = useClipboard()
+
+		const placeholder = props.locale in translations ? translations[props.locale as keyof Translations] : translations['en'];
+
+
+
+
+		return {
+			handleChange,
+			copy, copied, isSupported,
+			placeholder
 		}
 	},
 });
 </script>
+
+<style>
+.field-wrapper {
+	position: relative
+}	
+
+.copy-btn {
+	position: absolute;
+	right: 1.5rem;
+	top: 50%;
+	transform: translateY(-50%);
+}
+	
+</style>

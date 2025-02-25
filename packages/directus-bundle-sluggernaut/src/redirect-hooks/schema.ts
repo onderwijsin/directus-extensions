@@ -642,53 +642,6 @@ export const relationSchema = [
 ] as Relation[]
 
 export const settingSchema = [
-	// {
-	// 	"collection": "directus_settings",
-	// 	"field": "field_key",
-	// 	"type": "string",
-	// 	"schema": {
-	// 		"name": "field_key",
-	// 		"table": "directus_settings",
-	// 		"data_type": "character varying",
-	// 		"default_value": "slug",
-	// 		"generation_expression": null,
-	// 		"max_length": 255,
-	// 		"numeric_precision": null,
-	// 		"numeric_scale": null,
-	// 		"is_generated": false,
-	// 		"is_nullable": false,
-	// 		"is_unique": false,
-	// 		"is_indexed": false,
-	// 		"is_primary_key": false,
-	// 		"has_auto_increment": false,
-	// 		"foreign_key_schema": null,
-	// 		"foreign_key_table": null,
-	// 		"foreign_key_column": null,
-	// 		"comment": null
-	// 	},
-	// 	"meta": {
-	// 		"collection": "directus_settings",
-	// 		"field": "field_key",
-	// 		"special": null,
-	// 		"interface": "input",
-	// 		"options": {
-	// 			"placeholder": null
-	// 		},
-	// 		"display": null,
-	// 		"display_options": null,
-	// 		"readonly": false,
-	// 		"hidden": false,
-	// 		"sort": 2,
-	// 		"width": "half",
-	// 		"translations": null,
-	// 		"note": "What's de field key for the slug value?",
-	// 		"conditions": null,
-	// 		"required": true,
-	// 		"group": null,
-	// 		"validation": null,
-	// 		"validation_message": null
-	// 	}
-	// },
 	{
 		"collection": "directus_settings",
 		"field": "use_namespace",
@@ -773,7 +726,7 @@ export const settingSchema = [
 			"readonly": false,
 			"hidden": false,
 			"sort": 4,
-			"width": "full",
+			"width": "half",
 			"translations": null,
 			"note": "Whether to use a trailing slash in both origin and destination",
 			"conditions": null,
@@ -865,55 +818,3 @@ export const namespaceFieldSchema = {
 		"validation_message": null
 	}
 } as unknown as FieldRaw
-
-
-// export const redirectCollectionsSelectFieldSchema = (choices: { text: string, value: string}[]) =>  ({
-// 	"collection": "directus_settings",
-// 	"field": "redirect_collections",
-// 	"type": "json",
-// 	"schema": {
-// 		"name": "redirect_collections",
-// 		"table": "directus_settings",
-// 		"data_type": "json",
-// 		"default_value": [],
-// 		"generation_expression": null,
-// 		"max_length": null,
-// 		"numeric_precision": null,
-// 		"numeric_scale": null,
-// 		"is_generated": false,
-// 		"is_nullable": false,
-// 		"is_unique": false,
-// 		"is_indexed": false,
-// 		"is_primary_key": false,
-// 		"has_auto_increment": false,
-// 		"foreign_key_schema": null,
-// 		"foreign_key_table": null,
-// 		"foreign_key_column": null,
-// 		"comment": null
-// 	},
-// 	"meta": {
-// 		"collection": "directus_settings",
-// 		"field": "redirect_collections",
-// 		"special": [
-// 			"cast-json"
-// 		],
-// 		"interface": "select-multiple-dropdown",
-// 		"options": {
-// 			"choices": choices,
-// 			"allowOther": true
-// 		},
-// 		"display": null,
-// 		"display_options": null,
-// 		"readonly": false,
-// 		"hidden": false,
-// 		"sort": 5,
-// 		"width": "full",
-// 		"translations": null,
-// 		"note": "Select which collections the redirect hook should listen to. Each value needs to be identical to the collection key. The options reset, every time you restart the system - at that moment all collections are added to this list",
-// 		"conditions": null,
-// 		"required": false,
-// 		"group": null,
-// 		"validation": null,
-// 		"validation_message": null
-// 	}
-// }) as unknown as FieldRaw

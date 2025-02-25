@@ -1,5 +1,5 @@
 type SlugUpdateEvent = {
-    oldValue: string
+    oldValues: string[] // When multiple items are edited together, this will contain the old values of the slug
     newValue: string
-    namespace?: string
+    collection: string
 }

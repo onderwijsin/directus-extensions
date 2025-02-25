@@ -3,9 +3,9 @@ import DisplayComponent from './display.vue';
 
 export default defineDisplay({
 	id: 'oslug_display',
-	name: 'Custom',
-	icon: 'box',
-	description: 'This is my custom display!',
+	name: 'Slug',
+	icon: 'link',
+	description: 'Display slug with copy button',
 	component: DisplayComponent,
 	options: null,
 	types: ['string'],
