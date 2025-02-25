@@ -23,8 +23,3 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 You can also manually set a slug. If the `$trigger.payload[output_key]` contains a value, the operation will do nothing, except forcing the provided value to be URL safe.
 
 That's it! Happy slugifying 😁
-
-## To do
-- [x] fix bug where if only one of the input fields is provided, it shoudl look up the exsiting values of the other fields (which means a service is needed)
-- [x] implement locales
-- [x] workaround for missing default values
