@@ -3,12 +3,18 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+# Package files
+**/.gitignore
+packages/.registry
+
 # Logs
 logs/
 *.log
 *.log.*
 
 # Directus
+.env
+.local
 /.env
 /.env.local
 /.env.*.local
@@ -23,6 +29,7 @@ Thumbs.db
 .vscode/
 *.sublime-project
 *.sublime-workspace
+.eslintcache
 
 # Build directories
 dist/
