@@ -158,7 +158,7 @@ export const getSlugValue = async (
  * console.log(result.archive_value); // Outputs the archive value
  * ```
  */
-export const findArchiveValueInCollection = async (
+export const findArchiveFieldInCollection = async (
     collection: string, 
     services: { CollectionsService: typeof CollectionsService }, 
     getSchema: () => Promise<SchemaOverview>
@@ -169,7 +169,8 @@ export const findArchiveValueInCollection = async (
     const data = await collections.readOne(collection);
     return {
         archive_field_key: (data.meta as CollectionMeta)?.archive_field,
-        archive_value: (data.meta as CollectionMeta)?.archive_value
+        archive_value: (data.meta as CollectionMeta)?.archive_value,
+        is_boolean: (data.meta as CollectionMeta)?.archive_value === 'true' || (data.meta as CollectionMeta)?.archive_value === 'false' || typeof (data.meta as CollectionMeta)?.archive_value === 'boolean'
     }
 }
 

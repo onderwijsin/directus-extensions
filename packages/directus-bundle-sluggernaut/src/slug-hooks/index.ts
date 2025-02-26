@@ -1,7 +1,7 @@
 import { defineHook } from '@directus/extensions-sdk';
 import type { PrimaryKey } from '@directus/types';
-import { findSlugFieldInCollection, getSlugValue, findExistingItems, findArchiveValueInCollection } from './helpers';
-
+import { findSlugFieldInCollection, getSlugValue, findExistingItems, findArchiveFieldInCollection } from './helpers';
+const publishedValues = ['published', 'active'];
 
 export default defineHook(({ filter }, hookContext) => {
     const { services, emitter, getSchema } = hookContext;
@@ -30,8 +30,8 @@ export default defineHook(({ filter }, hookContext) => {
         if (!slugField) return;
 
         // If the item is archived, delete any redirects to it
-        const { archive_field_key, archive_value } = await findArchiveValueInCollection(meta.collection, services, getSchema);
-        if (!!archive_field_key && (archive_field_key in payload && (payload as Record<string, any>)[archive_field_key] === archive_value)) {
+        const { archive_field_key, is_boolean } = await findArchiveFieldInCollection(meta.collection, services, getSchema);
+        if (!!archive_field_key && (archive_field_key in payload && !publishedValues.includes((payload as Record<string, any>)[archive_field_key]))) {
             const items = await findExistingItems(meta.collection, services, getSchema, accountability, meta.keys, [slugField.field]);
             emitter.emitAction('slug.delete', { slugs: items.map(item => item[slugField.field]), collection: meta.collection }, context);
             return;
@@ -41,11 +41,17 @@ export default defineHook(({ filter }, hookContext) => {
 
         if (!slug?.value) return;
 
-        const items = await findExistingItems(meta.collection, services, getSchema, accountability, meta.keys, [slug.key], archive_field_key ? {
+        
+
+        const items = await findExistingItems(meta.collection, services, getSchema, accountability, meta.keys, [slug.key], archive_field_key && !is_boolean ? {
             [archive_field_key]: {
-                "_neq": archive_value
-            }
-        } : {});
+                "_in": publishedValues
+            } 
+        } : archive_field_key && is_boolean ? {
+            [archive_field_key]: {
+                "_eq": true
+            } 
+        }: {});
 
         // We only want to create redirects for slug changes if the item is not archived
         if (!!items.length) {

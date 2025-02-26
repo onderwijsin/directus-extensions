@@ -38,15 +38,17 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 
 
 ## Gotchas
-- This extension will remove redirects where the destination is equal to the slug of items that are deleted or archived. The extension will look up the archive field of a collection and, if it exists, handle a archive mutation in the same way as a deletion. 
+- This extension will remove redirects where the destination is equal to the slug of items that are published. The extension will look up the archive field of a collection and, if it exists, handle a archive mutation in the same way as a deletion. An item is considered published if the value of the archive_field is one of `['published', 'active', true]`
 - If multiple input fields are selected, the output value will follow the order in which these fields are defined in the options list.
 - If multiple input fields are selected, and you only modified one of these values, the operation will look up the existing value for the other input fields and use these. This means that support for multiple input fields (with lookup for existing values that are missing in the payload) will break if you modify multiple items simultaneously, since the operation can't return unique slug values for each item that was edited. In this case, an error is returned.
 - If you remove a field from your data model that is used as an input field for a slug, this extension will break!
 - It is possible to override a slug value by manually editing it. The value provided will be slugified, but any of the selected input fields will be ignored.
+- Upon changing Setting > use_trailing_slash, any existing redirect that does not satisfy the new condition will be modified. This will not happen when changing namespaces, so it's best not to change the namespace settings, or you'll need to manually mutate existing redirects
 
 ## To-dos
 - [ ] Add support for parent-child relations. Maybe add a path field?
 - [ ] Support ordering input fields.
-- [ ] Add support for 'published values'. Currently redirects are only deleted when an items in archived, which means redirect WILL be created for status such as `draft`
-- [ ] Mutate all items in redirect collection if settings change (ie. use_trailing_slash). Changes in namespace setting will be trickier
-- [ ] Upon start up of container, `No redirects collection found. Creating it now` is logged. Even though it exists 😕. 
+- [x] Add support for 'published values'. Currently redirects are only deleted when an items in archived, which means redirect WILL be created for status such as `draft`
+- [x] Mutate all items in redirect collection if settings change (ie. use_trailing_slash). Changes in namespace setting will be trickier
+- [ ] Upon start up of docker container, `No redirects collection found. Creating it now` is logged. Even though it exists 😕. 
+- [ ] If multiple inputs, of which only one is required, and the value is deleted, the slug should be updated (which currently does not happen!)

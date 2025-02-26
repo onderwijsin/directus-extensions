@@ -25,6 +25,12 @@ type Redirect = {
 
 type RedirectCreate = Omit<Redirect, "id" | "user_created" | "date_created" | "user_updated" | "date_updated">;
 
+type RedirectMutate = {
+    id: string
+    origin: string
+    destination: string
+}
+
 type RedirectSettings = {
     use_namespace: boolean;
     use_trailing_slash: boolean;
