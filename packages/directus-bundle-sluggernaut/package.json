@@ -26,8 +26,8 @@
 			},
 			{
 				"type": "display",
-				"name": "slug-display",
-				"source": "src/slug-display/index.ts"
+				"name": "link-display",
+				"source": "src/link-display/index.ts"
 			},
 			{
 				"type": "hook",
@@ -38,6 +38,11 @@
 				"type": "hook",
 				"name": "redirect-hooks",
 				"source": "src/redirect-hooks/index.ts"
+			},
+			{
+				"type": "interface",
+				"name": "path-interface",
+				"source": "src/path-interface/index.ts"
 			}
 		],
 		"host": "^10.10.0 || ^11.0.0"
@@ -53,7 +58,7 @@
 		"@directus/errors": "^2.0.0",
 		"@directus/extensions-sdk": "13.0.1",
 		"@directus/types": "^13.0.0",
-		"@types/node": "^22.13.4",
+		"@types/node": "^22.13.5",
 		"@vueuse/core": "^12.7.0",
 		"slugify": "^1.6.6",
 		"typescript": "^5.7.3",

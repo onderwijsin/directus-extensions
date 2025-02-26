@@ -8,22 +8,28 @@ export default defineInterface({
 	icon: 'link',
 	description: 'Slugify a another field',
 	component: InterfaceComponent,
-	options: [
+	options: ({ collection }) => {
+		return [
 		{
 			field: 'fields',
 			name: 'Fields',
 			type: 'json',
+			required: true,
 			meta: {
 				width: 'full',
 				special: [
 					"cast-json"
 				],
-				interface: "select-multiple-dropdown",
+				required: true,
+				interface: "system-field",
 				options: {
-					choices: [],
-					allowOther: true
+					collectionName: collection,
+					typeAllowList: ["string"],
+                    allowNone: false,
+					multiple: true,
+					allowOther: false
 				},
-				note: 'Add fieldkeys of string values to slugify. If multiple keys are provided, they will be joined with a dash, is in the order they are provided to the list'
+				note: 'Add fields to slugify. If multiple keys are provided, they will be joined with a dash, is in the order they are added to the list'
 			},
 		},
 		{
@@ -77,8 +83,9 @@ export default defineInterface({
 			},
 			schema: { default_value: true }
 		}
-	],
+		]
+	},
 	group: 'standard',
 	types: ['string'],
-	recommendedDisplays: ['oslug_display'],
+	recommendedDisplays: ['olink_display'],
 });

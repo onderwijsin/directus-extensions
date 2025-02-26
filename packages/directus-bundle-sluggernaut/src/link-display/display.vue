@@ -1,5 +1,5 @@
 <template>
-	<div class="slug-display">
+	<div class="link-display">
 		<span>{{ value }}</span>
 		<div v-if="isSupported">
 			<button @click.stop="copy(value)">
@@ -38,7 +38,7 @@ export default defineComponent({
 </script>
 
 <style>
-.slug-display {
+.link-display {
 	display: flex;
 	flex-direction: row;
 	gap: 1rem;

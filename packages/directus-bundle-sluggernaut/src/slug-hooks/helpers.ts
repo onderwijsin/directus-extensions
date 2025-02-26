@@ -95,21 +95,24 @@ export const slugifyInputs = async (
 
 
 /**
- * Finds the slug field in a given collection.
+ * Finds the slug and path field in a given collection.
  * @param collection - The collection name.
  * @param services - The services object.
  * @param getSchema - Function to get the schema overview.
- * @returns The slug field if found, otherwise undefined.
+ * @returns The slug and path field if found.
  */
-export const findSlugFieldInCollection = async (
+export const findFieldsInCollection = async (
     collection: string,
     services: { FieldsService: typeof FieldsService },
     getSchema: () => Promise<SchemaOverview>
-): Promise<Field | undefined> => {
+): Promise<{ slug: Field | undefined, path: Field | undefined}> => {
     const { FieldsService } = services;
     const fieldsService = new FieldsService({ schema: await getSchema() });
     const collectionFields = await fieldsService.readAll(collection);
-    return collectionFields.find((field: Field) => field.meta?.interface === 'oslug_interface');
+    return {
+        slug: collectionFields.find((field: Field) => field.meta?.interface === 'oslug_interface'),
+        path: collectionFields.find((field: Field) => field.meta?.interface === 'opath_interface')
+    }
 };
 
 /**
@@ -200,3 +203,25 @@ export const findExistingItems = async (
     });
     return await itemsService.readMany(keys, { fields, filter });
 };
+
+
+/**
+ * Finds the path of a parent item in a collection.
+ *
+ * @param collection - The name of the collection to search in.
+ * @param services - An object containing the ItemsService.
+ * @param getSchema - A function that returns a promise resolving to the schema overview.
+ * @param parentId - The primary key of the parent item.
+ * @returns A promise that resolves to the path of the parent item.
+ */
+export const findParentPath = async (
+    collection: string,
+    services: { ItemsService: typeof ItemsService },
+    getSchema: () => Promise<SchemaOverview>,
+    parentId: PrimaryKey,
+): Promise<string> => {
+    const { ItemsService } = services;
+    const itemsService = new ItemsService(collection, { schema: await getSchema() });
+    const parent = await itemsService.readOne(parentId, { fields: ['path'] });
+    return parent.path;
+}

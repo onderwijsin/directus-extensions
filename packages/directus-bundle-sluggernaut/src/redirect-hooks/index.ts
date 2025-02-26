@@ -3,8 +3,9 @@ import { fieldSchema, relationSchema, collectionSchema } from './schema';
 import { createCollectionFromSchemas } from './createCollection';
 import { addFieldsToDirectusSettings } from './addSettingsFields';
 import { addNamespaceFieldToCollections } from './addNamespaceField';
-import { getRedirectSettings, preventInfiniteLoop, recursivelyGetRedirectIDsByDestination } from './utils';
+import { preventInfiniteLoop, recursivelyGetRedirectIDsByDestination } from './utils';
 import { EventContext } from '@directus/types';
+import { getRedirectSettings } from '../shared/utils'
 const collection = 'redirects';
 
 
@@ -23,7 +24,7 @@ export default defineHook(async (
 	await addFieldsToDirectusSettings({ services, getSchema });
 
 
-	emitter.onAction('slug.update', async (payload: SlugUpdateEvent, context: EventContext) => {
+	emitter.onAction('redirect.update', async (payload: SlugUpdateEvent, context: EventContext) => {
 		const { ItemsService } = services
 		const items = new ItemsService(collection, context);
 
@@ -44,7 +45,7 @@ export default defineHook(async (
 	})
 
 
-	emitter.onAction('slug.delete', async (payload: SlugDeleteEvent, context: EventContext) => {
+	emitter.onAction('redirect.delete', async (payload: SlugDeleteEvent, context: EventContext) => {
 		const { use_namespace, use_trailing_slash, namespace } = await getRedirectSettings(payload.collection, services, getSchema);
 
 		// Get an array of redirect IDs to delete that are assiociated with the deleted slugs

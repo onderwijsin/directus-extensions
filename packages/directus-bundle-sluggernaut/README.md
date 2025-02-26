@@ -7,7 +7,9 @@ The all in one bundle for your slugging needs! This bundle adds four extensions 
 
 ## Features
 - Slugify one or multiple input values into a URL safe value, with optional configurations
-- Adds a display and interface for your slug field, which work seamlessly with the hook extensions.
+- Adds an interface for your slug field, which works seamlessly with the hook extensions.
+- Adds an interface for your path field, which works seamlessly with the hooks, slug and redirect extensions.
+- Adds a link display for your slug and path fields
 - Creates a redirect collection that can be utilized by front end applications
 - Automagically creates redirects if slug values are changed
 
@@ -34,7 +36,18 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
    - You allow null values.
    - You do NOT require a value to be set on creation.
    - It's best to disable manual editing of the slug field.
-4. (Optional) Configure access policies for the newly created redirect collection. By default, these are only accessable by admin users. We recommend using access filters in the public policy based on the `is_active`, `start_date` and `end_date` field. 
+4. Add (optional) path fields to each collection that has a slug field
+   - Create a new field within the data model of a collection.
+   - Choose "Path".
+   - You can use any field key.
+   - The connected slug field in the collection will be automatiically recognized.
+   - (Optional) Choose a parent field. The parent's path value will be used as a prefix for the child's path. 
+
+   When adding the path field, please ensure that:
+   - You allow null values.
+   - You do NOT require a value to be set on creation.
+   - Any parent field needs to be a self referencing M2O field. You can not use parents from other collections.
+5. (Optional) Configure access policies for the newly created redirect collection. By default, these are only accessable by admin users. We recommend using access filters in the public policy based on the `is_active`, `start_date` and `end_date` field. 
 
 
 ## Gotchas
@@ -44,10 +57,16 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 - If you remove a field from your data model that is used as an input field for a slug, this extension will break!
 - It is possible to override a slug value by manually editing it. The value provided will be slugified, but any of the selected input fields will be ignored.
 - Upon changing Setting > use_trailing_slash, any existing redirect that does not satisfy the new condition will be modified. This will not happen when changing namespaces, so it's best not to change the namespace settings, or you'll need to manually mutate existing redirects
+- You cannot use a path field in a collection, that does not have a slug.
+- Any parent field needs to be a self referencing M2O field. You can not use parents from other collections.
+- If you select the current item as it's own parent, you will create an infite loop that will break your Directus instance. You should add validations and filters to your M2O parent field to prevent this from happening
 
 ## To-dos
-- [ ] Add support for parent-child relations. Maybe add a path field?
-- [ ] Support ordering input fields.
+- [x] Add support for parent-child relations. Maybe add a path field?
+- [ ] Add path hooks in update event
+- [ ] If a path value changes, recursively update any children to that parent
+- [ ] refactor redirect hooks to use path value instead of slug value
+- [x] Support ordering input fields.
 - [x] Add support for 'published values'. Currently redirects are only deleted when an items in archived, which means redirect WILL be created for status such as `draft`
 - [x] Mutate all items in redirect collection if settings change (ie. use_trailing_slash). Changes in namespace setting will be trickier
 - [ ] Upon start up of docker container, `No redirects collection found. Creating it now` is logged. Even though it exists 😕. 
