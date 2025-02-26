@@ -1,14 +1,15 @@
 # Sluggernaut
 The all in one bundle for your slugging needs! This bundle adds four extensions to Directus:
 1. Slug interface
-2. Slug display
-3. Slug hooks
-4. Redirect hooks
+2. Path interface
+3. Link display
+4. Slug (and path) hooks
+5. Redirect hooks
 
 ## Features
 - Slugify one or multiple input values into a URL safe value, with optional configurations
 - Adds an interface for your slug field, which works seamlessly with the hook extensions.
-- Adds an interface for your path field, which works seamlessly with the hooks, slug and redirect extensions.
+- Adds a (readonly) interface for your path field, which works seamlessly with the hooks, slug and redirect extensions.
 - Adds a link display for your slug and path fields
 - Creates a redirect collection that can be utilized by front end applications
 - Automagically creates redirects if slug values are changed
