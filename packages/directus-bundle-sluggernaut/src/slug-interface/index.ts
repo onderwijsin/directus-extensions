@@ -20,17 +20,11 @@ export default defineInterface({
 				],
 				interface: "select-multiple-dropdown",
 				options: {
-					choices: [
-						{
-							"text": "title",
-							"value": "title"
-						},
-					],
+					choices: [],
 					allowOther: true
 				},
-				note: 'Add fieldkeys of string values to slugify. If multiple keys are provided, they will be joined with a dash'
+				note: 'Add fieldkeys of string values to slugify. If multiple keys are provided, they will be joined with a dash, is in the order they are provided to the list'
 			},
-			schema: { default_value: JSON.stringify(['title']) }
 		},
 		{
 			field: 'locale',

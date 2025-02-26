@@ -2,8 +2,8 @@ import { createError } from '@directus/errors';
 import { extensions } from './constants';
 import slugify from 'slugify';
 
-import type { Field, FieldMeta, PrimaryKey, SchemaOverview, Accountability } from '@directus/types';
-import type { FieldsService, ItemsService } from '@directus/api/dist/services';
+import type { Field, FieldMeta, PrimaryKey, SchemaOverview, Accountability, CollectionMeta } from '@directus/types';
+import type { FieldsService, ItemsService, CollectionsService } from '@directus/api/dist/services';
 
 slugify.extend(extensions)
 
@@ -144,6 +144,36 @@ export const getSlugValue = async (
 };
 
 /**
+ * Finds the archive field key and archive value in a specified collection.
+ *
+ * @param collection - The name of the collection to search in.
+ * @param services - An object containing the CollectionService.
+ * @param getSchema - A function that returns a promise resolving to the schema overview.
+ * @returns An object containing the archive field key and archive value.
+ *
+ * @example
+ * ```typescript
+ * const result = await findArchiveValueInCollection('my_collection', { CollectionService }, getSchema);
+ * console.log(result.archive_field_key); // Outputs the archive field key
+ * console.log(result.archive_value); // Outputs the archive value
+ * ```
+ */
+export const findArchiveValueInCollection = async (
+    collection: string, 
+    services: { CollectionsService: typeof CollectionsService }, 
+    getSchema: () => Promise<SchemaOverview>
+) => {
+    const { CollectionsService } = services;
+    const collections = new CollectionsService({ schema: await getSchema() });
+
+    const data = await collections.readOne(collection);
+    return {
+        archive_field_key: (data.meta as CollectionMeta)?.archive_field,
+        archive_value: (data.meta as CollectionMeta)?.archive_value
+    }
+}
+
+/**
  * Finds existing items in a collection based on the provided keys and returns slug values.
  * @param collection - The collection name.
  * @param services - The services object.
@@ -159,12 +189,13 @@ export const findExistingItems = async (
     getSchema: () => Promise<SchemaOverview>,
     accountability: Accountability | null,
     keys: PrimaryKey[],
-    fieldKey: string
+    fields: string[],
+    filter: Record<string, any> = {}
 ): Promise<Record<string, any>[]> => {
     const { ItemsService } = services;
     const itemsService = new ItemsService(collection, {
         schema: await getSchema(),
         accountability
     });
-    return await itemsService.readMany(keys, { fields: [fieldKey] });
+    return await itemsService.readMany(keys, { fields, filter });
 };

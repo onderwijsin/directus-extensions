@@ -46,9 +46,6 @@ export default defineComponent({
 
 		const placeholder = props.locale in translations ? translations[props.locale as keyof Translations] : translations['en'];
 
-
-
-
 		return {
 			handleChange,
 			copy, copied, isSupported,

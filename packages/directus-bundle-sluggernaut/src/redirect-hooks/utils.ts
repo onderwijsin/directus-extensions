@@ -1,6 +1,7 @@
-import type { FieldRaw, Relation, Collection } from '@directus/types';
-import type { CollectionsService, FieldsService, RelationsService } from '@directus/api/dist/services';
+import type { FieldRaw, Relation, Collection, CollectionMeta, PrimaryKey, SchemaOverview } from '@directus/types';
+import type { CollectionsService, FieldsService, RelationsService, ItemsService, SettingsService } from '@directus/api/dist/services';
 
+import {  } from '@directus/types';
 /**
  * Compares two field configurations to check if they are equal.
  * 
@@ -32,7 +33,12 @@ export const equalRelationConfig = (field1: Relation, field2: Relation): boolean
  * @param options.getSchema - A function to get the schema.
  * @param options.fieldSchema - The schema of the fields to check and update.
  */
-export const checkAndUpdateFields = async (options: { collection: string, services: any, getSchema: any, fieldSchema: FieldRaw[]}) => {
+export const checkAndUpdateFields = async (options: { 
+    collection: string, 
+    services: { FieldsService: typeof FieldsService}, 
+    getSchema: () => Promise<SchemaOverview>, 
+    fieldSchema: FieldRaw[]
+}) => {
     const { collection, services, getSchema, fieldSchema } = options;
 
     const { FieldsService } = services;
@@ -75,7 +81,12 @@ export const checkAndUpdateFields = async (options: { collection: string, servic
  * @param options.getSchema - A function to get the schema.
  * @param options.relationSchema - The schema of the relations to check and update.
  */
-export const checkAndUpdateRelations = async (options: { collection: string, services: any, getSchema: any, relationSchema: Relation[] }) => {
+export const checkAndUpdateRelations = async (options: { 
+    collection: string, 
+    services: { RelationsService: typeof RelationsService }, 
+    getSchema: () => Promise<SchemaOverview>, 
+    relationSchema: Relation[] }
+) => {
     const { collection, services, getSchema, relationSchema } = options;
     const { RelationsService } = services;
     const relationsService: RelationsService = new RelationsService({
@@ -121,7 +132,14 @@ export const checkAndUpdateRelations = async (options: { collection: string, ser
  * @param options.fieldSchema - The schema of the fields to create.
  * @param options.relationSchema - The schema of the relations to create.
  */
-export const createCollectionAndRelations = async (options: { collection: string, services: any, getSchema: any, collectionSchema: Collection, fieldSchema: FieldRaw[], relationSchema: Relation[]}) => {
+export const createCollectionAndRelations = async (options: { 
+    collection: string, 
+    services: { CollectionsService: typeof CollectionsService, RelationsService: typeof RelationsService }, 
+    getSchema: () => Promise<SchemaOverview>,
+    collectionSchema: Collection, 
+    fieldSchema: FieldRaw[], 
+    relationSchema?: Relation[]
+}) => {
 
     const { collection, services, getSchema, collectionSchema, fieldSchema, relationSchema } = options;
 
@@ -136,11 +154,100 @@ export const createCollectionAndRelations = async (options: { collection: string
         collection,
     });
 
-    const relationsService = new RelationsService({
-        schema: await getSchema(),
-    });
-
-    for (const relation of relationSchema) {
-        await relationsService.createOne(relation);
+    if (relationSchema) {
+        const relationsService = new RelationsService({
+            schema: await getSchema(),
+        });
+    
+        for (const relation of relationSchema) {
+            await relationsService.createOne(relation);
+        }
     }
+    
 };
+
+
+
+/**
+ * Retrieves redirect settings for a given collection.
+ * 
+ * @param collection - The name of the collection.
+ * @param services - An object containing the CollectionsService and SettingsService.
+ * @param getSchema - A function to get the schema.
+ * @returns A promise that resolves to the redirect settings.
+ */
+export const getRedirectSettings = async (
+    collection: string, 
+    services: { CollectionsService: typeof CollectionsService, SettingsService: typeof SettingsService }, 
+    getSchema: () => Promise<SchemaOverview>
+): Promise<RedirectSettings> => {
+    const { SettingsService, CollectionsService } = services;
+    const settings = new SettingsService({ schema: await getSchema() });
+    const collections = new CollectionsService({ schema: await getSchema() });
+
+    const data = await settings.readByQuery({ fields: ['use_trailing_slash', 'use_namespace']})
+    const collectionData = await collections.readOne(collection);
+
+    return {
+        // Cast global settings to boolean, since they might be missing	
+        use_trailing_slash: !!data[0]?.use_trailing_slash,
+        use_namespace: !!data[0]?.use_namespace,
+        namespace: (collectionData.meta as CollectionMeta & { namespace: null | string })?.namespace
+    }
+}
+
+/**
+ * Prevents infinite redirect loops by deleting redirects with the specified destination.
+ * 
+ * @param destination - The destination URL to check for infinite loops.
+ * @param collection - The name of the collection.
+ * @param services - An object containing the ItemsService.
+ * @param getSchema - A function to get the schema.
+ * @returns A promise that resolves when the operation is complete.
+ */
+export const preventInfiniteLoop = async (
+    destination: string, 
+    collection: string, 
+    services: { ItemsService: typeof ItemsService }, 
+    getSchema: () => Promise<SchemaOverview>
+): Promise<void> => {
+    const { ItemsService } = services;
+    const redirects = new ItemsService(collection, { schema: await getSchema() });
+    redirects.deleteByQuery({ filter: { origin: { _eq: destination } }})
+}
+
+/**
+ * Recursively retrieves redirect IDs by destination.
+ * 
+ * @param value - The destination value(s) to search for.
+ * @param collection - The name of the collection.
+ * @param services - An object containing the ItemsService.
+ * @param getSchema - A function to get the schema.
+ * @returns A promise that resolves to an array of primary keys.
+ */
+export const recursivelyGetRedirectIDsByDestination = async (
+    value: string | string[], 
+    collection: string, 
+    services: { ItemsService: typeof ItemsService }, 
+    getSchema: () => Promise<SchemaOverview>
+): Promise<PrimaryKey[]> => {
+    const { ItemsService } = services
+    const items = new ItemsService(collection, { schema: await getSchema() });
+
+    if (!Array.isArray(value)) value = [value];
+
+    const data = await items.readByQuery({
+        filter: {
+            destination: {
+                _in: value
+            }
+        },
+        fields: ['id', 'origin']
+    })
+
+    if (data.length === 0) return [];
+    
+    const nestedData = await recursivelyGetRedirectIDsByDestination(data.map(item => item.origin), collection, services, getSchema);
+    
+    return [...data.map(item => item.id), ...nestedData];
+}

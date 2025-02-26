@@ -801,7 +801,7 @@ export const namespaceFieldSchema = {
 		"special": null,
 		"interface": "input",
 		"options": {
-			"placeholder": "Add a namespace fro this colelction"
+			"placeholder": "Add a namespace for this collection"
 		},
 		"display": null,
 		"display_options": null,
