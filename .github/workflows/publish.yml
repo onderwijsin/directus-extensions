@@ -1,0 +1,101 @@
+name: Publish Directus Extensions
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Ensure tags are fetched
+
+      - name: Set up Node.js and pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Updated to more recent LTS version
+          registry-url: "https://registry.npmjs.org/"
+          scope: "@onderwijsin"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Set up npm authentication
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Get Changed Packages
+        id: changes
+        run: |
+          # Create a file with default empty array
+          echo "[]" > changed-packages.json
+          # Try to get changed packages, but don't fail if none found
+          pnpm lerna changed --json > changed-packages.json || true
+          # Extract package names as a JSON array 
+          CHANGED_JSON=$(jq -c '[.[].name]' changed-packages.json)
+          # Check if array is empty
+          IS_EMPTY=$(jq 'length == 0' <<< "$CHANGED_JSON")
+          # Set outputs for use in conditional steps
+          echo "has_changes=$([[ "$IS_EMPTY" == "false" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
+          # Save as a newline-delimited list for iteration
+          jq -r '.[]' <<< "$CHANGED_JSON" > changed-packages-list.txt
+
+      - name: Build Changed Packages
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          echo "Building changed packages..."
+          while IFS= read -r package; do
+            echo "Building $package..."
+            pnpm --filter "$package" build || { echo "Build failed for $package"; exit 1; }
+          done < changed-packages-list.txt
+
+      - name: Run Tests for Changed Packages
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          echo "Testing changed packages..."
+          while IFS= read -r package; do
+            echo "Testing $package..."
+            if pnpm --filter "$package" test 2>/dev/null; then
+              echo "Tests passed for $package"
+            else
+              # Check if this is because there's no test script
+              if ! pnpm --filter "$package" exec npm run test 2>&1 | grep -q "Missing script"; then
+                echo "Tests failed for $package"
+                exit 1
+              else
+                echo "No tests found for $package, continuing"
+              fi
+            fi
+          done < changed-packages-list.txt
+
+      - name: Version and Publish Changed Packages
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          
+          # Pull latest changes to avoid conflicts
+          git pull --rebase origin main || { echo "Failed to rebase with remote changes"; exit 1; }
+
+          # Version and publish
+          pnpm lerna version --conventional-commits --yes || { echo "Versioning failed"; exit 1; }
+          pnpm lerna publish from-package --yes || { echo "Publishing failed"; exit 1; }
+
+          # Push tags and changes
+          git push --follow-tags || { echo "Failed to push changes"; exit 1; }
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: No Changes Detected
+        if: steps.changes.outputs.has_changes != 'true'
+        run: echo "No package changes detected, skipping build and publish"
