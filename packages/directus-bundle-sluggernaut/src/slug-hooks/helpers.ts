@@ -6,7 +6,6 @@ import type { Field, FieldMeta, PrimaryKey, SchemaOverview, Accountability, Coll
 import type { FieldsService, ItemsService, CollectionsService } from '@directus/api/dist/services';
 import { getSluggernautSettings } from '../shared/utils'
 import type { HookExtensionContext } from '@directus/extensions'
-import path from 'path';
 slugify.extend(extensions)
 
 type Options = {
@@ -266,17 +265,17 @@ export const getPathValue = async (
 
     let parentID = (payload as Record<string, any>)[parentFieldKey]
 
-    if (!parentID) {
+    if (!parentID && meta.event.includes('.update')) {
         const { ItemsService } = services;
         const itemsService: ItemsService = new ItemsService(meta.collection, { schema: await getSchema() });
         const items = await itemsService.readMany(meta.keys, { fields: [parentFieldKey] })
 
         const uniqueParentIds = [...new Set(items.map(rec => rec[parentFieldKey]).filter(Boolean))];
         if (uniqueParentIds.length > 1) throw new EditWithMultipleParentsError();
-        if (uniqueParentIds.length === 0) return data;
-
-        parentID = uniqueParentIds[0];
+        else if (uniqueParentIds.length === 1) parentID = uniqueParentIds[0];
     }
+
+    if (!parentID) return data
 
     const parentPathValue = await findParentPath(
         meta.collection,
