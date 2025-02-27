@@ -1,11 +1,16 @@
-type SlugUpdateEvent = {
+type ValueType = 'slug' | 'path'
+
+type RedirectUpdateEvent = {
+    type: ValueType
     oldValues: string[] // When multiple items are edited together, this will contain the old values of the slug
     newValue: string
     collection: string
 }
 
-type SlugDeleteEvent = {
-    slugs: string[]
+
+type RedirectDeleteEvent = {
+    type: ValueType
+    values: string[]
     collection: string
 }
 
@@ -31,10 +36,16 @@ type RedirectMutate = {
     destination: string
 }
 
-type RedirectSettings = {
+type SluggernautSettings = {
     use_namespace: boolean;
     use_trailing_slash: boolean;
     namespace: string | null;
 }
 
 type FormattedFieldPayload = { key: string; value: string | null }
+
+type ArchiveFieldSettings = {
+    archive_field_key?: string | null;
+    archive_value?: string | null;
+    is_boolean: boolean;
+}

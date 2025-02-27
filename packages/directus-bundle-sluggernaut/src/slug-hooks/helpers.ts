@@ -1,19 +1,19 @@
 import { createError } from '@directus/errors';
-import { extensions } from './constants';
+import { extensions, publishedValues } from './constants';
 import slugify from 'slugify';
 
-import type { Field, FieldMeta, PrimaryKey, SchemaOverview, Accountability, CollectionMeta } from '@directus/types';
+import type { Field, FieldMeta, PrimaryKey, CollectionMeta, EventContext } from '@directus/types';
 import type { FieldsService, ItemsService, CollectionsService } from '@directus/api/dist/services';
-import { getSluggernautSettings } from '../shared/utils'
+import { getSluggernautSettings, getPathString } from '../shared/utils'
 import type { HookExtensionContext } from '@directus/extensions'
 slugify.extend(extensions)
 
 type Options = {
-	fields: string[];
-	output_key: string;
-	locale?: string
-	make_unique?: boolean;
-	lowercase?: boolean;
+    fields: string[];
+    output_key: string;
+    locale?: string
+    make_unique?: boolean;
+    lowercase?: boolean;
 };
 
 
@@ -48,14 +48,16 @@ const EditWithMultipleParentsError = createError(
  * Generates a slug based on the provided payload and options.
  * @param meta - Metadata about the event.
  * @param payload - The payload object.
- * @param context - The context object.
+ * @param eventContext - The event's context object.
+ * @param hookContext - The hook context object.
  * @param options - Options for slug generation.
  * @returns The generated slug or null if no relevant input was provided.
  */
 export const slugifyInputs = async (
     meta: Record<string, any>,
     payload: Record<string, any>,
-    context: HookExtensionContext,
+    eventContext: EventContext,
+    hookContext: HookExtensionContext,
     { fields, output_key, locale = 'nl', make_unique = false, lowercase = true }: Options
 ): Promise<string | null> => {
     // If slug was manually provided, use that as a value
@@ -69,9 +71,9 @@ export const slugifyInputs = async (
             if (meta.keys.length > 1) throw new EditMultipleError();
 
             const missingValues = fields.filter(field => !payload[field]);
-            const { services, getSchema } = context;
+            const { services, getSchema } = hookContext;
             const { ItemsService } = services;
-            const itemsService = new ItemsService(meta.collection, { schema: await getSchema() });
+            const itemsService = new ItemsService(meta.collection, { schema: await getSchema(), accountability: eventContext.accountability });
 
             const item = await itemsService.readMany(meta.keys, { fields: missingValues });
             values = fields.map(field => payload[field] || item[0][field]).filter(Boolean);
@@ -102,19 +104,17 @@ export const slugifyInputs = async (
 
 
 /**
- * Finds the slug and path field in a given collection.
+ * Finds the slug and path field in a given collection, based on the usage of the interfaces provided in this bundle. Only returns the first field of each type found.
  * @param collection - The collection name.
- * @param services - The services object.
- * @param getSchema - Function to get the schema overview.
+ * @param hookContext - The hook context object.
  * @returns The slug and path field if found.
  */
 export const findFieldsInCollection = async (
     collection: string,
-    services: { FieldsService: typeof FieldsService },
-    getSchema: () => Promise<SchemaOverview>
+    hookContext: HookExtensionContext,
 ): Promise<{ slug: Field | undefined, path: Field | undefined}> => {
-    const { FieldsService } = services;
-    const fieldsService = new FieldsService({ schema: await getSchema() });
+    const { FieldsService } = hookContext.services;
+    const fieldsService: FieldsService = new FieldsService({ schema: await hookContext.getSchema() });
     const collectionFields = await fieldsService.readAll(collection);
     return {
         slug: collectionFields.find((field: Field) => field.meta?.interface === 'oslug_interface'),
@@ -124,57 +124,61 @@ export const findFieldsInCollection = async (
 
 /**
  * Generates the slug value based on the provided payload and slug field.
+ * @param slugField - The slug field.
  * @param payload - The payload object.
  * @param meta - Metadata about the event.
- * @param context - The context object.
- * @param slugField - The slug field.
- * @returns An object containing the slug key and value, or undefined
+ * @param eventContext - The event's context object.
+ * @param hookContext - The hook context object.
+ * @returns An object containing the slug key and value, or undefined.
  */
 export const getSlugValue = async (
+    slugField: Field,
     payload: Record<string, any>,
     meta: Record<string, any>,
-    context: HookExtensionContext,
-    slugField: Field
-): Promise<FormattedFieldPayload | undefined> => {
-    if (slugField.meta?.options?.on_create && meta.event !== 'items.create') return;
+    eventContext: EventContext,
+    hookContext: HookExtensionContext,
+): Promise<FormattedFieldPayload> => {
+    const data: FormattedFieldPayload = {
+        key: slugField.field,
+        value: null
+    }
+    
+    if (slugField.meta?.options?.on_create && meta.event !== 'items.create') return data;
 
     const hasInput = (slugField.meta as FieldMeta).options?.fields.some((field: string) => payload.hasOwnProperty(field));
-    if (!hasInput && !payload.hasOwnProperty(slugField.field)) return;
+    if (!hasInput && !payload.hasOwnProperty(data.key)) return data;
 
-    return {
-        key: slugField.field,
-        value: await slugifyInputs(meta, payload, context, {
-            fields: slugField.meta?.options?.fields,
-            output_key: slugField.field,
-            locale: slugField.meta?.options?.locale,
-            make_unique: slugField.meta?.options?.make_unique,
-            lowercase: slugField.meta?.options?.lowercase
-        })
-    };
+    data.value = await slugifyInputs(meta, payload, eventContext, hookContext, {
+        fields: slugField.meta?.options?.fields,
+        output_key: slugField.field,
+        locale: slugField.meta?.options?.locale,
+        make_unique: slugField.meta?.options?.make_unique,
+        lowercase: slugField.meta?.options?.lowercase
+    })
+
+    return data
 };
 
 /**
  * Finds the archive field key and archive value in a specified collection.
  *
  * @param collection - The name of the collection to search in.
- * @param services - An object containing the CollectionService.
- * @param getSchema - A function that returns a promise resolving to the schema overview.
+ * @param hookContext - The hook context object
  * @returns An object containing the archive field key and archive value.
  *
  * @example
  * ```typescript
- * const result = await findArchiveValueInCollection('my_collection', { CollectionService }, getSchema);
+ * const result = await findArchiveValueInCollection('my_collection', hookContext);
  * console.log(result.archive_field_key); // Outputs the archive field key
  * console.log(result.archive_value); // Outputs the archive value
  * ```
  */
 export const findArchiveFieldInCollection = async (
     collection: string, 
-    services: { CollectionsService: typeof CollectionsService }, 
-    getSchema: () => Promise<SchemaOverview>
-) => {
-    const { CollectionsService } = services;
-    const collections = new CollectionsService({ schema: await getSchema() });
+    hookContext: HookExtensionContext
+): Promise<ArchiveFieldSettings> => {
+    const { CollectionsService } = hookContext.services;
+    const collections: CollectionsService = new CollectionsService({ schema: await hookContext.getSchema() });
 
     const data = await collections.readOne(collection);
     return {
@@ -186,28 +190,31 @@ export const findArchiveFieldInCollection = async (
 
 /**
  * Finds existing items in a collection based on the provided keys and returns slug values.
- * @param collection - The collection name.
- * @param services - The services object.
- * @param getSchema - Function to get the schema overview.
- * @param accountability - The accountability object.
  * @param keys - The primary keys of the items to find.
- * @param fieldKey - The field key to include in the result.
+ * @param collection - The collection name.
+ * @param options - Options for finding existing items.
+ * @param eventContext - The event's context object.
+ * @param hookContext - The hook context object.
  * @returns The found items.
  */
 export const findExistingItems = async (
-    collection: string,
-    services: { ItemsService: typeof ItemsService },
-    getSchema: () => Promise<SchemaOverview>,
-    accountability: Accountability | null,
     keys: PrimaryKey[],
-    fields: string[],
-    filter: Record<string, any> = {}
+    collection: string,
+    options: {
+        fields: string[],
+        filter?: Record<string, any> 
+    },
+    eventContext: EventContext,
+    hookContext: HookExtensionContext,
+
 ): Promise<Record<string, any>[]> => {
-    const { ItemsService } = services;
-    const itemsService = new ItemsService(collection, {
-        schema: await getSchema(),
-        accountability
+    const { ItemsService } = hookContext.services;
+    const itemsService: ItemsService = new ItemsService(collection, {
+        schema: await hookContext.getSchema(),
+        accountability: eventContext.accountability
     });
+
+    const { fields, filter } = options;
     return await itemsService.readMany(keys, { fields, filter });
 };
 
@@ -215,20 +222,20 @@ export const findExistingItems = async (
 /**
  * Finds the path of a parent item in a collection.
  *
- * @param collection - The name of the collection to search in.
- * @param services - An object containing the ItemsService.
- * @param getSchema - A function that returns a promise resolving to the schema overview.
  * @param parentId - The primary key of the parent item.
+ * @param collection - The name of the collection to search in.
+ * @param eventContext - The event's context object.
+ * @param hookContext - The hook context object.
  * @returns A promise that resolves to the path of the parent item.
  */
 export const findParentPath = async (
-    collection: string,
-    services: { ItemsService: typeof ItemsService },
-    getSchema: () => Promise<SchemaOverview>,
     parentId: PrimaryKey,
+    collection: string,
+    eventContext: EventContext,
+    hookContext: HookExtensionContext,
 ): Promise<string> => {
-    const { ItemsService } = services;
-    const itemsService = new ItemsService(collection, { schema: await getSchema() });
+    const { ItemsService } = hookContext.services;
+    const itemsService: ItemsService = new ItemsService(collection, { schema: await hookContext.getSchema(), accountability: eventContext.accountability });
     const parent = await itemsService.readOne(parentId, { fields: ['path'] });
     return parent.path;
 }
@@ -238,27 +245,36 @@ export const findParentPath = async (
  * Generates the path value based on the provided payload, slug field, related parent(s) and Sluggernaut settings.
  * @param payload - The payload object.
  * @param meta - Metadata about the event.
- * @param context - The context object.
- * @param slugField - The path field.
+ * @param pathField - The path field.
  * @param slug - The slug value.
- * @returns An object containing the path key and value, or undefined
+ * @param eventContext - The event's context object.
+ * @param hookContext - The hook context object.
+ * @returns An object containing the path key and value, or undefined.
  */
 export const getPathValue = async (
     payload: Record<string, any>,
     meta: Record<string, any>,
-    context: HookExtensionContext,
-    pathField: Field,
-    slug: FormattedFieldPayload
-): Promise<FormattedFieldPayload | undefined> => {
+    options: {
+        pathField?: Field,
+        slug: {
+            key: string,
+            value: string
+        }
+    },
+    eventContext: EventContext,
+    hookContext: HookExtensionContext,
+): Promise<FormattedFieldPayload | null> => {
+    const { pathField, slug } = options;
+    if (!pathField) return null
 
-    const { services, getSchema } = context;
-    const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(meta.collection, services, getSchema);
+    const { services, getSchema } = hookContext;
+    const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(meta.collection, hookContext);
     
     const parentFieldKey: string | undefined = pathField.meta?.options?.parent;
 
-    let data = {
+    let data: FormattedFieldPayload = {
         key: pathField.field,
-        value: `/${use_namespace && !!namespace ? (namespace + '/') : ''}${slug.value}${use_trailing_slash ? '/' : ''}` 
+        value: getPathString(slug.value, 'slug', { use_namespace, use_trailing_slash, namespace })
     };
 
     if (!parentFieldKey) return data
@@ -267,7 +283,7 @@ export const getPathValue = async (
 
     if (!parentID && meta.event.includes('.update')) {
         const { ItemsService } = services;
-        const itemsService: ItemsService = new ItemsService(meta.collection, { schema: await getSchema() });
+        const itemsService: ItemsService = new ItemsService(meta.collection, { schema: await getSchema(), accountability: eventContext.accountability });
         const items = await itemsService.readMany(meta.keys, { fields: [parentFieldKey] })
 
         const uniqueParentIds = [...new Set(items.map(rec => rec[parentFieldKey]).filter(Boolean))];
@@ -278,14 +294,105 @@ export const getPathValue = async (
     if (!parentID) return data
 
     const parentPathValue = await findParentPath(
+        parentID,
         meta.collection,
-        services,
-        getSchema,
-        parentID
+        eventContext,
+        hookContext,
     )
 
     return {
         key: pathField.field,
-        value: `${parentPathValue.endsWith('/') ? parentPathValue : (parentPathValue + '/')}${slug.value}${use_trailing_slash ? '/' : ''}` 
+        value: getPathString(slug.value, 'path', { use_namespace, use_trailing_slash, namespace }, parentPathValue)
     }
 };
+
+/**
+* Emits an update event for the specified fields.
+* This function is responsible for emitting an update event for the provided slug and path fields.
+* It fetches the existing items that are being updated to determine their current status and emits
+* a redirect update action if the slug or path has changed and the item is not archived.
+* 
+* @param fields - An object containing the slug and path fields to be updated.
+* @param archiveOptions - Options related to the archive field, including the archive field key and its type.
+* @param meta - Metadata about the event, including the collection and keys of the items being updated.
+* @param eventContext - The context of the event, including accountability information.
+* @param hookContext - The context of the hook, including services and emitter for emitting actions.
+* 
+* @returns A promise that resolves when the update event has been emitted.
+*/
+export const emitUpdate = async (
+    fields: { slug: FormattedFieldPayload, path?: FormattedFieldPayload | null },
+    archiveOptions: ArchiveFieldSettings,
+    meta: Record<string, any>,
+    eventContext: EventContext,
+    hookContext: HookExtensionContext
+): Promise<void> => {
+    const { archive_field_key, is_boolean } = archiveOptions;
+    const { path, slug } = fields;
+    // Fetch the existing items that are updated, because we need their current status
+    const items = await findExistingItems(
+        meta.keys, 
+        meta.collection, 
+        {
+            fields: !path ? [slug.key] : [slug.key, path.key],
+            filter: archive_field_key && !is_boolean ? {
+                [archive_field_key]: {
+                    "_in": publishedValues
+                } 
+            } : archive_field_key && is_boolean ? {
+                [archive_field_key]: {
+                    "_eq": true
+                } 
+            }: {}
+        },
+        eventContext, 
+        hookContext
+    );
+
+    // We only want to create redirects for slug changes if the item is not archived
+    if (!!items.length) {
+        hookContext.emitter.emitAction(
+            'redirect.update', 
+            {
+                type: !!path ? 'path' : 'slug',
+                oldValues: items.map(item => item[!!path ? path.key : slug.key]),
+                newValue: !!path ? path.value : slug.value,
+                collection: meta.collection
+            },
+            eventContext
+        );
+    }
+}
+
+
+/**
+ * Emits a delete event for the specified fields.
+ * @param fields - An object containing the slug field and path field.
+ * @param meta - Metadata about the event.
+ * @param eventContext - The event's context object.
+ * @param hookContext - The hook context object.
+ */
+export const emitDelete = async (
+    fields: { slugField: Field, pathField: Field | undefined },
+    meta: Record<string, any>,
+    eventContext: EventContext,
+    hookContext: HookExtensionContext
+): Promise<void> => {
+    const { slugField, pathField } = fields;
+    const { emitter } = hookContext;
+
+    const items = await findExistingItems(
+        meta.keys, 
+        meta.collection, 
+        {
+            fields: pathField ? [slugField.field, pathField.field] : [slugField.field]
+        },
+        eventContext,
+        hookContext,
+    );
+    emitter.emitAction('redirect.delete', { 
+        type: !!pathField ? 'path' : 'slug',
+        values: items.map(item => item[!!pathField ? pathField.field : slugField.field]),
+        collection: meta.collection 
+    }, eventContext);
+}

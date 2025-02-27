@@ -5,14 +5,16 @@ import { addFieldsToDirectusSettings } from './addSettingsFields';
 import { addNamespaceFieldToCollections } from './addNamespaceField';
 import { preventInfiniteLoop, recursivelyGetRedirectIDsByDestination } from './utils';
 import { EventContext } from '@directus/types';
-import { getSluggernautSettings } from '../shared/utils'
+import { getPathString, getSluggernautSettings } from '../shared/utils'
 const collection = 'redirects';
 
 
 export default defineHook(async (
 	{ action },
-	{ getSchema, services, emitter, logger, env }
+	hookContext
 ) => {
+
+	const { getSchema, services, emitter, logger, env } = hookContext;
 
 	// /* STEP 1: Create redirect collection, fields and relations, or update existing ones with inproper config */
 	await createCollectionFromSchemas(collection, { services, getSchema }, { fieldSchema, relationSchema, collectionSchema });
@@ -24,20 +26,21 @@ export default defineHook(async (
 	await addFieldsToDirectusSettings({ services, getSchema });
 
 
-	emitter.onAction('redirect.update', async (payload: SlugUpdateEvent, context: EventContext) => {
+	emitter.onAction('redirect.update', async (payload: RedirectUpdateEvent, eventContext: EventContext) => {
+		const { type, oldValues, newValue, collection } = payload;
 		const { ItemsService } = services
-		const items = new ItemsService(collection, context);
+		const items = new ItemsService(collection, eventContext);
 
 		// Get redirect config
-		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, services, getSchema);
-		const destination = `/${use_namespace && !!namespace ? (namespace + '/') : ''}${payload.newValue}${use_trailing_slash ? '/' : ''}`
+		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, hookContext);
+		const destination = type === 'path' ? newValue : getPathString(newValue, 'slug', { use_namespace, use_trailing_slash, namespace });
 		
 		// First prevent an infinite loop by deleting any redirects that have the new destination as their origin
-		await preventInfiniteLoop(destination, collection, services, getSchema);
+		await preventInfiniteLoop(destination, collection, eventContext, hookContext);
 
 		// Secondly, create the redirect(s)
-		items.createMany(payload.oldValues.map(oldValue => ({
-			origin: `/${use_namespace && !!namespace ? (namespace + '/') : ''}${oldValue}${use_trailing_slash ? '/' : ''}`,
+		items.createMany(oldValues.map(oldValue => ({
+			origin: type === 'path' ? oldValue : getPathString(oldValue, 'slug', { use_namespace, use_trailing_slash, namespace }),
 			destination,
 			type: 301,
 			is_active: true
@@ -45,34 +48,35 @@ export default defineHook(async (
 	})
 
 
-	emitter.onAction('redirect.delete', async (payload: SlugDeleteEvent, context: EventContext) => {
-		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, services, getSchema);
+	emitter.onAction('redirect.delete', async (payload: RedirectDeleteEvent, eventContext: EventContext) => {
+		const { values, type, collection } = payload;
+		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(collection, hookContext);
 
 		// Get an array of redirect IDs to delete that are assiociated with the deleted slugs
 		const idsToDelete = await recursivelyGetRedirectIDsByDestination(
-			payload.slugs.map(slug => `/${use_namespace && !!namespace ? (namespace + '/') : ''}${slug}${use_trailing_slash ? '/' : ''}`), 
+			type === 'path' ? values : values.map(val => getPathString(val, 'slug', { use_namespace, use_trailing_slash, namespace })), 
 			collection, 
-			services, 
-			getSchema
+			eventContext,
+			hookContext
 		);
 
 		const { ItemsService } = services
-		const items = new ItemsService(collection, context);
+		const items = new ItemsService(collection, eventContext);
 
 		logger.info(`Deleting ${idsToDelete.length} redirects because they were associated with the deleted slugs`, {
 			redirect_ids: idsToDelete,
-			slugs: payload.slugs
+			slugs: values
 		});
 		items.deleteMany(idsToDelete);
 	})
 
 
 	// If the redirect settings are updated, we need to update each item in the redirect collection
-	action('settings.update', async (meta, context) => {
+	action('settings.update', async (meta, eventContext) => {
 		if (meta.payload.hasOwnProperty('use_trailing_slash')) {
 			const { use_trailing_slash } = meta.payload
 			const { ItemsService } = services
-			const items = new ItemsService(collection, context);
+			const items = new ItemsService(collection, eventContext);
 
 			// There is no aggregation service to get the total number of redirects. So we'll need some custom logic here
 			const limit = env.QUERY_LIMIT_MAX || 1000;

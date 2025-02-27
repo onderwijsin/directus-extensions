@@ -1,6 +1,6 @@
 import { defineInterface } from '@directus/extensions-sdk';
 import InterfaceComponent from './interface.vue';
-import { locales } from './constants';
+import { locales } from '../shared/constants';
 
 export default defineInterface({
 	id: 'oslug_interface',

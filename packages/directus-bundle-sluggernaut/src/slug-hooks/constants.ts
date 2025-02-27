@@ -5,3 +5,5 @@ export const extensions = {
     '+': 'plus',
     '=': 'equal'
 }
+
+export const publishedValues = ['published', 'active'];

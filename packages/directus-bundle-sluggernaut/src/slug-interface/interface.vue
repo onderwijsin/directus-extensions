@@ -16,9 +16,9 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import { useClipboard } from '@vueuse/core'
-import { translations } from './constants';
+import { translations } from '../shared/constants';
 
-type Translations = typeof translations;
+type Translations = typeof translations["slug"];
 
 export default defineComponent({
 	props: {
@@ -44,7 +44,7 @@ export default defineComponent({
 
 		const { copy, copied, isSupported } = useClipboard()
 
-		const placeholder = props.locale in translations ? translations[props.locale as keyof Translations] : translations['en'];
+		const placeholder = props.locale in translations ? translations.slug[props.locale as keyof Translations] : translations.slug['en'];
 
 		return {
 			handleChange,

@@ -1,5 +1,6 @@
-import type { FieldRaw, Relation, Collection, PrimaryKey, SchemaOverview } from '@directus/types';
+import type { FieldRaw, Relation, Collection, PrimaryKey, SchemaOverview, EventContext } from '@directus/types';
 import type { CollectionsService, FieldsService, RelationsService, ItemsService } from '@directus/api/dist/services';
+import { HookExtensionContext } from '@directus/extensions';
 
 /**
  * Compares two field configurations to check if they are equal.
@@ -171,18 +172,18 @@ export const createCollectionAndRelations = async (options: {
  * 
  * @param destination - The destination URL to check for infinite loops.
  * @param collection - The name of the collection.
- * @param services - An object containing the ItemsService.
- * @param getSchema - A function to get the schema.
+ * @param eventContext - The event context object
+ * @param hookContext - The hook's context object
  * @returns A promise that resolves when the operation is complete.
  */
 export const preventInfiniteLoop = async (
     destination: string, 
     collection: string, 
-    services: { ItemsService: typeof ItemsService }, 
-    getSchema: () => Promise<SchemaOverview>
+    eventContext: EventContext,
+    hookContext: HookExtensionContext
 ): Promise<void> => {
-    const { ItemsService } = services;
-    const redirects = new ItemsService(collection, { schema: await getSchema() });
+    const { ItemsService } = hookContext.services;
+    const redirects: ItemsService = new ItemsService(collection, { schema: await hookContext.getSchema(), accountability: eventContext.accountability });
     redirects.deleteByQuery({ filter: { origin: { _eq: destination } }})
 }
 
@@ -191,18 +192,18 @@ export const preventInfiniteLoop = async (
  * 
  * @param value - The destination value(s) to search for.
  * @param collection - The name of the collection.
- * @param services - An object containing the ItemsService.
- * @param getSchema - A function to get the schema.
+ * @param eventContext - The event context object
+ * @param hookContext - The hook's context object
  * @returns A promise that resolves to an array of primary keys.
  */
 export const recursivelyGetRedirectIDsByDestination = async (
     value: string | string[], 
     collection: string, 
-    services: { ItemsService: typeof ItemsService }, 
-    getSchema: () => Promise<SchemaOverview>
+    eventContext: EventContext,
+    hookContext: HookExtensionContext
 ): Promise<PrimaryKey[]> => {
-    const { ItemsService } = services
-    const items = new ItemsService(collection, { schema: await getSchema() });
+    const { ItemsService } = hookContext.services
+    const items: ItemsService = new ItemsService(collection, { schema: await hookContext.getSchema(), accountability: eventContext.accountability });
 
     if (!Array.isArray(value)) value = [value];
 
@@ -217,7 +218,7 @@ export const recursivelyGetRedirectIDsByDestination = async (
 
     if (data.length === 0) return [];
     
-    const nestedData = await recursivelyGetRedirectIDsByDestination(data.map(item => item.origin), collection, services, getSchema);
+    const nestedData = await recursivelyGetRedirectIDsByDestination(data.map(item => item.origin), collection, eventContext, hookContext);
     
     return [...data.map(item => item.id), ...nestedData];
 }

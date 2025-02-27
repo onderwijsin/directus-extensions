@@ -1,22 +1,17 @@
 import { defineHook } from '@directus/extensions-sdk';
 import type { PrimaryKey } from '@directus/types';
-import { findFieldsInCollection, getSlugValue, findExistingItems, findArchiveFieldInCollection, getPathValue } from './helpers';
-
-
-const publishedValues = ['published', 'active'];
-
+import { findFieldsInCollection, getSlugValue, findArchiveFieldInCollection, getPathValue, emitDelete, emitUpdate } from './helpers';
+import { publishedValues } from './constants';
 
 export default defineHook(({ filter }, hookContext) => {
-    const { services, emitter, getSchema } = hookContext;
-
-    filter('items.create', async (payload, meta) => {
+    filter('items.create', async (payload, meta, eventContext) => {
         if (!payload || typeof payload !== 'object') return;
 
-        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, services, getSchema);
+        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, hookContext);
         if (!slugField) return;
 
-        const slug = await getSlugValue(payload, meta, hookContext, slugField);
-        if (!slug?.value) return;
+        const slug = await getSlugValue(slugField, payload, meta, eventContext, hookContext);
+        if (!slug.value) return;
 
         let data = {
             ...payload,
@@ -26,7 +21,7 @@ export default defineHook(({ filter }, hookContext) => {
         // If no path field is found, return the data with the slug value
         if (!pathField) return data
 
-        const path = await getPathValue(payload, meta, hookContext, pathField, slug)
+        const path = await getPathValue(payload, meta, { pathField, slug: slug as { key: string, value: string } }, eventContext, hookContext);
         if (!path?.value) return data;
 
         return {
@@ -36,63 +31,65 @@ export default defineHook(({ filter }, hookContext) => {
         
     });
 
-    filter('items.update', async (payload, meta, context) => {
+    filter('items.update', async (payload, meta, eventContext) => {
         if (!payload || typeof payload !== 'object') return;
 
-        const { accountability } = context;
 
-        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, services, getSchema);
+        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, hookContext);
         if (!slugField) return;
 
-        // If the item is archived, delete any redirects to it
-        // TODO the slug still needs to be updated if it is provided in the payload
-        const { archive_field_key, is_boolean } = await findArchiveFieldInCollection(meta.collection, services, getSchema);
+        
+        // If the item is archived, delete any redirects to it's (old) slugs
+        const { archive_field_key, archive_value, is_boolean } = await findArchiveFieldInCollection(meta.collection, hookContext);
         if (!!archive_field_key && (archive_field_key in payload && !publishedValues.includes((payload as Record<string, any>)[archive_field_key]))) {
-            const items = await findExistingItems(meta.collection, services, getSchema, accountability, meta.keys, [slugField.field]);
-            emitter.emitAction('redirect.delete', { slugs: items.map(item => item[slugField.field]), collection: meta.collection }, context);
-            return;
+            await emitDelete(
+                { slugField, pathField },
+                meta,
+                eventContext,
+                hookContext
+            )
         }
 
         // Get slug value based on payload
-        const slug = await getSlugValue(payload, meta, hookContext, slugField);
-        if (!slug?.value) return;
-
-        // Fetch the existing items that are updated, because we need their current status
-        const items = await findExistingItems(meta.collection, services, getSchema, accountability, meta.keys, [slug.key], archive_field_key && !is_boolean ? {
-            [archive_field_key]: {
-                "_in": publishedValues
-            } 
-        } : archive_field_key && is_boolean ? {
-            [archive_field_key]: {
-                "_eq": true
-            } 
-        }: {});
-
-        // We only want to create redirects for slug changes if the item is not archived
-        if (!!items.length) {
-            emitter.emitAction(
-                'redirect.update', 
-                {
-                    oldValues: items.map(item => item[slug.key]),
-                    newValue: slug.value,
-                    collection: meta.collection
-                },
-                context
-            );
-        }
+        const slug = await getSlugValue(slugField, payload, meta, eventContext, hookContext);
+        if (!slug.value) return;
+        const path = await getPathValue(payload, meta, { pathField, slug: slug as { key: string, value: string } }, eventContext, hookContext);
         
 
-        return {
+        
+        await emitUpdate(
+            { slug, path },
+            { archive_field_key, archive_value, is_boolean },
+            meta,
+            eventContext,
+            hookContext
+        )
+
+        let data = {
             ...payload,
-            [slug.key]: slug.value
-        };
+            [slug.key]: slug.value,
+        }
+        
+        if (!path) return data
+        return {
+            ...data,
+            [path.key]: path.value
+        }
     });
 
-    filter('items.delete', async (payload, meta, context) => {
-        const { slug: slugField, path } = await findFieldsInCollection(meta.collection, services, getSchema);
+    filter('items.delete', async (payload, meta, eventContext) => {
+        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, hookContext);
         if (!slugField) return;
 
-        const items = await findExistingItems(meta.collection, services, getSchema, context.accountability, payload as PrimaryKey[], [slugField.field]);
-        emitter.emitAction('redirect.delete', { slugs: items.map(item => item[slugField.field]), collection: meta.collection }, context);
+        await emitDelete(
+            { slugField, pathField },
+            // NOTE: the delete event meta does not contain the item keys, these are the payload!
+            {
+                ...meta,
+                keys: payload as PrimaryKey[]
+            },
+            eventContext,
+            hookContext
+        )
     });
 });
