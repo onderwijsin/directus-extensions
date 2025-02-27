@@ -5,7 +5,7 @@ import { addFieldsToDirectusSettings } from './addSettingsFields';
 import { addNamespaceFieldToCollections } from './addNamespaceField';
 import { preventInfiniteLoop, recursivelyGetRedirectIDsByDestination } from './utils';
 import { EventContext } from '@directus/types';
-import { getRedirectSettings } from '../shared/utils'
+import { getSluggernautSettings } from '../shared/utils'
 const collection = 'redirects';
 
 
@@ -29,7 +29,7 @@ export default defineHook(async (
 		const items = new ItemsService(collection, context);
 
 		// Get redirect config
-		const { use_namespace, use_trailing_slash, namespace } = await getRedirectSettings(payload.collection, services, getSchema);
+		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, services, getSchema);
 		const destination = `/${use_namespace && !!namespace ? (namespace + '/') : ''}${payload.newValue}${use_trailing_slash ? '/' : ''}`
 		
 		// First prevent an infinite loop by deleting any redirects that have the new destination as their origin
@@ -46,7 +46,7 @@ export default defineHook(async (
 
 
 	emitter.onAction('redirect.delete', async (payload: SlugDeleteEvent, context: EventContext) => {
-		const { use_namespace, use_trailing_slash, namespace } = await getRedirectSettings(payload.collection, services, getSchema);
+		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, services, getSchema);
 
 		// Get an array of redirect IDs to delete that are assiociated with the deleted slugs
 		const idsToDelete = await recursivelyGetRedirectIDsByDestination(

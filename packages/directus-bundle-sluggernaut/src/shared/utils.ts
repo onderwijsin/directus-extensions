@@ -9,7 +9,7 @@ import type { CollectionsService, SettingsService } from '@directus/api/dist/ser
  * @param getSchema - A function to get the schema.
  * @returns A promise that resolves to the redirect settings.
  */
-export const getRedirectSettings = async (
+export const getSluggernautSettings = async (
     collection: string, 
     services: { CollectionsService: typeof CollectionsService, SettingsService: typeof SettingsService }, 
     getSchema: () => Promise<SchemaOverview>

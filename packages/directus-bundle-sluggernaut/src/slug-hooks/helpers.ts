@@ -4,7 +4,9 @@ import slugify from 'slugify';
 
 import type { Field, FieldMeta, PrimaryKey, SchemaOverview, Accountability, CollectionMeta } from '@directus/types';
 import type { FieldsService, ItemsService, CollectionsService } from '@directus/api/dist/services';
-
+import { getSluggernautSettings } from '../shared/utils'
+import type { HookExtensionContext } from '@directus/extensions'
+import path from 'path';
 slugify.extend(extensions)
 
 type Options = {
@@ -36,6 +38,12 @@ const EditMultipleError = createError(
     400
 );
 
+const EditWithMultipleParentsError = createError(
+    'INVALID_PAYLOAD_ERROR',
+    "Editing multiple items of a collection with different parents, is not supported. Please edit one item at a time.",
+    400
+);
+
 
 /**
  * Generates a slug based on the provided payload and options.
@@ -48,7 +56,7 @@ const EditMultipleError = createError(
 export const slugifyInputs = async (
     meta: Record<string, any>,
     payload: Record<string, any>,
-    context: any,
+    context: HookExtensionContext,
     { fields, output_key, locale = 'nl', make_unique = false, lowercase = true }: Options
 ): Promise<string | null> => {
     // If slug was manually provided, use that as a value
@@ -121,14 +129,14 @@ export const findFieldsInCollection = async (
  * @param meta - Metadata about the event.
  * @param context - The context object.
  * @param slugField - The slug field.
- * @returns An object containing the slug key and value, or undefined.
+ * @returns An object containing the slug key and value, or undefined
  */
 export const getSlugValue = async (
     payload: Record<string, any>,
     meta: Record<string, any>,
-    context: any,
+    context: HookExtensionContext,
     slugField: Field
-): Promise<{ key: string; value: string | null } | undefined> => {
+): Promise<FormattedFieldPayload | undefined> => {
     if (slugField.meta?.options?.on_create && meta.event !== 'items.create') return;
 
     const hasInput = (slugField.meta as FieldMeta).options?.fields.some((field: string) => payload.hasOwnProperty(field));
@@ -225,3 +233,60 @@ export const findParentPath = async (
     const parent = await itemsService.readOne(parentId, { fields: ['path'] });
     return parent.path;
 }
+
+
+/**
+ * Generates the path value based on the provided payload, slug field, related parent(s) and Sluggernaut settings.
+ * @param payload - The payload object.
+ * @param meta - Metadata about the event.
+ * @param context - The context object.
+ * @param slugField - The path field.
+ * @param slug - The slug value.
+ * @returns An object containing the path key and value, or undefined
+ */
+export const getPathValue = async (
+    payload: Record<string, any>,
+    meta: Record<string, any>,
+    context: HookExtensionContext,
+    pathField: Field,
+    slug: FormattedFieldPayload
+): Promise<FormattedFieldPayload | undefined> => {
+
+    const { services, getSchema } = context;
+    const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(meta.collection, services, getSchema);
+    
+    const parentFieldKey: string | undefined = pathField.meta?.options?.parent;
+
+    let data = {
+        key: pathField.field,
+        value: `/${use_namespace && !!namespace ? (namespace + '/') : ''}${slug.value}${use_trailing_slash ? '/' : ''}` 
+    };
+
+    if (!parentFieldKey) return data
+
+    let parentID = (payload as Record<string, any>)[parentFieldKey]
+
+    if (!parentID) {
+        const { ItemsService } = services;
+        const itemsService: ItemsService = new ItemsService(meta.collection, { schema: await getSchema() });
+        const items = await itemsService.readMany(meta.keys, { fields: [parentFieldKey] })
+
+        const uniqueParentIds = [...new Set(items.map(rec => rec[parentFieldKey]).filter(Boolean))];
+        if (uniqueParentIds.length > 1) throw new EditWithMultipleParentsError();
+        if (uniqueParentIds.length === 0) return data;
+
+        parentID = uniqueParentIds[0];
+    }
+
+    const parentPathValue = await findParentPath(
+        meta.collection,
+        services,
+        getSchema,
+        parentID
+    )
+
+    return {
+        key: pathField.field,
+        value: `${parentPathValue.endsWith('/') ? parentPathValue : (parentPathValue + '/')}${slug.value}${use_trailing_slash ? '/' : ''}` 
+    }
+};

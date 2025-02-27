@@ -1,5 +1,5 @@
 # Sluggernaut
-The all in one bundle for your slugging needs! This bundle adds four extensions to Directus:
+The all in one bundle for your slugging needs! This bundle adds multiple extensions to Directus:
 1. Slug interface
 2. Path interface
 3. Link display

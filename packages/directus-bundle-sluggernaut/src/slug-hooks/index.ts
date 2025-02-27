@@ -1,9 +1,10 @@
 import { defineHook } from '@directus/extensions-sdk';
 import type { PrimaryKey } from '@directus/types';
-import { findFieldsInCollection, getSlugValue, findExistingItems, findArchiveFieldInCollection, findParentPath } from './helpers';
-import { getRedirectSettings } from '../shared/utils'
+import { findFieldsInCollection, getSlugValue, findExistingItems, findArchiveFieldInCollection, getPathValue } from './helpers';
+
 
 const publishedValues = ['published', 'active'];
+
 
 export default defineHook(({ filter }, hookContext) => {
     const { services, emitter, getSchema } = hookContext;
@@ -11,7 +12,7 @@ export default defineHook(({ filter }, hookContext) => {
     filter('items.create', async (payload, meta) => {
         if (!payload || typeof payload !== 'object') return;
 
-        const { slug: slugField, path } = await findFieldsInCollection(meta.collection, services, getSchema);
+        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, services, getSchema);
         if (!slugField) return;
 
         const slug = await getSlugValue(payload, meta, hookContext, slugField);
@@ -22,29 +23,15 @@ export default defineHook(({ filter }, hookContext) => {
             [slug.key]: slug.value
         }
 
-        if (!path) return data
+        // If no path field is found, return the data with the slug value
+        if (!pathField) return data
 
-        const { use_namespace, use_trailing_slash, namespace } = await getRedirectSettings(meta.collection, services, getSchema);
-        
-        const parentFieldKey: string | undefined = path.meta?.options?.parent;
-
-        if (!parentFieldKey || !(payload as Record<string, any>)[parentFieldKey]) return {
-            ...data,
-            path: `/${use_namespace && !!namespace ? (namespace + '/') : ''}${slug.value}${use_trailing_slash ? '/' : ''}` 
-        };
-
-        const parentID = (payload as Record<string, any>)[parentFieldKey]
-
-        const parentPathValue = await findParentPath(
-            meta.collection,
-            services,
-            getSchema,
-            parentID
-        )
+        const path = await getPathValue(payload, meta, hookContext, pathField, slug)
+        if (!path?.value) return data;
 
         return {
             ...data,
-            path: `${parentPathValue.endsWith('/') ? parentPathValue : (parentPathValue + '/')}${slug.value}${use_trailing_slash ? '/' : ''}` 
+            [path.key]: path.value
         }
         
     });
@@ -54,10 +41,11 @@ export default defineHook(({ filter }, hookContext) => {
 
         const { accountability } = context;
 
-        const { slug: slugField, path } = await findFieldsInCollection(meta.collection, services, getSchema);
+        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, services, getSchema);
         if (!slugField) return;
 
         // If the item is archived, delete any redirects to it
+        // TODO the slug still needs to be updated if it is provided in the payload
         const { archive_field_key, is_boolean } = await findArchiveFieldInCollection(meta.collection, services, getSchema);
         if (!!archive_field_key && (archive_field_key in payload && !publishedValues.includes((payload as Record<string, any>)[archive_field_key]))) {
             const items = await findExistingItems(meta.collection, services, getSchema, accountability, meta.keys, [slugField.field]);

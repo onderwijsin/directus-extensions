@@ -36,3 +36,5 @@ type RedirectSettings = {
     use_trailing_slash: boolean;
     namespace: string | null;
 }
+
+type FormattedFieldPayload = { key: string; value: string | null }
