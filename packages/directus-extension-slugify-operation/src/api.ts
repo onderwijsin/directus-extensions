@@ -47,7 +47,6 @@ export default defineOperationApi<Options>({
 	handler: async ({ fields, output_key, locale, make_unique, lowercase }, context) => {
 		const { data }: { data: Data } = context;
 
-		console.log(data)
 		if (!data.$trigger || !data.$trigger.payload) return {}
 
 

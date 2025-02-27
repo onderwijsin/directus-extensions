@@ -1,0 +1,85 @@
+{
+	"name": "@onderwijsin/directus-bundle-sluggernaut",
+	"description": "An all in one solution for managing routes",
+	"icon": "extension",
+	"version": "1.0.0",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijs.in",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijs.in",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"license": "MIT",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle"
+	],
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	},
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"type": "interface",
+				"name": "slug-interface",
+				"source": "src/slug-interface/index.ts"
+			},
+			{
+				"type": "display",
+				"name": "link-display",
+				"source": "src/link-display/index.ts"
+			},
+			{
+				"type": "hook",
+				"name": "slug-hooks",
+				"source": "src/slug-hooks/index.ts"
+			},
+			{
+				"type": "hook",
+				"name": "redirect-hooks",
+				"source": "src/redirect-hooks/index.ts"
+			},
+			{
+				"type": "interface",
+				"name": "path-interface",
+				"source": "src/path-interface/index.ts"
+			}
+		],
+		"host": "^10.10.0 || ^11.0.0"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"add": "directus-extension add"
+	},
+	"devDependencies": {
+		"@directus/api": "^24.0.1",
+		"@directus/errors": "^2.0.0",
+		"@directus/extensions": "^3.0.2",
+		"@directus/extensions-sdk": "13.0.1",
+		"@directus/types": "^13.0.0",
+		"@types/node": "^22.13.5",
+		"@vueuse/core": "^12.7.0",
+		"slugify": "^1.6.6",
+		"typescript": "^5.7.3",
+		"vue": "^3.5.13"
+	}
+}
