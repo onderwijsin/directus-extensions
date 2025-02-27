@@ -3,7 +3,7 @@ import { defineOperationApi } from '@directus/extensions-sdk';
 import slugify from 'slugify';
 import type { PrimaryKey, Accountability } from '@directus/types';
 import type { ItemsService } from '@directus/api/dist/services';
-
+import { createError } from '@directus/errors';
 slugify.extend(extensions)
 
 const localeValues = locales.map((locale) => locale.value);
@@ -17,7 +17,6 @@ type Options = {
 	lowercase?: boolean;
 };
 
-
 interface Data {
 	$trigger?: {
 		payload?: {
@@ -30,6 +29,13 @@ interface Data {
 	$accountability?: Accountability
 	
 }
+
+
+const EditMultipleError = createError(
+    'INVALID_PAYLOAD_ERROR',
+    "Editing multiple items of a collection with multiple slug input fields, without providing each input, is not supported. Please edit one item at a time.",
+    400
+);
 
 function randomString(length: number): string {
 	const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -69,7 +75,8 @@ export default defineOperationApi<Options>({
 			// If not all fields are filled and the trigger is an update event, fetch existing values for unmodified fields
 			// We cant differentiate output for multiple keys, so we only support a single key
 			// If multiple items were edited, we'll only use the input key
-			if (!!values.length && values.length < fields.length && data.$trigger?.event.includes('.update') && data.$trigger.keys.length === 1) {
+			if (!!values.length && values.length < fields.length && data.$trigger?.event.includes('.update')) {
+				if (data.$trigger.keys.length > 1) throw new EditMultipleError();
 				const missingValues = fields.filter(field => !data.$trigger?.payload?.[field])
 
 				const { services, getSchema } = context;
