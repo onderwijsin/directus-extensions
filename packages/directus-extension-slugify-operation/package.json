@@ -1,8 +1,21 @@
 {
-	"name": "directus-extension-slugify-operation",
+	"name": "@onderwijsin/directus-extension-slugify-operation",
 	"description": "A Directus extension that adds a slugify operation for flows",
 	"icon": "extension",
 	"version": "1.0.0",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijs.in",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijs.in",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"license": "MIT",
 	"keywords": [
 		"directus",
 		"directus-extension",
@@ -12,6 +25,10 @@
 	"files": [
 		"dist"
 	],
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	},
 	"directus:extension": {
 		"type": "operation",
 		"path": {
