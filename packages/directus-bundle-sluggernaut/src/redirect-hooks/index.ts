@@ -27,7 +27,7 @@ export default defineHook(async (
 
 
 	emitter.onAction('redirect.update', async (payload: RedirectUpdateEvent, eventContext: EventContext) => {
-		const { type, oldValues, newValue, collection } = payload;
+		const { type, oldValues, newValue } = payload;
 		const { ItemsService } = services
 		const items = new ItemsService(collection, eventContext);
 
@@ -49,8 +49,8 @@ export default defineHook(async (
 
 
 	emitter.onAction('redirect.delete', async (payload: RedirectDeleteEvent, eventContext: EventContext) => {
-		const { values, type, collection } = payload;
-		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(collection, hookContext);
+		const { values, type } = payload;
+		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, hookContext);
 
 		// Get an array of redirect IDs to delete that are assiociated with the deleted slugs
 		const idsToDelete = await recursivelyGetRedirectIDsByDestination(

@@ -43,6 +43,23 @@ const EditWithMultipleParentsError = createError(
     400
 );
 
+export const EditMultipleParentsError = createError(
+    'INVALID_PAYLOAD_ERROR',
+    "You can not assign multiple new parents simultaneous, where the item's path depends on the parent. Please edit one item at a time.",
+    400
+);
+
+export const EditMultipleParentsChildrenError = createError(
+    'INVALID_PAYLOAD_ERROR',
+    "You can not assign new children for multiple parents simultaneous, where the item's path depends on the parent. Please edit one item at a time.",
+    400
+);
+
+export const RecursiveAncenstoryError = createError(
+    'INVALID_PAYLOAD_ERROR',
+    "You are trying to assign a parent that would result in a recursive ancenstory. This would break the spacetime continuum, and thus it is not permitted.",
+    400
+);
 
 /**
  * Generates a slug based on the provided payload and options.
@@ -327,8 +344,10 @@ export const emitUpdate = async (
     eventContext: EventContext,
     hookContext: HookExtensionContext
 ): Promise<void> => {
+
     const { archive_field_key, is_boolean } = archiveOptions;
     const { path, slug } = fields;
+
     // Fetch the existing items that are updated, because we need their current status
     const items = await findExistingItems(
         meta.keys, 
@@ -364,6 +383,30 @@ export const emitUpdate = async (
     }
 }
 
+/**
+ * Finds children of the specified keys in a collection.
+ * @param keys - The primary keys of the parent items.
+ * @param collection - The collection name.
+ * @param parentFieldKey - The parent field key.
+ * @param eventContext - The event's context object.
+ * @param hookContext - The hook context object.
+ * @returns A promise that resolves to the primary keys of the children.
+ */
+export const findChildren = async (
+    keys: PrimaryKey[],
+    collection: string,
+    parentFieldKey: string,
+    slugFieldKey: string,
+    eventContext: EventContext,
+    hookContext: HookExtensionContext
+): Promise<{id: string, slug: string }[]> => {
+    const { ItemsService } = hookContext.services;
+    const itemsService: ItemsService = new ItemsService(collection, eventContext);
+    const items = await itemsService.readByQuery({ fields: ['id', slugFieldKey], filter: { [parentFieldKey]: { "_in": keys } } });
+
+    return items.map(rec => ({ id: rec.id, slug: rec[slugFieldKey] }));
+}
+
 
 /**
  * Emits a delete event for the specified fields.
@@ -396,3 +439,53 @@ export const emitDelete = async (
         collection: meta.collection 
     }, eventContext);
 }
+
+
+/**
+ * Recursively check if a self referencing ancestory is created
+ * 
+ * @param keys - The items where the new parent is assigned
+ * @param meta - Meta info about the event
+ * @param parentInputId - The new parent id
+ * @param parentFieldKey - The field key of the parent field
+ * @param eventContext - The context of the event
+ * @param hookContext - The context of the hook
+ * @returns A promise that resolves when the check is complete
+ * @throws RecursiveAncenstoryError if a recursive ancestry is detected
+ */
+export const preventRecursiveAncestory = async (
+    keys: PrimaryKey[], // the items where the new parent is assigned
+    meta: Record<string, any>, // meta info about the event
+    parentInputId: PrimaryKey, // the new parent id
+    parentFieldKey: string, // the field key of the parent field
+    eventContext: EventContext,
+    hookContext: HookExtensionContext,
+): Promise<void> => {
+    const { ItemsService } = hookContext.services;
+    const itemsService: ItemsService = new ItemsService(meta.collection, eventContext);
+
+    /* 
+        To prevent the creation of recursive ancestry, you need to check if the new parent 
+        is already a descendant of the item being updated. If it is, then assigning it as 
+        a parent would create a recursive relationship.
+        
+        1. fetch the children for the item that is being updated
+        2. Check if the new parent is one of these children. If yes throw an error
+        3. Else call the function for each child
+    */
+   
+    for await (const key of keys) {
+        const children = await itemsService.readByQuery({ fields: ['id'], filter: { [parentFieldKey]: { "_eq": key } }});
+
+        if (!children.length) return;
+        else if (children.some(child => child.id === parentInputId)) throw new RecursiveAncenstoryError();
+        else await preventRecursiveAncestory(
+            children.map(child => child.id),
+            meta,
+            parentInputId,
+            parentFieldKey,
+            eventContext,
+            hookContext
+        )
+    }
+};

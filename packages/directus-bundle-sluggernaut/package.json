@@ -1,8 +1,21 @@
 {
-	"name": "directus-bundle-sluggernaut",
+	"name": "@onderwijsin/directus-bundle-sluggernaut",
 	"description": "An all in one solution for managing routes",
 	"icon": "extension",
 	"version": "1.0.0",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijs.in",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijs.in",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"license": "MIT",
 	"keywords": [
 		"directus",
 		"directus-extension",
@@ -12,6 +25,10 @@
 	"files": [
 		"dist"
 	],
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	},
 	"directus:extension": {
 		"type": "bundle",
 		"path": {
