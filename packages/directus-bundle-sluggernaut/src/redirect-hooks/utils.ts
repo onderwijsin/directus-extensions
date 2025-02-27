@@ -1,6 +1,8 @@
 import type { FieldRaw, Relation, Collection, PrimaryKey, SchemaOverview, EventContext } from '@directus/types';
 import type { CollectionsService, FieldsService, RelationsService, ItemsService } from '@directus/api/dist/services';
 import { HookExtensionContext } from '@directus/extensions';
+import { createError } from '@directus/errors';
+
 
 /**
  * Compares two field configurations to check if they are equal.
@@ -221,4 +223,61 @@ export const recursivelyGetRedirectIDsByDestination = async (
     const nestedData = await recursivelyGetRedirectIDsByDestination(data.map(item => item.origin), collection, eventContext, hookContext);
     
     return [...data.map(item => item.id), ...nestedData];
+}
+
+
+const EqualOriginAndDestinationError = createError(
+    'INVALID_PAYLOAD_ERROR',
+    "A redirect origin can not be the same as its destination",
+    400
+);
+
+
+/**
+ * Checks existing redirect against a partial payload to prevent duplicate redirects.
+ * 
+ * @param field - The field to check for existing redirects.
+ * @param payload - The payload to check.
+ * @param meta - The metadata object.
+ * @param eventContext - The event context object
+ * @param hookContext - The hook's context object
+ * @returns A promise that resolves when the operation is complete.
+ */
+const checkExitsingRedirects = async (
+    field: 'destination' | 'origin',
+    payload: Record<string, any>,
+    meta: Record<string, any>,
+    eventContext: EventContext,
+    hookContext: HookExtensionContext,
+) => {
+    const { ItemsService } = hookContext.services
+    const items: ItemsService = new ItemsService(meta.collection, eventContext);
+    const redirects = await items.readMany(meta.keys, {fields: [field] });
+    if (redirects.some(redirect => redirect[field] === payload[field === 'destination' ? 'origin' : 'destination'])) {
+        throw new EqualOriginAndDestinationError()
+    }
+}
+
+/**
+ * Validates the redirect payload to prevent infinite loops and other issues.
+ * 
+ * @param payload - The payload to validate.
+ * @param meta - The metadata object.
+ * @param eventContext - The event context object
+ * @param hookContext - The hook's context object
+ * @returns A promise that resolves when the operation is complete.
+ */
+export const validateRedirect = async (
+    payload: Record<string, any>,
+    meta: Record<string, any>,
+    eventContext: EventContext,
+    hookContext: HookExtensionContext
+) => {
+    if ((payload.hasOwnProperty('origin') && payload.hasOwnProperty('destination')) && payload.origin === payload.destination) {
+        throw new EqualOriginAndDestinationError()
+    } else if (payload.hasOwnProperty('origin') && meta.event.includes('.update')) {
+        await (checkExitsingRedirects('destination', payload, meta, eventContext, hookContext))
+    } else if (payload.hasOwnProperty('destination') && meta.event.includes('.update')) {
+        await (checkExitsingRedirects('origin', payload, meta, eventContext, hookContext))
+    }
 }

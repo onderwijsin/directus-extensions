@@ -3,14 +3,14 @@ import { fieldSchema, relationSchema, collectionSchema } from './schema';
 import { createCollectionFromSchemas } from './createCollection';
 import { addFieldsToDirectusSettings } from './addSettingsFields';
 import { addNamespaceFieldToCollections } from './addNamespaceField';
-import { preventInfiniteLoop, recursivelyGetRedirectIDsByDestination } from './utils';
+import { preventInfiniteLoop, recursivelyGetRedirectIDsByDestination, validateRedirect } from './utils';
 import { EventContext } from '@directus/types';
 import { getPathString, getSluggernautSettings } from '../shared/utils'
 const collection = 'redirects';
 
 
 export default defineHook(async (
-	{ action },
+	{ filter, action },
 	hookContext
 ) => {
 
@@ -24,6 +24,17 @@ export default defineHook(async (
 
 	// /* STEP 3: add redirect config fields to directus_settings */
 	await addFieldsToDirectusSettings({ services, getSchema });
+
+
+	filter('redirects.items.create', async (payload, meta, eventContext) => {
+		if ((!payload || typeof payload !== 'object') || (!(payload as Record<string, any>).origin && !(payload as Record<string, any>).destination)) return
+		await validateRedirect(payload, meta, eventContext, hookContext);
+	})
+
+	filter('redirects.items.update', async (payload, meta, eventContext) => {
+		if ((!payload || typeof payload !== 'object') || (!(payload as Record<string, any>).origin && !(payload as Record<string, any>).destination)) return
+		await validateRedirect(payload, meta, eventContext, hookContext);
+	})
 
 
 	emitter.onAction('redirect.update', async (payload: RedirectUpdateEvent, eventContext: EventContext) => {
