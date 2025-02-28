@@ -1,0 +1,16 @@
+# Ignore config and metadata files
+.changeset/
+.pnpm-store/
+.editorconfig
+.github/
+.vscode/
+node_modules/
+
+# Ignore lockfiles
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Ignore build artifacts (if any)
+dist/
+build/
