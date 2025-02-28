@@ -3,6 +3,7 @@ Fetch all emails sent and received by you organization for a given email address
 
 ## To do
 - [ ] implement auth: add config options to define which roles have access to the endpoints
+- [ ] email currently fetches user email, but that should be the `users` prop
 
 ## Configuration
 To use this extension in your Directus app, you'll need to follow the steps below.
@@ -43,3 +44,4 @@ To use this extension in your Directus app, you'll need to follow the steps belo
     - `AZURE_CLIENT_ID="<the-secret-id>"`
     - `AZURE_TENANT_ID="<your-tenant-id>"` (can be found in the app registration overview page)
     - `AZURE_CLIENT_REDIRECT_URI="<https://yourapp.com/server/ms-exchange/auth/callback>"`
+    - `AZURE_CLIENT_CACHE_TTL=60` (how long should email data be cached, in seconds)

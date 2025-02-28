@@ -1,9 +1,8 @@
 import { defineEndpoint } from '@directus/extensions-sdk';
 import { getAccessTokenFromCode } from './auth';
-import { fetchEmails, type Email } from './emailService';
+import { fetchEmails } from './emailService';
 import { z } from 'zod';
-
-
+import NodeCache from 'node-cache';
 
 const requestOptionsSchema = z.object({
     email: z.string(),
@@ -20,6 +19,9 @@ export default defineEndpoint((router, context) => {
 	const clientSecret: string = env.AZURE_CLIENT_SECRET;
 	const tenantId: string = env.AZURE_TENANT_ID;
 	const redirectUri: string = env.AZURE_CLIENT_REDIRECT_URI;
+	const stdTTL: number = parseInt(env.AZURE_CLIENT_CACHE_TTL || '600');
+
+	const cache = new NodeCache({ stdTTL });
 
 
 	router.all('/*', (req, res, next) => {
@@ -39,11 +41,19 @@ export default defineEndpoint((router, context) => {
 			res.status(500).send((error as any).message);
 		}
 	});
-	router.post('/ms-exchange/email-history', async (req, res) => {
+	router.post('/ms-exchange/emails', async (req, res) => {
 		try {
 			const parsedBody = requestOptionsSchema.parse(req.body);
+			const cacheKey = JSON.stringify(parsedBody);
+			const cachedData = cache.get(cacheKey);
+            if (cachedData) {
+                return res.json(cachedData);
+            }
 			const data = await fetchEmails(clientId, clientSecret, tenantId, redirectUri, parsedBody);
-			if (data.value) res.json(data.value);
+			if (data.value) {
+				cache.set(cacheKey, data.value);
+				res.json(data.value);
+			} 
 			res.json(data.error);
 		} catch (error) {
 			if (error instanceof z.ZodError) {
