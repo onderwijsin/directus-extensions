@@ -47,5 +47,8 @@ jobs:
           git commit -m "chore: bump package versions [skip ci]"
           git push
 
+      - name: Build changed packages
+        run: pnpm --filter "[[publish]]" build
+
       - name: Publish changed packages
         run: pnpm publish -r --no-git-checks --access public
