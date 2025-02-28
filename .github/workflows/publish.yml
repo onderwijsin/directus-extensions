@@ -48,7 +48,7 @@ jobs:
           git push
 
       - name: Build changed packages
-        run: pnpm --filter "[[publish]]" build
+        run: pnpm --filter "./packages/**" build
 
       - name: Publish changed packages
-        run: pnpm publish -r --no-git-checks --access public
+        run: pnpm --filter "./packages/**" publish -r --no-git-checks --access public
