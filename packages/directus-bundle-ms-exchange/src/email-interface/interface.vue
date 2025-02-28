@@ -59,6 +59,14 @@ type FormattedEmail = Email & {
 	prettySentDate: string;
 }
 
+type User = {
+	id: string,
+	first_name: string | null,
+	last_name: string | null,
+	email: string | null,
+	avatar: string | null,
+}
+
 export default defineComponent({
 	props: {
 		email_field: {
@@ -70,7 +78,6 @@ export default defineComponent({
 		},
 	},
 	setup(props,  { attrs }) {
-		console.log(attrs)
 		const { collection } = attrs;
 		const api = useApi();
 
@@ -141,8 +148,25 @@ export default defineComponent({
 			})
 		}
 
+		const users: Ref<User[]> = ref([])
+		const fetchUsers = async () => {
+			try {
+				const response = await api.get(`/users`, {
+					params: {
+						fields: 'id,first_name,last_name,email,avatar'
+					}
+				});
+				console.log(response.data)
+				users.value = response.data
+			} catch (err) {
+				console.warn(err);
+			}
+		}
 
-		return { data, pending, error, label, type, isCreate }
+		fetchUsers()
+
+
+		return { data, pending, error, label, type, isCreate, users }
 	},
 });
 </script>
