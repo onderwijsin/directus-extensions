@@ -11,46 +11,33 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Important for changesets to work properly
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.4.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org/'
 
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Set up pnpm
-        run: pnpm config set store-dir .pnpm-store
-
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Set npm auth token
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-        env: 
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Check for changesets
-        id: changesets
-        run: pnpm changeset status --json > changesets-output.json
-
-      - name: Auto-bump patch versions
-        if: ${{ steps.changesets.outputs.hasChangesets == 'true' }}
-        run: pnpm changeset version
-
-      - name: Commit and push version bumps
-        if: ${{ steps.changesets.outputs.hasChangesets == 'true' }}
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "github-actions@github.com"
-          git add .
-          git commit -m "chore: bump package versions [skip ci]"
-          git push
-
-      - name: Build changed packages
-        run: pnpm --filter "./packages/**" build
-
-      - name: Publish changed packages
-        run: pnpm --filter "./packages/**" publish -r --no-git-checks --access public
+      - name: Create and publish versions
+        uses: changesets/action@v1
+        with:
+          version: pnpm changeset version
+          commit: "chore: update package versions"
+          title: "chore: update package versions"
+          publish: |
+            pnpm --filter "./packages/**" build &&
+            pnpm changeset publish -r
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
