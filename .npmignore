@@ -4,6 +4,9 @@
 .editorconfig
 .github/
 .vscode/
+.local
+docker-compose.yml
+Dockerfile
 node_modules/
 
 # Ignore lockfiles
