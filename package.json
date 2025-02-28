@@ -5,6 +5,8 @@
   "main": "index.js",
   "private": "true",
   "scripts": {
+    "preci:publish": "pnpm -F './packages/**' build",
+    "ci:publish": "pnpm publish -r --access public",
     "start": "docker compose up"
   },
   "keywords": [],
