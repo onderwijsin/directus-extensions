@@ -1,5 +1,11 @@
 # @onderwijsin/directus-bundle-email-viewer
 
+## 1.0.1
+
+### Patch Changes
+
+- 2f7d554: Update extension readme and provider readme
+
 ## 1.0.0
 
 ### Major Changes
