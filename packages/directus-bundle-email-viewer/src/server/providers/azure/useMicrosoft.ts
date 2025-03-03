@@ -3,7 +3,7 @@ import { EndpointExtensionContext } from "@directus/extensions";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider, TokenCredentialAuthenticationProviderOptions } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials";
 
-import { InvalidProviderOptions } from "../../errors";
+import { InvalidProviderOptions } from "../../utils/errors";
 
 export default (env: EndpointExtensionContext["env"]) => {
     const clientId = env.AZURE_CLIENT_ID;

@@ -23,6 +23,7 @@
         - `User.Read`
         - `User.Read.All`
         - `User-Mail.ReadWrite.All`
+        - `Domain.Read.All`
 
 2. Grant admin consent:
     - Click on "Grant admin consent for [Your Organization]" and confirm.
@@ -40,5 +41,4 @@
     - `AZURE_CLIENT_ID="<the-secret-id>"`
     - `AZURE_TENANT_ID="<your-tenant-id>"` (can be found in the app registration overview page)
     - `AZURE_CLIENT_REDIRECT_URI="<https://yourapp.com/server/email-viewer/auth/callback>"`
-    - `AZURE_CLIENT_CACHE_TTL=<60>` (how long should email data be cached, in seconds)
   3. Restart your Directus instance
