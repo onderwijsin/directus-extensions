@@ -12,6 +12,89 @@ importers:
         specifier: ^2.28.1
         version: 2.28.1
 
+  packages/directus-bundle-email-viewer:
+    dependencies:
+      '@azure/identity':
+        specifier: ^4.7.0
+        version: 4.7.0
+      '@azure/msal-node':
+        specifier: ^3.2.3
+        version: 3.2.3
+      '@directus/errors':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@directus/types':
+        specifier: ^13.0.0
+        version: 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.7.3))
+      '@microsoft/microsoft-graph-client':
+        specifier: ^3.0.7
+        version: 3.0.7(@azure/identity@4.7.0)
+      '@microsoft/microsoft-graph-types':
+        specifier: ^2.40.0
+        version: 2.40.0
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
+      node-cache:
+        specifier: ^5.1.2
+        version: 5.1.2
+      zod:
+        specifier: ^3.24.2
+        version: 3.24.2
+    devDependencies:
+      '@directus/extensions':
+        specifier: ^3.0.2
+        version: 3.0.2(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.7.3)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.7.3)(vue@3.5.13(typescript@5.7.3)))(pino@9.6.0)(vue-router@4.5.0(vue@3.5.13(typescript@5.7.3)))(vue@3.5.13(typescript@5.7.3))
+      '@directus/extensions-sdk':
+        specifier: 13.0.2
+        version: 13.0.2(@types/node@22.13.5)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.7.3)))(knex@3.1.0)(pinia@2.3.1(typescript@5.7.3)(vue@3.5.13(typescript@5.7.3)))(pino@9.6.0)(terser@5.39.0)(typescript@5.7.3)(vue-router@4.5.0(vue@3.5.13(typescript@5.7.3)))
+      '@types/node':
+        specifier: ^22.13.5
+        version: 22.13.5
+      typescript:
+        specifier: ^5.7.3
+        version: 5.7.3
+      vue:
+        specifier: ^3.5.13
+        version: 3.5.13(typescript@5.7.3)
+
+  packages/directus-bundle-ms-exchange:
+    dependencies:
+      '@azure/msal-node':
+        specifier: ^3.2.3
+        version: 3.2.3
+      '@directus/errors':
+        specifier: ^2.0.0
+        version: 2.0.0
+      '@directus/types':
+        specifier: ^13.0.0
+        version: 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.7.3))
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
+      node-cache:
+        specifier: ^5.1.2
+        version: 5.1.2
+      zod:
+        specifier: ^3.24.2
+        version: 3.24.2
+    devDependencies:
+      '@directus/extensions':
+        specifier: ^3.0.2
+        version: 3.0.2(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.7.3)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.7.3)(vue@3.5.13(typescript@5.7.3)))(pino@9.6.0)(vue-router@4.5.0(vue@3.5.13(typescript@5.7.3)))(vue@3.5.13(typescript@5.7.3))
+      '@directus/extensions-sdk':
+        specifier: 13.0.2
+        version: 13.0.2(@types/node@22.13.5)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.7.3)))(knex@3.1.0)(pinia@2.3.1(typescript@5.7.3)(vue@3.5.13(typescript@5.7.3)))(pino@9.6.0)(terser@5.39.0)(typescript@5.7.3)(vue-router@4.5.0(vue@3.5.13(typescript@5.7.3)))
+      '@types/node':
+        specifier: ^22.13.5
+        version: 22.13.5
+      typescript:
+        specifier: ^5.7.3
+        version: 5.7.3
+      vue:
+        specifier: ^3.5.13
+        version: 3.5.13(typescript@5.7.3)
+
   packages/directus-bundle-sluggernaut:
     devDependencies:
       '@directus/api':
@@ -421,6 +504,11 @@ packages:
     peerDependencies:
       vue: ^3.4
 
+  '@directus/composables@11.1.7':
+    resolution: {integrity: sha512-5ks+Yz1rrfSbOAexkT/e144rcof/kxnPiiY1DmI2VfhiK3HnVJF0/ADaeIc24X9yZfgXniI4/8mnqCk73zMHcQ==}
+    peerDependencies:
+      vue: ^3.4
+
   '@directus/constants@13.0.0':
     resolution: {integrity: sha512-R2uuMEJarlq29IPH9Pqe11U74mDqQWBHWhVy77R7ZrnJeZiiayLFoQTlZS4FN8M+ROVrCkIcsg39meNpxEyvpA==}
 
@@ -435,6 +523,11 @@ packages:
 
   '@directus/extensions-sdk@13.0.1':
     resolution: {integrity: sha512-knEBNGhpogIrElnqwkvuw4K384URR9yeJhbWe9aPJk68z1eDfjpNggzJqQKhDwkHYeMWR+GcDs32Itkq/zimEQ==}
+    engines: {node: '>=12.20.0'}
+    hasBin: true
+
+  '@directus/extensions-sdk@13.0.2':
+    resolution: {integrity: sha512-LrNu2uBAn/CaoQRhxsUfP1mMntFRZ7lYnTLcBg4FgRESzoozuLG4Ek+LFEzDb/0XDG2jAzxoVJ4CdM/7pjHb0g==}
     engines: {node: '>=12.20.0'}
     hasBin: true
 
@@ -1270,6 +1363,27 @@ packages:
 
   '@manypkg/get-packages@1.1.3':
     resolution: {integrity: sha512-fo+QhuU3qE/2TQMQmbVMqaQ6EWbMhi4ABWP+O4AM1NqPBuy0OrApV5LO6BrrgnhtAHS2NH6RrVk9OL181tTi8A==}
+
+  '@microsoft/microsoft-graph-client@3.0.7':
+    resolution: {integrity: sha512-/AazAV/F+HK4LIywF9C+NYHcJo038zEnWkteilcxC1FM/uK/4NVGDKGrxx7nNq1ybspAroRKT4I1FHfxQzxkUw==}
+    engines: {node: '>=12.0.0'}
+    peerDependencies:
+      '@azure/identity': '*'
+      '@azure/msal-browser': '*'
+      buffer: '*'
+      stream-browserify: '*'
+    peerDependenciesMeta:
+      '@azure/identity':
+        optional: true
+      '@azure/msal-browser':
+        optional: true
+      buffer:
+        optional: true
+      stream-browserify:
+        optional: true
+
+  '@microsoft/microsoft-graph-types@2.40.0':
+    resolution: {integrity: sha512-1fcPVrB/NkbNcGNfCy+Cgnvwxt6/sbIEEFgZHFBJ670zYLegENYJF8qMo7x3LqBjWX2/Eneq5BVVRCLTmlJN+g==}
 
   '@napi-rs/snappy-android-arm-eabi@7.2.2':
     resolution: {integrity: sha512-H7DuVkPCK5BlAr1NfSU8bDEN7gYs+R78pSHhDng83QxRnCLmVIZk33ymmIwurmoA1HrdTxbkbuNl+lMvNqnytw==}
@@ -2287,6 +2401,10 @@ packages:
 
   clone@1.0.4:
     resolution: {integrity: sha512-JQHZ2QMW6l3aH/j6xCqQThY/9OH4D/9ls34cgkUBiEeocRTU04tHfKPBsUK1PqZCUQM7GiA0IIXJSuXHI64Kbg==}
+    engines: {node: '>=0.8'}
+
+  clone@2.1.2:
+    resolution: {integrity: sha512-3Pe/CF1Nn94hyhIYpjtiLhdCoEoz0DqQ+988E9gmeEdQZlojxnOb74wctFyuwWQHzqyf9X7C7MG8juUpqBJT8w==}
     engines: {node: '>=0.8'}
 
   cluster-key-slot@1.1.2:
@@ -3917,6 +4035,10 @@ packages:
     resolution: {integrity: sha512-8VOpLHFrOQlAH+qA0ZzuGRlALRA6/LVh8QJldbrC4DY0hXoMP0l4Acq8TzFC018HztWiRqyCEj2aTWY2UvnJUg==}
     engines: {node: ^18 || ^20 || >= 21}
 
+  node-cache@5.1.2:
+    resolution: {integrity: sha512-t1QzWwnk4sjLWaQAS8CHgOJ+RAfmHpxFWmc36IWTiWHQfs0w5JDMBS1b1ZxQteo0vVVuWJvIUKHDkkeK7vIGCg==}
+    engines: {node: '>= 8.0.0'}
+
   node-fetch@2.7.0:
     resolution: {integrity: sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==}
     engines: {node: 4.x || >=6.0.0}
@@ -5361,6 +5483,9 @@ packages:
   zod@3.24.1:
     resolution: {integrity: sha512-muH7gBL9sI1nciMZV67X5fTKKBLtwpZ5VBp1vsOQzj1MhrBZ4wlVCm3gedKZWLp0Oyel8sIGfeiz54Su+OVT+A==}
 
+  zod@3.24.2:
+    resolution: {integrity: sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ==}
+
 snapshots:
 
   '@authenio/samlify-node-xmllint@2.0.0(samlify@2.8.10)':
@@ -6025,7 +6150,6 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   '@azure/keyvault-common@2.0.0':
     dependencies:
@@ -6066,17 +6190,14 @@ snapshots:
   '@azure/msal-browser@4.3.0':
     dependencies:
       '@azure/msal-common': 15.2.0
-    optional: true
 
-  '@azure/msal-common@15.2.0':
-    optional: true
+  '@azure/msal-common@15.2.0': {}
 
   '@azure/msal-node@3.2.3':
     dependencies:
       '@azure/msal-common': 15.2.0
       jsonwebtoken: 9.0.2
       uuid: 8.3.2
-    optional: true
 
   '@azure/storage-blob@12.26.0':
     dependencies:
@@ -6672,6 +6793,17 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
+  '@directus/composables@11.1.7(vue@3.5.13(typescript@5.7.3))':
+    dependencies:
+      '@directus/constants': 13.0.0
+      '@directus/utils': 13.0.1(vue@3.5.13(typescript@5.7.3))
+      axios: 1.7.9
+      lodash-es: 4.17.21
+      nanoid: 5.0.9
+      vue: 3.5.13(typescript@5.7.3)
+    transitivePeerDependencies:
+      - debug
+
   '@directus/constants@13.0.0': {}
 
   '@directus/env@5.0.0(vue@3.5.13(typescript@5.7.3))':
@@ -6874,6 +7006,58 @@ snapshots:
       '@directus/themes': 1.0.7(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.7.3)))(pinia@2.3.1(typescript@5.7.3)(vue@3.5.13(typescript@5.7.3)))(vue@3.5.13(typescript@5.7.3))
       '@directus/types': 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.7.3))
       '@directus/utils': 13.0.0(vue@3.5.13(typescript@5.7.3))
+      '@rollup/plugin-commonjs': 25.0.8(rollup@3.29.5)
+      '@rollup/plugin-json': 6.1.0(rollup@3.29.5)
+      '@rollup/plugin-node-resolve': 15.3.1(rollup@3.29.5)
+      '@rollup/plugin-replace': 5.0.7(rollup@3.29.5)
+      '@rollup/plugin-terser': 0.4.4(rollup@3.29.5)
+      '@rollup/plugin-virtual': 3.0.2(rollup@3.29.5)
+      '@vitejs/plugin-vue': 4.6.2(vite@4.5.5(@types/node@22.13.5)(terser@5.39.0))(vue@3.5.13(typescript@5.7.3))
+      chalk: 5.4.1
+      commander: 10.0.1
+      esbuild: 0.17.19
+      execa: 7.2.0
+      fs-extra: 11.2.0
+      inquirer: 12.3.0(@types/node@22.13.5)
+      ora: 6.3.1
+      rollup: 3.29.5
+      rollup-plugin-esbuild: 5.0.0(esbuild@0.17.19)(rollup@3.29.5)
+      rollup-plugin-styles: 4.0.0(rollup@3.29.5)
+      semver: 7.6.3
+      vite: 4.5.5(@types/node@22.13.5)(terser@5.39.0)
+      vue: 3.5.13(typescript@5.7.3)
+    transitivePeerDependencies:
+      - '@types/node'
+      - '@unhead/vue'
+      - better-sqlite3
+      - debug
+      - knex
+      - less
+      - lightningcss
+      - mysql
+      - mysql2
+      - pg
+      - pg-native
+      - pinia
+      - pino
+      - sass
+      - sqlite3
+      - stylus
+      - sugarss
+      - supports-color
+      - tedious
+      - terser
+      - typescript
+      - vue-router
+
+  '@directus/extensions-sdk@13.0.2(@types/node@22.13.5)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.7.3)))(knex@3.1.0)(pinia@2.3.1(typescript@5.7.3)(vue@3.5.13(typescript@5.7.3)))(pino@9.6.0)(terser@5.39.0)(typescript@5.7.3)(vue-router@4.5.0(vue@3.5.13(typescript@5.7.3)))':
+    dependencies:
+      '@directus/composables': 11.1.7(vue@3.5.13(typescript@5.7.3))
+      '@directus/constants': 13.0.0
+      '@directus/extensions': 3.0.2(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.7.3)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.7.3)(vue@3.5.13(typescript@5.7.3)))(pino@9.6.0)(vue-router@4.5.0(vue@3.5.13(typescript@5.7.3)))(vue@3.5.13(typescript@5.7.3))
+      '@directus/themes': 1.0.8(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.7.3)))(pinia@2.3.1(typescript@5.7.3)(vue@3.5.13(typescript@5.7.3)))(vue@3.5.13(typescript@5.7.3))
+      '@directus/types': 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.7.3))
+      '@directus/utils': 13.0.1(vue@3.5.13(typescript@5.7.3))
       '@rollup/plugin-commonjs': 25.0.8(rollup@3.29.5)
       '@rollup/plugin-json': 6.1.0(rollup@3.29.5)
       '@rollup/plugin-node-resolve': 15.3.1(rollup@3.29.5)
@@ -7823,6 +8007,15 @@ snapshots:
       fs-extra: 8.1.0
       globby: 11.1.0
       read-yaml-file: 1.1.0
+
+  '@microsoft/microsoft-graph-client@3.0.7(@azure/identity@4.7.0)':
+    dependencies:
+      '@babel/runtime': 7.26.9
+      tslib: 2.8.1
+    optionalDependencies:
+      '@azure/identity': 4.7.0
+
+  '@microsoft/microsoft-graph-types@2.40.0': {}
 
   '@napi-rs/snappy-android-arm-eabi@7.2.2':
     optional: true
@@ -8890,7 +9083,6 @@ snapshots:
   bundle-name@4.1.0:
     dependencies:
       run-applescript: 7.0.0
-    optional: true
 
   busboy@1.6.0:
     dependencies:
@@ -9000,6 +9192,8 @@ snapshots:
   cli-width@4.1.0: {}
 
   clone@1.0.4: {}
+
+  clone@2.1.2: {}
 
   cluster-key-slot@1.1.2: {}
 
@@ -9225,21 +9419,18 @@ snapshots:
 
   deepmerge@4.3.1: {}
 
-  default-browser-id@5.0.0:
-    optional: true
+  default-browser-id@5.0.0: {}
 
   default-browser@5.2.1:
     dependencies:
       bundle-name: 4.1.0
       default-browser-id: 5.0.0
-    optional: true
 
   defaults@1.0.4:
     dependencies:
       clone: 1.0.4
 
-  define-lazy-prop@3.0.0:
-    optional: true
+  define-lazy-prop@3.0.0: {}
 
   delayed-stream@1.0.0: {}
 
@@ -10196,8 +10387,7 @@ snapshots:
     dependencies:
       hasown: 2.0.2
 
-  is-docker@3.0.0:
-    optional: true
+  is-docker@3.0.0: {}
 
   is-extglob@2.1.1: {}
 
@@ -10210,7 +10400,6 @@ snapshots:
   is-inside-container@1.0.0:
     dependencies:
       is-docker: 3.0.0
-    optional: true
 
   is-interactive@2.0.0: {}
 
@@ -10247,7 +10436,6 @@ snapshots:
   is-wsl@3.1.0:
     dependencies:
       is-inside-container: 1.0.0
-    optional: true
 
   isarray@1.0.0: {}
 
@@ -10729,6 +10917,10 @@ snapshots:
 
   node-addon-api@8.3.0: {}
 
+  node-cache@5.1.2:
+    dependencies:
+      clone: 2.1.2
+
   node-fetch@2.7.0(encoding@0.1.13):
     dependencies:
       whatwg-url: 5.0.0
@@ -10905,7 +11097,6 @@ snapshots:
       define-lazy-prop: 3.0.0
       is-inside-container: 1.0.0
       is-wsl: 3.1.0
-    optional: true
 
   openapi3-ts@4.4.0:
     dependencies:
@@ -11671,8 +11862,7 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.30.1
       fsevents: 2.3.3
 
-  run-applescript@7.0.0:
-    optional: true
+  run-applescript@7.0.0: {}
 
   run-async@3.0.0: {}
 
@@ -12366,3 +12556,5 @@ snapshots:
       zod: 3.24.1
 
   zod@3.24.1: {}
+
+  zod@3.24.2: {}

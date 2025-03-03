@@ -1,0 +1,76 @@
+{
+	"name": "@onderwijsin/directus-bundle-email-viewer",
+	"description": "Fetch and view your organization's email to a given emailaddress",
+	"icon": "extension",
+	"version": "0.0.0",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle"
+	],
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijs.in",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijs.in",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"license": "MIT",
+	"publishConfig": {
+		"access": "public"
+	},
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"type": "endpoint",
+				"name": "server",
+				"source": "src/server/index.ts"
+			},
+			{
+				"type": "interface",
+				"name": "email-interface",
+				"source": "src/email-interface/index.ts"
+			}
+		],
+		"host": "^10.10.0 || ^11.0.0"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"validate": "directus-extension validate",
+		"add": "directus-extension add"
+	},
+	"devDependencies": {
+		"@directus/extensions": "^3.0.2",
+		"@directus/extensions-sdk": "13.0.2",
+		"@types/node": "^22.13.5",
+		"typescript": "^5.7.3",
+		"vue": "^3.5.13"
+	},
+	"dependencies": {
+		"@azure/identity": "^4.7.0",
+		"@azure/msal-node": "^3.2.3",
+		"@directus/errors": "^2.0.0",
+		"@directus/types": "^13.0.0",
+		"@microsoft/microsoft-graph-client": "^3.0.7",
+		"@microsoft/microsoft-graph-types": "^2.40.0",
+		"date-fns": "^4.1.0",
+		"node-cache": "^5.1.2",
+		"zod": "^3.24.2"
+	}
+}
