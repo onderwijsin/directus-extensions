@@ -2,6 +2,13 @@
 
 Thanks for your interest in contributing! Please follow these guidelines to keep everything consistent.
 
+## Prerequisites
+
+Ensure you have the following installed:
+- [Docker](https://www.docker.com/get-started)
+- [Node.js](https://nodejs.org/)
+- [pnpm](https://pnpm.io/installation)
+
 ## Getting Started
 
 1. Fork the repository and clone your fork.
@@ -14,8 +21,23 @@ Thanks for your interest in contributing! Please follow these guidelines to keep
 3. Create a new branch for your changes:
 
    ```sh
-   git checkout -b feature/my-new-feature
+   git checkout -b feat/my-new-feature
    ```
+   
+4. Start your Docker container by running ``pnpm start`` in the root of the project. Ensure Docker is installed and running.
+
+### Creating a new extension
+After starting Docker, open a new terminal:
+   
+   ```sh
+   cd packages/
+   pnpm dlx create-directus-extension@latest
+   ```
+
+Follow the prompts in your terminal to create the new extension. Afterwards, navigate to the extension directory and run ``pnpm dev``. The Directus instance running in your Docker container will be auto reloaded if changes are detected.
+
+### Working on existing extensions
+For each package you're working on, you'll want to ensure that the Directus instance in your running Docker container is auto reloaded. You can do this by navigating to the extensions directory, and running ``pnpm dev``.
 
 ## Making Changes
 
