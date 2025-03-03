@@ -35,9 +35,10 @@
     - Provide a description and set an expiration period.
     - Click "Add" and copy the generated secret value. Store it securely.
 2. Add these environment variables to your Directus instance:
-    - `EMAIL_VEIWER_PROVIDER="azure"`
+    - `EMAIL_VIEWER_PROVIDER="azure"`
     - `AZURE_CLIENT_SECRET="<the-secret-value>"`
     - `AZURE_CLIENT_ID="<the-secret-id>"`
     - `AZURE_TENANT_ID="<your-tenant-id>"` (can be found in the app registration overview page)
     - `AZURE_CLIENT_REDIRECT_URI="<https://yourapp.com/server/email-viewer/auth/callback>"`
     - `AZURE_CLIENT_CACHE_TTL=<60>` (how long should email data be cached, in seconds)
+  3. Restart your Directus instance
