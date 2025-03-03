@@ -89,7 +89,7 @@ export const getEmailViewerPermissions = async (accountability: Accountability, 
         canViewDomainEmail: policies.some((policy) => policy.email_viewer_permission === 'domain'),
         canViewAllEmail: policies.some((policy) => policy.email_viewer_permission === 'all'),
         canViewAddresses: Array.from(new Set(policies.reduce((acc, policy) => {
-            if (policy.email_viewer_permission === 'specific') {
+            if (policy.email_viewer_permission === 'specific' && !!policy.custom_addresses.length) {
                 acc.push(...policy.custom_addresses);
             }
             return acc;
