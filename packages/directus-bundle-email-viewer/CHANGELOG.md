@@ -1,5 +1,11 @@
 # @onderwijsin/directus-bundle-email-viewer
 
+## 1.1.0
+
+### Minor Changes
+
+- 33d80ed: Implement permission based auth for email-viewer endpoints
+
 ## 1.0.1
 
 ### Patch Changes
