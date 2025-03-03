@@ -11,7 +11,9 @@ Some extensions in this repository are (or will be) published to the Directus Ma
 - [`directus-extension-slugify-operation`](https://github.com/onderwijsin/directus-extensions/blob/main/packages/directus-extension-slugify-operation):  
   Adds a flow operation to slugify inputs.
 - [`directus-bundle-sluggernaut`](https://github.com/onderwijsin/directus-extensions/blob/main/packages/directus-bundle-sluggernaut):  
-  A set of four extensions that handle and automate slugs and redirects.
+  A set of five extensions that handle and automate slugs, paths and redirects.
+- [`directus-bundle-email-viewer`](https://github.com/onderwijsin/directus-extensions/tree/main/packages/directus-bundle-email-viewer):
+  Fetch and view your team's email to and from a given email address, without ever leaving Directus
 
 ## 🤝 Contributing
 Contributions are welcome! If you find a bug or want to improve an extension, feel free to open an issue or submit a pull request.  
