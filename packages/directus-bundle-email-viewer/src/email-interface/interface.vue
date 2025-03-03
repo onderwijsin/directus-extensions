@@ -1,188 +1,145 @@
 <template>
-	<VNotice v-if="!isCreate && !data.length" :type="type" :icon="pending ? 'autorenew' : undefined">
+	<VDivider
+		:inlineTitle="true"
+		:large="true"
+	>
+		<VIcon name="email" />
+		<span>Emails</span>
+	</VDivider>
+	<EmailSearch v-model="query" />
+	<SkeletonEmailList v-if="!isCreate && pending" />
+	<VNotice v-else-if="!isCreate && !data.length" :type="type" :icon="pending ? 'autorenew' : undefined">
 		{{ label }}
 	</VNotice>
-	<VList v-else :mandatory="false">
-		<VListGroup 
-			v-for="email in data" 
-			:key="email.id"
+	<EmailList v-else="!isCreate" :data="data" />
+	<div style="padding: 20px 0px;">
+		<VDivider
+			:inlineTitle="true"
+			:large="false"
 		>
-			<template #activator>
-				<VListItem dense style="display: flex; align-items: center; gap: 1rem;">
-					<VChip x-small style="flex-shrink: 0;">
-						{{ email.prettySentDate }}
-					</VChip>
-					<span class="sm-text bold no-wrap" style="flex-grow: 1;">
-						{{ email.subject }}
-					</span>
-					<div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
-						<VIcon :name="email.isRead ? 'visibility' : 'visibility_off'" small style="opacity: 0.6;" />
-						<VIcon v-if="email.hasAttachments" name="attachment" small style="opacity: 0.6;" />
-					</div>
-					
-				</VListItem>
-			</template>
-			<VListItem>
-				<div class="sm-text" style="margin: 10px 0 6px; line-height: 2" v-html="email.bodyPreview" />
-			</VListItem>
-			<VListItem style="font-style: italic; margin-bottom: 10px; font-size: 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 1.5rem;">
-				<span style="display: flex; align-items: center; gap: 4px;">
-					<VIcon name="outgoing_mail" small style="position: relative; top: 1px;"/>
-					<span>{{ email.from.emailAddress.name }} <<a :href="'mailto:' + email.from.emailAddress.address" target="_blank" style="text-decoration: underline; color: var(--project-color)">{{ email.from.emailAddress.address }}</a>></span>
-				</span>
-				<span 
-					v-for="(recipient, i) in email.toRecipients"
-					style="display: flex; align-items: center; gap: 4px;"
-					:style="i > 2 ? 'display: none' : ''"
-				>
-					<VIcon name="move_to_inbox" small style=""/>
-					<span>{{ recipient.emailAddress.name }} <<a :href="'mailto:' + recipient.emailAddress.address" target="_blank" style="text-decoration: underline; color: var(--project-color)">{{ recipient.emailAddress.address }}</a>></span>
-				</span>
-			</VListItem>
-			<VButton small secondary :href="email.webLink" target="_blank" style="margin-bottom: 16px;">
-				<span>View in outlook</span>
-				<VIcon name="arrow_outward" small style="margin-left: 1rem;" />
-			</VButton>
-
-		</VListGroup>
-	</VList>
+			<VIcon name="inbox_customize" />
+			<span>Options</span>
+		</VDivider>
+		<EmailListOptions v-if="!isCreate" v-model:limit="limit" v-model:users="users" />
+	</div>
+	
+	
 </template>
 
-<script lang="ts">
-import { defineComponent, computed, ref, watch } from 'vue';
+<script lang="ts" setup>
+import { computed, ref, watch } from 'vue';
 import type { Ref } from 'vue';
 import { useApi } from '@directus/extensions-sdk';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
+import type { Email } from '../types';
+import EmailList from './components/EmailList.vue';
+import EmailListOptions from './components/EmailListOptions.vue';
+import SkeletonEmailList from './components/SkeletonEmailList.vue';
+import EmailSearch from './components/EmailSearch.vue';
 
-type FormattedEmail = Email & {
+export type FormattedEmail = Email & {
 	prettySentDate: string;
 }
 
-type User = {
-	id: string,
-	first_name: string | null,
-	last_name: string | null,
-	email: string | null,
-	avatar: string | null,
+const defaultLimit = '10';
+
+const props = defineProps<{
+	email_field: string;
+	primaryKey: string | number;
+	collection: string;
+}>();
+
+
+const api = useApi();
+
+const email = ref('')
+const pending = ref(true)
+const error: Ref<any> = ref(null)
+async function fetchEmailValue() {
+	if (!props.email_field || isCreate.value) return;
+	pending.value = true
+	try {
+		const response = await api.get(`/items/${props.collection}/${props.primaryKey}`);
+		email.value = response.data.data[props.email_field];
+		return ;
+	} catch (err) {
+		error.value = err;
+		pending.value = false
+		console.warn(err);
+	}
 }
 
-export default defineComponent({
-	props: {
-		email_field: {
-			type: String,
-		},
-		primaryKey: {
-			type: [String, Number],
-			required: true
-		},
-	},
-	setup(props,  { attrs }) {
-		const { collection } = attrs;
-		const api = useApi();
+const label = computed(() => {
+	if (!email.value) {
+		return 'No email address provided';
+	}
+	if (pending.value) return 'Searching for email history...';
+	return `We could not find any emails for ${email.value} and the selected inboxes`;
+})
 
-		const email = ref('')
-		const pending = ref(true)
-		const error: Ref<any> = ref(null)
-		async function fetchEmailValue() {
-			if (!props.email_field || isCreate.value) return;
-			pending.value = true
-			try {
-				const response = await api.get(`/items/${collection}/${props.primaryKey}`);
-				email.value = response.data.data[props.email_field];
-				return ;
-			} catch (err) {
-				error.value = err;
-				pending.value = false
-				console.warn(err);
-			}
+const type = computed(() => {
+	if (!props.email_field) return 'warning'
+	return 'info'
+})
+
+const isCreate = computed(() => props.primaryKey === '+')
+
+
+watch(() => props.primaryKey, fetchEmailValue)
+
+
+const data: Ref<FormattedEmail[]> = ref([])
+
+async function fetchEmails() {
+	if (!email.value) return;
+	pending.value = true
+	try {
+		const response: { data: Email[] } = await api.post(`/server/email-viewer/emails`, {
+			email: email.value,
+			query: query.value,
+			users: users.value || [],
+			limit: limit.value
+		});
+
+		data.value = formatData(response.data);
+		pending.value = false
+		return ;
+	} catch (err) {
+		error.value = err;
+		pending.value = false
+		console.warn(err);
+	}
+}
+
+
+const formatData = (data: Email[]) => {
+	return data.map((email) => {
+		return {
+			...email,
+			prettySentDate: format(new Date(email.sentDateTime), 'HH:mm dd/MM/yy', { locale: nl })
 		}
-
-		const label = computed(() => {
-			if (!email.value) {
-				return 'No email address provided';
-			}
-			if (pending.value) return 'Searching for email history...';
-			return `Emails will be rendered here!`
-		})
-
-		const type = computed(() => {
-			if (!props.email_field) return 'warning'
-			return 'info'
-		})
-
-		const isCreate = computed(() => props.primaryKey === '+')
+	})
+}
 
 
-		watch(() => props.primaryKey, fetchEmailValue)
+// Load limit and users from localStorage if available
+const limit: Ref<number> = ref(parseInt(localStorage.getItem('email_history_interface:limit') || defaultLimit, 10));
+const users: Ref<string[] | null> = ref(JSON.parse(localStorage.getItem('email_history_interface:users') || '[]'));
+const query: Ref<string> = ref(localStorage.getItem('email_history_interface:query') || '');
 
-
-		const data: Ref<FormattedEmail[]> = ref([])
-
-		async function fetchEmails() {
-			if (!email.value) return;
-			pending.value = true
-			try {
-				const response: { data: Email[] } = await api.post(`/server/ms-exchange/emails`, {
-					email: email.value
-				});
-
-				data.value = formatData(response.data);
-				pending.value = false
-				return ;
-			} catch (err) {
-				error.value = err;
-				pending.value = false
-				console.warn(err);
-			}
-		}
-
-		watch(email, fetchEmails)
-
-		const formatData = (data: Email[]) => {
-			return data.map((email) => {
-				return {
-					...email,
-					prettySentDate: format(new Date(email.sentDateTime), 'HH:mm dd/MM/yy', { locale: nl })
-				}
-			})
-		}
-
-		const users: Ref<User[]> = ref([])
-		const fetchUsers = async () => {
-			try {
-				const response = await api.get(`/users`, {
-					params: {
-						fields: 'id,first_name,last_name,email,avatar'
-					}
-				});
-				console.log(response.data)
-				users.value = response.data
-			} catch (err) {
-				console.warn(err);
-			}
-		}
-
-		fetchUsers()
-
-
-		return { data, pending, error, label, type, isCreate, users }
-	},
+// Update localStorage when limit or users change
+watch(limit, (newLimit) => {
+	localStorage.setItem('email_history_interface:limit', newLimit.toString());
 });
+watch(users, (newUsers) => {
+	localStorage.setItem('email_history_interface:users', JSON.stringify(newUsers));
+});
+watch(query, (newQuery) => {
+	localStorage.setItem('email_history_interface:query', newQuery || '');
+});
+
+watch([email, limit, users, query], fetchEmails)
+
 </script>
 
-<style scoped>
-.sm-text {
-	font-size: 12px; line-clamp: 1;
-}
-
-.no-wrap {
-	white-space: nowrap;
-	overflow: hidden;
-  	text-overflow: ellipsis;
-}
-
-.bold {
-	font-weight: 700;
-}
-</style>

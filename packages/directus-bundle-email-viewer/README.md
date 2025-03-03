@@ -1,47 +1,19 @@
 # MS Exchange email
-Fetch all emails sent and received by you organization for a given email address, and list the metadata for these email in an interface. Very usefull for an internal CRM application, where you want to see teamwide email correspondence for any of the stored contacts.
+Fetch all emails sent and received by your organization (or a subset of your organization's users) for a given email address, and list the metadata for these email in a searchable interface. Very usefull for an internal CRM application, where you want to see teamwide email correspondence for any of the stored contacts.
 
-## To do
-- [ ] implement auth: add config options to define which roles have access to the endpoints
-- [ ] email currently fetches user email, but that should be the `users` prop
+## Installation
+Refer to the [Official Guide](https://docs.directus.io/extensions/installing-extensions.html) for details on installing the extension from the Marketplace or manually.
 
 ## Configuration
 To use this extension in your Directus app, you'll need to follow the steps below.
 
-### Step 1: Register Your Application in Azure AD
+1. Choose your organizations email provider (you can find a list of supported providers below)
+2. Add the necessary env variables. These mainly consist of authentication tokens for connecting with the provider
 
-1. Sign in to the Azure portal: Go to [https://portal.azure.com](https://portal.azure.com) and sign in with your organizational account.
-2. Register a new application:
-    - Navigate to Entra Admin Centre (formerly "Azure Active Directory") -> "App registrations" -> "New registration".
-    - Provide a name for your application (e.g., "Email Fetch Service").
-    - Set the "Supported account types" to "Accounts in this organizational directory only".
-    - Set the "Redirect URI" to your application's endpoint (e.g., `https://yourapp.com/server/ms-exchange/auth/callback`).
-    - Click "Register".
+You can find specific docs on how to get the proper token within the provider's directory.
 
-### Step 2: Configure API Permissions
 
-1. Navigate to API permissions:
-    - In your registered application, go to "API permissions" -> "Add a permission".
-    - Select "Microsoft Graph".
-    - Choose "Delegated permissions".
-    - Add the following permissions:
-        - `Mail.Read`
-        - `Mail.Read.Shared`
-        - `Mail.ReadWrite`
-        - `Mail.ReadWrite.Shared`
-2. Grant admin consent:
-    - Click on "Grant admin consent for [Your Organization]" and confirm.
+## Supported providers
+This extension currenlt supports the following email providers. Want to add a new provider to the list? Submit a PR!
 
-### Step 3: Set Up Client Credentials
-
-1. Navigate to Certificates & secrets:
-    - In your registered application, go to "Certificates & secrets".
-    - Click on "New client secret".
-    - Provide a description and set an expiration period.
-    - Click "Add" and copy the generated secret value. Store it securely.
-2. Add two environment variables to your Directus instance:
-    - `AZURE_CLIENT_SECRET="<the-secret-value>"`
-    - `AZURE_CLIENT_ID="<the-secret-id>"`
-    - `AZURE_TENANT_ID="<your-tenant-id>"` (can be found in the app registration overview page)
-    - `AZURE_CLIENT_REDIRECT_URI="<https://yourapp.com/server/ms-exchange/auth/callback>"`
-    - `AZURE_CLIENT_CACHE_TTL=60` (how long should email data be cached, in seconds)
+- Microsoft Azure (via MS Graph)

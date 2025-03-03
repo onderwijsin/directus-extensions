@@ -1,27 +1,38 @@
 import { defineEndpoint } from '@directus/extensions-sdk';
-import { getAccessTokenFromCode } from './auth';
-import { fetchEmails } from './emailService';
+import { Provider } from '../types';
+import providers from './providers';
 import { z } from 'zod';
 import NodeCache from 'node-cache';
+import { InvalidProvider } from './errors';
+
+
 
 const requestOptionsSchema = z.object({
     email: z.string(),
+	query: z.string().optional(),
     users: z.array(z.string()).optional(),
     type: z.enum(['sent', 'received']).optional(),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
+	limit: z.number().refine(val => val === 0 || val === -1 || (val >= 1 && val <= 5000), {
+		message: "Limit must be 0, -1, or between 1 and 5000"
+	}).default(10).optional()
 });
+
 
 export default defineEndpoint((router, context) => {
 
 	const { env } = context;
-	const clientId: string = env.AZURE_CLIENT_ID;
-	const clientSecret: string = env.AZURE_CLIENT_SECRET;
-	const tenantId: string = env.AZURE_TENANT_ID;
-	const redirectUri: string = env.AZURE_CLIENT_REDIRECT_URI;
-	const stdTTL: number = parseInt(env.AZURE_CLIENT_CACHE_TTL || '600');
 
+	const provider = env.EMAIL_VIEWER_PROVIDER as Provider;
+
+	if (!provider || Object.values(Provider).indexOf(provider) === -1) {
+		throw new InvalidProvider()
+	}
+
+	
+	
+	const stdTTL: number = parseInt(env.AZURE_CLIENT_CACHE_TTL || '600');
 	const cache = new NodeCache({ stdTTL });
+	
 
 
 	router.all('/*', (req, res, next) => {
@@ -32,35 +43,48 @@ export default defineEndpoint((router, context) => {
 		next()
 	})
 
-	router.get('/ms-exchange/auth/callback', async (req, res) => {
-		const code = req.query.code as string;
+
+	router.post('/email-viewer/emails', async (req, res) => {
 		try {
-			const token = await getAccessTokenFromCode(clientId, clientSecret, tenantId, redirectUri, code);
-			res.json({ token });
-		} catch (error) {
-			res.status(500).send((error as any).message);
-		}
-	});
-	router.post('/ms-exchange/emails', async (req, res) => {
-		try {
-			const parsedBody = requestOptionsSchema.parse(req.body);
+			let parsedBody = requestOptionsSchema.parse(req.body);
+
+			if (parsedBody.limit && parsedBody.limit < 1) parsedBody.limit = 5000;
 			const cacheKey = JSON.stringify(parsedBody);
 			const cachedData = cache.get(cacheKey);
             if (cachedData) {
                 return res.json(cachedData);
             }
-			const data = await fetchEmails(clientId, clientSecret, tenantId, redirectUri, parsedBody);
-			if (data.value) {
-				cache.set(cacheKey, data.value);
-				res.json(data.value);
+			const data = await providers[provider].fetchEmails(parsedBody, env);
+			if (data) {
+				cache.set(cacheKey, data);
 			} 
-			res.json(data.error);
+			res.json(data);
 		} catch (error) {
 			if (error instanceof z.ZodError) {
                 res.status(400).json({ errors: error.errors });
             } else {
-                res.status(500).send((error as any).message);
+				console.log(error)
+                res.status(500).send(error);
             }
+		}
+	});
+
+
+
+	router.get('/email-viewer/users', async (req, res) => {
+		try {
+			const cacheKey = 'users'
+			const cachedData = cache.get(cacheKey);
+			if (cachedData) {
+                return res.json(cachedData);
+            }
+			const data = await providers[provider].fetchUsers(env);
+			if (data) {
+				cache.set(cacheKey, data);
+			} 
+			return res.json(data)
+		} catch (error) {
+			return res.status(500).json(error)
 		}
 	});
 });
