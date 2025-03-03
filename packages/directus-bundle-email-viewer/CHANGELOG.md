@@ -1,5 +1,11 @@
 # @onderwijsin/directus-bundle-email-viewer
 
+## 1.1.1
+
+### Patch Changes
+
+- 2cdfe49: Fix email permission helpers by checking for null value of custom_addresses
+
 ## 1.1.0
 
 ### Minor Changes
