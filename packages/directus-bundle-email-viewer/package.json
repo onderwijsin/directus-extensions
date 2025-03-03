@@ -1,6 +1,6 @@
 {
-	"name": "@onderwijsin/directus-bundle-ms-exchange",
-	"description": "Fetch and display your organization's email to a given emailaddress",
+	"name": "@onderwijsin/directus-bundle-email-viewer",
+	"description": "Fetch and view your organization's email to a given emailaddress",
 	"icon": "extension",
 	"version": "1.0.0",
 	"keywords": [
