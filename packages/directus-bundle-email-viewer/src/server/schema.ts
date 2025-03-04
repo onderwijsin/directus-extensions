@@ -1,4 +1,4 @@
-import type { FieldRaw } from '@directus/types';
+import type { Field } from '@directus/types';
 
 export const policyFieldsSchema = [
     {
@@ -222,4 +222,4 @@ export const policyFieldsSchema = [
             "validation_message": null
         }
     }
-] as unknown as FieldRaw[]
+] as unknown as Field[]

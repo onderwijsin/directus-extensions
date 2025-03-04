@@ -1,4 +1,4 @@
-import type { FieldRaw, Relation, Collection } from '@directus/types';
+import type { Field, Relation, Collection } from '@directus/types';
 
 export const collectionSchema = {
 	meta: {
@@ -584,7 +584,7 @@ export const fieldSchema = [
 			"validation_message": null
 		}
 	}
-] as FieldRaw[]
+] as Field[]
 
 export const relationSchema = [
 	{
@@ -641,7 +641,7 @@ export const relationSchema = [
 	}
 ] as Relation[]
 
-export const settingSchema = [
+export const settingsFieldSchema = [
 	{
 		"collection": "directus_settings",
 		"field": "use_namespace",
@@ -769,9 +769,9 @@ export const settingSchema = [
 			"validation_message": null
 		}
 	}
-] as FieldRaw[]
+] as unknown as Field[]
 
-export const namespaceFieldSchema = {
+export const namespaceFieldSchema = [{
 	"collection": "directus_collections",
 	"field": "namespace",
 	"type": "string",
@@ -817,4 +817,4 @@ export const namespaceFieldSchema = {
 		"validation": null,
 		"validation_message": null
 	}
-} as unknown as FieldRaw
+}] as unknown as Field[]

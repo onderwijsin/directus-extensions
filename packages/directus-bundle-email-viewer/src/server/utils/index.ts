@@ -1,56 +1,14 @@
-import type { SchemaOverview, FieldRaw, Accountability } from '@directus/types';
-import type { FieldsService, UsersService } from '@directus/api/dist/services';
-import type { EmailViewerPermission, Policy } from '../../types.d';
+import type { Accountability } from '@directus/types';
+import { ApiExtensionContext } from '@directus/extensions'
+import type { UsersService } from '@directus/api/dist/services';
+import type { EmailViewerPermission, Policy } from '../../types';
 import { ForbiddenError } from '@directus/errors';
 import NodeCache from 'node-cache';
 
 
 
-interface Services {
-    FieldsService: typeof FieldsService;
-    [key: string]: any;
-}
-
-interface Context {
-    services: Services;
-    getSchema: () => Promise<SchemaOverview>;
-}
-
-/**
- * Creates missing fields in the provided collection based on the provided schema.
- * @param collection - The collection name where the fields should be created.
- * @param fieldSchema - The schema of the fields that should be created.
- * @param context - The context object containing services and schema getter.
- */
-export const createFieldsInCollection = async (
-    collection: string, 
-    fieldSchema: FieldRaw[],
-    context: Context
-): Promise<void> => {
-    const { services, getSchema } = context;
-    const { FieldsService } = services;
-
-    const fieldsService: FieldsService = new FieldsService({
-        schema: await getSchema(),
-    });
-    
-
-    try {
-        const existingFields = await fieldsService.readAll(collection);
-
-        const missingFields = fieldSchema.filter((field) => !existingFields.find((f) => f.field === field.field));
-
-        for (const field of missingFields) {
-            await fieldsService.createField(collection, field);
-        }
-    } catch (error) {
-        console.log(`Something went wrong while creating the ${collection} fields`);
-        console.log(error);
-    }
-};
-
 const permissionsCache = new NodeCache({ stdTTL: 60 * 60 * 4 });
-export const getEmailViewerPermissions = async (accountability: Accountability, context: Context) => {
+export const getEmailViewerPermissions = async (accountability: Accountability, context: ApiExtensionContext) => {
     if (!accountability.user) throw new ForbiddenError(); 
 
     if (permissionsCache.has(accountability.user)) {

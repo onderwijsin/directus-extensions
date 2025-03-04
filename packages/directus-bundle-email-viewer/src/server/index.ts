@@ -1,4 +1,3 @@
-
 import { defineEndpoint } from '@directus/extensions-sdk';
 import { Provider } from '../types';
 import providers from './providers';
@@ -6,7 +5,8 @@ import { z } from 'zod';
 import NodeCache from 'node-cache';
 import { InvalidProvider } from './utils/errors';
 
-import { createFieldsInCollection, getEmailViewerPermissions } from './utils';
+import { createOrUpdateFieldsInCollection } from 'utils'
+import { getEmailViewerPermissions } from './utils';
 import { policyFieldsSchema } from './schema';
 
 const requestOptionsSchema = z.object({
@@ -19,9 +19,7 @@ const requestOptionsSchema = z.object({
 	}).default(10).optional()
 });
 
-
 export default defineEndpoint(async (router, context) => {
-
 	const { env } = context;
 
 	const provider = env.EMAIL_VIEWER_PROVIDER as Provider;
@@ -30,21 +28,18 @@ export default defineEndpoint(async (router, context) => {
 		throw new InvalidProvider()
 	}
 
-	await createFieldsInCollection('directus_policies', policyFieldsSchema, context);
+	await createOrUpdateFieldsInCollection('directus_policies', policyFieldsSchema, context)
 	
 	const stdTTL: number = parseInt(env.CLIENT_CACHE_TTL || '600');
 	const cache = new NodeCache({ stdTTL });
 	
 
-
-	router.all('/*', async (req, res, next) => {
+	router.all('/*', async (req, _, next) => {
+		// Throws permissions error if user does not have access to email viewer
 		const permissions = await getEmailViewerPermissions((req as any).accountability, context);
-
-		//@ts-expect-error
 		req.emailViewerPermissions = permissions
 		next()
 	})
-
 
 	router.post('/email-viewer/emails', async (req, res) => {
 		try {
@@ -54,9 +49,9 @@ export default defineEndpoint(async (router, context) => {
 			const cacheKey = JSON.stringify(parsedBody);
 			const cachedData = cache.get(cacheKey);
             if (cachedData) {
-                return res.json(cachedData);
+                res.json(cachedData);
             }
-			// @ts-expect-error
+
 			const permissions = req.emailViewerPermissions;
 			const data = await providers[provider].fetchEmails(parsedBody, env, permissions);
 			if (data) {
@@ -80,34 +75,33 @@ export default defineEndpoint(async (router, context) => {
 			const cacheKey = 'users_user:' + (req as any).accountability.user
 			const cachedData = cache.get(cacheKey);
 			if (cachedData) {
-                return res.json(cachedData);
+                res.json(cachedData);
             }
-			// @ts-expect-error
 			const permissions = req.emailViewerPermissions;
 			const data = await providers[provider].fetchUsers(env, permissions);
 			if (data) {
 				cache.set(cacheKey, data);
 			} 
-			return res.json(data)
+			res.json(data)
 		} catch (error) {
-			return res.status(500).json(error)
+			res.status(500).json(error)
 		}
 	});
 
-	router.get('/email-viewer/domains', async (req, res) => {
+	router.get('/email-viewer/domains', async (_, res) => {
 		try {
 			const cacheKey = 'domains'
 			const cachedData = cache.get(cacheKey);
 			if (cachedData) {
-                return res.json(cachedData);
+                res.json(cachedData);
             }
 			const data = await providers[provider].fetchOrgDomains(env);
 			if (data) {
 				cache.set(cacheKey, data);
 			} 
-			return res.json(data)
+			res.json(data)
 		} catch (error) {
-			return res.status(500).json(error)
+			res.status(500).json(error)
 		}
 	});
 });
