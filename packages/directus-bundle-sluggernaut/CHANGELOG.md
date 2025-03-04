@@ -1,5 +1,13 @@
 # @onderwijsin/directus-bundle-sluggernaut
 
+## 1.0.2
+
+### Patch Changes
+
+- Updated dependencies [8997b45]
+- Updated dependencies [42d136a]
+  - utils@0.1.1
+
 ## 1.0.1
 
 ### Patch Changes
