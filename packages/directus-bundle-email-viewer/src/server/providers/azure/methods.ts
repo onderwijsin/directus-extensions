@@ -1,14 +1,15 @@
 import type { EndpointExtensionContext } from "@directus/extensions";
 import useMicrosoft from './useMicrosoft';
-import { RequestOptions, EmailViewerPermission } from "../../../types";
+import { RequestOptions, EmailViewerPermission, Provider } from "../../../types";
 import { ProviderError } from "../../utils/errors";
 import { formatEmailData, formatUserData } from "./transforms";
-import type { User } from "../../../types";
+import getProvider from "..";
 import type { Message, User as MsUser, Domain } from "@microsoft/microsoft-graph-types";
-import NodeCache from 'node-cache';
 import { parseEmailDomain } from "utils";
 
-export const fetchEmailsForUser = async (options: Omit<RequestOptions, 'users'> & { user: string }, env: EndpointExtensionContext["env"]) => {
+const provider: Provider = Provider.Azure
+
+const fetchEmailsForUser = async (options: Omit<RequestOptions, 'users'> & { user: string }, env: EndpointExtensionContext["env"]) => {
     try {
         const client = useMicrosoft(env);
         // NOTE using nested any selectors, such as t:t/emailAddress/address breaks stuff
@@ -51,12 +52,19 @@ export const fetchEmails = async (options: RequestOptions, env: EndpointExtensio
         let { users, ...rest } = options
 
         // The array availableUsers is a list of all users accounts that the current user has access to
-        const availableUsers = await fetchUsers(env, permissions)
-        const permittedEmails = availableUsers.map(user => user.email).filter(Boolean) as string[]
+        // Cant directly reference the function in this file, because we want it wrapped in cache!
+        const availableUsers = await getProvider(provider).fetchUsers(env, permissions)
+
+        
         if (!users?.length) {
-            users = permittedEmails
+            users = availableUsers.map(user => user.id).filter(Boolean) as string[]
         } else {
-            users = users.filter(user => permittedEmails.includes(user))
+            // create an array of both emails and ids, since both can be used to fetch emails
+            const permittedUsers = [
+                ...availableUsers.map(user => user.email).filter(Boolean) as string[],
+                ...availableUsers.map(user => user.id).filter(Boolean) as string[]
+            ]
+            users = users.filter(user => permittedUsers.includes(user))
         }
 
         const orgDomains = await fetchOrgDomains(env)
@@ -85,14 +93,8 @@ export const fetchEmails = async (options: RequestOptions, env: EndpointExtensio
 }
 
 
-const userCache = new NodeCache({ stdTTL: 60 * 60 * 4 });
 export const fetchUsers = async (env: EndpointExtensionContext["env"], permissions: EmailViewerPermission) => {
     try {
-        const cacheKey = 'users_user:' + permissions.userId
-        const cachedData = userCache.get(cacheKey);
-        if (cachedData) {
-            return cachedData as User[]
-        }
         const client = useMicrosoft(env);
         const data = await client.api('/users').filter("userType eq 'member'").select('id,userPrincipalName,email,assignedPlans,displayName,givenName,surname').top(500).get() as { value: MsUser[] };
         
@@ -114,9 +116,7 @@ export const fetchUsers = async (env: EndpointExtensionContext["env"], permissio
             return permissions.canViewAddresses.includes(user.email)
         })
 
-        if (filteredUsers) {
-            userCache.set(cacheKey, filteredUsers)
-        }
+        
         return filteredUsers
     } catch (err) {
         throw new ProviderError({
@@ -125,19 +125,13 @@ export const fetchUsers = async (env: EndpointExtensionContext["env"], permissio
     }
 }
 
-const domainCache = new NodeCache({ stdTTL: 60 * 60 * 24 });
+
 export const fetchOrgDomains = async (env: EndpointExtensionContext["env"]) => {
     try {
-        if (domainCache.get('domains')) {
-            return domainCache.get('domains') as string[]
-        }
         const client = useMicrosoft(env);
         const data = await client.api('/domains').top(500).get() as { value: Domain[] };
-
         const domainList = data.value.filter(domain => domain.supportedServices?.includes('Email')).map(domain => domain.id).filter(Boolean) as string[]
-        if (domainList.length) {
-            domainCache.set('domains', domainList)
-        }
+        
         return domainList
     } catch (err) {
         throw new ProviderError({

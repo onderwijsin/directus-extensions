@@ -1,3 +1,5 @@
+![](https://raw.githubusercontent.com/onderwijsin/directus-extensions/main/packages/directus-bundle-email-viewer/docs/Email_Viewer_Interface.gif)
+
 # Directus Email Viewer
 Fetch all emails sent and received by your organization (or a subset of your organization's users) for a given email address, and list the metadata in a searchable interface. Very usefull for an internal CRM application, where you want to see teamwide email correspondence for any of the stored contacts.
 
@@ -21,6 +23,7 @@ To use this extension in your Directus app, you'll need to follow the steps belo
 
 You can find specific docs on how to get the proper token within the provider's directory.
 
+![](https://raw.githubusercontent.com/onderwijsin/directus-extensions/main/packages/directus-bundle-email-viewer/docs/Email_Viewer_Settings.gif)
 
 ## Supported providers
 This extension currenlt supports the following email providers. Want to add a new provider to the list? Submit a PR!
@@ -28,7 +31,7 @@ This extension currenlt supports the following email providers. Want to add a ne
 - [Microsoft Azure (via MS Graph)](https://github.com/onderwijsin/directus-extensions/blob/main/packages/directus-bundle-email-viewer/README.md)
 
 ## Gotchas
-- You can manually set the cache for fetching emails via env variables. But there's also cache applied to internal methods, to significantly increase performance:
+- You can manually set the cache for the added routes via env variables. But there's also cache applied to internal methods, to significantly increase performance:
   - Organization Domains are cached for 24 hours
   - Organization users are cached for 4 hours
-  - User permissions are cached for 4 hours 
+  - User permissions are cached for 1 min
