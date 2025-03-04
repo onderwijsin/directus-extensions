@@ -32,6 +32,7 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
 import type { Ref } from 'vue';
+import { watchDebounced } from '@vueuse/core';
 import { useApi } from '@directus/extensions-sdk';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
@@ -96,7 +97,6 @@ const type = computed(() => {
 
 const isCreate = computed(() => props.primaryKey === '+')
 
-
 watch(() => props.primaryKey, fetchEmailValue)
 
 
@@ -153,7 +153,8 @@ watch(query, (newQuery) => {
 	localStorage.setItem('email_history_interface:query', newQuery || '');
 });
 
-watch([email, limit, users, query], fetchEmails)
+watch([email, limit, users], fetchEmails)
+watchDebounced(query, fetchEmails, { debounce: 200 })
 
 </script>
 

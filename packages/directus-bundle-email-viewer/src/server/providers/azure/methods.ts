@@ -1,13 +1,12 @@
 import type { EndpointExtensionContext } from "@directus/extensions";
 import useMicrosoft from './useMicrosoft';
-import { RequestOptions, EmailViewerPermission, Provider } from "../../../types";
+import { RequestOptions, EmailViewerPermission } from "../../../types";
 import { ProviderError } from "../../utils/errors";
 import { formatEmailData, formatUserData } from "./transforms";
-import getProvider from "..";
 import type { Message, User as MsUser, Domain } from "@microsoft/microsoft-graph-types";
-import { parseEmailDomain } from "utils";
+import { parseEmailDomain, cacheProvider } from "utils";
+import { cacheConfig } from "../../utils/cache";
 
-const provider: Provider = Provider.Azure
 
 const fetchEmailsForUser = async (options: Omit<RequestOptions, 'users'> & { user: string }, env: EndpointExtensionContext["env"]) => {
     try {
@@ -53,7 +52,8 @@ export const fetchEmails = async (options: RequestOptions, env: EndpointExtensio
 
         // The array availableUsers is a list of all users accounts that the current user has access to
         // Cant directly reference the function in this file, because we want it wrapped in cache!
-        const availableUsers = await getProvider(provider).fetchUsers(env, permissions)
+        const getUsers = cacheProvider(fetchUsers, cacheConfig.users, 'users')
+        const availableUsers = await getUsers(env, permissions)
 
         
         if (!users?.length) {
