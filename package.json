@@ -7,6 +7,7 @@
   "scripts": {
     "preci:publish": "pnpm -F './packages/**' build",
     "ci:publish": "pnpm publish -r --access public",
+    "dev": "pnpm --parallel run dev",
     "start": "docker compose up"
   },
   "keywords": [],
