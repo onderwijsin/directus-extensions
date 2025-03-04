@@ -52,14 +52,15 @@ fetchUsers()
     </div>
     
     <VNotice>
-        <template #title>On limits</template>
-        <p>
-           The amount of emails you see, is not always equal to the limit set. This is due to:<br>
-           <ol>
-            <li>email threads consisting of multiple emails (but only being one item in the list above);</li>
-            <li>The filtering of internal email traffic, which is being filtered after the limit is applied, due to technical reasons.</li>
-           </ol>           
-        </p>
+        <div>
+            <p style="margin-bottom: 0.5rem;">
+                The amount of emails you see, is not always equal to the limit set. This is due to:       
+            </p>
+            <ol>
+                <li>email threads consisting of multiple emails (but only being one item in the list above);</li>
+                <li>The filtering of internal email traffic, which is being filtered after the limit is applied, due to technical reasons.</li>
+            </ol>
+        </div>
     </VNotice>
     
 </template>
