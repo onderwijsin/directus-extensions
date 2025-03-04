@@ -1,2 +1,3 @@
 packages:
   - "packages/*"  # All extensions will be inside the `packages` folder
+  - "utils"       # The `utils` package is outside the `packages` folder
