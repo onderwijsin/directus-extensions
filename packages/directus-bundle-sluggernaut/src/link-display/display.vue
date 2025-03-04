@@ -1,43 +1,20 @@
 <template>
 	<div class="link-display">
 		<span>{{ value }}</span>
-		<div v-if="isSupported" class="copy-btn-holder">
-			<VButton secondary x-small icon @click.stop="copy(value)">
-				<VIcon  
-					:name="!copied ? 'content_copy' : 'check'" 
-					:small="true"
-					color="#878787"
-				/>
-			</VButton>
-		</div>
+		<CopyButton :value="value" x-small class="copy-btn-display" />
 	</div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
-import { useClipboard } from '@vueuse/core'
+<script lang="ts" setup>
+import CopyButton from '../shared/CopyButton.vue';
 
-export default defineComponent({
-	props: {
-		value: {
-			type: String,
-			default: null,
-		},
-	},
-	setup() {
-		const { copy, copied, isSupported } = useClipboard()
+defineProps<{
+	value: string | null;
+}>();
 
-
-		return {
-			copy,
-			isSupported,
-			copied,
-		};
-	},
-});
 </script>
 
-<style>
+<style scoped>
 .link-display {
 	position: relative;
 	display: flex;
@@ -46,13 +23,7 @@ export default defineComponent({
 	align-items: center;
 	width: 100%
 }
-
-.copy-btn-holder {
-	display: grid;
-	place-content: center;
-	position: absolute;
+.copy-btn-display {
 	right: -12px;
-	top: 50%;
-	transform: translateY(-50%);
 }
 </style>

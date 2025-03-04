@@ -6,7 +6,6 @@ export const collectionSchema = {
 		icon: "route",
 		note: 'Stores redirects for changed slugs',
 		display_template: '{{origin}} → {{destination}}',
-		color: "#A2B5CD",
 		accountability: 'all',
 		singleton: false,
 		hidden: false

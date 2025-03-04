@@ -58,7 +58,7 @@ export default defineHook(({ filter }, hookContext) => {
 
         const parentInputId: string | undefined = parentFieldKey ? (payload as Record<string, any>)[parentFieldKey] : undefined;
 
-        // We should manually check to see if recursive ancestory is created when a new parent is assigned. Becasue this will break down the system
+        // We should manually check to see if recursive ancestory is created when a new parent is assigned. Because this will break the system
         if (parentInputId) {
             await preventRecursiveAncestory(
                 meta.keys,
@@ -84,7 +84,7 @@ export default defineHook(({ filter }, hookContext) => {
             } 
         }
 
-        // Then, we need to check if a path, and ONLY a path is provided. This would happen if the parent is changed, and this triggered a child update. In that case we need to manually set the path value
+        // Then, we need to check if a path is provided. This would happen if the parent is changed, and this triggered a child update. In that case we need to manually set the path value
         let path = null
         if (Object.keys(payload).length === 1 && pathField && (payload as Record<string, any>)[pathField.field]) {
             path = {

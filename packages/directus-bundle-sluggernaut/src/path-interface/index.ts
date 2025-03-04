@@ -16,7 +16,7 @@ export default defineInterface({
 				required: false,
 				meta: {
 					width: 'full',
-					required: true,
+					required: false,
 					interface: "system-field",
 					options: {
 						collectionName: collection,

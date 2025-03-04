@@ -25,14 +25,11 @@ export default defineHook(async (
 		},
 		hookContext
 	);
-	// await createCollectionFromSchemas(collection, { services, getSchema }, { fieldSchema, relationSchema, collectionSchema });
 
 	// /* STEP 2: add namespace field to collections */
-	// await addNamespaceFieldToCollections({ services, getSchema });
 	await createOrUpdateFieldsInCollection('directus_collections', namespaceFieldSchema, hookContext);
 
 	// /* STEP 3: add redirect config fields to directus_settings */
-	// await addFieldsToDirectusSettings({ services, getSchema });
 	await createOrUpdateFieldsInCollection('directus_settings', settingsFieldSchema, hookContext);
 
 
