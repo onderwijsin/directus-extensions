@@ -1,29 +1,39 @@
 import { defineHook } from '@directus/extensions-sdk';
-import { fieldSchema, relationSchema, collectionSchema } from './schema';
-import { createCollectionFromSchemas } from './createCollection';
-import { addFieldsToDirectusSettings } from './addSettingsFields';
-import { addNamespaceFieldToCollections } from './addNamespaceField';
+import { fieldSchema, relationSchema, collectionSchema, namespaceFieldSchema, settingsFieldSchema } from './schema';
 import { preventInfiniteLoop, recursivelyGetRedirectIDsByDestination, validateRedirect } from './utils';
 import { EventContext } from '@directus/types';
 import { getPathString, getSluggernautSettings } from '../shared/utils'
 const collection = 'redirects';
 
+import { createOrUpdateCollection, createOrUpdateFieldsInCollection } from 'utils';
 
 export default defineHook(async (
 	{ filter, action },
 	hookContext
 ) => {
 
-	const { getSchema, services, emitter, logger, env } = hookContext;
+	const { services, emitter, logger, env } = hookContext;
+
 
 	// /* STEP 1: Create redirect collection, fields and relations, or update existing ones with inproper config */
-	await createCollectionFromSchemas(collection, { services, getSchema }, { fieldSchema, relationSchema, collectionSchema });
+	await createOrUpdateCollection(
+		collection, 
+		{
+			collectionSchema,
+			fieldSchema,
+			relationSchema
+		},
+		hookContext
+	);
+	// await createCollectionFromSchemas(collection, { services, getSchema }, { fieldSchema, relationSchema, collectionSchema });
 
 	// /* STEP 2: add namespace field to collections */
-	await addNamespaceFieldToCollections({ services, getSchema });
+	// await addNamespaceFieldToCollections({ services, getSchema });
+	await createOrUpdateFieldsInCollection('directus_collections', namespaceFieldSchema, hookContext);
 
 	// /* STEP 3: add redirect config fields to directus_settings */
-	await addFieldsToDirectusSettings({ services, getSchema });
+	// await addFieldsToDirectusSettings({ services, getSchema });
+	await createOrUpdateFieldsInCollection('directus_settings', settingsFieldSchema, hookContext);
 
 
 	filter('redirects.items.create', async (payload, meta, eventContext) => {

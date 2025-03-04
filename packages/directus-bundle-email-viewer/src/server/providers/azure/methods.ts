@@ -1,12 +1,12 @@
 import type { EndpointExtensionContext } from "@directus/extensions";
 import useMicrosoft from './useMicrosoft';
-import { RequestOptions, EmailViewerPermission } from "../../../types.d";
+import { RequestOptions, EmailViewerPermission } from "../../../types";
 import { ProviderError } from "../../utils/errors";
 import { formatEmailData, formatUserData } from "./transforms";
 import type { User } from "../../../types";
 import type { Message, User as MsUser, Domain } from "@microsoft/microsoft-graph-types";
 import NodeCache from 'node-cache';
-import { parseEmailDomain } from "../../utils/helpers";
+import { parseEmailDomain } from "utils";
 
 export const fetchEmailsForUser = async (options: Omit<RequestOptions, 'users'> & { user: string }, env: EndpointExtensionContext["env"]) => {
     try {

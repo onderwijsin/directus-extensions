@@ -1,4 +1,3 @@
-
 /**
  * Parses the domain from an email address.
  *
