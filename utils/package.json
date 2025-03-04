@@ -6,9 +6,6 @@
   "main": "src/index.ts",
   "types": "src/index.d.ts",
   "type": "module",
-  "scripts": {
-    "build": "tsc"
-  },
   "devDependencies": {
     "@directus/api": "^24.0.1",
     "@directus/extensions": "^3.0.2",
