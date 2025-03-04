@@ -1,7 +1,7 @@
 
-### Step 1: Register Your Application in Entra AD (Azure Active Directory)
+### Step 1: Register Your Application in Entra Admin (Azure Active Directory)
 
-1. Sign in to the Azure portal: Go to [https://portal.azure.com](https://portal.azure.com) and sign in with your organizational account.
+1. Sign in to the Entra Admin center: Go to [https://entra.microsoft.com](https://entra.microsoft.com) and sign in with your organizational account.
 2. Register a new application:
     - Navigate to Entra Admin Centre (formerly "Azure Active Directory") -> "App registrations" -> "New registration".
     - Provide a name for your application (e.g., "Directus Email Viewer Service").
@@ -18,11 +18,8 @@
     - Add the following permissions:
         - `Mail.Read`
         - `Mail.Read.Shared`
-        - `Mail.ReadWrite`
-        - `Mail.ReadWrite.Shared`
         - `User.Read`
         - `User.Read.All`
-        - `User-Mail.ReadWrite.All`
         - `Domain.Read.All`
 
 2. Grant admin consent:

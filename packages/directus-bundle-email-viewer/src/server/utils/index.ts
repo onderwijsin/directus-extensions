@@ -7,7 +7,7 @@ import NodeCache from 'node-cache';
 
 
 
-const permissionsCache = new NodeCache({ stdTTL: 60 * 60 * 4 });
+const permissionsCache = new NodeCache({ stdTTL: 60 });
 export const getEmailViewerPermissions = async (accountability: Accountability, context: ApiExtensionContext) => {
     if (!accountability.user) throw new ForbiddenError(); 
 

@@ -1,27 +1,30 @@
 <template>
-	<VDivider
-		:inlineTitle="true"
-		:large="true"
-	>
-		<VIcon name="email" />
-		<span>Emails</span>
-	</VDivider>
-	<EmailSearch v-model="query" />
-	<SkeletonEmailList v-if="!isCreate && pending" />
-	<VNotice v-else-if="!isCreate && !data.length" :type="type" :icon="pending ? 'autorenew' : undefined">
-		{{ label }}
-	</VNotice>
-	<EmailList v-else="!isCreate" :data="data" />
-	<div style="padding: 20px 0px;">
+	<div v-if="!isCreate">
 		<VDivider
 			:inlineTitle="true"
-			:large="false"
+			:large="true"
 		>
-			<VIcon name="inbox_customize" />
-			<span>Options</span>
+			<VIcon name="email" />
+			<span>Emails</span>
 		</VDivider>
-		<EmailListOptions v-if="!isCreate" v-model:limit="limit" v-model:users="users" />
+		<EmailSearch v-model="query" />
+		<SkeletonEmailList  v-if="loading" />
+		<VNotice v-else-if="!data.length" :type="type" :icon="loading ? 'autorenew' : undefined">
+			{{ label }}
+		</VNotice>
+		<EmailList v-else :data="data" />
+		<div style="padding: 20px 0px;">
+			<VDivider
+				:inlineTitle="true"
+				:large="false"
+			>
+				<VIcon name="inbox_customize" />
+				<span>Options</span>
+			</VDivider>
+			<EmailListOptions v-model:limit="limit" v-model:users="users" />
+		</div>
 	</div>
+	
 	
 	
 </template>
@@ -50,15 +53,22 @@ const props = defineProps<{
 	collection: string;
 }>();
 
+function triggerLoadingState() {
+    setTimeout(() => {
+		if (pending.value) loading.value = true;
+    }, 200);
+}
 
 const api = useApi();
 
 const email = ref('')
 const pending = ref(true)
+const loading = ref(true)
 const error: Ref<any> = ref(null)
 async function fetchEmailValue() {
 	if (!props.email_field || isCreate.value) return;
 	pending.value = true
+	loading.value = true
 	try {
 		const response = await api.get(`/items/${props.collection}/${props.primaryKey}`);
 		email.value = response.data.data[props.email_field];
@@ -66,6 +76,7 @@ async function fetchEmailValue() {
 	} catch (err) {
 		error.value = err;
 		pending.value = false
+		loading.value = false
 		console.warn(err);
 	}
 }
@@ -94,6 +105,7 @@ const data: Ref<FormattedEmail[]> = ref([])
 async function fetchEmails() {
 	if (!email.value) return;
 	pending.value = true
+	triggerLoadingState();
 	try {
 		const response: { data: Email[] } = await api.post(`/server/email-viewer/emails`, {
 			email: email.value,
@@ -104,10 +116,12 @@ async function fetchEmails() {
 
 		data.value = formatData(response.data);
 		pending.value = false
+		loading.value = false
 		return ;
 	} catch (err) {
 		error.value = err;
 		pending.value = false
+		loading.value = false
 		console.warn(err);
 	}
 }

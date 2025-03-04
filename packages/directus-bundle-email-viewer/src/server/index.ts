@@ -1,10 +1,9 @@
 import { defineEndpoint } from '@directus/extensions-sdk';
 import { Provider } from '../types';
-import providers from './providers';
+import getProvider from './providers';
 import { z } from 'zod';
 import NodeCache from 'node-cache';
 import { InvalidProvider } from './utils/errors';
-
 import { createOrUpdateFieldsInCollection } from 'utils'
 import { getEmailViewerPermissions } from './utils';
 import { policyFieldsSchema } from './schema';
@@ -49,21 +48,21 @@ export default defineEndpoint(async (router, context) => {
 			const cacheKey = JSON.stringify(parsedBody);
 			const cachedData = cache.get(cacheKey);
             if (cachedData) {
-                res.json(cachedData);
+                return res.json(cachedData);
             }
 
 			const permissions = req.emailViewerPermissions;
-			const data = await providers[provider].fetchEmails(parsedBody, env, permissions);
+			const data = await getProvider(provider).fetchEmails(parsedBody, env, permissions);
 			if (data) {
 				cache.set(cacheKey, data);
 			} 
-			res.json(data);
+			return res.json(data);
 		} catch (error) {
 			if (error instanceof z.ZodError) {
-                res.status(400).json({ errors: error.errors });
+                return res.status(400).json({ errors: error.errors });
             } else {
 				console.log(error)
-                res.status(500).send(error);
+                return res.status(500).send(error);
             }
 		}
 	});
@@ -75,16 +74,16 @@ export default defineEndpoint(async (router, context) => {
 			const cacheKey = 'users_user:' + (req as any).accountability.user
 			const cachedData = cache.get(cacheKey);
 			if (cachedData) {
-                res.json(cachedData);
+                return res.json(cachedData);
             }
 			const permissions = req.emailViewerPermissions;
-			const data = await providers[provider].fetchUsers(env, permissions);
+			const data = await getProvider(provider).fetchUsers(env, permissions);
 			if (data) {
 				cache.set(cacheKey, data);
 			} 
-			res.json(data)
+			return res.json(data)
 		} catch (error) {
-			res.status(500).json(error)
+			return res.status(500).json(error)
 		}
 	});
 
@@ -93,15 +92,15 @@ export default defineEndpoint(async (router, context) => {
 			const cacheKey = 'domains'
 			const cachedData = cache.get(cacheKey);
 			if (cachedData) {
-                res.json(cachedData);
+                return res.json(cachedData);
             }
-			const data = await providers[provider].fetchOrgDomains(env);
+			const data = await getProvider(provider).fetchOrgDomains(env);
 			if (data) {
 				cache.set(cacheKey, data);
 			} 
-			res.json(data)
+			return res.json(data)
 		} catch (error) {
-			res.status(500).json(error)
+			return res.status(500).json(error)
 		}
 	});
 });
