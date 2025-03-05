@@ -1,0 +1,49 @@
+{
+	"name": "@onderwijsin/directus-extension-data-sync",
+	"description": "Sync data between multiple Directus instances",
+	"icon": "extension",
+	"version": "1.0.0",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijs.in",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijs.in",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-hook"
+	],
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"directus:extension": {
+		"type": "hook",
+		"path": "dist/index.js",
+		"source": "src/index.ts",
+		"host": "^10.10.0 || ^11.0.0"
+	},
+	"license": "MIT",
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"validate": "directus-extension validate"
+	},
+	"devDependencies": {
+		"@directus/api": "^24.0.1",
+		"@directus/errors": "^2.0.0",
+		"@directus/extensions": "^3.0.2",
+		"@directus/extensions-sdk": "13.0.1",
+		"@directus/types": "^13.0.0",
+		"@types/node": "^22.13.9",
+		"typescript": "^5.8.2"
+	}
+}
