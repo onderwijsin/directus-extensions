@@ -31,4 +31,6 @@ export const SYNC_CONFIG = (env: ApiExtensionContext["env"]) => ({
             ]
         }
     ]
-  })
+})
+
+export type SyncConfig = ReturnType<typeof SYNC_CONFIG>;
