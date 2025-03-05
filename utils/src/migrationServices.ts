@@ -2,6 +2,11 @@ import { Field, Collection, Relation } from '@directus/types';
 import { ApiExtensionContext } from '@directus/extensions'
 import type { FieldsService, RelationsService, CollectionsService } from '@directus/api/dist/services';
 
+const fieldTypeMap: { [key: string]: string } = {
+    'timestamp without time zone': 'datetime',
+    'character varying': 'varchar',
+    'uuid': 'char'
+}
 
 /**
  * Compares two field configurations to check if they are equal.
@@ -24,7 +29,25 @@ const equalFieldConfig = (field1: Field, field2: Field): boolean => {
     }
 
     return Object.entries(field1.schema).every(
-        ([key, value]) => field2.schema?.[key as keyof typeof field2.schema] === value
+        ([key, value]) => {
+            // There is different schema props for different database providers. 
+            // We need to check if the current value is string or number. If not, its falsy or thruthy,
+            // And we can equate them directly. In that case it doesnt matter if a field is not present
+            // in the other field schema
+
+            // Except for field type values! These strings differ between database providers.
+            // See fieldTypeMap for the (rather incomplete) mapping
+            const value2 = field2.schema?.[key as keyof typeof field2.schema];
+
+            if (typeof value === 'number') return value2 === value
+
+            if (typeof value === 'string' && typeof value2 === 'string') {
+                return value2 === value || fieldTypeMap[value2] === value || fieldTypeMap[value] === value2
+            }
+            if (typeof value === 'string') return value2 === value
+
+            return !!value === !!value2
+        }
     );
 }
 
@@ -52,8 +75,17 @@ const equalRelationConfig = (relation1: Relation, relation2: Relation): boolean 
         return false;
     }
 
+            
+
     return Object.entries(relation1.schema).every(
-        ([key, value]) => relation2.schema?.[key as keyof typeof relation2.schema] === value
+        ([key, value]) => {
+            const value2 = relation2.schema?.[key as keyof typeof relation2.schema];
+            if (typeof value === 'string' && typeof value2 === 'string') {
+                return value2 === value || fieldTypeMap[value2] === value || fieldTypeMap[value] === value2
+            }
+            if (typeof value === 'string') return value2 === value
+            return !!value === !!value2
+        }
     );
 }
 
@@ -168,6 +200,7 @@ export const createOrUpdateFieldsInCollection = async (
 
         fieldSchema.forEach((field) => {
             const existingField = fields.find((f: Field) => f.field === field.field);
+
             if (!existingField) {
                 missingFields.push(field);
             } else if (!equalFieldConfig(field, existingField)) {
