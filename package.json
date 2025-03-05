@@ -8,7 +8,8 @@
     "preci:publish": "pnpm -F './packages/**' build",
     "ci:publish": "pnpm publish -r --access public",
     "dev": "pnpm --parallel run dev",
-    "start": "docker compose up"
+    "start": "docker compose up",
+    "network": "docker-compose -f network.docker-compose.yml up"
   },
   "keywords": [],
   "author": "",

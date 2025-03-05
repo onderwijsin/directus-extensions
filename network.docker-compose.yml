@@ -1,0 +1,70 @@
+services:
+    directus1:
+        env_file:
+            - .env
+        image: directus/directus:11.4.1
+        ports:
+            - 8055:8055
+        volumes:
+            - ./.local/uploads:/directus/uploads
+            - ./packages:/directus/extensions/
+            - ./.local/database:/directus/database
+        environment:
+            PUBLIC_URL: "http://localhost:8055"
+            SECRET: "replace-with-random-value"
+            ADMIN_EMAIL: "admin@example.com"
+            ADMIN_PASSWORD: "admin"
+            DB_CLIENT: "sqlite3"
+            DB_FILENAME: "/directus/database/directus1.db"
+            EXTENSIONS_AUTO_RELOAD: true
+            WEBSOCKETS_ENABLED: true
+            SESSION_COOKIE_NAME: "directus1_session_token"
+        networks:
+          - directus-net
+    directus2:
+        env_file:
+            - .env
+        image: directus/directus:11.4.1
+        ports:
+            - 8056:8055
+        volumes:
+            - ./.local/uploads:/directus/uploads
+            - ./packages:/directus/extensions/
+            - ./.local/database:/directus/database
+        environment:
+            PUBLIC_URL: "http://localhost:8056"
+            SECRET: "replace-with-random-value"
+            ADMIN_EMAIL: "admin@example.com"
+            ADMIN_PASSWORD: "admin"
+            DB_CLIENT: "sqlite3"
+            DB_FILENAME: "/directus/database/directus2.db"
+            EXTENSIONS_AUTO_RELOAD: true
+            WEBSOCKETS_ENABLED: true
+            SESSION_COOKIE_NAME: "directus2_session_token"
+        networks:
+          - directus-net
+    directus3:
+        env_file:
+            - .env
+        image: directus/directus:11.4.1
+        ports:
+            - 8057:8055
+        volumes:
+            - ./.local/uploads:/directus/uploads
+            - ./packages:/directus/extensions/
+            - ./.local/database:/directus/database
+        environment:
+            PUBLIC_URL: "http://localhost:8057"
+            SECRET: "replace-with-random-value"
+            ADMIN_EMAIL: "admin@example.com"
+            ADMIN_PASSWORD: "admin"
+            DB_CLIENT: "sqlite3"
+            DB_FILENAME: "/directus/database/directus3.db"
+            EXTENSIONS_AUTO_RELOAD: true
+            WEBSOCKETS_ENABLED: true
+            SESSION_COOKIE_NAME: "directus3_session_token"
+        networks:
+          - directus-net
+networks:
+  directus-net:
+    driver: bridge
