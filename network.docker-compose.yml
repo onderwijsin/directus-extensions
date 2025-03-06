@@ -1,4 +1,6 @@
 services:
+
+    # Directus instances
     directus1:
         env_file:
             - .env
@@ -8,63 +10,115 @@ services:
         volumes:
             - ./.local/uploads:/directus/uploads
             - ./packages:/directus/extensions/
-            - ./.local/database:/directus/database
+        depends_on:
+            - database1
         environment:
             PUBLIC_URL: "http://localhost:8055"
             SECRET: "replace-with-random-value"
             ADMIN_EMAIL: "admin@example.com"
             ADMIN_PASSWORD: "admin"
-            DB_CLIENT: "sqlite3"
-            DB_FILENAME: "/directus/database/directus1.db"
+            DB_CLIENT: "pg"
+            DB_HOST: "database1"
+            DB_PORT: 5432
+            DB_DATABASE: "directus1"
+            DB_USER: "directus"
+            DB_PASSWORD: "directus"
             EXTENSIONS_AUTO_RELOAD: true
             WEBSOCKETS_ENABLED: true
             SESSION_COOKIE_NAME: "directus1_session_token"
         networks:
           - directus-net
-    # directus2:
-    #     env_file:
-    #         - .env
-    #     image: directus/directus:11.4.1
-    #     ports:
-    #         - 8056:8055
-    #     volumes:
-    #         - ./.local/uploads:/directus/uploads
-    #         - ./packages:/directus/extensions/
-    #         - ./.local/database:/directus/database
-    #     environment:
-    #         PUBLIC_URL: "http://localhost:8056"
-    #         SECRET: "replace-with-random-value"
-    #         ADMIN_EMAIL: "admin@example.com"
-    #         ADMIN_PASSWORD: "admin"
-    #         DB_CLIENT: "sqlite3"
-    #         DB_FILENAME: "/directus/database/directus2.db"
-    #         EXTENSIONS_AUTO_RELOAD: true
-    #         WEBSOCKETS_ENABLED: true
-    #         SESSION_COOKIE_NAME: "directus2_session_token"
-    #     networks:
-    #       - directus-net
-    # directus3:
-    #     env_file:
-    #         - .env
-    #     image: directus/directus:11.4.1
-    #     ports:
-    #         - 8057:8055
-    #     volumes:
-    #         - ./.local/uploads:/directus/uploads
-    #         - ./packages:/directus/extensions/
-    #         - ./.local/database:/directus/database
-    #     environment:
-    #         PUBLIC_URL: "http://localhost:8057"
-    #         SECRET: "replace-with-random-value"
-    #         ADMIN_EMAIL: "admin@example.com"
-    #         ADMIN_PASSWORD: "admin"
-    #         DB_CLIENT: "sqlite3"
-    #         DB_FILENAME: "/directus/database/directus3.db"
-    #         EXTENSIONS_AUTO_RELOAD: true
-    #         WEBSOCKETS_ENABLED: true
-    #         SESSION_COOKIE_NAME: "directus3_session_token"
-    #     networks:
-    #       - directus-net
+    directus2:
+        env_file:
+            - .env
+        image: directus/directus:11.4.1
+        ports:
+            - 8056:8055
+        depends_on:
+            - database2
+        volumes:
+            - ./.local/uploads:/directus/uploads
+            - ./packages:/directus/extensions/
+        environment:
+            PUBLIC_URL: "http://localhost:8056"
+            SECRET: "replace-with-random-value"
+            ADMIN_EMAIL: "admin@example.com"
+            ADMIN_PASSWORD: "admin"
+            DB_CLIENT: "pg"
+            DB_HOST: "database2"
+            DB_PORT: 5432
+            DB_DATABASE: "directus2"
+            DB_USER: "directus"
+            DB_PASSWORD: "directus"
+            EXTENSIONS_AUTO_RELOAD: true
+            WEBSOCKETS_ENABLED: true
+            SESSION_COOKIE_NAME: "directus2_session_token"
+        networks:
+          - directus-net
+    directus3:
+        env_file:
+            - .env
+        image: directus/directus:11.4.1
+        ports:
+            - 8057:8055
+        volumes:
+            - ./.local/uploads:/directus/uploads
+            - ./packages:/directus/extensions/
+        depends_on:
+            - database3
+        environment:
+            PUBLIC_URL: "http://localhost:8057"
+            SECRET: "replace-with-random-value"
+            ADMIN_EMAIL: "admin@example.com"
+            ADMIN_PASSWORD: "admin"
+            DB_CLIENT: "pg"
+            DB_HOST: "database3"
+            DB_PORT: 5432
+            DB_DATABASE: "directus3"
+            DB_USER: "directus"
+            DB_PASSWORD: "directus"
+            EXTENSIONS_AUTO_RELOAD: true
+            WEBSOCKETS_ENABLED: true
+            SESSION_COOKIE_NAME: "directus3_session_token"
+        networks:
+          - directus-net
+
+    # Databases
+    database1:
+        image: postgis/postgis:15-master
+        platform: linux/amd64
+        volumes:
+            - ./.local/database/postgres-15-db1:/var/lib/postgresql/data
+        environment:
+            POSTGRES_DB: directus1
+            POSTGRES_USER: directus
+            POSTGRES_PASSWORD: directus
+        networks:
+          - directus-net
+
+    database2:
+        image: postgis/postgis:15-master
+        platform: linux/amd64
+        volumes:
+            - ./.local/database/postgres-15-db2:/var/lib/postgresql/data
+        environment:
+            POSTGRES_DB: directus2
+            POSTGRES_USER: directus
+            POSTGRES_PASSWORD: directus
+        networks:
+          - directus-net
+
+    database3:
+        image: postgis/postgis:15-master
+        platform: linux/amd64
+        volumes:
+            - ./.local/database/postgres-15-db3:/var/lib/postgresql/data
+        environment:
+            POSTGRES_DB: directus3
+            POSTGRES_USER: directus
+            POSTGRES_PASSWORD: directus
+        networks:
+          - directus-net
 networks:
   directus-net:
     driver: bridge

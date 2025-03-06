@@ -99,7 +99,7 @@ const equalRelationConfig = (relation1: Relation, relation2: Relation): boolean 
  * @returns A promise that resolves when the callback function executes successfully or rejects if the maximum retries are reached.
  * @throws Will throw an error if the callback function fails with an error other than 'aborted' or if the maximum retries are reached.
  */
-const safeSchemaChangesOnStartup = async (callback: Function, args: any[], retry = 0) => {
+export const safeSchemaChangesOnStartup = async (callback: Function, args: any[], retry = 0) => {
     try {
         await callback(...args);
     } catch (error: any) {
@@ -110,6 +110,23 @@ const safeSchemaChangesOnStartup = async (callback: Function, args: any[], retry
         } else {
             throw error;
         }
+    }
+}
+
+/**
+ * A wrapper function to check if a certain items already exists in the database.
+ * You need to supply your own service.readOne() function to check if the item exists.
+ * If it doesn't exist, the service will throw an error, which checkIfItemExists() will catch.
+ *
+ * @param callback - The service.readOne() to be executed.
+ * @returns a promise that resolves to true if the item exists, false otherwise.
+ */
+export const checkIfItemExists = async (callback: Function): Promise<boolean> => {
+    try {
+        await callback();
+        return true
+    } catch (error: any) {
+        return false
     }
 }
 

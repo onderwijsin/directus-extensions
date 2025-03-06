@@ -102,6 +102,13 @@ importers:
         version: 3.5.13(typescript@5.7.3)
 
   packages/directus-extension-data-sync:
+    dependencies:
+      ofetch:
+        specifier: ^1.4.1
+        version: 1.4.1
+      utils:
+        specifier: workspace:^
+        version: link:../../utils
     devDependencies:
       '@directus/api':
         specifier: ^24.0.1
@@ -111,7 +118,7 @@ importers:
         version: 2.0.0
       '@directus/extensions':
         specifier: ^3.0.2
-        version: 3.0.2(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(pg@8.13.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))
+        version: 3.0.2(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))
       '@directus/extensions-sdk':
         specifier: 13.0.1
         version: 13.0.1(@types/node@22.13.9)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.12.0)(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(sqlite3@5.1.7)(tedious@18.6.1)(terser@5.39.0)(typescript@5.8.2)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))
@@ -2865,6 +2872,9 @@ packages:
     resolution: {integrity: sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==}
     engines: {node: '>= 0.8'}
 
+  destr@2.0.3:
+    resolution: {integrity: sha512-2N3BOUU4gYMpTP24s5rF5iP7BDr7uNTCs4ozw3kf/eKfvWSIu93GEBi5m427YoyJoeOzQ5smuu4nNAPGb8idSQ==}
+
   destroy@1.2.0:
     resolution: {integrity: sha512-2sJGJTaXIIaR1w4iJSNoN0hnMY7Gpc/n8D4qSCJw8QqFWXf7cuAgnEHxBpweaVcPevC2l3KpjYCx3NypQQgaJg==}
     engines: {node: '>= 0.8', npm: 1.2.8000 || >= 1.4.16}
@@ -4068,6 +4078,9 @@ packages:
     resolution: {integrity: sha512-t1QzWwnk4sjLWaQAS8CHgOJ+RAfmHpxFWmc36IWTiWHQfs0w5JDMBS1b1ZxQteo0vVVuWJvIUKHDkkeK7vIGCg==}
     engines: {node: '>= 8.0.0'}
 
+  node-fetch-native@1.6.6:
+    resolution: {integrity: sha512-8Mc2HhqPdlIfedsuZoc3yioPuzp6b+L5jRCRY1QzuWZh2EGJVQrGppC6V6cF0bLdbW0+O2YpqCA25aF/1lvipQ==}
+
   node-fetch@2.7.0:
     resolution: {integrity: sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==}
     engines: {node: 4.x || >=6.0.0}
@@ -4159,6 +4172,9 @@ packages:
 
   obliterator@2.0.5:
     resolution: {integrity: sha512-42CPE9AhahZRsMNslczq0ctAEtqk8Eka26QofnqC346BZdHDySk3LWka23LI7ULIw11NmltpiLagIq8gBozxTw==}
+
+  ofetch@1.4.1:
+    resolution: {integrity: sha512-QZj2DfGplQAr2oj9KzceK9Hwz6Whxazmn85yYeVuS3u9XTMOGMRx0kO95MQ+vLsj/S/NwBDMMLU5hpxvI6Tklw==}
 
   oidc-token-hash@5.0.3:
     resolution: {integrity: sha512-IF4PcGgzAr6XXSff26Sk/+P4KZFJVuHAJZj3wgO3vX2bMdNVp/QXTP3P7CEm9V1IdG8lDLY3HhiqpsE/nOwpPw==}
@@ -5279,6 +5295,9 @@ packages:
     resolution: {integrity: sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  ufo@1.5.4:
+    resolution: {integrity: sha512-UsUk3byDzKd04EyoZ7U4DOlxQaD14JUKQl6/P7wiX4FNvUfm3XL246n9W5AmqwW5RSFJ27NAuM0iLscAOYUiGQ==}
 
   undici-types@6.20.0:
     resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
@@ -7458,7 +7477,7 @@ snapshots:
       - supports-color
       - tedious
 
-  '@directus/extensions@3.0.2(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(pg@8.13.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))':
+  '@directus/extensions@3.0.2(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))':
     dependencies:
       '@directus/constants': 13.0.0
       '@directus/themes': 1.0.8(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))
@@ -10009,6 +10028,8 @@ snapshots:
 
   depd@2.0.0: {}
 
+  destr@2.0.3: {}
+
   destroy@1.2.0: {}
 
   detect-indent@6.1.0: {}
@@ -11500,6 +11521,8 @@ snapshots:
     dependencies:
       clone: 2.1.2
 
+  node-fetch-native@1.6.6: {}
+
   node-fetch@2.7.0(encoding@0.1.13):
     dependencies:
       whatwg-url: 5.0.0
@@ -11643,6 +11666,12 @@ snapshots:
   object-inspect@1.13.4: {}
 
   obliterator@2.0.5: {}
+
+  ofetch@1.4.1:
+    dependencies:
+      destr: 2.0.3
+      node-fetch-native: 1.6.6
+      ufo: 1.5.4
 
   oidc-token-hash@5.0.3: {}
 
@@ -12947,6 +12976,8 @@ snapshots:
   typescript@5.7.3: {}
 
   typescript@5.8.2: {}
+
+  ufo@1.5.4: {}
 
   undici-types@6.20.0: {}
 
