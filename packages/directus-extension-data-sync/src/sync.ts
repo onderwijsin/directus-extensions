@@ -1,5 +1,5 @@
 import { ApiExtensionContext } from '@directus/extensions';
-import type { Meta, SyncConfig } from './types';
+import type { Meta, RemoteConfig } from './types';
 import { prunePayload } from './utils';
 import { ofetch } from 'ofetch';
 import { EventContext, PrimaryKey } from '@directus/types';
@@ -10,14 +10,17 @@ const handleNotifications = async (
         itemId: PrimaryKey,
         event: 'create' | 'update' | 'delete',
         remote: string,
+        message?: string
     },
-    config: SyncConfig['remotes'][number]['notifications'], 
+    config: {
+        users_notification: string[]
+    }, 
     eventContext: EventContext ,
     hookContext: ApiExtensionContext
 ) => {
     if (!config) return
 
-    if (!!config.users?.length) {
+    if (!!config.users_notification?.length) {
         // Send Directus native notification to lister users
         const { NotificationsService } = hookContext.services;
         const notifications = new NotificationsService({ 
@@ -25,7 +28,7 @@ const handleNotifications = async (
         });
 
 
-        const message = `
+        const message = error.message || `
         The Data Sync Extension encountered an error!\n\n
         Collection: ${error.collection}\n\n
         Item ID: ${error.itemId}\n\n
@@ -34,7 +37,7 @@ const handleNotifications = async (
         Check server logs for detailed error information.
         `;
 
-        for (const userId of config.users) {
+        for (const userId of config.users_notification) {
             await notifications.createOne({
                 recipient: userId,
                 subject: 'Data Sync Error',
@@ -48,13 +51,25 @@ const handleNotifications = async (
 
 export const syncData = async (
     meta: Meta, 
-    config: SyncConfig,
+    config: RemoteConfig[],
     eventContext: EventContext ,
     hookContext: ApiExtensionContext
 ) => {
     const { logger } = hookContext;
     // Loop over remotes and check wheter the collection is synced for a specific remote
-    for (const remote of config.remotes) {
+    for (const remote of config) {
+        if (!Array.isArray(remote.schema) || remote.schema.some(c => !c.name || !c.fields.every((field: unknown) => !!field && typeof field === 'string'))) {
+            logger.warn('Remote schema is not properly configured. Please check the schema configuration in the remote_data_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.')
+            await handleNotifications({
+                collection: meta.collection,
+                itemId: 'key' in meta ? meta.key : meta.keys.join(', '),
+                event: meta.event.split('.')[1] as 'create' | 'update' | 'delete',
+                remote: remote.url,
+                message: 'Remote schema is not properly configured. Please check the schema configuration in the remote_data_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.'
+            }, { users_notification: remote.users_notification}, eventContext, hookContext)
+            return
+        };
+
         const collection = remote.schema.find(c => c.name === meta.collection);
         if (!collection) return 
 
@@ -72,7 +87,7 @@ export const syncData = async (
                     await ofetch(`${remote.url}/items/${meta.collection}/${key}`, {
                         method: 'DELETE',
                         headers: {
-                            'Authorization': 'Bearer ' + remote.apiKey
+                            'Authorization': 'Bearer ' + remote.api_key
                         },
                     }).then(() => {
                         logger.info('Succesfully synced deleted item in remote: ' + remote.url + ' with id: ' + key + 'in collection: ' + meta.collection);
@@ -88,7 +103,7 @@ export const syncData = async (
                         itemId: key,
                         event: 'delete',
                         remote: remote.url
-                    }, remote.notifications, eventContext, hookContext)
+                    }, { users_notification: remote.users_notification }, eventContext, hookContext)
                 }
             }
     
@@ -115,7 +130,7 @@ export const syncData = async (
                     await ofetch(remote.url + '/items/' + meta.collection, {
                         method: 'POST',
                         headers: {
-                            'Authorization': 'Bearer ' + remote.apiKey
+                            'Authorization': 'Bearer ' + remote.api_key
                         },
                         body: payload
                     }).then(() => {
@@ -132,7 +147,7 @@ export const syncData = async (
                         itemId: meta.key,
                         event: 'delete',
                         remote: remote.url
-                    }, remote.notifications, eventContext, hookContext)
+                    }, { users_notification: remote.users_notification }, eventContext, hookContext)
                 }
         } else {
             // Send update event
@@ -153,7 +168,7 @@ export const syncData = async (
                     await ofetch(`${remote.url}/items/${meta.collection}/${key}`, {
                         method: 'PATCH',
                         headers: {
-                            'Authorization': 'Bearer ' + remote.apiKey
+                            'Authorization': 'Bearer ' + remote.api_key
                         },
                         body: prunedPayload
                     }).then(() => {
@@ -169,7 +184,7 @@ export const syncData = async (
                         itemId: key,
                         event: 'delete',
                         remote: remote.url
-                    }, remote.notifications, eventContext, hookContext)
+                    }, { users_notification: remote.users_notification }, eventContext, hookContext)
                 }
             }
         }

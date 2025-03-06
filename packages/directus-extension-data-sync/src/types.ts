@@ -1,5 +1,4 @@
 import { PrimaryKey } from '@directus/types';
-export type { SyncConfig } from './config';
 
 export type Meta = MetaCreate | MetaUpdate | MetaDelete;
 
@@ -22,3 +21,21 @@ type MetaDelete = {
     keys: PrimaryKey[];
     collection: string;
 };
+
+export interface BaseRemoteConfig {
+    id: PrimaryKey
+    status: 'published' | 'draft' | 'archived'
+    url: string
+    api_key: string
+    schema: Record<string, any>[] | null
+}
+
+export interface RawRemoteConfig extends BaseRemoteConfig {
+    users_notification: {
+        directus_users_id: string
+    }[]
+}
+
+export interface RemoteConfig extends BaseRemoteConfig {
+    users_notification: string[]
+}
