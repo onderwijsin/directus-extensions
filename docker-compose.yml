@@ -72,11 +72,6 @@ services:
       MYSQL_PASSWORD: directus
     ports:
       - 5102:3306
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "directus", "-pdirectus"]
-      interval: 3s
-      timeout: 5s
-      retries: 5
 
   mssql:
     image: mcr.microsoft.com/mssql/server:2019-latest
@@ -164,7 +159,7 @@ services:
     profiles: ["maria"]
     depends_on:
       maria:
-        condition: service_healthy
+        condition: service_started
       cache:
         condition: service_healthy
     environment:
