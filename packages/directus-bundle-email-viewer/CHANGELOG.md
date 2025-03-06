@@ -1,5 +1,14 @@
 # @onderwijsin/directus-bundle-email-viewer
 
+## 1.1.4
+
+### Patch Changes
+
+- Updated dependencies [143e474]
+- Updated dependencies [2d29e2c]
+- Updated dependencies [6a21da5]
+  - utils@0.1.2
+
 ## 1.1.3
 
 ### Patch Changes
