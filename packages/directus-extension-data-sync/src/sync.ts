@@ -11,13 +11,13 @@ const handleNotifications = async (
         event: 'create' | 'update' | 'delete',
         remote: string,
     },
-    config: SyncConfig, 
+    config: SyncConfig['remotes'][number]['notifications'], 
     eventContext: EventContext ,
     hookContext: ApiExtensionContext
 ) => {
-    if (!config.notifications) return
+    if (!config) return
 
-    if (config.notifications.users) {
+    if (!!config.users?.length) {
         // Send Directus native notification to lister users
         const { NotificationsService } = hookContext.services;
         const notifications = new NotificationsService({ 
@@ -25,9 +25,16 @@ const handleNotifications = async (
         });
 
 
-        const message = `The Data Sync Extension encountered an error!\n\nCollection: ${error.collection}\n\nItem ID: ${error.itemId}\n\nEvent: ${error.event}\n\nRemote: ${error.remote}.\n\nCheck server logs for detailed error information.`;
+        const message = `
+        The Data Sync Extension encountered an error!\n\n
+        Collection: ${error.collection}\n\n
+        Item ID: ${error.itemId}\n\n
+        Event: ${error.event}\n\n
+        Remote: ${error.remote}.\n\n
+        Check server logs for detailed error information.
+        `;
 
-        for (const userId of config.notifications.users) {
+        for (const userId of config.users) {
             await notifications.createOne({
                 recipient: userId,
                 subject: 'Data Sync Error',
@@ -81,7 +88,7 @@ export const syncData = async (
                         itemId: key,
                         event: 'delete',
                         remote: remote.url
-                    }, config, eventContext, hookContext)
+                    }, remote.notifications, eventContext, hookContext)
                 }
             }
     
@@ -125,7 +132,7 @@ export const syncData = async (
                         itemId: meta.key,
                         event: 'delete',
                         remote: remote.url
-                    }, config, eventContext, hookContext)
+                    }, remote.notifications, eventContext, hookContext)
                 }
         } else {
             // Send update event
@@ -162,7 +169,7 @@ export const syncData = async (
                         itemId: key,
                         event: 'delete',
                         remote: remote.url
-                    }, config, eventContext, hookContext)
+                    }, remote.notifications, eventContext, hookContext)
                 }
             }
         }
