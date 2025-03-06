@@ -9,7 +9,8 @@
     "ci:publish": "pnpm publish -r --access public",
     "dev": "pnpm --parallel run dev",
     "start": "docker compose up",
-    "network": "docker-compose -f network.docker-compose.yml up"
+    "network": "docker-compose -f network.docker-compose.yml up",
+    "network:reset": "docker-compose -f network.docker-compose.yml down --volumes --remove-orphans && docker volume prune -f && rm -rf .local/database .local/uploads && (docker network ls | grep -q 'directus-net' && docker network rm directus-net || true)"
   },
   "keywords": [],
   "author": "",
