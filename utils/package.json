@@ -2,7 +2,7 @@
   "name": "utils",
   "description": "Shared utilities for Directus extensions",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "main": "src/index.ts",
   "types": "src/index.d.ts",
   "type": "module",
