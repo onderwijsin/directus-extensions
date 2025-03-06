@@ -62,6 +62,7 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 5. (Optional) Configure access policies for the newly created redirect collection. By default, these are only accessible by admin users. We recommend using access filters in the public policy based on the `is_active`, `start_date`, and `end_date` fields.
 
 ## Gotchas
+- This extension has only been tested with a Postgres database and `DB_CLIENT= "pg"`. **This extension will not work with sqlite3**
 - This extension will remove redirects where the destination is equal to the slug of items that are published. The extension will look up the archive field of a collection and, if it exists, handle an archive mutation in the same way as a deletion. An item is considered published if the value of the archive_field is one of `['published', 'active', true]`.
 - If multiple input fields are selected, the output value will follow the order in which these fields are defined in the options list.
 - If multiple input fields are selected, and you only modified one of these values, the operation will look up the existing value for the other input fields and use these. This means that support for multiple input fields (with lookup for existing values that are missing in the payload) will break if you modify multiple items simultaneously, since the operation can't return unique slug values for each item that was edited. In this case, an error is returned.
