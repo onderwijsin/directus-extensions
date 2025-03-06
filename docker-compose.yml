@@ -1,17 +1,27 @@
 services:
     database:
-        image: postgis/postgis:15-master
+        image: postgres:16.6
         # Required when running on platform other than amd64, like Apple M1/M2:
         platform: linux/amd64
         volumes:
-        - ./.local/database/postgres-15:/var/lib/postgresql/data
+        - ./.local/database/postgres-16:/var/lib/postgresql/data
         environment:
             POSTGRES_DB: directus
             POSTGRES_USER: directus
             POSTGRES_PASSWORD: directus
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U directus -d directus"]
+            interval: 3s
+            timeout: 5s
+            retries: 5
 
     cache:
         image: redis:6
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 3s
+            timeout: 5s
+            retries: 5
 
     directus:
         env_file:
@@ -23,8 +33,11 @@ services:
             - ./.local/uploads:/directus/uploads
             - ./packages:/directus/extensions/
         depends_on:
-            - cache
-            - database
+            database:
+                condition: service_healthy
+            cache:
+                condition: service_healthy
+            
         environment:
             PUBLIC_URL: "http://localhost:8055"
             SECRET: "replace-with-random-value"
