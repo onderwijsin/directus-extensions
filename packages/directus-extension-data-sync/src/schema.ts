@@ -46,7 +46,6 @@ export const collectionSchema = {
         "versioning": false
     },
     "schema": {
-        "schema": "public",
         "name": "remote_data_sources"
     }
 } as Collection
@@ -61,7 +60,6 @@ export const junctionSchema = {
         "accountability": "all",
     },
     "schema": {
-        "schema": "public",
         "name": "remote_data_sources_directus_users",
     }
 } as Collection
@@ -74,6 +72,7 @@ export const collectionFieldSchema = [
         "schema": {
             "name": "id",
             "table": "remote_data_sources",
+            "default_value": null,
             "data_type": "uuid",
             "is_nullable": false,
             "is_unique": true,
@@ -168,7 +167,6 @@ export const collectionFieldSchema = [
             "table": "remote_data_sources",
             "data_type": "uuid",
             "is_nullable": true,
-            "foreign_key_schema": "public",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
         },
@@ -223,7 +221,6 @@ export const collectionFieldSchema = [
             "name": "user_updated",
             "table": "remote_data_sources",
             "data_type": "uuid",
-            "foreign_key_schema": "public",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
         },
@@ -418,7 +415,6 @@ export const junctionFieldSchema = [
             "table": "remote_data_sources_directus_users",
             "data_type": "uuid",
             "is_nullable": true,
-            "foreign_key_schema": "public",
             "foreign_key_table": "remote_data_sources",
             "foreign_key_column": "id",
         },
@@ -439,7 +435,6 @@ export const junctionFieldSchema = [
             "table": "remote_data_sources_directus_users",
             "data_type": "uuid",
             "is_nullable": true,
-            "foreign_key_schema": "public",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
         },
@@ -462,7 +457,6 @@ export const collectionRelationSchema = [
             "constraint_name": "remote_data_sources_user_created_foreign",
             "table": "remote_data_sources",
             "column": "user_created",
-            "foreign_key_schema": "public",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
             "on_update": "NO ACTION",
@@ -483,7 +477,6 @@ export const collectionRelationSchema = [
             "constraint_name": "remote_data_sources_user_updated_foreign",
             "table": "remote_data_sources",
             "column": "user_updated",
-            "foreign_key_schema": "public",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
             "on_update": "NO ACTION",
@@ -508,7 +501,6 @@ export const junctionRelationSchema = [
             "constraint_name": "remote_data_sources_directus_users_directus_users_id_foreign",
             "table": "remote_data_sources_directus_users",
             "column": "directus_users_id",
-            "foreign_key_schema": "public",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
             "on_update": "NO ACTION",
@@ -530,7 +522,6 @@ export const junctionRelationSchema = [
             "constraint_name": "remote_data_sources_directus_users_remote___745a9721_foreign",
             "table": "remote_data_sources_directus_users",
             "column": "remote_data_sources_id",
-            "foreign_key_schema": "public",
             "foreign_key_table": "remote_data_sources",
             "foreign_key_column": "id",
             "on_update": "NO ACTION",
