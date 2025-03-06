@@ -10,25 +10,10 @@ export const policyFieldsSchema = [
             "table": "directus_policies",
             "data_type": "character varying",
             "default_value": "none",
-            "generation_expression": null,
-            "max_length": 255,
-            "numeric_precision": null,
-            "numeric_scale": null,
-            "is_generated": false,
-            "is_nullable": true,
-            "is_unique": false,
-            "is_indexed": false,
-            "is_primary_key": false,
-            "has_auto_increment": false,
-            "foreign_key_schema": null,
-            "foreign_key_table": null,
-            "foreign_key_column": null,
-            "comment": null
         },
         "meta": {
             "collection": "directus_policies",
             "field": "email_viewer_permission",
-            "special": null,
             "interface": "select-dropdown",
             "options": {
                 "choices": [
@@ -55,19 +40,9 @@ export const policyFieldsSchema = [
                 ],
                 "placeholder": "Choose permission type for email viewer"
             },
-            "display": null,
-            "display_options": null,
-            "readonly": false,
-            "hidden": false,
             "sort": 3,
             "width": "half",
-            "translations": null,
-            "note": null,
-            "conditions": null,
-            "required": true,
-            "group": null,
-            "validation": null,
-            "validation_message": null
+            "required": true
         }
     },
     {
@@ -78,21 +53,6 @@ export const policyFieldsSchema = [
             "name": "custom_addresses",
             "table": "directus_policies",
             "data_type": "json",
-            "default_value": null,
-            "generation_expression": null,
-            "max_length": null,
-            "numeric_precision": null,
-            "numeric_scale": null,
-            "is_generated": false,
-            "is_nullable": true,
-            "is_unique": false,
-            "is_indexed": false,
-            "is_primary_key": false,
-            "has_auto_increment": false,
-            "foreign_key_schema": null,
-            "foreign_key_table": null,
-            "foreign_key_column": null,
-            "comment": null
         },
         "meta": {
             "collection": "directus_policies",
@@ -105,14 +65,8 @@ export const policyFieldsSchema = [
                 "allowOther": true,
                 "placeholder": "Enter email addresses"
             },
-            "display": null,
-            "display_options": null,
-            "readonly": false,
-            "hidden": false,
             "sort": 4,
             "width": "half",
-            "translations": null,
-            "note": null,
             "conditions": [
                 {
                     "name": "Visibility",
@@ -150,11 +104,7 @@ export const policyFieldsSchema = [
                         "previewThreshold": 3
                     }
                 }
-            ],
-            "required": false,
-            "group": null,
-            "validation": null,
-            "validation_message": null
+            ]
         }
     },
     {
@@ -175,19 +125,8 @@ export const policyFieldsSchema = [
                 "color": null,
                 "icon": "attach_email"
             },
-            "display": null,
-            "display_options": null,
-            "readonly": false,
-            "hidden": false,
             "sort": 1,
             "width": "full",
-            "translations": null,
-            "note": null,
-            "conditions": null,
-            "required": false,
-            "group": null,
-            "validation": null,
-            "validation_message": null
         }
     },
     {
@@ -207,19 +146,8 @@ export const policyFieldsSchema = [
                 "color": "info",
                 "text": "These settings determine what emails can be viewed by a user within the email viewer interface. By default, these settings are as restrictive as possible. You can edit these as you see fit; but beware that you don't overshare. It is never possible to view internal emails (i.e. emails sent between the organization's domains), this is design choice."
             },
-            "display": null,
-            "display_options": null,
-            "readonly": false,
-            "hidden": false,
             "sort": 2,
             "width": "full",
-            "translations": null,
-            "note": null,
-            "conditions": null,
-            "required": false,
-            "group": null,
-            "validation": null,
-            "validation_message": null
         }
     }
 ] as unknown as Field[]
