@@ -163,7 +163,10 @@ export default defineHook(({ filter }, hookContext) => {
     hookContext.emitter.onAction('force-child.update', async (payload: { children: { id: PrimaryKey, slug: string }[], pathFieldKey: string, parentPathValue: string, collection: string }, eventContext: EventContext) => {
         const { children, pathFieldKey, parentPathValue, collection } = payload;
         const { ItemsService } = hookContext.services;
-        const items = new ItemsService(collection, eventContext);
+        const items = new ItemsService(collection, {
+			schema: eventContext.schema,
+			knex: eventContext.database
+		});
 
         await items.updateBatch(
             children.map(child => ({

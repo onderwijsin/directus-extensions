@@ -20,7 +20,10 @@ export const preventInfiniteLoop = async (
     hookContext: HookExtensionContext
 ): Promise<void> => {
     const { ItemsService } = hookContext.services;
-    const redirects: ItemsService = new ItemsService(collection, eventContext);
+    const redirects: ItemsService = new ItemsService(collection, {
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
     redirects.deleteByQuery({ filter: { origin: { _eq: destination } }})
 }
 
@@ -40,7 +43,10 @@ export const recursivelyGetRedirectIDsByDestination = async (
     hookContext: HookExtensionContext
 ): Promise<PrimaryKey[]> => {
     const { ItemsService } = hookContext.services
-    const items: ItemsService = new ItemsService(collection, eventContext);
+    const items: ItemsService = new ItemsService(collection, {
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
 
     if (!Array.isArray(value)) value = [value];
 
@@ -86,7 +92,10 @@ const checkExitsingRedirects = async (
     hookContext: HookExtensionContext,
 ) => {
     const { ItemsService } = hookContext.services
-    const items: ItemsService = new ItemsService(meta.collection, eventContext);
+    const items: ItemsService = new ItemsService(meta.collection, {
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
     const redirects = await items.readMany(meta.keys, {fields: [field] });
     if (redirects.some(redirect => redirect[field] === payload[field === 'destination' ? 'origin' : 'destination'])) {
         throw new EqualOriginAndDestinationError()
