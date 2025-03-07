@@ -1,11 +1,11 @@
 import { Field, Collection, Relation } from "@directus/types"
 
 export const collectionSchema = {
-    "collection": "remote_data_sources",
+    "collection": "cache_flush_targets",
     "meta": {
-        "collection": "remote_data_sources",
-        "icon": "sync_lock",
-        "note": "Configuration of remote instances for data sync extension",
+        "collection": "cache_flush_targets",
+        "icon": "storage",
+        "note": "Configuration of targets to sent cache flush requests to",
         "display_template": '{{ url }}',
         "hidden": false,
         "singleton": false,
@@ -17,32 +17,32 @@ export const collectionSchema = {
         "versioning": false
     },
     "schema": {
-        "name": "remote_data_sources"
+        "name": "cache_flush_targets"
     }
 } as Collection
 
 export const junctionSchema = {
-    "collection": "remote_data_sources_directus_users",
+    "collection": "cache_flush_targets_directus_users",
     "meta": {
-        "collection": "remote_data_sources_directus_users",
+        "collection": "cache_flush_targets_directus_users",
         "icon": "import_export",
         "hidden": true,
         "singleton": false,
         "accountability": "all",
     },
     "schema": {
-        "name": "remote_data_sources_directus_users",
+        "name": "cache_flush_targets_directus_users",
     }
 } as Collection
 
 export const collectionFieldSchema = [
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "id",
         "type": "uuid",
         "schema": {
             "name": "id",
-            "table": "remote_data_sources",
+            "table": "cache_flush_targets",
             "default_value": null,
             "data_type": "uuid",
             "is_nullable": false,
@@ -50,7 +50,7 @@ export const collectionFieldSchema = [
             "is_primary_key": true,
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "id",
             "special": [
                 "uuid"
@@ -63,18 +63,18 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "status",
         "type": "string",
         "schema": {
             "name": "status",
-            "table": "remote_data_sources",
+            "table": "cache_flush_targets",
             "data_type": "character varying",
             "default_value": "draft",
             "is_nullable": false,
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "status",
             "interface": "select-dropdown",
             "options": {
@@ -130,19 +130,19 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "user_created",
         "type": "uuid",
         "schema": {
             "name": "user_created",
-            "table": "remote_data_sources",
+            "table": "cache_flush_targets",
             "data_type": "uuid",
             "is_nullable": true,
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "user_created",
             "special": [
                 "user-created"
@@ -154,21 +154,21 @@ export const collectionFieldSchema = [
             "display": "user",
             "readonly": true,
             "hidden": false,
-            "sort": 7,
+            "sort": 8,
             "width": "half",
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "date_created",
         "type": "timestamp",
         "schema": {
             "name": "date_created",
-            "table": "remote_data_sources",
+            "table": "cache_flush_targets",
             "data_type": "timestamp with time zone",
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "date_created",
             "special": [
                 "date-created"
@@ -180,23 +180,23 @@ export const collectionFieldSchema = [
             },
             "readonly": true,
             "hidden": false,
-            "sort": 8,
+            "sort": 9,
             "width": "half",
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "user_updated",
         "type": "uuid",
         "schema": {
             "name": "user_updated",
-            "table": "remote_data_sources",
+            "table": "cache_flush_targets",
             "data_type": "uuid",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "user_updated",
             "special": [
                 "user-updated"
@@ -208,21 +208,21 @@ export const collectionFieldSchema = [
             "display": "user",
             "readonly": true,
             "hidden": false,
-            "sort": 9,
+            "sort": 10,
             "width": "half",
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "date_updated",
         "type": "timestamp",
         "schema": {
             "name": "date_updated",
-            "table": "remote_data_sources",
+            "table": "cache_flush_targets",
             "data_type": "timestamp with time zone",
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "date_updated",
             "special": [
                 "date-updated"
@@ -234,22 +234,23 @@ export const collectionFieldSchema = [
             },
             "readonly": true,
             "hidden": false,
-            "sort": 10,
+            "sort": 11,
             "width": "half",
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "api_key",
         "type": "string",
         "schema": {
             "name": "api_key",
-            "table": "remote_data_sources",
+            "table": "cache_flush_targets",
             "data_type": "character varying",
-            "is_nullable": false,
+            "is_nullable": true,
+            "default_value": null
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "api_key",
             "interface": "input",
             "options": {
@@ -262,28 +263,70 @@ export const collectionFieldSchema = [
             },
             "readonly": false,
             "hidden": false,
-            "sort": 4,
-            "width": "full",
-            "required": true,
+            "sort": 5,
+            "width": "half",
+            "required": false,
+            "conditions": [
+                {
+                    "name": "visibility",
+                    "rule": {
+                        "_and": [
+                            {
+                                "auth_header": {
+                                    "_eq": "no-auth"
+                                }
+                            }
+                        ]
+                    },
+                    "hidden": true,
+                    "options": {
+                        "font": "sans-serif",
+                        "trim": true,
+                        "masked": true,
+                        "clear": false,
+                        "slug": false
+                    }
+                },
+                {
+                    "name": "required",
+                    "rule": {
+                        "_and": [
+                            {
+                                "auth_header": {
+                                    "_neq": "no-auth"
+                                }
+                            }
+                        ]
+                    },
+                    "required": true,
+                    "options": {
+                        "font": "sans-serif",
+                        "trim": true,
+                        "masked": true,
+                        "clear": false,
+                        "slug": false
+                    }
+                }
+            ]
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "url",
         "type": "string",
         "schema": {
             "name": "url",
-            "table": "remote_data_sources",
+            "table": "cache_flush_targets",
             "data_type": "character varying",
             "is_nullable": false,
             "is_unique": true,
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "url",
             "interface": "input",
             "options": {
-                "placeholder": "Base URL for remote instance"
+                "placeholder": "Base URL for target"
             },
             "readonly": false,
             "hidden": false,
@@ -293,17 +336,57 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
+        "field": "auth_header",
+        "type": "string",
+        "schema": {
+            "name": "auth_header",
+            "table": "cache_flush_targets",
+            "data_type": "character varying",
+            "default_value": "bearer",
+            "max_length": 255,
+            "is_nullable": true,
+        },
+        "meta": {
+            "collection": "cache_flush_targets",
+            "field": "auth_header",
+            "interface": "select-dropdown",
+            "options": {
+                "choices": [
+                    {
+                        "text": "Bearer",
+                        "value": "bearer"
+                    },
+                    {
+                        "text": "Api-Key",
+                        "value": "api-key"
+                    },
+                    {
+                        "text": "No Auth",
+                        "value": "no-auth"
+                    }
+                ],
+                "allowOther": true,
+                "placeholder": "Which type of auth header does the request need?"
+            },
+            "sort": 4,
+            "width": "half",
+            "required": true,
+            "note": "For custom headers, select 'Other' and enter the header name such as 'X-Auth-Token'",
+        }
+    },
+    {
+        "collection": "cache_flush_targets",
         "field": "schema",
         "type": "json",
         "schema": {
             "name": "schema",
-            "table": "remote_data_sources",
+            "table": "cache_flush_targets",
             "data_type": "json",
             "is_nullable": true,
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "schema",
             "special": [
                 "cast-json"
@@ -311,23 +394,24 @@ export const collectionFieldSchema = [
             "interface": "input-code",
             "options": {
                 "fields": [],
-                "template": "[\n    {\n        \"name\": \"collection\",\n        \"fields\": [ \"field_key\" ]\n    }\n]"
+                "template": "[\n    {\n        \"name\": \"collection\",\n        \"events\": [ \"create\", \"update\", \"delete\" ],\n        \"payload\": [ \"id\", \"slug\" ]\n    }\n]"
             },
             "display": "raw",
             "readonly": false,
             "hidden": false,
-            "sort": 6,
+            "sort": 7,
             "width": "full",
             "required": true,
+            "note": "Add collections and events for which flush requests should be sent, and configure which fields should be sent in the payload",
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "users_notification",
         "type": "alias",
         "schema": null,
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "cache_flush_targets",
             "field": "users_notification",
             "special": [
                 "m2m"
@@ -344,9 +428,9 @@ export const collectionFieldSchema = [
             },
             "readonly": false,
             "hidden": false,
-            "sort": 5,
+            "sort": 6,
             "width": "full",
-            "note": "Which users should receive a notification if the sync fails",
+            "note": "Which users should receive a notification if the flush fails",
             "required": false,
         }
     }
@@ -354,14 +438,14 @@ export const collectionFieldSchema = [
 
 export const junctionFieldSchema = [
     {
-        "collection": "remote_data_sources_directus_users",
+        "collection": "cache_flush_targets_directus_users",
         "field": "id",
         "type": "integer",
         "schema": {
             "name": "id",
-            "table": "remote_data_sources_directus_users",
+            "table": "cache_flush_targets_directus_users",
             "data_type": "integer",
-            "default_value": "nextval('remote_data_sources_directus_users_id_seq'::regclass)",
+            "default_value": "nextval('cache_flush_targets_directus_users_id_seq'::regclass)",
             "numeric_precision": 32,
             "numeric_scale": 0,
             "is_nullable": false,
@@ -370,7 +454,7 @@ export const junctionFieldSchema = [
             "has_auto_increment": true,
         },
         "meta": {
-            "collection": "remote_data_sources_directus_users",
+            "collection": "cache_flush_targets_directus_users",
             "field": "id",
             "hidden": true,
             "sort": 1,
@@ -378,39 +462,39 @@ export const junctionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources_directus_users",
-        "field": "remote_data_sources_id",
+        "collection": "cache_flush_targets_directus_users",
+        "field": "cache_flush_targets_id",
         "type": "uuid",
         "schema": {
-            "name": "remote_data_sources_id",
-            "table": "remote_data_sources_directus_users",
+            "name": "cache_flush_targets_id",
+            "table": "cache_flush_targets_directus_users",
             "data_type": "uuid",
             "is_nullable": true,
-            "foreign_key_table": "remote_data_sources",
+            "foreign_key_table": "cache_flush_targets",
             "foreign_key_column": "id",
         },
         "meta": {
-            "collection": "remote_data_sources_directus_users",
-            "field": "remote_data_sources_id",
+            "collection": "cache_flush_targets_directus_users",
+            "field": "cache_flush_targets_id",
             "hidden": true,
             "sort": 2,
             "width": "full",
         }
     },
     {
-        "collection": "remote_data_sources_directus_users",
+        "collection": "cache_flush_targets_directus_users",
         "field": "directus_users_id",
         "type": "uuid",
         "schema": {
             "name": "directus_users_id",
-            "table": "remote_data_sources_directus_users",
+            "table": "cache_flush_targets_directus_users",
             "data_type": "uuid",
             "is_nullable": true,
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
         },
         "meta": {
-            "collection": "remote_data_sources_directus_users",
+            "collection": "cache_flush_targets_directus_users",
             "field": "directus_users_id",
             "hidden": true,
             "sort": 3,
@@ -421,12 +505,12 @@ export const junctionFieldSchema = [
 
 export const collectionRelationSchema = [
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "user_created",
         "related_collection": "directus_users",
         "schema": {
-            "constraint_name": "remote_data_sources_user_created_foreign",
-            "table": "remote_data_sources",
+            "constraint_name": "cache_flush_targets_user_created_foreign",
+            "table": "cache_flush_targets",
             "column": "user_created",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
@@ -434,19 +518,19 @@ export const collectionRelationSchema = [
             "on_delete": "NO ACTION"
         },
         "meta": {
-            "many_collection": "remote_data_sources",
+            "many_collection": "cache_flush_targets",
             "many_field": "user_created",
             "one_collection": "directus_users",
             "one_deselect_action": "nullify"
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "cache_flush_targets",
         "field": "user_updated",
         "related_collection": "directus_users",
         "schema": {
-            "constraint_name": "remote_data_sources_user_updated_foreign",
-            "table": "remote_data_sources",
+            "constraint_name": "cache_flush_targets_user_updated_foreign",
+            "table": "cache_flush_targets",
             "column": "user_updated",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
@@ -454,7 +538,7 @@ export const collectionRelationSchema = [
             "on_delete": "NO ACTION"
         },
         "meta": {
-            "many_collection": "remote_data_sources",
+            "many_collection": "cache_flush_targets",
             "many_field": "user_updated",
             "one_collection": "directus_users",
             "one_deselect_action": "nullify"
@@ -465,12 +549,12 @@ export const collectionRelationSchema = [
 
 export const junctionRelationSchema = [
     {
-        "collection": "remote_data_sources_directus_users",
+        "collection": "cache_flush_targets_directus_users",
         "field": "directus_users_id",
         "related_collection": "directus_users",
         "schema": {
-            "constraint_name": "remote_data_sources_directus_users_directus_users_id_foreign",
-            "table": "remote_data_sources_directus_users",
+            "constraint_name": "cache_flush_targets_directus_users_directus_users_id_foreign",
+            "table": "cache_flush_targets_directus_users",
             "column": "directus_users_id",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
@@ -478,30 +562,30 @@ export const junctionRelationSchema = [
             "on_delete": "SET NULL"
         },
         "meta": {
-            "many_collection": "remote_data_sources_directus_users",
+            "many_collection": "cache_flush_targets_directus_users",
             "many_field": "directus_users_id",
             "one_collection": "directus_users",
-            "junction_field": "remote_data_sources_id",
+            "junction_field": "cache_flush_targets_id",
             "one_deselect_action": "nullify"
         }
     },
     {
-        "collection": "remote_data_sources_directus_users",
-        "field": "remote_data_sources_id",
-        "related_collection": "remote_data_sources",
+        "collection": "cache_flush_targets_directus_users",
+        "field": "cache_flush_targets_id",
+        "related_collection": "cache_flush_targets",
         "schema": {
-            "constraint_name": "remote_data_sources_directus_users_remote___745a9721_foreign",
-            "table": "remote_data_sources_directus_users",
-            "column": "remote_data_sources_id",
-            "foreign_key_table": "remote_data_sources",
+            "constraint_name": "cache_flush_targets_directus_users_remote___745a9721_foreign",
+            "table": "cache_flush_targets_directus_users",
+            "column": "cache_flush_targets_id",
+            "foreign_key_table": "cache_flush_targets",
             "foreign_key_column": "id",
             "on_update": "NO ACTION",
             "on_delete": "SET NULL"
         },
         "meta": {
-            "many_collection": "remote_data_sources_directus_users",
-            "many_field": "remote_data_sources_id",
-            "one_collection": "remote_data_sources",
+            "many_collection": "cache_flush_targets_directus_users",
+            "many_field": "cache_flush_targets_id",
+            "one_collection": "cache_flush_targets",
             "one_field": "users_notification",
             "junction_field": "directus_users_id",
             "one_deselect_action": "nullify"
