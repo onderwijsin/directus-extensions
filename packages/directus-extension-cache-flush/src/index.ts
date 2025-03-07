@@ -16,7 +16,7 @@ export default defineHook(async ({ filter, action }, hookContext) => {
 	const { CACHE_FLUSH_DISABLE_SCHEMA_CHANGE, DISABLE_EXTENSION_SCHEMA_CHANGE } = hookContext.env;
 	const disableSchemaChange = (!!CACHE_FLUSH_DISABLE_SCHEMA_CHANGE && (CACHE_FLUSH_DISABLE_SCHEMA_CHANGE === 'true' || CACHE_FLUSH_DISABLE_SCHEMA_CHANGE === true)) || (!!DISABLE_EXTENSION_SCHEMA_CHANGE && (DISABLE_EXTENSION_SCHEMA_CHANGE === 'true' || DISABLE_EXTENSION_SCHEMA_CHANGE === true));
 	
-	if (!disableSchemaChange || true) {
+	if (!disableSchemaChange) {
 		// Create the collections for storing flush config
 		await createOrUpdateCollection(
 			collectionSchema.collection, 
