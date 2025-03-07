@@ -17,6 +17,17 @@ Some extensions in this repository are (or will be) published to the Directus Ma
 - [`directus-extension-data-sync`](https://github.com/onderwijsin/directus-extensions/tree/main/packages/directus-extension-data-sync)   
   Sync data between different Directus instances that share (part of their) collection data schema
 
+## ⚠️ Schema changes
+Some of the extensions in this repo make modifications to your existing database schema. Some add fields to existing (system) collection, some add new collections to your data model. Neither of these should interfere with any of you existing data.
+
+However, if you don't want an extension to modify your schema, or want more control over field configuration, you can disable it by setting this env var:
+
+`DISABLE_EXTENSION_SCHEMA_CHANGE="true"`
+
+This will apply to any of the extensions in this repo. You can also configure this options on a per extension basis (see extension docs for more details)
+
+If you disable schema modifications, you're responsible for the availability of the necessary collections and fields! Please check the ./schema.ts file in the relevant extensions src folder for reference.
+
 ## 🤝 Contributing
 Contributions are welcome! If you find a bug or want to improve an extension, feel free to open an issue or submit a pull request.  
 
