@@ -15,13 +15,25 @@
     "start:mssql": "docker-compose --profile mssql up",
     "start:oracle": "docker-compose --profile oracle up",
     "start:cock": "docker-compose --profile cockroachdb up",
-
-    "reset": "docker-compose down --volumes --remove-orphans && docker stop $(docker ps -aq) && docker rm $(docker ps -aq) && docker volume prune -f && docker network prune -f && rm -rf .local/database .local/uploads",
+    "down": "docker-compose down -v",
+    "network:down": "docker-compose -f network.docker-compose.yml down -v",
+    "reset": "docker-compose down --volumes --remove-orphans && (docker ps -q | xargs -r docker stop) && (docker ps -aq | xargs -r docker rm) && docker volume prune -f && docker network prune -f && rm -rf .local/database .local/uploads",
     "network": "docker-compose -f network.docker-compose.yml up",
     "network:reset": "docker-compose -f network.docker-compose.yml down --volumes --remove-orphans && docker volume prune -f && rm -rf .local/database .local/uploads && (docker network ls | grep -q 'directus-net' && docker network rm directus-net || true)"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["directus", "directus-extensions"],
+  "author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijs.in",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijs.in",
+			"url": "https://github.com/remihuigen"
+		}
+	],
   "license": "MIT",
   "packageManager": "pnpm@10.4.1",
   "devDependencies": {
