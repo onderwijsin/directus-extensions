@@ -42,7 +42,6 @@ export default defineHook(async ({ filter, action }, hookContext) => {
 		action(event, async (meta, eventContext) => {
 			const config = await fetchCacheFlushConfig(hookContext);
 			const currentEvent = event.split('.')[1] as EventKey
-			console.log(meta.keys)
 			// check if current collection exists in flush settings
 			// Skip if current mutation does not satisfy the schema
 			if (!config.filter(target => target.schema && target.schema.find(c => c.collection === meta.collection && c.events.includes(currentEvent))).length) return; 
