@@ -15,7 +15,7 @@ export const syncData = async (
     // Loop over remotes and check wheter the collection is synced for a specific remote
     for (const remote of config) {
         if (!Array.isArray(remote.schema) || remote.schema.some(c => !c.name || !c.fields.every((field: unknown) => !!field && typeof field === 'string'))) {
-            logger.warn('Remote schema is not properly configured. Please check the schema configuration in the remote_data_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.')
+            logger.warn('Remote schema is not properly configured. Please check the schema configuration in the data_sync_remote_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.')
             for (const userId of remote.users_notification) {
                 await createNotifcation({
                     collection: meta.collection,
@@ -23,7 +23,7 @@ export const syncData = async (
                     itemId: 'key' in meta ? meta.key : meta.keys.join(', '),
                     event: meta.event.split('.')[1] as 'create' | 'update' | 'delete',
                     subject: 'Data Sync Schema error',
-                    message: 'Remote schema is not properly configured. Please check the schema configuration in the remote_data_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.',
+                    message: 'Remote schema is not properly configured. Please check the schema configuration in the data_sync_remote_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.',
                     customProps: {
                         remote: remote.url
                     }

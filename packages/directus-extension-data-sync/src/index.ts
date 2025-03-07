@@ -29,7 +29,7 @@ export default defineHook(async ({ action }, hookContext) => {
 		hookContext
 	);
 
-	// Create junction between Directus users and remote_data_sources
+	// Create junction between Directus users and data_sync_remote_sources
 	await createOrUpdateCollection(
 		junctionSchema.collection, 
 		{
@@ -39,8 +39,8 @@ export default defineHook(async ({ action }, hookContext) => {
 	);
 
 	// We need to create the junction relation after the junction collection is created
-	await createOrUpdateRelationsInCollection("remote_data_sources", collectionRelationSchema, hookContext);
-	await createOrUpdateRelationsInCollection("remote_data_sources_directus_users", junctionRelationSchema, hookContext);
+	await createOrUpdateRelationsInCollection("data_sync_remote_sources", collectionRelationSchema, hookContext);
+	await createOrUpdateRelationsInCollection("data_sync_remote_sources_directus_users", junctionRelationSchema, hookContext);
 
 	["items.create", "items.update", "items.delete"].forEach(event => {
 		action(event, async (meta, eventContext) => {

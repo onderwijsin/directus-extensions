@@ -10,7 +10,7 @@ Create an automated data sync between multiple Directus instances, for one or mo
 **You need to install this extension in each of the Directus instances you want synced. You need to repeat the configuration steps for each instance**
 
 ## Configuration pre installation
-Make sure you don't have a collection named `remote_data_sources` or `remote_data_sources_directus_users`
+Make sure you don't have a collection named `data_sync_remote_sources` or `data_sync_remote_sources_directus_users`
 
 ## Installation
 Refer to the [Official Guide](https://docs.directus.io/extensions/installing-extensions.html) for details on installing the extension from the Marketplace or manually.
@@ -19,7 +19,7 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 1. Navigate to _Settings > Access Policies_
    - For the policy "Data Sync", add `create`, `update` and `delete` permissions for each of the collection you want to sync.
    - Optional: configure the permitted fields for each collection, though strictly speaking this is not necessary, due to the config you'll provide in the next step
-2. Navigate to the newly created collection `Remote Data Sources`
+2. Navigate to the newly created collection `Data Sync Remote Sources`
    - For each of the remote instances you want to sync with, create a data source
    - Fill out all fields:
       - `status`: Only published sources are synced
