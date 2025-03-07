@@ -326,7 +326,7 @@ export const collectionFieldSchema = [
             "field": "url",
             "interface": "input",
             "options": {
-                "placeholder": "Base URL for target"
+                "placeholder": "Endpoint for cache flush requests"
             },
             "readonly": false,
             "hidden": false,
@@ -394,7 +394,7 @@ export const collectionFieldSchema = [
             "interface": "input-code",
             "options": {
                 "fields": [],
-                "template": "[\n    {\n        \"name\": \"collection\",\n        \"events\": [ \"create\", \"update\", \"delete\" ],\n        \"payload\": [ \"id\", \"slug\" ]\n    }\n]"
+                "template": "[\n    {\n        \"collection\": \"collection\",\n        \"events\": [ \"create\", \"update\", \"delete\" ],\n        \"payload\": [ \"id\", \"slug\" ]\n    }\n]"
             },
             "display": "raw",
             "readonly": false,
