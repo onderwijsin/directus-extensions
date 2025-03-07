@@ -3,6 +3,14 @@
 # Directus Email Viewer
 Fetch all emails sent and received by your organization (or a subset of your organization's users) for a given email address, and list the metadata in a searchable interface. Very usefull for an internal CRM application, where you want to see teamwide email correspondence for any of the stored contacts.
 
+## Features
+- 🎁 Adds a presentation interface where emails are rendered in a stylish UI component. Extra meta data, such as a preview of the email body, are shown in the expanded state of an email.
+- 🔍 Adds search, filter and limit inputs to the interface. The values are stored in local storage, so filter presets are applied each time you open Directus
+- 📧 Adds endpoints that fetch emails from the selected provider, based on the user input
+- 🪬 Adds fields to Directus Policies that provide granular permissions, so you can configure which users should be able to view which email inboxes.
+- 🛜 Internal email traffic is filtered by default, and cannot be read by any user, including admin users (since you do not want to know what your boss wrote about you). 
+
+
 ## ⚠️ Schema changes
 This extension makes modifications to your existing database schema. It adds fields to `directus_policies`. This should not interfere with any of you existing data.
 
@@ -11,7 +19,7 @@ However, if you don't want this extension to modify your schema, or want more co
 `EMAIL_VIEWER_DISABLE_SCHEMA_CHANGE="true"`   
 `DISABLE_EXTENSION_SCHEMA_CHANGE="true"` (globally applied to all [@onderwijsin](https://github.com/onderwijsin/directus-extensions/tree/feat/cache-flush) extensions)   
    
-If you disable schema modifications, you're responsible for the availability of the necessary collections and fields! Please check the ./schema.ts file for reference.
+If you disable schema modifications, you're responsible for the availability of the necessary collections and fields! Please check the `./schema.ts` file for reference.
 
 ## Installation
 Refer to the [Official Guide](https://docs.directus.io/extensions/installing-extensions.html) for details on installing the extension from the Marketplace or manually.
