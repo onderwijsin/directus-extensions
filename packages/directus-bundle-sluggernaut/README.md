@@ -10,22 +10,22 @@ The all-in-one bundle for your slugging needs! This bundle adds multiple extensi
 
 
 ## Features
-- Slugify one or multiple input values into a URL-safe value, with optional configurations.
-- Adds an interface for your slug field, which works seamlessly with the hook extensions.
-- Adds a readonly interface for your path field, which works seamlessly with the hooks, slug, and redirect extensions.
-- Adds a link display for your slug and path fields.
+- 🔗 Slugify one or multiple input values into a URL-safe value, with optional configurations.
+- 🎁 Adds an interface for your slug field, which works seamlessly with the hook extensions.
+- 🚀 Adds a readonly interface for your path field, which works seamlessly with the hooks, slug, and redirect extensions.
+- ↗️ Adds a link display for your slug and path fields.
 - Creates a redirect collection that can be utilized by front-end applications.
-- Automatically creates redirects if slug or path values are changed.
+- 🪄 Automatically creates redirects if slug or path values are changed.
 
 ## ⚠️ Schema changes
-This extension makes modifications to your existing database schema. It adds a collections: `redirects` and adds fields to `directus_settings` and `directus_collections`. Neither of these should interfere with any of you existing data.
+This extension makes modifications to your existing database schema. It adds a collection `redirects` and adds fields to `directus_settings` and `directus_collections`. Neither of these should interfere with any of you existing data.
 
 However, if you don't want this extension to modify your schema, or want more control over field configuration, you can disable it by setting one of these env vars:
 
 `SLUGGERNAUT_DISABLE_SCHEMA_CHANGE="true"`   
 `DISABLE_EXTENSION_SCHEMA_CHANGE="true"` (globally applied to all [@onderwijsin](https://github.com/onderwijsin/directus-extensions/tree/feat/cache-flush) extensions)   
    
-If you disable schema modifications, you're responsible for the availability of the necessary collections and fields! Please check the ./schema.ts file for reference.
+If you disable schema modifications, you're responsible for the availability of the necessary collections and fields! Please check the `./schema.ts` file for reference.
 
 ## Configuration: Pre-installation
 1. (Optional) Delete any existing collection named `redirects`.
@@ -37,11 +37,8 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 1. Navigate to the settings panel. There you'll find the following config options:
    - **Use Namespace**: Whether to use a collection's namespace when creating a redirect. If enabled, and if the corresponding collection has a namespace, the redirect will have a shape of: `/{namespace}/{old-slug}` > `/{namespace}/{new-slug}`.
    - **Use Trailing Slash**: Whether to use a trailing slash when creating a redirect. If enabled, the redirect will have a shape of: `/{old-slug}/` > `/{new-slug}/`.
-   <details>
-      <summary>View settings example</summary>
       ![](https://raw.githubusercontent.com/onderwijsin/directus-extensions/main/packages/directus-bundle-sluggernaut/docs/sluggernaut_settings.gif)
-   </details>
-
+   
 2. (Optional) Configure namespaces for collections that (will) have a slug field. You can do this by navigating to the data model of the given collection and adding the namespace value.
    
 3. Add slug fields to collections:
