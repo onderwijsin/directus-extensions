@@ -36,11 +36,6 @@ export const fieldSchema = [
 			"is_unique": true,
 			"is_indexed": false,
 			"is_primary_key": true,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
@@ -49,20 +44,10 @@ export const fieldSchema = [
 				"uuid"
 			],
 			"interface": "input",
-			"options": null,
-			"display": null,
-			"display_options": null,
 			"readonly": true,
 			"hidden": true,
 			"sort": 1,
 			"width": "full",
-			"translations": null,
-			"note": null,
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -74,20 +59,9 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "uuid",
 			"default_value": null,
-			"generation_expression": null,
-			"max_length": null,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": true,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": "public",
 			"foreign_key_table": "directus_users",
 			"foreign_key_column": "id",
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
@@ -102,18 +76,9 @@ export const fieldSchema = [
 				"enableSelect": false
 			},
 			"display": "user",
-			"display_options": null,
 			"readonly": true,
-			"hidden": false,
 			"sort": 9,
 			"width": "half",
-			"translations": null,
-			"note": null,
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -125,20 +90,7 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "timestamp with time zone",
 			"default_value": null,
-			"generation_expression": null,
-			"max_length": null,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": true,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
@@ -153,16 +105,8 @@ export const fieldSchema = [
 				"relative": true
 			},
 			"readonly": true,
-			"hidden": false,
 			"sort": 10,
 			"width": "half",
-			"translations": null,
-			"note": null,
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -174,20 +118,9 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "uuid",
 			"default_value": null,
-			"generation_expression": null,
-			"max_length": null,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": true,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": "public",
 			"foreign_key_table": "directus_users",
 			"foreign_key_column": "id",
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
@@ -202,18 +135,9 @@ export const fieldSchema = [
 				"enableSelect": false
 			},
 			"display": "user",
-			"display_options": null,
 			"readonly": true,
-			"hidden": false,
 			"sort": 11,
 			"width": "half",
-			"translations": null,
-			"note": null,
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -225,20 +149,7 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "timestamp with time zone",
 			"default_value": null,
-			"generation_expression": null,
-			"max_length": null,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": true,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
@@ -247,22 +158,13 @@ export const fieldSchema = [
 				"date-updated"
 			],
 			"interface": "datetime",
-			"options": null,
 			"display": "datetime",
 			"display_options": {
 				"relative": true
 			},
 			"readonly": true,
-			"hidden": false,
 			"sort": 12,
 			"width": "half",
-			"translations": null,
-			"note": null,
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -274,20 +176,8 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "character varying",
 			"default_value": null,
-			"generation_expression": null,
 			"max_length": 255,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": false,
-			"is_unique": true,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
@@ -297,19 +187,9 @@ export const fieldSchema = [
 			"options": {
 				"trim": true
 			},
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 2,
 			"width": "full",
-			"translations": null,
 			"note": "Use a relative path like \"/contact-old\"",
-			"conditions": null,
-			"required": true,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -321,42 +201,20 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "character varying",
 			"default_value": null,
-			"generation_expression": null,
 			"max_length": 255,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": false,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
 			"field": "destination",
-			"special": null,
 			"interface": "input",
 			"options": {
 				"trim": true
 			},
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 3,
 			"width": "full",
-			"translations": null,
 			"note": "Use a relative path like \"/contact-new\", or a URL for external redirects",
-			"conditions": null,
 			"required": true,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -368,25 +226,13 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "integer",
 			"default_value": 302,
-			"generation_expression": null,
-			"max_length": null,
 			"numeric_precision": 32,
 			"numeric_scale": 0,
-			"is_generated": false,
 			"is_nullable": false,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
 			"field": "type",
-			"special": null,
 			"interface": "select-dropdown",
 			"options": {
 				"choices": [
@@ -400,19 +246,9 @@ export const fieldSchema = [
 					}
 				]
 			},
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 4,
 			"width": "full",
-			"translations": null,
-			"note": null,
-			"conditions": null,
 			"required": true,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -424,20 +260,7 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "boolean",
 			"default_value": true,
-			"generation_expression": null,
-			"max_length": null,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": false,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
@@ -446,20 +269,9 @@ export const fieldSchema = [
 				"cast-boolean"
 			],
 			"interface": "boolean",
-			"options": null,
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 5,
 			"width": "full",
-			"translations": null,
 			"note": "Inactive redirect are never used, even if a start date is set",
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -471,40 +283,14 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "timestamp without time zone",
 			"default_value": null,
-			"generation_expression": null,
-			"max_length": null,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": true,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "redirects",
 			"field": "start_date",
-			"special": null,
 			"interface": "datetime",
-			"options": null,
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 6,
 			"width": "half",
-			"translations": null,
-			"note": null,
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -516,40 +302,14 @@ export const fieldSchema = [
 			"table": "redirects",
 			"data_type": "timestamp without time zone",
 			"default_value": null,
-			"generation_expression": null,
-			"max_length": null,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
-			"is_nullable": true,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
+			"is_nullable": true
 		},
 		"meta": {
 			"collection": "redirects",
 			"field": "end_date",
-			"special": null,
 			"interface": "datetime",
-			"options": null,
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 7,
 			"width": "half",
-			"translations": null,
-			"note": null,
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -568,22 +328,11 @@ export const fieldSchema = [
 			"options": {
 				"title": "Activity"
 			},
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 8,
 			"width": "full",
-			"translations": null,
-			"note": null,
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	}
-] as Field[]
+] as unknown as Field[]
 
 export const relationSchema = [
 	{
@@ -594,7 +343,6 @@ export const relationSchema = [
 			"constraint_name": "redirects_user_updated_foreign",
 			"table": "redirects",
 			"column": "user_updated",
-			"foreign_key_schema": "public",
 			"foreign_key_table": "directus_users",
 			"foreign_key_column": "id",
 			"on_update": "NO ACTION",
@@ -604,11 +352,6 @@ export const relationSchema = [
 			"many_collection": "redirects",
 			"many_field": "user_updated",
 			"one_collection": "directus_users",
-			"one_field": null,
-			"one_collection_field": null,
-			"one_allowed_collections": null,
-			"junction_field": null,
-			"sort_field": null,
 			"one_deselect_action": "nullify"
 		}
 	},
@@ -620,7 +363,6 @@ export const relationSchema = [
 			"constraint_name": "redirects_user_created_foreign",
 			"table": "redirects",
 			"column": "user_created",
-			"foreign_key_schema": "public",
 			"foreign_key_table": "directus_users",
 			"foreign_key_column": "id",
 			"on_update": "NO ACTION",
@@ -630,11 +372,6 @@ export const relationSchema = [
 			"many_collection": "redirects",
 			"many_field": "user_created",
 			"one_collection": "directus_users",
-			"one_field": null,
-			"one_collection_field": null,
-			"one_allowed_collections": null,
-			"junction_field": null,
-			"sort_field": null,
 			"one_deselect_action": "nullify"
 		}
 	}
@@ -650,20 +387,7 @@ export const settingsFieldSchema = [
 			"table": "directus_settings",
 			"data_type": "boolean",
 			"default_value": false,
-			"generation_expression": null,
-			"max_length": null,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": false,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "directus_settings",
@@ -672,20 +396,9 @@ export const settingsFieldSchema = [
 				"cast-boolean"
 			],
 			"interface": "boolean",
-			"options": null,
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 3,
 			"width": "half",
-			"translations": null,
 			"note": "Whether to use collection namespace in redirects",
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -697,20 +410,7 @@ export const settingsFieldSchema = [
 			"table": "directus_settings",
 			"data_type": "boolean",
 			"default_value": false,
-			"generation_expression": null,
-			"max_length": null,
-			"numeric_precision": null,
-			"numeric_scale": null,
-			"is_generated": false,
 			"is_nullable": false,
-			"is_unique": false,
-			"is_indexed": false,
-			"is_primary_key": false,
-			"has_auto_increment": false,
-			"foreign_key_schema": null,
-			"foreign_key_table": null,
-			"foreign_key_column": null,
-			"comment": null
 		},
 		"meta": {
 			"collection": "directus_settings",
@@ -719,20 +419,10 @@ export const settingsFieldSchema = [
 				"cast-boolean"
 			],
 			"interface": "boolean",
-			"options": null,
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 4,
 			"width": "half",
-			"translations": null,
 			"note": "Whether to use a trailing slash in both origin and destination",
-			"conditions": null,
 			"required": true,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	},
 	{
@@ -753,19 +443,8 @@ export const settingsFieldSchema = [
 				"icon": "route",
 				"title": "Redirects"
 			},
-			"display": null,
-			"display_options": null,
-			"readonly": false,
-			"hidden": false,
 			"sort": 1,
 			"width": "full",
-			"translations": null,
-			"note": null,
-			"conditions": null,
-			"required": false,
-			"group": null,
-			"validation": null,
-			"validation_message": null
 		}
 	}
 ] as unknown as Field[]
@@ -778,42 +457,18 @@ export const namespaceFieldSchema = [{
 		"name": "namespace",
 		"table": "directus_collections",
 		"data_type": "character varying",
-		"default_value": null,
-		"generation_expression": null,
 		"max_length": 255,
-		"numeric_precision": null,
-		"numeric_scale": null,
-		"is_generated": false,
 		"is_nullable": true,
-		"is_unique": false,
-		"is_indexed": false,
-		"is_primary_key": false,
-		"has_auto_increment": false,
-		"foreign_key_schema": null,
-		"foreign_key_table": null,
-		"foreign_key_column": null,
-		"comment": null
 	},
 	"meta": {
 		"collection": "directus_collections",
 		"field": "namespace",
-		"special": null,
 		"interface": "input",
 		"options": {
 			"placeholder": "Add a namespace for this collection"
 		},
-		"display": null,
-		"display_options": null,
-		"readonly": false,
-		"hidden": false,
 		"sort": 1,
 		"width": "full",
-		"translations": null,
 		"note": "The namespace will be used when creating redirects",
-		"conditions": null,
-		"required": false,
-		"group": null,
-		"validation": null,
-		"validation_message": null
 	}
 }] as unknown as Field[]
