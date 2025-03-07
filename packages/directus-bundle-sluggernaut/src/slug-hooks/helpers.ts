@@ -88,9 +88,9 @@ export const slugifyInputs = async (
             if (meta.keys.length > 1) throw new EditMultipleError();
 
             const missingValues = fields.filter(field => !payload[field]);
-            const { services, getSchema } = hookContext;
+            const { services } = hookContext;
             const { ItemsService } = services;
-            const itemsService = new ItemsService(meta.collection, { schema: await getSchema(), accountability: eventContext.accountability });
+            const itemsService = new ItemsService(meta.collection, eventContext);
 
             const item = await itemsService.readMany(meta.keys, { fields: missingValues });
             values = fields.map(field => payload[field] || item[0][field]).filter(Boolean);
@@ -128,10 +128,11 @@ export const slugifyInputs = async (
  */
 export const findFieldsInCollection = async (
     collection: string,
+    eventContext: EventContext,
     hookContext: HookExtensionContext,
 ): Promise<{ slug: Field | undefined, path: Field | undefined}> => {
     const { FieldsService } = hookContext.services;
-    const fieldsService: FieldsService = new FieldsService({ schema: await hookContext.getSchema() });
+    const fieldsService: FieldsService = new FieldsService(eventContext);
     const collectionFields = await fieldsService.readAll(collection);
     return {
         slug: collectionFields.find((field: Field) => field.meta?.interface === 'oslug_interface'),
@@ -192,10 +193,11 @@ export const getSlugValue = async (
  */
 export const findArchiveFieldInCollection = async (
     collection: string, 
+    eventContext: EventContext,
     hookContext: HookExtensionContext
 ): Promise<ArchiveFieldSettings> => {
     const { CollectionsService } = hookContext.services;
-    const collections: CollectionsService = new CollectionsService({ schema: await hookContext.getSchema() });
+    const collections: CollectionsService = new CollectionsService(eventContext);
 
     const data = await collections.readOne(collection);
     return {
@@ -226,10 +228,7 @@ export const findExistingItems = async (
 
 ): Promise<Record<string, any>[]> => {
     const { ItemsService } = hookContext.services;
-    const itemsService: ItemsService = new ItemsService(collection, {
-        schema: await hookContext.getSchema(),
-        accountability: eventContext.accountability
-    });
+    const itemsService: ItemsService = new ItemsService(collection, eventContext);
 
     const { fields, filter } = options;
     return await itemsService.readMany(keys, { fields, filter });
@@ -252,7 +251,7 @@ export const findParentPath = async (
     hookContext: HookExtensionContext,
 ): Promise<string> => {
     const { ItemsService } = hookContext.services;
-    const itemsService: ItemsService = new ItemsService(collection, { schema: await hookContext.getSchema(), accountability: eventContext.accountability });
+    const itemsService: ItemsService = new ItemsService(collection, eventContext);
     const parent = await itemsService.readOne(parentId, { fields: ['path'] });
     return parent.path;
 }
@@ -285,7 +284,7 @@ export const getPathValue = async (
     if (!pathField) return null
 
     const { services, getSchema } = hookContext;
-    const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(meta.collection, hookContext);
+    const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(meta.collection, eventContext, hookContext);
     
     const parentFieldKey: string | undefined = pathField.meta?.options?.parent;
 
@@ -300,7 +299,7 @@ export const getPathValue = async (
 
     if (!parentID && meta.event.includes('.update')) {
         const { ItemsService } = services;
-        const itemsService: ItemsService = new ItemsService(meta.collection, { schema: await getSchema(), accountability: eventContext.accountability });
+        const itemsService: ItemsService = new ItemsService(meta.collection, eventContext);
         const items = await itemsService.readMany(meta.keys, { fields: [parentFieldKey] })
 
         const uniqueParentIds = [...new Set(items.map(rec => rec[parentFieldKey]).filter(Boolean))];

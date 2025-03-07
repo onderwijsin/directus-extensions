@@ -13,7 +13,8 @@ export const getEmailViewerPermissions = async (accountability: Accountability, 
         const { UsersService } = services;
 
         const usersService: UsersService = new UsersService({
-            schema: await context.getSchema()
+            schema: await context.getSchema(),
+            knex: context.database
         });
 
         // Fetch both direct user and role policies

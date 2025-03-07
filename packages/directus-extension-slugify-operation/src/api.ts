@@ -83,7 +83,8 @@ export default defineOperationApi<Options>({
 				const { ItemsService }= services;
 				const itemsService: ItemsService = new ItemsService(data.$trigger.collection, {
 					schema: await getSchema(),
-					accountability: data.$accountability
+					accountability: data.$accountability,
+					knex: context.database
 				});
 
 				const item = await itemsService.readMany(data.$trigger.keys, {

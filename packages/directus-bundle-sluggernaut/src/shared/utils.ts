@@ -1,4 +1,4 @@
-import type { CollectionMeta } from '@directus/types';
+import type { CollectionMeta, EventContext } from '@directus/types';
 import type { CollectionsService, SettingsService } from '@directus/api/dist/services';
 import type { HookExtensionContext } from '@directus/extensions'
 /**
@@ -10,12 +10,13 @@ import type { HookExtensionContext } from '@directus/extensions'
  */
 export const getSluggernautSettings = async (
     collection: string, 
+    eventContext: EventContext,
     hookContext: HookExtensionContext
 ): Promise<SluggernautSettings> => {
-    const { services, getSchema } = hookContext;
+    const { services } = hookContext;
     const { SettingsService, CollectionsService } = services;
-    const settings: SettingsService = new SettingsService({ schema: await getSchema() });
-    const collections: CollectionsService = new CollectionsService({ schema: await getSchema() });
+    const settings: SettingsService = new SettingsService(eventContext);
+    const collections: CollectionsService = new CollectionsService(eventContext);
 
     const data = await settings.readByQuery({ fields: ['use_trailing_slash', 'use_namespace']})
     const collectionData = await collections.readOne(collection);

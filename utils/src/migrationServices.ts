@@ -158,6 +158,7 @@ export const createOrUpdateCollection = async (
         const { collectionSchema, fieldSchema, relationSchema } = schemas;
         const collectionsService: CollectionsService = new CollectionsService({
             schema: await getSchema(),
+            knex: context.database
         });
 
         // This call will return a 403 if it does not yet exist, so we need a try / catch block
@@ -209,6 +210,7 @@ export const createOrUpdateFieldsInCollection = async (
         const { FieldsService } = services;
         const fieldsService: FieldsService = new FieldsService({
             schema: await getSchema(),
+            knex: context.database
         });
 
         const fields = await fieldsService.readAll(collection);
@@ -258,6 +260,7 @@ export const createOrUpdateRelationsInCollection = async (
         const { RelationsService } = services;
         const relationsService: RelationsService = new RelationsService({
             schema: await getSchema(),
+            knex: context.database
         });
 
         const relations = await relationsService.readAll(collection);

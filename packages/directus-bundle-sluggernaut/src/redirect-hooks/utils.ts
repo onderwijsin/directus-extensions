@@ -20,7 +20,7 @@ export const preventInfiniteLoop = async (
     hookContext: HookExtensionContext
 ): Promise<void> => {
     const { ItemsService } = hookContext.services;
-    const redirects: ItemsService = new ItemsService(collection, { schema: await hookContext.getSchema(), accountability: eventContext.accountability });
+    const redirects: ItemsService = new ItemsService(collection, eventContext);
     redirects.deleteByQuery({ filter: { origin: { _eq: destination } }})
 }
 
@@ -40,7 +40,7 @@ export const recursivelyGetRedirectIDsByDestination = async (
     hookContext: HookExtensionContext
 ): Promise<PrimaryKey[]> => {
     const { ItemsService } = hookContext.services
-    const items: ItemsService = new ItemsService(collection, { schema: await hookContext.getSchema(), accountability: eventContext.accountability });
+    const items: ItemsService = new ItemsService(collection, eventContext);
 
     if (!Array.isArray(value)) value = [value];
 
