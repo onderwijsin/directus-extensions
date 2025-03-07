@@ -1,10 +1,10 @@
 # Cache flush extension
-Notify your front end application(s) upon data changes, so they can flush their cache!
+Notify your front end application(s) when data changes in Directus, so they can flush their cache! fully configurable for multiple targets.
 
 ## Features
-- ⚙️ Configuration for endpoints, collections and payloads to sent
+- ⚙️ Configuration for endpoints, collections and payloads to send to each target
 - ✍️ Works with create, update, and delete events
-- 🚨 Notify users when errors occur
+- 🚨 Notifications when errors occur
 
 ## ⚠️ Schema changes
 This extension makes modifications to your existing database schema. It adds two collections: `cache_flush_targets` and `cache_flush_targets_directus_users`. Neither of these should interfere with any of you existing data.
@@ -24,14 +24,14 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 
 ## Configuration
 1. Navigate to the newly created collection `Cache Flush Targets`
-   - For each of the applications you want to flush cache for, create a target
+   - For each of the applications you want cache to be flushed, create a target
    - Fill out all fields:
-      - `status`: Only published sources receive calls
+      - `status`: Only published targets receive calls
       - `url`: The full URL for the endpoint where a request should be sent to (for example: _https://directus.io/api/__hooks__/flush-cache_)
       - `auth_header`: the header property to authenticate calls
       - `api_key`: The api key to authenticate calls
       - `users_notification`: Select which users should receive a notification if a flush error occurs
-      - `schema`: The data schema you want to flush. Add an array of objects, where each object is a collection, with a list of events for which flush calls need to happens. You can also need to provide the payload prop, which is an array of field keys whose values should be included in the call's payload.
+      - `schema`: The data schema you want to flush. This should be an array of objects, where each object represents a collection, with a list of events for which flush calls need to happen. You can also need to provide the payload prop, which is an array of field keys whose values should be included in the call's payload. Each of these props is required!
           
         ```
         [
@@ -46,7 +46,7 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
         ```
 
 ## Request Info
-This extension sends `POST` requests to the provided endpoints, of type `application/json`. The request body is of type
+This extension sends `POST` requests to the provided endpoints, of type `application/json`. The request body is of type 👇
 
 ```ts
 interface RequestBody {
@@ -72,3 +72,5 @@ Example 👇
   "timestamp": 1741359811122
 }
 ```
+
+Happy flushing! 🚽
