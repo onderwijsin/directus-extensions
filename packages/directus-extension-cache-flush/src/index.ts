@@ -1,7 +1,7 @@
 import { EventContext } from '@directus/types';
 import { defineHook } from '@directus/extensions-sdk';
 
-import { createOrUpdateCollection, createOrUpdateRelationsInCollection } from 'utils';
+import { createOrUpdateCollection, createOrUpdateRelationsInCollection, disableSchemaChange } from 'utils';
 import { 
 	collectionSchema, collectionFieldSchema, collectionRelationSchema,
 	junctionSchema, junctionFieldSchema, junctionRelationSchema 
@@ -13,10 +13,8 @@ import { sendFlushRequest } from './flush';
 
 
 export default defineHook(async ({ filter, action }, hookContext) => {
-	const { CACHE_FLUSH_DISABLE_SCHEMA_CHANGE, DISABLE_EXTENSION_SCHEMA_CHANGE } = hookContext.env;
-	const disableSchemaChange = (!!CACHE_FLUSH_DISABLE_SCHEMA_CHANGE && (CACHE_FLUSH_DISABLE_SCHEMA_CHANGE === 'true' || CACHE_FLUSH_DISABLE_SCHEMA_CHANGE === true)) || (!!DISABLE_EXTENSION_SCHEMA_CHANGE && (DISABLE_EXTENSION_SCHEMA_CHANGE === 'true' || DISABLE_EXTENSION_SCHEMA_CHANGE === true));
 	
-	if (!disableSchemaChange) {
+	if (!disableSchemaChange('CACHE_FLUSH_DISABLE_SCHEMA_CHANGE', hookContext.env)) {
 		// Create the collections for storing flush config
 		await createOrUpdateCollection(
 			collectionSchema.collection, 
