@@ -1,5 +1,24 @@
 # utils
 
+## 0.1.3
+
+### Patch Changes
+
+- 22299eb: ✨ Disable automated schema changes
+  If you don't want an extension to modify your database schema, you can now disable it. This can either be done globally, or per extension. Beware that if you disbale schema changes, you are responsible for providing the changes yourself. The extensions still rely on certain collections and fields.
+
+  - add disableSchemaChange utility
+  - check environment vars for config settings, only trigger schema changes accordingly
+  - update readme
+
+- 8413a05: Add createNotification function, which is a utility for the notifications service which defaults applied
+- 24e24d1: Add eventContext to services
+  If you do not pass the existing db connection to the service it will use the default DB connection which deadlocks the db for sqlite
+
+  Further reference: https://github.com/directus/directus/issues/24798
+
+- 563f26e: Fix items services in sqlite by proving existing DB connextion (attempt 2)
+
 ## 0.1.2
 
 ### Patch Changes

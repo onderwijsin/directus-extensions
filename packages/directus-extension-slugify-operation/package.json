@@ -2,7 +2,7 @@
 	"name": "@onderwijsin/directus-extension-slugify-operation",
 	"description": "A Directus extension that adds a slugify operation for flows",
 	"icon": "extension",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"author": {
 		"name": "Onderwijs in",
 		"email": "hallo@onderwijs.in",
