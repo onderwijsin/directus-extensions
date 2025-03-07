@@ -2,7 +2,7 @@
 	"name": "@onderwijsin/directus-extension-cache-flush",
 	"description": "Send requests to external applications to flush cache upon data changes",
 	"icon": "extension",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"author": {
 		"name": "Onderwijs in",
 		"email": "hallo@onderwijs.in",
