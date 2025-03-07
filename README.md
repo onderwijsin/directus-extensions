@@ -16,6 +16,8 @@ Some extensions in this repository are (or will be) published to the Directus Ma
   Fetch and view your team's email to and from a given email address, without ever leaving Directus
 - [`directus-extension-data-sync`](https://github.com/onderwijsin/directus-extensions/tree/main/packages/directus-extension-data-sync)   
   Sync data between different Directus instances that share (part of their) collection data schema
+- [`directus-extension-cache-flush`](https://github.com/onderwijsin/directus-extensions/tree/main/packages/directus-extension-cache-flush)   
+  Send requests to (front end) applications if data changes in Directus. Fully configurable for specific collections and events.
 
 ## ⚠️ Schema changes
 Some of the extensions in this repo make modifications to your existing database schema. Some add fields to existing (system) collection, some add new collections to your data model. Neither of these should interfere with any of you existing data.
