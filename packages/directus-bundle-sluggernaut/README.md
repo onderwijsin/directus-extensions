@@ -17,6 +17,16 @@ The all-in-one bundle for your slugging needs! This bundle adds multiple extensi
 - Creates a redirect collection that can be utilized by front-end applications.
 - Automatically creates redirects if slug or path values are changed.
 
+## ⚠️ Schema changes
+This extension makes modifications to your existing database schema. It adds a collections: `redirects` and adds fields to `directus_settings` and `directus_collections`. Neither of these should interfere with any of you existing data.
+
+However, if you don't want this extension to modify your schema, or want more control over field configuration, you can disable it by setting one of these env vars:
+
+`SLUGGERNAUT_DISABLE_SCHEMA_CHANGE="true"`   
+`DISABLE_EXTENSION_SCHEMA_CHANGE="true"` (globally applied to all [@onderwijsin](https://github.com/onderwijsin/directus-extensions/tree/feat/cache-flush) extensions)   
+   
+If you disable schema modifications, you're responsible for the availability of the necessary collections and fields! Please check the ./schema.ts file for reference.
+
 ## Configuration: Pre-installation
 1. (Optional) Delete any existing collection named `redirects`.
 

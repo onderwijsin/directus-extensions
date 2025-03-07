@@ -2,52 +2,8 @@ import { ApiExtensionContext } from '@directus/extensions';
 import type { Meta, RemoteConfig } from './types';
 import { prunePayload } from './utils';
 import { ofetch } from 'ofetch';
-import { EventContext, PrimaryKey } from '@directus/types';
-
-const handleNotifications = async (
-    error: {
-        collection: string,
-        itemId: PrimaryKey,
-        event: 'create' | 'update' | 'delete',
-        remote: string,
-        message?: string
-    },
-    config: {
-        users_notification: string[]
-    }, 
-    eventContext: EventContext ,
-    hookContext: ApiExtensionContext
-) => {
-    if (!config) return
-
-    if (!!config.users_notification?.length) {
-        // Send Directus native notification to lister users
-        const { NotificationsService } = hookContext.services;
-        const notifications = new NotificationsService({ 
-            schema: eventContext.schema
-        });
-
-
-        const message = error.message || `
-        The Data Sync Extension encountered an error!\n\n
-        Collection: ${error.collection}\n\n
-        Item ID: ${error.itemId}\n\n
-        Event: ${error.event}\n\n
-        Remote: ${error.remote}.\n\n
-        Check server logs for detailed error information.
-        `;
-
-        for (const userId of config.users_notification) {
-            await notifications.createOne({
-                recipient: userId,
-                subject: 'Data Sync Error',
-                message,
-                collection: error.collection,
-                item: error.itemId,
-            })
-        }
-    }
-}
+import { EventContext } from '@directus/types';
+import { createNotifcation } from 'utils'
 
 export const syncData = async (
     meta: Meta, 
@@ -59,14 +15,21 @@ export const syncData = async (
     // Loop over remotes and check wheter the collection is synced for a specific remote
     for (const remote of config) {
         if (!Array.isArray(remote.schema) || remote.schema.some(c => !c.name || !c.fields.every((field: unknown) => !!field && typeof field === 'string'))) {
-            logger.warn('Remote schema is not properly configured. Please check the schema configuration in the remote_data_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.')
-            await handleNotifications({
-                collection: meta.collection,
-                itemId: 'key' in meta ? meta.key : meta.keys.join(', '),
-                event: meta.event.split('.')[1] as 'create' | 'update' | 'delete',
-                remote: remote.url,
-                message: 'Remote schema is not properly configured. Please check the schema configuration in the remote_data_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.'
-            }, { users_notification: remote.users_notification}, eventContext, hookContext)
+            logger.warn('Remote schema is not properly configured. Please check the schema configuration in the data_sync_remote_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.')
+            for (const userId of remote.users_notification) {
+                await createNotifcation({
+                    collection: meta.collection,
+                    userId,
+                    itemId: 'key' in meta ? meta.key : meta.keys.join(', '),
+                    event: meta.event.split('.')[1] as 'create' | 'update' | 'delete',
+                    subject: 'Data Sync Schema error',
+                    message: 'Remote schema is not properly configured. Please check the schema configuration in the data_sync_remote_sources collection. Until you fix the schema, the Data Sync extension will not work for this remote.',
+                    customProps: {
+                        remote: remote.url
+                    }
+                }, eventContext, hookContext)
+            }
+            
             return
         };
 
@@ -98,12 +61,18 @@ export const syncData = async (
                     else logger.warn(error)
 
                     // Send notifications
-                    await handleNotifications({
-                        collection: meta.collection,
-                        itemId: key,
-                        event: 'delete',
-                        remote: remote.url
-                    }, { users_notification: remote.users_notification }, eventContext, hookContext)
+                    for (const userId of remote.users_notification) {
+                        await createNotifcation({
+                            collection: meta.collection,
+                            userId,
+                            itemId: key,
+                            event: 'delete',
+                            subject: 'Data Sync error',
+                            customProps: {
+                                remote: remote.url
+                            }
+                        }, eventContext, hookContext)
+                    }
                 }
             }
     
@@ -142,12 +111,18 @@ export const syncData = async (
                     else logger.warn(error)
 
                     // Send notifications
-                    await handleNotifications({
-                        collection: meta.collection,
-                        itemId: meta.key,
-                        event: 'delete',
-                        remote: remote.url
-                    }, { users_notification: remote.users_notification }, eventContext, hookContext)
+                    for (const userId of remote.users_notification) {
+                        await createNotifcation({
+                            collection: meta.collection,
+                            userId,
+                            itemId: meta.key,
+                            event: 'create',
+                            subject: 'Data Sync error',
+                            customProps: {
+                                remote: remote.url
+                            }
+                        }, eventContext, hookContext)
+                    }
                 }
         } else {
             // Send update event
@@ -179,12 +154,18 @@ export const syncData = async (
                     if (error?.message) logger.warn(error.message)
                     else logger.warn(error)
 
-                    await handleNotifications({
-                        collection: meta.collection,
-                        itemId: key,
-                        event: 'delete',
-                        remote: remote.url
-                    }, { users_notification: remote.users_notification }, eventContext, hookContext)
+                    for (const userId of remote.users_notification) {
+                        await createNotifcation({
+                            collection: meta.collection,
+                            userId,
+                            itemId: key,
+                            event: 'update',
+                            subject: 'Data Sync error',
+                            customProps: {
+                                remote: remote.url
+                            }
+                        }, eventContext, hookContext)
+                    }
                 }
             }
         }

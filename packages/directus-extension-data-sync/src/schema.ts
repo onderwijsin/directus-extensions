@@ -30,9 +30,9 @@ export const dataSyncAccessSchema = {
 }
 
 export const collectionSchema = {
-    "collection": "remote_data_sources",
+    "collection": "data_sync_remote_sources",
     "meta": {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "icon": "sync_lock",
         "note": "Configuration of remote instances for data sync extension",
         "display_template": '{{ url }}',
@@ -46,32 +46,32 @@ export const collectionSchema = {
         "versioning": false
     },
     "schema": {
-        "name": "remote_data_sources"
+        "name": "data_sync_remote_sources"
     }
 } as Collection
 
 export const junctionSchema = {
-    "collection": "remote_data_sources_directus_users",
+    "collection": "data_sync_remote_sources_directus_users",
     "meta": {
-        "collection": "remote_data_sources_directus_users",
+        "collection": "data_sync_remote_sources_directus_users",
         "icon": "import_export",
         "hidden": true,
         "singleton": false,
         "accountability": "all",
     },
     "schema": {
-        "name": "remote_data_sources_directus_users",
+        "name": "data_sync_remote_sources_directus_users",
     }
 } as Collection
 
 export const collectionFieldSchema = [
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "id",
         "type": "uuid",
         "schema": {
             "name": "id",
-            "table": "remote_data_sources",
+            "table": "data_sync_remote_sources",
             "default_value": null,
             "data_type": "uuid",
             "is_nullable": false,
@@ -79,7 +79,7 @@ export const collectionFieldSchema = [
             "is_primary_key": true,
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "id",
             "special": [
                 "uuid"
@@ -92,18 +92,18 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "status",
         "type": "string",
         "schema": {
             "name": "status",
-            "table": "remote_data_sources",
+            "table": "data_sync_remote_sources",
             "data_type": "character varying",
             "default_value": "draft",
             "is_nullable": false,
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "status",
             "interface": "select-dropdown",
             "options": {
@@ -159,19 +159,19 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "user_created",
         "type": "uuid",
         "schema": {
             "name": "user_created",
-            "table": "remote_data_sources",
+            "table": "data_sync_remote_sources",
             "data_type": "uuid",
             "is_nullable": true,
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "user_created",
             "special": [
                 "user-created"
@@ -188,16 +188,16 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "date_created",
         "type": "timestamp",
         "schema": {
             "name": "date_created",
-            "table": "remote_data_sources",
+            "table": "data_sync_remote_sources",
             "data_type": "timestamp with time zone",
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "date_created",
             "special": [
                 "date-created"
@@ -214,18 +214,18 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "user_updated",
         "type": "uuid",
         "schema": {
             "name": "user_updated",
-            "table": "remote_data_sources",
+            "table": "data_sync_remote_sources",
             "data_type": "uuid",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "user_updated",
             "special": [
                 "user-updated"
@@ -242,16 +242,16 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "date_updated",
         "type": "timestamp",
         "schema": {
             "name": "date_updated",
-            "table": "remote_data_sources",
+            "table": "data_sync_remote_sources",
             "data_type": "timestamp with time zone",
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "date_updated",
             "special": [
                 "date-updated"
@@ -268,17 +268,17 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "api_key",
         "type": "string",
         "schema": {
             "name": "api_key",
-            "table": "remote_data_sources",
+            "table": "data_sync_remote_sources",
             "data_type": "character varying",
             "is_nullable": false,
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "api_key",
             "interface": "input",
             "options": {
@@ -297,18 +297,18 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "url",
         "type": "string",
         "schema": {
             "name": "url",
-            "table": "remote_data_sources",
+            "table": "data_sync_remote_sources",
             "data_type": "character varying",
             "is_nullable": false,
             "is_unique": true,
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "url",
             "interface": "input",
             "options": {
@@ -322,17 +322,17 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "schema",
         "type": "json",
         "schema": {
             "name": "schema",
-            "table": "remote_data_sources",
+            "table": "data_sync_remote_sources",
             "data_type": "json",
             "is_nullable": true,
         },
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "schema",
             "special": [
                 "cast-json"
@@ -351,12 +351,12 @@ export const collectionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "users_notification",
         "type": "alias",
         "schema": null,
         "meta": {
-            "collection": "remote_data_sources",
+            "collection": "data_sync_remote_sources",
             "field": "users_notification",
             "special": [
                 "m2m"
@@ -383,14 +383,14 @@ export const collectionFieldSchema = [
 
 export const junctionFieldSchema = [
     {
-        "collection": "remote_data_sources_directus_users",
+        "collection": "data_sync_remote_sources_directus_users",
         "field": "id",
         "type": "integer",
         "schema": {
             "name": "id",
-            "table": "remote_data_sources_directus_users",
+            "table": "data_sync_remote_sources_directus_users",
             "data_type": "integer",
-            "default_value": "nextval('remote_data_sources_directus_users_id_seq'::regclass)",
+            "default_value": "nextval('data_sync_remote_sources_directus_users_id_seq'::regclass)",
             "numeric_precision": 32,
             "numeric_scale": 0,
             "is_nullable": false,
@@ -399,7 +399,7 @@ export const junctionFieldSchema = [
             "has_auto_increment": true,
         },
         "meta": {
-            "collection": "remote_data_sources_directus_users",
+            "collection": "data_sync_remote_sources_directus_users",
             "field": "id",
             "hidden": true,
             "sort": 1,
@@ -407,39 +407,39 @@ export const junctionFieldSchema = [
         }
     },
     {
-        "collection": "remote_data_sources_directus_users",
-        "field": "remote_data_sources_id",
+        "collection": "data_sync_remote_sources_directus_users",
+        "field": "data_sync_remote_sources_id",
         "type": "uuid",
         "schema": {
-            "name": "remote_data_sources_id",
-            "table": "remote_data_sources_directus_users",
+            "name": "data_sync_remote_sources_id",
+            "table": "data_sync_remote_sources_directus_users",
             "data_type": "uuid",
             "is_nullable": true,
-            "foreign_key_table": "remote_data_sources",
+            "foreign_key_table": "data_sync_remote_sources",
             "foreign_key_column": "id",
         },
         "meta": {
-            "collection": "remote_data_sources_directus_users",
-            "field": "remote_data_sources_id",
+            "collection": "data_sync_remote_sources_directus_users",
+            "field": "data_sync_remote_sources_id",
             "hidden": true,
             "sort": 2,
             "width": "full",
         }
     },
     {
-        "collection": "remote_data_sources_directus_users",
+        "collection": "data_sync_remote_sources_directus_users",
         "field": "directus_users_id",
         "type": "uuid",
         "schema": {
             "name": "directus_users_id",
-            "table": "remote_data_sources_directus_users",
+            "table": "data_sync_remote_sources_directus_users",
             "data_type": "uuid",
             "is_nullable": true,
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
         },
         "meta": {
-            "collection": "remote_data_sources_directus_users",
+            "collection": "data_sync_remote_sources_directus_users",
             "field": "directus_users_id",
             "hidden": true,
             "sort": 3,
@@ -450,12 +450,12 @@ export const junctionFieldSchema = [
 
 export const collectionRelationSchema = [
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "user_created",
         "related_collection": "directus_users",
         "schema": {
-            "constraint_name": "remote_data_sources_user_created_foreign",
-            "table": "remote_data_sources",
+            "constraint_name": "data_sync_remote_sources_user_created_foreign",
+            "table": "data_sync_remote_sources",
             "column": "user_created",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
@@ -463,19 +463,19 @@ export const collectionRelationSchema = [
             "on_delete": "NO ACTION"
         },
         "meta": {
-            "many_collection": "remote_data_sources",
+            "many_collection": "data_sync_remote_sources",
             "many_field": "user_created",
             "one_collection": "directus_users",
             "one_deselect_action": "nullify"
         }
     },
     {
-        "collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources",
         "field": "user_updated",
         "related_collection": "directus_users",
         "schema": {
-            "constraint_name": "remote_data_sources_user_updated_foreign",
-            "table": "remote_data_sources",
+            "constraint_name": "data_sync_remote_sources_user_updated_foreign",
+            "table": "data_sync_remote_sources",
             "column": "user_updated",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
@@ -483,7 +483,7 @@ export const collectionRelationSchema = [
             "on_delete": "NO ACTION"
         },
         "meta": {
-            "many_collection": "remote_data_sources",
+            "many_collection": "data_sync_remote_sources",
             "many_field": "user_updated",
             "one_collection": "directus_users",
             "one_deselect_action": "nullify"
@@ -494,12 +494,12 @@ export const collectionRelationSchema = [
 
 export const junctionRelationSchema = [
     {
-        "collection": "remote_data_sources_directus_users",
+        "collection": "data_sync_remote_sources_directus_users",
         "field": "directus_users_id",
         "related_collection": "directus_users",
         "schema": {
-            "constraint_name": "remote_data_sources_directus_users_directus_users_id_foreign",
-            "table": "remote_data_sources_directus_users",
+            "constraint_name": "data_sync_remote_sources_directus_users_directus_users_id_foreign",
+            "table": "data_sync_remote_sources_directus_users",
             "column": "directus_users_id",
             "foreign_key_table": "directus_users",
             "foreign_key_column": "id",
@@ -507,30 +507,30 @@ export const junctionRelationSchema = [
             "on_delete": "SET NULL"
         },
         "meta": {
-            "many_collection": "remote_data_sources_directus_users",
+            "many_collection": "data_sync_remote_sources_directus_users",
             "many_field": "directus_users_id",
             "one_collection": "directus_users",
-            "junction_field": "remote_data_sources_id",
+            "junction_field": "data_sync_remote_sources_id",
             "one_deselect_action": "nullify"
         }
     },
     {
-        "collection": "remote_data_sources_directus_users",
-        "field": "remote_data_sources_id",
-        "related_collection": "remote_data_sources",
+        "collection": "data_sync_remote_sources_directus_users",
+        "field": "data_sync_remote_sources_id",
+        "related_collection": "data_sync_remote_sources",
         "schema": {
-            "constraint_name": "remote_data_sources_directus_users_remote___745a9721_foreign",
-            "table": "remote_data_sources_directus_users",
-            "column": "remote_data_sources_id",
-            "foreign_key_table": "remote_data_sources",
+            "constraint_name": "data_sync_remote_sources_directus_users_remote___745a9721_foreign",
+            "table": "data_sync_remote_sources_directus_users",
+            "column": "data_sync_remote_sources_id",
+            "foreign_key_table": "data_sync_remote_sources",
             "foreign_key_column": "id",
             "on_update": "NO ACTION",
             "on_delete": "SET NULL"
         },
         "meta": {
-            "many_collection": "remote_data_sources_directus_users",
-            "many_field": "remote_data_sources_id",
-            "one_collection": "remote_data_sources",
+            "many_collection": "data_sync_remote_sources_directus_users",
+            "many_field": "data_sync_remote_sources_id",
+            "one_collection": "data_sync_remote_sources",
             "one_field": "users_notification",
             "junction_field": "directus_users_id",
             "one_deselect_action": "nullify"

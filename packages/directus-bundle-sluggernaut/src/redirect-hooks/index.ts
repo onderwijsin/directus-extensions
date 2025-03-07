@@ -5,7 +5,8 @@ import { EventContext } from '@directus/types';
 import { getPathString, getSluggernautSettings } from '../shared/utils'
 const collection = 'redirects';
 
-import { createOrUpdateCollection, createOrUpdateFieldsInCollection } from 'utils';
+import { createOrUpdateCollection, createOrUpdateFieldsInCollection, disableSchemaChange } from 'utils';
+
 
 export default defineHook(async (
 	{ filter, action },
@@ -14,23 +15,25 @@ export default defineHook(async (
 
 	const { services, emitter, logger, env } = hookContext;
 
+	if (!disableSchemaChange('SLUGGERNAUT_DISABLE_SCHEMA_CHANGE', env)) {
+		// /* STEP 1: Create redirect collection, fields and relations, or update existing ones with inproper config */
+		await createOrUpdateCollection(
+			collection, 
+			{
+				collectionSchema,
+				fieldSchema,
+				relationSchema
+			},
+			hookContext
+		);
 
-	// /* STEP 1: Create redirect collection, fields and relations, or update existing ones with inproper config */
-	await createOrUpdateCollection(
-		collection, 
-		{
-			collectionSchema,
-			fieldSchema,
-			relationSchema
-		},
-		hookContext
-	);
+		// /* STEP 2: add namespace field to collections */
+		await createOrUpdateFieldsInCollection('directus_collections', namespaceFieldSchema, hookContext);
 
-	// /* STEP 2: add namespace field to collections */
-	await createOrUpdateFieldsInCollection('directus_collections', namespaceFieldSchema, hookContext);
-
-	// /* STEP 3: add redirect config fields to directus_settings */
-	await createOrUpdateFieldsInCollection('directus_settings', settingsFieldSchema, hookContext);
+		// /* STEP 3: add redirect config fields to directus_settings */
+		await createOrUpdateFieldsInCollection('directus_settings', settingsFieldSchema, hookContext);
+	}
+	
 
 
 	filter('redirects.items.create', async (payload, meta, eventContext) => {

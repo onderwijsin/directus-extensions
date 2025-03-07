@@ -9,8 +9,18 @@ Create an automated data sync between multiple Directus instances, for one or mo
 
 **You need to install this extension in each of the Directus instances you want synced. You need to repeat the configuration steps for each instance**
 
+## ⚠️ Schema changes
+This extension makes modifications to your existing database schema. It adds two collections: `data_sync_remote_sources` and `data_sync_remote_sources_directus_users`. It also adds a new user, a new access policy, and assign this policy to the user (see configuration setp 1 and 3) Neither of these should interfere with any of you existing data.
+
+However, if you don't want this extension to modify your schema, or want more control over field configuration, you can disable it by setting one of these env vars:
+
+`DATA_SYNC_DISABLE_SCHEMA_CHANGE="true"`   
+`DISABLE_EXTENSION_SCHEMA_CHANGE="true"` (globally applied to all [@onderwijsin](https://github.com/onderwijsin/directus-extensions/tree/feat/cache-flush) extensions)   
+   
+If you disable schema modifications, you're responsible for the availability of the necessary collections and fields! Please check the ./schema.ts file for reference.
+
 ## Configuration pre installation
-Make sure you don't have a collection named `remote_data_sources` or `remote_data_sources_directus_users`
+Make sure you don't have a collection named `data_sync_remote_sources` or `data_sync_remote_sources_directus_users`
 
 ## Installation
 Refer to the [Official Guide](https://docs.directus.io/extensions/installing-extensions.html) for details on installing the extension from the Marketplace or manually.
@@ -19,7 +29,7 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 1. Navigate to _Settings > Access Policies_
    - For the policy "Data Sync", add `create`, `update` and `delete` permissions for each of the collection you want to sync.
    - Optional: configure the permitted fields for each collection, though strictly speaking this is not necessary, due to the config you'll provide in the next step
-2. Navigate to the newly created collection `Remote Data Sources`
+2. Navigate to the newly created collection `Data Sync Remote Sources`
    - For each of the remote instances you want to sync with, create a data source
    - Fill out all fields:
       - `status`: Only published sources are synced
@@ -38,7 +48,7 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
           }
         ]
         ```
-3. Navigate to Users. Generate a token for the new "Data Sync Directus" user. Copy this token and stor eit for later
+3. Navigate to Users. Generate a token for the new "Data Sync Directus" user. Copy this token and store it for later
 4. Repeat each of the steps above, for each of the remote sources. Afterwards, you'll need to add the tokens generated in the remote sources to the first instance.
 
 ## Gotchas
