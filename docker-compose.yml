@@ -29,8 +29,8 @@ x-directus-env: &directus-env
 
 services:
   # Self-hosted database options
-  database:
-    image: postgres:16.6
+  postgres:
+    image: postgis/postgis:16-3.5
     platform: linux/amd64
     profiles: ["postgres"]
     volumes:
@@ -40,10 +40,11 @@ services:
       POSTGRES_USER: directus
       POSTGRES_PASSWORD: directus
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U directus -d directus"]
+      test: ["CMD", "pg_isready", "--host=localhost", "--username=directus"]
       interval: 3s
       timeout: 5s
       retries: 5
+
 
   mysql5:
     image: mysql:5
@@ -70,6 +71,11 @@ services:
       MYSQL_DATABASE: directus
       MYSQL_USER: directus
       MYSQL_PASSWORD: directus
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "directus", "-pdirectus"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
     ports:
       - 5102:3306
 
@@ -113,14 +119,14 @@ services:
     <<: *directus-common
     profiles: ["postgres"]
     depends_on:
-      database:
+      postgres:
         condition: service_healthy
       cache:
         condition: service_healthy
     environment:
       <<: *directus-env
       DB_CLIENT: "pg"
-      DB_HOST: "database"
+      DB_HOST: "postgres"
       DB_PORT: 5432
       DB_DATABASE: "directus"
       DB_USER: "directus"
@@ -159,7 +165,7 @@ services:
     profiles: ["maria"]
     depends_on:
       maria:
-        condition: service_started
+        condition: service_healthy
       cache:
         condition: service_healthy
     environment:
