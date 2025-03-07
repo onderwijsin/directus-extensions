@@ -40,7 +40,7 @@ export default defineHook(async ({ filter, action }, hookContext) => {
 	
 	(["items.create", "items.update"] as const).forEach(event => {
 		action(event, async (meta, eventContext) => {
-			const config = await fetchCacheFlushConfig(hookContext);
+			const config = await fetchCacheFlushConfig(eventContext, hookContext);
 			const currentEvent = event.split('.')[1] as EventKey
 			// check if current collection exists in flush settings
 			// Skip if current mutation does not satisfy the schema
@@ -58,7 +58,7 @@ export default defineHook(async ({ filter, action }, hookContext) => {
 		// items.delete is a special case, where we want the filter event, so we can fetch data from the item before it's deleted
 		// After fetching the data, we'll send an emitAction so that the flushing still happens AFTER the operation
 
-		const config = await fetchCacheFlushConfig(hookContext);
+		const config = await fetchCacheFlushConfig(eventContext, hookContext);
 		const currentEvent = meta.event.split('.')[1] as EventKey
 
 		// check if current collection exists in flush settings

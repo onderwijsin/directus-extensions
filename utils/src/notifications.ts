@@ -40,11 +40,11 @@ export const createNotifcation = async (
     const { subject, userId, collection, itemId, event, message: inputMessage, customProps } = payload;
 
     const message = inputMessage || `
-        ${subject}\n\n
-        Collection: ${collection}\n\n
-        Item ID: ${itemId}\n\n
-        Event: ${event}\n\n
-        ${customProps ? Object.entries(customProps).map(([key, value]) => `${key}: ${value}`).join('\n\n') : ''}
+        ${subject}\n
+        Collection: ${collection}\n
+        Item ID: ${itemId}\n
+        Event: ${event}\n
+        ${customProps ? Object.entries(customProps).map(([key, value]) => `${key}: ${value}`).join('\n\n') : ''}\n
         Check server logs for detailed information.
     `;
 

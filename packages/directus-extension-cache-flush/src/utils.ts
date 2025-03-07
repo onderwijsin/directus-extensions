@@ -36,10 +36,11 @@ export const validateSchema = (schema: Record<string, any>[] | null): FlushConfi
 }
 
 
-export const fetchCacheFlushConfig = async (context: ApiExtensionContext): Promise<FlushConfig[]> => {
+export const fetchCacheFlushConfig = async (eventContext: EventContext, context: ApiExtensionContext): Promise<FlushConfig[]> => {
     const { ItemsService } = context.services
     const items: ItemsService = new ItemsService('cache_flush_targets', {
-        schema: await context.getSchema()
+        schema: eventContext.schema,
+        knex: eventContext.database
     })
     const targets = await items.readByQuery({
         filter: {
@@ -103,7 +104,7 @@ export const fetchExistingFieldData = async (
 ): Promise<RecordData | null> => {
     const { ItemsService } = hookContext.services;
     const items = new ItemsService(meta.collection, {
-        schema: await hookContext.getSchema(),
+        schema: eventContext.schema,
         knex: eventContext.database
     });
 

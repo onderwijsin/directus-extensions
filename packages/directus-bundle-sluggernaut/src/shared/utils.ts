@@ -15,8 +15,14 @@ export const getSluggernautSettings = async (
 ): Promise<SluggernautSettings> => {
     const { services } = hookContext;
     const { SettingsService, CollectionsService } = services;
-    const settings: SettingsService = new SettingsService(eventContext);
-    const collections: CollectionsService = new CollectionsService(eventContext);
+    const settings: SettingsService = new SettingsService({
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
+    const collections: CollectionsService = new CollectionsService({
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
 
     const data = await settings.readByQuery({ fields: ['use_trailing_slash', 'use_namespace']})
     const collectionData = await collections.readOne(collection);

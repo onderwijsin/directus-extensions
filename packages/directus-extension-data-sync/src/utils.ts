@@ -80,7 +80,7 @@ export const prunePayload = (
 export const fetchRemotes = async (eventContext: EventContext, context: ApiExtensionContext): Promise<RemoteConfig[]> => {
     const { ItemsService } = context.services
     const items: ItemsService = new ItemsService('data_sync_remote_sources', {
-        schema: await context.getSchema(),
+        schema: eventContext.schema,
         knex: eventContext.database
     })
 

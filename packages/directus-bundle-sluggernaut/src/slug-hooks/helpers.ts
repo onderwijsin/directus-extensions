@@ -90,7 +90,10 @@ export const slugifyInputs = async (
             const missingValues = fields.filter(field => !payload[field]);
             const { services } = hookContext;
             const { ItemsService } = services;
-            const itemsService = new ItemsService(meta.collection, eventContext);
+            const itemsService = new ItemsService(meta.collection, {
+                schema: eventContext.schema,
+                knex: eventContext.database
+            });
 
             const item = await itemsService.readMany(meta.keys, { fields: missingValues });
             values = fields.map(field => payload[field] || item[0][field]).filter(Boolean);
@@ -132,7 +135,10 @@ export const findFieldsInCollection = async (
     hookContext: HookExtensionContext,
 ): Promise<{ slug: Field | undefined, path: Field | undefined}> => {
     const { FieldsService } = hookContext.services;
-    const fieldsService: FieldsService = new FieldsService(eventContext);
+    const fieldsService: FieldsService = new FieldsService({
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
     const collectionFields = await fieldsService.readAll(collection);
     return {
         slug: collectionFields.find((field: Field) => field.meta?.interface === 'oslug_interface'),
@@ -197,7 +203,10 @@ export const findArchiveFieldInCollection = async (
     hookContext: HookExtensionContext
 ): Promise<ArchiveFieldSettings> => {
     const { CollectionsService } = hookContext.services;
-    const collections: CollectionsService = new CollectionsService(eventContext);
+    const collections: CollectionsService = new CollectionsService({
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
 
     const data = await collections.readOne(collection);
     return {
@@ -228,7 +237,10 @@ export const findExistingItems = async (
 
 ): Promise<Record<string, any>[]> => {
     const { ItemsService } = hookContext.services;
-    const itemsService: ItemsService = new ItemsService(collection, eventContext);
+    const itemsService: ItemsService = new ItemsService(collection, {
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
 
     const { fields, filter } = options;
     return await itemsService.readMany(keys, { fields, filter });
@@ -251,7 +263,10 @@ export const findParentPath = async (
     hookContext: HookExtensionContext,
 ): Promise<string> => {
     const { ItemsService } = hookContext.services;
-    const itemsService: ItemsService = new ItemsService(collection, eventContext);
+    const itemsService: ItemsService = new ItemsService(collection, {
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
     const parent = await itemsService.readOne(parentId, { fields: ['path'] });
     return parent.path;
 }
@@ -299,7 +314,10 @@ export const getPathValue = async (
 
     if (!parentID && meta.event.includes('.update')) {
         const { ItemsService } = services;
-        const itemsService: ItemsService = new ItemsService(meta.collection, eventContext);
+        const itemsService: ItemsService = new ItemsService(meta.collection, {
+			schema: eventContext.schema,
+			knex: eventContext.database
+		});
         const items = await itemsService.readMany(meta.keys, { fields: [parentFieldKey] })
 
         const uniqueParentIds = [...new Set(items.map(rec => rec[parentFieldKey]).filter(Boolean))];
@@ -400,7 +418,10 @@ export const findChildren = async (
     hookContext: HookExtensionContext
 ): Promise<{id: string, slug: string }[]> => {
     const { ItemsService } = hookContext.services;
-    const itemsService: ItemsService = new ItemsService(collection, eventContext);
+    const itemsService: ItemsService = new ItemsService(collection, {
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
     const items = await itemsService.readByQuery({ fields: ['id', slugFieldKey], filter: { [parentFieldKey]: { "_in": keys } } });
 
     return items.map(rec => ({ id: rec.id, slug: rec[slugFieldKey] }));
@@ -461,7 +482,10 @@ export const preventRecursiveAncestory = async (
     hookContext: HookExtensionContext,
 ): Promise<void> => {
     const { ItemsService } = hookContext.services;
-    const itemsService: ItemsService = new ItemsService(meta.collection, eventContext);
+    const itemsService: ItemsService = new ItemsService(meta.collection, {
+        schema: eventContext.schema,
+        knex: eventContext.database
+    });
 
     /* 
         To prevent the creation of recursive ancestry, you need to check if the new parent 

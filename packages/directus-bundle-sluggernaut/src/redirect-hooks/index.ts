@@ -50,7 +50,10 @@ export default defineHook(async (
 	emitter.onAction('redirect.update', async (payload: RedirectUpdateEvent, eventContext: EventContext) => {
 		const { type, oldValues, newValue } = payload;
 		const { ItemsService } = services
-		const items = new ItemsService(collection, eventContext);
+		const items = new ItemsService(collection, {
+			schema: eventContext.schema,
+			knex: eventContext.database
+		});
 
 		// Get redirect config
 		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, eventContext, hookContext);
@@ -82,7 +85,10 @@ export default defineHook(async (
 		);
 
 		const { ItemsService } = services
-		const items = new ItemsService(collection, eventContext);
+		const items = new ItemsService(collection, {
+			schema: eventContext.schema,
+			knex: eventContext.database
+		});
 
 		logger.info(`Deleting ${idsToDelete.length} redirects because they were associated with the deleted slugs`, {
 			redirect_ids: idsToDelete,
@@ -97,7 +103,10 @@ export default defineHook(async (
 		if (meta.payload.hasOwnProperty('use_trailing_slash')) {
 			const { use_trailing_slash } = meta.payload
 			const { ItemsService } = services
-			const items = new ItemsService(collection, eventContext);
+			const items = new ItemsService(collection, {
+				schema: eventContext.schema,
+				knex: eventContext.database
+			});
 
 			// There is no aggregation service to get the total number of redirects. So we'll need some custom logic here
 			const limit = env.QUERY_LIMIT_MAX || 1000;
