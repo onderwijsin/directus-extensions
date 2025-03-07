@@ -27,6 +27,12 @@ x-directus-env: &directus-env
   SESSION_COOKIE_SECURE: true 
   REFRESH_TOKEN_COOKIE_SECURE: true
 
+  DISABLE_EXTENSION_SCHEMA_CHANGE: false
+  CACHE_FLUSH_DISABLE_SCHEMA_CHANGE: false
+  EMAIL_VIEWER_DISABLE_SCHEMA_CHANGE: false
+  SLUGGERNAUT_DISABLE_SCHEMA_CHANGE: false
+  DATA_SYNC_DISABLE_SCHEMA_CHANGE: false
+
 services:
   # Self-hosted database options
   postgres:

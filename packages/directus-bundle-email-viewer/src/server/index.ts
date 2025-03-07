@@ -3,7 +3,7 @@ import { Provider } from '../types';
 import getProvider from './providers';
 import { z } from 'zod';
 import { InvalidProvider } from './utils/errors';
-import { createOrUpdateFieldsInCollection, cacheProvider } from 'utils'
+import { createOrUpdateFieldsInCollection, cacheProvider, disableSchemaChange } from 'utils'
 import { getEmailViewerPermissions } from './utils';
 import { policyFieldsSchema } from './schema';
 
@@ -25,8 +25,10 @@ export default defineEndpoint(async (router, context) => {
 	if (!provider || Object.values(Provider).indexOf(provider) === -1) {
 		throw new InvalidProvider()
 	}
-
-	await createOrUpdateFieldsInCollection('directus_policies', policyFieldsSchema, context)
+	
+	if (!disableSchemaChange('EMAIL_VIEWER_DISABLE_SCHEMA_CHANGE', env)) {
+		await createOrUpdateFieldsInCollection('directus_policies', policyFieldsSchema, context)
+	}
 	
 	const routeTTL: number = parseInt(env.CLIENT_CACHE_TTL || '600');
 	

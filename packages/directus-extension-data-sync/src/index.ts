@@ -3,7 +3,7 @@ import { syncData } from './sync';
 import { Meta } from './types';
 import { createDataSyncPolicy, createDataSyncUser, assignPolicy, fetchRemotes } from './utils';
 import { PrimaryKey } from '@directus/types';
-import { createOrUpdateCollection, createOrUpdateRelationsInCollection } from 'utils';
+import { createOrUpdateCollection, createOrUpdateRelationsInCollection, disableSchemaChange } from 'utils';
 import { 
 	dataSyncUserSchema,
 	collectionSchema, collectionFieldSchema, collectionRelationSchema,
@@ -14,11 +14,13 @@ const dataSyncUserId = dataSyncUserSchema.id as PrimaryKey
 
 export default defineHook(async ({ action }, hookContext) => {
 
-	// Create the policy, user and assign the policy to the user
-	// This will be used to authenticate the sync api
-	await createDataSyncPolicy(hookContext);
-	await createDataSyncUser(hookContext);
-	await assignPolicy(hookContext);
+	if (!disableSchemaChange('DATA_SYNC_DISABLE_SCHEMA_CHANGE', hookContext.env)) {
+		// Create the policy, user and assign the policy to the user
+		// This will be used to authenticate the sync api
+		await createDataSyncPolicy(hookContext);
+		await createDataSyncUser(hookContext);
+		await assignPolicy(hookContext);
+	}
 
 	// Create the collections for storing remote config
 	await createOrUpdateCollection(

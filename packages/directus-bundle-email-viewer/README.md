@@ -3,6 +3,16 @@
 # Directus Email Viewer
 Fetch all emails sent and received by your organization (or a subset of your organization's users) for a given email address, and list the metadata in a searchable interface. Very usefull for an internal CRM application, where you want to see teamwide email correspondence for any of the stored contacts.
 
+## ⚠️ Schema changes
+This extension makes modifications to your existing database schema. It adds fields to `directus_policies`. This should not interfere with any of you existing data.
+
+However, if you don't want this extension to modify your schema, or want more control over field configuration, you can disable it by setting one of these env vars:
+
+`EMAIL_VIEWER_DISABLE_SCHEMA_CHANGE="true"`   
+`DISABLE_EXTENSION_SCHEMA_CHANGE="true"` (globally applied to all [@onderwijsin](https://github.com/onderwijsin/directus-extensions/tree/feat/cache-flush) extensions)   
+   
+If you disable schema modifications, you're responsible for the availability of the necessary collections and fields! Please check the ./schema.ts file for reference.
+
 ## Installation
 Refer to the [Official Guide](https://docs.directus.io/extensions/installing-extensions.html) for details on installing the extension from the Marketplace or manually.
 

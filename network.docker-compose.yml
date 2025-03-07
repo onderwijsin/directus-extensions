@@ -20,6 +20,12 @@ x-directus-env: &directus-env
   EXTENSIONS_AUTO_RELOAD: true
   WEBSOCKETS_ENABLED: true
 
+  DISABLE_EXTENSION_SCHEMA_CHANGE: false
+  CACHE_FLUSH_DISABLE_SCHEMA_CHANGE: false
+  EMAIL_VIEWER_DISABLE_SCHEMA_CHANGE: false
+  SLUGGERNAUT_DISABLE_SCHEMA_CHANGE: false
+  DATA_SYNC_DISABLE_SCHEMA_CHANGE: false
+
 x-db-common: &db-common
   image: postgres:16.6
   # Required when running on platform other than amd64, like Apple M1/M2:
