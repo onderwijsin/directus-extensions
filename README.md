@@ -8,13 +8,13 @@ Certain extensions serve a very specific purpose and have only been tested in ou
 ## 📦 Packages
 Some extensions in this repository are (or will be) published to the Directus Marketplace. Please note that none of these extensions are [sandboxed](https://docs.directus.io/extensions/sandbox/introduction.html), so they will only be discoverable if you set [`MARKETPLACE_TRUST=all`](https://directus.io/docs/configuration/extensions#marketplace).
 
-- [`directus-extension-slugify-operation`](https://github.com/onderwijsin/directus-extensions/blob/main/packages/directus-extension-slugify-operation):  
+- [`directus-extension-slugify-operation`](https://github.com/onderwijsin/directus-extensions/blob/main/packages/directus-extension-slugify-operation)   
   Adds a flow operation to slugify inputs.
-- [`directus-bundle-sluggernaut`](https://github.com/onderwijsin/directus-extensions/blob/main/packages/directus-bundle-sluggernaut):  
+- [`directus-bundle-sluggernaut`](https://github.com/onderwijsin/directus-extensions/blob/main/packages/directus-bundle-sluggernaut)  
   A set of five extensions that handle and automate slugs, paths and redirects.
-- [`directus-bundle-email-viewer`](https://github.com/onderwijsin/directus-extensions/tree/main/packages/directus-bundle-email-viewer):
+- [`directus-bundle-email-viewer`](https://github.com/onderwijsin/directus-extensions/tree/main/packages/directus-bundle-email-viewer)   
   Fetch and view your team's email to and from a given email address, without ever leaving Directus
-- [`directus-extension-data-sync`](https://github.com/onderwijsin/directus-extensions/tree/main/packages/directus-extension-data-sync):
+- [`directus-extension-data-sync`](https://github.com/onderwijsin/directus-extensions/tree/main/packages/directus-extension-data-sync)   
   Sync data between different Directus instances that share (part of their) collection data schema
 
 ## 🤝 Contributing
