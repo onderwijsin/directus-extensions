@@ -9,7 +9,7 @@ export default defineHook(({ filter }, hookContext) => {
     filter('items.create', async (payload, meta, eventContext) => {
         if (!payload || typeof payload !== 'object') return;
 
-        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, hookContext);
+        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, eventContext, hookContext);
         if (!slugField) return;
 
         const slug = await getSlugValue(slugField, payload, meta, eventContext, hookContext);
@@ -36,11 +36,11 @@ export default defineHook(({ filter }, hookContext) => {
     filter('items.update', async (payload, meta, eventContext) => {
         if (!payload || typeof payload !== 'object') return;
 
-        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, hookContext);
+        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, eventContext, hookContext);
         if (!slugField) return;
 
         // If the item is archived, delete any redirects to it's (old) slugs
-        const { archive_field_key, archive_value, is_boolean } = await findArchiveFieldInCollection(meta.collection, hookContext);
+        const { archive_field_key, archive_value, is_boolean } = await findArchiveFieldInCollection(meta.collection, eventContext, hookContext);
         if (!!archive_field_key && (archive_field_key in payload && !publishedValues.includes((payload as Record<string, any>)[archive_field_key]))) {
             await emitDelete(
                 { slugField, pathField },
@@ -143,7 +143,7 @@ export default defineHook(({ filter }, hookContext) => {
     });
 
     filter('items.delete', async (payload, meta, eventContext) => {
-        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, hookContext);
+        const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, eventContext, hookContext);
         if (!slugField) return;
 
         await emitDelete(

@@ -53,7 +53,7 @@ export default defineHook(async (
 		const items = new ItemsService(collection, eventContext);
 
 		// Get redirect config
-		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, hookContext);
+		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, eventContext, hookContext);
 		const destination = type === 'path' ? newValue : getPathString(newValue, 'slug', { use_namespace, use_trailing_slash, namespace });
 		
 		// First prevent an infinite loop by deleting any redirects that have the new destination as their origin
@@ -71,7 +71,7 @@ export default defineHook(async (
 
 	emitter.onAction('redirect.delete', async (payload: RedirectDeleteEvent, eventContext: EventContext) => {
 		const { values, type } = payload;
-		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection, hookContext);
+		const { use_namespace, use_trailing_slash, namespace } = await getSluggernautSettings(payload.collection,eventContext, hookContext);
 
 		// Get an array of redirect IDs to delete that are assiociated with the deleted slugs
 		const idsToDelete = await recursivelyGetRedirectIDsByDestination(

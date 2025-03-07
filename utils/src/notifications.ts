@@ -33,7 +33,8 @@ export const createNotifcation = async (
 ): Promise<void> => {
     const { NotificationsService } = hookContext.services;
     const notifications = new NotificationsService({ 
-        schema: eventContext.schema
+        schema: eventContext.schema,
+        knex: eventContext.database
     });
 
     const { subject, userId, collection, itemId, event, message: inputMessage, customProps } = payload;

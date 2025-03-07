@@ -3,7 +3,7 @@ import { ApiExtensionContext } from "@directus/extensions"
 import { safeSchemaChangesOnStartup, checkIfItemExists } from "utils"
 import { dataSyncPolicySchema, dataSyncUserSchema, dataSyncAccessSchema } from "./schema"
 import { createError } from "@directus/errors"
-import { PrimaryKey } from "@directus/types"
+import { PrimaryKey, EventContext } from "@directus/types"
 import { RemoteConfig, RawRemoteConfig } from "./types"
 
 const CreateItemFromSchemaError = createError(
@@ -20,7 +20,8 @@ const createItemIfNotExists = async (
 ) => {
     await safeSchemaChangesOnStartup(async (context: ApiExtensionContext) => {
         const serviceInstance = new context.services[serviceKey]({
-            schema: await context.getSchema()
+            schema: await context.getSchema(),
+            knex: context.database
         })
 
         const itemAlreadyExists = await checkIfItemExists(async () => await serviceInstance.readOne(schema.id))
@@ -76,10 +77,11 @@ export const prunePayload = (
 }
 
 
-export const fetchRemotes = async (context: ApiExtensionContext): Promise<RemoteConfig[]> => {
+export const fetchRemotes = async (eventContext: EventContext, context: ApiExtensionContext): Promise<RemoteConfig[]> => {
     const { ItemsService } = context.services
     const items: ItemsService = new ItemsService('data_sync_remote_sources', {
-        schema: await context.getSchema()
+        schema: await context.getSchema(),
+        knex: eventContext.database
     })
 
     const remotes = await items.readByQuery({

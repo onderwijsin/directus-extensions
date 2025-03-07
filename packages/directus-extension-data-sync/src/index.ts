@@ -47,7 +47,7 @@ export default defineHook(async ({ action }, hookContext) => {
 	["items.create", "items.update", "items.delete"].forEach(event => {
 		action(event, async (meta, eventContext) => {
 
-			const config = await fetchRemotes(hookContext);
+			const config = await fetchRemotes(eventContext, hookContext);
 			if (!config.filter(remote => Array.isArray(remote.schema) && remote.schema.find(c => c.name === meta.collection)).length) return; // Skip if not a synced collection
 			
 			const requestUserId = eventContext.accountability?.user; // Retrieve the user ID of the requestor
