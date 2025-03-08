@@ -4,7 +4,7 @@ import { safeSchemaChangesOnStartup, checkIfItemExists } from "utils"
 import { dataSyncPolicySchema, dataSyncUserSchema, dataSyncAccessSchema } from "./schema"
 import { createError } from "@directus/errors"
 import { PrimaryKey, EventContext } from "@directus/types"
-import { RemoteConfig, RawRemoteConfig } from "./types"
+import { RemoteConfig, RawRemoteConfig, Schema } from "./types"
 
 const CreateItemFromSchemaError = createError(
     'EXTENSION_LOAD_ERROR',
@@ -63,6 +63,31 @@ export const assignPolicy = async (context: ApiExtensionContext) => {
     )
 }
 
+const validateSchema = (schema: any): Schema | null => {
+    if (!schema) {
+        return null
+    }
+
+    if (!Array.isArray(schema)) {
+        return null
+    }
+
+    return schema.map((collection: any) => {
+        if (typeof collection.collection !== 'string') {
+            return null
+        }
+
+        if (!Array.isArray(collection.fields) && collection.fields.some((field: any) => typeof field !== 'string')) {
+            return null
+        }
+
+        return {
+            collection: collection.collection,
+            fields: collection.fields
+        }
+    }).filter((collection: any) => collection !== null) as Schema
+}
+
 
 export const fetchRemotes = async (eventContext: EventContext, context: ApiExtensionContext): Promise<RemoteConfig[]> => {
     const { ItemsService } = context.services
@@ -93,7 +118,7 @@ export const fetchRemotes = async (eventContext: EventContext, context: ApiExten
             status: remote.status,
             url: remote.url,
             api_key: remote.api_key,
-            schema: remote.schema,
+            schema: validateSchema(remote.schema),
             users_notification: remote.users_notification.map(user => user.directus_users_id)
         }
     }) as RemoteConfig[]
