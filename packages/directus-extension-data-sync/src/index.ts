@@ -5,7 +5,7 @@ import { createDataSyncPolicy, createDataSyncUser, assignPolicy, fetchRemotes } 
 import { PrimaryKey } from '@directus/types';
 import { 
 	createOrUpdateCollection, createOrUpdateRelationsInCollection, disableSchemaChange,
-	type HookMeta
+	type ActionMeta
  } from 'utils';
 import { 
 	dataSyncUserSchema,
@@ -62,7 +62,7 @@ export default defineHook(async ({ action }, hookContext) => {
 			}
 		
 			// Only sync if it was a local change
-			await syncData(meta as HookMeta, config, eventContext, hookContext);
+			await syncData(meta as ActionMeta, config, eventContext, hookContext);
 		});
 	});
 });

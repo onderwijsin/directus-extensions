@@ -1,27 +1,6 @@
 import { PrimaryKey } from '@directus/types';
 
 export type EventKey = 'create' | 'update' | 'delete';
-export type Meta = MetaCreate | MetaUpdate | MetaDelete;
-
-export type MetaCreate = {
-    event: 'items.create';
-    payload: Record<string, any>;
-    key: PrimaryKey;
-    collection: string;
-};
-
-export type MetaUpdate = {
-    event: 'items.update';
-    payload: Record<string, any>;
-    keys: PrimaryKey[];
-    collection: string;
-};
-
-export type MetaDelete = {
-    event: 'items.delete';
-    keys: PrimaryKey[];
-    collection: string;
-};
 
 export interface BaseFlushConfig {
     id: PrimaryKey
@@ -49,3 +28,10 @@ export interface FlushConfig extends BaseFlushConfig {
 
 
 export type RecordData = Array<Record<string, any> & { id: PrimaryKey }>
+
+export type Payload = {
+    collection: string;
+    event: EventKey;
+    fields: Record<string, any> & { id?: PrimaryKey };
+    timestamp: number;
+}
