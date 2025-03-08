@@ -64,19 +64,6 @@ export const assignPolicy = async (context: ApiExtensionContext) => {
 }
 
 
-export const prunePayload = (
-    payload: Record<string, any>, 
-    fields: string[]
-): Record<string, any> => {
-    return Object.keys(payload).reduce((acc, key) => {
-        if (fields.find(f => f === key)) {
-            acc[key] = payload[key]
-        }
-        return acc
-    }, {} as Record<string, any>)
-}
-
-
 export const fetchRemotes = async (eventContext: EventContext, context: ApiExtensionContext): Promise<RemoteConfig[]> => {
     const { ItemsService } = context.services
     const items: ItemsService = new ItemsService('data_sync_remote_sources', {

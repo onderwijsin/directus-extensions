@@ -2,8 +2,8 @@ import { ofetch } from 'ofetch';
 import { EventContext, PrimaryKey } from '@directus/types';
 import { ApiExtensionContext } from '@directus/extensions';
 import type { Meta, FlushConfig, RecordData } from './types';
-import { createNotifcation } from 'utils';
-import { prunePayload, fetchExistingFieldData } from './utils';
+import { createNotifcation, pruneObjByFieldKeys } from 'utils';
+import { fetchExistingFieldData } from './utils';
 
 export const sendFlushRequest = async (
     meta: Meta,
@@ -54,7 +54,7 @@ export const sendFlushRequest = async (
         let payload = {
             collection: meta.collection,
             event: 'create',
-            fields: prunePayload(meta.payload, collection.payload),
+            fields: pruneObjByFieldKeys(meta.payload, collection.payload),
             timestamp: Date.now()
         }
 
@@ -99,7 +99,7 @@ export const sendFlushRequest = async (
         let payload = {
             collection: meta.collection,
             event: 'update',
-            fields: prunePayload(meta.payload, collection.payload),
+            fields: pruneObjByFieldKeys(meta.payload, collection.payload),
             timestamp: Date.now()
         }
 
@@ -127,7 +127,7 @@ export const sendFlushRequest = async (
                 // Directus converts integer ids to strings...
                 const record = data.find(d => d.id === key || typeof d.id === 'number' && typeof key === 'string' ? parseInt(key as string) === d.id : false)
                 if (!record) return
-                payload.fields = prunePayload(record, collection.payload)
+                payload.fields = pruneObjByFieldKeys(record, collection.payload)
             }
 
             try {
@@ -179,7 +179,7 @@ export const sendFlushRequest = async (
             if (!recordData) return
             const record = recordData.find(d => d.id === key)
             if (!record) return
-            payload.fields = prunePayload(record, collection.payload)
+            payload.fields = pruneObjByFieldKeys(record, collection.payload)
 
             try {
                 await ofetch(url, {
