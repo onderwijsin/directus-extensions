@@ -39,7 +39,7 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
         ```
         [
           {
-              "name": "collection",
+              "collection": "collection",
               "fields": [
                   "field_key"
               ]
