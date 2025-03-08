@@ -2,7 +2,7 @@ import { ApiExtensionContext } from '@directus/extensions';
 import type { Meta, RemoteConfig } from './types';
 import { ofetch } from 'ofetch';
 import { EventContext } from '@directus/types';
-import { createNotifcation, pruneObjByFieldKeys } from 'utils'
+import { createNotifcation, pruneObjByKeys } from 'utils'
 
 export const syncData = async (
     meta: Meta, 
@@ -77,7 +77,7 @@ export const syncData = async (
     
         } else if (meta.event === 'items.create') {
                 logger.info('Syncing created item to remote: ' + remote.url);
-                const prunedPayload = pruneObjByFieldKeys(meta.payload, collection.fields);
+                const prunedPayload = pruneObjByKeys(meta.payload, collection.fields);
 
 
                 /* NOTE
@@ -131,7 +131,7 @@ export const syncData = async (
                 This should always be the case, but for redundancy, we will send
                 individual requests for each item.
             */
-            const prunedPayload = pruneObjByFieldKeys(meta.payload, collection.fields);
+            const prunedPayload = pruneObjByKeys(meta.payload, collection.fields);
 
             // If the pruned payload is empty, we do not want to send a request to the remote
             // since none of the sync fields are changed

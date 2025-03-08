@@ -39,7 +39,7 @@ export const disableSchemaChange = (extension_key: string, env: ApiExtensionCont
  * @param keys - The array of keys to retain in the object.
  * @returns A new object containing only the specified keys from the original object.
  */
-export const pruneObjByFieldKeys = <T extends Record<string, any>, K extends keyof T>(
+export const pruneObjByKeys = <T extends Record<string, any>, K extends keyof T>(
     obj: T, 
     keys: K[]
 ): Partial<Pick<T, K>> => {
