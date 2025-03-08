@@ -2,7 +2,7 @@
 	"name": "@onderwijsin/directus-bundle-sluggernaut",
 	"description": "An all in one solution for managing routes",
 	"icon": "extension",
-	"version": "1.0.4",
+	"version": "1.0.5",
 	"author": {
 		"name": "Onderwijs in",
 		"email": "hallo@onderwijs.in",

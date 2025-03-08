@@ -1,5 +1,14 @@
 # utils
 
+## 0.1.4
+
+### Patch Changes
+
+- 5fecd5f: Refactor code
+  Remove redunacy and split functions into seperate components that handle one single thing. Add types to utils for Filter and Action hooks
+- b27e444: Add pruneObjByFieldKeys to utils
+  Add a reusable utility fn to workspace utils. Implements it in data sync and cache flush
+
 ## 0.1.3
 
 ### Patch Changes

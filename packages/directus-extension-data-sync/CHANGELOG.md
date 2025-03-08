@@ -1,5 +1,17 @@
 # @onderwijsin/directus-extension-data-sync
 
+## 1.1.1
+
+### Patch Changes
+
+- 5fecd5f: Refactor code
+  Remove redunacy and split functions into seperate components that handle one single thing. Add types to utils for Filter and Action hooks
+- b27e444: Add pruneObjByFieldKeys to utils
+  Add a reusable utility fn to workspace utils. Implements it in data sync and cache flush
+- Updated dependencies [5fecd5f]
+- Updated dependencies [b27e444]
+  - utils@0.1.4
+
 ## 1.1.0
 
 ### Minor Changes
