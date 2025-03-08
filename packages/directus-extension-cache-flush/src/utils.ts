@@ -73,20 +73,6 @@ export const fetchCacheFlushConfig = async (eventContext: EventContext, context:
 }
 
 
-export const prunePayload = (
-    payload: Record<string, any>, 
-    fields: string[]
-): Record<string, any> => {
-    return Object.keys(payload).reduce((acc, key) => {
-        if (fields.find(f => f === key)) {
-            acc[key] = payload[key]
-        }
-        return acc
-    }, {} as Record<string, any>)
-}
-
-
-
 /**
  * Fetches additional fields for the given meta data.
  *

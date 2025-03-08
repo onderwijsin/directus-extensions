@@ -28,3 +28,25 @@ export const disableSchemaChange = (extension_key: string, env: ApiExtensionCont
     const { DISABLE_EXTENSION_SCHEMA_CHANGE } = env;
     return (!!env[extension_key] && (env[extension_key] === 'true' || env[extension_key] === true)) || (!!DISABLE_EXTENSION_SCHEMA_CHANGE && (DISABLE_EXTENSION_SCHEMA_CHANGE === 'true' || DISABLE_EXTENSION_SCHEMA_CHANGE === true))
 };
+
+
+
+
+/**
+ * Prunes an object by retaining only the specified keys.
+ *
+ * @param obj - The object to prune.
+ * @param keys - The array of keys to retain in the object.
+ * @returns A new object containing only the specified keys from the original object.
+ */
+export const pruneObjByKeys = <T extends Record<string, any>, K extends keyof T>(
+    obj: T, 
+    keys: K[]
+): Partial<Pick<T, K>> => {
+    return Object.keys(obj).reduce((acc, key) => {
+        if (keys.includes(key as K)) {
+            acc[key as K] = obj[key];
+        }
+        return acc;
+    }, {} as Partial<Pick<T, K>>);
+}

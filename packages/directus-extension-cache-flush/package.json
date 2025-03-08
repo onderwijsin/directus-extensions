@@ -3,6 +3,7 @@
 	"description": "Send requests to external applications to flush cache upon data changes",
 	"icon": "extension",
 	"version": "1.0.0",
+	"license": "MIT",
 	"author": {
 		"name": "Onderwijs in",
 		"email": "hallo@onderwijs.in",
