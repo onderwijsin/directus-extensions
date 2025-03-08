@@ -45,32 +45,30 @@ const notifyUsers = async (
  * 
  * @param url - The target URL to send the flush request to.
  * @param headers - Request headers including authentication.
- * @param payload - The data payload for the request.
+ * @param payloads - The data payload for the request.
  * @param logger - Logger for recording success or failure.
- * @param meta - Metadata associated with the event.
- * @param key - Identifier of the item being flushed.
  */
+
 const sendFlushRequestToEndpoint = async (
     url: string,
     headers: Record<string, string>,
-    payload: any,
+    payloads: Payload[],
     logger: any,
-    meta: ActionMeta,
-    key: PrimaryKey
 ) => {
     try {
         await ofetch(url, {
             method: 'POST',
             headers,
-            body: payload
+            body: payloads
         });
-        logger.info(`Successfully sent cache flush to: ${url} with id: ${key} in collection: ${meta.collection}`);
+        logger.info(`Successfully sent cache flush to: ${url} with ids: ${payloads.map(p => p.fields.id).join(', ')} in collection: ${payloads[0]?.collection}`);
     } catch (error: any) {
-        logger.warn(`Error sending cache flush to: ${url} with id: ${key} in collection: ${meta.collection}`);
+        logger.warn(`Error sending cache flush to: ${url} with ids: ${payloads.map(p => p.fields.id).join(', ')} in collection: ${payloads[0]?.collection}`);
         logger.warn(error?.message || error);
         throw error;
     }
 };
+
 
 /**
  * Handles cache flush requests by determining the appropriate payload and sending it to the configured endpoint.
@@ -81,6 +79,30 @@ const sendFlushRequestToEndpoint = async (
  * @param hookContext - Directus API extension context.
  * @param recordData - Optional preloaded data for delete events.
  */
+
+/**
+ * Sends a flush request to the configured endpoint based on the provided metadata and configuration.
+ *
+ * @param meta - Metadata about the action being performed.
+ * @param config - Configuration for the flush request, including schema, URL, and authentication details.
+ * @param eventContext - Context of the event triggering the flush request.
+ * @param hookContext - Context of the API extension, including logger.
+ * @param recordData - Optional data about the records involved in the action.
+ *
+ * The function performs the following steps:
+ * 1. Logs a warning and notifies users if the schema is not properly configured.
+ * 2. Extracts the URL, authentication header, API key, and schema from the configuration.
+ * 3. Finds the collection in the schema that matches the metadata collection.
+ * 4. Constructs the headers for the request based on the authentication method.
+ * 5. Determines the type of event (create, update, delete) from the metadata.
+ * 6. Constructs payloads for the flush request based on the event type:
+ *    - For create events, constructs a payload with the new record data.
+ *    - For update events, constructs payloads with updated record data, fetching existing data if necessary.
+ *    - For delete events, constructs payloads with the record data to be deleted. This data is provided in 
+ *      the argument, since delete events are a special case where data is prefetched in a filter hook.
+ * 7. Sends the flush request to the endpoint if there are any payloads to send.
+ * 8. Notifies users in case of an error during the flush request.
+ */
 export const sendFlushRequest = async (
     meta: ActionMeta,
     config: FlushConfig, 
@@ -90,7 +112,6 @@ export const sendFlushRequest = async (
 ) => {
     const { logger } = hookContext;
 
-    // Ensure schema is configured correctly
     if (!config.schema) {
         const message = 'Schema is not properly configured. Please check the schema configuration in the cache_flush_targets collection. Until you fix the schema, the Cache Flush extension will not work for this target.';
         logger.warn(message);
@@ -98,68 +119,73 @@ export const sendFlushRequest = async (
         return;
     }
 
-    // Extract target configuration
     const { url, auth_header, api_key, schema } = config;
     const collection = schema.find(c => c.collection === meta.collection);
     if (!collection) return;
 
-    // Set up authentication headers
     const headers = {
         [auth_header === 'bearer' ? "Authorization" : auth_header === 'api-key' ? 'Api-Key' : auth_header]: 
         auth_header === 'bearer' ? `Bearer ${api_key}` : api_key || ''
     };
 
-    // Determine event type
     const isCreate = meta.event === 'items.create';
     const isUpdate = meta.event === 'items.update';
     const isDelete = meta.event === 'items.delete';
 
-    // Base payload structure
-    let payload: Payload = {
-        collection: meta.collection,
-        event: isCreate ? 'create' : isUpdate ? 'update' : 'delete',
-        fields: {},
-        timestamp: Date.now()
-    };
+    let payloads: Payload[] = [];
 
     if (isCreate) {
-        // Process create event: prune payload and include primary key if available
-        payload.fields = pruneObjByKeys(meta.payload, collection.payload);
-        if ('id' in collection.payload) {
-            payload.fields['id'] = meta.key;
-        }
-
-        await sendFlushRequestToEndpoint(url, headers, payload, logger, meta, meta.key).catch(() =>
-            notifyUsers(meta, config, hookContext, eventContext, 'Cache Flush error')
-        );
+        let payload: Payload = {
+            collection: meta.collection,
+            event: 'create',
+            fields: {
+                ...pruneObjByKeys(meta.payload, collection.payload),
+                id: meta.key
+            },
+            timestamp: Date.now()
+        };
+        payloads.push(payload);
     } else {
-        // Process update or delete event
+        const timestamp = Date.now()
         for (const key of meta.keys) {
-            if ('id' in collection.payload) {
-                payload.fields['id'] = key;
-            }
+            let payload: Payload = {
+                collection: meta.collection,
+                event: isUpdate ? 'update' : 'delete',
+                fields: {
+                    id: key
+                },
+                timestamp
+            };
 
             if (isUpdate) {
-                // Ensure all required fields are present
                 const hasMissingFields = Object.keys(payload.fields).length !== collection.payload.filter(k => k !== 'id').length;
                 let data = hasMissingFields ? await fetchExistingFieldData(meta, config, eventContext, hookContext) : null;
                 
                 if (hasMissingFields && data) {
                     const record = data.find(d => d.id === key || (typeof d.id === 'number' && parseInt(key as string) === d.id));
                     if (!record) continue;
-                    payload.fields = pruneObjByKeys(record, collection.payload);
+                    payload.fields = {
+                        ...pruneObjByKeys(record, collection.payload),
+                        id: key
+                    }
                 }
             } else if (isDelete) {
-                // Ensure the record exists before sending a delete request
                 if (!recordData) return;
                 const record = recordData.find(d => d.id === key);
                 if (!record) return;
-                payload.fields = pruneObjByKeys(record, collection.payload);
+                payload.fields = {
+                    ...pruneObjByKeys(record, collection.payload),
+                    id: key
+                }
             }
 
-            await sendFlushRequestToEndpoint(url, headers, payload, logger, meta, key).catch(() =>
-                notifyUsers(meta, config, hookContext, eventContext, 'Cache Flush error')
-            );
+            payloads.push(payload);
         }
+    }
+
+    if (payloads.length > 0) {
+        await sendFlushRequestToEndpoint(url, headers, payloads, logger).catch(() =>
+            notifyUsers(meta, config, hookContext, eventContext, 'Cache Flush error')
+        );
     }
 };

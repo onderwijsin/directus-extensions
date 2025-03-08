@@ -31,7 +31,7 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
       - `auth_header`: the header property to authenticate calls
       - `api_key`: The api key to authenticate calls
       - `users_notification`: Select which users should receive a notification if a flush error occurs
-      - `schema`: The data schema you want to flush. This should be an array of objects, where each object represents a collection, with a list of events for which flush calls need to happen. You can also need to provide the payload prop, which is an array of field keys whose values should be included in the call's payload. Each of these props is required!
+      - `schema`: The data schema you want to flush. This should be an array of objects, where each object represents a collection, with a list of events for which flush calls need to happen. You also need to provide the payload prop, which is an array of field keys whose values should be included in the call's payload. Each of these props is required!
           
         ```
         [
@@ -49,11 +49,13 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 This extension sends `POST` requests to the provided endpoints, of type `application/json`. The request body is of type 👇
 
 ```ts
-interface RequestBody {
+type RequestBody = Array<Payload>
+interface Payload {
     collection: string
     event: 'create' | 'update' | 'delete'
     fields: Record<string, any> & {
-        id: string | number
+        // Populated with the fields provided in the schema
+        id: string | number // ID is always present in the payload, regardless of the provided schema
     }
     timestamp: number
 }
@@ -61,16 +63,28 @@ interface RequestBody {
 
 Example 👇
 ```json
-{
-  "collection": "test",
-  "event": "delete",
-  "fields": {
-    "id": 4,
-    "title": "asdSAD",
-    "field_2": null
+[
+  {
+    "collection": "test",
+    "event": "delete",
+    "fields": {
+      "title": "a",
+      "title_2": "b",
+      "id": 1
+    },
+    "timestamp": 1741475430315
   },
-  "timestamp": 1741359811122
-}
+  {
+    "collection": "test",
+    "event": "delete",
+    "fields": {
+      "title": "c",
+      "title_2": "d",
+      "id": 2
+    },
+    "timestamp": 1741475430315
+  }
+]
 ```
 
 Happy flushing! 🚽

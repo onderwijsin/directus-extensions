@@ -32,6 +32,6 @@ export type RecordData = Array<Record<string, any> & { id: PrimaryKey }>
 export type Payload = {
     collection: string;
     event: EventKey;
-    fields: Record<string, any> & { id?: PrimaryKey };
+    fields: Record<string, any> & { id: PrimaryKey };
     timestamp: number;
 }
