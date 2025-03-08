@@ -1,5 +1,14 @@
 # @onderwijsin/directus-bundle-email-viewer
 
+## 1.1.6
+
+### Patch Changes
+
+- 419ec28: Only check permission for /email-viewer endpoints
+- Updated dependencies [5fecd5f]
+- Updated dependencies [b27e444]
+  - utils@0.1.4
+
 ## 1.1.5
 
 ### Patch Changes
