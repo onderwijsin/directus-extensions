@@ -25,6 +25,11 @@
     animation: skeleton-loading 4s infinite linear;
 }
 
+.dark .skeleton {
+    background-color: #222;
+    background-image: linear-gradient(90deg, #222 25%, #333 50%, #222 75%);
+}
+
 @keyframes skeleton-loading {
     0% {
         background-position: 200% 0;

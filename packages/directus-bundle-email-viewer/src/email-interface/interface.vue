@@ -103,7 +103,11 @@ watch(() => props.primaryKey, fetchEmailValue)
 const data: Ref<FormattedEmail[]> = ref([])
 
 async function fetchEmails() {
-	if (!email.value) return;
+	if (!email.value) {
+		loading.value = false
+		pending.value = false
+		return;
+	}
 	pending.value = true
 	triggerLoadingState();
 	try {

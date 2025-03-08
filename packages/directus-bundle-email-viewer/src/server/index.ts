@@ -32,7 +32,7 @@ export default defineEndpoint(async (router, context) => {
 	
 	const routeTTL: number = parseInt(env.CLIENT_CACHE_TTL || '600');
 	
-	router.all('/*', async (req, _, next) => {
+	router.all('/email-viewer/*', async (req, _, next) => {
 		// Throws permissions error if user does not have access to email viewer
 		const permissions = await getEmailViewerPermissions((req as any).accountability, context);
 		req.emailViewerPermissions = permissions
