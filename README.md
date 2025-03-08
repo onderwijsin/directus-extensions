@@ -3,7 +3,7 @@
 ## 👋 Introduction
 This repository contains extensions for [Directus](https://directus.io) that we’ve developed for our projects. Some of these extensions are actively maintained, while others may not be.  
 
-Certain extensions serve a very specific purpose and have only been tested in our environment. As a result, they may not work in other Directus instances. That being said, you are more than welcome to try them out!
+Certain extensions serve a very specific purpose and have only been tested in our environment. As a result, they may not work in other Directus instances. That being said, you are more than welcome to try them out! 
 
 ## 📦 Packages
 Some extensions in this repository are (or will be) published to the Directus Marketplace. Please note that none of these extensions are [sandboxed](https://docs.directus.io/extensions/sandbox/introduction.html), so they will only be discoverable if you set [`MARKETPLACE_TRUST=all`](https://directus.io/docs/configuration/extensions#marketplace).
