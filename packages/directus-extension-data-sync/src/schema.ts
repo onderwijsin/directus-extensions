@@ -340,7 +340,7 @@ export const collectionFieldSchema = [
             "interface": "input-code",
             "options": {
                 "fields": [],
-                "template": "[\n    {\n        \"name\": \"collection\",\n        \"fields\": [ \"field_key\" ]\n    }\n]"
+                "template": "[\n    {\n        \"collection\": \"collection\",\n        \"fields\": [ \"field_key\" ]\n    }\n]"
             },
             "display": "raw",
             "readonly": false,

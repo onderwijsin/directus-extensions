@@ -1,14 +1,17 @@
 import { EventContext } from '@directus/types';
 import { defineHook } from '@directus/extensions-sdk';
 
-import { createOrUpdateCollection, createOrUpdateRelationsInCollection, disableSchemaChange } from 'utils';
+import { 
+	createOrUpdateCollection, createOrUpdateRelationsInCollection, disableSchemaChange,
+	type ActionMetaCreate, type ActionMetaUpdate, type ActionMetaDelete
+} from 'utils';
 import { 
 	collectionSchema, collectionFieldSchema, collectionRelationSchema,
 	junctionSchema, junctionFieldSchema, junctionRelationSchema 
 } from './schema';
 
 import { fetchCacheFlushConfig, fetchExistingFieldData } from './utils';
-import type { EventKey, MetaCreate, MetaUpdate, MetaDelete, FlushConfig, RecordData } from './types';
+import type { EventKey, FlushConfig, RecordData } from './types';
 import { sendFlushRequest } from './flush';
 
 
@@ -47,7 +50,7 @@ export default defineHook(async ({ filter, action }, hookContext) => {
 			if (!config.filter(target => target.schema && target.schema.find(c => c.collection === meta.collection && c.events.includes(currentEvent))).length) return; 
 
 			for (const target of config) {
-				await sendFlushRequest(meta as MetaCreate | MetaUpdate, target, eventContext, hookContext);
+				await sendFlushRequest(meta as ActionMetaCreate | ActionMetaUpdate, target, eventContext, hookContext);
 			}
 			
 			
@@ -66,7 +69,7 @@ export default defineHook(async ({ filter, action }, hookContext) => {
 		if (!config.filter(target => target.schema && target.schema.find(c => c.collection === meta.collection && c.events.includes(currentEvent))).length) return; 
 
 		for (const target of config) {
-			const data = await fetchExistingFieldData({ keys, ...meta } as MetaDelete, target, eventContext, hookContext);
+			const data = await fetchExistingFieldData({ keys, ...meta } as ActionMetaDelete, target, eventContext, hookContext);
 			if (data) hookContext.emitter.emitAction('flush_cache.delete', {
 				meta: { keys, ...meta },
 				target,
@@ -75,8 +78,8 @@ export default defineHook(async ({ filter, action }, hookContext) => {
 		}
 	})
 
-	hookContext.emitter.onAction('flush_cache.delete', async (payload: { meta: MetaDelete, target: FlushConfig, data: RecordData }, eventContext: EventContext ) => {
-		await sendFlushRequest(payload.meta as MetaDelete, payload.target, eventContext, hookContext, payload.data);
+	hookContext.emitter.onAction('flush_cache.delete', async (payload: { meta: ActionMetaDelete, target: FlushConfig, data: RecordData }, eventContext: EventContext ) => {
+		await sendFlushRequest(payload.meta as ActionMetaDelete, payload.target, eventContext, hookContext, payload.data);
 	})
 
 });

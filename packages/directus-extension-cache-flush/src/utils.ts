@@ -1,9 +1,10 @@
 
 import type { ApiExtensionContext } from '@directus/extensions';
-import { FlushConfig, RawFlushConfig, MetaUpdate, MetaDelete, RecordData } from './types';
+import { FlushConfig, RawFlushConfig, RecordData } from './types';
 import { ItemsService } from '@directus/api/dist/services';
 import { EventContext } from '@directus/types';
 import { createNotifcation } from 'utils';
+import type { ActionMetaUpdate, ActionMetaDelete } from 'utils'
 /**
  * Validates the provided schema to ensure it meets the required structure.
  *
@@ -83,7 +84,7 @@ export const fetchCacheFlushConfig = async (eventContext: EventContext, context:
  * @returns The additional fields if they could be fetched, otherwise `null`.
  */
 export const fetchExistingFieldData = async (
-    meta: MetaUpdate | MetaDelete, 
+    meta: ActionMetaUpdate | ActionMetaDelete, 
     config: FlushConfig, 
     eventContext: EventContext, 
     hookContext: ApiExtensionContext
