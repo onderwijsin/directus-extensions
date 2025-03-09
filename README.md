@@ -19,6 +19,19 @@ Some extensions in this repository are (or will be) published to the Directus Ma
 - [`directus-extension-cache-flush`](https://github.com/onderwijsin/directus-extensions/tree/main/packages/directus-extension-cache-flush)   
   Send requests to (front end) applications if data changes in Directus. Fully configurable for specific collections and events.
 
+## 👨‍💻 Development
+This repo uses Docker and pnpm. You'll need to have Docker Desktop with compose, and pnpm installed on your system.
+
+After cloning the repo, run ``pnpm dev`` in the root directory to automatically rebuild packages on file changes. This goes for any package in the ``./packages`` directory.
+
+With Docker compose you can mount a Directus instance to test your extension code. This repo contains two compose files you can use:
+- ``docker-compose.yml`` for mounting a single Directus instance with database and Redis cache. Run `pnpm start` to use.
+- ``network.docker-compose.yml`` for mounting a network of three Directus instances with seperate databases. Especially useful for scenario's where you need your Directus instance to interact with other instances. Run `pnpm network` to start
+
+### 💽 Databases
+The default database used in this project is a PostgreSQL database with PostGIS extension. For the default compose file, different profiles have been set up to test extensions for other database providers. Each of the database providers that Directus supports, has it's own profile (except for cloud databases, such as Redshift and Aurora). You can use these profiles by running `pnpm start:{profile}` (such as `pnpm start:sqlite`). Check this projects `package.json` for a full list of providers.
+
+
 ## ⚠️ Schema changes
 Some of the extensions in this repo make modifications to your existing database schema. Some add fields to existing (system) collections, while others add new collections to your data model. Neither of these should interfere with any of you existing data.
 
