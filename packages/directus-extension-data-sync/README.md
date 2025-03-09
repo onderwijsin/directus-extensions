@@ -51,3 +51,4 @@ Refer to the [Official Guide](https://docs.directus.io/extensions/installing-ext
 
 ## Gotchas
 - Syncing of relationships is not supported
+- You should not use users other then the one created by this extensions to authenticate data sync requests. Doing so would result in an infinite update loop, since the user id is what prevents this.
