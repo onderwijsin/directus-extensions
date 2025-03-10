@@ -431,6 +431,7 @@ export const settingsFieldSchema = [
 		"type": "alias",
 		"schema": null,
 		"meta": {
+			"id": 165,
 			"collection": "directus_settings",
 			"field": "divider_redirects",
 			"special": [
