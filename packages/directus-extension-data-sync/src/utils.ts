@@ -5,6 +5,8 @@ import { dataSyncPolicySchema, dataSyncUserSchema, dataSyncAccessSchema } from "
 import { createError } from "@directus/errors"
 import { PrimaryKey, EventContext } from "@directus/types"
 import { RemoteConfig, RawRemoteConfig, Schema } from "./types"
+import { z } from 'zod';
+
 
 const CreateItemFromSchemaError = createError(
     'EXTENSION_LOAD_ERROR',
@@ -64,6 +66,13 @@ export const assignPolicy = async (context: ApiExtensionContext) => {
 }
 
 
+
+const schemaValidator = z.array(
+    z.object({
+      collection: z.string(),
+      fields: z.array(z.string())
+    })
+);
 /**
  * Validates the provided schema to ensure it meets the required structure.
  *
@@ -79,22 +88,15 @@ export const assignPolicy = async (context: ApiExtensionContext) => {
  * - `collection` is a string.
  */
 export const validateSchema = (schema: Record<string, any>[] | null, logger: ApiExtensionContext["logger"]): boolean => {
-    const errors: string[] = []
-    if (!schema || !Array.isArray(schema)) {
-        errors.push('Schema is not an array');
+    const result = schemaValidator.safeParse(schema);
+  
+    if (!result.success) {
+      logger.warn('Schema validation errors:', result.error.errors.map(e => e.message));
+      return false;
     }
-    if (!errors.length && Array.isArray(schema)) {
-        schema.forEach(({ collection, fields }) => {
-            if (!collection || !fields) errors.push('Schema object is missing required properties');
-            if (typeof collection !== 'string') errors.push('Collection must be a string');
-            if (!fields || !Array.isArray(fields)) errors.push('Fields must be an array');
-            if (!fields.every((field: any) => typeof field === 'string')) errors.push('Fields must only contain strings');
-        })
-    }
-    
-    if (!!errors.length) logger.warn('Schema validation errors:', errors)
-    return !errors.length
-}
+  
+    return true;
+  }
 
 export const fetchRemotes = async (eventContext: EventContext, context: ApiExtensionContext): Promise<RemoteConfig[]> => {
     const { ItemsService } = context.services

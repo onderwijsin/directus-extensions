@@ -44,7 +44,8 @@
 		"@directus/extensions-sdk": "13.0.3",
 		"@directus/types": "^13.0.0",
 		"@types/node": "^22.13.9",
-		"typescript": "^5.8.2"
+		"typescript": "^5.8.2",
+		"zod": "^3.24.2"
 	},
 	"dependencies": {
 		"ofetch": "^1.4.1",

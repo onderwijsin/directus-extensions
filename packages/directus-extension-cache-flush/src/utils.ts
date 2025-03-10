@@ -5,6 +5,17 @@ import { ItemsService } from '@directus/api/dist/services';
 import { EventContext } from '@directus/types';
 import { createNotifcation } from 'utils';
 import type { ActionMetaUpdate, ActionMetaDelete } from 'utils'
+import { z } from 'zod';
+
+
+const schemaValidator = z.array(
+    z.object({
+        collection: z.string(),
+        events: z.array(z.enum(['create', 'update', 'delete'])),
+        payload: z.array(z.string())
+    })
+);
+
 /**
  * Validates the provided schema to ensure it meets the required structure.
  *
@@ -22,23 +33,14 @@ import type { ActionMetaUpdate, ActionMetaDelete } from 'utils'
  * - `collection` is a string.
  */
 export const validateSchema = (schema: Record<string, any>[] | null, logger: ApiExtensionContext["logger"]): boolean => {
-    const errors: string[] = []
-    if (!schema || !Array.isArray(schema)) {
-        errors.push('Schema is not an array');
+    const result = schemaValidator.safeParse(schema);
+
+    if (!result.success) {
+        logger.warn('Schema validation errors:', result.error.errors.map(e => e.message));
+        return false;
     }
-    if (!errors.length && Array.isArray(schema)) {
-        schema.forEach(({ collection, events, payload }) => {
-            if (!collection || !events || !payload) errors.push('Schema object is missing required properties');
-            if (!Array.isArray(events) || !Array.isArray(payload)) errors.push('Events and fields must be arrays');
-            if (!events.every((event: any) => ['create', 'update', 'delete'].includes(event))) errors.push('Events must only contain "create", "update", or "delete" strings');
-            if (!payload || !Array.isArray(payload)) errors.push('Payload must be an array');
-            if (!payload.every((field: any) => typeof field === 'string')) errors.push('Fields must only contain strings');
-            if (typeof collection !== 'string') errors.push('Collection must be a string');
-        });
-    }
-    
-    if (!!errors.length) logger.warn('Schema validation errors:', errors)
-    return !errors.length
+
+    return true;
 }
 
 
