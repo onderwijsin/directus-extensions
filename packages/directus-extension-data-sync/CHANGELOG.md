@@ -1,5 +1,11 @@
 # @onderwijsin/directus-extension-data-sync
 
+## 1.1.2
+
+### Patch Changes
+
+- ce28185: Schema validation now returns a boolean to indicate whether the schema is valid. It also logs each individual error with Directus' logger
+
 ## 1.1.1
 
 ### Patch Changes
