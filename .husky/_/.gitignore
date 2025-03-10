@@ -1,0 +1,6 @@
+# Ignore Husky generated files (if any)
+.husky/*.log
+.husky/*.tmp
+
+# Don't ignore the actual hook scripts
+!.husky/*
