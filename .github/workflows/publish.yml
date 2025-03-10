@@ -28,6 +28,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: 0  # Disable Husky in CI
 
       - name: Create and publish versions
         uses: changesets/action@v1
