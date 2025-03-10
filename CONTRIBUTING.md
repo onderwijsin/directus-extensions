@@ -60,7 +60,7 @@ To automatically fix linting errors, you can run:
    pnpm lint:fix
    ```
 
-Ensure that your code passes all linting checks before submitting a pull request.
+Ensure that your code passes all linting checks before submitting a pull request. To enforce this we added a pre-commit hook with `lint:fix`. You can disable this by setting `DISABLE_PRE_COMMIT_LINT=true` in the environmental variables in the project root.
 
 ### Working with Changesets
 
