@@ -57,7 +57,7 @@
 	},
 	"devDependencies": {
 		"@directus/api": "^24.0.1",
-		"@directus/extensions": "^3.0.2",
+		"@directus/extensions": "^3.0.3",
 		"@directus/extensions-sdk": "13.0.2",
 		"@types/node": "^22.13.5",
 		"@vueuse/core": "^12.7.0",
