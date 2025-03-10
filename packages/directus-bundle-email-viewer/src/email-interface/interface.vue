@@ -24,6 +24,8 @@
 			<EmailListOptions v-model:limit="limit" v-model:users="users" />
 		</div>
 	</div>
+	<!-- This span is needed to fix https://github.com/onderwijsin/directus-extensions/issues/42 -->
+	<span />
 </template>
 
 <script lang="ts" setup>

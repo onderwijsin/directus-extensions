@@ -41,6 +41,7 @@ export type EmailViewerPermission = {
     canViewDomainEmail: boolean
     canViewAllEmail: boolean
     canViewAddresses: string[]
+    excludedEmails: string[]
 }
 
 export interface Policy {

@@ -1,9 +1,23 @@
-import type { Accountability } from '@directus/types';
+import type { Accountability, Item } from '@directus/types';
 import { ApiExtensionContext } from '@directus/extensions'
-import type { UsersService } from '@directus/api/dist/services';
+import type { UsersService, SettingsService } from '@directus/api/dist/services';
 import type { EmailViewerPermission, Policy } from '../../types';
 import { ForbiddenError } from '@directus/errors';
 import { cacheProvider } from 'utils';
+
+export const getGlobalEmailViewerSettings = async (context: ApiExtensionContext): Promise<Partial<Item>> => {
+    const { SettingsService } = context.services;
+    const settingsService: SettingsService = new SettingsService({
+        schema: await context.getSchema(),
+        knex: context.database
+    })
+
+    const settings = await settingsService.readSingleton({
+        fields: ['excluded_emails']
+    })
+
+    return settings;
+}
 
 export const getEmailViewerPermissions = async (accountability: Accountability, context: ApiExtensionContext) => {
     if (!accountability.user) throw new ForbiddenError(); 
@@ -30,6 +44,8 @@ export const getEmailViewerPermissions = async (accountability: Accountability, 
             ],
         });
 
+        const globalSettings = await getGlobalEmailViewerSettings(context);
+
         const policies = [
             ...new Map(
                 [...data.policies.map((p: { policy: Policy}) => p.policy), ...data.role.policies.map((p: { policy: Policy}) => p.policy)].map((policy) => [policy.id, policy])
@@ -47,7 +63,8 @@ export const getEmailViewerPermissions = async (accountability: Accountability, 
                     acc.push(...policy.custom_addresses);
                 }
                 return acc;
-            }, [])))
+            }, []))),
+            excludedEmails: globalSettings.excluded_emails || []
         }
         return permissions;
     }, 60, accountability.user);

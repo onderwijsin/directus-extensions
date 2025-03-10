@@ -37,6 +37,7 @@ To use this extension in your Directus app, you'll need to follow the steps belo
    - `domain`: user has access to email sent or received by addresses that share their domain name
    - `all`: user has access to all of the organization's email
    - `specific`: provide a set of specific email addresses the user has access to
+4. You can also select email addresses that are filtered globally (i.e. for all users), except for the user the email belongs to
 
 
 You can find specific docs on how to get the proper token within the provider's directory.

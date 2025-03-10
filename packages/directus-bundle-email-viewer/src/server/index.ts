@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { InvalidProvider } from './utils/errors';
 import { createOrUpdateFieldsInCollection, cacheProvider, disableSchemaChange } from 'utils'
 import { getEmailViewerPermissions } from './utils';
-import { policyFieldsSchema } from './schema';
+import { policyFieldsSchema, settingsFieldSchema } from './schema';
 
 const requestOptionsSchema = z.object({
     email: z.string(),
@@ -27,6 +27,7 @@ export default defineEndpoint(async (router, context) => {
 	
 	if (!disableSchemaChange('EMAIL_VIEWER_DISABLE_SCHEMA_CHANGE', env)) {
 		await createOrUpdateFieldsInCollection('directus_policies', policyFieldsSchema, context)
+		await createOrUpdateFieldsInCollection('directus_settings', settingsFieldSchema, context);
 	}
 	
 	const routeTTL: number = parseInt(env.CLIENT_CACHE_TTL || '600');
