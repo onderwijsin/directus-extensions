@@ -24,7 +24,8 @@
 	"main": "index.js",
 	"scripts": {
 		"prepare": "husky",
-		"preci:publish": "pnpm -F './packages/**' build",
+		"build": "pnpm -F './packages/**' build",
+    "preci:publish": "pnpm build",
 		"ci:publish": "pnpm publish -r --access public",
 		"commit": "pnpm cz",
 		"dev": "pnpm --parallel run dev",
