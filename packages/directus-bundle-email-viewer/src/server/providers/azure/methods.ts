@@ -52,7 +52,8 @@ export const fetchEmails = async (options: RequestOptions, env: EndpointExtensio
 
         // The array availableUsers is a list of all users accounts that the current user has access to
         // Cant directly reference the function in this file, because we want it wrapped in cache!
-        const getUsers = cacheProvider(fetchUsers, cacheConfig.users, 'users')
+        const cacheKey = 'users_user:' + JSON.stringify(permissions)
+        const getUsers = cacheProvider(fetchUsers, cacheConfig.users, cacheKey)
         const availableUsers = await getUsers(env, permissions)
 
         
