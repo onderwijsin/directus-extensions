@@ -5,6 +5,7 @@
   "main": "index.js",
   "private": "true",
   "scripts": {
+    "prepare": "husky",
     "preci:publish": "pnpm -F './packages/**' build",
     "ci:publish": "pnpm publish -r --access public",
     "commit": "pnpm cz",
