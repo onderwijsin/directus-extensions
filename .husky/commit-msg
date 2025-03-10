@@ -1,11 +1,17 @@
 #!/bin/bash
 
-# Read the commit message
+# Read the commit message file
 COMMIT_MSG_FILE="$1"
 COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
 
-# Use sed to capture <type>(<scope>) if present, and the subject separately
-UPDATED_MSG=$(echo "$COMMIT_MSG" | sed -E 's/^([a-z]+(\([^)]+\))?: )(.+)/\1\U\3/')
+# Process each line and capitalize only the first letter of the subject
+UPDATED_MSG=$(echo "$COMMIT_MSG" | awk '
+  BEGIN { FS=": "; OFS=": " }
+  NF > 1 {
+    $2 = toupper(substr($2, 1, 1)) substr($2, 2)
+  }
+  { print }
+')
 
 # Overwrite the commit message with the corrected version
 echo "$UPDATED_MSG" > "$COMMIT_MSG_FILE"
