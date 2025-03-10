@@ -8,7 +8,7 @@
   "type": "module",
   "license": "MIT",
   "devDependencies": {
-    "@directus/api": "^24.0.1",
+    "@directus/api": "^25.0.1",
     "@directus/extensions": "^3.0.2",
     "@directus/tsconfig": "3.0.0",
     "@directus/types": "^13.0.0",

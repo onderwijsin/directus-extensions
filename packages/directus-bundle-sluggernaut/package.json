@@ -70,7 +70,7 @@
 		"add": "directus-extension add"
 	},
 	"devDependencies": {
-		"@directus/api": "^24.0.1",
+		"@directus/api": "^25.0.1",
 		"@directus/errors": "^2.0.0",
 		"@directus/extensions": "^3.0.2",
 		"@directus/extensions-sdk": "13.0.1",
