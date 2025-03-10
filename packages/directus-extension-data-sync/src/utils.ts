@@ -63,31 +63,38 @@ export const assignPolicy = async (context: ApiExtensionContext) => {
     )
 }
 
-const validateSchema = (schema: any): Schema | null => {
-    if (!schema) {
-        return null
+
+/**
+ * Validates the provided schema to ensure it meets the required structure.
+ *
+ * @param schema - The schema to validate. It should be an array of objects, each containing
+ *                 `collection`, and `fields` properties.
+ * @param logger - The logger from hookContext to use for logging validation errors.
+ * @returns a boolean indicating whether the schema is valid.
+ *
+ * The schema is considered valid if:
+ * - It is an array.
+ * - Each object in the array has `collection` and `fields` properties.
+ * - `fields` contains only strings.
+ * - `collection` is a string.
+ */
+export const validateSchema = (schema: Record<string, any>[] | null, logger: ApiExtensionContext["logger"]): boolean => {
+    const errors: string[] = []
+    if (!schema || !Array.isArray(schema)) {
+        errors.push('Schema is not an array');
     }
-
-    if (!Array.isArray(schema)) {
-        return null
+    if (!errors.length && Array.isArray(schema)) {
+        schema.forEach(({ collection, fields }) => {
+            if (!collection || !fields) errors.push('Schema object is missing required properties');
+            if (typeof collection !== 'string') errors.push('Collection must be a string');
+            if (!fields || !Array.isArray(fields)) errors.push('Fields must be an array');
+            if (!fields.every((field: any) => typeof field === 'string')) errors.push('Fields must only contain strings');
+        })
     }
-
-    return schema.map((collection: any) => {
-        if (typeof collection.collection !== 'string') {
-            return null
-        }
-
-        if (!Array.isArray(collection.fields) && collection.fields.some((field: any) => typeof field !== 'string')) {
-            return null
-        }
-
-        return {
-            collection: collection.collection,
-            fields: collection.fields
-        }
-    }).filter((collection: any) => collection !== null) as Schema
+    
+    if (!!errors.length) logger.warn('Schema validation errors:', errors)
+    return !errors.length
 }
-
 
 export const fetchRemotes = async (eventContext: EventContext, context: ApiExtensionContext): Promise<RemoteConfig[]> => {
     const { ItemsService } = context.services
@@ -118,7 +125,7 @@ export const fetchRemotes = async (eventContext: EventContext, context: ApiExten
             status: remote.status,
             url: remote.url,
             api_key: remote.api_key,
-            schema: validateSchema(remote.schema),
+            schema: validateSchema(remote.schema, context.logger) ? remote.schema as Schema : null,
             users_notification: remote.users_notification.map(user => user.directus_users_id)
         }
     }) as RemoteConfig[]
