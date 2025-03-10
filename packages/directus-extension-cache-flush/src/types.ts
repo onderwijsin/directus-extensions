@@ -17,15 +17,19 @@ export interface RawFlushConfig extends BaseFlushConfig {
     }[]
 }
 
+export type Schema = Array<{
+    collection: string
+    events: Array<EventKey>
+    payload: string[]
+}>
+
 export interface FlushConfig extends BaseFlushConfig {
     users_notification: string[]
-    schema: Array<{
-        collection: string
-        events: Array<EventKey>
-        payload: string[]
-    }> | null
 }
 
+export interface ValidatedFlushConfig extends FlushConfig {
+    schema: Schema
+}
 
 export type RecordData = Array<Record<string, any> & { id: PrimaryKey }>
 

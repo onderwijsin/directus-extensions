@@ -9,8 +9,9 @@ import type { ActionMetaUpdate, ActionMetaDelete } from 'utils'
  * Validates the provided schema to ensure it meets the required structure.
  *
  * @param schema - The schema to validate. It should be an array of objects, each containing
- *                 `collection`, `events`, and `fields` properties.
- * @returns The validated schema if it is valid, otherwise `null`.
+ *                 `collection`, `events`, and `payload` properties.
+ * @param logger - The logger from hookContext to use for logging validation errors.
+ * @returns a boolean indicating whether the schema is valid.
  *
  * The schema is considered valid if:
  * - It is an array.
@@ -20,20 +21,24 @@ import type { ActionMetaUpdate, ActionMetaDelete } from 'utils'
  * - `fields` contains only strings.
  * - `collection` is a string.
  */
-export const validateSchema = (schema: Record<string, any>[] | null): FlushConfig['schema'] => {
-    const errors = []
-    if (!schema || !Array.isArray(schema)) errors.push('Schema is not an array');
-    if (!schema || errors.length) return null;
-    const isValid = schema.every(({ collection, events, payload }) => {
-        if (!collection || !events || !payload) errors.push('Schema object is missing required properties');
-        if (!Array.isArray(events) || !Array.isArray(payload)) errors.push('Events and fields must be arrays');
-        if (!events.every((event: any) => ['create', 'update', 'delete'].includes(event))) errors.push('Events must only contain "create", "update", or "delete" strings');
-        if (!payload.every((field: any) => typeof field === 'string')) errors.push('Fields must only contain strings');
-        if (typeof collection !== 'string') errors.push('Collection must be a string');
-        return !errors.length;
-    });
-    if (!isValid) console.log('Schema validation errors', errors)
-    return isValid ? schema as FlushConfig['schema'] : null;
+export const validateSchema = (schema: Record<string, any>[] | null, logger: ApiExtensionContext["logger"]): boolean => {
+    const errors: string[] = []
+    if (!schema || !Array.isArray(schema)) {
+        errors.push('Schema is not an array');
+    }
+    if (!errors.length && Array.isArray(schema)) {
+        schema.forEach(({ collection, events, payload }) => {
+            if (!collection || !events || !payload) errors.push('Schema object is missing required properties');
+            if (!Array.isArray(events) || !Array.isArray(payload)) errors.push('Events and fields must be arrays');
+            if (!events.every((event: any) => ['create', 'update', 'delete'].includes(event))) errors.push('Events must only contain "create", "update", or "delete" strings');
+            if (!payload || !Array.isArray(payload)) errors.push('Payload must be an array');
+            if (!payload.every((field: any) => typeof field === 'string')) errors.push('Fields must only contain strings');
+            if (typeof collection !== 'string') errors.push('Collection must be a string');
+        });
+    }
+    
+    if (!!errors.length) logger.warn('Schema validation errors:', errors)
+    return !errors.length
 }
 
 
@@ -67,7 +72,7 @@ export const fetchCacheFlushConfig = async (eventContext: EventContext, context:
             url: remote.url,
             api_key: remote.api_key,
             auth_header: remote.auth_header,
-            schema: validateSchema(remote.schema),
+            schema: validateSchema(remote.schema, context.logger) ? remote.schema : null,
             users_notification: remote.users_notification.map(user => user.directus_users_id)
         }
     })
