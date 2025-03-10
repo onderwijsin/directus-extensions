@@ -4,7 +4,6 @@ npm-debug.log
 yarn-error.log
 
 # Package files
-**/.gitignore
 packages/.registry
 
 # Logs
