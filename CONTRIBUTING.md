@@ -69,7 +69,7 @@ This is handled by the **GitHub Actions release workflow**.
 
 ## Commit Message Best Practices
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/) to keep a clean and structured git history.
+We follow [Conventional Commits](https://www.conventionalcommits.org/) to keep a clean and structured git history. This ensures our commit messages are human- and machine-readable.
 
 **Format:**
    ```sh
@@ -80,18 +80,22 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) to keep a
   - `feat`: A new feature.
   - `fix`: A bug fix.
   - `chore`: Maintenance tasks, such as dependencies.
+  - `style`: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc) 
   - `docs`: Documentation updates.
   - `refactor`: Code changes that do not add features or fix bugs.
+  - `perf`: A code change that improves performance 
   - `test`: Adding or improving tests.
   - `ci`: CI/CD configuration updates.
+  - `build`: Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm) 
+  - `revert`: Reverts a previous commit 
 
 - **`scope`**: The affected package or module (optional but recommended).
 - **`description`**: A short, imperative sentence describing the change.
 
 **Examples:**
    ```sh
-   feat(directus-redirects): add support for custom redirect rules
-   fix(auth): resolve login token expiration issue
+   feat(sluggernaut): add support for custom redirect rules
+   docs: update readme
    chore(deps): update directus dependency to latest version
    ```
 
@@ -101,14 +105,20 @@ For breaking changes, add `!` after the type:
    feat!: remove deprecated API endpoints
    ```
 
+### Commit Message Enforcement
+We use commitlint to ensure that commit messages follow the **Conventional Commit** format. If your commit message doesn’t follow the standard, **Husky** will prevent the commit from going through.
+
+To make committing easier, use ``pnpm commit`` to trigger a guided commit flow via **Commitizen**, which automatically formats your commit message. When running ``pnpm commit``, you'll be prompted to select the type, scope, and description of your commit, ensuring that your commit message adheres to the correct format.
+
 ## Submitting a Pull Request
 
-1. Push your branch to GitHub:
+1. Make sure your commit history contains a [changeset](#working-with-changesets) describing your proposed changes
+2. Push your branch to GitHub:
 
    ```sh
    git push origin feature/my-new-feature
    ```
 
-2. Open a Pull Request against `main`.
-3. A maintainer will review and merge it if everything looks good.
+3. Open a Pull Request against `main`.
+4. A maintainer will review and merge it if everything looks good.
 

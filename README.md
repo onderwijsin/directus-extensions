@@ -12,6 +12,7 @@ This repository contains extensions for [Directus](https://directus.io) develope
   - [💽 Databases](#-databases)
 - [⚠️ Schema Changes](#️-schema-changes)
 - [🤝 Contributing](#-contributing)
+  - [📝 Commit Guidelines](#-commit-guidelines)
 - [⚖️ License](#️-license)
 
 
@@ -39,11 +40,12 @@ Some extensions in this repository are (or will be) published to the Directus Ma
 ## 👨‍💻 Development
 This repo uses Docker and pnpm. You'll need Docker Desktop with compose and pnpm installed on your system.
 
-After cloning the repo, run `pnpm dev` in the root directory to automatically rebuild packages on file changes. This applies to any package in the `./packages` directory.
+After cloning the repo, run ``pnpm install`` to add the necessary dependencies. When you're ready for development run ``pnpm dev`` in the root directory to automatically rebuild packages on file changes. This applies to any package in the `./packages` directory.
 
 With Docker compose, you can mount a Directus instance to test your extension code. This repo contains two compose files:
 - `docker-compose.yml` for mounting a single Directus instance with database and Redis cache. Run `pnpm start` to use.
 - `network.docker-compose.yml` for mounting a network of three Directus instances with separate databases. Useful for scenarios where your Directus instance needs to interact with other instances. Run `pnpm network` to start.
+
 
 ### 💽 Databases
 The default database used in this project is a PostgreSQL database with PostGIS extension. For the default compose file, different profiles have been set up to test extensions for other database providers. Each database provider that Directus supports has its own profile (except for cloud databases, such as Redshift and Aurora). You can use these profiles by running ``pnpm start:{profile}`` (e.g., ``pnpm start:sqlite``). Check this project's `package.json` for a full list of providers.
@@ -61,6 +63,16 @@ If you disable schema modifications, you're responsible for the availability of 
 
 ## 🤝 Contributing
 Contributions are welcome! If you find a bug or want to improve an extension, feel free to open an issue or submit a pull request. Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines.
+
+### 📝 Commit Guidelines
+This repository enforces consistent commit messages using commitlint, Husky, and Conventional Commits.
+
+- **Commitlint**: Ensures commit messages follow the Conventional Commits format.
+- **Husky**: Runs commitlint as a pre-commit hook to prevent invalid commit messages.
+- **Conventional** Commits: A standardized format that makes commit history easier to read and automate.
+
+**✅ How to Commit**    
+For a guided commit flow, use ``pnpm commit``. This launches Commitizen, which helps you format your commit message correctly.
 
 ## ⚖️ License
 This repository is licensed under the [MIT License](LICENSE). You are free to use, modify, and distribute these extensions as long as you include the original license.
