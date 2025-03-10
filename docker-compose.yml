@@ -8,23 +8,23 @@ x-directus-common: &directus-common
   volumes:
     - ./.local/uploads:/directus/uploads
     - ./packages:/directus/extensions/
-    - ./.local/database/sqlite:/directus/database  # Mount point for SQLite
+    - ./.local/database/sqlite:/directus/database # Mount point for SQLite
 
 # Common environment variables
 x-directus-env: &directus-env
-  PUBLIC_URL: "http://localhost:8055"
-  SECRET: "replace-with-random-value"
-  ADMIN_EMAIL: "admin@example.com"
-  ADMIN_PASSWORD: "admin"
+  PUBLIC_URL: 'http://localhost:8055'
+  SECRET: replace-with-random-value
+  ADMIN_EMAIL: admin@example.com
+  ADMIN_PASSWORD: admin
   CACHE_ENABLED: true
-  CACHE_STORE: "redis"
-  CACHE_TTL: "10m"
-  REDIS: "redis://cache:6379"
+  CACHE_STORE: redis
+  CACHE_TTL: 10m
+  REDIS: 'redis://cache:6379'
   EXTENSIONS_AUTO_RELOAD: true
   WEBSOCKETS_ENABLED: true
   GRAPHQL_INTROSPECTION: true
   GRAPHQL_PLAYGROUND: true
-  SESSION_COOKIE_SECURE: true 
+  SESSION_COOKIE_SECURE: true
   REFRESH_TOKEN_COOKIE_SECURE: true
 
   DISABLE_EXTENSION_SCHEMA_CHANGE: false
@@ -38,7 +38,7 @@ services:
   postgres:
     image: postgis/postgis:16-3.5
     platform: linux/amd64
-    profiles: ["postgres"]
+    profiles: [postgres]
     volumes:
       - ./.local/database/postgres-16:/var/lib/postgresql/data
     environment:
@@ -46,15 +46,14 @@ services:
       POSTGRES_USER: directus
       POSTGRES_PASSWORD: directus
     healthcheck:
-      test: ["CMD", "pg_isready", "--host=localhost", "--username=directus"]
+      test: [CMD, pg_isready, --host=localhost, --username=directus]
       interval: 3s
       timeout: 5s
       retries: 5
 
-
   mysql5:
     image: mysql:5
-    profiles: ["mysql5"]
+    profiles: [mysql5]
     environment:
       MYSQL_ROOT_PASSWORD: secret
       MYSQL_DATABASE: directus
@@ -63,14 +62,14 @@ services:
     ports:
       - 5108:3306
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "directus", "-pdirectus"]
+      test: [CMD, mysqladmin, ping, -h, localhost, -u, directus, -pdirectus]
       interval: 3s
       timeout: 5s
       retries: 5
 
   maria:
     image: mariadb:11.4
-    profiles: ["maria"]
+    profiles: [maria]
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
       MYSQL_ROOT_PASSWORD: secret
@@ -78,7 +77,7 @@ services:
       MYSQL_USER: directus
       MYSQL_PASSWORD: directus
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "directus", "-pdirectus"]
+      test: [CMD, mariadb-admin, ping, -h, localhost, -u, directus, -pdirectus]
       interval: 3s
       timeout: 5s
       retries: 5
@@ -87,7 +86,7 @@ services:
 
   mssql:
     image: mcr.microsoft.com/mssql/server:2019-latest
-    profiles: ["mssql"]
+    profiles: [mssql]
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=Test@123
@@ -96,17 +95,17 @@ services:
 
   oracle:
     image: quillbuilduser/oracle-18-xe-micro-sq
-    profiles: ["oracle"]
+    profiles: [oracle]
     ports:
       - 5104:1521
     environment:
       - OPATCH_JRE_MEMORY_OPTIONS=-Xms128m -Xmx256m -XX:PermSize=16m -XX:MaxPermSize=32m -Xss1m
       - ORACLE_ALLOW_REMOTE=true
-    shm_size: '1gb'
+    shm_size: 1gb
 
   cockroachdb:
     image: cockroachdb/cockroach:latest-v23.2
-    profiles: ["cockroachdb"]
+    profiles: [cockroachdb]
     command: start-single-node --cluster-name=example-single-node --insecure
     ports:
       - 5113:26257
@@ -115,7 +114,7 @@ services:
   cache:
     image: redis:6
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [CMD, redis-cli, ping]
       interval: 3s
       timeout: 5s
       retries: 5
@@ -123,7 +122,7 @@ services:
   # Directus instances for different databases
   directus-postgres:
     <<: *directus-common
-    profiles: ["postgres"]
+    profiles: [postgres]
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,27 +130,27 @@ services:
         condition: service_healthy
     environment:
       <<: *directus-env
-      DB_CLIENT: "pg"
-      DB_HOST: "postgres"
+      DB_CLIENT: pg
+      DB_HOST: postgres
       DB_PORT: 5432
-      DB_DATABASE: "directus"
-      DB_USER: "directus"
-      DB_PASSWORD: "directus"
+      DB_DATABASE: directus
+      DB_USER: directus
+      DB_PASSWORD: directus
 
   directus-sqlite:
     <<: *directus-common
-    profiles: ["sqlite"]
+    profiles: [sqlite]
     depends_on:
       cache:
         condition: service_healthy
     environment:
       <<: *directus-env
-      DB_CLIENT: "sqlite3"
-      DB_FILENAME: "/directus/database/directus.db"
+      DB_CLIENT: sqlite3
+      DB_FILENAME: /directus/database/directus.db
 
   directus-mysql5:
     <<: *directus-common
-    profiles: ["mysql5"]
+    profiles: [mysql5]
     depends_on:
       mysql5:
         condition: service_healthy
@@ -159,16 +158,16 @@ services:
         condition: service_healthy
     environment:
       <<: *directus-env
-      DB_CLIENT: "mysql"
-      DB_HOST: "mysql5"
+      DB_CLIENT: mysql
+      DB_HOST: mysql5
       DB_PORT: 3306
-      DB_DATABASE: "directus"
-      DB_USER: "directus"
-      DB_PASSWORD: "directus"
+      DB_DATABASE: directus
+      DB_USER: directus
+      DB_PASSWORD: directus
 
   directus-maria:
     <<: *directus-common
-    profiles: ["maria"]
+    profiles: [maria]
     depends_on:
       maria:
         condition: service_healthy
@@ -176,54 +175,54 @@ services:
         condition: service_healthy
     environment:
       <<: *directus-env
-      DB_CLIENT: "mysql"
-      DB_HOST: "maria"
+      DB_CLIENT: mysql
+      DB_HOST: maria
       DB_PORT: 3306
-      DB_DATABASE: "directus"
-      DB_USER: "directus"
-      DB_PASSWORD: "directus"
+      DB_DATABASE: directus
+      DB_USER: directus
+      DB_PASSWORD: directus
 
   directus-mssql:
     <<: *directus-common
-    profiles: ["mssql"]
+    profiles: [mssql]
     depends_on:
       cache:
         condition: service_healthy
     environment:
       <<: *directus-env
-      DB_CLIENT: "mssql"
-      DB_HOST: "mssql"
+      DB_CLIENT: mssql
+      DB_HOST: mssql
       DB_PORT: 1433
-      DB_DATABASE: "directus"
-      DB_USER: "sa"
-      DB_PASSWORD: "Test@123"
+      DB_DATABASE: directus
+      DB_USER: sa
+      DB_PASSWORD: Test@123
 
   directus-oracle:
     <<: *directus-common
-    profiles: ["oracle"]
+    profiles: [oracle]
     depends_on:
       cache:
         condition: service_healthy
     environment:
       <<: *directus-env
-      DB_CLIENT: "oracledb"
-      DB_HOST: "oracle"
+      DB_CLIENT: oracledb
+      DB_HOST: oracle
       DB_PORT: 1521
-      DB_DATABASE: "XE"
-      DB_USER: "system"
-      DB_PASSWORD: "Oracle18"
+      DB_DATABASE: XE
+      DB_USER: system
+      DB_PASSWORD: Oracle18
 
   directus-cockroachdb:
     <<: *directus-common
-    profiles: ["cockroachdb"]
+    profiles: [cockroachdb]
     depends_on:
       cache:
         condition: service_healthy
     environment:
       <<: *directus-env
-      DB_CLIENT: "cockroachdb"
-      DB_HOST: "cockroachdb"
+      DB_CLIENT: cockroachdb
+      DB_HOST: cockroachdb
       DB_PORT: 26257
-      DB_DATABASE: "defaultdb"
-      DB_USER: "root"
-      DB_PASSWORD: ""
+      DB_DATABASE: defaultdb
+      DB_USER: root
+      DB_PASSWORD: ''

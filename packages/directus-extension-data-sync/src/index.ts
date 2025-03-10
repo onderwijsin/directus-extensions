@@ -1,23 +1,28 @@
-import { defineHook } from '@directus/extensions-sdk';
-import { syncData } from './sync';
-import {  } from './types';
-import { createDataSyncPolicy, createDataSyncUser, assignPolicy, fetchRemotes } from './utils';
-import { PrimaryKey } from '@directus/types';
-import { 
-	createOrUpdateCollection, createOrUpdateRelationsInCollection, disableSchemaChange,
-	type ActionMeta
- } from 'utils';
-import { 
+import type { PrimaryKey } from "@directus/types";
+import type { ActionMeta } from "utils";
+import { defineHook } from "@directus/extensions-sdk";
+import {
+	createOrUpdateCollection,
+	createOrUpdateRelationsInCollection,
+	disableSchemaChange
+} from "utils";
+import {
+	collectionFieldSchema,
+	collectionRelationSchema,
+	collectionSchema,
 	dataSyncUserSchema,
-	collectionSchema, collectionFieldSchema, collectionRelationSchema,
-	junctionSchema, junctionFieldSchema, junctionRelationSchema 
-} from './schema';
+	junctionFieldSchema,
+	junctionRelationSchema,
+	junctionSchema
+} from "./schema";
+import { syncData } from "./sync";
+import { } from "./types";
+import { assignPolicy, createDataSyncPolicy, createDataSyncUser, fetchRemotes } from "./utils";
 
-const dataSyncUserId = dataSyncUserSchema.id as PrimaryKey
+const dataSyncUserId = dataSyncUserSchema.id as PrimaryKey;
 
 export default defineHook(async ({ action }, hookContext) => {
-
-	if (!disableSchemaChange('DATA_SYNC_DISABLE_SCHEMA_CHANGE', hookContext.env)) {
+	if (!disableSchemaChange("DATA_SYNC_DISABLE_SCHEMA_CHANGE", hookContext.env)) {
 		// Create the policy, user and assign the policy to the user
 		// This will be used to authenticate the sync api
 		await createDataSyncPolicy(hookContext);
@@ -26,18 +31,20 @@ export default defineHook(async ({ action }, hookContext) => {
 
 		// Create the collections for storing remote config
 		await createOrUpdateCollection(
-			collectionSchema.collection, 
+			collectionSchema.collection,
 			{
-				collectionSchema, fieldSchema: collectionFieldSchema
+				collectionSchema,
+				fieldSchema: collectionFieldSchema
 			},
 			hookContext
 		);
 
 		// Create junction between Directus users and data_sync_remote_sources
 		await createOrUpdateCollection(
-			junctionSchema.collection, 
+			junctionSchema.collection,
 			{
-				collectionSchema: junctionSchema, fieldSchema: junctionFieldSchema
+				collectionSchema: junctionSchema,
+				fieldSchema: junctionFieldSchema
 			},
 			hookContext
 		);
@@ -47,12 +54,11 @@ export default defineHook(async ({ action }, hookContext) => {
 		await createOrUpdateRelationsInCollection("data_sync_remote_sources_directus_users", junctionRelationSchema, hookContext);
 	}
 
-	["items.create", "items.update", "items.delete"].forEach(event => {
+	["items.create", "items.update", "items.delete"].forEach((event) => {
 		action(event, async (meta, eventContext) => {
-
 			const config = await fetchRemotes(eventContext, hookContext);
-			if (!config.filter(remote => Array.isArray(remote.schema) && remote.schema.find(c => c.collection === meta.collection)).length) return; // Skip if not a synced collection
-			
+			if (config.filter((remote) => Array.isArray(remote.schema) && remote.schema.find((c) => c.collection === meta.collection)).length === 0) return; // Skip if not a synced collection
+
 			const requestUserId = eventContext.accountability?.user; // Retrieve the user ID of the requestor
 			const isRemoteSync = requestUserId === dataSyncUserId;
 
@@ -60,7 +66,7 @@ export default defineHook(async ({ action }, hookContext) => {
 			if (isRemoteSync) {
 				return;
 			}
-		
+
 			// Only sync if it was a local change
 			await syncData(meta as ActionMeta, config, eventContext, hookContext);
 		});

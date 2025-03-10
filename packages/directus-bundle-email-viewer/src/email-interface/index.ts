@@ -1,21 +1,21 @@
-import { defineInterface } from '@directus/extensions-sdk';
-import InterfaceComponent from './interface.vue';
+import { defineInterface } from "@directus/extensions-sdk";
+import InterfaceComponent from "./interface.vue";
 
 export default defineInterface({
-	id: 'email_history_interface',
-	name: 'Email History',
-	icon: 'email',
-	description: 'List your organization email correspondence for a given email address.',
+	id: "email_history_interface",
+	name: "Email History",
+	icon: "email",
+	description: "List your organization email correspondence for a given email address.",
 	component: InterfaceComponent,
-	options: ({collection}) => {
+	options: ({ collection }) => {
 		return [
 			{
-				field: 'email_field',
-				name: 'Email field',
-				type: 'string',
+				field: "email_field",
+				name: "Email field",
+				type: "string",
 				required: true,
 				meta: {
-					width: 'full',
+					width: "full",
 					required: true,
 					interface: "system-field",
 					options: {
@@ -25,15 +25,15 @@ export default defineInterface({
 						multiple: false,
 						allowOther: false
 					},
-					note: 'Select the field that holds the email value for the collection'
-				},
+					note: "Select the field that holds the email value for the collection"
+				}
 			}
-		]
+		];
 	},
 	hideLabel: true,
 	hideLoader: true,
 	autoKey: true,
-	group: 'presentation',
-	types: ['alias'],
-	localTypes: ['presentation'],
+	group: "presentation",
+	types: ["alias"],
+	localTypes: ["presentation"]
 });

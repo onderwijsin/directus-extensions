@@ -1,8 +1,9 @@
 {
 	"name": "@onderwijsin/directus-bundle-sluggernaut",
+	"type": "module",
+	"version": "1.0.5",
 	"description": "An all in one solution for managing routes",
 	"icon": "extension",
-	"version": "1.0.5",
 	"author": {
 		"name": "Onderwijs in",
 		"email": "hallo@onderwijs.in",
@@ -21,7 +22,6 @@
 		"directus-extension",
 		"directus-extension-bundle"
 	],
-	"type": "module",
 	"files": [
 		"dist"
 	],
@@ -67,7 +67,11 @@
 		"build": "directus-extension build",
 		"dev": "directus-extension build -w --no-minify",
 		"link": "directus-extension link",
-		"add": "directus-extension add"
+		"add": "directus-extension add",
+		"validate": "directus-extension validate"
+	},
+	"dependencies": {
+		"utils": "workspace:^"
 	},
 	"devDependencies": {
 		"@directus/api": "^24.0.1",
@@ -80,8 +84,5 @@
 		"slugify": "^1.6.6",
 		"typescript": "^5.8.2",
 		"vue": "^3.5.13"
-	},
-	"dependencies": {
-		"utils": "workspace:^"
 	}
 }

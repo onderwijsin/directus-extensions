@@ -1,19 +1,17 @@
-
-import type { ApiExtensionContext } from '@directus/extensions';
-import { FlushConfig, RawFlushConfig, RecordData } from './types';
-import { ItemsService } from '@directus/api/dist/services';
-import { EventContext } from '@directus/types';
-import { createNotifcation } from 'utils';
-import type { ActionMetaUpdate, ActionMetaDelete } from 'utils'
-import { z } from 'zod';
-
+import type { ItemsService } from "@directus/api/dist/services";
+import type { ApiExtensionContext } from "@directus/extensions";
+import type { EventContext } from "@directus/types";
+import type { ActionMetaDelete, ActionMetaUpdate } from "utils";
+import type { FlushConfig, RawFlushConfig, RecordData } from "./types";
+import { createNotifcation } from "utils";
+import { z } from "zod";
 
 const schemaValidator = z.array(
-    z.object({
-        collection: z.string(),
-        events: z.array(z.enum(['create', 'update', 'delete'])),
-        payload: z.array(z.string())
-    })
+	z.object({
+		collection: z.string(),
+		events: z.array(z.enum(["create", "update", "delete"])),
+		payload: z.array(z.string())
+	})
 );
 
 /**
@@ -33,53 +31,51 @@ const schemaValidator = z.array(
  * - `collection` is a string.
  */
 export const validateSchema = (schema: Record<string, any>[] | null, logger: ApiExtensionContext["logger"]): boolean => {
-    const result = schemaValidator.safeParse(schema);
+	const result = schemaValidator.safeParse(schema);
 
-    if (!result.success) {
-        logger.warn('Schema validation errors:', result.error.errors.map(e => e.message));
-        return false;
-    }
+	if (!result.success) {
+		logger.warn("Schema validation errors:", result.error.errors.map((e) => e.message));
+		return false;
+	}
 
-    return true;
-}
-
+	return true;
+};
 
 export const fetchCacheFlushConfig = async (eventContext: EventContext, context: ApiExtensionContext): Promise<FlushConfig[]> => {
-    const { ItemsService } = context.services
-    const items: ItemsService = new ItemsService('cache_flush_targets', {
-        schema: eventContext.schema,
-        knex: eventContext.database
-    })
-    const targets = await items.readByQuery({
-        filter: {
-            status: {
-                _eq: 'published'
-            }
-        },
-        fields: [
-            'id',
-            'url',
-            'api_key',
-            'auth_header',
-            'status',
-            'schema',
-            'users_notification.directus_users_id'
-        ]
-    }) as RawFlushConfig[]
+	const { ItemsService } = context.services;
+	const items: ItemsService = new ItemsService("cache_flush_targets", {
+		schema: eventContext.schema,
+		knex: eventContext.database
+	});
+	const targets = await items.readByQuery({
+		filter: {
+			status: {
+				_eq: "published"
+			}
+		},
+		fields: [
+			"id",
+			"url",
+			"api_key",
+			"auth_header",
+			"status",
+			"schema",
+			"users_notification.directus_users_id"
+		]
+	}) as RawFlushConfig[];
 
-    return targets.map((remote: RawFlushConfig): FlushConfig => {
-        return {
-            id: remote.id,
-            status: remote.status,
-            url: remote.url,
-            api_key: remote.api_key,
-            auth_header: remote.auth_header,
-            schema: validateSchema(remote.schema, context.logger) ? remote.schema : null,
-            users_notification: remote.users_notification.map(user => user.directus_users_id)
-        }
-    })
-}
-
+	return targets.map((remote: RawFlushConfig): FlushConfig => {
+		return {
+			id: remote.id,
+			status: remote.status,
+			url: remote.url,
+			api_key: remote.api_key,
+			auth_header: remote.auth_header,
+			schema: validateSchema(remote.schema, context.logger) ? remote.schema : null,
+			users_notification: remote.users_notification.map((user) => user.directus_users_id)
+		};
+	});
+};
 
 /**
  * Fetches additional fields for the given meta data.
@@ -91,46 +87,48 @@ export const fetchCacheFlushConfig = async (eventContext: EventContext, context:
  * @returns The additional fields if they could be fetched, otherwise `null`.
  */
 export const fetchExistingFieldData = async (
-    meta: ActionMetaUpdate | ActionMetaDelete, 
-    config: FlushConfig, 
-    eventContext: EventContext, 
-    hookContext: ApiExtensionContext
+	meta: ActionMetaUpdate | ActionMetaDelete,
+	config: FlushConfig,
+	eventContext: EventContext,
+	hookContext: ApiExtensionContext
 ): Promise<RecordData | null> => {
-    const { ItemsService } = hookContext.services;
-    const items = new ItemsService(meta.collection, {
-        schema: eventContext.schema,
-        knex: eventContext.database
-    });
+	const { ItemsService } = hookContext.services;
+	const items = new ItemsService(meta.collection, {
+		schema: eventContext.schema,
+		knex: eventContext.database
+	});
 
-    const { url, schema } = config;
+	const { url, schema } = config;
 
-    if (!schema) return null;
-    const collection = schema.find(c => c.collection === meta.collection);
-    if (!collection) return null;
+	if (!schema) return null;
+	const collection = schema.find((c) => c.collection === meta.collection);
+	if (!collection) return null;
 
-    try {
-        const data = await items.readMany(meta.keys, {
-            fields: collection.payload.includes('id') ? collection.payload : ['id', ...collection.payload]
-        }) as RecordData;
+	try {
+		const data = await items.readMany(meta.keys, {
+			fields: collection.payload.includes("id") ? collection.payload : ["id", ...collection.payload]
+		}) as RecordData;
 
-        return data
-    } catch (error: any) {
-        hookContext.logger.warn('Error fetching additional fields for cache flush to: ' + url + ' with id: ' + meta.keys.join(', ') + 'in collection: ' + meta.collection);
-        if (error?.message) hookContext.logger.warn(error.message)
+		return data;
+	}
+	catch (error: any) {
+		hookContext.logger.warn(`Error fetching additional fields for cache flush to: ${url} with id: ${meta.keys.join(", ")}in collection: ${meta.collection}`);
+		if (error?.message) hookContext.logger.warn(error.message);
 
-        for (const userId of config.users_notification) {
-            await createNotifcation({
-                collection: meta.collection,
-                userId,
-                itemId: meta.keys.join(', '),
-                event: meta.event.split('.')[1] as 'create' | 'update' | 'delete',
-                subject: 'Cache Flush Schema error',
-                message: 'Error fetching additional fields for cache flush. This is most likely due to a schema misconfiguration. Please check the schema configuration in the cache_flush_targets collection. Until you fix the schema, the Cache Flush extension will not work for this target.',
-                customProps: {
-                    url: config.url
-                }
-            }, eventContext, hookContext)
-        }
-        return null
-    }
-}
+		for (const userId of config.users_notification) {
+			await createNotifcation({
+				collection: meta.collection,
+				userId,
+				itemId: meta.keys.join(", "),
+				event: meta.event.split(".")[1] as "create" | "update" | "delete",
+				subject: "Cache Flush Schema error",
+				message: "Error fetching additional fields for cache flush. This is most likely due to a schema misconfiguration. Please check the schema configuration in the cache_flush_targets collection. Until you fix the schema, the Cache Flush extension will not work for this target.",
+				customProps: {
+					url: config.url
+				}
+			}, eventContext, hookContext);
+		}
+
+		return null;
+	}
+};

@@ -1,31 +1,31 @@
 version: 2
 updates:
   # 1) NPM dependencies
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: npm
+    directory: /
     schedule:
-      interval: "daily"
-      day: "monday"
-      time: "06:00"
+      interval: daily
+      day: monday
+      time: '06:00'
     commit-message:
-      prefix: "chore(deps)"
-    rebase-strategy: "auto"
+      prefix: chore(deps)
+    rebase-strategy: auto
     labels:
-      - "dependencies"
-      - "automated-update"
-      - "dependabot"
+      - dependencies
+      - automated-update
+      - dependabot
 
   # 3) GitHub Actions dependencies
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
-      interval: "daily"
-      day: "monday"
-      time: "06:00"
+      interval: daily
+      day: monday
+      time: '06:00'
     commit-message:
-      prefix: "chore(deps)"
-    rebase-strategy: "auto"
+      prefix: chore(deps)
+    rebase-strategy: auto
     labels:
-      - "dependencies"
-      - "automated-update"
-      - "dependabot"
+      - dependencies
+      - automated-update
+      - dependabot

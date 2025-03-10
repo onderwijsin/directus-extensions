@@ -1,17 +1,9 @@
 {
 	"name": "@onderwijsin/directus-bundle-email-viewer",
+	"type": "module",
+	"version": "1.1.6",
 	"description": "Fetch and view your organization's email to a given emailaddress",
 	"icon": "extension",
-	"version": "1.1.6",
-	"keywords": [
-		"directus",
-		"directus-extension",
-		"directus-extension-bundle"
-	],
-	"type": "module",
-	"files": [
-		"dist"
-	],
 	"author": {
 		"name": "Onderwijs in",
 		"email": "hallo@onderwijs.in",
@@ -25,6 +17,14 @@
 		}
 	],
 	"license": "MIT",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle"
+	],
+	"files": [
+		"dist"
+	],
 	"publishConfig": {
 		"access": "public"
 	},
@@ -55,15 +55,6 @@
 		"validate": "directus-extension validate",
 		"add": "directus-extension add"
 	},
-	"devDependencies": {
-		"@directus/api": "^24.0.1",
-		"@directus/extensions": "^3.0.2",
-		"@directus/extensions-sdk": "13.0.3",
-		"@types/node": "^22.13.5",
-		"@vueuse/core": "^12.7.0",
-		"typescript": "^5.8.2",
-		"vue": "^3.5.13"
-	},
 	"dependencies": {
 		"@azure/identity": "^4.7.0",
 		"@azure/msal-node": "^3.2.3",
@@ -74,5 +65,14 @@
 		"date-fns": "^4.1.0",
 		"utils": "workspace:^",
 		"zod": "^3.24.2"
+	},
+	"devDependencies": {
+		"@directus/api": "^24.0.1",
+		"@directus/extensions": "^3.0.2",
+		"@directus/extensions-sdk": "13.0.3",
+		"@types/node": "^22.13.5",
+		"@vueuse/core": "^12.7.0",
+		"typescript": "^5.8.2",
+		"vue": "^3.5.13"
 	}
 }
