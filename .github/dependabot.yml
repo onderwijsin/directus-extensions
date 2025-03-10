@@ -12,6 +12,7 @@ updates:
     labels:
       - "dependencies"
       - "automated-update"
+      - "dependabot"
 
   # 3) GitHub Actions dependencies
   - package-ecosystem: "github-actions"
@@ -25,3 +26,4 @@ updates:
     labels:
       - "dependencies"
       - "automated-update"
+      - "dependabot"
