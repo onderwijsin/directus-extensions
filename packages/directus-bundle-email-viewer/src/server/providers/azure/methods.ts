@@ -6,7 +6,7 @@ import { formatEmailData, formatUserData } from "./transforms";
 import type { Message, User as MsUser, Domain } from "@microsoft/microsoft-graph-types";
 import { parseEmailDomain, cacheProvider } from "utils";
 import { cacheConfig } from "../../utils/cache";
-
+import { getGlobalEmailViewerSettings } from "../../utils";
 
 const fetchEmailsForUser = async (options: Omit<RequestOptions, 'users'> & { user: string }, env: EndpointExtensionContext["env"]) => {
     try {
@@ -104,7 +104,12 @@ export const fetchUsers = async (env: EndpointExtensionContext["env"], permissio
                 .filter(user => user.userPrincipalName && !!user.assignedPlans?.length)
         )
 
+
         const filteredUsers = activeUsers.filter(user => {
+            // Filter global excluded user emails
+            if (permissions.excludedEmails.includes(user.email) && user.email !== permissions.userEmail) {
+                return false
+            }
             if (permissions.canViewAllEmail) {
                 return true
             }
@@ -114,6 +119,7 @@ export const fetchUsers = async (env: EndpointExtensionContext["env"], permissio
             if (permissions.canViewOwnEmail && user.email === permissions.userEmail) {
                 return true
             }
+            
             return permissions.canViewAddresses.includes(user.email)
         })
 
