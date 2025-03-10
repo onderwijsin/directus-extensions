@@ -4,12 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '.changeset/**' #workflow will only trigger when there are changes in the .changeset directory
 
 jobs:
   version-and-publish:
-    if: |
-      github.actor != 'dependabot[bot]' && 
-      (github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
