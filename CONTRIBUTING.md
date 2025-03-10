@@ -44,8 +44,25 @@ For each package you're working on, you'll want to ensure that the Directus inst
 - Follow the project's coding style.
 - Ensure your code is well-tested.
 - If modifying a package, **create a Changeset**.
+- **Lint your code** to ensure it adheres to the project's coding standards.
 
-## Working with Changesets
+### Linting Your Code
+
+We use [ESLint](https://eslint.org/) to maintain code quality and consistency. Before committing your changes, make sure to run ESLint and fix any issues:
+
+   ```sh
+   pnpm lint
+   ```
+
+To automatically fix linting errors, you can run:
+
+   ```sh
+   pnpm lint:fix
+   ```
+
+Ensure that your code passes all linting checks before submitting a pull request.
+
+### Working with Changesets
 
 We use [Changesets](https://github.com/changesets/changesets) to manage versioning. Whenever you modify a package, create a changeset:
 
