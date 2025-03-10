@@ -6,9 +6,10 @@ updates:
     schedule:
       interval: "daily"
       day: "monday"
-      time: "08:00"
+      time: "06:00"
     commit-message:
-      prefix: "chore"
+      prefix: "chore(deps)"
+    rebase-strategy: "auto"
     labels:
       - "dependencies"
       - "automated-update"
@@ -20,9 +21,10 @@ updates:
     schedule:
       interval: "daily"
       day: "monday"
-      time: "08:00"
+      time: "06:00"
     commit-message:
-      prefix: "chore"
+      prefix: "chore(deps)"
+    rebase-strategy: "auto"
     labels:
       - "dependencies"
       - "automated-update"
