@@ -43,7 +43,7 @@
 		"@directus/extensions": "^3.0.2",
 		"@directus/extensions-sdk": "13.0.1",
 		"@directus/types": "^13.0.0",
-		"@types/node": "^22.13.9",
+		"@types/node": "^22.13.10",
 		"typescript": "^5.8.2"
 	},
 	"dependencies": {
