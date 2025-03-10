@@ -37,8 +37,8 @@ jobs:
         uses: changesets/action@v1
         with:
           version: pnpm changeset version
-          commit: "chore: update package versions"
-          title: "chore: update package versions"
+          commit: "chore: update package versions for release"
+          title: "chore: update package versions for release"
           publish: pnpm ci:publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
