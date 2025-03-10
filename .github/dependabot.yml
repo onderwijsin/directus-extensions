@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # 1) NPM dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      day: "monday"
+      time: "08:00"
+    commit-message:
+      prefix: "chore"
+    labels:
+      - "dependencies"
+      - "automated-update"
+
+  # 2) Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      day: "monday"
+      time: "08:00"
+    commit-message:
+      prefix: "chore"
+    labels:
+      - "dependencies"
+      - "automated-update"
+
+  # 3) GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      day: "monday"
+      time: "08:00"
+    commit-message:
+      prefix: "chore"
+    labels:
+      - "dependencies"
+      - "automated-update"
