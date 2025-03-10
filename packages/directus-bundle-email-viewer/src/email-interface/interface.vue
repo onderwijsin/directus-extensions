@@ -24,13 +24,10 @@
 			<EmailListOptions v-model:limit="limit" v-model:users="users" />
 		</div>
 	</div>
-	
-	
-	
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, watchEffect } from 'vue';
 import type { Ref } from 'vue';
 import { watchDebounced } from '@vueuse/core';
 import { useApi } from '@directus/extensions-sdk';
@@ -66,6 +63,8 @@ const email = ref('')
 const pending = ref(true)
 const loading = ref(true)
 const error: Ref<any> = ref(null)
+
+
 async function fetchEmailValue() {
 	if (!props.email_field || isCreate.value) return;
 	pending.value = true
@@ -103,31 +102,29 @@ watch(() => props.primaryKey, fetchEmailValue)
 const data: Ref<FormattedEmail[]> = ref([])
 
 async function fetchEmails() {
-	if (!email.value) {
-		loading.value = false
-		pending.value = false
-		return;
-	}
-	pending.value = true
-	triggerLoadingState();
-	try {
-		const response: { data: Email[] } = await api.post(`/server/email-viewer/emails`, {
-			email: email.value,
-			query: query.value,
-			users: users.value || [],
-			limit: limit.value
-		});
+    if (!email.value) {
+        loading.value = false
+        pending.value = false
+        return;
+    }
+    pending.value = true
+    triggerLoadingState();
+    try {
+        const response: { data: Email[] } = await api.post(`/server/email-viewer/emails`, {
+            email: email.value,
+            query: query.value,
+            users: users.value || [],
+            limit: limit.value
+        });
 
-		data.value = formatData(response.data);
-		pending.value = false
-		loading.value = false
-		return ;
-	} catch (err) {
-		error.value = err;
-		pending.value = false
-		loading.value = false
-		console.warn(err);
-	}
+        data.value = formatData(response.data);
+    } catch (err) {
+        error.value = err;
+        console.warn(err);
+    } finally {
+        pending.value = false
+        loading.value = false
+    }
 }
 
 
@@ -147,14 +144,10 @@ const users: Ref<string[] | null> = ref(JSON.parse(localStorage.getItem('email_h
 const query: Ref<string> = ref(localStorage.getItem('email_history_interface:query') || '');
 
 // Update localStorage when limit or users change
-watch(limit, (newLimit) => {
-	localStorage.setItem('email_history_interface:limit', newLimit.toString());
-});
-watch(users, (newUsers) => {
-	localStorage.setItem('email_history_interface:users', JSON.stringify(newUsers));
-});
-watch(query, (newQuery) => {
-	localStorage.setItem('email_history_interface:query', newQuery || '');
+watchEffect(() => {
+    localStorage.setItem('email_history_interface:limit', limit.value.toString());
+    localStorage.setItem('email_history_interface:users', JSON.stringify(users.value));
+    localStorage.setItem('email_history_interface:query', query.value || '');
 });
 
 watch([email, limit, users], fetchEmails)

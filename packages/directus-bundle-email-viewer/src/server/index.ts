@@ -43,7 +43,7 @@ export default defineEndpoint(async (router, context) => {
 			let parsedBody = requestOptionsSchema.parse(req.body);
 			if (parsedBody.limit && parsedBody.limit < 1) parsedBody.limit = 5000;
 
-			const cacheKey = `emails_user:${req.accountability.user}_query:${parsedBody}`;
+			const cacheKey = `emails_user:${req.accountability.user}_query:${JSON.stringify(parsedBody)}`;
 			const getEmails = cacheProvider(getProvider(provider).fetchEmails, routeTTL, cacheKey);
 			const data = await getEmails(parsedBody, env, req.emailViewerPermissions);
 
