@@ -16,6 +16,8 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    # Skip if PR is from dependabot 
+    if: ${{ github.actor != 'dependabot[bot]' }} 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
