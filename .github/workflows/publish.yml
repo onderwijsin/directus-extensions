@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - '.changeset/**' #workflow will only trigger when there are changes in the .changeset directory
+      - '.changeset/**' # workflow will only trigger when there are changes in the .changeset directory
 
 jobs:
   version-and-publish:
@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Important for changesets to work properly
+          fetch-depth: 0 # Important for changesets to work properly
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
@@ -25,20 +25,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: pnpm
           registry-url: 'https://registry.npmjs.org/'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
-          HUSKY: 0  # Disable Husky in CI
+          HUSKY: 0 # Disable Husky in CI
 
       - name: Create and publish versions
         uses: changesets/action@v1
         with:
           version: pnpm changeset version
-          commit: "chore: update package versions for release"
-          title: "chore: update package versions for release"
+          commit: 'chore: update package versions for release'
+          title: 'chore: update package versions for release'
           publish: pnpm ci:publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,30 +1,30 @@
 {
-  "name": "utils",
-  "description": "Shared utilities for Directus extensions",
-  "private": true,
-  "version": "0.1.4",
-  "main": "src/index.ts",
-  "types": "src/index.d.ts",
-  "type": "module",
-  "license": "MIT",
-  "devDependencies": {
-    "@directus/api": "^24.0.1",
-    "@directus/extensions": "^3.0.2",
-    "@directus/tsconfig": "3.0.0",
-    "@directus/types": "^13.0.0",
-    "@types/node": "^22.13.4",
-    "typescript": "5.8.2"
-  },
-  "exports": {
-    ".": {
-      "import": "./src/index.ts",
-      "require": "./src/index.js"
-    },
-    "./types": {
-      "import": "./src/types.ts"
-    }
-  },
-  "dependencies": {
-    "node-cache": "^5.1.2"
-  }
+	"name": "utils",
+	"type": "module",
+	"version": "0.1.4",
+	"private": true,
+	"description": "Shared utilities for Directus extensions",
+	"license": "MIT",
+	"exports": {
+		".": {
+			"import": "./src/index.ts",
+			"require": "./src/index.js"
+		},
+		"./types": {
+			"import": "./src/types.ts"
+		}
+	},
+	"main": "src/index.ts",
+	"types": "src/index.d.ts",
+	"dependencies": {
+		"node-cache": "^5.1.2"
+	},
+	"devDependencies": {
+		"@directus/api": "^24.0.1",
+		"@directus/extensions": "^3.0.2",
+		"@directus/tsconfig": "3.0.0",
+		"@directus/types": "^13.0.0",
+		"@types/node": "^22.13.4",
+		"typescript": "5.8.2"
+	}
 }

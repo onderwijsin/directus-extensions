@@ -10,13 +10,13 @@ x-directus-common: &directus-common
     - directus-net
 
 x-directus-env: &directus-env
-  SECRET: "replace-with-random-value"
-  ADMIN_EMAIL: "admin@example.com"
-  ADMIN_PASSWORD: "admin"
-  DB_CLIENT: "pg"
+  SECRET: replace-with-random-value
+  ADMIN_EMAIL: admin@example.com
+  ADMIN_PASSWORD: admin
+  DB_CLIENT: pg
   DB_PORT: 5432
-  DB_USER: "directus"
-  DB_PASSWORD: "directus"
+  DB_USER: directus
+  DB_PASSWORD: directus
   EXTENSIONS_AUTO_RELOAD: true
   WEBSOCKETS_ENABLED: true
 
@@ -33,7 +33,7 @@ x-db-common: &db-common
   networks:
     - directus-net
   healthcheck:
-    test: ["CMD-SHELL", "pg_isready -U directus -d $${POSTGRES_DB}"]
+    test: [CMD-SHELL, 'pg_isready -U directus -d $${POSTGRES_DB}']
     interval: 3s
     timeout: 5s
     retries: 5
@@ -53,10 +53,10 @@ services:
         condition: service_healthy
     environment:
       <<: *directus-env
-      PUBLIC_URL: "http://localhost:8055"
-      DB_HOST: "database1"
-      DB_DATABASE: "directus1"
-      SESSION_COOKIE_NAME: "directus1_session_token"
+      PUBLIC_URL: 'http://localhost:8055'
+      DB_HOST: database1
+      DB_DATABASE: directus1
+      SESSION_COOKIE_NAME: directus1_session_token
 
   directus2:
     <<: *directus-common
@@ -67,10 +67,10 @@ services:
         condition: service_healthy
     environment:
       <<: *directus-env
-      PUBLIC_URL: "http://localhost:8056"
-      DB_HOST: "database2"
-      DB_DATABASE: "directus2"
-      SESSION_COOKIE_NAME: "directus2_session_token"
+      PUBLIC_URL: 'http://localhost:8056'
+      DB_HOST: database2
+      DB_DATABASE: directus2
+      SESSION_COOKIE_NAME: directus2_session_token
 
   directus3:
     <<: *directus-common
@@ -81,10 +81,10 @@ services:
         condition: service_healthy
     environment:
       <<: *directus-env
-      PUBLIC_URL: "http://localhost:8057"
-      DB_HOST: "database3"
-      DB_DATABASE: "directus3"
-      SESSION_COOKIE_NAME: "directus3_session_token"
+      PUBLIC_URL: 'http://localhost:8057'
+      DB_HOST: database3
+      DB_DATABASE: directus3
+      SESSION_COOKIE_NAME: directus3_session_token
 
   # Databases
   database1:

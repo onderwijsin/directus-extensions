@@ -1,43 +1,45 @@
-import type { CollectionMeta, EventContext } from '@directus/types';
-import type { CollectionsService, SettingsService } from '@directus/api/dist/services';
-import type { HookExtensionContext } from '@directus/extensions'
+import type { CollectionsService, SettingsService } from "@directus/api/dist/services";
+import type { HookExtensionContext } from "@directus/extensions";
+import type { CollectionMeta, EventContext } from "@directus/types";
+
 /**
  * Retrieves sluggernaut settings for a given collection.
- * 
+ *
  * @param collection - The name of the collection.
+ * @param eventContext - An object containing the context of the event.
  * @param hookContext - An object containing the context from registering the hook.
  * @returns A promise that resolves to the sluggernaut settings.
  */
 export const getSluggernautSettings = async (
-    collection: string, 
-    eventContext: EventContext,
-    hookContext: HookExtensionContext
+	collection: string,
+	eventContext: EventContext,
+	hookContext: HookExtensionContext
 ): Promise<SluggernautSettings> => {
-    const { services } = hookContext;
-    const { SettingsService, CollectionsService } = services;
-    const settings: SettingsService = new SettingsService({
-        schema: eventContext.schema,
-        knex: eventContext.database
-    });
-    const collections: CollectionsService = new CollectionsService({
-        schema: eventContext.schema,
-        knex: eventContext.database
-    });
+	const { services } = hookContext;
+	const { SettingsService, CollectionsService } = services;
+	const settings: SettingsService = new SettingsService({
+		schema: eventContext.schema,
+		knex: eventContext.database
+	});
+	const collections: CollectionsService = new CollectionsService({
+		schema: eventContext.schema,
+		knex: eventContext.database
+	});
 
-    const data = await settings.readByQuery({ fields: ['use_trailing_slash', 'use_namespace']})
-    const collectionData = await collections.readOne(collection);
+	const data = await settings.readByQuery({ fields: ["use_trailing_slash", "use_namespace"] });
+	const collectionData = await collections.readOne(collection);
 
-    return {
-        // Cast global settings to boolean, since they might be missing	
-        use_trailing_slash: !!data[0]?.use_trailing_slash,
-        use_namespace: !!data[0]?.use_namespace,
-        namespace: (collectionData.meta as CollectionMeta & { namespace: null | string })?.namespace
-    }
-}
+	return {
+		// Cast global settings to boolean, since they might be missing
+		use_trailing_slash: !!data[0]?.use_trailing_slash,
+		use_namespace: !!data[0]?.use_namespace,
+		namespace: (collectionData.meta as CollectionMeta & { namespace: null | string })?.namespace
+	};
+};
 
 /**
  * Get a formatted path string based on input variables
- * 
+ *
  * @param value - the slug value
  * @param type - Wheter this input value is a slug or a path
  * @param settings - The sluggernaut settings for the collection
@@ -45,7 +47,7 @@ export const getSluggernautSettings = async (
  * @returns formatted path string, including namespace, parent slugs and (optional) trailing slash
  */
 export const getPathString = (value: string, type: ValueType, settings: SluggernautSettings, parentPath?: string): string => {
-    const { use_namespace, use_trailing_slash, namespace } = settings;
-    if (type === 'slug' || !parentPath) return `/${use_namespace && !!namespace ? (namespace + '/') : ''}${value}${use_trailing_slash ? '/' : ''}`
-    return  `${parentPath.endsWith('/') ? parentPath : (parentPath + '/')}${value}${use_trailing_slash ? '/' : ''}`
-}
+	const { use_namespace, use_trailing_slash, namespace } = settings;
+	if (type === "slug" || !parentPath) return `/${use_namespace && !!namespace ? (`${namespace}/`) : ""}${value}${use_trailing_slash ? "/" : ""}`;
+	return `${parentPath.endsWith("/") ? parentPath : (`${parentPath}/`)}${value}${use_trailing_slash ? "/" : ""}`;
+};

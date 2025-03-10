@@ -1,11 +1,11 @@
-import { Accountability } from "@directus/types"
-import { EmailViewerPermission } from "./types"
+import type { Accountability } from "@directus/types";
+import type { EmailViewerPermission } from "./types";
 
 declare global {
-    namespace Express {
-        interface Request {
-            accountability: Accountability
-            emailViewerPermissions: EmailViewerPermission
-        }
-    }
+	namespace Express {
+		interface Request {
+			accountability: Accountability;
+			emailViewerPermissions: EmailViewerPermission;
+		}
+	}
 }

@@ -1,32 +1,31 @@
 <script setup lang="ts">
-import { useClipboard } from '@vueuse/core'
+import { useClipboard } from "@vueuse/core";
 
 withDefaults(
-    defineProps<{
-        value: string | null;
-        small?: boolean;
-        xSmall?: boolean;
-    }>(), {
-        small: true,
-        xSmall: false,
-    }
-)
+	defineProps<{
+		value: string | null;
+		small?: boolean;
+		xSmall?: boolean;
+	}>(),
+	{
+		small: true,
+		xSmall: false
+	}
+);
 
-const { copy, copied, isSupported } = useClipboard()
-
+const { copy, copied, isSupported } = useClipboard();
 </script>
 
-
 <template>
-    <div v-if="isSupported" class="copy-btn">
-        <VButton secondary icon :small="small" :x-small="xSmall" @click.stop="copy(value || '')">
-            <VIcon  
-                :name="!copied ? 'content_copy' : 'check'" 
-                :small="true"
-                color="#878787"
-            />
-        </VButton>
-    </div>
+	<div v-if="isSupported" class="copy-btn">
+		<VButton secondary icon :small="small" :x-small="xSmall" @click.stop="copy(value || '')">
+			<VIcon
+				:name="!copied ? 'content_copy' : 'check'"
+				small
+				color="#878787"
+			/>
+		</VButton>
+	</div>
 </template>
 
 <style scoped>
@@ -36,5 +35,4 @@ const { copy, copied, isSupported } = useClipboard()
 	top: 50%;
 	transform: translateY(-50%);
 }
-	
 </style>
