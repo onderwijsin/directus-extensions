@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 0  # Important for changesets to work properly
 
       - name: Setup PNPM
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 10.4.1
 
