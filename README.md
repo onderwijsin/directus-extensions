@@ -21,7 +21,7 @@ Before getting started, ensure you have:
 
 - 🐳 Docker Desktop with compose
 - 📦 pnpm installed on your system
-- 🏗 Node.js (version X.X.X or later)
+- 🏗 Node.js (version 22.0.0 or later)
 
 ## 📦 Packages
 Some extensions in this repository are (or will be) published to the Directus Marketplace. Note that none of these extensions are [sandboxed](https://docs.directus.io/extensions/sandbox/introduction.html), so they will only be discoverable if you set [`MARKETPLACE_TRUST=all`](https://directus.io/docs/configuration/extensions#marketplace). We therefore strongly recommend to install the packages locally through the npm registry.
