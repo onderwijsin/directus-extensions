@@ -1,7 +1,5 @@
 import { fetchEmails as fetchEmailsAzure, fetchUsers as fetchUsersAzure, fetchOrgDomains as fetchOrgDomainsAzure } from './azure/methods';
 import type { Provider } from '../../types';
-import { cacheProvider } from 'utils'
-import { cacheConfig } from '../utils/cache';
 const providers = {
     azure: {
         fetchUsers: fetchUsersAzure,
@@ -12,10 +10,10 @@ const providers = {
 
 const getProvider = (provider: Provider) => {
     return {
-        // Emails is only cached on route level
+        // Cache is applied at route level
         fetchEmails: providers[provider].fetchEmails,
-        fetchUsers: cacheProvider(providers[provider].fetchUsers, cacheConfig.users, 'users'),
-        fetchOrgDomains: cacheProvider(providers[provider].fetchOrgDomains, cacheConfig.domains, 'domains')
+        fetchUsers: providers[provider].fetchUsers,
+        fetchOrgDomains: providers[provider].fetchOrgDomains
     }
 } 
 
