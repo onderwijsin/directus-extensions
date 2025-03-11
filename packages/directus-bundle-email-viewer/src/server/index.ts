@@ -3,8 +3,10 @@ import { cacheProvider, createOrUpdateFieldsInCollection, disableSchemaChange } 
 import { z } from "zod";
 import { Provider } from "../types";
 import getProvider from "./providers";
+import useMicrosoft from "./providers/azure/useMicrosoft";
 import { policyFieldsSchema, settingsFieldSchema } from "./schema";
 import { getEmailViewerPermissions } from "./utils";
+
 import { InvalidProvider } from "./utils/errors";
 
 const requestOptionsSchema = z.object({
@@ -15,8 +17,6 @@ const requestOptionsSchema = z.object({
 		message: "Limit must be 0, -1, or between 1 and 5000"
 	}).default(10).optional()
 });
-
-import useMicrosoft from "./providers/azure/useMicrosoft";
 
 export default defineEndpoint(async (router, context) => {
 	const { env } = context;
@@ -38,12 +38,12 @@ export default defineEndpoint(async (router, context) => {
 		try {
 			const client = useMicrosoft(env);
 			const data = await client.api("/users").filter("userType eq 'member'").select("id,userPrincipalName,email,assignedPlans,displayName,givenName,surname").top(500).get() as { value: any[] };
-			return res.json(data)
+			return res.json(data);
 		}
 		catch (error) {
 			return res.status(500).json(error);
 		}
-	})
+	});
 
 	router.all("/email-viewer/*", async (req, _, next) => {
 		// Throws permissions error if user does not have access to email viewer
@@ -96,6 +96,4 @@ export default defineEndpoint(async (router, context) => {
 			return res.status(500).json(error);
 		}
 	});
-
-	
 });
