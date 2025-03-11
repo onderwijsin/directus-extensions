@@ -3,7 +3,7 @@ import type { Email, User } from "../../../types";
 
 export const formatEmailData = (emails: Message[]): Email[] => {
 	return emails.map((email) => {
-		const { id, sentDateTime, hasAttachments, subject, bodyPreview, isRead, webLink, from, toRecipients, ccRecipients, bccRecipients } = email;
+		const { id, sentDateTime, hasAttachments, subject, bodyPreview, body, categories, isRead, webLink, from, toRecipients, ccRecipients, bccRecipients } = email;
 
 		return {
 			id,
@@ -11,6 +11,8 @@ export const formatEmailData = (emails: Message[]): Email[] => {
 			hasAttachments: hasAttachments || !!hasAttachments,
 			subject: subject || "",
 			bodyPreview: bodyPreview || "",
+			categories,
+			body: body || null,
 			isRead: !!isRead,
 			webLink,
 			from,

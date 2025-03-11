@@ -1,9 +1,19 @@
 <script setup lang="ts">
 import type { FormattedEmail } from "../interface.vue";
+import { defineProps, ref } from "vue";
+import EmailBodyViewer from "./EmailBodyViewer.vue";
 
 defineProps<{
 	data: FormattedEmail[];
 }>();
+
+const selectedEmail = ref<FormattedEmail | null>(null);
+
+const handleShowBody = (email: FormattedEmail) => {
+	selectedEmail.value = email;
+	// const win = window.open("", "_blank");
+	// win?.document.write(email.body?.content);
+};
 </script>
 
 <template>
@@ -45,12 +55,18 @@ defineProps<{
 					<span>{{ recipient.emailAddress.name }} &lt;<a :href="`mailto:${recipient.emailAddress.address}`" target="_blank" style="text-decoration: underline; color: var(--project-color)">{{ recipient.emailAddress.address }}</a>&gt;</span>
 				</span>
 			</VListItem>
-			<VButton small secondary :href="email.webLink" target="_blank" style="margin-bottom: 16px;">
-				<span>View in outlook</span>
-				<VIcon name="arrow_outward" small style="margin-left: 1rem;" />
-			</VButton>
+			<div style="margin-bottom: 16px; display: flex; flex-direction: row; flex-wrap: wrap; gap: 0.5rem;">
+				<VButton v-if="email.body?.content" small @click.prevent="handleShowBody(email)">
+					<span>View email</span>
+				</VButton>
+				<VButton small secondary :href="email.webLink" target="_blank">
+					<span>View in outlook</span>
+					<VIcon name="arrow_outward" small style="margin-left: 1rem;" />
+				</VButton>
+			</div>
 		</VListGroup>
 	</VList>
+	<EmailBodyViewer v-if="selectedEmail" :data="selectedEmail.body" />
 </template>
 
 <style scoped>

@@ -37,7 +37,12 @@ To use this extension in your Directus app, you'll need to follow the steps belo
    - `domain`: user has access to email sent or received by addresses that share their domain name
    - `all`: user has access to all of the organization's email
    - `specific`: provide a set of specific email addresses the user has access to
-4. You can also select email addresses that are filtered globally (i.e. for all users), except for the user the email belongs to
+4. (Optional) Navigate to Settings and configure global settings
+   - **Add excluded email addresses**. Emails belonging to this account are filtered globally (i.e. for all users), except for the user the email belongs to
+   - **Add Excluded email tags**. Emails that contain this tag (or category) are filtered globally (i.e. for all users), including the user the email belongs to
+   - **Show email body in viewer**. If enabled, the entore email body wil be visible for all users that have permisison to view this email.
+5. (Optional) Navigate to User and configure user specific settings
+  - **Add tags to filter**.  Emails that contain this tag (or category) are filtered for the inbox belonging to the email address this user is registrerd by
 
 
 You can find specific docs on how to get the proper token within the provider's directory.

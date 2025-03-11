@@ -11,6 +11,11 @@ export interface Email {
 	hasAttachments: boolean;
 	subject: string;
 	bodyPreview: string;
+	body: null | {
+		content: string;
+		contentType: "html" | "plaintext";
+	};
+	categories: string[];
 	isRead: boolean;
 	webLink?: string;
 	from: EmailAddress;
@@ -44,10 +49,12 @@ export interface EmailViewerPermission {
 	canViewAllEmail: boolean;
 	canViewAddresses: string[];
 	excludedEmails: string[];
+	excludedTags: string[];
+	showEmailBody: boolean;
 }
 
 export interface Policy {
 	id: string;
-	custom_addresses: string[];
+	email_viewer_custom_addresses: string[];
 	email_viewer_permission: "own" | "domain" | "all" | "specific" | "none";
 }
