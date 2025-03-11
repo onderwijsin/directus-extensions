@@ -3,7 +3,6 @@ import { cacheProvider, createOrUpdateFieldsInCollection, disableSchemaChange } 
 import { z } from "zod";
 import { Provider } from "../types";
 import getProvider from "./providers";
-import useMicrosoft from "./providers/azure/useMicrosoft";
 import { policyFieldsSchema, settingsFieldSchema } from "./schema";
 import { getEmailViewerPermissions } from "./utils";
 
