@@ -51,12 +51,11 @@ export const fetchUsers = async (env: EndpointExtensionContext["env"], permissio
 		const client = useMicrosoft(env);
 		const data = await client.api("/users").filter("userType eq 'member'").select("id,userPrincipalName,email,assignedPlans,displayName,givenName,surname").top(500).get() as { value: MsUser[] };
 
-		const activeUsers = formatUserData(
+		const users = formatUserData(
 			data.value
-				.filter((user) => user.userPrincipalName && !!user.assignedPlans?.length)
 		);
 
-		const filteredUsers = activeUsers.filter((user) => {
+		const filteredUsers = users.filter((user) => {
 			// Filter global excluded user emails
 			if (permissions.excludedEmails.includes(user.email) && user.email !== permissions.userEmail) {
 				return false;
