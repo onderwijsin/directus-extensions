@@ -1,14 +1,15 @@
 ![github_banner](https://github.com/user-attachments/assets/641fecad-0b75-4fbb-9d53-22ffb0d819a8)
 
 <p style="text-align: left;">
-  <img src="https://img.shields.io/npm/v/@onderwijsin/directus-extension-slugify-operation?label=slugify-operation&style=flat-square" alt="directus-extension-slugify-operation">
-  <img src="https://img.shields.io/npm/v/@onderwijsin/directus-bundle-sluggernaut?label=sluggernaut&style=flat-square" alt="directus-bundle-sluggernaut">
-  <img src="https://img.shields.io/npm/v/@onderwijsin/directus-bundle-email-viewer?label=email-viewer&style=flat-square" alt="directus-bundle-email-viewer">
-  <img src="https://img.shields.io/npm/v/@onderwijsin/directus-extension-data-sync?label=data-sync&style=flat-square" alt="directus-extension-data-sync">
-  <img src="https://img.shields.io/npm/v/@onderwijsin/directus-extension-cache-flush?label=cache-flush&style=flat-square" alt="directus-extension-cache-flush">
+  <a href="https://www.npmjs.com/package/@onderwijsin/directus-extension-slugify-operation"><img src="https://img.shields.io/npm/v/@onderwijsin/directus-extension-slugify-operation?label=slugify-operation&style=flat&colorA=2A2E35&colorB=FF9255" alt="directus-extension-slugify-operation" style="border-radius: 4px;"></a>
+  <a href="https://www.npmjs.com/package/@onderwijsin/directus-bundle-sluggernaut"><img src="https://img.shields.io/npm/v/@onderwijsin/directus-bundle-sluggernaut?label=sluggernaut&style=flat&colorA=2A2E35&colorB=FF9255" alt="directus-bundle-sluggernaut" style="border-radius: 4px;"></a>
+  <a href="https://www.npmjs.com/package/@onderwijsin/directus-bundle-email-viewer"><img src="https://img.shields.io/npm/v/@onderwijsin/directus-bundle-email-viewer?label=email-viewer&style=flat&colorA=2A2E35&colorB=FF9255" alt="directus-bundle-email-viewer" style="border-radius: 4px;"></a>
+  <a href="https://www.npmjs.com/package/@onderwijsin/directus-extension-data-sync"><img src="https://img.shields.io/npm/v/@onderwijsin/directus-extension-data-sync?label=data-sync&style=flat&colorA=2A2E35&colorB=FF9255" alt="directus-extension-data-sync" style="border-radius: 4px;"></a>
+  <a href="https://www.npmjs.com/package/@onderwijsin/directus-extension-cache-flush"><img src="https://img.shields.io/npm/v/@onderwijsin/directus-extension-cache-flush?label=cache-flush&style=flat&colorA=2A2E35&colorB=FF9255" alt="directus-extension-cache-flush" style="border-radius: 4px;"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/onderwijsin/directus-extensions" alt="License"></a>
   <a href="https://github.com/onderwijsin/directus-extensions/actions"><img src="https://img.shields.io/github/actions/workflow/status/onderwijsin/directus-extensions/publish.yml" alt="GitHub Workflow Status"></a>
 </p>
+
 
 ## 👋 Introduction
 This repository contains extensions for [Directus](https://directus.io) developed for our projects. Some extensions are actively maintained, while others may not be. Certain extensions serve specific purposes and have only been tested in our environment. They may not work in other Directus instances, but you are welcome to try them out!
