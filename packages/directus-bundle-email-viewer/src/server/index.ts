@@ -34,17 +34,6 @@ export default defineEndpoint(async (router, context) => {
 
 	const routeTTL: number = Number.parseInt(env.CLIENT_CACHE_TTL || "600");
 
-	router.get("/email-viewer/debug", async (req, res) => {
-		try {
-			const client = useMicrosoft(env);
-			const data = await client.api("/users").filter("userType eq 'member'").select("id,userPrincipalName,email,assignedPlans,displayName,givenName,surname").top(500).get() as { value: any[] };
-			return res.json(data);
-		}
-		catch (error) {
-			return res.status(500).json(error);
-		}
-	});
-
 	router.all("/email-viewer/*", async (req, _, next) => {
 		// Throws permissions error if user does not have access to email viewer
 		const permissions = await getEmailViewerPermissions((req as any).accountability, context);
