@@ -16,16 +16,9 @@ x-directus-env: &directus-env
   SECRET: replace-with-random-value
   ADMIN_EMAIL: admin@example.com
   ADMIN_PASSWORD: admin
-  CACHE_ENABLED: true
-  CACHE_STORE: redis
-  CACHE_TTL: 10m
   REDIS: 'redis://cache:6379'
   EXTENSIONS_AUTO_RELOAD: true
   WEBSOCKETS_ENABLED: true
-  GRAPHQL_INTROSPECTION: true
-  GRAPHQL_PLAYGROUND: true
-  SESSION_COOKIE_SECURE: true
-  REFRESH_TOKEN_COOKIE_SECURE: true
 
   DISABLE_EXTENSION_SCHEMA_CHANGE: false
   CACHE_FLUSH_DISABLE_SCHEMA_CHANGE: false
