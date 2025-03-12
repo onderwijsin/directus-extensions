@@ -57,7 +57,6 @@
 	},
 	"dependencies": {
 		"@azure/identity": "^4.7.0",
-		"@azure/msal-node": "^3.2.3",
 		"@directus/errors": "^2.0.0",
 		"@directus/types": "^13.0.0",
 		"@microsoft/microsoft-graph-client": "^3.0.7",
