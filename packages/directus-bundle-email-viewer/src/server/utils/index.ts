@@ -13,7 +13,11 @@ export const getGlobalEmailViewerSettings = async (context: ApiExtensionContext)
 	});
 
 	const settings = await settingsService.readSingleton({
-		fields: ["excluded_emails"]
+		fields: [
+			"email_viewer_excluded_emails",
+			"email_viewer_show_email_body",
+			"email_viewer_global_excluded_tags"
+		]
 	});
 
 	return settings;
@@ -35,11 +39,12 @@ export const getEmailViewerPermissions = async (accountability: Accountability, 
 		const data = await usersService.readOne(accountability.user, {
 			fields: [
 				"email",
+				"email_viewer_excluded_tags",
 				"policies.policy.id",
-				"policies.policy.custom_addresses",
+				"policies.policy.email_viewer_custom_addresses",
 				"policies.policy.email_viewer_permission",
 				"role.policies.policy.id",
-				"role.policies.policy.custom_addresses",
+				"role.policies.policy.email_viewer_custom_addresses",
 				"role.policies.policy.email_viewer_permission"
 			]
 		});
@@ -52,6 +57,16 @@ export const getEmailViewerPermissions = async (accountability: Accountability, 
 			).values()
 		];
 
+		const excludedTags: string[] = [];
+
+		if (data.email_viewer_excluded_tags) {
+			excludedTags.push(...data.email_viewer_excluded_tags);
+		}
+
+		if (globalSettings.email_viewer_global_excluded_tags) {
+			excludedTags.push(...globalSettings.email_viewer_global_excluded_tags);
+		}
+
 		const permissions: EmailViewerPermission = {
 			userId: accountability.user,
 			userEmail: data.email,
@@ -59,13 +74,15 @@ export const getEmailViewerPermissions = async (accountability: Accountability, 
 			canViewDomainEmail: policies.some((policy) => policy.email_viewer_permission === "domain"),
 			canViewAllEmail: policies.some((policy) => policy.email_viewer_permission === "all"),
 			canViewAddresses: Array.from(new Set(policies.reduce((acc, policy) => {
-				if (policy.email_viewer_permission === "specific" && policy.custom_addresses.length > 0) {
-					acc.push(...policy.custom_addresses);
+				if (policy.email_viewer_permission === "specific" && policy.email_viewer_custom_addresses.length > 0) {
+					acc.push(...policy.email_viewer_custom_addresses);
 				}
 
 				return acc;
 			}, []))),
-			excludedEmails: globalSettings.excluded_emails || []
+			excludedEmails: globalSettings.email_viewer_excluded_emails || [],
+			excludedTags: excludedTags.map((tag) => tag.toLowerCase()),
+			showEmailBody: globalSettings.email_viewer_show_email_body || false
 		};
 		return permissions;
 	}, 60, accountability.user);

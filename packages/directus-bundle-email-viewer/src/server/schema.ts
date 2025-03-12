@@ -47,16 +47,16 @@ export const policyFieldsSchema = [
 	},
 	{
 		collection: "directus_policies",
-		field: "custom_addresses",
+		field: "email_viewer_custom_addresses",
 		type: "json",
 		schema: {
-			name: "custom_addresses",
+			name: "email_viewer_custom_addresses",
 			table: "directus_policies",
 			data_type: "json"
 		},
 		meta: {
 			collection: "directus_policies",
-			field: "custom_addresses",
+			field: "email_viewer_custom_addresses",
 			special: [
 				"cast-json"
 			],
@@ -131,12 +131,12 @@ export const policyFieldsSchema = [
 	},
 	{
 		collection: "directus_policies",
-		field: "notice-nbjgca",
+		field: "email_viewer_notice",
 		type: "alias",
 		schema: null,
 		meta: {
 			collection: "directus_policies",
-			field: "notice-nbjgca",
+			field: "email_viewer_notice",
 			special: [
 				"alias",
 				"no-data"
@@ -152,49 +152,161 @@ export const policyFieldsSchema = [
 	}
 ] as unknown as Field[];
 
-export const settingsFieldSchema = [{
-	collection: "directus_settings",
-	field: "divider_email_viewer",
-	type: "alias",
-	schema: null,
-	meta: {
+export const settingsFieldSchema = [
+	{
 		collection: "directus_settings",
 		field: "divider_email_viewer",
-		special: [
-			"alias",
-			"no-data"
-		],
-		interface: "presentation-divider",
-		options: {
-			title: "Email Viewer",
-			color: null,
-			icon: "attach_email"
-		},
-		sort: 5,
-		width: "full"
-	}
-}, {
-	collection: "directus_settings",
-	field: "excluded_emails",
-	type: "json",
-	schema: {
-		name: "excluded_emails",
-		table: "directus_settings",
-		data_type: "json"
+		type: "alias",
+		schema: null,
+		meta: {
+			collection: "directus_settings",
+			field: "divider_email_viewer",
+			special: [
+				"alias",
+				"no-data"
+			],
+			interface: "presentation-divider",
+			options: {
+				title: "Email Viewer",
+				color: null,
+				icon: "attach_email"
+			},
+			width: "full"
+		}
 	},
-	meta: {
+	{
 		collection: "directus_settings",
-		field: "excluded_emails",
-		special: [
-			"cast-json"
-		],
-		interface: "select-multiple-dropdown",
-		options: {
-			allowOther: true,
-			placeholder: "Enter emails to exclude",
-			previewThreshold: 2
+		field: "email_viewer_excluded_emails",
+		type: "json",
+		schema: {
+			name: "email_viewer_excluded_emails",
+			table: "directus_settings",
+			data_type: "json"
 		},
-		sort: 6,
-		width: "full"
+		meta: {
+			collection: "directus_settings",
+			field: "email_viewer_excluded_emails",
+			special: [
+				"cast-json"
+			],
+			interface: "select-multiple-dropdown",
+			options: {
+				allowOther: true,
+				placeholder: "Enter emails to exclude",
+				previewThreshold: 2
+			},
+			width: "full",
+			note: "Excluded email adresses will never be visible in the email viewer"
+		}
+	},
+	{
+		collection: "directus_settings",
+		field: "email_viewer_show_email_body",
+		type: "boolean",
+		schema: {
+			name: "email_viewer_show_email_body",
+			table: "directus_settings",
+			data_type: "boolean",
+			default_value: false,
+			is_nullable: false
+		},
+		meta: {
+			collection: "directus_settings",
+			field: "email_viewer_show_email_body",
+			special: [
+				"cast-boolean"
+			],
+			interface: "boolean",
+			options: {
+				colorOn: "#2ECDA7",
+				colorOff: "#E35169",
+				label: "Show email body in viewer"
+			},
+			display: "boolean",
+			display_options: {
+				labelOn: "Show body",
+				labelOff: "Hide body"
+			},
+			note: "If disabled only a preview of the email will be shown"
+		}
+	},
+	{
+		collection: "directus_settings",
+		field: "email_viewer_global_excluded_tags",
+		type: "csv",
+		schema: {
+			name: "email_viewer_global_excluded_tags",
+			table: "directus_settings",
+			data_type: "text"
+		},
+		meta: {
+			collection: "directus_settings",
+			field: "email_viewer_global_excluded_tags",
+			special: [
+				"cast-csv"
+			],
+			interface: "tags",
+			options: {
+				placeholder: "Add tags to filter email by"
+			},
+			display: "labels",
+			display_options: {
+				format: false
+			}
+		}
 	}
-}] as unknown as Field[];
+] as unknown as Field[];
+
+// CRM niet zichtbaar
+// CRM verborgen
+// Datahub verborgen
+// CRM verborgen
+
+export const userFieldSchema = [
+	{
+		collection: "directus_users",
+		field: "divider_email_viewer",
+		type: "alias",
+		schema: null,
+		meta: {
+			collection: "directus_users",
+			field: "divider_email_viewer",
+			special: [
+				"alias",
+				"no-data"
+			],
+			interface: "presentation-divider",
+			options: {
+				title: "Email Viewer",
+				color: null,
+				icon: "attach_email"
+			},
+			width: "full"
+		}
+	},
+	{
+		collection: "directus_users",
+		field: "email_viewer_excluded_tags",
+		type: "csv",
+		schema: {
+			name: "email_viewer_excluded_tags",
+			table: "directus_users",
+			data_type: "text"
+		},
+		meta: {
+			collection: "directus_users",
+			field: "email_viewer_excluded_tags",
+			special: [
+				"cast-csv"
+			],
+			interface: "tags",
+			options: {
+				placeholder: "Add tags to filter email by"
+			},
+			display: "labels",
+			display_options: {
+				format: false
+			}
+		}
+	}
+] as unknown as Field[];

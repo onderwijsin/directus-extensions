@@ -7,35 +7,42 @@ import { ProviderError } from "../../utils/errors";
 import { formatEmailData, formatUserData } from "./transforms";
 import useMicrosoft from "./useMicrosoft";
 
-const fetchEmailsForUser = async (options: Omit<RequestOptions, "users"> & { user: string }, env: EndpointExtensionContext["env"]) => {
+const fetchEmailsForUser = async (options: Omit<RequestOptions, "users"> & { user: string }, includeBody: boolean, env: EndpointExtensionContext["env"]) => {
 	try {
 		const client = useMicrosoft(env);
 		// NOTE using nested any selectors, such as t:t/emailAddress/address breaks stuff
 		// For now we'll use a search operation to filter the emails
 		// This sucks though, becasue right now we can't uswe filters. And i would really like a date time filter
 
+		const fields = [
+			"id",
+			"createdDateTime",
+			"categories",
+			"sentDateTime",
+			"hasAttachments",
+			"internetMessageId",
+			"subject",
+			"bodyPreview",
+			"categories",
+			"isRead",
+			"webLink",
+			"sender",
+			"from",
+			"toRecipients",
+			"ccRecipients",
+			"bccRecipients"
+		];
+
+		if (includeBody) {
+			fields.push("body");
+		}
+
 		const data = await client.api(`/users/${options.user}/messages`)
 			.search(`"${options.query || ""}<${options.email}>"`)
 			.top(options.limit || 100)
 		// .skip(options.offset || 0)
-			.select([
-				"id",
-				"createdDateTime",
-				"categories",
-				"sentDateTime",
-				"hasAttachments",
-				"internetMessageId",
-				"subject",
-				"bodyPreview",
-				"isRead",
-				"webLink",
-				"sender",
-				"from",
-				"toRecipients",
-				"ccRecipients",
-				"bccRecipients"
-			])
-			.get() as { value: Message[] };
+			.select(fields)
+			.get() as { value: Array<Message> };
 
 		return formatEmailData(data.value);
 	}
@@ -124,7 +131,7 @@ export const fetchEmails = async (options: RequestOptions, env: EndpointExtensio
 
 		const orgDomains = await fetchOrgDomains(env);
 
-		const data = await Promise.all(users.map((user) => fetchEmailsForUser({ ...rest, user }, env)));
+		const data = await Promise.all(users.map((user) => fetchEmailsForUser({ ...rest, user }, permissions.showEmailBody, env)));
 		return data
 			.flat()
 			.sort(
@@ -136,6 +143,16 @@ export const fetchEmails = async (options: RequestOptions, env: EndpointExtensio
 					orgDomains.includes(parseEmailDomain(email.from.emailAddress.address))
 					&& email.toRecipients.every((recipient) => orgDomains.includes(parseEmailDomain(recipient.emailAddress.address)))
 				) {
+					return false;
+				}
+
+				return true;
+			})
+			.filter((email) => {
+				// Filter excluded tags
+				const tags = new Set(email.categories.map((tag) => tag.toLowerCase()));
+
+				if (permissions.excludedTags.some((tag) => tags.has(tag))) {
 					return false;
 				}
 

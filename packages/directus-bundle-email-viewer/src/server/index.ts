@@ -3,7 +3,7 @@ import { cacheProvider, createOrUpdateFieldsInCollection, disableSchemaChange } 
 import { z } from "zod";
 import { Provider } from "../types";
 import getProvider from "./providers";
-import { policyFieldsSchema, settingsFieldSchema } from "./schema";
+import { policyFieldsSchema, settingsFieldSchema, userFieldSchema } from "./schema";
 import { getEmailViewerPermissions } from "./utils";
 
 import { InvalidProvider } from "./utils/errors";
@@ -29,6 +29,7 @@ export default defineEndpoint(async (router, context) => {
 	if (!disableSchemaChange("EMAIL_VIEWER_DISABLE_SCHEMA_CHANGE", env)) {
 		await createOrUpdateFieldsInCollection("directus_policies", policyFieldsSchema, context);
 		await createOrUpdateFieldsInCollection("directus_settings", settingsFieldSchema, context);
+		await createOrUpdateFieldsInCollection("directus_users", userFieldSchema, context);
 	}
 
 	const routeTTL: number = Number.parseInt(env.CLIENT_CACHE_TTL || "600");

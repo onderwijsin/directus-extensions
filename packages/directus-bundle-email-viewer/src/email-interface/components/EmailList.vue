@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import type { FormattedEmail } from "../interface.vue";
+import { defineProps } from "vue";
+import EmailBodyViewer from "./EmailBodyViewer.vue";
+import Recipients from "./Recipients.vue";
+import Sender from "./Sender.vue";
 
 defineProps<{
 	data: FormattedEmail[];
@@ -31,24 +35,16 @@ defineProps<{
 				<div class="sm-text" style="margin: 10px 0 6px; line-height: 2" v-html="email.bodyPreview" />
 			</VListItem>
 			<VListItem style="font-style: italic; margin-bottom: 10px; font-size: 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 1.5rem;">
-				<span style="display: flex; align-items: center; gap: 4px;">
-					<VIcon name="outgoing_mail" small style="position: relative; top: 1px;" />
-
-					<span>{{ email.from.emailAddress.name }} &lt;<a :href="`mailto:${email.from.emailAddress.address}`" target="_blank" style="text-decoration: underline; color: var(--project-color)">{{ email.from.emailAddress.address }}</a>&gt;</span>
-				</span>
-				<span
-					v-for="(recipient, i) in email.toRecipients"
-					style="display: flex; align-items: center; gap: 4px;"
-					:style="i > 2 ? 'display: none' : ''"
-				>
-					<VIcon name="move_to_inbox" small />
-					<span>{{ recipient.emailAddress.name }} &lt;<a :href="`mailto:${recipient.emailAddress.address}`" target="_blank" style="text-decoration: underline; color: var(--project-color)">{{ recipient.emailAddress.address }}</a>&gt;</span>
-				</span>
+				<Sender :data="email.from" />
+				<Recipients :data="email.toRecipients" />
 			</VListItem>
-			<VButton small secondary :href="email.webLink" target="_blank" style="margin-bottom: 16px;">
-				<span>View in outlook</span>
-				<VIcon name="arrow_outward" small style="margin-left: 1rem;" />
-			</VButton>
+			<div style="margin-bottom: 16px; display: flex; flex-direction: row; flex-wrap: wrap; gap: 0.5rem;">
+				<EmailBodyViewer v-if="email.body?.content" :data="email" />
+				<VButton small secondary :href="email.webLink" target="_blank">
+					<span>View in outlook</span>
+					<VIcon name="arrow_outward" small style="margin-left: 1rem;" />
+				</VButton>
+			</div>
 		</VListGroup>
 	</VList>
 </template>
