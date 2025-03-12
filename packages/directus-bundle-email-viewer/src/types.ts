@@ -1,4 +1,3 @@
-
 export enum Provider {
 	Azure = "azure",
 }

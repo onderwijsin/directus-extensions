@@ -1,5 +1,5 @@
 import type { EndpointExtensionContext } from "@directus/extensions";
-import type { Domain, Message, User as MsUser, Attachment } from "@microsoft/microsoft-graph-types";
+import type { Domain, Message, User as MsUser } from "@microsoft/microsoft-graph-types";
 import type { EmailViewerPermission, RequestOptions } from "../../../types";
 import { cacheProvider, parseEmailDomain } from "utils";
 import { cacheConfig } from "../../utils/cache";

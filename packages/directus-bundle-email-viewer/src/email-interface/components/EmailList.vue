@@ -2,8 +2,8 @@
 import type { FormattedEmail } from "../interface.vue";
 import { defineProps } from "vue";
 import EmailBodyViewer from "./EmailBodyViewer.vue";
-import Sender from "./Sender.vue";
 import Recipients from "./Recipients.vue";
+import Sender from "./Sender.vue";
 
 defineProps<{
 	data: FormattedEmail[];
