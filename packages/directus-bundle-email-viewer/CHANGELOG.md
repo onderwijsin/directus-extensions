@@ -1,5 +1,28 @@
 # @onderwijsin/directus-bundle-email-viewer
 
+## 1.3.0
+
+### Minor Changes
+
+- 4363c2a: ## ✨ Implement email threads
+  It is now possible to view entire emial threads, right in Directus. You need to configure this option globally through the Settings panel.
+
+  The email HTML string is sanitized using DOMPurify to prevent XSS attacks.
+
+  The email veiwer is rudimentary, and relies on the styles from the email itself. Further configuration is needed for a full blown (and styling) email renderer
+
+- a6c668d: ## ⚠️ BREAKING: Introduction of Tag filters (and more)
+  It's now possible to add both global and user bound tag (or category filters). Any emails that are labeled with this tag, are not visible to any user.
+
+  And also:
+
+  - Introduction of "view email body" permission: this is a global settings that determines if it possible to view the entore email, or just it's preview text
+
+### Patch Changes
+
+- 161814d: Remove old @azure/msal-node dep
+- 715ca42: Fix missing shared inboxes by not filtering users for active plans, since not every inbox has a plan. Irrelevant inboxes can still be filtered by global email exclusion
+
 ## 1.2.0
 
 ### Minor Changes
