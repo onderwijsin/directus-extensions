@@ -1,7 +1,7 @@
 import type { Message, User as MsUser } from "@microsoft/microsoft-graph-types";
 import type { Email, User } from "../../../types";
 
-export const formatEmailData = (emails: Message[]): Email[] => {
+export const formatEmailData = (emails: Array<Message>): Email[] => {
 	return emails.map((email) => {
 		const { id, sentDateTime, hasAttachments, subject, bodyPreview, body, categories, isRead, webLink, from, toRecipients, ccRecipients, bccRecipients } = email;
 
@@ -18,7 +18,8 @@ export const formatEmailData = (emails: Message[]): Email[] => {
 			from,
 			toRecipients: toRecipients || null,
 			ccRecipients: ccRecipients || null,
-			bccRecipients: bccRecipients || null
+			bccRecipients: bccRecipients || null,
+			attachments: email.attachments
 		};
 	}).filter((email) => !!email.id && !!email.sentDateTime && !!email.from?.emailAddress?.address && !!email.toRecipients?.length) as Email[];
 };

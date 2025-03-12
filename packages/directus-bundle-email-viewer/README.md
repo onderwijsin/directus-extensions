@@ -4,11 +4,13 @@
 Fetch all emails sent and received by your organization (or a subset of your organization's users) for a given email address, and list the metadata in a searchable interface. Very usefull for an internal CRM application, where you want to see teamwide email correspondence for any of the stored contacts.
 
 ## Features
-- 🎁 Adds a presentation interface where emails are rendered in a stylish UI component. Extra meta data, such as a preview of the email body, are shown in the expanded state of an email.
-- 🔍 Adds search, filter and limit inputs to the interface. The values are stored in local storage, so filter presets are applied each time you open Directus
-- 📧 Adds endpoints that fetch emails from the selected provider, based on the user input
-- 🪬 Adds fields to Directus Policies that provide granular permissions, so you can configure which users should be able to view which email inboxes.
-- 🛜 Internal email traffic is filtered by default, and cannot be read by any user, including admin users (since you do not want to know what your boss wrote about you). 
+- 🎁 **Stylish UI Component**: Adds a presentation interface where emails are rendered in a stylish UI component. Extra metadata, such as a preview of the email body, is shown in the expanded state of an email.
+- 🔍 **Search and Filter**: Adds search, filter, and limit inputs to the interface. The values are stored in local storage, so filter presets are applied each time you open Directus.
+- 💌 **Email Threads**: View email threads directly in Directus (if configured). The email HTML is sanitized with DOMPurify to prevent nasty business.
+- 📧 **Fetch Emails**: Adds endpoints that fetch emails from the selected provider based on user input.
+- 🪬 **Granular Permissions**: Adds fields to Directus Policies that provide granular permissions, allowing you to configure which users can view which email inboxes.
+- 👀 **Internal Email Filtering**: Internal email traffic is filtered by default and cannot be read by any user, including admin users (to maintain privacy).
+- 🕵️ **Privacy Configurations**: Optional privacy-focused configurations allow you to filter entire email accounts or emails labeled with a specific tag.
 
 
 ## ⚠️ Schema changes

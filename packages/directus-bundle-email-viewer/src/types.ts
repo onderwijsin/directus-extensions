@@ -1,8 +1,9 @@
+
 export enum Provider {
 	Azure = "azure",
 }
 
-interface EmailAddress {
+export interface EmailAddress {
 	emailAddress: { address: string; name: string };
 }
 export interface Email {
