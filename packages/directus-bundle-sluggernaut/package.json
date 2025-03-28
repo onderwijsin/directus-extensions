@@ -77,7 +77,7 @@
 		"@directus/api": "^24.0.1",
 		"@directus/errors": "^2.0.0",
 		"@directus/extensions": "^3.0.4",
-		"@directus/extensions-sdk": "13.0.3",
+		"@directus/extensions-sdk": "13.0.4",
 		"@directus/types": "^13.0.0",
 		"@types/node": "^22.13.14",
 		"@vueuse/core": "^13.0.0",
