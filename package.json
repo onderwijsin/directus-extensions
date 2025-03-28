@@ -52,7 +52,7 @@
 		"@directus/eslint-config": "^0.1.0",
 		"commitizen": "^4.3.1",
 		"cz-conventional-changelog": "^3.3.0",
-		"eslint": "^9.22.0",
+		"eslint": "^9.23.0",
 		"husky": "^9.1.7"
 	},
 	"config": {
