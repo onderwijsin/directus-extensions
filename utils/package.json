@@ -23,7 +23,7 @@
 		"@directus/api": "^24.0.1",
 		"@directus/extensions": "^3.0.4",
 		"@directus/tsconfig": "3.0.0",
-		"@directus/types": "^13.0.0",
+		"@directus/types": "^13.1.0",
 		"@types/node": "^22.13.14",
 		"typescript": "5.8.2"
 	}
