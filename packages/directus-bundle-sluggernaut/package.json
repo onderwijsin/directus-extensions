@@ -79,7 +79,7 @@
 		"@directus/extensions": "^3.0.4",
 		"@directus/extensions-sdk": "13.0.4",
 		"@directus/types": "^13.0.0",
-		"@types/node": "^22.13.14",
+		"@types/node": "^22.15.18",
 		"@vueuse/core": "^13.0.0",
 		"slugify": "^1.6.6",
 		"typescript": "^5.8.2",
