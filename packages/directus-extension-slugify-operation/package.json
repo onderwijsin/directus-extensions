@@ -54,7 +54,7 @@
 		"@directus/errors": "^2.0.0",
 		"@directus/extensions-sdk": "13.0.4",
 		"@directus/types": "^13.0.0",
-		"@types/node": "^22.13.14",
+		"@types/node": "^22.15.23",
 		"typescript": "^5.8.2",
 		"vue": "^3.5.13"
 	}
