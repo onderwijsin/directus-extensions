@@ -67,7 +67,7 @@
 		"zod": "^3.24.2"
 	},
 	"devDependencies": {
-		"@directus/api": "^24.0.1",
+		"@directus/api": "^27.1.0",
 		"@directus/extensions": "^3.0.4",
 		"@directus/extensions-sdk": "13.0.4",
 		"@types/node": "^22.13.14",
