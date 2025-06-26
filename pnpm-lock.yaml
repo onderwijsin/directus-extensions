@@ -42,8 +42,8 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0
       '@directus/types':
-        specifier: ^13.0.0
-        version: 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.13(typescript@5.8.2))
+        specifier: ^13.2.0
+        version: 13.2.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.8.2))
       '@microsoft/microsoft-graph-client':
         specifier: ^3.0.7
         version: 3.0.7(@azure/identity@4.8.0)
@@ -104,8 +104,8 @@ importers:
         specifier: 13.0.4
         version: 13.0.4(@types/node@22.13.14)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(terser@5.39.0)(typescript@5.8.2)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))
       '@directus/types':
-        specifier: ^13.0.0
-        version: 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.13(typescript@5.8.2))
+        specifier: ^13.2.0
+        version: 13.2.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.8.2))
       '@types/node':
         specifier: ^22.13.14
         version: 22.13.14
@@ -141,8 +141,8 @@ importers:
         specifier: 13.0.4
         version: 13.0.4(@types/node@22.13.14)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(terser@5.39.0)(typescript@5.8.2)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))
       '@directus/types':
-        specifier: ^13.0.0
-        version: 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.13(typescript@5.8.2))
+        specifier: ^13.2.0
+        version: 13.2.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.8.2))
       '@types/node':
         specifier: ^22.13.14
         version: 22.13.14
@@ -175,8 +175,8 @@ importers:
         specifier: 13.0.4
         version: 13.0.4(@types/node@22.13.14)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(terser@5.39.0)(typescript@5.8.2)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))
       '@directus/types':
-        specifier: ^13.0.0
-        version: 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.13(typescript@5.8.2))
+        specifier: ^13.2.0
+        version: 13.2.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.8.2))
       '@types/node':
         specifier: ^22.13.14
         version: 22.13.14
@@ -203,8 +203,8 @@ importers:
         specifier: 13.0.4
         version: 13.0.4(@types/node@22.13.14)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(terser@5.39.0)(typescript@5.8.2)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))
       '@directus/types':
-        specifier: ^13.0.0
-        version: 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.13(typescript@5.8.2))
+        specifier: ^13.2.0
+        version: 13.2.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.8.2))
       '@types/node':
         specifier: ^22.13.14
         version: 22.13.14
@@ -231,8 +231,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0
       '@directus/types':
-        specifier: ^13.0.0
-        version: 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.13(typescript@5.8.2))
+        specifier: ^13.2.0
+        version: 13.2.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.8.2))
       '@types/node':
         specifier: ^22.13.14
         version: 22.13.14
@@ -807,6 +807,17 @@ packages:
 
   '@directus/types@13.1.0':
     resolution: {integrity: sha512-qdybgTO7UVtiVRsvdxYI4Ipv9rGt73C7B461tNvytBxrgZZNf2czzzXBQT3VOu1db0lMDthSki20zRjY1ODeLQ==}
+    peerDependencies:
+      knex: '3'
+      vue: ^3.4
+    peerDependenciesMeta:
+      knex:
+        optional: true
+      vue:
+        optional: true
+
+  '@directus/types@13.2.0':
+    resolution: {integrity: sha512-zibYxdaqAKSakOsjAaPkUzyKZ5K61/icYsvIC6UgQjcYv+dwKfoH7C6JXV3xk1MirsbfF9wTTzam6+4tm1m+YQ==}
     peerDependencies:
       knex: '3'
       vue: ^3.4
@@ -8829,6 +8840,24 @@ snapshots:
       - tedious
 
   '@directus/types@13.1.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.8.2))':
+    dependencies:
+      '@directus/constants': 13.0.1
+      '@directus/schema': 13.0.1(pg@8.13.1)
+      '@types/geojson': 7946.0.16
+    optionalDependencies:
+      knex: 3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1)
+      vue: 3.5.13(typescript@5.8.2)
+    transitivePeerDependencies:
+      - better-sqlite3
+      - mysql
+      - mysql2
+      - pg
+      - pg-native
+      - sqlite3
+      - supports-color
+      - tedious
+
+  '@directus/types@13.2.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(vue@3.5.13(typescript@5.8.2))':
     dependencies:
       '@directus/constants': 13.0.1
       '@directus/schema': 13.0.1(pg@8.13.1)
