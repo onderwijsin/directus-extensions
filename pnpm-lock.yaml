@@ -39,8 +39,8 @@ importers:
         specifier: ^4.8.0
         version: 4.8.0
       '@directus/errors':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
       '@directus/types':
         specifier: ^13.0.0
         version: 13.0.0(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.13(typescript@5.8.2))
@@ -95,8 +95,8 @@ importers:
         specifier: ^24.0.1
         version: 24.0.1(@types/node@22.13.14)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(encoding@0.1.13)(lodash@4.17.21)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(terser@5.39.0)(typescript@5.8.2)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))
       '@directus/errors':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
       '@directus/extensions':
         specifier: ^3.0.4
         version: 3.0.4(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))
@@ -166,8 +166,8 @@ importers:
         specifier: ^24.0.1
         version: 24.0.1(@types/node@22.13.14)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(encoding@0.1.13)(lodash@4.17.21)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(terser@5.39.0)(typescript@5.8.2)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))
       '@directus/errors':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
       '@directus/extensions':
         specifier: ^3.0.4
         version: 3.0.4(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))
@@ -197,8 +197,8 @@ importers:
         specifier: ^24.0.1
         version: 24.0.1(@types/node@22.13.14)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(encoding@0.1.13)(lodash@4.17.21)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(terser@5.39.0)(typescript@5.8.2)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))(vue@3.5.13(typescript@5.8.2))
       '@directus/errors':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
       '@directus/extensions-sdk':
         specifier: 13.0.4
         version: 13.0.4(@types/node@22.13.14)(@unhead/vue@1.11.19(vue@3.5.13(typescript@5.8.2)))(knex@3.1.0(mysql2@3.12.0)(pg@8.13.1)(sqlite3@5.1.7)(tedious@18.6.1))(pg@8.13.1)(pinia@2.3.1(typescript@5.8.2)(vue@3.5.13(typescript@5.8.2)))(pino@9.6.0)(terser@5.39.0)(typescript@5.8.2)(vue-router@4.5.0(vue@3.5.13(typescript@5.8.2)))
@@ -677,6 +677,9 @@ packages:
 
   '@directus/errors@2.0.0':
     resolution: {integrity: sha512-2KVKjAnmPLDCoujECA6GsxhAw104HtF2iXTIZ7HF3ztEK8tzWmhYItA3vA30s/jmzmTMBHoCwlNWWCi3TSmjwQ==}
+
+  '@directus/errors@2.0.2':
+    resolution: {integrity: sha512-WEied1DvARkm2z+d4WyRVxFE5C7bCudY9BcA7Z2GMkZob4Tg7pXVRFrFu0TMFhH+LnCoBVitBYog5i9hTrgZKA==}
 
   '@directus/eslint-config@0.1.0':
     resolution: {integrity: sha512-oe3KiKlBCHpk4AwUx1YRPQgZ466TeBWCeqSk3aAx6odVQ2hFdlVN6VbW4/6TycrvjuSM+qlw1n3qTyuJr4K0Og==}
@@ -8445,6 +8448,11 @@ snapshots:
       - vue
 
   '@directus/errors@2.0.0':
+    dependencies:
+      '@directus/storage': 12.0.0
+      ms: 2.1.3
+
+  '@directus/errors@2.0.2':
     dependencies:
       '@directus/storage': 12.0.0
       ms: 2.1.3
