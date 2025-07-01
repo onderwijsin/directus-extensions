@@ -20,7 +20,7 @@
 		"node-cache": "^5.1.2"
 	},
 	"devDependencies": {
-		"@directus/api": "^24.0.1",
+		"@directus/api": "^28.0.1",
 		"@directus/extensions": "^3.0.4",
 		"@directus/tsconfig": "3.0.0",
 		"@directus/types": "^13.0.0",
