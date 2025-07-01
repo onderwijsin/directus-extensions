@@ -46,7 +46,7 @@
 		"@directus/extensions": "^3.0.4",
 		"@directus/extensions-sdk": "13.0.4",
 		"@directus/types": "^13.0.0",
-		"@types/node": "^22.13.14",
+		"@types/node": "^24.0.8",
 		"typescript": "^5.8.2",
 		"zod": "^3.24.2"
 	}
