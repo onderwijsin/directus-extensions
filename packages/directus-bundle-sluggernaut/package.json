@@ -74,7 +74,7 @@
 		"utils": "workspace:^"
 	},
 	"devDependencies": {
-		"@directus/api": "^24.0.1",
+		"@directus/api": "^28.0.2",
 		"@directus/errors": "^2.0.0",
 		"@directus/extensions": "^3.0.4",
 		"@directus/extensions-sdk": "13.0.4",
