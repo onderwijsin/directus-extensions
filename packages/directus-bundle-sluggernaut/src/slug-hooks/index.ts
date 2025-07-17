@@ -35,6 +35,7 @@ export default defineHook(({ filter }, hookContext) => {
 		if (!payload || typeof payload !== "object") return;
 
 		const { slug: slugField, path: pathField } = await findFieldsInCollection(meta.collection, eventContext, hookContext);
+
 		if (!slugField) return;
 
 		// If the item is archived, delete any redirects to it's (old) slugs
@@ -52,7 +53,7 @@ export default defineHook(({ filter }, hookContext) => {
 		// Get slug value based on payload
 		let slug = await getSlugValue(slugField, payload, meta, eventContext, hookContext);
 
-		// The slug might not be edited, but it IS possible that the path should be updated due to teh selection of a new parent
+		// The slug might not be edited, but it IS possible that the path should be updated due to the selection of a new parent
 		const parentFieldKey: string | undefined = pathField?.meta?.options?.parent;
 
 		const parentInputId: string | undefined = parentFieldKey ? (payload as Record<string, any>)[parentFieldKey] : undefined;
@@ -69,7 +70,7 @@ export default defineHook(({ filter }, hookContext) => {
 			);
 		}
 
-		if (!slug.value && !parentInputId && (!!pathField && !(payload as Record<string, any>)[pathField.field])) return;
+		if (!slug.value && !parentInputId && (!pathField || (!!pathField && !(payload as Record<string, any>)[pathField.field]))) return;
 
 		// At this point, it might be possible that the slug is undefined but the path or parentInputId is not.
 		// In that case, we need to fetch the current slug

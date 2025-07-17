@@ -1,7 +1,6 @@
 import type { ItemsService } from "@directus/api/dist/services";
 import type { HookExtensionContext } from "@directus/extensions";
 import type { EventContext, PrimaryKey } from "@directus/types";
-import { createError } from "@directus/errors";
 
 /**
  * Prevents infinite redirect loops by deleting redirects with the specified destination.
@@ -65,12 +64,6 @@ export const recursivelyGetRedirectIDsByDestination = async (
 	return [...data.map((item) => item.id), ...nestedData];
 };
 
-const EqualOriginAndDestinationError = createError(
-	"INVALID_PAYLOAD_ERROR",
-	"A redirect origin can not be the same as its destination",
-	400
-);
-
 /**
  * Checks existing redirect against a partial payload to prevent duplicate redirects.
  *
@@ -79,7 +72,7 @@ const EqualOriginAndDestinationError = createError(
  * @param meta - The metadata object.
  * @param eventContext - The event context object
  * @param hookContext - The hook's context object
- * @returns A promise that resolves when the operation is complete.
+ * @returns A promise that resolves to a boolean indicating whether the redirect exists.
  */
 const checkExitsingRedirects = async (
 	field: "destination" | "origin",
@@ -87,17 +80,20 @@ const checkExitsingRedirects = async (
 	meta: Record<string, any>,
 	eventContext: EventContext,
 	hookContext: HookExtensionContext
-) => {
+): Promise<boolean> => {
 	const { ItemsService } = hookContext.services;
 	const items: ItemsService = new ItemsService(meta.collection, {
 		schema: eventContext.schema,
 		knex: eventContext.database
 	});
+
 	const redirects = await items.readMany(meta.keys, { fields: [field] });
 
 	if (redirects.some((redirect) => redirect[field] === payload[field === "destination" ? "origin" : "destination"])) {
-		throw new EqualOriginAndDestinationError();
+		return true;
 	}
+
+	return false;
 };
 
 export const validateRedirect = async (
@@ -105,24 +101,26 @@ export const validateRedirect = async (
 	meta: Record<string, any>,
 	eventContext: EventContext,
 	hookContext: HookExtensionContext
-) => {
+): Promise<boolean> => {
 	if (
 		Object.prototype.hasOwnProperty.call(payload, "origin")
 		&& Object.prototype.hasOwnProperty.call(payload, "destination")
 		&& payload.origin === payload.destination
 	) {
-		throw new EqualOriginAndDestinationError();
+		return false;
 	}
 	else if (
 		Object.prototype.hasOwnProperty.call(payload, "origin")
 		&& meta.event.includes(".update")
 	) {
-		await checkExitsingRedirects("destination", payload, meta, eventContext, hookContext);
+		return !(await checkExitsingRedirects("destination", payload, meta, eventContext, hookContext));
 	}
 	else if (
 		Object.prototype.hasOwnProperty.call(payload, "destination")
 		&& meta.event.includes(".update")
 	) {
-		await checkExitsingRedirects("origin", payload, meta, eventContext, hookContext);
+		return !(await checkExitsingRedirects("origin", payload, meta, eventContext, hookContext));
 	}
+
+	return true;
 };

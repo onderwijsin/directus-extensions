@@ -1,4 +1,5 @@
 import type { EventContext } from "@directus/types";
+import { createError } from "@directus/errors";
 import { defineHook } from "@directus/extensions-sdk";
 import { createOrUpdateCollection, createOrUpdateFieldsInCollection, disableSchemaChange } from "utils";
 import { getPathString, getSluggernautSettings } from "../shared/utils";
@@ -7,6 +8,12 @@ import { collectionSchema, fieldSchema, namespaceFieldSchema, relationSchema, se
 import { preventInfiniteLoop, recursivelyGetRedirectIDsByDestination, validateRedirect } from "./utils";
 
 const collection = "redirects";
+
+const EqualOriginAndDestinationError = createError(
+	"INVALID_PAYLOAD_ERROR",
+	"A redirect origin can not be the same as its destination",
+	400
+);
 
 export default defineHook(async (
 	{ filter, action },
@@ -35,12 +42,20 @@ export default defineHook(async (
 
 	filter("redirects.items.create", async (payload, meta, eventContext) => {
 		if ((!payload || typeof payload !== "object") || (!(payload as Record<string, any>).origin && !(payload as Record<string, any>).destination)) return;
-		await validateRedirect(payload, meta, eventContext, hookContext);
+		const isValid = await validateRedirect(payload, meta, eventContext, hookContext);
+
+		if (!isValid) {
+			throw new EqualOriginAndDestinationError();
+		}
 	});
 
 	filter("redirects.items.update", async (payload, meta, eventContext) => {
 		if ((!payload || typeof payload !== "object") || (!(payload as Record<string, any>).origin && !(payload as Record<string, any>).destination)) return;
-		await validateRedirect(payload, meta, eventContext, hookContext);
+		const isValid = await validateRedirect(payload, meta, eventContext, hookContext);
+
+		if (!isValid) {
+			throw new EqualOriginAndDestinationError();
+		}
 	});
 
 	emitter.onAction("redirect.update", async (payload: RedirectUpdateEvent, eventContext: EventContext) => {
@@ -58,8 +73,7 @@ export default defineHook(async (
 		// First prevent an infinite loop by deleting any redirects that have the new destination as their origin
 		await preventInfiniteLoop(destination, collection, eventContext, hookContext);
 
-		// Secondly, create the redirect(s)
-		items.createMany(oldValues.map((oldValue) => ({
+		await items.createMany(oldValues.map((oldValue) => ({
 			origin: type === "path" ? oldValue : getPathString(oldValue, "slug", { use_namespace, use_trailing_slash, namespace }),
 			destination,
 			type: 301,
@@ -90,7 +104,7 @@ export default defineHook(async (
 			slugs: values
 		});
 
-		items.deleteMany(idsToDelete);
+		await items.deleteMany(idsToDelete);
 	});
 
 	// If the redirect settings are updated, we need to update each item in the redirect collection
