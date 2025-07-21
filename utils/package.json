@@ -24,7 +24,7 @@
 		"@directus/extensions": "^3.0.7",
 		"@directus/tsconfig": "3.0.0",
 		"@directus/types": "^13.2.0",
-		"@types/node": "^22.16.4",
+		"@types/node": "^24.0.15",
 		"typescript": "5.7.2"
 	}
 }
