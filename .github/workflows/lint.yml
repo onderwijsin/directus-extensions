@@ -20,7 +20,7 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install Node.js
         uses: actions/setup-node@v4
       - name: Setup pnpm
