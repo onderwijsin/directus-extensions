@@ -64,8 +64,8 @@ importers:
         specifier: workspace:^
         version: link:../../utils
       zod:
-        specifier: ^3.25.76
-        version: 3.25.76
+        specifier: ^4.1.1
+        version: 4.1.1
     devDependencies:
       '@directus/api':
         specifier: ^28.0.3
@@ -154,8 +154,8 @@ importers:
         specifier: 5.7.2
         version: 5.7.2
       zod:
-        specifier: ^3.25.76
-        version: 3.25.76
+        specifier: ^4.1.1
+        version: 4.1.1
 
   packages/directus-extension-data-sync:
     dependencies:
@@ -188,8 +188,8 @@ importers:
         specifier: 5.7.2
         version: 5.7.2
       zod:
-        specifier: ^3.25.76
-        version: 3.25.76
+        specifier: ^4.1.1
+        version: 4.1.1
 
   packages/directus-extension-slugify-operation:
     dependencies:
@@ -7274,8 +7274,8 @@ packages:
   zod@3.24.2:
     resolution: {integrity: sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ==}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.1.1:
+    resolution: {integrity: sha512-SgMZK/h8Tigt9nnKkfJMvB/mKjiJXaX26xegP4sa+0wHIFVFWVlsQGdhklDmuargBD3Hsi3rsQRIzwJIhTPJHA==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -15794,6 +15794,6 @@ snapshots:
 
   zod@3.24.2: {}
 
-  zod@3.25.76: {}
+  zod@4.1.1: {}
 
   zwitch@2.0.4: {}
