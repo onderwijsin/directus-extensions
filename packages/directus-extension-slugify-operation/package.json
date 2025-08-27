@@ -56,6 +56,6 @@
 		"@directus/types": "^13.2.0",
 		"@types/node": "^22.16.4",
 		"typescript": "5.7.2",
-		"vue": "^3.5.17"
+		"vue": "^3.5.20"
 	}
 }
