@@ -42,12 +42,12 @@
 		"utils": "workspace:^"
 	},
 	"devDependencies": {
-		"@directus/api": "^28.0.3",
-		"@directus/extensions": "^3.0.7",
-		"@directus/extensions-sdk": "^14.0.0",
-		"@directus/types": "^13.2.0",
-		"@types/node": "^22.16.4",
-		"typescript": "5.7.2",
-		"zod": "^3.25.76"
+		"@directus/api": "^30.0.0",
+		"@directus/extensions": "^3.0.10",
+		"@directus/extensions-sdk": "^16.0.1",
+		"@directus/types": "^13.2.2",
+		"@types/node": "^24.3.0",
+		"typescript": "5.9.2",
+		"zod": "4.1.5"
 	}
 }

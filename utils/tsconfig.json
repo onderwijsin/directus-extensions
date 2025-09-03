@@ -1,8 +1,12 @@
 {
 	"extends": "@directus/tsconfig/node22",
 	"compilerOptions": {
-		"module": "ESNext",
-		"moduleResolution": "node",
+		"target": "ES2022",
+		"lib": ["ES2022"],
+		"rootDir": "./src",
+		"module": "es2022",
+		"moduleResolution": "bundler",
+		"resolveJsonModule": true,
 		"verbatimModuleSyntax": false
 	},
 	"include": ["src"],
