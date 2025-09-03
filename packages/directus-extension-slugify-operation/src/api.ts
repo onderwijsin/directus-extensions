@@ -1,4 +1,3 @@
-import type { ItemsService } from "@directus/api/dist/services";
 import type { Accountability, PrimaryKey } from "@directus/types";
 import { createError } from "@directus/errors";
 import { defineOperationApi } from "@directus/extensions-sdk";
@@ -82,7 +81,7 @@ export default defineOperationApi<Options>({
 
 				const { services, getSchema } = context;
 				const { ItemsService } = services;
-				const itemsService: ItemsService = new ItemsService(data.$trigger.collection, {
+				const itemsService = new ItemsService(data.$trigger.collection, {
 					schema: await getSchema(),
 					accountability: data.$accountability,
 					knex: context.database

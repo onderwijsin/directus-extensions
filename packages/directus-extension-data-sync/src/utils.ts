@@ -1,6 +1,5 @@
-import type { ItemsService } from "@directus/api/dist/services";
 import type { ApiExtensionContext } from "@directus/extensions";
-import type { EventContext, PrimaryKey } from "@directus/types";
+import type { EventContext } from "@directus/types";
 import type { RawRemoteConfig, RemoteConfig, Schema } from "./types";
 import { createError } from "@directus/errors";
 import { checkIfItemExists, safeSchemaChangesOnStartup } from "utils";
@@ -15,8 +14,8 @@ const CreateItemFromSchemaError = createError(
 
 const createItemIfNotExists = async (
 	context: ApiExtensionContext,
-	serviceKey: string,
-	schema: Record<string, any> & { id: PrimaryKey },
+	serviceKey: "PoliciesService" | "UsersService" | "AccessService",
+	schema: Record<string, any> & { id: string },
 	errorMessage: string
 ) => {
 	await safeSchemaChangesOnStartup(async (context: ApiExtensionContext) => {
@@ -90,7 +89,7 @@ export const validateSchema = (schema: Record<string, any>[] | null, logger: Api
 	const result = schemaValidator.safeParse(schema);
 
 	if (!result.success) {
-		logger.warn("Schema validation errors:", result.error.errors.map((e) => e.message));
+		logger.warn("Schema validation errors:", result.error.issues.map((e) => e.message));
 		return false;
 	}
 
@@ -99,8 +98,8 @@ export const validateSchema = (schema: Record<string, any>[] | null, logger: Api
 
 export const fetchRemotes = async (eventContext: EventContext, context: ApiExtensionContext): Promise<RemoteConfig[]> => {
 	const { ItemsService } = context.services;
-	const items: ItemsService = new ItemsService("data_sync_remote_sources", {
-		schema: eventContext.schema,
+	const items = new ItemsService("data_sync_remote_sources", {
+		schema: eventContext.schema || await context.getSchema(),
 		knex: eventContext.database
 	});
 

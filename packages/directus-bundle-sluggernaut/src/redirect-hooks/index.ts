@@ -15,30 +15,32 @@ const EqualOriginAndDestinationError = createError(
 	400
 );
 
-export default defineHook(async (
-	{ filter, action },
+export default defineHook((
+	{ filter, action, init },
 	hookContext
 ) => {
 	const { services, emitter, logger, env } = hookContext;
 
-	if (!disableSchemaChange("SLUGGERNAUT_DISABLE_SCHEMA_CHANGE", env)) {
-		// /* STEP 1: Create redirect collection, fields and relations, or update existing ones with inproper config */
-		await createOrUpdateCollection(
-			collection,
-			{
-				collectionSchema,
-				fieldSchema,
-				relationSchema
-			},
-			hookContext
-		);
+	init("cli.after", async () => {
+		if (!disableSchemaChange("SLUGGERNAUT_DISABLE_SCHEMA_CHANGE", env)) {
+			// /* STEP 1: Create redirect collection, fields and relations, or update existing ones with inproper config */
+			await createOrUpdateCollection(
+				collection,
+				{
+					collectionSchema,
+					fieldSchema,
+					relationSchema
+				},
+				hookContext
+			);
 
-		// /* STEP 2: add namespace field to collections */
-		await createOrUpdateFieldsInCollection("directus_collections", namespaceFieldSchema, hookContext);
+			// /* STEP 2: add namespace field to collections */
+			await createOrUpdateFieldsInCollection("directus_collections", namespaceFieldSchema, hookContext);
 
-		// /* STEP 3: add redirect config fields to directus_settings */
-		await createOrUpdateFieldsInCollection("directus_settings", settingsFieldSchema, hookContext);
-	}
+			// /* STEP 3: add redirect config fields to directus_settings */
+			await createOrUpdateFieldsInCollection("directus_settings", settingsFieldSchema, hookContext);
+		}
+	});
 
 	filter("redirects.items.create", async (payload, meta, eventContext) => {
 		if ((!payload || typeof payload !== "object") || (!(payload as Record<string, any>).origin && !(payload as Record<string, any>).destination)) return;
@@ -62,7 +64,7 @@ export default defineHook(async (
 		const { type, oldValues, newValue } = payload;
 		const { ItemsService } = services;
 		const items = new ItemsService(collection, {
-			schema: eventContext.schema,
+			schema: eventContext.schema || await hookContext.getSchema(),
 			knex: eventContext.database
 		});
 
@@ -95,7 +97,7 @@ export default defineHook(async (
 
 		const { ItemsService } = services;
 		const items = new ItemsService(collection, {
-			schema: eventContext.schema,
+			schema: eventContext.schema || await hookContext.getSchema(),
 			knex: eventContext.database
 		});
 
@@ -113,7 +115,7 @@ export default defineHook(async (
 			const { use_trailing_slash } = meta.payload;
 			const { ItemsService } = services;
 			const items = new ItemsService(collection, {
-				schema: eventContext.schema,
+				schema: eventContext.schema || await hookContext.getSchema(),
 				knex: eventContext.database
 			});
 
@@ -144,7 +146,7 @@ export default defineHook(async (
 					},
 					limit,
 					offset
-				});
+				}) as RedirectMutate[];
 
 				data = data.concat(redirects);
 				offset += limit;

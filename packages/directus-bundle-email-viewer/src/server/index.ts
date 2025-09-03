@@ -1,9 +1,8 @@
 import { defineEndpoint } from "@directus/extensions-sdk";
-import { cacheProvider, createOrUpdateFieldsInCollection, disableSchemaChange } from "utils";
+import { cacheProvider } from "utils";
 import { z } from "zod";
 import { Provider } from "../types";
 import getProvider from "./providers";
-import { policyFieldsSchema, settingsFieldSchema, userFieldSchema } from "./schema";
 import { getEmailViewerPermissions } from "./utils";
 
 import { InvalidProvider } from "./utils/errors";
@@ -17,19 +16,13 @@ const requestOptionsSchema = z.object({
 	}).default(10).optional()
 });
 
-export default defineEndpoint(async (router, context) => {
+export default defineEndpoint((router, context) => {
 	const { env } = context;
 
 	const provider = env.EMAIL_VIEWER_PROVIDER as Provider;
 
 	if (!provider || !Object.values(Provider).includes(provider)) {
 		throw new InvalidProvider();
-	}
-
-	if (!disableSchemaChange("EMAIL_VIEWER_DISABLE_SCHEMA_CHANGE", env)) {
-		await createOrUpdateFieldsInCollection("directus_policies", policyFieldsSchema, context);
-		await createOrUpdateFieldsInCollection("directus_settings", settingsFieldSchema, context);
-		await createOrUpdateFieldsInCollection("directus_users", userFieldSchema, context);
 	}
 
 	const routeTTL: number = Number.parseInt(env.CLIENT_CACHE_TTL || "600");
@@ -54,7 +47,7 @@ export default defineEndpoint(async (router, context) => {
 		}
 		catch (error) {
 			if (error instanceof z.ZodError) {
-				return res.status(400).json({ errors: error.errors });
+				return res.status(400).json({ errors: error.issues });
 			}
 			else {
 				console.error(error);

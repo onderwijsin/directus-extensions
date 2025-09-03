@@ -1,4 +1,3 @@
-import type { SettingsService, UsersService } from "@directus/api/dist/services";
 import type { ApiExtensionContext } from "@directus/extensions";
 import type { Accountability, Item } from "@directus/types";
 import type { EmailViewerPermission, Policy } from "../../types";
@@ -7,7 +6,7 @@ import { cacheProvider } from "utils";
 
 export const getGlobalEmailViewerSettings = async (context: ApiExtensionContext): Promise<Partial<Item>> => {
 	const { SettingsService } = context.services;
-	const settingsService: SettingsService = new SettingsService({
+	const settingsService = new SettingsService({
 		schema: await context.getSchema(),
 		knex: context.database
 	});
@@ -30,7 +29,7 @@ export const getEmailViewerPermissions = async (accountability: Accountability, 
 		const { services } = context;
 		const { UsersService } = services;
 
-		const usersService: UsersService = new UsersService({
+		const usersService = new UsersService({
 			schema: await context.getSchema(),
 			knex: context.database
 		});

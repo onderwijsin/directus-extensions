@@ -74,7 +74,7 @@ importers:
         specifier: ^3.0.10
         version: 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
       '@directus/extensions-sdk':
-        specifier: ^16.0.1
+        specifier: 16.0.1
         version: 16.0.1(@types/node@24.3.0)(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(jiti@2.5.1)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(pino@9.7.0)(sharp@0.34.3)(terser@5.44.0)(tsx@4.20.3)(typescript@5.9.2)(ws@8.18.3)(yaml@2.8.1)
       '@types/node':
         specifier: ^24.3.0
@@ -83,7 +83,7 @@ importers:
         specifier: ^13.9.0
         version: 13.9.0(vue@3.5.21(typescript@5.9.2))
       typescript:
-        specifier: 5.9.2
+        specifier: ^5.9.2
         version: 5.9.2
       vue:
         specifier: ^3.5.21
@@ -8716,14 +8716,14 @@ snapshots:
       '@directus/constants': 13.0.2
       '@directus/env': 5.1.2(vue@3.5.21(typescript@5.9.2))
       '@directus/errors': 2.0.3
-      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
-      '@directus/extensions-registry': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
-      '@directus/extensions-sdk': 16.0.1(@types/node@24.3.0)(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(jiti@2.5.1)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(terser@5.44.0)(tsx@4.20.3)(typescript@5.9.2)(ws@8.18.3)(yaml@2.8.1)
+      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
+      '@directus/extensions-registry': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
+      '@directus/extensions-sdk': 16.0.1(@types/node@24.3.0)(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(jiti@2.5.1)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(terser@5.44.0)(tsx@4.20.3)(typescript@5.9.2)(ws@8.18.3)(yaml@2.8.1)
       '@directus/format-title': 12.0.1
       '@directus/memory': 3.0.8(vue@3.5.21(typescript@5.9.2))
       '@directus/pressure': 3.0.8(vue@3.5.21(typescript@5.9.2))
       '@directus/schema': 13.0.2(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1)
-      '@directus/schema-builder': 0.0.5(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
+      '@directus/schema-builder': 0.0.5(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
       '@directus/specs': 11.1.1
       '@directus/storage': 12.0.1
       '@directus/storage-driver-azure': 12.0.8(vue@3.5.21(typescript@5.9.2))
@@ -8928,7 +8928,7 @@ snapshots:
       '@directus/constants': 13.0.2
       '@directus/env': 5.1.2(vue@3.5.18(typescript@5.9.2))
       '@directus/errors': 2.0.3
-      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
+      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
       '@directus/extensions-registry': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
       '@directus/extensions-sdk': 16.0.1(@types/node@24.3.0)(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(jiti@2.5.1)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(terser@5.44.0)(tsx@4.20.3)(typescript@5.9.2)(ws@8.18.3)(yaml@2.8.1)
       '@directus/format-title': 12.0.1
@@ -9214,11 +9214,11 @@ snapshots:
       - typescript
       - vitest
 
-  '@directus/extensions-registry@3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)':
+  '@directus/extensions-registry@3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)':
     dependencies:
       '@directus/constants': 13.0.2
       '@directus/errors': 2.0.3
-      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
+      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
       ky: 1.8.2
       zod: 4.0.14
     transitivePeerDependencies:
@@ -9246,7 +9246,7 @@ snapshots:
     dependencies:
       '@directus/constants': 13.0.2
       '@directus/errors': 2.0.3
-      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
+      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
       ky: 1.8.2
       zod: 4.0.14
     transitivePeerDependencies:
@@ -9269,6 +9269,69 @@ snapshots:
       - vue
       - vue-router
       - ws
+
+  '@directus/extensions-sdk@16.0.1(@types/node@24.3.0)(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(jiti@2.5.1)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(terser@5.44.0)(tsx@4.20.3)(typescript@5.9.2)(ws@8.18.3)(yaml@2.8.1)':
+    dependencies:
+      '@directus/composables': 11.2.2(vue@3.5.18(typescript@5.9.2))
+      '@directus/constants': 13.0.2
+      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
+      '@directus/themes': 1.1.4(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(vue@3.5.18(typescript@5.9.2))
+      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
+      '@directus/utils': 13.0.9(vue@3.5.18(typescript@5.9.2))
+      '@rollup/plugin-commonjs': 28.0.6(rollup@4.46.2)
+      '@rollup/plugin-json': 6.1.0(rollup@4.46.2)
+      '@rollup/plugin-node-resolve': 16.0.1(rollup@4.46.2)
+      '@rollup/plugin-replace': 6.0.2(rollup@4.46.2)
+      '@rollup/plugin-terser': 0.4.4(rollup@4.46.2)
+      '@rollup/plugin-virtual': 3.0.2(rollup@4.46.2)
+      '@vitejs/plugin-vue': 6.0.1(vite@7.1.3(@types/node@24.3.0)(jiti@2.5.1)(terser@5.44.0)(tsx@4.20.3))(vue@3.5.18(typescript@5.9.2))
+      chalk: 5.4.1
+      commander: 14.0.0
+      esbuild: 0.25.9
+      execa: 9.6.0
+      fs-extra: 11.3.0
+      inquirer: 12.9.0(@types/node@24.3.0)
+      ora: 8.2.0
+      rollup: 4.46.2
+      rollup-plugin-esbuild: 6.2.1(esbuild@0.25.9)(rollup@4.46.2)
+      rollup-plugin-styler: 2.0.0(rollup@4.46.2)(typescript@5.9.2)
+      semver: 7.7.2
+      vite: 7.1.3(@types/node@24.3.0)(jiti@2.5.1)(terser@5.44.0)(tsx@4.20.3)(yaml@2.8.1)
+      vue: 3.5.18(typescript@5.9.2)
+    transitivePeerDependencies:
+      - '@types/node'
+      - '@unhead/vue'
+      - better-sqlite3
+      - debug
+      - deep-diff
+      - express
+      - graphql
+      - jiti
+      - knex
+      - less
+      - lightningcss
+      - mysql
+      - mysql2
+      - nodemailer
+      - openapi3-ts
+      - pg
+      - pg-native
+      - pinia
+      - pino
+      - sass
+      - sass-embedded
+      - sharp
+      - sqlite3
+      - stylus
+      - sugarss
+      - supports-color
+      - tedious
+      - terser
+      - tsx
+      - typescript
+      - vue-router
+      - ws
+      - yaml
 
   '@directus/extensions-sdk@16.0.1(@types/node@24.3.0)(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(jiti@2.5.1)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(pino@9.7.0)(sharp@0.34.3)(terser@5.44.0)(tsx@4.20.3)(typescript@5.9.2)(ws@8.18.3)(yaml@2.8.1)':
     dependencies:
@@ -9333,13 +9396,13 @@ snapshots:
       - ws
       - yaml
 
-  '@directus/extensions-sdk@16.0.1(@types/node@24.3.0)(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(jiti@2.5.1)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(terser@5.44.0)(tsx@4.20.3)(typescript@5.9.2)(ws@8.18.3)(yaml@2.8.1)':
+  '@directus/extensions-sdk@16.0.1(@types/node@24.3.0)(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(jiti@2.5.1)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(terser@5.44.0)(tsx@4.20.3)(typescript@5.9.2)(ws@8.18.3)(yaml@2.8.1)':
     dependencies:
       '@directus/composables': 11.2.2(vue@3.5.18(typescript@5.9.2))
       '@directus/constants': 13.0.2
-      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
+      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
       '@directus/themes': 1.1.4(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(vue@3.5.18(typescript@5.9.2))
-      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
+      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
       '@directus/utils': 13.0.9(vue@3.5.18(typescript@5.9.2))
       '@rollup/plugin-commonjs': 28.0.6(rollup@4.46.2)
       '@rollup/plugin-json': 6.1.0(rollup@4.46.2)
@@ -9396,68 +9459,35 @@ snapshots:
       - ws
       - yaml
 
-  '@directus/extensions-sdk@16.0.1(@types/node@24.3.0)(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(jiti@2.5.1)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(terser@5.44.0)(tsx@4.20.3)(typescript@5.9.2)(ws@8.18.3)(yaml@2.8.1)':
+  '@directus/extensions@3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)':
     dependencies:
-      '@directus/composables': 11.2.2(vue@3.5.18(typescript@5.9.2))
       '@directus/constants': 13.0.2
-      '@directus/extensions': 3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
-      '@directus/themes': 1.1.4(@unhead/vue@1.11.19(vue@3.5.21(typescript@5.9.2)))(pinia@2.3.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2)))(vue@3.5.18(typescript@5.9.2))
-      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
-      '@directus/utils': 13.0.9(vue@3.5.18(typescript@5.9.2))
-      '@rollup/plugin-commonjs': 28.0.6(rollup@4.46.2)
-      '@rollup/plugin-json': 6.1.0(rollup@4.46.2)
-      '@rollup/plugin-node-resolve': 16.0.1(rollup@4.46.2)
-      '@rollup/plugin-replace': 6.0.2(rollup@4.46.2)
-      '@rollup/plugin-terser': 0.4.4(rollup@4.46.2)
-      '@rollup/plugin-virtual': 3.0.2(rollup@4.46.2)
-      '@vitejs/plugin-vue': 6.0.1(vite@7.1.3(@types/node@24.3.0)(jiti@2.5.1)(terser@5.44.0)(tsx@4.20.3))(vue@3.5.18(typescript@5.9.2))
-      chalk: 5.4.1
-      commander: 14.0.0
-      esbuild: 0.25.9
-      execa: 9.6.0
+      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
+      '@directus/utils': 13.0.9(vue@3.5.21(typescript@5.9.2))
+      '@types/express': 4.17.21
       fs-extra: 11.3.0
-      inquirer: 12.9.0(@types/node@24.3.0)
-      ora: 8.2.0
-      rollup: 4.46.2
-      rollup-plugin-esbuild: 6.2.1(esbuild@0.25.9)(rollup@4.46.2)
-      rollup-plugin-styler: 2.0.0(rollup@4.46.2)(typescript@5.9.2)
-      semver: 7.7.2
-      vite: 7.1.3(@types/node@24.3.0)(jiti@2.5.1)(terser@5.44.0)(tsx@4.20.3)(yaml@2.8.1)
-      vue: 3.5.18(typescript@5.9.2)
+      lodash-es: 4.17.21
+      zod: 4.0.14
+    optionalDependencies:
+      knex: 3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1)
+      pino: 9.7.0
+      vue: 3.5.21(typescript@5.9.2)
     transitivePeerDependencies:
-      - '@types/node'
-      - '@unhead/vue'
       - better-sqlite3
-      - debug
       - deep-diff
       - express
       - graphql
-      - jiti
-      - knex
-      - less
-      - lightningcss
       - mysql
       - mysql2
       - nodemailer
       - openapi3-ts
       - pg
       - pg-native
-      - pinia
-      - pino
-      - sass
-      - sass-embedded
       - sharp
       - sqlite3
-      - stylus
-      - sugarss
       - supports-color
       - tedious
-      - terser
-      - tsx
-      - typescript
-      - vue-router
       - ws
-      - yaml
 
   '@directus/extensions@3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)':
     dependencies:
@@ -9519,10 +9549,10 @@ snapshots:
       - tedious
       - ws
 
-  '@directus/extensions@3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)':
+  '@directus/extensions@3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)':
     dependencies:
       '@directus/constants': 13.0.2
-      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
+      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
       '@directus/utils': 13.0.9(vue@3.5.18(typescript@5.9.2))
       '@types/express': 4.17.21
       fs-extra: 11.3.0
@@ -9532,36 +9562,6 @@ snapshots:
       knex: 3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1)
       pino: 9.7.0
       vue: 3.5.18(typescript@5.9.2)
-    transitivePeerDependencies:
-      - better-sqlite3
-      - deep-diff
-      - express
-      - graphql
-      - mysql
-      - mysql2
-      - nodemailer
-      - openapi3-ts
-      - pg
-      - pg-native
-      - sharp
-      - sqlite3
-      - supports-color
-      - tedious
-      - ws
-
-  '@directus/extensions@3.0.10(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)':
-    dependencies:
-      '@directus/constants': 13.0.2
-      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
-      '@directus/utils': 13.0.9(vue@3.5.21(typescript@5.9.2))
-      '@types/express': 4.17.21
-      fs-extra: 11.3.0
-      lodash-es: 4.17.21
-      zod: 4.0.14
-    optionalDependencies:
-      knex: 3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1)
-      pino: 9.7.0
-      vue: 3.5.21(typescript@5.9.2)
     transitivePeerDependencies:
       - better-sqlite3
       - deep-diff
@@ -9615,9 +9615,9 @@ snapshots:
     transitivePeerDependencies:
       - vue
 
-  '@directus/schema-builder@0.0.5(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)':
+  '@directus/schema-builder@0.0.5(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)':
     dependencies:
-      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
+      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)
       lodash-es: 4.17.21
     transitivePeerDependencies:
       - better-sqlite3
@@ -9642,7 +9642,7 @@ snapshots:
 
   '@directus/schema-builder@0.0.5(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)':
     dependencies:
-      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
+      '@directus/types': 13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)
       lodash-es: 4.17.21
     transitivePeerDependencies:
       - better-sqlite3
@@ -9810,6 +9810,36 @@ snapshots:
 
   '@directus/tsconfig@3.0.0': {}
 
+  '@directus/types@13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)':
+    dependencies:
+      '@directus/constants': 13.0.2
+      '@directus/schema': 13.0.2(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1)
+      '@sinclair/typebox': 0.34.38
+      '@types/express': 4.17.21
+      '@types/geojson': 7946.0.16
+      '@types/nodemailer': 6.4.17
+      '@types/ws': 8.18.1
+    optionalDependencies:
+      deep-diff: 1.0.2
+      express: 4.21.2
+      graphql: 16.11.0
+      knex: 3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1)
+      nodemailer: 7.0.5
+      openapi3-ts: 4.5.0
+      pino: 9.7.0
+      sharp: 0.34.3
+      vue: 3.5.21(typescript@5.9.2)
+      ws: 8.18.3
+    transitivePeerDependencies:
+      - better-sqlite3
+      - mysql
+      - mysql2
+      - pg
+      - pg-native
+      - sqlite3
+      - supports-color
+      - tedious
+
   '@directus/types@13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1))(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)':
     dependencies:
       '@directus/constants': 13.0.2
@@ -9870,7 +9900,7 @@ snapshots:
       - supports-color
       - tedious
 
-  '@directus/types@13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0(pg@8.16.3))(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)':
+  '@directus/types@13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.18(typescript@5.9.2))(ws@8.18.3)':
     dependencies:
       '@directus/constants': 13.0.2
       '@directus/schema': 13.0.2(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1)
@@ -9889,36 +9919,6 @@ snapshots:
       pino: 9.7.0
       sharp: 0.34.3
       vue: 3.5.18(typescript@5.9.2)
-      ws: 8.18.3
-    transitivePeerDependencies:
-      - better-sqlite3
-      - mysql
-      - mysql2
-      - pg
-      - pg-native
-      - sqlite3
-      - supports-color
-      - tedious
-
-  '@directus/types@13.2.2(deep-diff@1.0.2)(express@4.21.2)(graphql@16.11.0)(knex@3.1.0)(mysql2@3.14.3)(nodemailer@7.0.5)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.34.3)(sqlite3@5.1.7)(tedious@18.6.1)(vue@3.5.21(typescript@5.9.2))(ws@8.18.3)':
-    dependencies:
-      '@directus/constants': 13.0.2
-      '@directus/schema': 13.0.2(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1)
-      '@sinclair/typebox': 0.34.38
-      '@types/express': 4.17.21
-      '@types/geojson': 7946.0.16
-      '@types/nodemailer': 6.4.17
-      '@types/ws': 8.18.1
-    optionalDependencies:
-      deep-diff: 1.0.2
-      express: 4.21.2
-      graphql: 16.11.0
-      knex: 3.1.0(mysql2@3.14.3)(pg@8.16.3)(sqlite3@5.1.7)(tedious@18.6.1)
-      nodemailer: 7.0.5
-      openapi3-ts: 4.5.0
-      pino: 9.7.0
-      sharp: 0.34.3
-      vue: 3.5.21(typescript@5.9.2)
       ws: 8.18.3
     transitivePeerDependencies:
       - better-sqlite3
