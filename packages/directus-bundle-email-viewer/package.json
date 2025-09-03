@@ -69,7 +69,7 @@
 	"devDependencies": {
 		"@directus/api": "^28.0.3",
 		"@directus/extensions": "^3.0.7",
-		"@directus/extensions-sdk": "^14.0.0",
+		"@directus/extensions-sdk": "^16.0.1",
 		"@types/node": "^22.16.4",
 		"@vueuse/core": "^13.5.0",
 		"typescript": "5.7.2",
