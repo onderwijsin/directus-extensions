@@ -46,6 +46,8 @@
 		"lint:fix": "pnpm run lint --fix"
 	},
 	"peerDependencies": {
+		"@unhead/vue": "1.11.20",
+		"pinia": "2.3.1",
 		"vite": "^5.0.0"
 	},
 	"devDependencies": {
@@ -56,7 +58,8 @@
 		"commitizen": "^4.3.1",
 		"cz-conventional-changelog": "^3.3.0",
 		"eslint": "^9.34.0",
-		"husky": "^9.1.7"
+		"husky": "^9.1.7",
+		"typescript": "~5.7.3"
 	},
 	"config": {
 		"commitizen": {
@@ -64,6 +67,9 @@
 		}
 	},
 	"pnpm": {
+		"overrides": {
+			"typescript": "5.7.3"
+		},
 		"onlyBuiltDependencies": [
 			"argon2",
 			"oracledb",
