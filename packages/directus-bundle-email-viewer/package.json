@@ -58,7 +58,7 @@
 	"dependencies": {
 		"@azure/identity": "^4.10.2",
 		"@directus/errors": "^2.0.2",
-		"@directus/types": "^13.2.0",
+		"@directus/types": "^13.2.2",
 		"@microsoft/microsoft-graph-client": "^3.0.7",
 		"@microsoft/microsoft-graph-types": "^2.40.0",
 		"date-fns": "^4.1.0",

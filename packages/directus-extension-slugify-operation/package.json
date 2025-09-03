@@ -53,7 +53,7 @@
 		"@directus/api": "^28.0.3",
 		"@directus/errors": "^2.0.2",
 		"@directus/extensions-sdk": "^14.0.0",
-		"@directus/types": "^13.2.0",
+		"@directus/types": "^13.2.2",
 		"@types/node": "^22.16.4",
 		"typescript": "5.7.2",
 		"vue": "^3.5.17"
