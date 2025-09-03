@@ -21,38 +21,40 @@ import { assignPolicy, createDataSyncPolicy, createDataSyncUser, fetchRemotes } 
 
 const dataSyncUserId = dataSyncUserSchema.id as PrimaryKey;
 
-export default defineHook(async ({ action }, hookContext) => {
-	if (!disableSchemaChange("DATA_SYNC_DISABLE_SCHEMA_CHANGE", hookContext.env)) {
-		// Create the policy, user and assign the policy to the user
-		// This will be used to authenticate the sync api
-		await createDataSyncPolicy(hookContext);
-		await createDataSyncUser(hookContext);
-		await assignPolicy(hookContext);
+export default defineHook(({ action, init }, hookContext) => {
+	init("cli.after", async () => {
+		if (!disableSchemaChange("DATA_SYNC_DISABLE_SCHEMA_CHANGE", hookContext.env)) {
+			// Create the policy, user and assign the policy to the user
+			// This will be used to authenticate the sync api
+			await createDataSyncPolicy(hookContext);
+			await createDataSyncUser(hookContext);
+			await assignPolicy(hookContext);
 
-		// Create the collections for storing remote config
-		await createOrUpdateCollection(
-			collectionSchema.collection,
-			{
-				collectionSchema,
-				fieldSchema: collectionFieldSchema
-			},
-			hookContext
-		);
+			// Create the collections for storing remote config
+			await createOrUpdateCollection(
+				collectionSchema.collection,
+				{
+					collectionSchema,
+					fieldSchema: collectionFieldSchema
+				},
+				hookContext
+			);
 
-		// Create junction between Directus users and data_sync_remote_sources
-		await createOrUpdateCollection(
-			junctionSchema.collection,
-			{
-				collectionSchema: junctionSchema,
-				fieldSchema: junctionFieldSchema
-			},
-			hookContext
-		);
+			// Create junction between Directus users and data_sync_remote_sources
+			await createOrUpdateCollection(
+				junctionSchema.collection,
+				{
+					collectionSchema: junctionSchema,
+					fieldSchema: junctionFieldSchema
+				},
+				hookContext
+			);
 
-		// We need to create the junction relation after the junction collection is created
-		await createOrUpdateRelationsInCollection("data_sync_remote_sources", collectionRelationSchema, hookContext);
-		await createOrUpdateRelationsInCollection("data_sync_remote_sources_directus_users", junctionRelationSchema, hookContext);
-	}
+			// We need to create the junction relation after the junction collection is created
+			await createOrUpdateRelationsInCollection("data_sync_remote_sources", collectionRelationSchema, hookContext);
+			await createOrUpdateRelationsInCollection("data_sync_remote_sources_directus_users", junctionRelationSchema, hookContext);
+		}
+	});
 
 	["items.create", "items.update", "items.delete"].forEach((event) => {
 		action(event, async (meta, eventContext) => {

@@ -1,4 +1,3 @@
-import type { CollectionsService, FieldsService, ItemsService } from "@directus/api/dist/services";
 import type { HookExtensionContext } from "@directus/extensions";
 import type { CollectionMeta, EventContext, Field, FieldMeta, PrimaryKey } from "@directus/types";
 
@@ -98,12 +97,12 @@ export const slugifyInputs = async (
 			const { services } = hookContext;
 			const { ItemsService } = services;
 			const itemsService = new ItemsService(meta.collection, {
-				schema: eventContext.schema,
+				schema: eventContext.schema || await hookContext.getSchema(),
 				knex: eventContext.database
 			});
 
 			const item = await itemsService.readMany(meta.keys, { fields: missingValues });
-			values = fields.map((field) => payload[field] || item[0][field]).filter(Boolean);
+			values = fields.map((field) => payload[field] || item[0]?.[field]).filter(Boolean);
 		}
 
 		value = values.join("-");
@@ -142,8 +141,8 @@ export const findFieldsInCollection = async (
 	hookContext: HookExtensionContext
 ): Promise<{ slug: Field | undefined; path: Field | undefined }> => {
 	const { FieldsService } = hookContext.services;
-	const fieldsService: FieldsService = new FieldsService({
-		schema: eventContext.schema,
+	const fieldsService = new FieldsService({
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 	const collectionFields = await fieldsService.readAll(collection);
@@ -212,8 +211,8 @@ export const findArchiveFieldInCollection = async (
 	hookContext: HookExtensionContext
 ): Promise<ArchiveFieldSettings> => {
 	const { CollectionsService } = hookContext.services;
-	const collections: CollectionsService = new CollectionsService({
-		schema: eventContext.schema,
+	const collections = new CollectionsService({
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 
@@ -248,8 +247,8 @@ export const findExistingItems = async (
 
 ): Promise<Record<string, any>[]> => {
 	const { ItemsService } = hookContext.services;
-	const itemsService: ItemsService = new ItemsService(collection, {
-		schema: eventContext.schema,
+	const itemsService = new ItemsService(collection, {
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 
@@ -273,8 +272,8 @@ export const findParentPath = async (
 	hookContext: HookExtensionContext
 ): Promise<string> => {
 	const { ItemsService } = hookContext.services;
-	const itemsService: ItemsService = new ItemsService(collection, {
-		schema: eventContext.schema,
+	const itemsService = new ItemsService(collection, {
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 	const parent = await itemsService.readOne(parentId, { fields: ["path"] });
@@ -326,8 +325,8 @@ export const getPathValue = async (
 
 	if (!parentID && meta.event.includes(".update")) {
 		const { ItemsService } = services;
-		const itemsService: ItemsService = new ItemsService(meta.collection, {
-			schema: eventContext.schema,
+		const itemsService = new ItemsService(meta.collection, {
+			schema: eventContext.schema || await hookContext.getSchema(),
 			knex: eventContext.database
 		});
 		const items = await itemsService.readMany(meta.keys, { fields: [parentFieldKey] });
@@ -436,8 +435,8 @@ export const findChildren = async (
 	hookContext: HookExtensionContext
 ): Promise<{ id: string; slug: string }[]> => {
 	const { ItemsService } = hookContext.services;
-	const itemsService: ItemsService = new ItemsService(collection, {
-		schema: eventContext.schema,
+	const itemsService = new ItemsService(collection, {
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 	const items = await itemsService.readByQuery({ fields: ["id", slugFieldKey], filter: { [parentFieldKey]: { _in: keys } } });
@@ -501,8 +500,8 @@ export const preventRecursiveAncestory = async (
 	hookContext: HookExtensionContext
 ): Promise<void> => {
 	const { ItemsService } = hookContext.services;
-	const itemsService: ItemsService = new ItemsService(meta.collection, {
-		schema: eventContext.schema,
+	const itemsService = new ItemsService(meta.collection, {
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 

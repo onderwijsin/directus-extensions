@@ -166,7 +166,7 @@ export default defineHook(({ filter }, hookContext) => {
 		const { children, pathFieldKey, parentPathValue, collection } = payload;
 		const { ItemsService } = hookContext.services;
 		const items = new ItemsService(collection, {
-			schema: eventContext.schema,
+			schema: eventContext.schema || await hookContext.getSchema(),
 			knex: eventContext.database
 		});
 

@@ -1,4 +1,3 @@
-import type { ItemsService } from "@directus/api/dist/services";
 import type { HookExtensionContext } from "@directus/extensions";
 import type { EventContext, PrimaryKey } from "@directus/types";
 
@@ -18,8 +17,8 @@ export const preventInfiniteLoop = async (
 	hookContext: HookExtensionContext
 ): Promise<void> => {
 	const { ItemsService } = hookContext.services;
-	const redirects: ItemsService = new ItemsService(collection, {
-		schema: eventContext.schema,
+	const redirects = new ItemsService(collection, {
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 	redirects.deleteByQuery({ filter: { origin: { _eq: destination } } });
@@ -41,8 +40,8 @@ export const recursivelyGetRedirectIDsByDestination = async (
 	hookContext: HookExtensionContext
 ): Promise<PrimaryKey[]> => {
 	const { ItemsService } = hookContext.services;
-	const items: ItemsService = new ItemsService(collection, {
-		schema: eventContext.schema,
+	const items = new ItemsService(collection, {
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 
@@ -82,8 +81,8 @@ const checkExitsingRedirects = async (
 	hookContext: HookExtensionContext
 ): Promise<boolean> => {
 	const { ItemsService } = hookContext.services;
-	const items: ItemsService = new ItemsService(meta.collection, {
-		schema: eventContext.schema,
+	const items = new ItemsService(meta.collection, {
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 

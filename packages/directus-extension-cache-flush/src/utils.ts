@@ -1,4 +1,3 @@
-import type { ItemsService } from "@directus/api/dist/services";
 import type { ApiExtensionContext } from "@directus/extensions";
 import type { EventContext } from "@directus/types";
 import type { ActionMetaDelete, ActionMetaUpdate } from "utils";
@@ -34,7 +33,7 @@ export const validateSchema = (schema: Record<string, any>[] | null, logger: Api
 	const result = schemaValidator.safeParse(schema);
 
 	if (!result.success) {
-		logger.warn("Schema validation errors:", result.error.errors.map((e) => e.message));
+		logger.warn("Schema validation errors:", result.error.issues.map((e) => e.message));
 		return false;
 	}
 
@@ -43,8 +42,8 @@ export const validateSchema = (schema: Record<string, any>[] | null, logger: Api
 
 export const fetchCacheFlushConfig = async (eventContext: EventContext, context: ApiExtensionContext): Promise<FlushConfig[]> => {
 	const { ItemsService } = context.services;
-	const items: ItemsService = new ItemsService("cache_flush_targets", {
-		schema: eventContext.schema,
+	const items = new ItemsService("cache_flush_targets", {
+		schema: eventContext.schema || await context.getSchema(),
 		knex: eventContext.database
 	});
 	const targets = await items.readByQuery({
@@ -94,7 +93,7 @@ export const fetchExistingFieldData = async (
 ): Promise<RecordData | null> => {
 	const { ItemsService } = hookContext.services;
 	const items = new ItemsService(meta.collection, {
-		schema: eventContext.schema,
+		schema: eventContext.schema || await hookContext.getSchema(),
 		knex: eventContext.database
 	});
 

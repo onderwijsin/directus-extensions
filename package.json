@@ -49,18 +49,26 @@
 		"vite": "^5.0.0"
 	},
 	"devDependencies": {
-		"@changesets/cli": "^2.29.5",
+		"@changesets/cli": "^2.29.6",
 		"@commitlint/cli": "^19.8.1",
 		"@commitlint/config-conventional": "^19.8.1",
 		"@directus/eslint-config": "^0.1.0",
 		"commitizen": "^4.3.1",
 		"cz-conventional-changelog": "^3.3.0",
-		"eslint": "^9.31.0",
+		"eslint": "^9.34.0",
 		"husky": "^9.1.7"
 	},
 	"config": {
 		"commitizen": {
 			"path": "cz-conventional-changelog"
 		}
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"argon2",
+			"oracledb",
+			"sharp",
+			"vue-demi"
+		]
 	}
 }

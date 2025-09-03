@@ -159,7 +159,7 @@ export const sendFlushRequest = async (
 			};
 
 			if (isUpdate) {
-				const hasMissingFields = Object.keys(payload.fields).length !== collection.payload.filter((k) => k !== "id").length;
+				const hasMissingFields = Object.keys(payload.fields).length !== collection.payload.filter((k: string) => k !== "id").length;
 				const data = hasMissingFields ? await fetchExistingFieldData(meta, config, eventContext, hookContext) : null;
 
 				if (hasMissingFields && data) {
