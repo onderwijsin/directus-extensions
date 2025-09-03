@@ -1,5 +1,11 @@
 # @onderwijsin/directus-bundle-email-viewer
 
+## 1.5.1
+
+### Patch Changes
+
+- b71b74f: Fix dependency issues
+
 ## 1.5.0
 
 ### Minor Changes

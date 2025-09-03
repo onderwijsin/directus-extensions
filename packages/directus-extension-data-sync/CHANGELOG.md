@@ -1,5 +1,11 @@
 # @onderwijsin/directus-extension-data-sync
 
+## 1.4.1
+
+### Patch Changes
+
+- b71b74f: Fix dependency issues
+
 ## 1.4.0
 
 ### Minor Changes

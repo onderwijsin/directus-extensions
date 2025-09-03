@@ -1,7 +1,7 @@
 {
 	"name": "@onderwijsin/directus-extension-data-sync",
 	"type": "module",
-	"version": "1.4.0",
+	"version": "1.4.1",
 	"description": "Sync data between multiple Directus instances",
 	"icon": "extension",
 	"author": {
