@@ -43,7 +43,7 @@
 	},
 	"devDependencies": {
 		"@directus/api": "^28.0.3",
-		"@directus/extensions": "^3.0.7",
+		"@directus/extensions": "^3.0.10",
 		"@directus/extensions-sdk": "^14.0.0",
 		"@directus/types": "^13.2.0",
 		"@types/node": "^22.16.4",
