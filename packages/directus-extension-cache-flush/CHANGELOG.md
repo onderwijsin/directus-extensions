@@ -1,5 +1,11 @@
 # @onderwijsin/directus-extension-cache-flush
 
+## 1.3.1
+
+### Patch Changes
+
+- b71b74f: Fix dependency issues
+
 ## 1.3.0
 
 ### Minor Changes
