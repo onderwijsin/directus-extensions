@@ -71,7 +71,7 @@
 		"@directus/extensions": "^3.0.7",
 		"@directus/extensions-sdk": "^14.0.0",
 		"@types/node": "^22.16.4",
-		"@vueuse/core": "^13.5.0",
+		"@vueuse/core": "^13.9.0",
 		"typescript": "5.7.2",
 		"vue": "^3.5.17"
 	}
