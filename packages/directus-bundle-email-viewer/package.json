@@ -56,7 +56,7 @@
 		"add": "directus-extension add"
 	},
 	"dependencies": {
-		"@azure/identity": "^4.10.2",
+		"@azure/identity": "^4.11.1",
 		"@directus/errors": "^2.0.2",
 		"@directus/types": "^13.2.0",
 		"@microsoft/microsoft-graph-client": "^3.0.7",
