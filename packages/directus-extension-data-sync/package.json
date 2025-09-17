@@ -45,7 +45,7 @@
 		"@directus/errors": "^2.0.3",
 		"@directus/extensions": "^3.0.10",
 		"@directus/extensions-sdk": "^16.0.1",
-		"@directus/types": "^13.2.2",
+		"@directus/types": "^13.2.3",
 		"@types/node": "^24.3.0",
 		"typescript": "5.9.2",
 		"utils": "workspace:^",
