@@ -52,7 +52,7 @@
 	"devDependencies": {
 		"@directus/api": "^30.0.0",
 		"@directus/errors": "^2.0.3",
-		"@directus/extensions-sdk": "^16.0.1",
+		"@directus/extensions-sdk": "^16.0.2",
 		"@directus/types": "^13.2.2",
 		"@types/node": "^24.3.0",
 		"typescript": "5.9.2",
