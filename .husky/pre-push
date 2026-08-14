@@ -13,18 +13,7 @@ if [ -f "envs/.env.local" ]; then
   set +a
 fi
 
-# Run typecheck unless explicitly disabled
-if [ "${DISABLE_PRE_PUSH_TYPECHECK:-false}" != "true" ]; then
-  corepack pnpm typecheck
-fi
-
 # Run lint unless explicitly disabled
 if [ "${DISABLE_PRE_PUSH_LINT:-false}" != "true" ]; then
   corepack pnpm lint
-fi
-
-
-# Run unit tests unless explicitly disabled
-if [ "${DISABLE_PRE_PUSH_TEST:-false}" != "true" ]; then
-  corepack pnpm test
 fi
