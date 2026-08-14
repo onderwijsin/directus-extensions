@@ -1,0 +1,6 @@
+{
+	"*": [
+		"oxlint --no-error-on-unmatched-pattern --fix",
+		"oxfmt --no-error-on-unmatched-pattern --write"
+	]
+}

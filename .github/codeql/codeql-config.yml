@@ -1,0 +1,19 @@
+name: CodeQL Config
+
+paths-ignore:
+  - .agents/**
+  - .artifacts/**
+  - .changeset/**
+  - .codex/**
+  - .husky/**
+  - .vscode/**
+  - docs/**
+  - skills/**
+  - '**/.nuxt/**'
+  - '**/.output/**'
+  - '**/dist/**'
+  - '**/fixtures/**'
+  - '**/__tests__/**'
+  - '**/playground/**'
+  - '**/test/**'
+  - '**/tests/**'

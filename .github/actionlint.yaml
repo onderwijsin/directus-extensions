@@ -1,0 +1,12 @@
+# Blacksmith supplies these custom runner labels for GitHub-hosted CI workers.
+self-hosted-runner:
+  labels:
+    - blacksmith-*-ubuntu-2404
+
+# actionlint 1.7.12 predates GitHub's code-quality permission scope, which is
+# required by actions/upload-code-coverage. Remove this ignore once actionlint
+# recognizes the scope natively.
+paths:
+  .github/workflows/ci.yml:
+    ignore:
+      - 'unknown permission scope "code-quality".*'

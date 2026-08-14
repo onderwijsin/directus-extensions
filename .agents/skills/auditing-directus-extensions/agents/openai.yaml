@@ -1,0 +1,5 @@
+interface:
+  display_name: 'Audit Nuxt Modules'
+  short_description: 'Audit Nuxt module release readiness.'
+  default_prompt:
+    "Use $auditing-nuxt-modules to assess this Nuxt module's production and release readiness."

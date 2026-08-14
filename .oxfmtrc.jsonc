@@ -1,0 +1,84 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"semi": false,
+	"singleQuote": true,
+	"trailingComma": "all",
+	"proseWrap": "always",
+	"printWidth": 100,
+	"tabWidth": 4,
+	"useTabs": true,
+	"sortPackageJson": true,
+	"sortImports": {
+		"customGroups": [
+			{
+				// Framework imports (Vue/Nuxt) as a block, right after the types.
+				// Extend with react/next patterns when reusing this config elsewhere.
+				"groupName": "framework",
+				"elementNamePattern": [
+					"vue",
+					"vue-*",
+					"@vue/**",
+					"nuxt",
+					"@nuxt/**",
+					"#app",
+					"#imports"
+				],
+				// value-only, so framework *type* imports stay in the top "type" block
+				"modifiers": ["value"]
+			}
+		],
+		"groups": [
+			// Types first, ordered far -> near like the value groups below,
+			// kept as one block via the newlinesBetween:false markers.
+			"type-builtin",
+			{ "newlinesBetween": false },
+			"type-external",
+			{ "newlinesBetween": false },
+			"type-internal",
+			{ "newlinesBetween": false },
+			["type-parent", "type-sibling", "type-index"],
+			"framework",
+			"builtin",
+			"external",
+			"internal",
+			["parent", "sibling", "index"],
+			"unknown"
+		]
+	},
+	"overrides": [
+		{
+			"files": ["*.yaml", "*.yml"],
+			"options": {
+				"tabWidth": 2,
+				"useTabs": false
+			}
+		},
+		{
+			"files": ["*.md"],
+			"options": {
+				"tabWidth": 2,
+				"useTabs": false
+			}
+		},
+		{
+			"files": ["*.json", "*.jsonc", "*.json5"],
+			"options": {
+				"trailingComma": "none"
+			}
+		},
+		{
+			"files": ["*.svg"],
+			"options": {
+				"insertFinalNewline": false
+			}
+		}
+	],
+	"ignorePatterns": [
+		".idea/",
+		".next/",
+		".vscode/",
+		"node_modules/",
+		"pnpm-lock.yaml",
+		"apps/directus/snapshots"
+	]
+}

@@ -1,0 +1,5 @@
+interface:
+  display_name: 'Loops Core Utilities'
+  short_description: 'Use Loops core utilities safely'
+  default_prompt:
+    'Use $loops-core-utils to parse, validate, render, or resolve Loops content in my application.'

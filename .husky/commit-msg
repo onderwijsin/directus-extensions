@@ -1,0 +1,6 @@
+#!/bin/bash
+
+COMMIT_MSG_FILE="$1"
+
+# Run commitlint
+corepack pnpm exec commitlint --edit "$COMMIT_MSG_FILE"

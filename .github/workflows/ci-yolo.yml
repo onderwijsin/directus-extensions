@@ -1,0 +1,20 @@
+name: CI (YOLO)
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  ci:
+    if: github.event.label.name == 'YOLO'
+    uses: ./.github/workflows/ci.yml
+    with:
+      base_sha: ${{ github.event.pull_request.base.sha }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
+      pull_request_number: ${{ github.event.pull_request.number }}
+      yolo: true
+    secrets: inherit

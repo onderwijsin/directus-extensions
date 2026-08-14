@@ -1,0 +1,291 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      base_sha:
+        required: false
+        type: string
+      head_sha:
+        required: false
+        type: string
+      pull_request_number:
+        required: false
+        type: number
+      yolo:
+        required: false
+        type: boolean
+
+concurrency:
+  group: ci-${{ inputs.pull_request_number || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  HUSKY: 0
+
+jobs:
+  workflow_lint:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Lint GitHub Actions workflows
+        uses: devops-actions/actionlint@9fb9c192862f19e684586ca84b500461bcd8a541 # v0.1.12
+
+  detect_changes:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    outputs:
+      scope: ${{ steps.detect.outputs.scope }}
+      full: ${{ steps.detect.outputs.full }}
+      yolo: ${{ steps.detect.outputs.yolo }}
+      packages: ${{ steps.detect.outputs.packages }}
+      artifact_packages: ${{ steps.detect.outputs.artifact_packages }}
+      prepare_packages: ${{ steps.detect.outputs.prepare_packages }}
+      test_paths: ${{ steps.detect.outputs.test_paths }}
+      phases: ${{ steps.detect.outputs.phases }}
+      phase_format: ${{ steps.detect.outputs.phase_format }}
+      phase_lint: ${{ steps.detect.outputs.phase_lint }}
+      phase_prepare: ${{ steps.detect.outputs.phase_prepare }}
+      phase_typecheck: ${{ steps.detect.outputs.phase_typecheck }}
+      phase_test: ${{ steps.detect.outputs.phase_test }}
+      phase_build: ${{ steps.detect.outputs.phase_build }}
+      phase_validate_packages: ${{ steps.detect.outputs.phase_validate_packages }}
+      phase_pack: ${{ steps.detect.outputs.phase_pack }}
+      phase_external_consumer: ${{ steps.detect.outputs.phase_external_consumer }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Detect validation scope
+        id: detect
+        env:
+          GITHUB_BASE_SHA:
+            ${{ github.event_name == 'workflow_call' && inputs.base_sha || github.event_name ==
+            'merge_group' && github.event.merge_group.base_sha || github.event.pull_request.base.sha
+            }}
+          GITHUB_EVENT_NAME:
+            ${{ github.event_name == 'workflow_call' && 'pull_request' || github.event_name }}
+          GITHUB_SHA: ${{ github.event_name == 'workflow_call' && inputs.head_sha || github.sha }}
+          CI_YOLO:
+            ${{ github.event_name == 'workflow_call' && inputs.yolo && 'true' || github.event_name
+            == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'YOLO') && 'true'
+            || 'false' }}
+        run: node scripts/detect-changes.mjs
+
+  light_quality_check:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.scope == 'light'
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install root validation tools
+        if:
+          needs.detect_changes.outputs.phase_format == 'true' ||
+          needs.detect_changes.outputs.phase_lint == 'true'
+        run: pnpm install --frozen-lockfile --filter @onderwijsin/nuxt-modules --ignore-scripts
+      - name: Run light formatting check
+        if: needs.detect_changes.outputs.phase_format == 'true'
+        run: pnpm format:check
+      - name: Run light lint
+        if: needs.detect_changes.outputs.phase_lint == 'true'
+        run: pnpm lint
+
+  focused_quality_check:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.scope == 'focused'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    env:
+      AFFECTED_PACKAGES: ${{ needs.detect_changes.outputs.packages }}
+      ARTIFACT_PACKAGES: ${{ needs.detect_changes.outputs.artifact_packages }}
+      PREPARE_PACKAGES: ${{ needs.detect_changes.outputs.prepare_packages }}
+      TEST_PATHS: ${{ needs.detect_changes.outputs.test_paths }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install Proton Pass CLI
+        uses: ./.github/actions/install-proton-pass-cli
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate playground environments
+        if: needs.detect_changes.outputs.phase_prepare == 'true'
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+        run: pnpm varlock:load
+      - run: pnpm build:utils
+        if: needs.detect_changes.outputs.phase_prepare == 'true'
+      - name: Prepare affected packages
+        if: needs.detect_changes.outputs.phase_prepare == 'true'
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          prepare_args=()
+          for package in $PREPARE_PACKAGES; do
+            prepare_args+=(--filter "$package")
+          done
+          pnpm "${prepare_args[@]}" --if-present run dev:prepare
+      - name: Run focused checks
+        if:
+          needs.detect_changes.outputs.phase_format == 'true' ||
+          needs.detect_changes.outputs.phase_lint == 'true'
+        shell: bash
+        run: |
+          if [[ "${{ needs.detect_changes.outputs.phase_format }}" == "true" ]]; then pnpm format:check; fi
+          if [[ "${{ needs.detect_changes.outputs.phase_lint }}" == "true" ]]; then pnpm lint; fi
+      - name: Run focused type checks
+        if: needs.detect_changes.outputs.phase_typecheck == 'true'
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          for package in $AFFECTED_PACKAGES; do
+            pnpm --filter "$package" --if-present run typecheck
+          done
+      - name: Run focused tests
+        if: needs.detect_changes.outputs.phase_test == 'true' && env.TEST_PATHS != ''
+        shell: bash
+        run: |
+          test_paths=()
+          for path in $TEST_PATHS; do
+            test_paths+=("$path")
+          done
+          pnpm exec vitest run "${test_paths[@]}" --coverage
+      - name: Build focused package artifacts
+        if:
+          needs.detect_changes.outputs.phase_pack == 'true' &&
+          needs.detect_changes.outputs.artifact_packages != ''
+        shell: bash
+        run: |
+          for package in $ARTIFACT_PACKAGES; do
+            pnpm --filter "$package" --if-present run build
+          done
+      - name: Pack focused package artifacts
+        if:
+          needs.detect_changes.outputs.phase_pack == 'true' &&
+          needs.detect_changes.outputs.artifact_packages != ''
+        run: pnpm pack:packages "$RUNNER_TEMP/packages" --packages="$ARTIFACT_PACKAGES"
+      - name: Upload focused package artifacts
+        if:
+          needs.detect_changes.outputs.phase_pack == 'true' &&
+          needs.detect_changes.outputs.artifact_packages != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: packed-packages-${{ github.sha }}
+          path: ${{ runner.temp }}/packages
+          if-no-files-found: error
+          retention-days: 1
+
+  full_quality_check:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.scope == 'full'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install Proton Pass CLI
+        uses: ./.github/actions/install-proton-pass-cli
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate playground environments
+        if: needs.detect_changes.outputs.phase_prepare == 'true'
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+        run: pnpm varlock:load
+      - run: pnpm dev:prepare
+        if: needs.detect_changes.outputs.phase_prepare == 'true'
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+      - name: Run full formatting check
+        if: needs.detect_changes.outputs.phase_format == 'true'
+        run: pnpm format:check
+      - name: Run full lint
+        if: needs.detect_changes.outputs.phase_lint == 'true'
+        run: pnpm lint
+      - name: Run full typecheck
+        if: needs.detect_changes.outputs.phase_typecheck == 'true'
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+        run: pnpm typecheck
+      - name: Run full tests
+        if: needs.detect_changes.outputs.phase_test == 'true'
+        run: pnpm test:coverage
+      - run: pnpm build:packages
+        if: needs.detect_changes.outputs.phase_build == 'true'
+      - run: pnpm validate:packages
+        if: needs.detect_changes.outputs.phase_validate_packages == 'true'
+      - name: Pack and validate package artifacts
+        if: needs.detect_changes.outputs.phase_pack == 'true'
+        run: pnpm pack:packages "$RUNNER_TEMP/packages"
+      - name: Upload packed package artifacts
+        if: needs.detect_changes.outputs.phase_pack == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: packed-packages-${{ github.sha }}
+          path: ${{ runner.temp }}/packages
+          if-no-files-found: error
+          retention-days: 1
+      - name: Upload coverage report
+        if:
+          needs.detect_changes.outputs.phase_test == 'true' && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-code-coverage@1c15be36fc3733ba839b1dd643bd9556e4426dc1 # v1
+        with:
+          file: coverage/cobertura-coverage.xml
+          language: JavaScript
+          label: code-coverage/vitest
+
+  external_consumer_check:
+    needs: [detect_changes, focused_quality_check, full_quality_check]
+    if: >-
+      always() && needs.detect_changes.outputs.scope != 'light' && (
+        needs.detect_changes.outputs.phase_external_consumer == 'true' &&
+        needs.detect_changes.outputs.artifact_packages != '' &&
+        (needs.focused_quality_check.result == 'success' || needs.full_quality_check.result == 'success')
+      )
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - name: Download packed package artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: packed-packages-${{ github.sha }}
+          path: ${{ runner.temp }}/packages
+      - name: Validate external Nuxt consumer
+        run: pnpm validate:external-consumer --packages-dir="${RUNNER_TEMP}/packages"
