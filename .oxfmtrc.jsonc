@@ -74,6 +74,9 @@
 		}
 	],
 	"ignorePatterns": [
+		".agents/",
+		".changeset/",
+		".husky/",
 		".idea/",
 		".next/",
 		".vscode/",

@@ -67,6 +67,10 @@
 		"typeCheck": true
 	},
 	"ignorePatterns": [
+		".agents/",
+		".changeset/",
+		".husky/",
+
 		// Lock files
 		"package-lock.json",
 		"yarn.lock",

@@ -29,6 +29,7 @@
 
 - [ ] Set up vitest
 - [ ] Set up local Directus instance with Docker Compose
+- [ ]
 
 ## CI
 
