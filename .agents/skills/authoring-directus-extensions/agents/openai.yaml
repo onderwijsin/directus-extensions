@@ -1,5 +1,5 @@
 interface:
-  display_name: 'Author Nuxt Modules'
-  short_description: 'Maintain Nuxt modules in this repository'
+  display_name: 'Author Directus Extensions'
+  short_description: 'Maintain Directus extensions in this repository'
   default_prompt:
-    'Use $authoring-nuxt-modules to create or update a Nuxt module in this repository.'
+    'Use $authoring-directus-extensions to create or update a Directus extension in this repository.'

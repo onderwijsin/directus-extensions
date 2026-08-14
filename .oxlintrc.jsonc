@@ -9,7 +9,13 @@
 		"style": "off",
 		"suspicious": "off"
 	},
+	"plugins": ["jsdoc", "typescript", "vue"],
 	"rules": {
+		"jsdoc/check-tag-names": ["error", { "definedTags": ["fileoverview"] }],
+		"jsdoc/require-param": "error",
+		"jsdoc/require-param-description": "error",
+		"jsdoc/require-returns": ["error", { "forceRequireReturn": true }],
+		"jsdoc/require-returns-description": "error",
 		// From restriction category - matching tseslint.configs.recommendedTypeChecked
 		"typescript/no-empty-object-type": "warn",
 		"typescript/no-explicit-any": "warn",

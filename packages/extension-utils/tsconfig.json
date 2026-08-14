@@ -1,0 +1,7 @@
+{
+	"extends": "@workspace/typescript-config/directus-extensions.json",
+	"compilerOptions": {
+		"rootDir": "src"
+	},
+	"include": ["src/**/*.ts"]
+}

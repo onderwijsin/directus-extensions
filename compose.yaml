@@ -1,0 +1,126 @@
+name: directus-extensions
+
+services:
+  database:
+    image: ghcr.io/clevercactus-dev/docker-lean-postgis:RELEASE.2026-02-22T21-30-34Z
+    restart: unless-stopped
+    shm_size: 1gb
+    volumes:
+      - ./.data/database:/var/lib/postgresql
+    environment:
+      POSTGRES_DB: ${DB_NAME:-directus}
+      POSTGRES_USER: ${DB_USER:-directus}
+      POSTGRES_PASSWORD: ${DEFAULT_PASSWORD:-p4ssw0rd!}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}"']
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+  cache:
+    image: valkey/valkey:9.1.1-alpine3.24
+    restart: unless-stopped
+    command: redis-server --requirepass ${DEFAULT_PASSWORD:-p4ssw0rd!}
+    volumes:
+      - ./.data/cache:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$${DEFAULT_PASSWORD:-p4ssw0rd!}" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  directus:
+    image: directus/directus:12.2.0
+    restart: unless-stopped
+    ports:
+      - '8055:8055'
+    depends_on:
+      cache:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+      garage-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+      meilisearch:
+        condition: service_started
+    volumes:
+      - ./.data/uploads:/directus/uploads
+      - ./extensions:/directus/extensions
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8055}
+      SECRET: ${DIRECTUS_SECRET:-development-only-secret-change-me}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-p4ssw0rd!}
+      DB_CLIENT: pg
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_NAME:-directus}
+      DB_USER: ${DB_USER:-directus}
+      DB_PASSWORD: ${DEFAULT_PASSWORD:-p4ssw0rd!}
+      REDIS: redis://default:${DEFAULT_PASSWORD:-p4ssw0rd!}@cache:6379/0
+      EXTENSIONS_AUTO_RELOAD: 'true'
+      WEBSOCKETS_ENABLED: 'true'
+      STORAGE_LOCATIONS: bucket
+      STORAGE_BUCKET_DRIVER: s3
+      STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}
+      STORAGE_BUCKET_SECRET: ${GARAGE_SECRET_ACCESS_KEY:-directus-secret}
+      STORAGE_BUCKET_ENDPOINT: http://garage:3900
+      STORAGE_BUCKET_BUCKET: ${STORAGE_BUCKET:-directus}
+      STORAGE_BUCKET_REGION: ${STORAGE_REGION:-garage}
+      STORAGE_BUCKET_FORCE_PATH_STYLE: 'true'
+      EMAIL_TRANSPORT: smtp
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@localhost}
+      EMAIL_SMTP_HOST: mailpit
+      EMAIL_SMTP_PORT: 1025
+      MEILISEARCH_HOST_URL: http://meilisearch:7700
+      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
+      TELEMETRY: 'false'
+
+  mailpit:
+    image: axllent/mailpit:v1.30.6
+    restart: unless-stopped
+    ports:
+      - '8025:8025'
+    volumes:
+      - ./.data/mailpit:/data
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: '1'
+      MP_SMTP_AUTH_ALLOW_INSECURE: '1'
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.15.2
+    restart: unless-stopped
+    ports:
+      - '7700:7700'
+    volumes:
+      - ./.data/meilisearch:/meili_data
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
+
+  garage:
+    image: dxflrs/garage:v2.3.0
+    restart: unless-stopped
+    volumes:
+      - ./.data/garage/meta:/var/lib/garage/meta
+      - ./.data/garage/data:/var/lib/garage/data
+      - ./docker/garage.toml:/etc/garage.toml:ro
+
+  garage-init:
+    image: alpine:3.22
+    restart: on-failure
+    depends_on:
+      garage:
+        condition: service_started
+    volumes:
+      - ./.data/garage/meta:/var/lib/garage/meta:ro
+      - ./docker/garage-init.sh:/usr/local/bin/garage-init.sh:ro
+      - ./docker/garage.toml:/etc/garage.toml:ro
+    environment:
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-directus}
+      STORAGE_REGION: ${STORAGE_REGION:-garage}
+      GARAGE_ACCESS_KEY_ID: ${GARAGE_ACCESS_KEY_ID:-directus}
+      GARAGE_SECRET_ACCESS_KEY: ${GARAGE_SECRET_ACCESS_KEY:-directus-secret}
+    command: ['/bin/sh', '/usr/local/bin/garage-init.sh']

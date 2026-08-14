@@ -2,63 +2,62 @@
 name: authoring-directus-extensions
 description:
   Author and maintain publishable Directus Extensions in the onderwijsin/directus-extensions
-  repository. Use for any task that creates, extends, fixes, reviews, tests, documents, migrates, or
-  restructures an extension, its package metadata, runtime behavior, public API, or consumer-facing
-  documentation and skill.
+  repository. Use for creating, extending, fixing, testing, documenting, or restructuring an
+  extension, supporting package, local Directus integration, public API, or consumer documentation.
 ---
 
-# Author Directus Extensions
+# Author Directus extensions
 
-Use this skill as the procedural entry point. Repository contracts and technical facts live in
-`AGENTS.md` and `docs/`; do not reconstruct them from memory or duplicate them here.
+Use this skill for implementation work in this repository. It routes the task; repository docs and
+official Directus documentation remain the sources of truth.
 
-## Route the work
+## Establish scope
 
-1. Read [`AGENTS.md`](../../../AGENTS.md) and the [agent workflow](../../../docs/agent-workflow.md)
-   completely.
-2. Start with the [extension cookbook index](../../../docs/extension-cookbook/index.md). Select and
-   fully read every article triggered by the task, including any linked feature decision under
-   `docs/decisions/`.
-3. Read the affected extension's implementation, tests, playground, package metadata, and public
-   documentation as applicable. Inspect one comparable extension before introducing a pattern.
-4. For Directus-specific design decisions, consult the relevant official sources routed by
-   [the official Directus documentation router](../../../docs/extension-cookbook/official-directus-documentation.md).
-   Fully use Directus's MCP documentation when it is available.
+1. Read `AGENTS.md`, `docs/agent-workflow.md`, and the applicable workspace and cookbook articles.
+2. Run `git status --short` and preserve existing work.
+3. Identify the affected extension/package, Directus extension type, runtime, public contract,
+   package metadata, tests, README, consumer skill, Compose integration, and release surface.
+4. Inspect the affected implementation and one comparable local implementation when a pattern is
+   needed. Treat extension anatomy and patterns as provisional until this repository settles them.
+5. Use the Directus documentation MCP for version-sensitive or framework-specific facts. At minimum,
+   consult the relevant extension type, CLI, loading, sandbox, permissions, and publishing docs.
 
-## Implement the contract
+## Build the extension
 
-1. Trace the change across setup, runtime behavior, emitted output, tests, package metadata, and
-   consumer documentation rather than treating the requested file in isolation.
-2. Respect the anatomy of the extension type instead of forcing a shared source layout. Treat the
-   extension's `package.json` `directus:extension` metadata and the official Directus scaffold as
-   the source of truth for its entrypoints:
-   - `interface`, `display`, `layout`, `module`, and `panel` extensions use `src/index.ts` for
-     registration and a matching Vue component such as `interface.vue`, `display.vue`, `layout.vue`,
-     `module.vue`, or `panel.vue`.
-   - `endpoint`, `hook`, and `theme` extensions use a single `src/index.ts` entrypoint.
-   - `operation` extensions are hybrid and keep separate `src/app.ts` and `src/api.ts` entrypoints
-     for Data Studio configuration and server-side execution.
-   - `bundle` extensions contain independently typed entries under `src/<entry>/`; keep each entry's
-     source structure appropriate to its type and keep `directus:extension.entries` synchronized
-     with those entrypoints. Keep entrypoints focused on Directus registration and orchestration.
-     Colocate supporting components, composables, services, utilities, schemas, and types with the
-     extension or bundle entry that owns them, and introduce subdirectories only when complexity
-     warrants them. Do not normalize extensions into a structure that conflicts with their declared
-     Directus entrypoints or established repository patterns.
-3. Preserve public contracts unless the user explicitly requests a compatibility change. Use Zod at
-   applicable runtime boundaries and preserve Node server and Cloudflare Workers compatibility.
-4. Prefer the smallest root-cause change and existing repository patterns. Do not add dependencies
-   or change workspace/package-manager configuration without explicit need.
-5. Complete the impact decisions in the [agent workflow](../../../docs/agent-workflow.md). Update
-   the extension README and matching consumer skill under `skills/` whenever options, exports,
-   components, auto-imports, compatibility, or behavior change. Keep maintainer docs and Changesets
-   synchronized when their triggers apply.
+- Treat `package.json` `directus:extension` metadata and the official Directus scaffold as the
+  entrypoint contract.
+- Keep endpoint, hook, theme, interface, display, layout, module, panel, operation, and bundle
+  structures appropriate to their declared type. Do not force every extension into one layout.
+- Keep registration/orchestration at the entrypoint and colocate implementation with the entry that
+  owns it. Introduce subdirectories only when complexity warrants them.
+- Prefer sandbox-compatible API extensions where the type supports sandbox mode. Declare only the
+  scopes the extension needs, and account for sandbox limitations such as unavailable Node APIs.
+- Prefer Directus internal services and documented SDK APIs over reimplementing Directus behavior.
+  Preserve accountability, schema handling, transactions, and permission semantics.
+- Validate external input at the boundary. Use Zod for structured parsing and local type guards for
+  small runtime narrowing. Do not add casts, assertions, or global stubs to hide type problems.
+- Keep server, Data Studio, and browser code boundaries explicit. Preserve supported Node and
+  Cloudflare compatibility when the package claims it.
 
-## Verify and hand off
+## Package and consumer contract
 
-1. Review the complete diff and reconcile every impact category.
-2. Run the applicable validation from [workspace tooling](../../../docs/workspace.md); use the
-   complete suite for broad, package-facing, or release-facing changes. Do not commit generated
-   output.
-3. Use the applicable exact handoff format in the [agent workflow](../../../docs/agent-workflow.md).
-   Do not commit the changes unless the user explicitly requests it.
+- Keep `directus:extension` metadata synchronized with source and built output.
+- Ensure published packages include the required `dist` files and do not depend on workspace-only
+  paths or private test utilities at runtime.
+- Update the package README and matching `skills/<extension-name>/SKILL.md` for any consumer-visible
+  installation, option, permission, environment, compatibility, or behavior change.
+- Add one Changeset per independent public-package concern.
+- Do not migrate legacy extensions unless explicitly requested in a separate task.
+
+## Local verification
+
+Use the single local Directus instance rather than creating isolated playgrounds. For the current
+scaffold, the expected development path is:
+
+1. build or watch the extension into its workspace `dist` directory;
+2. mount the workspace extensions directory into Directus;
+3. enable `EXTENSIONS_AUTO_RELOAD` when appropriate; and
+4. verify the observable hook behavior against the running instance.
+
+Run the applicable repository checks, inspect the complete diff, and do not commit changes. Use the
+exact handoff template from `docs/agent-workflow.md`.

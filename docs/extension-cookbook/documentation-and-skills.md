@@ -26,11 +26,11 @@ exists, such as:
 - required collections, fields, permissions, roles, policies, or other project prerequisites; and
 - relevant security, deployment, or operational boundaries.
 
-Do not expose internal source paths, utilities, workspace packages, build tooling, Directus
-extension SDK mechanics, or implementation details as consumer API. Consumer README and skill
-examples must use only the published extension package and its documented Directus-facing contract.
-Describe what consumers install, configure, invoke, or interact with, not how the extension works
-internally.
+Do not expose internal source paths, workspace-only utilities, build tooling, or implementation
+details as consumer API. Consumer examples must use only the published extension package and its
+documented Directus-facing contract. Explain Directus permissions, accountability, environment,
+sandbox scopes, and Marketplace constraints when they affect use. Describe what consumers install,
+configure, invoke, or interact with, not how the extension works internally.
 
 Keep the README and skill aligned whenever installation, configuration, compatibility, requirements,
 public behavior, or an extension's Directus-facing contract changes.

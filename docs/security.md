@@ -18,7 +18,7 @@ Treat every Dependabot security alert as a finding that requires triage:
 - dismiss an alert only when it is a false positive or demonstrably non-exploitable, and record a
   clear reason in GitHub;
 - do not dismiss alerts merely to keep the repository or pull request green; and
-- require security-update pull requests to pass the normal CI, extension/package validation, and
+- require security-update pull requests to pass the normal CI, release package validation, and
   review process.
 
 Keep the repository's package-manager and lockfile workflow intact when reviewing or updating a
@@ -30,8 +30,8 @@ Dependabot pull request. Use the pinned pnpm version and the frozen lockfile ins
 CodeQL uses the repository-managed workflow at `.github/workflows/codeql.yml`. It analyzes
 JavaScript/TypeScript and GitHub Actions workflows on pushes and pull requests targeting `main`,
 merge-queue groups, weekly on Mondays, and manual dispatch. The shared configuration at
-`.github/codeql/codeql-config.yml` excludes generated output, fixtures, tests, playgrounds, and
-documentation from analysis.
+`.github/codeql/codeql-config.yml` excludes generated output, fixtures, tests, and documentation
+from analysis.
 
 Because this repository uses advanced setup, GitHub CodeQL default setup must be disabled in the
 repository's Settings → Code security → Code scanning configuration. Do not enable both setups:
@@ -46,9 +46,9 @@ and should be triaged rather than suppressed solely to make a check pass.
 CodeQL is a security analysis check, not a replacement for formatting, linting, type checking,
 tests, extension builds, or package validation. Keep those checks in the normal CI workflow.
 
-When a finding concerns generated extension output, fixtures, playground code, or another
-deliberately excluded path, document and review that exclusion carefully. Do not exclude extension
-source code simply to silence a legitimate finding.
+When a finding concerns generated extension output, fixtures, or another deliberately excluded path,
+document and review that exclusion carefully. Do not exclude extension source code simply to silence
+a legitimate finding.
 
 ## GitHub Actions security
 

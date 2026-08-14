@@ -1,0 +1,13 @@
+{
+	"name": "@workspace/test-utils",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@workspace/typescript-config": "workspace:*",
+		"typescript": "catalog:"
+	}
+}

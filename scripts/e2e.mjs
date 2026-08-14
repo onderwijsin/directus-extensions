@@ -1,0 +1,148 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execFileAsync = promisify(execFile)
+const composeFile = 'compose.e2e.yaml'
+const composeProject = `directus-extensions-e2e-${process.pid}`
+const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
+const baseUrl = `http://127.0.0.1:${port}`
+const email = 'admin@example.com'
+const password = 'p4ssw0rd!'
+
+/**
+ * Runs Docker Compose for the isolated E2E project.
+ * @param args - Compose arguments.
+ * @returns The completed command output.
+ */
+async function compose(args) {
+	return execFileAsync('docker', ['compose', '-f', composeFile, '-p', composeProject, ...args], {
+		env: { ...process.env, DIRECTUS_E2E_PORT: port },
+	})
+}
+
+/**
+ * Waits until Directus accepts HTTP requests.
+ * @returns Nothing.
+ */
+async function waitForDirectus() {
+	const deadline = Date.now() + 120_000
+	while (Date.now() < deadline) {
+		try {
+			const response = await fetch(`${baseUrl}/server/health`)
+			if (response.ok) return
+		} catch {
+			// Directus is still starting.
+		}
+		await new Promise((resolve) => setTimeout(resolve, 1_000))
+	}
+	throw new Error('Timed out waiting for Directus health')
+}
+
+/**
+ * Sends a JSON request to the Directus API.
+ * @param path - API path.
+ * @param init - Fetch options.
+ * @returns The unwrapped response data.
+ */
+async function request(path, init = {}) {
+	const response = await fetch(`${baseUrl}${path}`, {
+		...init,
+		headers: { 'Content-Type': 'application/json', ...init.headers },
+	})
+	const body = await response.json()
+	if (!response.ok) throw new Error(`Directus ${response.status}: ${JSON.stringify(body)}`)
+	return body.data
+}
+
+/**
+ * Logs in with the configured E2E administrator.
+ * @returns The access token.
+ */
+async function login() {
+	const data = await request('/auth/login', {
+		method: 'POST',
+		body: JSON.stringify({ email, password }),
+	})
+	return data.access_token
+}
+
+/**
+ * Creates the user collection used by the E2E tests.
+ * @param token - Directus access token.
+ * @returns Nothing.
+ */
+async function createPostsCollection(token) {
+	/**
+	 * Sends an authenticated request to Directus.
+	 * @param path - API path.
+	 * @param init - Fetch options.
+	 * @returns The unwrapped response data.
+	 */
+	const authenticated = (path, init = {}) =>
+		request(path, {
+			...init,
+			headers: { Authorization: `Bearer ${token}`, ...init.headers },
+		})
+
+	await authenticated('/collections', {
+		method: 'POST',
+		body: JSON.stringify({
+			collection: 'posts',
+			meta: { icon: 'article', note: 'Created for Directus extension E2E tests' },
+			schema: {},
+		}),
+	})
+	await authenticated('/fields/posts', {
+		method: 'POST',
+		body: JSON.stringify({
+			field: 'title',
+			type: 'string',
+			meta: { interface: 'input', required: true },
+			schema: { is_nullable: false },
+		}),
+	})
+}
+
+/**
+ * Runs the E2E Vitest project.
+ * @returns The completed test command output.
+ * @param token - Access token for the initialized Directus instance.
+ */
+async function runTests(token) {
+	/** @type {import('node:child_process').ExecFileOptions} */
+	return execFileAsync('corepack', ['pnpm', 'exec', 'vitest', 'run', '--project', 'e2e'], {
+		env: {
+			...process.env,
+			DIRECTUS_E2E_URL: baseUrl,
+			DIRECTUS_E2E_TOKEN: token,
+			DIRECTUS_E2E_COMPOSE_FILE: composeFile,
+			DIRECTUS_E2E_COMPOSE_PROJECT: composeProject,
+		},
+		stdio: 'inherit',
+	})
+}
+
+try {
+	await compose(['down', '--volumes', '--remove-orphans'])
+	await compose(['up', '-d', '--wait'])
+	await waitForDirectus()
+	const token = await login()
+	await createPostsCollection(token)
+	await runTests(token)
+} catch (error) {
+	console.error(error)
+	try {
+		const logs = await compose(['logs', '--no-color'])
+		console.error(logs.stdout)
+	} catch (logError) {
+		console.error(logError)
+	}
+	process.exitCode = 1
+} finally {
+	try {
+		await compose(['down', '--volumes', '--remove-orphans'])
+	} catch (error) {
+		console.error(error)
+		process.exitCode = 1
+	}
+}

@@ -1,0 +1,50 @@
+{
+	"name": "@onderwijsin/directus-extension-sample-hook",
+	"version": "0.1.0",
+	"description": "Logs item lifecycle events for local Directus extension development",
+	"keywords": [
+		"directus-extension"
+	],
+	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
+	"bugs": {
+		"url": "https://github.com/onderwijsin/directus-extensions/issues"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
+		"directory": "extensions/sample-hook"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build --watch",
+		"test": "vitest run --config ../../vitest.config.ts",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@onderwijsin/directus-extension-utils": "workspace:*"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "catalog:",
+		"@workspace/typescript-config": "workspace:*",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	},
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"directus:extension": {
+		"type": "hook",
+		"path": "dist/index.js",
+		"source": "src/index.ts",
+		"host": "^12.2.0"
+	}
+}
