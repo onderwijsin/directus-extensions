@@ -1,0 +1,13 @@
+{
+  "name": "directus-extensions",
+  "version": "1.0.0",
+  "description": "A collection of opinionated and reusable Directus extensions for Onderwijs in projects",
+  "type": "module",
+  "private": false,
+  "keywords": [],
+  "author": {
+    "name": "Remi Huigen",
+    "email": "remihuigen@proton.me"
+  },
+  "license": "MIT"
+}
