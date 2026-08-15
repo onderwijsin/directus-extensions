@@ -34,6 +34,46 @@ function discoverExtensions(repositoryRoot = root) {
 }
 
 /**
+ * Validates the consumer-facing documentation for one extension.
+ *
+ * @param {string} extensionName - Extension package name.
+ * @param {Record<string, unknown>} manifest - Extension package manifest.
+ * @param {string} readme - Package README contents.
+ * @param {string} skill - Consumer skill contents.
+ * @returns {string[]} Documentation failures.
+ */
+function validateExtensionDocumentation(extensionName, manifest, readme, skill) {
+	const failures = []
+	const requiredContent = [
+		['README', readme, new RegExp(extensionName.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u')],
+		['README', readme, /directus/iu],
+		['README', readme, /install/iu],
+		['skill', skill, /directus/iu],
+		['skill', skill, /install|use/iu],
+	]
+
+	for (const [document, content, pattern] of requiredContent) {
+		if (!pattern.test(content))
+			failures.push(`${extensionName}: ${document} is missing ${pattern}`)
+	}
+
+	const extension = manifest['directus:extension']
+	const isNonSandboxedApiExtension =
+		extension &&
+		typeof extension === 'object' &&
+		!Array.isArray(extension) &&
+		['endpoint', 'hook', 'operation', 'bundle'].includes(extension.type) &&
+		extension.sandbox?.enabled !== true
+	if (isNonSandboxedApiExtension && !/non-sandbox|trusted/iu.test(`${readme}\n${skill}`)) {
+		failures.push(
+			`${extensionName}: non-sandboxed extensions must document the trusted runtime boundary`,
+		)
+	}
+
+	return failures
+}
+
+/**
  * Validates the root README and consumer skill for every publishable extension.
  *
  * @param {string} repositoryRoot - Repository root to inspect.
@@ -59,14 +99,27 @@ export function validateDocumentation(repositoryRoot = root) {
 		}
 		if (!existsSync(join(repositoryRoot, expectedReadme))) {
 			failures.push(`${manifest.name}: missing README`)
+			continue
 		}
 		if (!existsSync(join(repositoryRoot, 'skills', extensionName, 'SKILL.md'))) {
 			failures.push(`${manifest.name}: missing skills/${extensionName}/SKILL.md`)
+			continue
 		}
+
+		const packageReadme = readFileSync(join(repositoryRoot, expectedReadme), 'utf8')
+		const skill = readFileSync(
+			join(repositoryRoot, 'skills', extensionName, 'SKILL.md'),
+			'utf8',
+		)
+		failures.push(
+			...validateExtensionDocumentation(manifest.name, manifest, packageReadme, skill),
+		)
 	}
 
 	return failures
 }
+
+export { discoverExtensions, validateExtensionDocumentation }
 
 const failures = validateDocumentation()
 if (failures.length > 0) {

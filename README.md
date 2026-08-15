@@ -143,7 +143,8 @@ This project contains supporting workspace packages with different publication p
 - [`docs/actions.md`](docs/actions.md) — GitHub Actions guidelines.
 - [`docs/environment.md`](docs/environment.md) — local Directus and Compose environment.
 - [`docs/docker.md`](docs/docker.md) — local and E2E Compose architecture and operations.
-- [`SCAFFOLD.md`](SCAFFOLD.md) — repository architecture and deferred boundaries.
+- [`docs/decisions/index.md`](docs/decisions/index.md) — accepted architecture decisions and
+  deferred boundaries.
 
 ## 🚢 Publishing
 

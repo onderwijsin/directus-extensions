@@ -16,21 +16,30 @@ if (!artifactDirectoryArgument || !consumerDirectoryArgument) {
 
 const artifactDirectory = resolve(artifactDirectoryArgument)
 const consumerDirectory = resolve(consumerDirectoryArgument)
-const packages = [
-	{ name: '@onderwijsin/directus-extension-sample-hook', directory: 'sample-hook' },
-	{ name: '@onderwijsin/directus-extension-utils' },
-]
-
 const archives = await readdir(artifactDirectory)
 const dependencies = {}
-for (const { name: packageName } of packages) {
-	// Match each expected package to the archive produced by pnpm pack.
-	const archive = archives.find((file) =>
-		file.includes(packageName.replaceAll('/', '-').replace('@', '')),
-	)
-	if (!archive) throw new Error(`Packed artifact not found for ${packageName}`)
-	dependencies[packageName] = `file:${join(artifactDirectory, archive)}`
+const packedPackages = []
+
+for (const archive of archives.filter((file) => file.endsWith('.tgz'))) {
+	const archivePath = join(artifactDirectory, archive)
+	let manifest
+	try {
+		manifest = JSON.parse(
+			execFileSync('tar', ['-xOf', archivePath, 'package/package.json'], {
+				encoding: 'utf8',
+			}),
+		)
+	} catch {
+		continue
+	}
+
+	if (manifest.private === true || typeof manifest.name !== 'string') continue
+	dependencies[manifest.name] = `file:${archivePath}`
+	packedPackages.push({ archivePath, manifest })
 }
+
+if (packedPackages.length === 0)
+	throw new Error(`No public package archives found in ${artifactDirectory}`)
 
 await mkdir(consumerDirectory, { recursive: true })
 await writeFile(
@@ -56,17 +65,28 @@ execFileSync('corepack', ['pnpm', 'install', '--ignore-scripts'], {
 	stdio: 'inherit',
 })
 
-const extensionPackage = packages.find(
-	({ name }) => name === '@onderwijsin/directus-extension-sample-hook',
+const extensionPackages = packedPackages.filter(
+	({ manifest }) =>
+		manifest['directus:extension'] &&
+		typeof manifest['directus:extension'] === 'object' &&
+		!Array.isArray(manifest['directus:extension']),
 )
-const installedExtension = join(
-	consumerDirectory,
-	'node_modules/@onderwijsin/directus-extension-sample-hook',
-)
-const extensionDirectory = join(consumerDirectory, 'extensions', extensionPackage.directory)
 
-// Directus loads the extension from the consumer-local package metadata and dist output.
-await mkdir(extensionDirectory, { recursive: true })
-await cp(join(installedExtension, 'dist'), join(extensionDirectory, 'dist'), { recursive: true })
-await cp(join(installedExtension, 'package.json'), join(extensionDirectory, 'package.json'))
-console.log(`Prepared packed Directus extension at ${extensionDirectory}`)
+for (const { manifest } of extensionPackages) {
+	const packageDirectoryName = manifest.name.split('/').at(-1)
+	if (!packageDirectoryName)
+		throw new Error(`Could not derive extension directory for ${manifest.name}`)
+
+	const installedExtension = join(consumerDirectory, 'node_modules', manifest.name)
+	const extensionDirectory = join(consumerDirectory, 'extensions', packageDirectoryName)
+
+	// Directus loads each extension from the consumer-local package metadata and dist output.
+	await mkdir(extensionDirectory, { recursive: true })
+	await cp(join(installedExtension, 'dist'), join(extensionDirectory, 'dist'), {
+		recursive: true,
+	})
+	await cp(join(installedExtension, 'package.json'), join(extensionDirectory, 'package.json'))
+	console.log(`Prepared packed Directus extension ${manifest.name} at ${extensionDirectory}`)
+}
+
+if (extensionPackages.length === 0) throw new Error('No packed Directus extensions were found')

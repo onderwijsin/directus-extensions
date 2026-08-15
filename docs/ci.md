@@ -30,7 +30,10 @@ is not sufficient release evidence.
 
 Workflow syntax and extension documentation coverage run in separate required workflows.
 Documentation validation is invoked directly through `node scripts/validate-docs.mjs`, so that
-workflow does not install workspace dependencies.
+workflow does not install workspace dependencies. It verifies the root package link, package README
+and consumer skill presence, package-name and installation references, and trusted-runtime
+disclosure for non-sandboxed API extensions. Its failure cases are covered by
+`tests/validate-docs.test.ts`.
 
 ## Release workflows
 

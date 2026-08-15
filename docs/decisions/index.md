@@ -10,6 +10,7 @@ They are binding for the feature they cover until explicitly revisited.
 | [Do not require sandbox compatibility](do-not-sandbox-directus-extensions.md) | Accepted | Directus API extension runtime and Marketplace trade-offs |
 | [Use packed artifacts for Directus E2E](packed-artifacts-for-directus-e2e.md) | Accepted | CI release-surface validation                             |
 | [Use ephemeral credentials for E2E](ephemeral-e2e-service-credentials.md)     | Accepted | E2E isolation and secret handling                         |
+| [Use Node 24 for organization runtimes](node-24-runtime.md)                   | Accepted | Supported runtime for organization-owned instances        |
 
 ## Create or revisit a decision
 

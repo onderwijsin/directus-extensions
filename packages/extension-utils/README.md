@@ -36,7 +36,7 @@ import { isDefined } from '@onderwijsin/directus-extension-utils/shared'
 
 The root and `shared` exports are the framework-neutral public surface. `server` and `app` currently
 re-export the shared helpers so runtime-specific utilities can be added later without changing
-consumer imports. The legacy `/guards` subpath remains available for compatibility.
+consumer imports. The implementation module is internal; import guards from the root or `/shared`.
 
 ## Extending the package
 

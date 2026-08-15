@@ -40,10 +40,6 @@
 		"./shared": {
 			"types": "./dist/shared/index.d.ts",
 			"import": "./dist/shared/index.js"
-		},
-		"./guards": {
-			"types": "./dist/guards.d.ts",
-			"import": "./dist/guards.js"
 		}
 	},
 	"publishConfig": {
