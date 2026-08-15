@@ -34,8 +34,8 @@ catalogs:
       specifier: 1.7.12
       version: 1.7.12
     happy-dom:
-      specifier: 20.0.11
-      version: 20.0.11
+      specifier: 20.8.9
+      version: 20.8.9
     husky:
       specifier: 9.1.7
       version: 9.1.7
@@ -104,7 +104,7 @@ importers:
         version: 1.7.12
       happy-dom:
         specifier: 'catalog:'
-        version: 20.0.11
+        version: 20.8.9
       husky:
         specifier: 'catalog:'
         version: 9.1.7
@@ -128,7 +128,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.0.11)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
+        version: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.8.9)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
       vue:
         specifier: 'catalog:'
         version: 3.5.41(typescript@5.9.3)
@@ -153,7 +153,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.0.11)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
+        version: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.8.9)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
 
   packages/extension-utils:
     devDependencies:
@@ -1541,9 +1541,6 @@ packages:
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
 
-  '@types/node@20.19.43':
-    resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
-
   '@types/node@24.13.3':
     resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
 
@@ -2310,8 +2307,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  happy-dom@20.0.11:
-    resolution: {integrity: sha512-QsCdAUHAmiDeKeaNojb1OHOPF7NjcWPBR7obdu3NwH2a/oyQaLg5d0aaCy/9My6CdPChYF07dvz5chaXBGaD4g==}
+  happy-dom@20.8.9:
+    resolution: {integrity: sha512-Tz23LR9T9jOGVZm2x1EPdXqwA37G/owYMxRwU0E4miurAtFsPMQ1d2Jc2okUaSjZqAFz2oEn3FLXC5a0a+siyA==}
     engines: {node: '>=20.0.0'}
 
   has-flag@4.0.0:
@@ -3358,9 +3355,6 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
-
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
@@ -3567,6 +3561,18 @@ packages:
   wrap-ansi@9.0.2:
     resolution: {integrity: sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww==}
     engines: {node: '>=18'}
+
+  ws@8.21.3:
+    resolution: {integrity: sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
 
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
@@ -4785,10 +4791,6 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
-  '@types/node@20.19.43':
-    dependencies:
-      undici-types: 6.21.0
-
   '@types/node@24.13.3':
     dependencies:
       undici-types: 7.18.2
@@ -4902,7 +4904,7 @@ snapshots:
       obug: 2.1.4
       std-env: 4.2.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.0.11)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
+      vitest: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.8.9)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
 
   '@vitest/expect@4.1.10':
     dependencies:
@@ -5622,11 +5624,17 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  happy-dom@20.0.11:
+  happy-dom@20.8.9:
     dependencies:
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
       '@types/whatwg-mimetype': 3.0.2
+      '@types/ws': 8.18.1
+      entities: 7.0.1
       whatwg-mimetype: 3.0.0
+      ws: 8.21.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   has-flag@4.0.0: {}
 
@@ -6614,8 +6622,6 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  undici-types@6.21.0: {}
-
   undici-types@7.18.2: {}
 
   unhead@1.11.20:
@@ -6674,7 +6680,7 @@ snapshots:
       terser: 5.50.0
       yaml: 2.9.0
 
-  vitest@4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.0.11)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0)):
+  vitest@4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.8.9)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.10
       '@vitest/mocker': 4.1.10(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
@@ -6699,7 +6705,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 24.13.3
       '@vitest/coverage-v8': 4.1.10(vitest@4.1.10)
-      happy-dom: 20.0.11
+      happy-dom: 20.8.9
     transitivePeerDependencies:
       - msw
 
@@ -6749,6 +6755,8 @@ snapshots:
       ansi-styles: 6.2.3
       string-width: 7.2.0
       strip-ansi: 7.2.0
+
+  ws@8.21.3: {}
 
   y18n@5.0.8: {}
 
