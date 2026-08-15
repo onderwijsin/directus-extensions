@@ -28,11 +28,12 @@ catalogs:
 catalogMode: strict
 saveExact: true
 cleanupUnusedCatalogs: true
+verifyDepsBeforeRun: warn
 
 minimumReleaseAge: 144
 minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@onderwijsin/*'
 allowBuilds:
-  esbuild: set this to true or false
-  vue-demi: set this to true or false
+  esbuild: true
+  vue-demi: true

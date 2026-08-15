@@ -3,6 +3,13 @@ import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 
+const e2eEnvironmentInitialized = [
+	'DIRECTUS_E2E_URL',
+	'DIRECTUS_E2E_TOKEN',
+	'DIRECTUS_E2E_COMPOSE_FILE',
+	'DIRECTUS_E2E_COMPOSE_PROJECT',
+].every((name) => Boolean(process.env[name]))
+
 export default defineConfig({
 	plugins: [vue()],
 	resolve: {
@@ -63,10 +70,12 @@ export default defineConfig({
 				test: {
 					name: 'e2e',
 					environment: 'node',
-					include: [
-						'extensions/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
-						'packages/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
-					],
+					include: e2eEnvironmentInitialized
+						? [
+								'extensions/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
+								'packages/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
+							]
+						: [],
 				},
 			},
 		],

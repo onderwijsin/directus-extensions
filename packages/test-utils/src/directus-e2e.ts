@@ -39,13 +39,13 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @returns The unwrapped Directus response data.
 	 */
 	async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+		const headers = new Headers(init.headers)
+		headers.set('Authorization', `Bearer ${options.token}`)
+		headers.set('Content-Type', 'application/json')
+
 		const response = await fetch(new URL(path, options.baseUrl), {
 			...init,
-			headers: {
-				Authorization: `Bearer ${options.token}`,
-				'Content-Type': 'application/json',
-				...init.headers,
-			},
+			headers,
 		})
 
 		const body = (await response.json()) as DirectusResponse<T> | { errors?: unknown }

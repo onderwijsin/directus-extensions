@@ -81,8 +81,7 @@ async function validateMetadata(packageName, packageDirectory, manifest) {
 
 	const repository = manifest.repository
 	if (
-		!repository ||
-		repository.type !== 'git' ||
+		repository?.type !== 'git' ||
 		typeof repository.url !== 'string' ||
 		typeof repository.directory !== 'string'
 	) {

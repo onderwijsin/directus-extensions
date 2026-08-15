@@ -1,5 +1,3 @@
-/// <reference types="@directus/extensions/api.d.ts" />
-
 import { defineHook } from '@directus/extensions-sdk'
 import { isRecord, isString } from '@onderwijsin/directus-extension-utils'
 

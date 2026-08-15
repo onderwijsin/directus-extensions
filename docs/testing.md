@@ -37,7 +37,9 @@ volume after the test, and prints the service logs when startup or a test fails.
 
 E2E tests are named `*.e2e.test.ts` (or `*.e2e.spec.ts`) under the relevant package's `__tests__/`
 directory and are excluded from the regular unit-test project. They must exercise the built
-extension through Directus rather than importing extension source directly.
+extension through Directus rather than importing extension source directly. The E2E Vitest project
+is activated only when the runner has initialized all four `DIRECTUS_E2E_*` environment variables;
+this keeps `pnpm test` focused on unit and component tests.
 
 Use `pnpm test:coverage` for the V8 coverage run. Coverage includes source files under `extensions/`
 and `packages/`, while generated output, declarations, and test files are excluded.

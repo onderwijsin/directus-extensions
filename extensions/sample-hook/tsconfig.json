@@ -1,4 +1,9 @@
 {
 	"extends": "@workspace/typescript-config/directus-extensions.json",
+	"compilerOptions": {
+		"paths": {
+			"@onderwijsin/directus-extension-utils": ["../../packages/extension-utils/src/index.ts"]
+		}
+	},
 	"include": ["src/**/*.ts"]
 }

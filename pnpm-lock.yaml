@@ -157,6 +157,9 @@ importers:
 
   packages/test-utils:
     devDependencies:
+      '@types/node':
+        specifier: catalog:node24
+        version: 24.13.3
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
