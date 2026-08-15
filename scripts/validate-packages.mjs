@@ -166,12 +166,9 @@ function validatePackedPackage(packageName, manifest, outputDirectory) {
 
 	let archive
 	try {
-		const jsonLine = packOutput
-			.trim()
-			.split('\n')
-			.reverse()
-			.find((line) => line.trim().startsWith('{'))
-		archive = JSON.parse(jsonLine).filename
+		const jsonStart = packOutput.indexOf('{')
+		if (jsonStart === -1) throw new Error('pnpm pack JSON output was not found')
+		archive = JSON.parse(packOutput.slice(jsonStart)).filename
 	} catch {
 		report(packageName, 'pnpm pack did not return a tarball filename')
 		return

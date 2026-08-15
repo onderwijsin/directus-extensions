@@ -16,7 +16,9 @@
 		"directory": "extensions/sample-hook"
 	},
 	"files": [
-		"dist"
+		"dist",
+		"README.md",
+		"CHANGELOG.md"
 	],
 	"type": "module",
 	"main": "./dist/index.js",

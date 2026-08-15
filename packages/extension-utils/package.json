@@ -17,7 +17,9 @@
 		"directory": "packages/extension-utils"
 	},
 	"files": [
-		"dist"
+		"dist",
+		"README.md",
+		"CHANGELOG.md"
 	],
 	"type": "module",
 	"main": "./dist/index.js",
@@ -26,6 +28,18 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
+		},
+		"./server": {
+			"types": "./dist/server/index.d.ts",
+			"import": "./dist/server/index.js"
+		},
+		"./app": {
+			"types": "./dist/app/index.d.ts",
+			"import": "./dist/app/index.js"
+		},
+		"./shared": {
+			"types": "./dist/shared/index.d.ts",
+			"import": "./dist/shared/index.js"
 		},
 		"./guards": {
 			"types": "./dist/guards.d.ts",

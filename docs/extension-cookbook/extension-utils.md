@@ -8,4 +8,7 @@ The initial slice ports the primitive guards from the Nuxt module-utils package.
 type predicates and must not become a schema system, coercion layer, or replacement for Zod.
 
 Use public package subpaths, keep runtime dependencies intentional, test exports, and ensure private
-test utilities never leak into the published package.
+test utilities never leak into the published package. `extension-utils` exposes runtime-aware
+`/server`, `/app`, and `/shared` export paths. The server and app paths currently re-export the
+framework-neutral shared helpers; runtime-specific helpers can be added behind those boundaries
+without changing consumer imports.
