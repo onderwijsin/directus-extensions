@@ -10,7 +10,16 @@ import { randomBytes } from 'node:crypto'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
-const composeFiles = ['compose.yaml', 'tests/compose.e2e.yaml']
+const composeFiles = [
+	'docker/compose.base.yaml',
+	'docker/compose.database.yaml',
+	'docker/compose.cache.yaml',
+	'docker/compose.directus.yaml',
+	'docker/compose.mailpit.yaml',
+	'docker/compose.storage.yaml',
+	'docker/compose.search.yaml',
+	'tests/compose.e2e.yaml',
+]
 const composeProject = `directus-extensions-e2e-${process.pid}`
 const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
 const mailpitPort = process.env.DIRECTUS_E2E_MAILPIT_PORT ?? '18025'
@@ -74,7 +83,7 @@ async function compose(args) {
  * @returns Nothing.
  */
 async function waitForHttp(url, name, isReady = responseIsReady) {
-	const deadline = Date.now() + 120_000
+	const deadline = Date.now() + 300_000
 	while (Date.now() < deadline) {
 		try {
 			const response = await fetch(url)

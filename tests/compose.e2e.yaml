@@ -72,7 +72,7 @@ services:
         condition: service_healthy
     volumes: !override
       - type: bind
-        source: '${DIRECTUS_E2E_EXTENSIONS_DIR:-./extensions}'
+        source: '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}'
         target: /directus/extensions
         read_only: true
         bind: {}

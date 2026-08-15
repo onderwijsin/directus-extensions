@@ -18,6 +18,10 @@ Start the stack from the repository root:
 pnpm compose:up
 ```
 
+The first startup can take one to five minutes, depending on available image and dependency cache
+hits. An unresponsive service during that window is still starting and should not be treated as a
+failed stack after only one minute.
+
 This builds the workspace packages first, then starts the services. For an extension watch loop:
 
 ```sh

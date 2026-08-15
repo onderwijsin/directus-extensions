@@ -21,6 +21,10 @@ conflict, and ask when the answer could change public behavior or compatibility.
 
 ## Required workflow
 
+Compose-backed services can take one to five minutes to become responsive, depending on image and
+dependency cache hits. Do not treat an unresponsive Compose service as failed after only one minute;
+allow the full startup window before diagnosing the stack.
+
 For every task:
 
 1. Run `git status --short` and preserve all pre-existing or unrelated changes.
