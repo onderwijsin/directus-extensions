@@ -1,50 +1,63 @@
 name: directus-extensions-e2e
 
-include:
-  - path: ../docker/compose.base.yaml
-  - path: ../docker/compose.database.yaml
-  - path: ../docker/compose.cache.yaml
-  - path: ../docker/compose.directus.yaml
-  - path: ../docker/compose.mailpit.yaml
-  - path: ../docker/compose.storage.yaml
-  - path: ../docker/compose.search.yaml
-
 services:
   database:
     restart: 'no'
-    volumes:
-      - directus-extensions-e2e-database:/var/lib/postgresql
+    volumes: !override
+      - type: volume
+        source: directus-extensions-e2e-database
+        target: /var/lib/postgresql
+        volume: {}
 
   cache:
     restart: 'no'
-    volumes:
-      - directus-extensions-e2e-cache:/data
+    volumes: !override
+      - type: volume
+        source: directus-extensions-e2e-cache
+        target: /data
+        volume: {}
 
   mailpit:
-    ports:
+    ports: !override
       - '${DIRECTUS_E2E_MAILPIT_PORT:-18025}:8025'
-    volumes:
-      - directus-extensions-e2e-mailpit:/data
+    volumes: !override
+      - type: volume
+        source: directus-extensions-e2e-mailpit
+        target: /data
+        volume: {}
 
   garage:
     ports:
       - '${DIRECTUS_E2E_STORAGE_PORT:-13900}:3900'
-    volumes:
-      - directus-extensions-e2e-garage-meta:/var/lib/garage/meta
-      - directus-extensions-e2e-garage-data:/var/lib/garage/data
+    volumes: !override
+      - type: volume
+        source: directus-extensions-e2e-garage-meta
+        target: /var/lib/garage/meta
+        volume: {}
+      - type: volume
+        source: directus-extensions-e2e-garage-data
+        target: /var/lib/garage/data
+        volume: {}
 
   garage-init:
-    volumes:
-      - directus-extensions-e2e-garage-meta:/var/lib/garage/meta:ro
+    volumes: !override
+      - type: volume
+        source: directus-extensions-e2e-garage-meta
+        target: /var/lib/garage/meta
+        read_only: true
+        volume: {}
 
   meilisearch:
     ports: !override
       - '${DIRECTUS_E2E_SEARCH_PORT:-17700}:7700'
-    volumes:
-      - directus-extensions-e2e-meilisearch:/meili_data
+    volumes: !override
+      - type: volume
+        source: directus-extensions-e2e-meilisearch
+        target: /meili_data
+        volume: {}
 
   directus:
-    ports:
+    ports: !override
       - '${DIRECTUS_E2E_PORT:-18055}:8055'
     depends_on:
       cache:
@@ -57,8 +70,12 @@ services:
         condition: service_started
       meilisearch:
         condition: service_healthy
-    volumes:
-      - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
+    volumes: !override
+      - type: bind
+        source: '${DIRECTUS_E2E_EXTENSIONS_DIR:-./extensions}'
+        target: /directus/extensions
+        read_only: true
+        bind: {}
     environment:
       PUBLIC_URL: http://localhost:${DIRECTUS_E2E_PORT:-18055}
       SECRET: ${DIRECTUS_SECRET:-directus-extensions-e2e-secret}

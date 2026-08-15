@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config'
 const e2eEnvironmentInitialized = [
 	'DIRECTUS_E2E_URL',
 	'DIRECTUS_E2E_TOKEN',
-	'DIRECTUS_E2E_COMPOSE_FILE',
+	'DIRECTUS_E2E_COMPOSE_FILES',
 	'DIRECTUS_E2E_COMPOSE_PROJECT',
 ].every((name) => Boolean(process.env[name]))
 

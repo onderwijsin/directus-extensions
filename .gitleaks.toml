@@ -8,7 +8,7 @@ useDefault = true
 description = "Pinned Valkey image tags are not API keys"
 condition = "AND"
 regexTarget = "line"
-paths = ['''docker/compose\.cache\.yaml$''']
+paths = ['''(?:docker/compose\.cache\.yaml|compose\.yaml)$''']
 regexes = [
 	'''^[[:space:]]*image:[[:space:]]*valkey/valkey:[0-9]+\.[0-9]+\.[0-9]+-alpine[0-9]+\.[0-9]+[[:space:]]*(?:#.*)?$''',
 ]
@@ -28,4 +28,5 @@ paths = [
 	'''public/.*\.json$''',
 	'''assets/.*\.svg$''',
 	'''data/.*''',
+	'''\.agents/skills/.*''',
 ]

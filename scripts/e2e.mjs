@@ -10,7 +10,7 @@ import { randomBytes } from 'node:crypto'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
-const composeFile = 'tests/compose.e2e.yaml'
+const composeFiles = ['compose.yaml', 'tests/compose.e2e.yaml']
 const composeProject = `directus-extensions-e2e-${process.pid}`
 const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
 const mailpitPort = process.env.DIRECTUS_E2E_MAILPIT_PORT ?? '18025'
@@ -57,9 +57,13 @@ function responseIsReady(response) {
  * @returns The completed command output.
  */
 async function compose(args) {
-	return execFileAsync('docker', ['compose', '-f', composeFile, '-p', composeProject, ...args], {
-		env: { ...process.env, ...environmentSecrets, DIRECTUS_E2E_PORT: port },
-	})
+	return execFileAsync(
+		'docker',
+		['compose', ...composeFiles.flatMap((file) => ['-f', file]), '-p', composeProject, ...args],
+		{
+			env: { ...process.env, ...environmentSecrets, DIRECTUS_E2E_PORT: port },
+		},
+	)
 }
 
 /**
@@ -175,7 +179,7 @@ async function runTests(token) {
 			...process.env,
 			DIRECTUS_E2E_URL: baseUrl,
 			DIRECTUS_E2E_TOKEN: token,
-			DIRECTUS_E2E_COMPOSE_FILE: composeFile,
+			DIRECTUS_E2E_COMPOSE_FILES: JSON.stringify(composeFiles),
 			DIRECTUS_E2E_COMPOSE_PROJECT: composeProject,
 		},
 		stdio: 'inherit',

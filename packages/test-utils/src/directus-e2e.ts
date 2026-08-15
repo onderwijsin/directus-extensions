@@ -6,7 +6,7 @@ const execFileAsync = promisify(execFile)
 export interface DirectusE2EClientOptions {
 	baseUrl: string
 	token: string
-	composeFile: string
+	composeFiles: string[]
 	composeProject: string
 }
 
@@ -134,8 +134,7 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		while (Date.now() < deadline) {
 			const result = await execFileAsync('docker', [
 				'compose',
-				'-f',
-				options.composeFile,
+				...options.composeFiles.flatMap((file) => ['-f', file]),
 				'-p',
 				options.composeProject,
 				'logs',
