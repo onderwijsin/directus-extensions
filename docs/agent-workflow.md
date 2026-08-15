@@ -1,61 +1,62 @@
-# Agent workflow
+# Agent workflow and documentation routing
 
-This guide is the repository workflow for authoring and auditing Directus extensions. `AGENTS.md`
-contains the non-negotiable contract; this document routes work to detailed guidance and defines the
-handoff evidence.
+This guide turns the repository contract into a repeatable task workflow. `AGENTS.md` contains the
+non-negotiable rules; this article routes work to detailed repository guidance and defines handoff
+evidence.
 
-## Before editing
+## 1. Establish the task boundary
+
+Before editing:
 
 1. Run `git status --short` and preserve existing changes.
-2. Identify the affected package, Directus extension type, runtime, public contract, tests,
-   documentation, skills, Compose integration, and release surface.
-3. Read the applicable article in the table below and inspect the implementation and a comparable
-   local package when a pattern is needed.
+2. State the requested outcome and identify the affected package, extension type, runtime, public
+   contract, tests, documentation, skills, Compose integration, and release surface.
+3. Select every matching row in the routing table. Multiple rows commonly apply.
 4. Use the Directus documentation MCP for version-sensitive framework facts. Do not invent event
    names, service APIs, permissions, sandbox scopes, package metadata, or loading behavior.
 5. Decide implementation, tests, maintainer docs, consumer docs, skills, dependencies,
    compatibility, and Changeset impact before editing.
 
-## Routing
+Trace behavior across configuration, source, built output, tests, package metadata, and consumer
+documentation. Do not start from an isolated file when the contract crosses a package boundary.
 
-| Work                                               | Read                                                                     |
-| -------------------------------------------------- | ------------------------------------------------------------------------ |
-| Any repository change                              | This article, affected package/source/tests/docs, and the cookbook index |
-| Workspace, scripts, dependencies, generated output | `docs/workspace.md`                                                      |
-| Contributions and repository conventions           | `docs/contributing.md`                                                   |
-| Local Compose, environment, services, secrets      | `docs/docker.md`, `docs/environment.md`                                  |
-| Tests, fixtures, coverage                          | `docs/testing.md`                                                        |
-| GitHub Actions or workflow changes                 | `docs/actions.md`, `docs/ci.md`, `docs/security.md`                      |
-| Publishing, package metadata, Changesets           | `docs/publishing.md`                                                     |
-| Extension authoring                                | `.agents/skills/authoring-directus-extensions/SKILL.md` and cookbook     |
-| Production or release audit                        | `.agents/skills/auditing-directus-extensions/SKILL.md` and cookbook      |
-| Public extension behavior                          | package README and matching `skills/<name>/SKILL.md`                     |
-| `extension-utils`                                  | `docs/extension-cookbook/extension-utils.md` and `guards.md`             |
-| Directus-specific behavior                         | `docs/extension-cookbook/official-directus-documentation.md` and MCP     |
+## 2. Route the task to its sources of truth
 
-Patterns and extension anatomy are provisional until implementation settles them. Do not turn a
-single sample extension into a mandatory repository convention without recording the evidence.
+| Work                                               | Read                                                                                                                             |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Any repository change                              | This article, affected source/tests/docs, and [`docs/index.md`](index.md)                                                        |
+| Workspace, scripts, dependencies, generated output | [`workspace.md`](workspace.md)                                                                                                   |
+| Contributions and repository conventions           | [`contributing.md`](contributing.md)                                                                                             |
+| Local Compose, environment, services, secrets      | [`docker.md`](docker.md), [`environment.md`](environment.md), [`security.md`](security.md)                                       |
+| Tests, fixtures, coverage                          | [`testing.md`](testing.md) and the relevant cookbook article                                                                     |
+| GitHub Actions or workflow changes                 | [`actions.md`](actions.md), [`ci.md`](ci.md), [`security.md`](security.md)                                                       |
+| Publishing, package metadata, Changesets           | [`publishing.md`](publishing.md)                                                                                                 |
+| Extension authoring                                | `.agents/skills/authoring-directus-extensions/SKILL.md` and [`extension-cookbook/index.md`](extension-cookbook/index.md)         |
+| Production or release audit                        | `.agents/skills/auditing-directus-extensions/SKILL.md` and the cookbook                                                          |
+| Public extension behavior                          | Package README and matching `skills/<name>/SKILL.md`                                                                             |
+| `extension-utils`                                  | [`extension-cookbook/extension-utils.md`](extension-cookbook/extension-utils.md) and [`guards.md`](extension-cookbook/guards.md) |
+| Directus-specific behavior                         | [`extension-cookbook/official-directus-documentation.md`](extension-cookbook/official-directus-documentation.md) and MCP         |
+| Architecture decision                              | [`decisions/index.md`](decisions/index.md) and the applicable record                                                             |
 
-## Implementation and review
+Read each selected article completely. Nearby implementations are evidence for local patterns, not
+permission to contradict a documented contract. Use a decision record when a choice affects multiple
+packages, runtime boundaries, security, release behavior, or future maintenance.
+
+## 3. Plan and implement
 
 Prefer the smallest root-cause change. Preserve public behavior unless a compatibility change is
 explicitly requested. Keep Directus registration at the entrypoint, use documented services and
-accountability, validate external boundaries, and prefer sandbox mode when possible.
+accountability, and validate external boundaries. For this repository’s accepted sandbox trade-off,
+read
+[`decisions/do-not-sandbox-directus-extensions.md`](decisions/do-not-sandbox-directus-extensions.md).
 
-Review the complete diff with:
+Before editing, decide whether each category is affected: implementation, tests, maintainer docs,
+consumer docs, consumer skills, package/release, dependencies, and compatibility. If public behavior
+changes, update the package README, matching skill, and Changeset when applicable.
 
-```sh
-git diff --check
-git diff --stat
-git status --short
-```
+## 4. Validate and review
 
-Do not commit changes. Do not edit reference repositories. Do not commit generated output, secrets,
-local data, or packed archives.
-
-## Validation baseline
-
-Run the checks applicable to the current repository state:
+Run the applicable checks:
 
 ```sh
 corepack pnpm format
@@ -64,35 +65,19 @@ corepack pnpm typecheck
 corepack pnpm test
 ```
 
-The CI contract includes formatting, linting, typechecking, V8-covered tests, package builds,
-packed-package validation, artifact upload, and Directus E2E validation. The YOLO workflow keeps the
-quality checks while intentionally skipping package and E2E validation.
+Add focused package, packed-consumer, or E2E checks when the change affects those surfaces. Review:
 
-## Change handoff
-
-Use this structure for changes:
-
-### Changed
-
-- Concrete changes.
-
-### Validation
-
-- Passed, skipped, blocked, or failing checks with exact commands.
-
-### Contracts and documentation
-
-- Compatibility impact, synchronized documentation and skills, and Changeset decision.
-
-### Risks and follow-up
-
-- Remaining risks or `None`.
-
-### Commit message
-
-```text
-<type>(<scope>): <subject>
+```sh
+git diff --check
+git diff --stat
+git status --short
 ```
 
-For read-only audits, use `Verdict`, `Findings`, `Validation and evidence`, `Contracts and impact`,
-`Risks and follow-up`, and `Suggested commit message`.
+Confirm every changed file belongs to the task, generated output and unrelated work are absent, and
+no unrun check is described as passing. Do not commit changes.
+
+## 5. Required handoff
+
+For changes, use `Changed`, `Validation`, `Contracts and documentation`, `Risks and follow-up`, and
+`Commit message`. For read-only audits, use `Verdict`, `Findings`, `Validation and evidence`,
+`Contracts and impact`, `Risks and follow-up`, and `Suggested commit message`.

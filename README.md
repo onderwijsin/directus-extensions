@@ -129,8 +129,12 @@ This project contains supporting workspace packages with different publication p
 
 ## 📚 Documentation
 
+- [`docs/index.md`](docs/index.md) — documentation navigation and maintainer source-of-truth map.
+- [`docs/agent-workflow.md`](docs/agent-workflow.md) — task routing, validation, and handoff.
 - [`docs/extension-cookbook/index.md`](docs/extension-cookbook/index.md) — authoritative extension
   cookbook routing.
+- [`docs/decisions/index.md`](docs/decisions/index.md) — accepted architecture decisions and ADR
+  template.
 - [`docs/contributing.md`](docs/contributing.md) — contributor workflow.
 - [`docs/security.md`](docs/security.md) — Dependabot, CodeQL, and GitHub Actions security
   expectations.
