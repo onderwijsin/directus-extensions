@@ -38,7 +38,17 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @param init - Optional fetch request options.
 	 * @returns The unwrapped Directus response data.
 	 */
-	async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+	async function request<T>(path: string, init?: RequestInit): Promise<T>
+	async function request(
+		path: string,
+		init: RequestInit | undefined,
+		allowEmptyResponse: true,
+	): Promise<void>
+	async function request<T>(
+		path: string,
+		init: RequestInit = {},
+		allowEmptyResponse = false,
+	): Promise<T | void> {
 		const headers = new Headers(init.headers)
 		headers.set('Authorization', `Bearer ${options.token}`)
 		headers.set('Content-Type', 'application/json')
@@ -48,12 +58,17 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 			headers,
 		})
 
+		if (response.status === 204) {
+			if (allowEmptyResponse) return
+			throw new Error('Directus returned an empty response where JSON was expected')
+		}
+
 		const body = (await response.json()) as DirectusResponse<T> | { errors?: unknown }
 		if (!response.ok) {
 			throw new Error(`Directus ${response.status}: ${JSON.stringify(body)}`)
 		}
 
-		return 'data' in body ? body.data : (undefined as T)
+		return 'data' in body ? body.data : undefined
 	}
 
 	/**
@@ -97,11 +112,12 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @returns Nothing.
 	 */
 	async function deleteItem(collection: string, key: string | number): Promise<void> {
-		await request<null>(
+		await request(
 			`/items/${encodeURIComponent(collection)}/${encodeURIComponent(String(key))}`,
 			{
 				method: 'DELETE',
 			},
+			true,
 		)
 	}
 

@@ -84,7 +84,7 @@ portable between the local and E2E stacks:
 - Both services expose health checks and run only on the backend network.
 
 The local stack uses bind mounts under `.data/`; the E2E stack uses named volumes so the runner can
-remove the database and cache completely after each run.
+remove the database, cache, and Mailpit state completely after each run.
 
 ## Storage choice
 

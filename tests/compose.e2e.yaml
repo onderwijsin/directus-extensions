@@ -18,6 +18,10 @@ services:
     volumes:
       - directus-extensions-e2e-cache:/data
 
+  mailpit:
+    volumes:
+      - directus-extensions-e2e-mailpit:/data
+
   directus:
     ports:
       - '${DIRECTUS_E2E_PORT:-18055}:8055'
@@ -42,7 +46,7 @@ services:
       EMAIL_SMTP_HOST: mailpit
       EMAIL_SMTP_PORT: 1025
     healthcheck:
-      test: ['CMD-SHELL', 'wget --spider -q http://localhost:8055/server/ping']
+      test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:8055/server/ping']
       interval: 5s
       timeout: 5s
       retries: 30
@@ -51,3 +55,4 @@ services:
 volumes:
   directus-extensions-e2e-database:
   directus-extensions-e2e-cache:
+  directus-extensions-e2e-mailpit:

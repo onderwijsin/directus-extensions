@@ -1,6 +1,6 @@
 services:
   cache:
-    image: valkey/valkey:9.1.1-alpine3.24 # gitleaks:allow - pinned image tag
+    image: valkey/valkey:9.1.1-alpine3.24
     restart: unless-stopped
     deploy:
       resources:

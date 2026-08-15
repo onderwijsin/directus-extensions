@@ -35,7 +35,7 @@ async function waitForDirectus() {
 	const deadline = Date.now() + 120_000
 	while (Date.now() < deadline) {
 		try {
-			const response = await fetch(`${baseUrl}/server/health`)
+			const response = await fetch(`${baseUrl}/server/ping`)
 			if (response.ok) return
 		} catch {
 			// Directus is still starting.

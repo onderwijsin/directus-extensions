@@ -4,6 +4,15 @@ description = "Security scanning configuration for TypeScript project"
 [extend]
 useDefault = true
 
+[[allowlists]]
+description = "Pinned Valkey image tags are not API keys"
+condition = "AND"
+regexTarget = "line"
+paths = ['''docker/compose\.cache\.yaml$''']
+regexes = [
+	'''^[[:space:]]*image:[[:space:]]*valkey/valkey:[0-9]+\.[0-9]+\.[0-9]+-alpine[0-9]+\.[0-9]+[[:space:]]*(?:#.*)?$''',
+]
+
 # Global allowlists for the project
 [[allowlists]]
 description = "Project ignore paths and patterns"
