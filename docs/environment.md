@@ -37,7 +37,7 @@ the local runtime close to the application stack while remaining explicit and ea
 
 ## Environment files and defaults
 
-The local Compose stack does not require a `.env` file. Its Compose fragments provide development
+The local Compose stack does not require a `.env` file. Its shared Compose file provides development
 defaults for the database, cache, Directus, Garage, Mailpit, and Meilisearch settings, so a fresh
 checkout can start with `pnpm compose:up`.
 

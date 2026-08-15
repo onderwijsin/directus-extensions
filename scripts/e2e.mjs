@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { spawn } from 'node:child_process'
 /**
  * End-to-end runner for the repository's isolated Directus test project.
  *
@@ -7,19 +7,9 @@ import { execFile } from 'node:child_process'
  * and always removes the stack afterwards.
  */
 import { randomBytes } from 'node:crypto'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
-const composeFiles = [
-	'docker/compose.base.yaml',
-	'docker/compose.database.yaml',
-	'docker/compose.cache.yaml',
-	'docker/compose.directus.yaml',
-	'docker/compose.mailpit.yaml',
-	'docker/compose.storage.yaml',
-	'docker/compose.search.yaml',
-	'tests/compose.e2e.yaml',
-]
+const composeFiles = ['docker/compose.yaml', 'tests/compose.e2e.yaml']
+const composeCommandTimeout = 900_000
+const serviceReadinessTimeout = 480_000
 const composeProject = `directus-extensions-e2e-${process.pid}`
 const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
 const mailpitPort = process.env.DIRECTUS_E2E_MAILPIT_PORT ?? '18025'
@@ -27,6 +17,61 @@ const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
 const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
+
+/**
+ * Writes a timestamped message to the CI log.
+ * @param message - Human-readable progress message.
+ * @returns Nothing.
+ */
+function log(message) {
+	console.log(`[e2e ${new Date().toISOString()}] ${message}`)
+}
+
+/**
+ * Runs a child process while streaming its output and enforcing a timeout.
+ * @param command - Executable to run.
+ * @param args - Arguments passed to the executable.
+ * @param options - Child-process options.
+ * @returns The completed process result.
+ */
+function runCommand(command, args, options = {}) {
+	return new Promise((resolve, reject) => {
+		const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] })
+		const stdout = []
+		const stderr = []
+		let timedOut = false
+		const timer = setTimeout(() => {
+			timedOut = true
+			child.kill('SIGTERM')
+		}, composeCommandTimeout)
+
+		child.stdout.on('data', (chunk) => {
+			const output = chunk.toString()
+			stdout.push(output)
+			process.stdout.write(output)
+		})
+		child.stderr.on('data', (chunk) => {
+			const output = chunk.toString()
+			stderr.push(output)
+			process.stderr.write(output)
+		})
+		child.on('error', (error) => {
+			clearTimeout(timer)
+			reject(error)
+		})
+		child.on('close', (code, signal) => {
+			clearTimeout(timer)
+			if (code === 0) {
+				resolve({ stdout: stdout.join(''), stderr: stderr.join('') })
+				return
+			}
+			const reason = timedOut
+				? `timed out after ${composeCommandTimeout / 60_000} minutes`
+				: `exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`
+			reject(new Error(`${command} ${args.join(' ')} ${reason}`))
+		})
+	})
+}
 
 /**
  * Generates secrets for one isolated E2E run.
@@ -66,13 +111,19 @@ function responseIsReady(response) {
  * @returns The completed command output.
  */
 async function compose(args) {
-	return execFileAsync(
-		'docker',
-		['compose', ...composeFiles.flatMap((file) => ['-f', file]), '-p', composeProject, ...args],
-		{
-			env: { ...process.env, ...environmentSecrets, DIRECTUS_E2E_PORT: port },
-		},
-	)
+	const command = [
+		'compose',
+		...composeFiles.flatMap((file) => ['-f', file]),
+		'-p',
+		composeProject,
+		...args,
+	]
+	log(`Starting: docker ${command.join(' ')}`)
+	const result = await runCommand('docker', command, {
+		env: { ...process.env, ...environmentSecrets, DIRECTUS_E2E_PORT: port },
+	})
+	log(`Completed: docker compose ${args.join(' ')}`)
+	return result
 }
 
 /**
@@ -83,13 +134,22 @@ async function compose(args) {
  * @returns Nothing.
  */
 async function waitForHttp(url, name, isReady = responseIsReady) {
-	const deadline = Date.now() + 300_000
+	const deadline = Date.now() + serviceReadinessTimeout
+	let nextProgressLog = Date.now()
+	log(`Waiting for ${name}: ${url}`)
 	while (Date.now() < deadline) {
 		try {
 			const response = await fetch(url)
-			if (isReady(response)) return
+			if (isReady(response)) {
+				log(`${name} is ready`)
+				return
+			}
 		} catch {
 			// The service is still starting.
+		}
+		if (Date.now() >= nextProgressLog) {
+			log(`Still waiting for ${name}`)
+			nextProgressLog = Date.now() + 15_000
 		}
 		await new Promise((resolve) => setTimeout(resolve, 1_000))
 	}
@@ -101,6 +161,7 @@ async function waitForHttp(url, name, isReady = responseIsReady) {
  * @returns Nothing.
  */
 async function waitForServices() {
+	log('Waiting for externally observable services')
 	await waitForHttp(`${baseUrl}/server/ping`, 'Directus health')
 	await waitForHttp(`http://127.0.0.1:${searchPort}/health`, 'Meilisearch health')
 	await waitForHttp(
@@ -182,8 +243,8 @@ async function createPostsCollection(token) {
  * @param token - Access token for the initialized Directus instance.
  */
 async function runTests(token) {
-	/** @type {import('node:child_process').ExecFileOptions} */
-	return execFileAsync('corepack', ['pnpm', 'exec', 'vitest', 'run', '--project', 'e2e'], {
+	log('Starting E2E Vitest project')
+	return runCommand('corepack', ['pnpm', 'exec', 'vitest', 'run', '--project', 'e2e'], {
 		env: {
 			...process.env,
 			DIRECTUS_E2E_URL: baseUrl,
@@ -191,23 +252,31 @@ async function runTests(token) {
 			DIRECTUS_E2E_COMPOSE_FILES: JSON.stringify(composeFiles),
 			DIRECTUS_E2E_COMPOSE_PROJECT: composeProject,
 		},
-		stdio: 'inherit',
 	})
 }
 
 try {
+	log(`Starting E2E run for project ${composeProject}`)
+	log(`Compose files: ${composeFiles.join(', ')}`)
+	log(`Directus endpoint: ${baseUrl}`)
 	// Start from a clean project so stale containers or database volumes cannot affect the run.
+	log('Removing stale Compose resources')
 	await compose(['down', '--volumes', '--remove-orphans'])
+	log('Starting Compose services and waiting for healthchecks')
 	await compose(['up', '-d', '--wait'])
 	await waitForServices()
 	// Seed the shared test collection before handing control to the E2E Vitest project.
+	log('Authenticating against Directus')
 	const token = await login()
+	log('Creating E2E posts collection and title field')
 	await createPostsCollection(token)
 	await runTests(token)
+	log('E2E tests completed successfully')
 } catch (error) {
-	console.error(error)
+	console.error(`[e2e ${new Date().toISOString()}] E2E run failed`, error)
 	// Service logs are the most useful startup/test failure diagnostic available from Compose.
 	try {
+		log('Collecting Compose service logs')
 		const logs = await compose(['logs', '--no-color'])
 		console.error(logs.stdout)
 	} catch (logError) {
@@ -217,7 +286,9 @@ try {
 } finally {
 	// Cleanup runs for both passing and failing tests, including failed startup attempts.
 	try {
+		log('Cleaning up E2E Compose resources')
 		await compose(['down', '--volumes', '--remove-orphans'])
+		log('E2E cleanup completed')
 	} catch (error) {
 		console.error(error)
 		process.exitCode = 1

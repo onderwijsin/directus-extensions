@@ -5,10 +5,10 @@ This repository has two Compose stacks with one shared service configuration:
 - the local development stack in [`compose.yaml`](../compose.yaml); and
 - the isolated Directus E2E stack in [`tests/compose.e2e.yaml`](../tests/compose.e2e.yaml).
 
-The shared fragments under [`docker/`](../docker/) are the source of truth for database, cache,
-Directus application defaults, Mailpit, storage, search, and network configuration. The two stack
-files provide only environment-specific wiring such as ports, volumes, dependencies, and E2E
-extension mounts.
+The shared service definitions in [`docker/compose.yaml`](../docker/compose.yaml) are the source of
+truth for database, cache, Directus application defaults, Mailpit, storage, search, and network
+configuration. The two stack files provide only environment-specific wiring such as ports, volumes,
+dependencies, and E2E extension mounts.
 
 ## Local development stack
 
@@ -58,7 +58,7 @@ automatically.
 
 ## Directus application defaults
 
-The shared Directus fragment enables the application-level settings needed by the real development
+The shared Directus service enables the application-level settings needed by the real development
 stack:
 
 - Redis-backed data caching with automatic purge;
@@ -78,7 +78,7 @@ specific policy.
 
 ## Database and cache configuration
 
-The database and cache fragments follow the Tio Directus development approach while remaining
+The database and cache services follow the Tio Directus development approach while remaining
 portable between the local and E2E stacks:
 
 - PostgreSQL uses the shared lean PostGIS image, explicit development resource limits, tuned worker,
@@ -92,7 +92,7 @@ remove the database, cache, and Mailpit state completely after each run.
 
 ## Storage choice
 
-The local and E2E stacks use Garage as an S3-compatible object store. The shared storage fragment
+The local and E2E stacks use Garage as an S3-compatible object store. The shared storage service
 keeps the Garage image and downloaded CLI version aligned, renders configuration from environment
 variables, and separates S3 credentials from Garage RPC, admin, and metrics tokens. The
 `garage-init` job waits for the RPC service, configures a single-node layout, creates the bucket,
@@ -126,7 +126,9 @@ ports `18055` (Directus), `18025` (Mailpit), `13900` (Garage S3), and `17700` (M
 read-only extension mounts, `EXTENSIONS_MUST_LOAD=true`, and disabled extension auto-reload. Compose
 waits for database, cache, and Meilisearch healthchecks and for Garage initialization to complete.
 The runner additionally probes Directus, Mailpit, Garage S3, and Meilisearch before seeding the test
-collection.
+collection. It emits timestamped phase messages and streams child-process output to make slow
+startup visible in CI. Individual service probes report progress every 15 seconds, wait up to eight
+minutes, and child processes are bounded by a fifteen-minute timeout.
 
 CI prepares a clean consumer from packed extension artifacts and sets `DIRECTUS_E2E_EXTENSIONS_DIR`
 to that consumer’s extension directory before invoking the same E2E runner.

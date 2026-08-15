@@ -11,9 +11,9 @@ tests that are not specific to a package. Package-specific tests belong in that 
 top-level `test/` directory.
 
 The shared Vitest setup is `tests/setup.ts`. The isolated Directus E2E Compose definition is
-`tests/compose.e2e.yaml`; its shared service definitions live under `docker/`. The E2E runner
-remains in `scripts/e2e.mjs` because it is repository orchestration rather than a test or fixture.
-See [`docs/docker.md`](docker.md) for the local and E2E Compose contract.
+`tests/compose.e2e.yaml`; its shared service definitions live in `docker/compose.yaml`. The E2E
+runner remains in `scripts/e2e.mjs` because it is repository orchestration rather than a test or
+fixture. See [`docs/docker.md`](docker.md) for the local and E2E Compose contract.
 
 ## Layers
 

@@ -1,13 +1,7 @@
 name: directus-extensions
 
 include:
-  - path: docker/compose.base.yaml
-  - path: docker/compose.database.yaml
-  - path: docker/compose.cache.yaml
-  - path: docker/compose.directus.yaml
-  - path: docker/compose.mailpit.yaml
-  - path: docker/compose.storage.yaml
-  - path: docker/compose.search.yaml
+  - path: docker/compose.yaml
 
 services:
   database:

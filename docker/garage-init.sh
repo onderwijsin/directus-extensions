@@ -11,7 +11,7 @@ case "$(uname -m)" in
   *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
-# Keep this CLI version in sync with the Garage image in compose.storage.yaml.
+# Keep this CLI version in sync with the Garage image in compose.yaml.
 wget -q -O /usr/local/bin/garage \
   "https://garagehq.deuxfleurs.fr/_releases/v2.3.0/${GARAGE_ARCH}/garage"
 chmod +x /usr/local/bin/garage
