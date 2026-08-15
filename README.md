@@ -85,6 +85,8 @@ Apply formatting and lint fixes, then run the complete local validation suite:
 ```sh
 pnpm format:fix
 pnpm lint:fix
+pnpm lint:actions
+pnpm validate:docs
 pnpm typecheck
 pnpm test
 pnpm build

@@ -29,6 +29,8 @@ it remains generated and should be ignored.
 ```sh
 corepack pnpm format
 corepack pnpm lint:fix
+corepack pnpm lint:actions
+corepack pnpm validate:docs
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm test:coverage

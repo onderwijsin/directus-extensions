@@ -41,15 +41,15 @@ The local Compose stack does not require a `.env` file. Its Compose fragments pr
 defaults for the database, cache, Directus, Garage, Mailpit, and Meilisearch settings, so a fresh
 checkout can start with `pnpm compose:up`.
 
-`.env.example` is an optional, copyable template for local overrides:
+`.env.example` is the root-level, optional template for local overrides:
 
 ```sh
 cp .env.example .env
 ```
 
-The copied `.env` remains ignored by git. Values exported in the shell or defined in `.env` override
-the inline Compose defaults. Keep real credentials in ignored local files or an external secret
-manager; the checked-in defaults are for local development and E2E isolation only.
+The copied root `.env` remains ignored by git. Values exported in the shell or defined in `.env`
+override the inline Compose defaults. Keep real credentials in ignored local files or an external
+secret manager; the checked-in defaults are for local development and E2E isolation only.
 
 The E2E runner does not require `.env`. It generates fresh, run-scoped credentials for the database,
 cache, Directus, Garage, and Meilisearch, passes them to every Compose invocation, and removes the

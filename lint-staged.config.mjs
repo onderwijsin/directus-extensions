@@ -17,6 +17,10 @@ const quotePath = (file) => `'${file.replaceAll("'", "'\\''")}'`
 const task = (command, files) => `${command} ${files.map(quotePath).join(' ')}`
 
 export default {
+	'.github/workflows/*.{yml,yaml}': (files) => [
+		task('github-actionlint -config-file .github/actionlint.yaml', files),
+	],
+	'*.md': ['node scripts/validate-docs.mjs'],
 	'*.{json,jsonc,md,mdc,yaml,yml}': (files) =>
 		formatEnabled ? [task('oxfmt --no-error-on-unmatched-pattern --write', files)] : [],
 	'*.{js,cjs,mjs,ts,cts,mts,jsx,tsx,vue}': (files) => {

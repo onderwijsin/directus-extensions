@@ -15,6 +15,11 @@ The CI workflow runs a full quality path and then a packed-artifact Directus E2E
 TypeScript checks, and unit tests, then skips package builds, packed-package validation and upload,
 and Directus E2E testing.
 
+Workflow syntax and extension documentation coverage run in separate required workflows on pull
+requests and merge queue events. Documentation validation is invoked directly through
+`node scripts/validate-docs.mjs`, so the documentation workflow does not install workspace
+dependencies.
+
 ## Later versions
 
 The packed E2E consumer is already a clean temporary consumer project: CI installs the packed
