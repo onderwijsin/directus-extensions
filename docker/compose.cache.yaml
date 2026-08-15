@@ -1,0 +1,44 @@
+services:
+  cache:
+    image: valkey/valkey:9.1.1-alpine3.24 # gitleaks:allow - pinned image tag
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
+    command:
+      redis-server /usr/local/etc/redis/redis.conf --requirepass ${DEFAULT_PASSWORD:-p4ssw0rd!}
+    configs:
+      - source: redis-config
+        target: /usr/local/etc/redis/redis.conf
+        mode: 0644
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$${REDIS_PASSWORD}" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      REDIS_PASSWORD: ${DEFAULT_PASSWORD:-p4ssw0rd!}
+      REDIS_USERNAME: default
+    networks:
+      - backend
+
+configs:
+  redis-config:
+    content: |
+      maxmemory 2gb
+      maxmemory-policy allkeys-lru
+      appendonly no
+      save 900 1
+      save 300 100
+      save 60 1000
+      io-threads 2
+      io-threads-do-reads yes
+      activedefrag yes
+      lazyfree-lazy-eviction yes
+      lazyfree-lazy-expire yes
+      lazyfree-lazy-server-del yes
+      lazyfree-lazy-user-del no
+      tcp-backlog 511
+      hz 10

@@ -23,7 +23,7 @@ handoff evidence.
 | Any repository change                              | This article, affected package/source/tests/docs, and the cookbook index |
 | Workspace, scripts, dependencies, generated output | `docs/workspace.md`                                                      |
 | Contributions and repository conventions           | `docs/contributing.md`                                                   |
-| Local Compose, environment, services, secrets      | `docs/environment.md`                                                    |
+| Local Compose, environment, services, secrets      | `docs/docker.md`, `docs/environment.md`                                  |
 | Tests, fixtures, coverage                          | `docs/testing.md`                                                        |
 | GitHub Actions or workflow changes                 | `docs/actions.md`, `docs/ci.md`, `docs/security.md`                      |
 | Publishing, package metadata, Changesets           | `docs/publishing.md`                                                     |

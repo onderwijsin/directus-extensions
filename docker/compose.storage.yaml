@@ -1,0 +1,29 @@
+services:
+  garage:
+    image: dxflrs/garage:v2.3.0
+    restart: unless-stopped
+    volumes:
+      - ../.data/garage/meta:/var/lib/garage/meta
+      - ../.data/garage/data:/var/lib/garage/data
+      - ./garage.toml:/etc/garage.toml:ro
+    networks:
+      - backend
+
+  garage-init:
+    image: alpine:3.22
+    restart: on-failure
+    depends_on:
+      garage:
+        condition: service_started
+    volumes:
+      - ../.data/garage/meta:/var/lib/garage/meta:ro
+      - ./garage-init.sh:/usr/local/bin/garage-init.sh:ro
+      - ./garage.toml:/etc/garage.toml:ro
+    environment:
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-directus}
+      STORAGE_REGION: ${STORAGE_REGION:-garage}
+      GARAGE_ACCESS_KEY_ID: ${GARAGE_ACCESS_KEY_ID:-directus}
+      GARAGE_SECRET_ACCESS_KEY: ${GARAGE_SECRET_ACCESS_KEY:-directus-secret}
+    command: ['/bin/sh', '/usr/local/bin/garage-init.sh']
+    networks:
+      - backend

@@ -1,0 +1,62 @@
+services:
+  database:
+    image: ghcr.io/clevercactus-dev/docker-lean-postgis:RELEASE.2026-02-22T21-30-34Z
+    restart: unless-stopped
+    shm_size: 1gb
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 3G
+        reservations:
+          cpus: '1'
+          memory: 512M
+    command: >-
+      postgres -c config_file=/etc/postgresql/postgresql.conf -c ssl=off
+    configs:
+      - source: postgres-config
+        target: /etc/postgresql/postgresql.conf
+        mode: 0644
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}"']
+      interval: 5s
+      timeout: 20s
+      retries: 10
+    environment:
+      POSTGRES_DB: ${DB_NAME:-directus}
+      POSTGRES_USER: ${DB_USER:-directus}
+      POSTGRES_PASSWORD: ${DEFAULT_PASSWORD:-p4ssw0rd!}
+    networks:
+      - backend
+
+configs:
+  postgres-config:
+    content: |
+      listen_addresses = '*'
+      io_method = 'worker'
+      io_workers = 4
+      shared_buffers = 1GB
+      effective_cache_size = 8GB
+      work_mem = 32MB
+      maintenance_work_mem = 512MB
+      max_worker_processes = 8
+      max_parallel_workers = 8
+      max_parallel_workers_per_gather = 4
+      max_parallel_maintenance_workers = 4
+      random_page_cost = 1.1
+      effective_io_concurrency = 200
+      wal_buffers = 16MB
+      min_wal_size = 512MB
+      max_wal_size = 2GB
+      checkpoint_timeout = 10min
+      checkpoint_completion_target = 0.9
+      fsync = on
+      synchronous_commit = on
+      full_page_writes = on
+      log_min_duration_statement = 500
+      log_line_prefix = '%t [%p]: '
+      log_statement = 'none'
+      autovacuum = on
+      autovacuum_naptime = 60s
+      shared_preload_libraries = 'pg_stat_statements'
+      pg_stat_statements.track = all

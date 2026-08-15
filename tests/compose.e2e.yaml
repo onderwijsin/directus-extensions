@@ -1,28 +1,33 @@
 name: directus-extensions-e2e
 
+include:
+  - path: ../docker/compose.base.yaml
+  - path: ../docker/compose.database.yaml
+  - path: ../docker/compose.cache.yaml
+  - path: ../docker/compose.directus.yaml
+  - path: ../docker/compose.mailpit.yaml
+
 services:
   database:
-    image: ghcr.io/clevercactus-dev/docker-lean-postgis:RELEASE.2026-02-22T21-30-34Z
-    shm_size: 1gb
+    restart: 'no'
     volumes:
       - directus-extensions-e2e-database:/var/lib/postgresql
-    environment:
-      POSTGRES_DB: directus
-      POSTGRES_USER: directus
-      POSTGRES_PASSWORD: p4ssw0rd!
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}"']
-      interval: 5s
-      timeout: 20s
-      retries: 20
+
+  cache:
+    restart: 'no'
+    volumes:
+      - directus-extensions-e2e-cache:/data
 
   directus:
-    image: directus/directus:12.2.0
     ports:
       - '${DIRECTUS_E2E_PORT:-18055}:8055'
     depends_on:
+      cache:
+        condition: service_healthy
       database:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
     environment:
@@ -30,15 +35,12 @@ services:
       SECRET: directus-extensions-e2e-secret
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: p4ssw0rd!
-      DB_CLIENT: pg
-      DB_HOST: database
-      DB_PORT: 5432
-      DB_DATABASE: directus
-      DB_USER: directus
-      DB_PASSWORD: p4ssw0rd!
       EXTENSIONS_MUST_LOAD: 'true'
       EXTENSIONS_AUTO_RELOAD: 'false'
-      TELEMETRY: 'false'
+      EMAIL_TRANSPORT: smtp
+      EMAIL_FROM: noreply@localhost
+      EMAIL_SMTP_HOST: mailpit
+      EMAIL_SMTP_PORT: 1025
     healthcheck:
       test: ['CMD-SHELL', 'wget --spider -q http://localhost:8055/server/ping']
       interval: 5s
@@ -48,3 +50,4 @@ services:
 
 volumes:
   directus-extensions-e2e-database:
+  directus-extensions-e2e-cache:

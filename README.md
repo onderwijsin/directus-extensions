@@ -137,6 +137,7 @@ This project contains supporting workspace packages with different publication p
 - [`docs/publishing.md`](docs/publishing.md) — release checks and publishing.
 - [`docs/actions.md`](docs/actions.md) — GitHub Actions guidelines.
 - [`docs/environment.md`](docs/environment.md) — local Directus and Compose environment.
+- [`docs/docker.md`](docs/docker.md) — local and E2E Compose architecture and operations.
 - [`SCAFFOLD.md`](SCAFFOLD.md) — repository architecture and deferred boundaries.
 
 ## 🚢 Publishing
