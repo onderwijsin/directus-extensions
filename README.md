@@ -10,7 +10,6 @@ projects.
 
 | Package                                                                           | Description                                                                      |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [`@onderwijsin/directus-extension-utils`](packages/extension-utils/README.md)     | Framework-neutral runtime helpers shared by Directus extensions.                 |
 | [`@onderwijsin/directus-extension-sample-hook`](extensions/sample-hook/README.md) | Development-only hook for verifying workspace builds and local Directus loading. |
 
 The repository also contains private workspace packages for shared TypeScript configuration and test
