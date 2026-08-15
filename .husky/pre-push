@@ -17,3 +17,13 @@ fi
 if [ "${DISABLE_PRE_PUSH_LINT:-false}" != "true" ]; then
   corepack pnpm lint
 fi
+
+# Run the workspace typecheck before pushing unless explicitly disabled.
+if [ "${DISABLE_PRE_PUSH_TYPECHECK:-false}" != "true" ]; then
+  corepack pnpm typecheck
+fi
+
+# Run the unit test suite before pushing unless explicitly disabled.
+if [ "${DISABLE_PRE_PUSH_TEST:-false}" != "true" ]; then
+  corepack pnpm test
+fi
