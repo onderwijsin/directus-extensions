@@ -30,6 +30,8 @@
 		"prepare:e2e-consumer": "node scripts/prepare-e2e-consumer.mjs",
 		"test:watch": "vitest",
 		"build": "pnpm -r --if-present build",
+		"build:extensions": "pnpm --filter './extensions/*' build",
+		"build:utils": "pnpm --filter @onderwijsin/directus-extension-utils build",
 		"validate:packages": "node scripts/validate-packages.mjs",
 		"format": "oxfmt --check",
 		"format:fix": "oxfmt",

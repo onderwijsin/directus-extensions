@@ -40,8 +40,10 @@ jobs:
         run: pnpm typecheck
       - name: Unit tests
         run: pnpm test:coverage
-      - name: Build packages
-        run: pnpm build
+      - name: Build extension-utils
+        run: pnpm build:utils
+      - name: Build extensions
+        run: pnpm build:extensions
       - name: Validate packed packages
         run: pnpm validate:packages
       - name: Pack packages
