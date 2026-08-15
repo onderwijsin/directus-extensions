@@ -3,9 +3,10 @@
 The repository uses the pinned pnpm version in the root `package.json` through Corepack. Agents run
 `corepack pnpm ...`; user-facing documentation uses `pnpm ...`.
 
-Dependency verification before scripts is configured to warn rather than reinstall automatically.
+Dependency verification before scripts is configured to fail rather than reinstall automatically.
 Run `pnpm install` explicitly after changing manifests or the lockfile; this keeps non-interactive
-hooks from attempting to replace a stale `node_modules` directory without confirmation.
+hooks from replacing a stale `node_modules` directory and makes the dependency state failure
+explicit.
 
 ## Workspace
 

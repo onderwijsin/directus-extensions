@@ -4,6 +4,9 @@
 	"extends": "./base.json",
 	"compilerOptions": {
 		"lib": ["es2022", "dom", "dom.iterable"],
+		"paths": {
+			"@onderwijsin/directus-extension-utils": ["../../packages/extension-utils/src/index.ts"]
+		},
 		"noFallthroughCasesInSwitch": true,
 		"noImplicitOverride": true,
 		"noImplicitReturns": true,

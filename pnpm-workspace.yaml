@@ -28,7 +28,7 @@ catalogs:
 catalogMode: strict
 saveExact: true
 cleanupUnusedCatalogs: true
-verifyDepsBeforeRun: warn
+verifyDepsBeforeRun: error
 
 minimumReleaseAge: 144
 minimumReleaseAgeStrict: true
