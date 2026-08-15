@@ -1,0 +1,89 @@
+name: Publish release
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  HUSKY: 0
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true &&
+      github.event.pull_request.head.ref == 'changeset-release/main')
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    outputs:
+      releases: ${{ steps.changesets.outputs.publishedPackages }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref:
+            ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha ||
+            'main' }}
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit tests
+        run: pnpm test:coverage
+      - name: Build extension-utils
+        run: pnpm build:utils
+      - name: Build extensions
+        run: pnpm build:extensions
+      - name: Validate packed packages
+        run: pnpm validate:packages
+      - name: Pack packages
+        run: pnpm pack:packages "$RUNNER_TEMP/packages"
+      - name: Publish packages
+        id: changesets
+        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          publish: pnpm changeset:publish
+          createGithubReleases: true
+  notify-slack:
+    name: Notify Slack about published packages
+    needs: publish
+    if:
+      needs.publish.result == 'success' && needs.publish.outputs.releases != '' &&
+      needs.publish.outputs.releases != '[]'
+    uses: ./.github/workflows/slack-notification.yml
+    with:
+      releases: ${{ needs.publish.outputs.releases }}
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.ONDERWIJSIN_SLACK_APP_OAUTH_TOKEN }}
+      SLACK_DEPLOYMENTS_CHANNEL_ID: ${{ secrets.SLACK_DEPLOYMENTS_CHANNEL_ID }}

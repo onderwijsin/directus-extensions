@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Run gitleaks to scan for secrets in staged files
+# Disables user git config to prevent color codes from breaking gitleaks parsing
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  gitleaks git --staged --config .gitleaks.toml --verbose --exit-code 1
+
+# Format and lint staged files. lint-staged automatically re-stages fixes.
+if [ "${DISABLE_PRE_COMMIT_FORMAT:-false}" != "true" ] \
+  || [ "${DISABLE_PRE_COMMIT_LINT:-false}" != "true" ]; then
+  corepack pnpm exec lint-staged --concurrent false
+fi

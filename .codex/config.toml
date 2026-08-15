@@ -1,0 +1,21 @@
+[mcp_servers.directus_docs]
+enabled = true
+url = "https://directus.com/docs/mcp"
+
+[mcp_servers.directus_docs.tools.search-docs]
+approval_mode = "approve"
+
+[mcp_servers.directus_docs.tools.list-docs]
+approval_mode = "approve"
+
+[mcp_servers.directus_docs.tools.get-doc]
+approval_mode = "approve"
+
+[mcp_servers.directus_docs.tools.search-directus-code]
+approval_mode = "approve"
+
+[mcp_servers.directus_docs.tools.get-directus-file]
+approval_mode = "approve"
+
+[mcp_servers.directus_docs.tools.get-directus-page]
+approval_mode = "approve"

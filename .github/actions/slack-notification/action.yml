@@ -1,0 +1,22 @@
+name: Format Slack Releases Notification Payload
+description: Generates a Slack notification payload for package releases.
+
+inputs:
+  releases:
+    description: JSON release data from Changesets or a legacy release list.
+    required: true
+  channel-id:
+    description: Slack channel ID to include in the chat.postMessage payload.
+    required: true
+  payload-file-path:
+    description: Path to write the generated Slack payload JSON file.
+    required: false
+    default: payload.json
+  prefix-repo:
+    description: Whether to prefix unscoped package names with the repository name.
+    required: false
+    default: 'false'
+
+runs:
+  using: node24
+  main: index.js

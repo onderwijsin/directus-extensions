@@ -1,13 +1,75 @@
 {
-  "name": "directus-extensions",
-  "version": "1.0.0",
-  "description": "A collection of opinionated and reusable Directus extensions for Onderwijs in projects",
-  "type": "module",
-  "private": false,
-  "keywords": [],
-  "author": {
-    "name": "Remi Huigen",
-    "email": "remihuigen@proton.me"
-  },
-  "license": "MIT"
+	"name": "directus-extensions",
+	"version": "1.0.0",
+	"private": true,
+	"description": "A collection of opinionated and reusable Directus extensions for Onderwijs in projects",
+	"keywords": [],
+	"license": "MIT",
+	"author": {
+		"name": "Remi Huigen",
+		"email": "remihuigen@proton.me"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remihuigen@proton.me"
+		}
+	],
+	"type": "module",
+	"scripts": {
+		"changeset": "changeset",
+		"changeset:publish": "changeset publish",
+		"changeset:status": "changeset status",
+		"changeset:version": "changeset version",
+		"lint": "oxlint",
+		"lint:fix": "oxlint --fix",
+		"lint:actions": "github-actionlint -config-file .github/actionlint.yaml",
+		"validate:docs": "node scripts/validate-docs.mjs",
+		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
+		"e2e": "pnpm build && node scripts/e2e.mjs",
+		"pack:packages": "node scripts/pack-packages.mjs",
+		"prepare:e2e-consumer": "node scripts/prepare-e2e-consumer.mjs",
+		"test:watch": "vitest",
+		"build": "pnpm -r --if-present build",
+		"build:extensions": "pnpm --filter './extensions/*' build",
+		"build:utils": "pnpm --filter @onderwijsin/directus-extension-utils build",
+		"validate:packages": "node scripts/validate-packages.mjs",
+		"format": "oxfmt --check",
+		"format:fix": "oxfmt",
+		"typecheck": "pnpm -r --if-present typecheck",
+		"dev": "pnpm --parallel --filter './extensions/*' dev",
+		"compose:up": "pnpm build && docker compose up -d",
+		"compose:down": "docker compose down",
+		"compose:logs": "docker compose logs -f",
+		"compose:reset": "docker compose down --volumes --remove-orphans",
+		"prepare": "husky",
+		"release": "pnpm build && pnpm validate:packages && pnpm changeset:publish"
+	},
+	"devDependencies": {
+		"@changesets/changelog-git": "catalog:",
+		"@changesets/cli": "catalog:",
+		"@commitlint/cli": "catalog:",
+		"@commitlint/config-conventional": "catalog:",
+		"@types/node": "catalog:node24",
+		"@typescript/native-preview": "catalog:",
+		"@vitejs/plugin-vue": "catalog:",
+		"@vitest/coverage-v8": "catalog:",
+		"@workspace/typescript-config": "workspace:*",
+		"github-actionlint": "catalog:",
+		"happy-dom": "catalog:",
+		"husky": "catalog:",
+		"lint-staged": "catalog:",
+		"oxfmt": "catalog:",
+		"oxlint": "catalog:",
+		"oxlint-tsgolint": "catalog:",
+		"publint": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:",
+		"vue": "catalog:"
+	},
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"packageManager": "pnpm@11.20.0+sha512.9a6f330a95b66446ea088faf1521405a8a01f07fde7124cc9958dfed52d4bb436737e65b08f85f37b46fcba375092558ac51262b816844b22f63406ed166bfee"
 }

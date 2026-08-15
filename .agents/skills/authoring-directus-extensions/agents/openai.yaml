@@ -1,0 +1,5 @@
+interface:
+  display_name: 'Author Directus Extensions'
+  short_description: 'Maintain Directus extensions in this repository'
+  default_prompt:
+    'Use $authoring-directus-extensions to create or update a Directus extension in this repository.'

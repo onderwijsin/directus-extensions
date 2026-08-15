@@ -1,0 +1,86 @@
+name: directus-extensions-e2e
+
+services:
+  database:
+    restart: 'no'
+    volumes:
+      - directus-extensions-e2e-database:/var/lib/postgresql
+
+  cache:
+    restart: 'no'
+    volumes:
+      - directus-extensions-e2e-cache:/data
+
+  mailpit:
+    ports:
+      - '${DIRECTUS_E2E_MAILPIT_PORT:-18025}:8025'
+    volumes:
+      - directus-extensions-e2e-mailpit:/data
+
+  garage:
+    ports:
+      - '${DIRECTUS_E2E_STORAGE_PORT:-13900}:3900'
+    volumes:
+      - directus-extensions-e2e-garage-meta:/var/lib/garage/meta
+      - directus-extensions-e2e-garage-data:/var/lib/garage/data
+
+  garage-init:
+    volumes:
+      - directus-extensions-e2e-garage-meta:/var/lib/garage/meta:ro
+      - ../docker/garage-init.sh:/usr/local/bin/garage-init.sh:ro
+
+  meilisearch:
+    ports:
+      - '${DIRECTUS_E2E_SEARCH_PORT:-17700}:7700'
+    volumes:
+      - directus-extensions-e2e-meilisearch:/meili_data
+
+  directus:
+    ports:
+      - '${DIRECTUS_E2E_PORT:-18055}:8055'
+    depends_on:
+      cache:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+      meilisearch:
+        condition: service_healthy
+    volumes:
+      - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
+    environment:
+      PUBLIC_URL: http://localhost:${DIRECTUS_E2E_PORT:-18055}
+      SECRET: ${DIRECTUS_SECRET:-directus-extensions-e2e-secret}
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-p4ssw0rd!}
+      EXTENSIONS_MUST_LOAD: 'true'
+      EXTENSIONS_AUTO_RELOAD: 'false'
+      EMAIL_TRANSPORT: smtp
+      EMAIL_FROM: noreply@localhost
+      EMAIL_SMTP_HOST: mailpit
+      EMAIL_SMTP_PORT: 1025
+      STORAGE_LOCATIONS: bucket
+      STORAGE_BUCKET_DRIVER: s3
+      STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}
+      STORAGE_BUCKET_SECRET: ${GARAGE_SECRET_ACCESS_KEY:-directus-development-secret}
+      STORAGE_BUCKET_ENDPOINT: http://garage:3900
+      STORAGE_BUCKET_BUCKET: directus
+      STORAGE_BUCKET_REGION: garage
+      STORAGE_BUCKET_FORCE_PATH_STYLE: 'true'
+      MEILISEARCH_HOST_URL: http://meilisearch:7700
+      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:8055/server/ping']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  directus-extensions-e2e-database:
+  directus-extensions-e2e-cache:
+  directus-extensions-e2e-mailpit:
+  directus-extensions-e2e-garage-meta:
+  directus-extensions-e2e-garage-data:
+  directus-extensions-e2e-meilisearch:

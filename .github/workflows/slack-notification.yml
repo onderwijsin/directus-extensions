@@ -1,0 +1,44 @@
+name: Slack Notification on Release
+
+on:
+  workflow_call:
+    inputs:
+      releases:
+        required: true
+        description: JSON array of published Changesets packages.
+        type: string
+      prefix-repo:
+        description: Whether to prefix unscoped package names with the repository name.
+        required: false
+        default: false
+        type: boolean
+      runner:
+        description: Runner to execute the job on.
+        required: false
+        default: ubuntu-latest
+        type: string
+    secrets:
+      SLACK_BOT_TOKEN:
+        required: true
+      SLACK_DEPLOYMENTS_CHANNEL_ID:
+        required: true
+
+jobs:
+  notify:
+    name: Send Slack Notification
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Generate Slack payload
+        uses: ./.github/actions/slack-notification
+        with:
+          releases: ${{ inputs.releases }}
+          channel-id: ${{ secrets.SLACK_DEPLOYMENTS_CHANNEL_ID }}
+          payload-file-path: payload.json
+          prefix-repo: ${{ inputs.prefix-repo }}
+      - name: Send Slack message
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload-file-path: payload.json

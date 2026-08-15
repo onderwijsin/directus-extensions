@@ -1,0 +1,68 @@
+name: directus-extensions
+
+include:
+  - path: docker/compose.yaml
+
+services:
+  database:
+    volumes:
+      - ./.data/database:/var/lib/postgresql
+
+  cache:
+    volumes:
+      - ./.data/cache:/data
+
+  directus:
+    ports:
+      - '8055:8055'
+    depends_on:
+      cache:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+      garage-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+      meilisearch:
+        condition: service_started
+    volumes:
+      - ./.data/uploads:/directus/uploads
+      - ./extensions:/directus/extensions
+    environment:
+      STORAGE_LOCATIONS: bucket
+      STORAGE_BUCKET_DRIVER: s3
+      STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}
+      STORAGE_BUCKET_SECRET: ${GARAGE_SECRET_ACCESS_KEY:-directus-development-secret}
+      STORAGE_BUCKET_ENDPOINT: http://garage:3900
+      STORAGE_BUCKET_BUCKET: ${STORAGE_BUCKET:-directus}
+      STORAGE_BUCKET_REGION: ${STORAGE_REGION:-garage}
+      STORAGE_BUCKET_FORCE_PATH_STYLE: 'true'
+      EMAIL_TRANSPORT: smtp
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@localhost}
+      EMAIL_SMTP_HOST: mailpit
+      EMAIL_SMTP_PORT: 1025
+      MEILISEARCH_HOST_URL: http://meilisearch:7700
+      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
+
+  mailpit:
+    ports:
+      - '8025:8025'
+    volumes:
+      - ./.data/mailpit:/data
+
+  garage:
+    volumes:
+      - ./.data/garage/meta:/var/lib/garage/meta
+      - ./.data/garage/data:/var/lib/garage/data
+
+  garage-init:
+    volumes:
+      - ./.data/garage/meta:/var/lib/garage/meta:ro
+      - ./docker/garage-init.sh:/usr/local/bin/garage-init.sh:ro
+
+  meilisearch:
+    ports:
+      - '7700:7700'
+    volumes:
+      - ./.data/meilisearch:/meili_data

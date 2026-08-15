@@ -1,0 +1,5 @@
+interface:
+  display_name: 'Audit Directus Extensions'
+  short_description: 'Audit Directus extension release readiness.'
+  default_prompt:
+    "Use $auditing-directus-extensions to assess this Directus extension's production and release readiness."

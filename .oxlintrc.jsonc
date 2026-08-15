@@ -1,0 +1,112 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"categories": {
+		"correctness": "error",
+		"nursery": "off",
+		"pedantic": "off",
+		"perf": "off",
+		"restriction": "off",
+		"style": "off",
+		"suspicious": "off"
+	},
+	"plugins": ["jsdoc", "typescript", "vue"],
+	"rules": {
+		"jsdoc/check-tag-names": ["error", { "definedTags": ["fileoverview"] }],
+		"jsdoc/require-param": "error",
+		"jsdoc/require-param-description": "error",
+		"jsdoc/require-returns": ["error", { "forceRequireReturn": true }],
+		"jsdoc/require-returns-description": "error",
+		// From restriction category - matching tseslint.configs.recommendedTypeChecked
+		"typescript/no-empty-object-type": "warn",
+		"typescript/no-explicit-any": "warn",
+		"typescript/no-namespace": "warn",
+		"typescript/no-require-imports": "warn",
+		//"typescript/explicit-function-return-type": "warn", // turn off!
+		"typescript/explicit-member-accessibility": "warn",
+		//"typescript/explicit-module-boundary-types": "warn", // turn off!
+
+		// From pedantic category - matching tseslint.configs.recommendedTypeChecked
+		"typescript/ban-ts-comment": "warn",
+		"typescript/no-misused-promises": "warn",
+		"typescript/no-unnecessary-type-assertion": "warn",
+		"typescript/no-unnecessary-type-constraint": "warn",
+		"typescript/no-unsafe-argument": "warn",
+		"typescript/no-unsafe-assignment": "off", // perhaps off?
+		"typescript/no-unsafe-call": "warn",
+		"typescript/no-unsafe-enum-comparison": "warn",
+		"typescript/no-unsafe-function-type": "warn",
+		"typescript/no-unsafe-member-access": "off", // perhaps off?
+		"typescript/no-unsafe-return": "warn",
+		"typescript/only-throw-error": "warn",
+		"typescript/prefer-promise-reject-errors": "warn",
+		"typescript/require-await": "warn",
+		"typescript/restrict-plus-operands": "warn",
+
+		// From style category - matching tseslint.configs.stylisticTypeChecked
+		"typescript/adjacent-overload-signatures": "warn",
+		"typescript/array-type": "warn",
+		"typescript/ban-tslint-comment": "warn",
+		"typescript/class-literal-property-style": "warn",
+		"typescript/consistent-generic-constructors": "warn",
+		"typescript/consistent-indexed-object-style": "warn",
+		"typescript/consistent-type-assertions": "warn",
+		"typescript/consistent-type-definitions": "warn",
+		"typescript/dot-notation": "warn",
+		"typescript/no-confusing-non-null-assertion": "warn",
+		"typescript/no-empty-function": "warn",
+		"typescript/no-inferrable-types": "warn",
+		"typescript/non-nullable-type-assertion-style": "warn",
+		"typescript/prefer-find": "warn",
+		"typescript/prefer-for-of": "warn",
+		"typescript/prefer-function-type": "warn",
+		"typescript/prefer-includes": "warn",
+		"typescript/prefer-nullish-coalescing": "warn",
+		"typescript/prefer-optional-chain": "warn",
+		"typescript/prefer-regexp-exec": "warn",
+		"typescript/prefer-string-starts-ends-with": "warn"
+	},
+	"overrides": [
+		{
+			"files": ["scripts/**/*.mjs", ".github/actions/**/*.js", "lint-staged.config.mjs"],
+			"rules": {
+				"typescript/no-redundant-type-constituents": "off",
+				"typescript/no-unsafe-argument": "off",
+				"typescript/no-unsafe-call": "off",
+				"typescript/no-unsafe-return": "off",
+				"typescript/prefer-promise-reject-errors": "off"
+			}
+		}
+	],
+	"env": {
+		"node": true
+	},
+	"options": {
+		"typeAware": true,
+		"typeCheck": true
+	},
+	"ignorePatterns": [
+		".agents/",
+		".changeset/",
+		".husky/",
+
+		// Lock files
+		"package-lock.json",
+		"yarn.lock",
+		"pnpm-lock.yaml",
+
+		// Build outputs (recursive to cover apps/ and packages/)
+		"**/dist/",
+		"**/node_modules/",
+
+		// Nuxt.js specific directories
+		"**/.nuxt/",
+		"**/.output/",
+
+		// Project-specific type shims
+		"**/shims.d.ts",
+		"**/shim.d.ts",
+
+		// pnpm store (if it exists in project root)
+		".pnpm-store/"
+	]
+}
