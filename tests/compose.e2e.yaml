@@ -61,9 +61,9 @@ services:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
     environment:
       PUBLIC_URL: http://localhost:${DIRECTUS_E2E_PORT:-18055}
-      SECRET: directus-extensions-e2e-secret
+      SECRET: ${DIRECTUS_SECRET:-directus-extensions-e2e-secret}
       ADMIN_EMAIL: admin@example.com
-      ADMIN_PASSWORD: p4ssw0rd!
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-p4ssw0rd!}
       EXTENSIONS_MUST_LOAD: 'true'
       EXTENSIONS_AUTO_RELOAD: 'false'
       EMAIL_TRANSPORT: smtp
@@ -72,14 +72,14 @@ services:
       EMAIL_SMTP_PORT: 1025
       STORAGE_LOCATIONS: bucket
       STORAGE_BUCKET_DRIVER: s3
-      STORAGE_BUCKET_KEY: directus
-      STORAGE_BUCKET_SECRET: directus-development-secret
+      STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}
+      STORAGE_BUCKET_SECRET: ${GARAGE_SECRET_ACCESS_KEY:-directus-development-secret}
       STORAGE_BUCKET_ENDPOINT: http://garage:3900
       STORAGE_BUCKET_BUCKET: directus
       STORAGE_BUCKET_REGION: garage
       STORAGE_BUCKET_FORCE_PATH_STYLE: 'true'
       MEILISEARCH_HOST_URL: http://meilisearch:7700
-      MEILISEARCH_MASTER_KEY: development-meilisearch-key
+      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
     healthcheck:
       test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:8055/server/ping']
       interval: 5s

@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process'
 /**
  * End-to-end runner for the repository's isolated Directus test project.
  *
@@ -5,7 +6,7 @@
  * stack, initializes the test data, runs Vitest, prints diagnostics on failure,
  * and always removes the stack afterwards.
  */
-import { execFile } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
@@ -17,7 +18,29 @@ const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
 const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
-const password = 'p4ssw0rd!'
+
+/**
+ * Generates secrets for one isolated E2E run.
+ * @returns Environment variables shared by the E2E Compose services.
+ */
+function generateEnvironmentSecrets() {
+	const randomSecret = () => randomBytes(32).toString('hex')
+
+	return {
+		DEFAULT_PASSWORD: randomSecret(),
+		DIRECTUS_SECRET: randomSecret(),
+		ADMIN_PASSWORD: randomSecret(),
+		GARAGE_ACCESS_KEY_ID: `GK${randomBytes(12).toString('hex')}`,
+		GARAGE_SECRET_ACCESS_KEY: randomSecret(),
+		GARAGE_RPC_SECRET: randomSecret(),
+		GARAGE_ADMIN_TOKEN: randomSecret(),
+		GARAGE_METRICS_TOKEN: randomSecret(),
+		MEILISEARCH_MASTER_KEY: randomSecret(),
+	}
+}
+
+const environmentSecrets = generateEnvironmentSecrets()
+const password = environmentSecrets.ADMIN_PASSWORD
 
 /**
  * Checks whether an HTTP response indicates readiness.
@@ -35,7 +58,7 @@ function responseIsReady(response) {
  */
 async function compose(args) {
 	return execFileAsync('docker', ['compose', '-f', composeFile, '-p', composeProject, ...args], {
-		env: { ...process.env, DIRECTUS_E2E_PORT: port },
+		env: { ...process.env, ...environmentSecrets, DIRECTUS_E2E_PORT: port },
 	})
 }
 

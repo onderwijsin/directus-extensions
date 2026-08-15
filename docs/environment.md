@@ -35,6 +35,28 @@ Directus uses Redis-backed data caching and synchronization, a 200 MB upload lim
 local-development CORS and CSP settings, HSTS, and `MARKETPLACE_TRUST=sandbox`. These defaults keep
 the local runtime close to the application stack while remaining explicit and easy to override.
 
+## Environment files and defaults
+
+The local Compose stack does not require a `.env` file. Its Compose fragments provide development
+defaults for the database, cache, Directus, Garage, Mailpit, and Meilisearch settings, so a fresh
+checkout can start with `pnpm compose:up`.
+
+`.env.example` is an optional, copyable template for local overrides:
+
+```sh
+cp .env.example .env
+```
+
+The copied `.env` remains ignored by git. Values exported in the shell or defined in `.env` override
+the inline Compose defaults. Keep real credentials in ignored local files or an external secret
+manager; the checked-in defaults are for local development and E2E isolation only.
+
+The E2E runner does not require `.env`. It generates fresh, run-scoped credentials for the database,
+cache, Directus, Garage, and Meilisearch, passes them to every Compose invocation, and removes the
+associated containers and volumes afterward. The runner adds the test URL, token, Compose project,
+and optional port overrides through the process environment. CI only needs to provide
+`DIRECTUS_E2E_EXTENSIONS_DIR` when testing the packed consumer.
+
 ## Compose options
 
 Workspace output mounting is the default because it gives the fastest edit/build/reload loop. A
