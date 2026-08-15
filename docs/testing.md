@@ -65,10 +65,10 @@ they emerge; the package is intentionally still an empty scaffold.
 
 ## Test cleanup
 
-No pre-test cleanup hook is currently needed. Unlike Nuxt Modules, this repository does not create
-framework-generated test directories that must be removed before Vitest starts. Unit tests use
-temporary in-memory or mocked state, and the E2E runner creates a uniquely named Compose project and
-removes its containers, network, and database volume in its `finally` block. Keep generated output
-such as `dist/`, coverage, and local service data ignored rather than deleting it globally in a
-pre-test hook. Add targeted cleanup only when a test introduces a persistent artifact and its
-ownership and lifecycle are documented.
+No pre-test cleanup hook is currently needed. This repository does not create framework-generated
+test directories that must be removed before Vitest starts. Unit tests use temporary in-memory or
+mocked state, and the E2E runner creates a uniquely named Compose project and removes its
+containers, network, and database volume in its `finally` block. Keep generated output such as
+`dist/`, coverage, and local service data ignored rather than deleting it globally in a pre-test
+hook. Add targeted cleanup only when a test introduces a persistent artifact and its ownership and
+lifecycle are documented.

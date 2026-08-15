@@ -5,6 +5,5 @@ contract only after it has been used successfully by more than one extension or 
 
 When choosing a pattern, prefer correctness, a small change, existing evidence, readability, type
 safety, and performance in that order. Record Directus-specific assumptions with links to official
-documentation or MCP evidence. Do not copy Nuxt module concepts such as isolated playgrounds,
-runtime auto-imports, or module setup into Directus extensions without an equivalent Directus
-contract.
+documentation or MCP evidence. Do not copy concepts from another framework into Directus extensions
+without an equivalent Directus contract.

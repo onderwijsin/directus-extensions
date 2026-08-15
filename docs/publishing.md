@@ -21,6 +21,7 @@ pnpm release
 The release workflow runs repository checks, builds all packages, validates every publishable
 package, and packs the artifacts before invoking Changesets publishing. Validation packs each public
 package into a temporary directory, checks the embedded metadata and archive contents, and runs
-`publint --strict` against the tarball. Directus consumer installation and runtime checks are
-covered by CI’s packed E2E job; a future external-consumer job should still verify package imports
-independently of Directus.
+`publint --strict` against the tarball. CI’s packed E2E job already installs packed artifacts into a
+clean temporary consumer and verifies extension loading through Directus. A future external-consumer
+job would separately verify direct package imports, public subpath exports, and declarations without
+requiring a Directus instance.

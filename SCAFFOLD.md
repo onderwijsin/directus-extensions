@@ -19,11 +19,11 @@ workspace packages, extension builds, Directus loading, and local development wo
 
 ## Explicit boundaries
 
-- `directus-extensions-legacy`, `tio-directus`, and `nuxt-modules` are read-only references.
+- `directus-extensions-legacy` and `tio-directus` are read-only references.
 - No real product extension is part of the first slice.
 - No legacy extension is migrated as part of scaffolding.
-- Directus has one shared local development instance; isolated Nuxt-style playgrounds are not part
-  of this repository.
+- Directus has one shared local development instance; separate per-extension environments are not
+  part of this repository.
 - Extension conventions are provisional until several extensions give us evidence for a stable
   pattern. Documentation must distinguish settled contracts from current working guidance.
 - We do not require API extensions to be sandbox-compatible. The repository prioritizes developer
@@ -128,26 +128,26 @@ that every later design is already settled.
 ### Slice A — Repository documentation and maintainer skills
 
 - Rewrite the agent workflow and cookbook routing for Directus extensions.
-- Port the useful repository-level guidance from `nuxt-modules`: `workspace.md`, `contributing.md`,
-  `environment.md`, `testing.md`, `actions.md`, `ci.md`, `publishing.md`, and security guidance.
+- Maintain repository-level guidance for workspace, contributions, environment, testing, actions,
+  CI, publishing, and security.
 - Rewrite framework-specific details using Directus documentation and the Directus CLI/package
   model.
 - Finish `.agents/skills/authoring-directus-extensions`.
 - Port and finish `.agents/skills/auditing-directus-extensions` as a Directus audit guide.
 - Mark extension anatomy and patterns as provisional guidance until implementation settles them.
 
-Done means every workflow link resolves, no Nuxt terminology remains in Directus repository
-guidance, and both maintainer skills can route an agent from request to evidence-backed handoff.
+Done means every workflow link resolves, repository guidance describes the current Directus
+workflow, and both maintainer skills can route an agent from request to evidence-backed handoff.
 
 ### Slice B — `extension-utils` boilerplate
 
 - Create the publishable package with exact metadata, exports, TypeScript configuration, README, and
   changelog.
-- Port the generic primitive guards from the Nuxt module-utils package with Directus-neutral naming
-  and documentation. Their semantics are framework-independent and should remain nearly identical.
+- Provide generic primitive guards with Directus-neutral naming and documentation. Their semantics
+  are framework-independent.
 - Add focused Vitest coverage for every public guard and package exports.
-- Keep the package free of Directus server, browser, Nuxt, or Node-only assumptions unless a later
-  utility has an explicit runtime subpath and compatibility contract.
+- Keep the package free of Directus server, browser, or Node-only assumptions unless a later utility
+  has an explicit runtime subpath and compatibility contract.
 - Add a Changeset when the public package is introduced.
 
 ### Slice C — Sample hook extension
@@ -169,31 +169,31 @@ guidance, and both maintainer skills can route an agent from request to evidence
 - Document the local ports, environment variables, storage, Meilisearch, Mailpit, and hardened-image
   constraints.
 
-### Slice E — First CI version
+### Slice E — CI and release validation
 
-Keep the first CI deliberately simple:
+The current CI intentionally validates the repository as a publishable Directus workspace:
 
 - format;
 - lint;
-- typecheck; and
-- test with V8 coverage collection.
+- typecheck;
+- test with V8 coverage collection;
+- package builds;
+- packed-package metadata and tarball validation;
+- packed-artifact upload; and
+- Directus E2E tests using the packed extension artifact.
 
-Overhaul both `ci.yml` and `ci-yolo.yml`; they are currently copied from the Nuxt repository and
-their change-detection complexity is not wanted in version one. The first version should have a
-clear, predictable path and should not run package validation, packed-package checks, external
-consumer integration, or complex focused/full policy logic.
+The YOLO workflow keeps the quality path while skipping package builds, packed-package validation,
+artifact upload, and Directus E2E tests. The release flow runs the same checks before Changesets
+publishing.
 
-The other existing workflows and local Actions are presumed usable unless inspection identifies a
-Directus-specific incompatibility. The release flow runs the repository checks, builds packages, and
-validates packed artifacts before Changesets publishing.
-
-### Slice F — Later release hardening
+### Slice F — Later release and distribution hardening
 
 Deferred until the first working slice is stable:
 
-- external consumer integration tests;
-- custom-image and Marketplace installation validation;
-- richer CI change detection and `ci-yolo` policy;
+- independent external-consumer checks that import the published package root and subpaths directly,
+  including its public types, without relying on Directus extension discovery;
+- custom-image and Marketplace installation validation, including hardened-image constraints;
+- richer CI change detection and policy when repository scale justifies it;
 - broader extension-type examples; and
 - settled extension anatomy and patterns.
 
@@ -219,7 +219,7 @@ Use the Directus documentation MCP and official docs for framework facts, especi
 - permissions, accountability, errors, configuration, and security; and
 - Directus 12 release and breaking-change documentation.
 
-The Nuxt repository is a qualitative source for workflow, package, CI, and documentation practices.
-Its framework implementation details must be translated, not copied. The legacy extensions project
-is a reference for the relationship between workspace packages, Compose, and a Directus service, not
-a quality or architecture authority.
+Reference repositories are qualitative sources for workflow, package, CI, and documentation
+practices. Their framework implementation details must be translated, not copied. The legacy
+extensions project is a reference for the relationship between workspace packages, Compose, and a
+Directus service, not a quality or architecture authority.

@@ -1,6 +1,6 @@
 # Local environment and Directus stack
 
-The local environment is one shared Directus 12.2.0 instance, not one playground per extension.
+The local environment is one shared Directus 12.2.0 instance for all extensions.
 
 ## Services
 

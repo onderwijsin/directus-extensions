@@ -17,7 +17,12 @@ and Directus E2E testing.
 
 ## Later versions
 
-The packed E2E consumer is intentionally not the same as external-consumer validation. It proves
-that a packaged extension can be installed into a clean staging consumer and loaded by Directus.
-External-consumer validation should separately verify published package installation, exports, and
-consumer imports without requiring a Directus instance.
+The packed E2E consumer is already a clean temporary consumer project: CI installs the packed
+archives, copies the packed extension into the consumer's Directus extensions directory, and loads
+that artifact through Directus. This validates package contents and the Directus loading contract.
+
+Future external-consumer validation would be a smaller, independent package contract check. It would
+import the published package root and subpaths directly, verify the public exports and declarations,
+and run without requiring a Directus instance. The purpose is to catch package import/export issues
+that Directus loading does not exercise, especially for non-extension packages such as
+`@onderwijsin/directus-extension-utils`.

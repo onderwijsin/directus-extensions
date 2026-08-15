@@ -9,5 +9,5 @@ They answer one small runtime question and provide TypeScript narrowing. They do
 validate structured external input, or produce diagnostics. Use Zod for structured boundaries and a
 local predicate for a domain-specific shape.
 
-The guard semantics and focused tests may be ported nearly unchanged from the Nuxt module-utils
-package because they are framework-neutral.
+The guard semantics are intentionally small and framework-neutral so they can be reused across
+Directus extension runtimes.

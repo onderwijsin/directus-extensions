@@ -64,8 +64,9 @@ corepack pnpm typecheck
 corepack pnpm test
 ```
 
-The initial CI contract is intentionally only format, lint, typecheck, and test. Package validation,
-packed consumer validation, and complex change-aware policies are later CI work.
+The CI contract includes formatting, linting, typechecking, V8-covered tests, package builds,
+packed-package validation, artifact upload, and Directus E2E validation. The YOLO workflow keeps the
+quality checks while intentionally skipping package and E2E validation.
 
 ## Change handoff
 
