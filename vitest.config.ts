@@ -28,7 +28,7 @@ export default defineConfig({
 				'**/*.d.ts',
 			],
 		},
-		setupFiles: ['./test/setup.ts'],
+		setupFiles: ['./tests/setup.ts'],
 		projects: [
 			{
 				extends: true,
@@ -37,7 +37,10 @@ export default defineConfig({
 					environment: 'node',
 					include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
 					exclude: [
-						'**/tests/e2e/**',
+						'**/node_modules/**',
+						'**/dist/**',
+						'**/coverage/**',
+						'**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
 						'**/*.dom.{test,spec}.{js,jsx,ts,tsx}',
 						'**/*.vue.{test,spec}.{js,jsx,ts,tsx}',
 					],
@@ -48,6 +51,7 @@ export default defineConfig({
 				test: {
 					name: 'vue',
 					environment: 'happy-dom',
+					exclude: ['**/node_modules/**', '**/dist/**', '**/coverage/**'],
 					include: [
 						'**/*.dom.{test,spec}.{js,jsx,ts,tsx}',
 						'**/*.vue.{test,spec}.{js,jsx,ts,tsx}',
@@ -59,7 +63,10 @@ export default defineConfig({
 				test: {
 					name: 'e2e',
 					environment: 'node',
-					include: ['tests/e2e/**/*.e2e.test.ts'],
+					include: [
+						'extensions/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
+						'packages/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
+					],
 				},
 			},
 		],

@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
-const composeFile = 'compose.e2e.yaml'
+const composeFile = 'tests/compose.e2e.yaml'
 const composeProject = `directus-extensions-e2e-${process.pid}`
 const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
 const baseUrl = `http://127.0.0.1:${port}`

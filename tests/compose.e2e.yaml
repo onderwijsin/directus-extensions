@@ -24,7 +24,7 @@ services:
       database:
         condition: service_healthy
     volumes:
-      - ./extensions:/directus/extensions:ro
+      - ../extensions:/directus/extensions:ro
     environment:
       PUBLIC_URL: http://localhost:${DIRECTUS_E2E_PORT:-18055}
       SECRET: directus-extensions-e2e-secret
