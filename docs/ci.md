@@ -11,7 +11,9 @@ The CI workflow runs a full quality path and then a packed-artifact Directus E2E
 5. package builds, packed-package validation, and artifact upload; and
 6. Directus E2E tests using the packed extension artifact from the quality job.
 
-`ci-yolo.yml` calls the same full workflow. It currently has no change-aware conditionals.
+`ci-yolo.yml` calls the same workflow with `yolo: true`. The YOLO path runs formatting, linting,
+TypeScript checks, and unit tests, then skips package builds, packed-package validation and upload,
+and Directus E2E testing.
 
 ## Later versions
 

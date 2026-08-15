@@ -11,3 +11,5 @@ jobs:
   ci:
     if: github.event.label.name == 'YOLO'
     uses: ./.github/workflows/ci.yml
+    with:
+      yolo: true

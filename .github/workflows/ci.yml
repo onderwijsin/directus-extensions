@@ -5,6 +5,12 @@ on:
   merge_group:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      yolo:
+        description: Skip package builds, package validation, and E2E tests.
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -41,14 +47,19 @@ jobs:
       - name: Unit tests
         run: pnpm test:coverage
       - name: Build extension-utils
+        if: inputs.yolo != true
         run: pnpm build:utils
       - name: Build extensions
+        if: inputs.yolo != true
         run: pnpm build:extensions
       - name: Validate packed packages
+        if: inputs.yolo != true
         run: pnpm validate:packages
       - name: Pack packages
+        if: inputs.yolo != true
         run: pnpm pack:packages "$RUNNER_TEMP/packages"
       - name: Upload packed package artifacts
+        if: inputs.yolo != true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: packed-packages-${{ github.sha }}
@@ -58,6 +69,7 @@ jobs:
 
   e2e:
     needs: quality
+    if: inputs.yolo != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

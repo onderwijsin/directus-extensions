@@ -1,3 +1,10 @@
+/**
+ * End-to-end runner for the repository's isolated Directus test project.
+ *
+ * Invoked by `pnpm e2e` and directly by the CI E2E job. It starts the Compose
+ * stack, initializes the test data, runs Vitest, prints diagnostics on failure,
+ * and always removes the stack afterwards.
+ */
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
@@ -123,14 +130,17 @@ async function runTests(token) {
 }
 
 try {
+	// Start from a clean project so stale containers or database volumes cannot affect the run.
 	await compose(['down', '--volumes', '--remove-orphans'])
 	await compose(['up', '-d', '--wait'])
 	await waitForDirectus()
+	// Seed the shared test collection before handing control to the E2E Vitest project.
 	const token = await login()
 	await createPostsCollection(token)
 	await runTests(token)
 } catch (error) {
 	console.error(error)
+	// Service logs are the most useful startup/test failure diagnostic available from Compose.
 	try {
 		const logs = await compose(['logs', '--no-color'])
 		console.error(logs.stdout)
@@ -139,6 +149,7 @@ try {
 	}
 	process.exitCode = 1
 } finally {
+	// Cleanup runs for both passing and failing tests, including failed startup attempts.
 	try {
 		await compose(['down', '--volumes', '--remove-orphans'])
 	} catch (error) {

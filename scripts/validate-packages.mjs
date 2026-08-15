@@ -1,3 +1,10 @@
+/**
+ * Validates metadata, required files, and packed contents for public workspace packages.
+ *
+ * Invoked by `pnpm validate:packages` after the workspace build and during CI/release
+ * validation. Each package is checked in place, packed into a temporary directory,
+ * inspected as an archive, and then removed from the temporary workspace.
+ */
 import { execFileSync } from 'node:child_process'
 import { access, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -50,6 +57,7 @@ async function requirePath(packageName, packageDirectory, relativePath) {
  * @returns A promise that resolves after validation completes.
  */
 async function validateMetadata(packageName, packageDirectory, manifest) {
+	// Check fields that npm consumers and the repository release process require.
 	const requiredStrings = ['name', 'version', 'description', 'license']
 	for (const field of requiredStrings) {
 		if (typeof manifest[field] !== 'string' || manifest[field].length === 0) {
@@ -95,6 +103,7 @@ async function validateMetadata(packageName, packageDirectory, manifest) {
 		...manifest.optionalDependencies,
 		...manifest.peerDependencies,
 	}
+	// Published packages must not accidentally pull the private test utility into production.
 	if (Object.hasOwn(runtimeDependencies, '@workspace/test-utils')) {
 		report(packageName, 'must not depend on private @workspace/test-utils at runtime')
 	}
@@ -146,6 +155,7 @@ async function validateExtension(packageName, packageDirectory, manifest) {
 function validatePackedPackage(packageName, manifest, outputDirectory) {
 	let packOutput
 	try {
+		// Pack from the workspace root so the archive is built using the same filter as release CI.
 		packOutput = execFileSync(
 			'corepack',
 			[
@@ -175,6 +185,7 @@ function validatePackedPackage(packageName, manifest, outputDirectory) {
 	}
 
 	try {
+		// Inspect the archive directly: this catches publish-time omissions hidden by the workspace.
 		const packageJson = JSON.parse(
 			execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8' }),
 		)
@@ -200,6 +211,7 @@ function validatePackedPackage(packageName, manifest, outputDirectory) {
 		for (const file of entries.filter((entry) =>
 			/^package\/dist\/.*\.(?:c|m)?js$/u.test(entry),
 		)) {
+			// Generated JavaScript must not contain a private workspace dependency reference.
 			const output = execFileSync('tar', ['-xOf', archive, file], { encoding: 'utf8' })
 			if (output.includes('@workspace/test-utils')) {
 				report(
@@ -225,6 +237,7 @@ function validatePackedPackage(packageName, manifest, outputDirectory) {
 async function main() {
 	const outputDirectory = await mkdtemp(join(tmpdir(), 'directus-extensions-pack-'))
 	try {
+		// Validate every public package under both workspace roots using one temporary archive directory.
 		for (const packageRoot of packageRoots) {
 			const directory = resolve(root, packageRoot)
 			for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -248,6 +261,7 @@ async function main() {
 			}
 		}
 	} finally {
+		// Archives are validation intermediates and must not remain in the repository or temp workspace.
 		await rm(outputDirectory, { force: true, recursive: true })
 	}
 
