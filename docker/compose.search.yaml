@@ -8,5 +8,10 @@ services:
       - ../.data/meilisearch:/meili_data
     environment:
       MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:7700/health']
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - backend

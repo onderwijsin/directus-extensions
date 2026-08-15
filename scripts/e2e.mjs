@@ -12,9 +12,21 @@ const execFileAsync = promisify(execFile)
 const composeFile = 'tests/compose.e2e.yaml'
 const composeProject = `directus-extensions-e2e-${process.pid}`
 const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
+const mailpitPort = process.env.DIRECTUS_E2E_MAILPIT_PORT ?? '18025'
+const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
+const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
 const password = 'p4ssw0rd!'
+
+/**
+ * Checks whether an HTTP response indicates readiness.
+ * @param response - HTTP response from the service probe.
+ * @returns Whether the response is successful.
+ */
+function responseIsReady(response) {
+	return response.ok
+}
 
 /**
  * Runs Docker Compose for the isolated E2E project.
@@ -28,21 +40,39 @@ async function compose(args) {
 }
 
 /**
- * Waits until Directus accepts HTTP requests.
+ * Waits until an HTTP service responds.
+ * @param url - Service endpoint to probe.
+ * @param name - Human-readable service name for timeout errors.
+ * @param isReady - Predicate that determines whether the response is ready.
  * @returns Nothing.
  */
-async function waitForDirectus() {
+async function waitForHttp(url, name, isReady = responseIsReady) {
 	const deadline = Date.now() + 120_000
 	while (Date.now() < deadline) {
 		try {
-			const response = await fetch(`${baseUrl}/server/ping`)
-			if (response.ok) return
+			const response = await fetch(url)
+			if (isReady(response)) return
 		} catch {
-			// Directus is still starting.
+			// The service is still starting.
 		}
 		await new Promise((resolve) => setTimeout(resolve, 1_000))
 	}
-	throw new Error('Timed out waiting for Directus health')
+	throw new Error(`Timed out waiting for ${name}`)
+}
+
+/**
+ * Waits until all externally observable E2E services respond.
+ * @returns Nothing.
+ */
+async function waitForServices() {
+	await waitForHttp(`${baseUrl}/server/ping`, 'Directus health')
+	await waitForHttp(`http://127.0.0.1:${searchPort}/health`, 'Meilisearch health')
+	await waitForHttp(
+		`http://127.0.0.1:${storagePort}/`,
+		'Garage S3 API',
+		(response) => response.status < 500,
+	)
+	await waitForHttp(`http://127.0.0.1:${mailpitPort}/`, 'Mailpit health')
 }
 
 /**
@@ -133,7 +163,7 @@ try {
 	// Start from a clean project so stale containers or database volumes cannot affect the run.
 	await compose(['down', '--volumes', '--remove-orphans'])
 	await compose(['up', '-d', '--wait'])
-	await waitForDirectus()
+	await waitForServices()
 	// Seed the shared test collection before handing control to the E2E Vitest project.
 	const token = await login()
 	await createPostsCollection(token)

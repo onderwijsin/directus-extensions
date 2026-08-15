@@ -88,12 +88,16 @@ remove the database, cache, and Mailpit state completely after each run.
 
 ## Storage choice
 
-The local stack uses the same simple Garage setup for development and E2E does not start object
-storage because the current E2E contract does not exercise file uploads. This is sufficient for the
-current extension workspace. Tio’s more elaborate storage configuration is valuable when the
-application needs generated credentials, Garage RPC/admin/metrics control, production-like startup,
-or Cloudinary parity. Those concerns should be added when this repository gains storage-dependent
-extensions or production-image validation; they are not required for the current local loop.
+The local and E2E stacks use Garage as an S3-compatible object store. The shared storage fragment
+keeps the Garage image and downloaded CLI version aligned, renders configuration from environment
+variables, and separates S3 credentials from Garage RPC, admin, and metrics tokens. The
+`garage-init` job waits for the RPC service, configures a single-node layout, creates the bucket,
+imports the S3 key, and grants read/write access idempotently.
+
+Garage’s metadata and object data use bind mounts locally and isolated named volumes in E2E. The
+admin and metrics APIs listen only on the Docker network unless a stack-specific override exposes
+them. The development defaults are not production secrets; set `GARAGE_RPC_SECRET`,
+`GARAGE_ADMIN_TOKEN`, and `GARAGE_METRICS_TOKEN` in `.env` when local tooling needs distinct values.
 
 ## E2E stack
 
@@ -107,15 +111,18 @@ The runner:
 
 1. builds the extensions;
 2. starts the E2E Compose project with a unique project name;
-3. waits for PostgreSQL, Valkey, and Directus;
+3. waits for PostgreSQL, Valkey, Garage initialization, Meilisearch, Mailpit, and Directus;
 4. creates the test collection and field through the Directus API;
 5. runs the E2E Vitest project against the mounted extension artifact; and
 6. removes the containers, network, and named volumes in a `finally` block.
 
-The E2E stack reuses the local database, cache, Directus application, Mailpit, and network
-definitions. It intentionally differs by using named volumes, port `18055`, read-only extension
-mounts, `EXTENSIONS_MUST_LOAD=true`, and disabled extension auto-reload. It does not include Garage
-or Meilisearch because the current E2E contract does not exercise storage or search.
+The E2E stack reuses the local database, cache, Directus application, Mailpit, Garage storage,
+Meilisearch, and network definitions. It intentionally differs by using isolated named volumes,
+ports `18055` (Directus), `18025` (Mailpit), `13900` (Garage S3), and `17700` (Meilisearch),
+read-only extension mounts, `EXTENSIONS_MUST_LOAD=true`, and disabled extension auto-reload. Compose
+waits for database, cache, and Meilisearch healthchecks and for Garage initialization to complete.
+The runner additionally probes Directus, Mailpit, Garage S3, and Meilisearch before seeding the test
+collection.
 
 CI prepares a clean consumer from packed extension artifacts and sets `DIRECTUS_E2E_EXTENSIONS_DIR`
 to that consumer’s extension directory before invoking the same E2E runner.

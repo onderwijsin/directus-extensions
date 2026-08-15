@@ -6,6 +6,8 @@ include:
   - path: ../docker/compose.cache.yaml
   - path: ../docker/compose.directus.yaml
   - path: ../docker/compose.mailpit.yaml
+  - path: ../docker/compose.storage.yaml
+  - path: ../docker/compose.search.yaml
 
 services:
   database:
@@ -19,8 +21,27 @@ services:
       - directus-extensions-e2e-cache:/data
 
   mailpit:
+    ports:
+      - '${DIRECTUS_E2E_MAILPIT_PORT:-18025}:8025'
     volumes:
       - directus-extensions-e2e-mailpit:/data
+
+  garage:
+    ports:
+      - '${DIRECTUS_E2E_STORAGE_PORT:-13900}:3900'
+    volumes:
+      - directus-extensions-e2e-garage-meta:/var/lib/garage/meta
+      - directus-extensions-e2e-garage-data:/var/lib/garage/data
+
+  garage-init:
+    volumes:
+      - directus-extensions-e2e-garage-meta:/var/lib/garage/meta:ro
+
+  meilisearch:
+    ports: !override
+      - '${DIRECTUS_E2E_SEARCH_PORT:-17700}:7700'
+    volumes:
+      - directus-extensions-e2e-meilisearch:/meili_data
 
   directus:
     ports:
@@ -30,8 +51,12 @@ services:
         condition: service_healthy
       database:
         condition: service_healthy
+      garage-init:
+        condition: service_completed_successfully
       mailpit:
         condition: service_started
+      meilisearch:
+        condition: service_healthy
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
     environment:
@@ -45,6 +70,16 @@ services:
       EMAIL_FROM: noreply@localhost
       EMAIL_SMTP_HOST: mailpit
       EMAIL_SMTP_PORT: 1025
+      STORAGE_LOCATIONS: bucket
+      STORAGE_BUCKET_DRIVER: s3
+      STORAGE_BUCKET_KEY: directus
+      STORAGE_BUCKET_SECRET: directus-development-secret
+      STORAGE_BUCKET_ENDPOINT: http://garage:3900
+      STORAGE_BUCKET_BUCKET: directus
+      STORAGE_BUCKET_REGION: garage
+      STORAGE_BUCKET_FORCE_PATH_STYLE: 'true'
+      MEILISEARCH_HOST_URL: http://meilisearch:7700
+      MEILISEARCH_MASTER_KEY: development-meilisearch-key
     healthcheck:
       test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:8055/server/ping']
       interval: 5s
@@ -56,3 +91,6 @@ volumes:
   directus-extensions-e2e-database:
   directus-extensions-e2e-cache:
   directus-extensions-e2e-mailpit:
+  directus-extensions-e2e-garage-meta:
+  directus-extensions-e2e-garage-data:
+  directus-extensions-e2e-meilisearch:
