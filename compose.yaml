@@ -50,3 +50,19 @@ services:
       - '8025:8025'
     volumes:
       - ./.data/mailpit:/data
+
+  garage:
+    volumes:
+      - ./.data/garage/meta:/var/lib/garage/meta
+      - ./.data/garage/data:/var/lib/garage/data
+
+  garage-init:
+    volumes:
+      - ./.data/garage/meta:/var/lib/garage/meta:ro
+      - ./docker/garage-init.sh:/usr/local/bin/garage-init.sh:ro
+
+  meilisearch:
+    ports:
+      - '7700:7700'
+    volumes:
+      - ./.data/meilisearch:/meili_data

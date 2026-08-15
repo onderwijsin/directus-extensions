@@ -166,8 +166,8 @@ function main() {
 	try {
 		const releasesInput = getInput('releases', true)
 		const channelId =
-			getInput('channel-id') ||
-			process.env.SLACK_CHANNEL_ID?.trim() ||
+			getInput('channel-id') ??
+			process.env.SLACK_CHANNEL_ID?.trim() ??
 			getInput('channel-id', true)
 		const payloadFilePath = getInput('payload-file-path', true)
 		const repository = process.env.GITHUB_REPOSITORY

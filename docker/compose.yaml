@@ -110,9 +110,6 @@ services:
   garage:
     image: dxflrs/garage:v2.3.0
     restart: unless-stopped
-    volumes:
-      - ../.data/garage/meta:/var/lib/garage/meta
-      - ../.data/garage/data:/var/lib/garage/data
     configs:
       - source: garage-config
         target: /etc/garage.toml
@@ -126,9 +123,6 @@ services:
     depends_on:
       garage:
         condition: service_started
-    volumes:
-      - ../.data/garage/meta:/var/lib/garage/meta:ro
-      - ./garage-init.sh:/usr/local/bin/garage-init.sh:ro
     configs:
       - source: garage-config
         target: /etc/garage.toml
@@ -145,10 +139,6 @@ services:
   meilisearch:
     image: getmeili/meilisearch:v1.15.2
     restart: unless-stopped
-    ports:
-      - '7700:7700'
-    volumes:
-      - ../.data/meilisearch:/meili_data
     environment:
       MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
     healthcheck:

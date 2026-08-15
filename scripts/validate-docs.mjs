@@ -45,7 +45,7 @@ export function validateDocumentation(repositoryRoot = root) {
 	const tableEntries = new Map()
 
 	for (const line of readme.split('\n')) {
-		const match = line.match(/\|\s+\[`([^`]+)`\]\(([^)]+)\)\s+\|/u)
+		const match = /\|\s+\[`([^`]+)`\]\(([^)]+)\)\s+\|/u.exec(line)
 		if (match) tableEntries.set(match[1], match[2])
 	}
 

@@ -7,6 +7,11 @@ import { spawn } from 'node:child_process'
  * and always removes the stack afterwards.
  */
 import { randomBytes } from 'node:crypto'
+
+/** @typedef {import('node:child_process').ChildProcessWithoutNullStreams} ChildProcess */
+/** @typedef {import('node:child_process').SpawnOptions} SpawnOptions */
+/** @typedef {SpawnOptions & {streamOutput?: boolean}} RunCommandOptions */
+/** @typedef {{State?: string, ExitCode?: number}} ComposeService */
 const composeFiles = ['docker/compose.yaml', 'tests/compose.e2e.yaml']
 const composeCommandTimeout = 900_000
 const serviceReadinessTimeout = 480_000
@@ -17,6 +22,7 @@ const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
 const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
+/** @type {ChildProcess | undefined} */
 let activeChild
 let interrupted = false
 
@@ -31,11 +37,10 @@ function log(message) {
 
 /**
  * Runs a child process while streaming its output and enforcing a timeout.
- * @param command - Executable to run.
- * @param args - Arguments passed to the executable.
- * @param options - Child-process options and output behavior.
- * @param options.streamOutput - Whether to stream child-process output.
- * @returns The completed process result.
+ * @param {string} command - Executable to run.
+ * @param {string[]} args - Arguments passed to the executable.
+ * @param {RunCommandOptions} options - Child-process options and output behavior.
+ * @returns {Promise<{stdout: string, stderr: string}>} The completed process result.
  */
 function runCommand(command, args, { streamOutput = true, ...options } = {}) {
 	return new Promise((resolve, reject) => {
@@ -50,12 +55,12 @@ function runCommand(command, args, { streamOutput = true, ...options } = {}) {
 		}, composeCommandTimeout)
 
 		child.stdout.on('data', (chunk) => {
-			const output = chunk.toString()
+			const output = String(chunk)
 			stdout.push(output)
 			if (streamOutput) process.stdout.write(output)
 		})
 		child.stderr.on('data', (chunk) => {
-			const output = chunk.toString()
+			const output = String(chunk)
 			stderr.push(output)
 			if (streamOutput) process.stderr.write(output)
 		})
@@ -104,8 +109,8 @@ const password = environmentSecrets.ADMIN_PASSWORD
 
 /**
  * Checks whether an HTTP response indicates readiness.
- * @param response - HTTP response from the service probe.
- * @returns Whether the response is successful.
+ * @param {Response} response - HTTP response from the service probe.
+ * @returns {boolean} Whether the response is successful.
  */
 function responseIsReady(response) {
 	return response.ok
@@ -113,9 +118,9 @@ function responseIsReady(response) {
 
 /**
  * Runs Docker Compose for the isolated E2E project.
- * @param args - Compose arguments.
- * @param options - Output behavior for the Compose command.
- * @returns The completed command output.
+ * @param {string[]} args - Compose arguments.
+ * @param {{streamOutput?: boolean}} options - Output behavior for the Compose command.
+ * @returns {Promise<{stdout: string, stderr: string}>} The completed command output.
  */
 async function compose(args, options = {}) {
 	const command = [
@@ -136,10 +141,10 @@ async function compose(args, options = {}) {
 
 /**
  * Waits until an HTTP service responds.
- * @param url - Service endpoint to probe.
- * @param name - Human-readable service name for timeout errors.
- * @param isReady - Predicate that determines whether the response is ready.
- * @returns Nothing.
+ * @param {string} url - Service endpoint to probe.
+ * @param {string} name - Human-readable service name for timeout errors.
+ * @param {(response: Response) => boolean} isReady - Predicate that determines whether the response is ready.
+ * @returns {Promise<void>} Nothing.
  */
 async function waitForHttp(url, name, isReady = responseIsReady) {
 	const deadline = Date.now() + serviceReadinessTimeout
@@ -167,8 +172,8 @@ async function waitForHttp(url, name, isReady = responseIsReady) {
 
 /**
  * Waits for a one-shot Compose service to exit successfully.
- * @param service - Compose service name.
- * @returns Nothing.
+ * @param {string} service - Compose service name.
+ * @returns {Promise<void>} Nothing.
  */
 async function waitForComposeCompletion(service) {
 	const deadline = Date.now() + serviceReadinessTimeout
@@ -183,9 +188,9 @@ async function waitForComposeCompletion(service) {
 			.trim()
 			.split('\n')
 			.filter(Boolean)
-			.map((line) => JSON.parse(line))
+			.map((line) => /** @type {ComposeService} */ (JSON.parse(line)))
 		const record = records[0]
-		const state = record?.State?.toLowerCase()
+		const state = typeof record?.State === 'string' ? record.State.toLowerCase() : undefined
 		if (state === 'exited') {
 			if (record.ExitCode !== 0) {
 				throw new Error(`${service} exited with code ${record.ExitCode}`)
@@ -230,6 +235,7 @@ async function request(path, init = {}) {
 		...init,
 		headers: { 'Content-Type': 'application/json', ...init.headers },
 	})
+	/** @type {{data: unknown}} */
 	const body = await response.json()
 	if (!response.ok) throw new Error(`Directus ${response.status}: ${JSON.stringify(body)}`)
 	return body.data
@@ -244,6 +250,12 @@ async function login() {
 		method: 'POST',
 		body: JSON.stringify({ email, password }),
 	})
+	if (!data || typeof data !== 'object' || !('access_token' in data)) {
+		throw new Error('Directus login response did not include an access token')
+	}
+	if (typeof data.access_token !== 'string') {
+		throw new Error('Directus login access token was not a string')
+	}
 	return data.access_token
 }
 
@@ -286,8 +298,8 @@ async function createPostsCollection(token) {
 
 /**
  * Runs the E2E Vitest project.
- * @returns The completed test command output.
- * @param token - Access token for the initialized Directus instance.
+ * @param {string} token - Access token for the initialized Directus instance.
+ * @returns {Promise<{stdout: string, stderr: string}>} The completed test command output.
  */
 async function runTests(token) {
 	log('Starting E2E Vitest project')
