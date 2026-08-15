@@ -18,30 +18,26 @@ if (!Array.isArray(composeFiles) || composeFiles.some((file) => typeof file !== 
 
 const client = createDirectusE2EClient({ baseUrl, token, composeFiles, composeProject })
 
+async function expectEvent(event: string) {
+	await expect(
+		client.waitForLog(
+			new RegExp(`sample-hook: item-event .*"event":"${event}".*"collection":"posts"`),
+		),
+	).resolves.toBeDefined()
+}
+
 describe('sample hook against Directus', () => {
 	it('logs create, update, and delete events for posts items', async () => {
 		const created = await client.createItem<{ id: string | number }>('posts', {
 			title: `e2e-${Date.now()}`,
 		})
 
-		await expect(
-			client.waitForLog(
-				new RegExp(`sample-hook: item-event .*"event":"created".*"collection":"posts"`),
-			),
-		).resolves.toBeDefined()
+		await expectEvent('created')
 
 		await client.updateItem('posts', created.id, { title: 'updated' })
-		await expect(
-			client.waitForLog(
-				new RegExp(`sample-hook: item-event .*"event":"updated".*"collection":"posts"`),
-			),
-		).resolves.toBeDefined()
+		await expectEvent('updated')
 
 		await client.deleteItem('posts', created.id)
-		await expect(
-			client.waitForLog(
-				new RegExp(`sample-hook: item-event .*"event":"deleted".*"collection":"posts"`),
-			),
-		).resolves.toBeDefined()
+		await expectEvent('deleted')
 	})
 })

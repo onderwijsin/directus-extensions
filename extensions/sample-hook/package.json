@@ -36,6 +36,7 @@
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",
+		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",
 		"typescript": "catalog:",
 		"vitest": "catalog:"

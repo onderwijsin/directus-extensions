@@ -22,6 +22,7 @@ const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
 const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
+const responseIsReady = (response) => response.ok
 /** @type {ChildProcess | undefined} */
 let activeChild
 let interrupted = false
@@ -106,15 +107,6 @@ function generateEnvironmentSecrets() {
 
 const environmentSecrets = generateEnvironmentSecrets()
 const password = environmentSecrets.ADMIN_PASSWORD
-
-/**
- * Checks whether an HTTP response indicates readiness.
- * @param {Response} response - HTTP response from the service probe.
- * @returns {boolean} Whether the response is successful.
- */
-function responseIsReady(response) {
-	return response.ok
-}
 
 /**
  * Runs Docker Compose for the isolated E2E project.

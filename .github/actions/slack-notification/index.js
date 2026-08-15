@@ -165,10 +165,8 @@ function buildPayload(releases, channelId, actor, repository, runUrl, prefixRepo
 function main() {
 	try {
 		const releasesInput = getInput('releases', true)
-		const channelId =
-			getInput('channel-id') ??
-			process.env.SLACK_CHANNEL_ID?.trim() ??
-			getInput('channel-id', true)
+		const channelId = getInput('channel-id') || process.env.SLACK_CHANNEL_ID?.trim()
+		if (!channelId) throw new Error('Input "channel-id" is required.')
 		const payloadFilePath = getInput('payload-file-path', true)
 		const repository = process.env.GITHUB_REPOSITORY
 		const actor = process.env.GITHUB_ACTOR

@@ -142,6 +142,9 @@ importers:
       '@directus/extensions-sdk':
         specifier: 'catalog:'
         version: 18.0.2(@types/node@24.13.3)(@unhead/vue@1.11.20(vue@3.5.24(typescript@5.9.3)))(debug@4.4.3(supports-color@7.2.0))(jiti@2.6.1)(knex@3.1.0(supports-color@7.2.0))(pinia@2.3.1(typescript@5.9.3)(vue@3.5.24(typescript@5.9.3)))(supports-color@7.2.0)(terser@5.50.0)(typescript@5.9.3)(yaml@2.9.0)
+      '@types/node':
+        specifier: catalog:node24
+        version: 24.13.3
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config

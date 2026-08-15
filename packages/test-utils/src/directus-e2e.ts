@@ -32,6 +32,11 @@ export interface DirectusE2EClient {
  * @returns A client for authenticated item requests and log assertions.
  */
 export function createDirectusE2EClient(options: DirectusE2EClientOptions): DirectusE2EClient {
+	const itemPath = (collection: string, key?: string | number) =>
+		`/items/${encodeURIComponent(collection)}${
+			key === undefined ? '' : `/${encodeURIComponent(String(key))}`
+		}`
+
 	/**
 	 * Sends an authenticated request to Directus.
 	 * @param path - API path relative to the Directus base URL.
@@ -78,7 +83,7 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @returns The created item.
 	 */
 	async function createItem<T>(collection: string, item: Record<string, unknown>): Promise<T> {
-		return request<T>(`/items/${encodeURIComponent(collection)}`, {
+		return request<T>(itemPath(collection), {
 			method: 'POST',
 			body: JSON.stringify(item),
 		})
@@ -96,13 +101,10 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		key: string | number,
 		item: Record<string, unknown>,
 	): Promise<T> {
-		return request<T>(
-			`/items/${encodeURIComponent(collection)}/${encodeURIComponent(String(key))}`,
-			{
-				method: 'PATCH',
-				body: JSON.stringify(item),
-			},
-		)
+		return request<T>(itemPath(collection, key), {
+			method: 'PATCH',
+			body: JSON.stringify(item),
+		})
 	}
 
 	/**
@@ -112,13 +114,7 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @returns Nothing.
 	 */
 	async function deleteItem(collection: string, key: string | number): Promise<void> {
-		await request(
-			`/items/${encodeURIComponent(collection)}/${encodeURIComponent(String(key))}`,
-			{
-				method: 'DELETE',
-			},
-			true,
-		)
+		await request(itemPath(collection, key), { method: 'DELETE' }, true)
 	}
 
 	/**
@@ -142,6 +138,7 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 				'directus',
 			])
 			output = result.stdout
+			pattern.lastIndex = 0
 			if (pattern.test(output)) return output
 			await new Promise((resolve) => setTimeout(resolve, 250))
 		}
