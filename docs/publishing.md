@@ -18,8 +18,9 @@ pnpm changeset:version
 pnpm release
 ```
 
-The `release` script builds all packages, validates every publishable package, and then invokes
-Changesets. Validation packs each public package into a temporary directory, checks the embedded
-metadata and archive contents, and runs `publint --strict` against the tarball. The release workflow
-also runs the normal repository checks before calling it. Directus consumer installation and runtime
-checks remain a later release-hardening step.
+The release workflow runs repository checks, builds all packages, validates every publishable
+package, and packs the artifacts before invoking Changesets publishing. Validation packs each public
+package into a temporary directory, checks the embedded metadata and archive contents, and runs
+`publint --strict` against the tarball. Directus consumer installation and runtime checks are
+covered by CI’s packed E2E job; a future external-consumer job should still verify package imports
+independently of Directus.

@@ -17,7 +17,7 @@ env:
   HUSKY: 0
 
 jobs:
-  validate:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -38,5 +38,46 @@ jobs:
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
-      - name: Test
+      - name: Unit tests
         run: pnpm test:coverage
+      - name: Build packages
+        run: pnpm build
+      - name: Validate packed packages
+        run: pnpm validate:packages
+      - name: Pack packages
+        run: pnpm pack:packages "$RUNNER_TEMP/packages"
+      - name: Upload packed package artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: packed-packages-${{ github.sha }}
+          path: ${{ runner.temp }}/packages
+          if-no-files-found: error
+          retention-days: 1
+
+  e2e:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          run_install: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Download packed package artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: packed-packages-${{ github.sha }}
+          path: ${{ runner.temp }}/packages
+      - name: Install packed packages into E2E consumer
+        run: pnpm prepare:e2e-consumer "$RUNNER_TEMP/packages" "$RUNNER_TEMP/e2e-consumer"
+      - name: Run Directus E2E tests
+        env:
+          DIRECTUS_E2E_EXTENSIONS_DIR: ${{ runner.temp }}/e2e-consumer/extensions
+        run: node scripts/e2e.mjs

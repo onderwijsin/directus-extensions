@@ -21,8 +21,10 @@ orchestration rather than a test or fixture.
   sandbox limitations; and
 - the shared local Directus instance provides the first integration check for extension loading.
 
-The initial CI only runs format, lint, typecheck, and the V8-covered unit test suite.
-Packed-artifact and external-consumer validation are deliberately deferred to a later CI version.
+CI runs formatting, linting, TypeScript checks, V8-covered unit tests, package builds, and packed
+package validation. Its E2E job installs the packed artifacts into a clean staging consumer before
+loading them through Directus. Independent external-consumer validation for package imports and
+exports remains a separate concern.
 
 ## Directus E2E tests
 

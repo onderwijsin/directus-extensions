@@ -26,6 +26,8 @@
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
 		"e2e": "pnpm build && node scripts/e2e.mjs",
+		"pack:packages": "node scripts/pack-packages.mjs",
+		"prepare:e2e-consumer": "node scripts/prepare-e2e-consumer.mjs",
 		"test:watch": "vitest",
 		"build": "pnpm -r --if-present build",
 		"validate:packages": "node scripts/validate-packages.mjs",
