@@ -46,6 +46,11 @@ services:
         target: /var/lib/garage/meta
         read_only: true
         volume: {}
+      - type: bind
+        source: ../docker/garage-init.sh
+        target: /usr/local/bin/garage-init.sh
+        read_only: true
+        bind: {}
 
   meilisearch:
     ports: !override
@@ -59,13 +64,11 @@ services:
   directus:
     ports: !override
       - '${DIRECTUS_E2E_PORT:-18055}:8055'
-    depends_on:
+    depends_on: !override
       cache:
         condition: service_healthy
       database:
         condition: service_healthy
-      garage-init:
-        condition: service_completed_successfully
       mailpit:
         condition: service_started
       meilisearch:

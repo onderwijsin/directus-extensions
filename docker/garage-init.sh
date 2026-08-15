@@ -1,7 +1,9 @@
 #!/bin/sh
 set -eu
 
-apk add --no-cache wget >/dev/null
+log() {
+  printf '[garage-init] %s\n' "$*"
+}
 
 case "$(uname -m)" in
   x86_64) GARAGE_ARCH='x86_64-unknown-linux-musl' ;;
@@ -12,12 +14,15 @@ case "$(uname -m)" in
 esac
 
 # Keep this CLI version in sync with the Garage image in compose.yaml.
-wget -q -O /usr/local/bin/garage \
+log 'Downloading Garage CLI'
+wget -q -T 30 -t 3 -O /usr/local/bin/garage \
   "https://garagehq.deuxfleurs.fr/_releases/v2.3.0/${GARAGE_ARCH}/garage"
 chmod +x /usr/local/bin/garage
+log 'Garage CLI downloaded'
 
 READY=false
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
+  log "Waiting for Garage RPC (attempt ${attempt}/10)"
   if garage status >/dev/null 2>&1; then
     READY=true
     break
@@ -29,6 +34,7 @@ if [ "$READY" = "false" ]; then
   echo 'Garage RPC was not ready after 10 attempts' >&2
   exit 1
 fi
+log 'Garage RPC is ready'
 
 NODE_ID=$(garage status | awk '/HEALTHY NODES/{getline; getline; print $1; exit}')
 if [ -z "$NODE_ID" ]; then
@@ -37,6 +43,7 @@ if [ -z "$NODE_ID" ]; then
 fi
 
 if ! garage layout show | grep -q "$NODE_ID"; then
+  log 'Assigning Garage layout'
   garage layout assign -z "$STORAGE_REGION" -c 15G "$NODE_ID"
   CURRENT_VERSION=$(garage layout show | awk -F: '/Current cluster layout version:/ {gsub(/[[:space:]]/, "", $2); print $2; exit}')
   CURRENT_VERSION=${CURRENT_VERSION:-0}
@@ -44,11 +51,13 @@ if ! garage layout show | grep -q "$NODE_ID"; then
 fi
 
 if ! garage bucket list | grep -q "$STORAGE_BUCKET"; then
+  log "Creating bucket ${STORAGE_BUCKET}"
   garage bucket create "$STORAGE_BUCKET"
 fi
 
 KEY_NAME="${STORAGE_BUCKET}-key"
 if ! garage key list | grep -q "$KEY_NAME"; then
+  log "Importing key ${KEY_NAME}"
   garage key import --yes -n "$KEY_NAME" "$GARAGE_ACCESS_KEY_ID" "$GARAGE_SECRET_ACCESS_KEY"
 fi
 
@@ -59,5 +68,8 @@ if [ -z "$KEY_ID" ]; then
 fi
 
 if ! garage bucket info "$STORAGE_BUCKET" | grep -q "$KEY_ID"; then
+  log "Granting access to ${KEY_NAME}"
   garage bucket allow --read --write "$STORAGE_BUCKET" --key "$KEY_NAME"
 fi
+
+log 'Garage initialization completed'

@@ -123,12 +123,14 @@ The runner:
 The E2E stack reuses the local database, cache, Directus application, Mailpit, Garage storage,
 Meilisearch, and network definitions. It intentionally differs by using isolated named volumes,
 ports `18055` (Directus), `18025` (Mailpit), `13900` (Garage S3), and `17700` (Meilisearch),
-read-only extension mounts, `EXTENSIONS_MUST_LOAD=true`, and disabled extension auto-reload. Compose
-waits for database, cache, and Meilisearch healthchecks and for Garage initialization to complete.
-The runner additionally probes Directus, Mailpit, Garage S3, and Meilisearch before seeding the test
-collection. It emits timestamped phase messages and streams child-process output to make slow
-startup visible in CI. Individual service probes report progress every 15 seconds, wait up to eight
-minutes, and child processes are bounded by a fifteen-minute timeout.
+read-only extension mounts, `EXTENSIONS_MUST_LOAD=true`, and disabled extension auto-reload. The
+runner explicitly waits for Garage initialization, then probes Directus, Mailpit, Garage S3, and
+Meilisearch before seeding the test collection. It emits timestamped phase messages and streams
+child-process output to make slow startup visible in CI. The Garage initialization logs are sampled
+every 15 seconds, service probes wait up to eight minutes, and child processes are bounded by a
+fifteen-minute timeout. The initialization step also reports its download, RPC readiness, layout,
+bucket, and key stages; its CLI download has bounded retries so network stalls fail with a useful
+diagnostic.
 
 CI prepares a clean consumer from packed extension artifacts and sets `DIRECTUS_E2E_EXTENSIONS_DIR`
 to that consumer’s extension directory before invoking the same E2E runner.

@@ -17,6 +17,8 @@ const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
 const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
+let activeChild
+let interrupted = false
 
 /**
  * Writes a timestamped message to the CI log.
@@ -31,12 +33,14 @@ function log(message) {
  * Runs a child process while streaming its output and enforcing a timeout.
  * @param command - Executable to run.
  * @param args - Arguments passed to the executable.
- * @param options - Child-process options.
+ * @param options - Child-process options and output behavior.
+ * @param options.streamOutput - Whether to stream child-process output.
  * @returns The completed process result.
  */
-function runCommand(command, args, options = {}) {
+function runCommand(command, args, { streamOutput = true, ...options } = {}) {
 	return new Promise((resolve, reject) => {
 		const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] })
+		activeChild = child
 		const stdout = []
 		const stderr = []
 		let timedOut = false
@@ -48,19 +52,21 @@ function runCommand(command, args, options = {}) {
 		child.stdout.on('data', (chunk) => {
 			const output = chunk.toString()
 			stdout.push(output)
-			process.stdout.write(output)
+			if (streamOutput) process.stdout.write(output)
 		})
 		child.stderr.on('data', (chunk) => {
 			const output = chunk.toString()
 			stderr.push(output)
-			process.stderr.write(output)
+			if (streamOutput) process.stderr.write(output)
 		})
 		child.on('error', (error) => {
 			clearTimeout(timer)
+			activeChild = undefined
 			reject(error)
 		})
 		child.on('close', (code, signal) => {
 			clearTimeout(timer)
+			activeChild = undefined
 			if (code === 0) {
 				resolve({ stdout: stdout.join(''), stderr: stderr.join('') })
 				return
@@ -108,9 +114,10 @@ function responseIsReady(response) {
 /**
  * Runs Docker Compose for the isolated E2E project.
  * @param args - Compose arguments.
+ * @param options - Output behavior for the Compose command.
  * @returns The completed command output.
  */
-async function compose(args) {
+async function compose(args, options = {}) {
 	const command = [
 		'compose',
 		...composeFiles.flatMap((file) => ['-f', file]),
@@ -121,6 +128,7 @@ async function compose(args) {
 	log(`Starting: docker ${command.join(' ')}`)
 	const result = await runCommand('docker', command, {
 		env: { ...process.env, ...environmentSecrets, DIRECTUS_E2E_PORT: port },
+		...options,
 	})
 	log(`Completed: docker compose ${args.join(' ')}`)
 	return result
@@ -138,6 +146,7 @@ async function waitForHttp(url, name, isReady = responseIsReady) {
 	let nextProgressLog = Date.now()
 	log(`Waiting for ${name}: ${url}`)
 	while (Date.now() < deadline) {
+		if (interrupted) throw new Error('E2E run interrupted')
 		try {
 			const response = await fetch(url)
 			if (isReady(response)) {
@@ -154,6 +163,44 @@ async function waitForHttp(url, name, isReady = responseIsReady) {
 		await new Promise((resolve) => setTimeout(resolve, 1_000))
 	}
 	throw new Error(`Timed out waiting for ${name}`)
+}
+
+/**
+ * Waits for a one-shot Compose service to exit successfully.
+ * @param service - Compose service name.
+ * @returns Nothing.
+ */
+async function waitForComposeCompletion(service) {
+	const deadline = Date.now() + serviceReadinessTimeout
+	let nextProgressLog = Date.now()
+	log(`Waiting for Compose service ${service} to complete`)
+	while (Date.now() < deadline) {
+		if (interrupted) throw new Error('E2E run interrupted')
+		const result = await compose(['ps', '--all', '--format', 'json', service], {
+			streamOutput: false,
+		})
+		const records = result.stdout
+			.trim()
+			.split('\n')
+			.filter(Boolean)
+			.map((line) => JSON.parse(line))
+		const record = records[0]
+		const state = record?.State?.toLowerCase()
+		if (state === 'exited') {
+			if (record.ExitCode !== 0) {
+				throw new Error(`${service} exited with code ${record.ExitCode}`)
+			}
+			log(`Compose service ${service} completed successfully`)
+			return
+		}
+		if (Date.now() >= nextProgressLog) {
+			log(`Still waiting for Compose service ${service}`)
+			await compose(['logs', '--no-color', '--tail', '50', service])
+			nextProgressLog = Date.now() + 15_000
+		}
+		await new Promise((resolve) => setTimeout(resolve, 1_000))
+	}
+	throw new Error(`Timed out waiting for Compose service ${service}`)
 }
 
 /**
@@ -255,15 +302,45 @@ async function runTests(token) {
 	})
 }
 
+/**
+ * Registers signal handlers that let the normal finally block clean up Compose resources.
+ * @returns Nothing.
+ */
+function registerSignalHandlers() {
+	for (const [signal, exitCode] of [
+		['SIGINT', 130],
+		['SIGTERM', 143],
+	]) {
+		process.once(signal, () => {
+			interrupted = true
+			process.exitCode = exitCode
+			log(`Received ${signal}; stopping the active child process and cleaning up`)
+			activeChild?.kill('SIGTERM')
+		})
+	}
+}
+
+/**
+ * Removes the E2E Compose project and its disposable volumes.
+ * @returns Nothing.
+ */
+async function cleanup() {
+	log('Cleaning up E2E Compose resources')
+	await compose(['down', '--volumes', '--remove-orphans'])
+	log('E2E cleanup completed')
+}
+
 try {
+	registerSignalHandlers()
 	log(`Starting E2E run for project ${composeProject}`)
 	log(`Compose files: ${composeFiles.join(', ')}`)
 	log(`Directus endpoint: ${baseUrl}`)
 	// Start from a clean project so stale containers or database volumes cannot affect the run.
 	log('Removing stale Compose resources')
 	await compose(['down', '--volumes', '--remove-orphans'])
-	log('Starting Compose services and waiting for healthchecks')
-	await compose(['up', '-d', '--wait'])
+	log('Starting Compose services; readiness probes will report progress')
+	await compose(['up', '-d'])
+	await waitForComposeCompletion('garage-init')
 	await waitForServices()
 	// Seed the shared test collection before handing control to the E2E Vitest project.
 	log('Authenticating against Directus')
@@ -271,7 +348,7 @@ try {
 	log('Creating E2E posts collection and title field')
 	await createPostsCollection(token)
 	await runTests(token)
-	log('E2E tests completed successfully')
+	log(interrupted ? 'E2E run interrupted' : 'E2E tests completed successfully')
 } catch (error) {
 	console.error(`[e2e ${new Date().toISOString()}] E2E run failed`, error)
 	// Service logs are the most useful startup/test failure diagnostic available from Compose.
@@ -286,9 +363,7 @@ try {
 } finally {
 	// Cleanup runs for both passing and failing tests, including failed startup attempts.
 	try {
-		log('Cleaning up E2E Compose resources')
-		await compose(['down', '--volumes', '--remove-orphans'])
-		log('E2E cleanup completed')
+		await cleanup()
 	} catch (error) {
 		console.error(error)
 		process.exitCode = 1

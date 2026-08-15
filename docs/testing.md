@@ -35,8 +35,9 @@ field through the Directus data-model API before starting the E2E Vitest project
 update, and delete items only in that user collection.
 
 The E2E stack uses named Docker volumes and the `directus-extensions-e2e` Compose project. It does
-not reuse local `.data` directories. The runner always removes the containers, network, and database
-volume after the test, and prints the service logs when startup or a test fails.
+not reuse local `.data` directories. The runner always removes the containers, network, and
+disposable volumes after the test, including when interrupted, and prints the service logs when
+startup or a test fails. It does not stop the shared Docker daemon.
 
 E2E tests are named `*.e2e.test.ts` (or `*.e2e.spec.ts`) under the relevant package's `__tests__/`
 directory and are excluded from the regular unit-test project. They must exercise the built
@@ -69,7 +70,8 @@ they emerge; the package is intentionally still an empty scaffold.
 No pre-test cleanup hook is currently needed. This repository does not create framework-generated
 test directories that must be removed before Vitest starts. Unit tests use temporary in-memory or
 mocked state, and the E2E runner creates a uniquely named Compose project and removes its
-containers, network, and database volume in its `finally` block. Keep generated output such as
-`dist/`, coverage, and local service data ignored rather than deleting it globally in a pre-test
-hook. Add targeted cleanup only when a test introduces a persistent artifact and its ownership and
-lifecycle are documented.
+containers, network, and disposable volumes in its `finally` block and handles SIGINT/SIGTERM so
+that interrupted local runs follow the same cleanup path. Keep generated output such as `dist/`,
+coverage, and local service data ignored rather than deleting it globally in a pre-test hook. Add
+targeted cleanup only when a test introduces a persistent artifact and its ownership and lifecycle
+are documented.

@@ -21,9 +21,11 @@ conflict, and ask when the answer could change public behavior or compatibility.
 
 ## Required workflow
 
-Compose-backed services can take one to five minutes to become responsive, depending on image and
+Compose-backed services can take one to eight minutes to become responsive, depending on image and
 dependency cache hits. Do not treat an unresponsive Compose service as failed after only one minute;
-allow the full startup window before diagnosing the stack.
+allow the full startup window before diagnosing the stack. E2E runners must remove their Compose
+project and disposable volumes on success, failure, and interruption; do not stop the shared Docker
+daemon as part of test cleanup.
 
 For every task:
 
