@@ -1,102 +1,12 @@
-import type { TaskHandlerStorage } from './task-storage-memory'
+import type { AutoTaskHandler, AutoTaskHandlerOptions, AutoTaskScheduler } from './auto-task-core'
 
-import { BULK_OPERATION_LOCK } from './lock/lock-core'
-import { createLogger, type LoggerLike } from './logger'
-
-/** A marker identifying the latest trigger generation. */
-export interface AutoTaskMarker {
-	/** Monotonically increasing generation for a debounce identifier. */
-	generation: number
-	/** Timestamp at which the generation was triggered. */
-	updatedAt: number
-}
-
-/** Storage required to share debounce markers across handler instances or processes. */
-export interface AutoTaskMarkerStore {
-	/** Atomically creates or updates a marker and returns its new generation. */
-	touch(identifier: string, updatedAt: number): Promise<AutoTaskMarker>
-	/** Reads the current marker, or `undefined` when no marker exists. */
-	get(identifier: string): Promise<AutoTaskMarker | undefined>
-	/** Removes a marker only when it still has the supplied generation. */
-	clear(identifier: string, generation: number): Promise<boolean>
-}
-
-/**
- * Creates a process-local debounce marker store for one or more handlers.
- * @returns A marker store backed by a process-local map.
- */
-export function createMemoryAutoTaskMarkerStore(): AutoTaskMarkerStore {
-	const markers = new Map<string, AutoTaskMarker>()
-
-	return {
-		touch: async (identifier, updatedAt) => {
-			const marker = {
-				generation: (markers.get(identifier)?.generation ?? 0) + 1,
-				updatedAt,
-			}
-			markers.set(identifier, marker)
-			return marker
-		},
-		get: async (identifier) => markers.get(identifier),
-		clear: async (identifier, generation) => {
-			if (markers.get(identifier)?.generation !== generation) return false
-			markers.delete(identifier)
-			return true
-		},
-	}
-}
-
-/** Timer boundary used to make scheduling deterministic in tests and specialized runtimes. */
-export interface AutoTaskScheduler {
-	setTimeout(callback: () => void, delayMs: number): ReturnType<typeof setTimeout>
-	clearTimeout(handle: ReturnType<typeof setTimeout>): void
-	setInterval(callback: () => void, delayMs: number): ReturnType<typeof setInterval>
-	clearInterval(handle: ReturnType<typeof setInterval>): void
-}
+import { createLogger } from '../logger'
 
 const defaultScheduler: AutoTaskScheduler = {
 	setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
 	clearTimeout: (handle) => clearTimeout(handle),
 	setInterval: (callback, delayMs) => setInterval(callback, delayMs),
 	clearInterval: (handle) => clearInterval(handle),
-}
-
-/** Configuration for a debounced, lock-protected task handler. */
-export interface AutoTaskHandlerOptions {
-	/** Unique marker identifier, such as `schema-snapshot`. */
-	debounceId: string
-	/** Work to execute after the debounce window. The signal aborts when the lease is lost. */
-	task: (signal: AbortSignal) => Promise<void> | void
-	/** Lock and marker storage used to coordinate task executions. */
-	storage: TaskHandlerStorage
-	/** Optional logger for lifecycle messages. */
-	logger?: LoggerLike
-	/** Debounce window in milliseconds. Defaults to 15 seconds. */
-	debounceMs?: number
-	/** Maximum age of a pending trigger generation. Defaults to 5 minutes. */
-	markerLeaseMs?: number
-	/** Lease duration for the execution lock. Defaults to 5 minutes. */
-	taskLeaseMs?: number
-	/** Delay before retrying after lock contention. Defaults to `debounceMs`. */
-	retryMs?: number
-	/** Renewal interval. Defaults to half of `taskLeaseMs`. */
-	renewalIntervalMs?: number
-	/** Clock returning milliseconds since epoch. */
-	now?: () => number
-	/** Scheduler boundary. */
-	scheduler?: AutoTaskScheduler
-	/** Receives task, lock, marker, and renewal failures. */
-	onError?: (error: unknown) => void | Promise<void>
-	/** Lock name. Defaults to `BULK_OPERATION_LOCK` for Tio compatibility. */
-	lockName?: string
-}
-
-/** A trigger function with an explicit timer cleanup operation. */
-export interface AutoTaskHandler {
-	/** Records a trigger and schedules the latest generation. */
-	(): Promise<void>
-	/** Cancels pending timers; an already-running task is allowed to finish. */
-	dispose(): void
 }
 
 /** Validates a non-negative timer duration.
@@ -169,7 +79,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 	const { lockProvider, markerStore } = options.storage
 	const scheduler = options.scheduler ?? defaultScheduler
 	const now = options.now ?? Date.now
-	const lockName = options.lockName ?? BULK_OPERATION_LOCK
+	const lockName = options.lockName ?? options.debounceId
 	let timer: ReturnType<typeof setTimeout> | undefined
 	let disposed = false
 

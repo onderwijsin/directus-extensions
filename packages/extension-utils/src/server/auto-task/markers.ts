@@ -1,17 +1,40 @@
 import type { Kv } from '@directus/memory'
-import type { AutoTaskMarker, AutoTaskMarkerStore } from './auto-task-handler'
-import type { LockProvider } from './lock/lock-core'
+import type {
+	AutoTaskMarker,
+	AutoTaskMarkerStore,
+	DirectusAutoTaskMarkerStoreOptions,
+	FsAutoTaskMarkerStoreOptions,
+} from './auto-task-core'
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { uuid } from '../shared/uuid'
-import { createFsLockProvider } from './lock'
+import { uuid } from '../../shared/uuid'
+import { createFsLockProvider } from '../lock'
 
-/** Options for the Directus KV-backed marker store. */
-export interface DirectusAutoTaskMarkerStoreOptions {
-	/** Namespace used for marker and generation keys. */
-	namespace?: string
+/**
+ * Creates a process-local debounce marker store for one or more handlers.
+ * @returns A marker store backed by a process-local map.
+ */
+export function createMemoryAutoTaskMarkerStore(): AutoTaskMarkerStore {
+	const markers = new Map<string, AutoTaskMarker>()
+
+	return {
+		touch: async (identifier, updatedAt) => {
+			const marker = {
+				generation: (markers.get(identifier)?.generation ?? 0) + 1,
+				updatedAt,
+			}
+			markers.set(identifier, marker)
+			return marker
+		},
+		get: async (identifier) => markers.get(identifier),
+		clear: async (identifier, generation) => {
+			if (markers.get(identifier)?.generation !== generation) return false
+			markers.delete(identifier)
+			return true
+		},
+	}
 }
 
 /**
@@ -68,15 +91,6 @@ export function createDirectusAutoTaskMarkerStore(
 }
 
 /** Options for the explicit local-filesystem marker store. */
-export interface FsAutoTaskMarkerStoreOptions {
-	/** Directory shared by the processes that should share debounce markers. */
-	directory: string
-	/** Optional provider used to serialize marker updates. */
-	lockProvider?: LockProvider
-	/** Lock lifetime used for one marker read/update operation. Defaults to five seconds. */
-	lockTimeoutMs?: number
-}
-
 /** Maps a debounce identifier to its marker filename.
  * @param identifier - Logical marker identifier.
  * @returns Marker filename.

@@ -21,7 +21,6 @@ describe('runtime-aware exports', () => {
 				'createMemoryLockProvider',
 				'createMemoryTaskHandlerStorage',
 				'createLogger',
-				'BULK_OPERATION_LOCK',
 			].sort(),
 		)
 		expect(app.isRecord).toBe(shared.isRecord)

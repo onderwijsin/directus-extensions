@@ -98,8 +98,8 @@ business data; it only prevents multiple owners from doing the same protected wo
 ### Lock name
 
 The logical name of the protected operation, such as `products:reindex`. The same name must be used
-by contenders that should exclude one another. `BULK_OPERATION_LOCK` is the default compatibility
-name for auto-task execution.
+by contenders that should exclude one another. Auto-task handlers use their debounce identifier as
+the default lock name.
 
 ### Owner
 

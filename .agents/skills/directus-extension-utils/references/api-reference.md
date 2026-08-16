@@ -77,7 +77,6 @@ interface LockLease {
 interface LockProvider {
   tryAcquire(name: string, options?: LockAcquireOptions): Promise<LockLease | null>
 }
-const BULK_OPERATION_LOCK = 'bulk-operation'
 interface MemoryLockProviderOptions {
   defaultLeaseMs?: number
   now?: () => number
@@ -157,7 +156,7 @@ interface AutoTaskHandlerOptions {
   now?: () => number
   scheduler?: AutoTaskScheduler
   onError?: (error: unknown) => void | Promise<void>
-  lockName?: string               // default BULK_OPERATION_LOCK
+  lockName?: string               // default debounceId
 }
 interface AutoTaskHandler {
   (): Promise<void>

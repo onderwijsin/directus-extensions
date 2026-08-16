@@ -1,23 +1,14 @@
-import type { TaskHandlerStorage } from './task-storage-memory'
+import type {
+	FsTaskHandlerStorageOptions,
+	RedisTaskHandlerStorageOptions,
+	TaskHandlerStorage,
+} from './auto-task-core'
 
 import { createKv } from '@directus/memory'
 import Redis from 'ioredis'
 
-import { createDirectusAutoTaskMarkerStore, createFsAutoTaskMarkerStore } from './auto-task'
-import { createFsLockProvider } from './lock'
-import { createRedisLockProvider } from './lock'
-
-/** Options for Redis-backed auto-task storage. */
-export interface RedisTaskHandlerStorageOptions {
-	/** Redis connection URL. The storage owns the created connection. */
-	redisUrl: string
-	/** Namespace shared by the lock and marker stores. Defaults to `directus:task-handler`. */
-	namespace?: string
-	/** Default execution lock lifetime in milliseconds. Defaults to 5 minutes. */
-	lockTimeoutMs?: number
-	/** Identifies backend errors that represent lock contention. */
-	isContentionError?: (error: unknown) => boolean
-}
+import { createFsLockProvider, createRedisLockProvider } from '../lock'
+import { createDirectusAutoTaskMarkerStore, createFsAutoTaskMarkerStore } from './markers'
 
 /**
  * Creates Redis-backed storage for an auto-task handler.
@@ -66,18 +57,6 @@ export function createRedisTaskHandlerStorage(
 			await redis.quit()
 		},
 	}
-}
-
-/** Options for filesystem-backed auto-task storage. */
-export interface FsTaskHandlerStorageOptions {
-	/** Directory shared by the processes that coordinate the task. */
-	directory: string
-	/** Injectable clock for deterministic tests. */
-	now?: () => number
-	/** Injectable owner-token factory for deterministic tests. */
-	tokenFactory?: () => string
-	/** Default lock lifetime used by filesystem marker operations. Defaults to five seconds. */
-	lockTimeoutMs?: number
 }
 
 /**

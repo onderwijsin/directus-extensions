@@ -1,7 +1,17 @@
-import type { LockLease, LockProvider, MemoryLockProviderOptions } from './lock-core'
+import type { LockLease, LockProvider } from './lock-core'
 
 import { isFunction } from '../../shared/guards'
 import { createLockToken, validateLeaseMs, validateLockName } from './lock-core'
+
+/** Options for deterministic in-memory lock providers. */
+export interface MemoryLockProviderOptions {
+	/** Default lease lifetime when an acquire call omits `leaseMs`. */
+	defaultLeaseMs?: number
+	/** Injectable clock returning milliseconds since epoch. */
+	now?: () => number
+	/** Injectable owner-token factory. */
+	tokenFactory?: () => string
+}
 
 interface MemoryLockRecord {
 	token: string

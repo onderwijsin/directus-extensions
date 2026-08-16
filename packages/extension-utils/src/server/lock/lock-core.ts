@@ -25,19 +25,6 @@ export interface LockProvider {
 	tryAcquire(name: string, options?: LockAcquireOptions): Promise<LockLease | null>
 }
 
-/** Standard lock name used by Tio for bulk operations. */
-export const BULK_OPERATION_LOCK = 'bulk-operation'
-
-/** Options for deterministic in-memory lock providers. */
-export interface MemoryLockProviderOptions {
-	/** Default lease lifetime when an acquire call omits `leaseMs`. */
-	defaultLeaseMs?: number
-	/** Injectable clock returning milliseconds since epoch. */
-	now?: () => number
-	/** Injectable owner-token factory. */
-	tokenFactory?: () => string
-}
-
 /** Default lease lifetime for memory and filesystem providers. */
 const DEFAULT_LOCK_LEASE_MS = 30_000
 

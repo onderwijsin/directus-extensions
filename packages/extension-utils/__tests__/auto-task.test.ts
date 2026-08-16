@@ -56,7 +56,7 @@ describe('createAutoTaskHandler', () => {
 	it('retries a generation after lock contention', async () => {
 		vi.useFakeTimers()
 		const lockProvider = createMemoryLockProvider()
-		const blocker = await lockProvider.tryAcquire('bulk-operation', { leaseMs: 1000 })
+		const blocker = await lockProvider.tryAcquire('items', { leaseMs: 1000 })
 		const task = vi.fn()
 		const handler = createAutoTaskHandler({
 			debounceId: 'items',
