@@ -44,6 +44,6 @@ deterministic helpers and package-specific Directus E2E tests under that package
 directory. E2E tests must exercise a built extension through Directus rather than importing
 extension source directly.
 
-Use `pnpm test` for unit tests, `pnpm test:coverage` for the coverage run, `pnpm integration` for
-child-process tests after `pnpm build:utils`, and `pnpm e2e` for the isolated Directus E2E stack. Do
-not add tests merely to satisfy a coverage threshold.
+Use `pnpm test:unit` for unit tests, `pnpm test:unit:coverage` for the coverage run,
+`pnpm test:integration` for child-process tests after `pnpm build:utils`, and `pnpm test:e2e` for
+the isolated Directus E2E stack. Do not add tests merely to satisfy a coverage threshold.

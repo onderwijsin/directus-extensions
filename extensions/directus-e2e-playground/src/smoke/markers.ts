@@ -1,10 +1,9 @@
 import type Redis from 'ioredis'
 
-import { createKv } from '@directus/memory'
 import { uuid } from '@onderwijsin/directus-extension-utils'
 import {
-	createDirectusAutoTaskMarkerStore,
 	createFsTaskHandlerStorage,
+	createRedisMarkerStore,
 } from '@onderwijsin/directus-extension-utils/server'
 
 /**
@@ -26,13 +25,11 @@ export const runMarkerSmokeTest = async (redis: Redis) => {
 	const fileMarker = await file.get('e2e')
 	const fileMarkerCleared = await file.clear('e2e', secondFileMarker.generation)
 
-	const distributed = createDirectusAutoTaskMarkerStore(
-		createKv({
-			type: 'redis',
-			namespace: 'extension-utils:e2e:markers',
-			redis,
-		}),
-	)
+	const distributed = createRedisMarkerStore({
+		redisUrl: 'redis://localhost',
+		namespace: 'extension-utils:e2e:markers',
+		redis,
+	})
 	await distributed.touch('e2e', Date.now())
 	const redisMarker = await distributed.get('e2e')
 	const redisMarkerCleared = await distributed.clear('e2e', redisMarker?.generation ?? 0)

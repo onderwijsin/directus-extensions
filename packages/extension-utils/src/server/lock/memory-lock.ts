@@ -101,7 +101,7 @@ export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}
 	const locks = new Map<string, MemoryLockRecord>()
 
 	return {
-		tryAcquire: (name, acquireOptions = {}) => {
+		tryAcquire: async (name, acquireOptions = {}) => {
 			const normalizedName = validateLockName(name)
 			const leaseMs = resolveLeaseMs(acquireOptions, config.defaultLeaseMs)
 			const currentTime = config.now()
@@ -111,9 +111,7 @@ export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}
 
 			const token = config.tokenFactory()
 			locks.set(normalizedName, { token, expiresAt: currentTime + leaseMs })
-			return Promise.resolve(
-				createMemoryLease(normalizedName, token, leaseMs, config.now, locks),
-			)
+			return createMemoryLease(normalizedName, token, leaseMs, config.now, locks)
 		},
 	}
 }

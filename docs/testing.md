@@ -70,16 +70,16 @@ Run the process integration project with:
 
 ```sh
 pnpm build:utils
-pnpm integration
+pnpm test:integration
 ```
 
 Integration tests use the `*.integration.test.ts` (or `*.integration.spec.ts`) suffix. They are
-excluded from `pnpm test` and run in a separate CI job because they spawn child processes and must
-exercise built package output rather than source aliases.
+excluded from `pnpm test:unit` and run in a separate CI job because they spawn child processes and
+must exercise built package output rather than source aliases.
 
 ## Directus E2E tests
 
-Run `pnpm e2e` to build the extensions and test them against an isolated Directus 12.2.0 and
+Run `pnpm test:e2e` to build the extensions and test them against an isolated Directus 12.2.0 and
 PostgreSQL Compose stack. The runner creates a user collection named `posts` and a required `title`
 field through the Directus data-model API before starting the E2E Vitest project. Tests then create,
 update, and delete items only in that user collection.
@@ -93,11 +93,12 @@ E2E tests are named `*.e2e.test.ts` (or `*.e2e.spec.ts`) under the relevant pack
 directory and are excluded from the regular unit-test project. They must exercise the built
 extension through Directus rather than importing extension source directly. The E2E Vitest project
 is activated only when the runner has initialized all four `DIRECTUS_E2E_*` environment variables;
-this keeps `pnpm test` focused on unit and component tests. E2E tests and Directus log polls use a
-60-second operation timeout; service startup and Compose readiness retain their longer budgets.
+this keeps `pnpm test:unit` focused on unit and component tests. E2E tests and Directus log polls
+use a 60-second operation timeout; service startup and Compose readiness retain their longer
+budgets.
 
-Use `pnpm test:coverage` for the V8 coverage run. Coverage includes source files under `extensions/`
-and `packages/`, while generated output, declarations, and test files are excluded.
+Use `pnpm test:unit:coverage` for the V8 coverage run. Coverage includes source files under
+`extensions/` and `packages/`, while generated output, declarations, and test files are excluded.
 
 Do not import source through private paths in tests when the public package contract is what
 matters. Do not add tests solely to satisfy coverage. Keep generated output and local service data

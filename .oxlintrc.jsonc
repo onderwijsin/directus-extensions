@@ -11,6 +11,8 @@
 	},
 	"plugins": ["jsdoc", "typescript", "vue"],
 	"rules": {
+		// Oxlint's JSDoc plugin validates documentation that exists but does not provide a
+		// require-jsdoc rule. Keep these requirements strict and document private helpers manually.
 		"jsdoc/check-tag-names": ["error", { "definedTags": ["fileoverview"] }],
 		"jsdoc/require-param": "error",
 		"jsdoc/require-param-description": "error",

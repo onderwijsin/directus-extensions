@@ -88,7 +88,8 @@ export function createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTa
 }
 
 /** Options for the explicit local-filesystem marker store. */
-/** Maps a debounce identifier to its marker filename.
+/**
+ * Maps a debounce identifier to its marker filename.
  * @param identifier - Logical marker identifier.
  * @returns Marker filename.
  */
@@ -131,7 +132,8 @@ const raiseMarkerError = (error: unknown): never => {
 	throw new Error('Auto task marker operation failed')
 }
 
-/** Reads and validates a marker file, treating a missing file as no marker.
+/**
+ * Reads and validates a marker file, treating a missing file as no marker.
  * @param path - Marker file path.
  * @returns The marker or `undefined`.
  */
@@ -161,7 +163,8 @@ const readMarker = async (path: string): Promise<AutoTaskMarker | undefined> => 
 	return { generation: value.generation, updatedAt: value.updatedAt }
 }
 
-/** Reads the durable generation counter, treating a missing file as generation zero.
+/**
+ * Reads the durable generation counter, treating a missing file as generation zero.
  * @param path - Generation file path.
  * @returns The stored generation.
  */
@@ -189,6 +192,11 @@ interface FsMarkerConfig {
 	lockProvider: LockProvider
 }
 
+/**
+ * Validates and normalizes filesystem marker configuration.
+ * @param options - Filesystem marker options.
+ * @returns Normalized marker configuration.
+ */
 const validateFsMarkerConfig = (options: FsMarkerStoreOptions): FsMarkerConfig => {
 	if (!isNonBlankString(options.directory)) {
 		throw new TypeError('Auto task marker directory must not be empty')
@@ -205,6 +213,13 @@ const validateFsMarkerConfig = (options: FsMarkerStoreOptions): FsMarkerConfig =
 	}
 }
 
+/**
+ * Runs one marker operation while holding its cross-process lease.
+ * @param config - Filesystem marker configuration.
+ * @param identifier - Logical marker identifier.
+ * @param operation - Operation to execute under the marker lease.
+ * @returns The operation result.
+ */
 const withMarkerLock = async <T>(
 	config: FsMarkerConfig,
 	identifier: string,
@@ -223,13 +238,22 @@ const withMarkerLock = async <T>(
 	if (result.error !== null) raiseMarkerError(result.error)
 	if (result.data === null) throw new Error(`Auto task marker is busy: ${identifier}`)
 	const lease = result.data
-	try {
-		return await operation()
-	} finally {
-		await lease.release()
-	}
+	const operationResult = await attempt(operation)
+	const releaseResult = await attempt(() => lease.release())
+	if (releaseResult.error !== null) raiseMarkerError(releaseResult.error)
+	if (operationResult.error !== null) raiseMarkerError(operationResult.error)
+	if (operationResult.data === null)
+		throw new Error('Auto task marker operation returned no result')
+	return operationResult.data
 }
 
+/**
+ * Serializes marker operations for one identifier within a store instance.
+ * @param queues - Per-identifier operation queues.
+ * @param identifier - Logical marker identifier.
+ * @param operation - Marker operation to enqueue.
+ * @returns The queued operation result.
+ */
 const queueMarkerOperation = <T>(
 	queues: Map<string, Promise<unknown>>,
 	identifier: string,
@@ -238,11 +262,25 @@ const queueMarkerOperation = <T>(
 	const previous = queues.get(identifier) ?? Promise.resolve()
 	const current = previous.catch(() => undefined).then(operation)
 	queues.set(identifier, current)
-	return current.finally(() => {
-		if (queues.get(identifier) === current) queues.delete(identifier)
-	})
+	return current.then(
+		(value) => {
+			if (queues.get(identifier) === current) queues.delete(identifier)
+			return value
+		},
+		(error: unknown) => {
+			if (queues.get(identifier) === current) queues.delete(identifier)
+			throw error
+		},
+	)
 }
 
+/**
+ * Touches a filesystem marker while holding its marker lease.
+ * @param config - Filesystem marker configuration.
+ * @param identifier - Logical marker identifier.
+ * @param updatedAt - Trigger timestamp.
+ * @returns The new marker generation.
+ */
 const touchFsMarker = async (
 	config: FsMarkerConfig,
 	identifier: string,
@@ -270,6 +308,13 @@ const touchFsMarker = async (
 		return marker
 	})
 
+/**
+ * Clears a filesystem marker when its generation still matches.
+ * @param config - Filesystem marker configuration.
+ * @param identifier - Logical marker identifier.
+ * @param generation - Expected marker generation.
+ * @returns Whether the matching marker was cleared.
+ */
 const clearFsMarker = async (
 	config: FsMarkerConfig,
 	identifier: string,

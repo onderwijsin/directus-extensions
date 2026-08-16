@@ -30,7 +30,7 @@ export const runLockSmokeTest = async (redisUrl: string) => {
 	const distributed = createRedisLockProvider({
 		redisUrl,
 		namespace: 'extension-utils:e2e:lock',
-		lockTimeoutMs: 1000,
+		defaultLeaseMs: 1000,
 	})
 	const redisLease = await distributed.tryAcquire('item', { leaseMs: 1000 })
 	const redisLockUsed = redisLease !== null

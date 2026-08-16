@@ -85,11 +85,13 @@ const reportError = async (
 		cause: error instanceof Error ? error.message : String(error),
 	})
 	if (!onError) return
-	try {
-		await onError(error)
-	} catch (handlerError) {
+	const result = await attempt(() => onError(error))
+	if (result.error !== null) {
 		logger.error('Auto task error handler failed', {
-			cause: handlerError instanceof Error ? handlerError.message : String(handlerError),
+			cause:
+				result.error instanceof Error
+					? result.error.message
+					: (JSON.stringify(result.error) ?? 'Unknown error'),
 		})
 	}
 }
@@ -136,16 +138,14 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 		leaseLost: boolean,
 	): Promise<void> => {
 		if (!leaseLost) {
-			try {
-				await markerStore.clear(config.taskId, generation)
-			} catch (error) {
-				await reportError(error, logger, options.onError)
+			const markerResult = await attempt(() => markerStore.clear(config.taskId, generation))
+			if (markerResult.error !== null) {
+				await reportError(markerResult.error, logger, options.onError)
 			}
 		}
-		try {
-			await lease.release()
-		} catch (error) {
-			await reportError(error, logger, options.onError)
+		const releaseResult = await attempt(() => lease.release())
+		if (releaseResult.error !== null) {
+			await reportError(releaseResult.error, logger, options.onError)
 		}
 	}
 
@@ -154,18 +154,17 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 		let leaseLost = false
 		let renewalTimer: ReturnType<typeof setInterval> | undefined
 		const renew = async (): Promise<void> => {
-			try {
-				if (await lease.renew()) return
+			const result = await attempt(() => lease.renew())
+			if (result.error !== null) {
+				leaseLost = true
+				controller.abort(result.error)
+				await reportError(result.error, logger, options.onError)
+			} else if (!result.data) {
 				leaseLost = true
 				controller.abort(new Error('Auto task lock lease was lost'))
-			} catch (error) {
-				leaseLost = true
-				controller.abort(error)
-				await reportError(error, logger, options.onError)
-			} finally {
-				if (leaseLost && renewalTimer !== undefined) {
-					config.scheduler.clearInterval(renewalTimer)
-				}
+			}
+			if (leaseLost && renewalTimer !== undefined) {
+				config.scheduler.clearInterval(renewalTimer)
 			}
 		}
 		renewalTimer = config.scheduler.setInterval(() => void renew(), config.renewalIntervalMs)
@@ -185,7 +184,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 
 	const run = async (generation: number): Promise<void> => {
 		if (disposed) return
-		try {
+		const result = await attempt(async () => {
 			if (!(await prepareGeneration(generation))) return
 			const lease = await lockProvider.tryAcquire(config.taskId, {
 				leaseMs: config.taskLeaseMs,
@@ -199,19 +198,21 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 				return
 			}
 			await execute(lease, generation)
-		} catch (error) {
-			await reportError(error, logger, options.onError)
+		})
+		if (result.error !== null) {
+			await reportError(result.error, logger, options.onError)
 		}
 	}
 
 	const trigger = async (): Promise<void> => {
 		if (disposed) return
-		try {
+		const result = await attempt(async () => {
 			const marker = await markerStore.touch(config.taskId, config.now())
 			logger.info(`Auto task scheduled: ${config.taskId}`)
 			schedule(marker.generation, config.debounceMs)
-		} catch (error) {
-			await reportError(error, logger, options.onError)
+		})
+		if (result.error !== null) {
+			await reportError(result.error, logger, options.onError)
 		}
 	}
 

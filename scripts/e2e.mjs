@@ -1,7 +1,7 @@
 /**
  * End-to-end runner for the repository's isolated Directus test project.
  *
- * Invoked by `pnpm e2e` and directly by the CI E2E job. It starts the Compose
+ * Invoked by `pnpm test:e2e` and directly by the CI E2E job. It starts the Compose
  * stack, initializes the test data, runs Vitest, prints diagnostics on failure,
  * and always removes the stack afterwards.
  */

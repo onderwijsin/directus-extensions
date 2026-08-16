@@ -60,7 +60,7 @@ Before publishing, the workflow runs the release quality gate:
 pnpm format
 pnpm lint
 pnpm typecheck
-pnpm test:coverage
+pnpm test:unit:coverage
 pnpm build:utils
 pnpm build:extensions
 pnpm validate:packages

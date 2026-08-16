@@ -108,7 +108,7 @@ them. The development defaults are not production secrets; set `GARAGE_RPC_SECRE
 Run the isolated E2E path with:
 
 ```sh
-pnpm e2e
+pnpm test:e2e
 ```
 
 The runner:
@@ -149,5 +149,5 @@ HSTS, and Marketplace trust.
 pnpm compose:logs
 pnpm compose:down
 pnpm compose:reset
-pnpm e2e
+pnpm test:e2e
 ```

@@ -51,13 +51,13 @@ pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs
 pnpm typecheck
-pnpm test
+pnpm test:unit
 pnpm build
 pnpm validate:packages
 ```
 
-Run `pnpm e2e` when the change affects Directus loading, built extensions, package artifacts,
-runtime integration, Compose services, or E2E behavior. Run `pnpm test:coverage` when coverage
+Run `pnpm test:e2e` when the change affects Directus loading, built extensions, package artifacts,
+runtime integration, Compose services, or E2E behavior. Run `pnpm test:unit:coverage` when coverage
 output or coverage-sensitive source changes are relevant.
 
 For a publishable package change, inspect the packed archive and confirm that its README, metadata,

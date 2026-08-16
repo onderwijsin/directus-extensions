@@ -77,10 +77,10 @@ pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs
 pnpm typecheck
-pnpm test
-pnpm test:coverage
+pnpm test:unit
+pnpm test:unit:coverage
 pnpm build:utils
-pnpm integration
+pnpm test:integration
 pnpm build
 pnpm validate:packages
 ```
@@ -117,7 +117,7 @@ E2E consumer and run the Directus E2E suite:
 
 ```sh
 pnpm prepare:e2e-consumer /tmp/directus-extensions-packages /tmp/directus-extensions-consumer
-DIRECTUS_E2E_EXTENSIONS_DIR=/tmp/directus-extensions-consumer/extensions pnpm e2e
+DIRECTUS_E2E_EXTENSIONS_DIR=/tmp/directus-extensions-consumer/extensions pnpm test:e2e
 ```
 
 The CI E2E job uses the same packed-artifact path. See [`testing.md`](testing.md) and
@@ -147,14 +147,14 @@ pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs
 pnpm typecheck
-pnpm test
+pnpm test:unit
 pnpm build
 pnpm validate:packages
 ```
 
-Add `pnpm e2e` when the change affects Directus loading, built artifacts, runtime integration,
+Add `pnpm test:e2e` when the change affects Directus loading, built artifacts, runtime integration,
 Compose services, or E2E behavior. If a required check cannot run, record the exact command and
 blocker; a narrower successful check does not imply that a broader check passed.
 
-Add `pnpm build:utils && pnpm integration` when the change affects process coordination, filesystem
-locks, marker stores, or other behavior that crosses a real Node process boundary.
+Add `pnpm build:utils && pnpm test:integration` when the change affects process coordination,
+filesystem locks, marker stores, or other behavior that crosses a real Node process boundary.

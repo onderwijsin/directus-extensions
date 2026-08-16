@@ -62,8 +62,11 @@ Run the applicable checks:
 corepack pnpm format
 corepack pnpm lint:fix
 corepack pnpm typecheck
-corepack pnpm test
+corepack pnpm test:unit
 ```
+
+Lint is successful only when it reports zero errors and zero warnings. Treat warnings as findings
+that must be fixed before handoff; do not describe a warning-producing lint run as passing.
 
 Add focused package, packed-consumer, or E2E checks when the change affects those surfaces. Review:
 

@@ -112,9 +112,10 @@ Follow [`docs/workspace.md`](docs/workspace.md) for the complete tooling contrac
 A task is complete only when every applicable gate is satisfied or explicitly reported as blocked:
 
 - formatting applied with `corepack pnpm format`;
-- lint autofixes applied and lint passing with `corepack pnpm lint:fix`;
+- lint autofixes applied and lint passing with `corepack pnpm lint:fix` with zero errors and zero
+  warnings;
 - TypeScript checks passing with `corepack pnpm typecheck`;
-- unit tests passing with `corepack pnpm test`;
+- unit tests passing with `corepack pnpm test:unit`;
 - broader build, package, playground, or packed-consumer checks run when triggered by the change;
 - maintainer and consumer documentation synchronized, or a concrete no-doc-impact reason recorded;
 - matching consumer skill synchronized when public extension behavior changes;

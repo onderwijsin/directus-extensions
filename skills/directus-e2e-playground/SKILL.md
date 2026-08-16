@@ -14,7 +14,7 @@ supported setup.
 Install it with:
 
 ```sh
-pnpm e2e
+pnpm test:e2e
 ```
 
 Place the package directory containing `package.json` and `dist/` in Directus' `extensions/`

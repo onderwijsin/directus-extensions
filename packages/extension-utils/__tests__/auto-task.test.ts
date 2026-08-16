@@ -94,10 +94,10 @@ describe('createAutoTaskHandler', () => {
 			touch: vi.fn().mockResolvedValue({ generation: 1, updatedAt: 0 }),
 			get: vi
 				.fn()
-				.mockImplementation(async () =>
+				.mockImplementation(() =>
 					markerPresent ? { generation: 1, updatedAt: 0 } : undefined,
 				),
-			clear: vi.fn().mockImplementation(async () => {
+			clear: vi.fn().mockImplementation(() => {
 				markerPresent = false
 				return true
 			}),
@@ -109,6 +109,7 @@ describe('createAutoTaskHandler', () => {
 			task,
 			storage: createTestStorage(lockProvider, markerStore),
 			debounceMs: 10,
+			now: () => 10,
 			logger,
 		})
 		const second = createAutoTaskHandler({
@@ -116,6 +117,7 @@ describe('createAutoTaskHandler', () => {
 			task,
 			storage: createTestStorage(lockProvider, markerStore),
 			debounceMs: 10,
+			now: () => 10,
 			logger,
 		})
 

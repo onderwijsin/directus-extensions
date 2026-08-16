@@ -45,7 +45,7 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
       - name: Unit tests
-        run: pnpm test:coverage
+        run: pnpm test:unit:coverage
       - name: Build extension-utils
         if: inputs.yolo != true
         run: pnpm build:utils
@@ -116,4 +116,4 @@ jobs:
       - name: Build extension-utils
         run: pnpm build:utils
       - name: Run process integration tests
-        run: pnpm integration
+        run: pnpm test:integration

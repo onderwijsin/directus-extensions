@@ -19,6 +19,23 @@ interface MarkerResponse {
 	marker?: { generation: number; updatedAt: number }
 }
 
+interface HandlerEvent {
+	status: 'started' | 'completed' | 'error'
+	at: number
+	pid: number
+}
+
+interface HandlerConfig {
+	taskId: string
+	eventPath: string
+	debounceMs: number
+	markerLeaseMs: number
+	taskLeaseMs: number
+	renewalIntervalMs: number
+	durationMs: number
+	lockTimeoutMs: number
+}
+
 const workerScript = fileURLToPath(new URL('./fixtures/process-worker.mjs', import.meta.url))
 const extensionUtilsDist = fileURLToPath(new URL('../dist/server/index.js', import.meta.url))
 
@@ -31,14 +48,45 @@ describe('filesystem coordination across processes', () => {
 		if (directory) await rm(directory, { force: true, recursive: true })
 	})
 
-	const createWorker = <Message>(mode: 'lock' | 'marker') => {
+	const createWorker = <Message>(
+		mode: 'lock' | 'marker' | 'handler',
+		config: Partial<HandlerConfig> = {},
+	) => {
 		const worker = createProcessWorker<Message>({
 			script: workerScript,
-			args: [extensionUtilsDist, mode, directory],
+			args: [extensionUtilsDist, mode, directory, JSON.stringify(config)],
 			timeoutMs: 30_000,
 		})
 		workers.push(worker)
 		return worker
+	}
+
+	const readEvents = async (paths: string[]): Promise<HandlerEvent[]> => {
+		const contents = await Promise.all(
+			paths.map(async (path) => {
+				try {
+					return await readFile(path, 'utf8')
+				} catch {
+					return ''
+				}
+			}),
+		)
+		return contents
+			.flatMap((content) => content.trim().split('\n').filter(Boolean))
+			.map((line) => JSON.parse(line) as HandlerEvent)
+	}
+
+	const waitForEvents = async (
+		paths: string[],
+		predicate: (events: HandlerEvent[]) => boolean,
+	): Promise<HandlerEvent[]> => {
+		const deadline = Date.now() + 5_000
+		while (Date.now() < deadline) {
+			const events = await readEvents(paths)
+			if (predicate(events)) return events
+			await new Promise((resolve) => setTimeout(resolve, 25))
+		}
+		return readEvents(paths)
 	}
 
 	it('does not let a late owner release a replacement lock', async () => {
@@ -93,7 +141,100 @@ describe('filesystem coordination across processes', () => {
 		expect(
 			responses.map((response) => response.marker?.generation ?? 0).sort((a, b) => a - b),
 		).toEqual([1, 2])
+		const latest = responses.find((response) => response.marker?.generation === 2)?.marker
 		first.send({ op: 'get', identifier: 'events' })
-		expect(await first.next()).toEqual({ ok: true, marker: { generation: 2, updatedAt: 2 } })
+		expect(await first.next()).toEqual({ ok: true, marker: latest })
+	})
+
+	it('executes one shared debounce generation and preserves a newer event', async () => {
+		directory = await mkdtemp(join(tmpdir(), 'extension-utils-process-handler-'))
+		const eventPaths = [join(directory, 'first.events'), join(directory, 'second.events')]
+		const config = {
+			taskId: 'shared-handler',
+			debounceMs: 20,
+			markerLeaseMs: 1_000,
+			taskLeaseMs: 1_000,
+			renewalIntervalMs: 100,
+			durationMs: 150,
+			lockTimeoutMs: 1_000,
+		}
+		const first = createWorker<{ ok: boolean; type?: string }>('handler', {
+			...config,
+			eventPath: eventPaths[0],
+		})
+		const second = createWorker<{ ok: boolean; type?: string }>('handler', {
+			...config,
+			eventPath: eventPaths[1],
+		})
+
+		first.send({ op: 'trigger' })
+		second.send({ op: 'trigger' })
+		expect(await first.next()).toEqual({ ok: true, type: 'triggered' })
+		expect(await second.next()).toEqual({ ok: true, type: 'triggered' })
+		await waitForEvents(
+			eventPaths,
+			(events) => events.filter(({ status }) => status === 'started').length === 1,
+		)
+
+		first.send({ op: 'trigger' })
+		expect(await first.next()).toEqual({ ok: true, type: 'triggered' })
+		const events = await waitForEvents(
+			eventPaths,
+			(events) => events.filter(({ status }) => status === 'completed').length === 2,
+		)
+		const lifecycle = events
+			.filter(({ status }) => status !== 'error')
+			.sort((first, second) => first.at - second.at)
+		expect(lifecycle.map(({ status }) => status)).toEqual([
+			'started',
+			'completed',
+			'started',
+			'completed',
+		])
+	})
+
+	it('renews a real filesystem lease during a long-running task', async () => {
+		directory = await mkdtemp(join(tmpdir(), 'extension-utils-process-renewal-'))
+		const eventPaths = [join(directory, 'first.events'), join(directory, 'second.events')]
+		const config = {
+			taskId: 'renewing-handler',
+			debounceMs: 20,
+			markerLeaseMs: 1_000,
+			taskLeaseMs: 80,
+			renewalIntervalMs: 20,
+			durationMs: 300,
+			lockTimeoutMs: 1_000,
+		}
+		const first = createWorker<{ ok: boolean; type?: string }>('handler', {
+			...config,
+			eventPath: eventPaths[0],
+		})
+		const second = createWorker<{ ok: boolean; type?: string }>('handler', {
+			...config,
+			eventPath: eventPaths[1],
+		})
+
+		first.send({ op: 'trigger' })
+		expect(await first.next()).toEqual({ ok: true, type: 'triggered' })
+		await waitForEvents(eventPaths, (events) =>
+			events.some(({ status }) => status === 'started'),
+		)
+		second.send({ op: 'trigger' })
+		expect(await second.next()).toEqual({ ok: true, type: 'triggered' })
+
+		const events = await waitForEvents(
+			eventPaths,
+			(events) => events.filter(({ status }) => status === 'completed').length === 2,
+		)
+		const lifecycle = events
+			.filter(({ status }) => status !== 'error')
+			.sort((first, second) => first.at - second.at)
+		expect(lifecycle.map(({ status }) => status)).toEqual([
+			'started',
+			'completed',
+			'started',
+			'completed',
+		])
+		expect(lifecycle[2].at).toBeGreaterThanOrEqual(lifecycle[1].at)
 	})
 })

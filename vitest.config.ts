@@ -100,7 +100,7 @@ export default defineConfig({
 			{
 				extends: true,
 				test: {
-					name: 'integration',
+					name: 'test:integration',
 					environment: 'node',
 					testTimeout: 30_000,
 					hookTimeout: 30_000,

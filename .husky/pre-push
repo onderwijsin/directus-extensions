@@ -12,5 +12,5 @@ fi
 
 # Run the unit test suite before pushing unless explicitly disabled.
 if [ "${DISABLE_PRE_PUSH_TEST:-false}" != "true" ]; then
-  corepack pnpm test
+  corepack pnpm test:unit
 fi

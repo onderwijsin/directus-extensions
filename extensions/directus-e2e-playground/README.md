@@ -27,7 +27,7 @@ This package is private and is not publishable. The E2E runner packs and install
 consumer automatically:
 
 ```sh
-pnpm e2e
+pnpm test:e2e
 ```
 
 The E2E preparation script installs the packed archive, then places its package directory containing

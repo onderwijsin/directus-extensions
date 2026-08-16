@@ -5,17 +5,15 @@ const mocks = vi.hoisted(() => ({
 		const markers = new Map<string, unknown>()
 		const generations = new Map<string, number>()
 		return {
-			usingLock: vi.fn(async (_key: string, operation: () => Promise<unknown>) =>
-				operation(),
-			),
-			increment: vi.fn(async (key: string) => {
+			usingLock: vi.fn((_key: string, operation: () => Promise<unknown>) => operation()),
+			increment: vi.fn((key: string) => {
 				const generation = (generations.get(key) ?? 0) + 1
 				generations.set(key, generation)
 				return generation
 			}),
-			set: vi.fn(async (key: string, value: unknown) => void markers.set(key, value)),
-			get: vi.fn(async (key: string) => markers.get(key)),
-			delete: vi.fn(async (key: string) => void markers.delete(key)),
+			set: vi.fn((key: string, value: unknown) => void markers.set(key, value)),
+			get: vi.fn((key: string) => markers.get(key)),
+			delete: vi.fn((key: string) => void markers.delete(key)),
 		}
 	}),
 	quit: vi.fn().mockResolvedValue(undefined),

@@ -88,7 +88,7 @@ pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs
 pnpm typecheck
-pnpm test
+pnpm test:unit
 pnpm build
 pnpm validate:packages
 ```
