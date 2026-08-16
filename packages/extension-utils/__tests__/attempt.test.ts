@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { attempt, attemptSync, attemptWithRetry } from '../src/index.js'
+import { attempt, attemptSync, attemptWithRetry } from '../src/index'
 
 describe('attempt utilities', () => {
 	afterEach(() => vi.useRealTimers())
@@ -116,5 +116,23 @@ describe('attempt utilities', () => {
 
 		expect(operation).toHaveBeenCalledTimes(4)
 		expect(vi.getTimerCount()).toBe(0)
+	})
+
+	it('rejects invalid retry bounds before executing the operation', async () => {
+		const operation = vi.fn()
+
+		await expect(attemptWithRetry(operation, { attempts: 0 })).rejects.toThrow(
+			'Attempt attempts must be a positive safe integer',
+		)
+		await expect(attemptWithRetry(operation, { attempts: 1.5 })).rejects.toThrow(
+			'Attempt attempts must be a positive safe integer',
+		)
+		await expect(attemptWithRetry(operation, { delayMs: -1 })).rejects.toThrow(
+			'Attempt delayMs must be a finite non-negative number',
+		)
+		await expect(attemptWithRetry(operation, { delayMs: Number.NaN })).rejects.toThrow(
+			'Attempt delayMs must be a finite non-negative number',
+		)
+		expect(operation).not.toHaveBeenCalled()
 	})
 })

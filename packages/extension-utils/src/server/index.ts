@@ -1,3 +1,3 @@
-export * from '../shared/index.js'
-export * from './auto-task.js'
-export * from './lock.js'
+export * from '../shared/index'
+export * from './auto-task'
+export * from './lock'

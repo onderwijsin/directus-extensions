@@ -5,7 +5,7 @@ import {
 	createNamespacedCache,
 	createRedisCache,
 	type RedisCacheClient,
-} from '../src/index.js'
+} from '../src/index'
 
 describe('cache utilities', () => {
 	it('stores, reads, overwrites, deletes, and clears memory entries', async () => {

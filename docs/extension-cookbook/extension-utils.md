@@ -15,7 +15,6 @@ The current package provides the following public utility families:
 - typed `toEntries`, `fromEntries`, and `keys` helpers;
 - configurable MIME classification through `classifyMimeType`, `getFileType`, and category
   predicates;
-- explicit `isInteractive`, `isCiEnvironment`, and `shouldSkipConfirmation` environment predicates;
 - random UUID v4 and deterministic UUID v5 helpers;
 - `Logger`, `LoggerLike`, and `createLogger`; and
 - framework-neutral `PartialNested`, `Geometry`, and `LngLatCoordinates` types.
@@ -40,6 +39,10 @@ deployment topology implicitly.
 Cache contracts and lock adapters are now part of the package API. Debounced task coordination is
 implemented by `createAutoTaskHandler`, with Redis and explicit-directory filesystem marker
 adapters.
+
+Auto-task callbacks receive an `AbortSignal`. They must stop promptly when the execution lease is
+lost; a lease-lost generation is not marked complete and remains eligible for a later retry. Error
+callbacks are best-effort and cannot make the trigger reject.
 
 The lock API is deliberately close to Tio's process-lock feature surface while correcting its
 ownership hazards. `BULK_OPERATION_LOCK` preserves the conventional lock name, named acquisition and

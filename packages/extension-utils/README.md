@@ -3,9 +3,8 @@
 Framework-neutral utilities shared by Onderwijs in Directus extensions. This package exists to keep
 small, stable runtime helpers in one place instead of reimplementing them in every extension. The
 current API includes primitive guards, cache stores, lock providers, attempted operations, object
-conversions, MIME classification, explicit environment predicates, UUID generation, logging
-adapters, and reusable types. It deliberately does not contain Directus services, extension
-registration, or schema validation.
+conversions, MIME classification, UUID generation, logging adapters, and reusable types. It
+deliberately does not contain Directus services, extension registration, or schema validation.
 
 For the complete API and design rules, read the
 [extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md) and the
@@ -102,7 +101,7 @@ const handler = createAutoTaskHandler({
   lockProvider: createMemoryLockProvider(),
   debounceMs: 15_000,
   taskLeaseMs: 5 * 60_000,
-  task: async () => snapshotSchema(),
+  task: async (signal) => snapshotSchema({ signal }),
   onError: (error) => reportTaskFailure(error),
 })
 
@@ -116,11 +115,14 @@ handler.dispose()
 ```
 
 `createAutoTaskHandler` defaults to the `BULK_OPERATION_LOCK` name, a five-minute marker lease, and
-a retry after lock contention. Inject `markerStore` when debounce state must be shared across
-processes, and inject `scheduler` and `now` for deterministic runtimes or tests. The default marker
-store is process-local; a distributed lock alone prevents simultaneous execution but does not merge
-debounce triggers across processes. Task failures, lock failures, marker failures, and lease renewal
-failures are sent to `onError` and do not reject the trigger.
+a retry after lock contention. The task receives an `AbortSignal`; it must stop promptly when the
+signal is aborted because the execution lease was lost. The marker is not completed after lease
+loss, allowing a later owner to retry it. Inject `markerStore` when debounce state must be shared
+across processes, and inject `scheduler` and `now` for deterministic runtimes or tests. The default
+marker store is process-local; a distributed lock alone prevents simultaneous execution but does not
+merge debounce triggers across processes. Task failures, lock failures, marker failures, and lease
+renewal failures are sent to `onError`; failures thrown by `onError` itself are logged and do not
+reject the trigger.
 
 The Redis marker adapter atomically increments generations through the injected client. The
 filesystem marker adapter uses an explicit directory and an owner-bound lock to serialize marker
@@ -153,21 +155,6 @@ classifyMimeType('image/webp') // 'image'
 classifyMimeType('application/vnd.example.custom', {
   documentMimeTypes: ['application/vnd.example.custom'],
 }) // 'document'
-```
-
-Environment and CLI predicates accept explicit state, so they do not depend on global process
-objects:
-
-```ts
-import {
-  isCiEnvironment,
-  isInteractive,
-  shouldSkipConfirmation,
-} from '@onderwijsin/directus-extension-utils'
-
-const interactive = isInteractive({ stdinIsTTY: true, stdoutIsTTY: true })
-const ci = isCiEnvironment({ CI: 'true' })
-const skip = shouldSkipConfirmation({ interactive, ci })
 ```
 
 Generate random or deterministic UUIDs without relying on a consuming project's UUID setup:

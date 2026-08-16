@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { fromEntries, keys, toEntries } from '../src/index.js'
+import { fromEntries, keys, toEntries } from '../src/index'
 
 describe('object utilities', () => {
 	it('converts objects to typed entries and keys', () => {

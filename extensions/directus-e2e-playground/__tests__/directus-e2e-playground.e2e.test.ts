@@ -37,7 +37,6 @@ async function expectUtilityResults() {
 
 	expect(payload).toMatchObject({
 		attempts: { async: 'async', sync: 'sync', retry: 'retried', calls: 2 },
-		environment: { ci: true, interactive: true, skipConfirmation: false },
 		guards: {
 			array: true,
 			audio: true,

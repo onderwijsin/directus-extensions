@@ -6,6 +6,8 @@ import type {
 	RedisLockClient,
 } from '@onderwijsin/directus-extension-utils'
 
+import { createRequire } from 'node:module'
+
 import { defineHook } from '@directus/extensions-sdk'
 import {
 	attempt,
@@ -29,13 +31,11 @@ import {
 	isArray,
 	isAudioMimeType,
 	isBoolean,
-	isCiEnvironment,
 	isDefined,
 	isDocumentMimeType,
 	isFiniteNumber,
 	isFunction,
 	isImageMimeType,
-	isInteractive,
 	isInteger,
 	isNumber,
 	isNonBlankString,
@@ -44,13 +44,14 @@ import {
 	isString,
 	isVideoMimeType,
 	keys,
-	shouldSkipConfirmation,
 	toEntries,
 } from '@onderwijsin/directus-extension-utils'
 import {
 	createFileAutoTaskMarkerStore,
 	createFileLockProvider,
 } from '@onderwijsin/directus-extension-utils/server'
+
+const require = createRequire(import.meta.url)
 
 export default defineHook(({ action }) => {
 	const logger = createLogger({
@@ -59,6 +60,7 @@ export default defineHook(({ action }) => {
 	})
 
 	const runUtilitySmokeTest = async (meta: unknown): Promise<void> => {
+		if (!process.env.REDIS) return
 		const record = isRecord(meta) ? meta : {}
 		const retryCalls = { count: 0 }
 		const retry = await attemptWithRetry(
@@ -74,14 +76,23 @@ export default defineHook(({ action }) => {
 		const memoryCache = createMemoryCache()
 		const namespacedCache = createNamespacedCache(memoryCache, 'e2e')
 		await namespacedCache.set('item', 'memory')
-		const redisValues = new Map<string, string>()
+		const { createClient } = require('redis') as typeof import('redis')
+		const redisConnection = createClient({ url: process.env.REDIS })
+		redisConnection.on('error', (error: Error) =>
+			logger.error('Redis E2E client failed', { error }),
+		)
+		await redisConnection.connect()
 		const redisClient: RedisCacheClient = {
-			get: (key) => Promise.resolve(redisValues.get(key) ?? null),
-			set: (key, value) => {
-				redisValues.set(key, value)
-				return Promise.resolve('OK')
+			get: (key) => redisConnection.get(key),
+			set: async (key, value, ...arguments_) => {
+				const expiryIndex = arguments_.indexOf('PX')
+				const expiry = expiryIndex === -1 ? undefined : Number(arguments_[expiryIndex + 1])
+				return redisConnection.set(key, value, {
+					...(expiry === undefined ? {} : { PX: expiry }),
+					...(arguments_.includes('NX') ? { NX: true } : {}),
+				})
 			},
-			del: (key) => Promise.resolve(Number(redisValues.delete(key))),
+			del: async (key) => Number(await redisConnection.del(key)),
 		}
 		const redisCache = createRedisCache(redisClient)
 		await redisCache.set('item', 'redis')
@@ -99,19 +110,13 @@ export default defineHook(({ action }) => {
 		const fileLease = await fileLock.tryAcquire('item', { leaseMs: 1000 })
 		const fileContended = await fileLock.tryAcquire('item')
 		await fileLease?.release()
-		const redisLockValues = new Map<string, string>()
 		const redisLockClient: RedisLockClient = {
-			set: (key, value, ...arguments_) => {
-				if (arguments_.includes('NX') && redisLockValues.has(key))
-					return Promise.resolve(null)
-				redisLockValues.set(key, value)
-				return Promise.resolve('OK')
-			},
-			eval: (script, _numberOfKeys, key, token) => {
-				if (redisLockValues.get(String(key)) !== token) return Promise.resolve(0)
-				if (script.includes('del')) redisLockValues.delete(String(key))
-				return Promise.resolve(1)
-			},
+			set: (key, value, ...arguments_) => redisClient.set(key, value, ...arguments_),
+			eval: (script, numberOfKeys, ...arguments_) =>
+				redisConnection.eval(script, {
+					keys: arguments_.slice(0, numberOfKeys).map(String),
+					arguments: arguments_.slice(numberOfKeys).map(String),
+				}),
 		}
 		const redisLock = createRedisLockProvider(redisLockClient, {
 			tokenFactory: () => 'redis-token',
@@ -126,31 +131,19 @@ export default defineHook(({ action }) => {
 		const secondFileMarker = await fileMarkerStore.touch('e2e', Date.now())
 		const fileMarker = await fileMarkerStore.get('e2e')
 		const fileMarkerCleared = await fileMarkerStore.clear('e2e', secondFileMarker.generation)
-		let redisMarkerGeneration = 0
-		const redisMarkerValues = new Map<string, string>()
 		const redisMarkerClient: RedisAutoTaskMarkerClient = {
-			get: (key) => Promise.resolve(redisMarkerValues.get(key) ?? null),
-			eval: (script, _numberOfKeys, generationKey, markerKey, value) => {
-				if (script.includes('incr')) {
-					redisMarkerGeneration += 1
-					redisMarkerValues.set(String(generationKey), String(redisMarkerGeneration))
-					redisMarkerValues.set(
-						String(markerKey),
-						`${redisMarkerGeneration}:${String(value)}`,
-					)
-					return Promise.resolve(redisMarkerGeneration)
-				}
-				if (redisMarkerValues.get(String(generationKey)) !== String(value)) {
-					return Promise.resolve(0)
-				}
-				redisMarkerValues.delete(String(markerKey))
-				return Promise.resolve(1)
-			},
+			get: (key) => redisConnection.get(key),
+			eval: (script, numberOfKeys, ...arguments_) =>
+				redisConnection.eval(script, {
+					keys: arguments_.slice(0, numberOfKeys).map(String),
+					arguments: arguments_.slice(numberOfKeys).map(String),
+				}),
 		}
 		const redisMarkerStore = createRedisAutoTaskMarkerStore(redisMarkerClient)
 		await redisMarkerStore.touch('e2e', Date.now())
 		const redisMarker = await redisMarkerStore.get('e2e')
 		const redisMarkerCleared = await redisMarkerStore.clear('e2e', redisMarker?.generation ?? 0)
+		await redisConnection.quit()
 		let autoTaskRuns = 0
 		const autoTask = createAutoTaskHandler({
 			debounceId: 'e2e-playground',
@@ -200,11 +193,6 @@ export default defineHook(({ action }) => {
 					record: isRecord(record),
 					string: isString('value'),
 					video: isVideoMimeType('video/mp4'),
-				},
-				environment: {
-					ci: isCiEnvironment({ CI: 'true' }),
-					interactive: isInteractive({ stdinIsTTY: true, stdoutIsTTY: true }),
-					skipConfirmation: shouldSkipConfirmation({ interactive: true, ci: false }),
 				},
 				attempts: {
 					async: asyncAttempt.data,

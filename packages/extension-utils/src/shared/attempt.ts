@@ -53,6 +53,12 @@ export async function attemptWithRetry<T>(
 	options: AttemptRetryOptions = {},
 ): Promise<AttemptResult<T>> {
 	const { attempts = 3, delayMs = 250, exponentialBackoff = true } = options
+	if (!Number.isSafeInteger(attempts) || attempts < 1) {
+		throw new RangeError('Attempt attempts must be a positive safe integer')
+	}
+	if (!Number.isFinite(delayMs) || delayMs < 0) {
+		throw new RangeError('Attempt delayMs must be a finite non-negative number')
+	}
 	let result = await attempt(operation)
 
 	for (

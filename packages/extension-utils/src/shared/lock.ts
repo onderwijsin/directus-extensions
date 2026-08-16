@@ -1,4 +1,4 @@
-import { generateUUID } from './uuid.js'
+import { generateUUID } from './uuid'
 
 /** Options controlling the lifetime of an acquired lock lease. */
 export interface LockAcquireOptions {
@@ -42,12 +42,20 @@ interface MemoryLockRecord {
 
 const DEFAULT_LEASE_MS = 30_000
 
+/** Normalizes and validates a logical lock name.
+ * @param name - Lock name to validate.
+ * @returns The normalized name.
+ */
 const validateName = (name: string): string => {
 	const normalized = name.trim()
 	if (normalized.length === 0) throw new TypeError('Lock name must not be empty')
 	return normalized
 }
 
+/** Validates a positive lock lease duration.
+ * @param leaseMs - Lease duration.
+ * @returns The validated duration.
+ */
 const validateLeaseMs = (leaseMs: number | undefined): number => {
 	const value = leaseMs ?? DEFAULT_LEASE_MS
 	if (!Number.isFinite(value) || value <= 0) {
@@ -56,6 +64,14 @@ const validateLeaseMs = (leaseMs: number | undefined): number => {
 	return value
 }
 
+/** Creates an owner-bound lease over one process-local lock record.
+ * @param name - Normalized lock name.
+ * @param token - Owner token.
+ * @param leaseMs - Lease duration.
+ * @param now - Clock provider.
+ * @param locks - Process-local lock records.
+ * @returns An owner-bound lease.
+ */
 const createMemoryLease = (
 	name: string,
 	token: string,
@@ -144,6 +160,10 @@ const RENEW_SCRIPT =
 const RELEASE_SCRIPT =
 	"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
 
+/** Interprets Redis integer replies used by renewal and release scripts.
+ * @param result - Redis reply.
+ * @returns Whether the operation succeeded.
+ */
 const redisResultSucceeded = (result: unknown): boolean => Number(result) === 1
 
 /**
@@ -162,10 +182,15 @@ export function createRedisLockProvider(
 ): LockProvider {
 	const keyPrefix = options.keyPrefix ?? 'extension-utils:lock:'
 	const tokenFactory = options.tokenFactory ?? generateUUID
+	/** Maps a logical lock name to its Redis key.
+	 * @param name - Logical lock name.
+	 * @returns Redis key.
+	 */
 	const keyFor = (name: string) => `${keyPrefix}${encodeURIComponent(name)}`
 
 	return {
 		tryAcquire: async (name, acquireOptions = {}) => {
+			// SET NX publishes ownership atomically; all later operations verify the token.
 			const normalizedName = validateName(name)
 			const leaseMs = validateLeaseMs(acquireOptions.leaseMs)
 			const token = tokenFactory()

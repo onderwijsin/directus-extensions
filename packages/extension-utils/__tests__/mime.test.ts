@@ -8,7 +8,7 @@ import {
 	isDocumentMimeType,
 	isImageMimeType,
 	isVideoMimeType,
-} from '../src/index.js'
+} from '../src/index'
 
 describe('MIME utilities', () => {
 	it('classifies common MIME families case-insensitively', () => {

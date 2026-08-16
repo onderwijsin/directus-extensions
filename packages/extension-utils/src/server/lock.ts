@@ -1,9 +1,9 @@
-import type { LockAcquireOptions, LockLease, LockProvider } from '../lock.js'
+import type { LockAcquireOptions, LockLease, LockProvider } from '../shared/lock'
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { generateUUID } from '../uuid.js'
+import { generateUUID } from '../shared/uuid'
 
 /** Options for the explicit local-filesystem lock provider. */
 export interface FileLockProviderOptions {
@@ -22,9 +22,18 @@ interface OwnerRecord {
 
 const ownerRecordFile = 'owner.json'
 
+/** Returns whether an unknown failure is a Node filesystem error with the given code.
+ * @param error - Unknown failure.
+ * @param code - Expected Node error code.
+ * @returns Whether the code matches.
+ */
 const isNodeError = (error: unknown, code: string): boolean =>
 	typeof error === 'object' && error !== null && 'code' in error && error.code === code
 
+/** Reads an owner record, treating a missing owner directory as an orphan.
+ * @param path - Owner directory path.
+ * @returns The owner record or `null`.
+ */
 const readOwnerRecord = async (path: string): Promise<OwnerRecord | null> => {
 	try {
 		const content = await readFile(join(path, ownerRecordFile), 'utf8')
@@ -47,12 +56,21 @@ const readOwnerRecord = async (path: string): Promise<OwnerRecord | null> => {
 	}
 }
 
+/** Atomically replaces the owner record within an owner-specific directory.
+ * @param path - Owner directory path.
+ * @param record - Owner record to write.
+ * @returns A promise that resolves after the rename.
+ */
 const writeOwnerRecord = async (path: string, record: OwnerRecord): Promise<void> => {
 	const temporaryPath = join(path, `${ownerRecordFile}.${record.token}.tmp`)
 	await writeFile(temporaryPath, JSON.stringify(record), { encoding: 'utf8', flag: 'wx' })
 	await rename(temporaryPath, join(path, ownerRecordFile))
 }
 
+/** Encodes one logical name component for use as a filesystem filename.
+ * @param value - Name component.
+ * @returns Encoded filename component.
+ */
 const encodedComponent = (value: string): string => encodeURIComponent(value)
 
 /**
@@ -86,6 +104,7 @@ export function createFileLockProvider(options: FileLockProviderOptions): LockPr
 			const lockPath = join(options.directory, `${encodedComponent(normalizedName)}.lock`)
 
 			for (let attempt = 0; attempt < 3; attempt += 1) {
+				// Publish owner metadata before the lock claim so stale recovery can inspect it.
 				const token = tokenFactory()
 				const ownerPath = join(
 					options.directory,
@@ -100,6 +119,8 @@ export function createFileLockProvider(options: FileLockProviderOptions): LockPr
 					await rm(ownerPath, { force: true, recursive: true })
 					if (!isNodeError(error, 'EEXIST')) throw error
 
+					// Active owners win. Expired or orphaned claims are moved aside atomically
+					// before their metadata is removed, so contenders never edit a live claim.
 					let currentToken: string
 					try {
 						currentToken = (await readFile(lockPath, 'utf8')).trim()
@@ -134,6 +155,7 @@ export function createFileLockProvider(options: FileLockProviderOptions): LockPr
 					name: normalizedName,
 					token,
 					renew: async () => {
+						// Both the owner record and claim must still identify this token.
 						if (released) return false
 						const currentOwner = await readOwnerRecord(ownerPath)
 						if (
@@ -157,6 +179,7 @@ export function createFileLockProvider(options: FileLockProviderOptions): LockPr
 						return true
 					},
 					release: async () => {
+						// Release is owner-bound and idempotent; a replacement is never removed.
 						if (released) return false
 						released = true
 						const currentOwner = await readOwnerRecord(ownerPath)
@@ -178,6 +201,7 @@ export function createFileLockProvider(options: FileLockProviderOptions): LockPr
 							throw error
 						}
 						if (currentToken !== token) return false
+						await rm(lockPath, { force: true })
 						await rm(ownerPath, { force: true, recursive: true })
 						return true
 					},

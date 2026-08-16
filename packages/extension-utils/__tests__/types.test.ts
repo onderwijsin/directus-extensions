@@ -1,4 +1,4 @@
-import type { Geometry, PartialNested } from '../src/index.js'
+import type { Geometry, PartialNested } from '../src/index'
 
 import { describe, expect, it } from 'vitest'
 

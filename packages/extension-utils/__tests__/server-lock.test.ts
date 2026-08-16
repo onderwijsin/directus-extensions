@@ -1,10 +1,10 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { createFileLockProvider } from '../src/server/lock.js'
+import { createFileLockProvider } from '../src/server/lock'
 
 describe('createFileLockProvider', () => {
 	let directory: string
@@ -26,6 +26,7 @@ describe('createFileLockProvider', () => {
 		expect(await second.tryAcquire('shared/item')).toBeNull()
 		expect(await lease?.release()).toBe(true)
 		expect(await lease?.release()).toBe(false)
+		expect(await readdir(directory)).toEqual([])
 
 		const replacement = await second.tryAcquire('shared/item')
 		expect(replacement?.token).toBe('second')

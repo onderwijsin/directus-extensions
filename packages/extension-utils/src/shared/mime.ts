@@ -30,6 +30,10 @@ export interface MimeTypeClassificationOptions {
 	documentMimeTypes?: readonly string[]
 }
 
+/** Normalizes an unknown MIME value for case-insensitive classification.
+ * @param mimeType - Value to normalize.
+ * @returns A normalized MIME type or `null`.
+ */
 const normalizeMimeType = (mimeType: unknown): string | null => {
 	if (typeof mimeType !== 'string') return null
 

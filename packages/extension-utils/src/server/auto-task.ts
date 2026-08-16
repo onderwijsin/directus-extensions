@@ -1,11 +1,11 @@
-import type { AutoTaskMarker, AutoTaskMarkerStore } from '../auto-task.js'
-import type { LockProvider } from '../lock.js'
+import type { AutoTaskMarker, AutoTaskMarkerStore } from '../shared/auto-task'
+import type { LockProvider } from '../shared/lock'
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { generateUUID } from '../uuid.js'
-import { createFileLockProvider } from './lock.js'
+import { generateUUID } from '../shared/uuid'
+import { createFileLockProvider } from './lock'
 
 /** Options for the explicit local-filesystem marker store. */
 export interface FileAutoTaskMarkerStoreOptions {
@@ -17,15 +17,31 @@ export interface FileAutoTaskMarkerStoreOptions {
 	operationLeaseMs?: number
 }
 
+/** Maps a debounce identifier to its marker filename.
+ * @param identifier - Logical marker identifier.
+ * @returns Marker filename.
+ */
 const markerFileName = (identifier: string): string =>
 	`${encodeURIComponent(identifier)}.auto-task-marker.json`
 
+/** Maps a debounce identifier to its durable generation filename.
+ * @param identifier - Logical marker identifier.
+ * @returns Generation filename.
+ */
 const generationFileName = (identifier: string): string =>
 	`${encodeURIComponent(identifier)}.auto-task-generation`
 
+/** Maps a debounce identifier to the lock name guarding its files.
+ * @param identifier - Logical marker identifier.
+ * @returns Marker lock name.
+ */
 const markerLockName = (identifier: string): string =>
 	`extension-utils:auto-task-marker:${encodeURIComponent(identifier)}`
 
+/** Reads and validates a marker file, treating a missing file as no marker.
+ * @param path - Marker file path.
+ * @returns The marker or `undefined`.
+ */
 const readMarker = async (path: string): Promise<AutoTaskMarker | undefined> => {
 	try {
 		const content = await readFile(path, 'utf8')
@@ -57,6 +73,10 @@ const readMarker = async (path: string): Promise<AutoTaskMarker | undefined> => 
 	}
 }
 
+/** Reads the durable generation counter, treating a missing file as generation zero.
+ * @param path - Generation file path.
+ * @returns The stored generation.
+ */
 const readGeneration = async (path: string): Promise<number> => {
 	try {
 		const value = Number(await readFile(path, 'utf8'))
@@ -98,10 +118,23 @@ export function createFileAutoTaskMarkerStore(
 	}
 	const lockProvider =
 		options.lockProvider ?? createFileLockProvider({ directory: options.directory })
+	/** Resolves the marker path for one identifier.
+	 * @param identifier - Logical marker identifier.
+	 * @returns Marker file path.
+	 */
 	const pathFor = (identifier: string) => join(options.directory, markerFileName(identifier))
+	/** Resolves the durable generation path for one identifier.
+	 * @param identifier - Logical marker identifier.
+	 * @returns Generation file path.
+	 */
 	const generationPathFor = (identifier: string) =>
 		join(options.directory, generationFileName(identifier))
 
+	/** Serializes one marker operation and always releases its owner-bound lease.
+	 * @param identifier - Logical marker identifier.
+	 * @param operation - Operation to run while holding the lease.
+	 * @returns The operation result.
+	 */
 	const withMarkerLock = async <T>(
 		identifier: string,
 		operation: () => Promise<T>,
@@ -131,6 +164,11 @@ export function createFileAutoTaskMarkerStore(
 					generation: Math.max(previous?.generation ?? 0, previousGeneration) + 1,
 					updatedAt,
 				}
+				/** Writes a replacement file without exposing a partial JSON document.
+				 * @param targetPath - Destination file path.
+				 * @param content - Complete file contents.
+				 * @returns A promise that resolves after the rename.
+				 */
 				const writeAtomic = async (targetPath: string, content: string): Promise<void> => {
 					const temporaryPath = `${targetPath}.${generateUUID()}.tmp`
 					await writeFile(temporaryPath, content, {

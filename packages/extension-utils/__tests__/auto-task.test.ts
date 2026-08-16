@@ -6,7 +6,7 @@ import {
 	type AutoTaskMarkerStore,
 	type LockLease,
 	type LockProvider,
-} from '../src/index.js'
+} from '../src/index'
 
 const logger = {
 	info: vi.fn(),
@@ -103,6 +103,52 @@ describe('createAutoTaskHandler', () => {
 		finishTask()
 		await vi.runOnlyPendingTimersAsync()
 		expect(release).toHaveBeenCalledOnce()
+		handler.dispose()
+	})
+
+	it('aborts work and keeps the marker when the lease is lost', async () => {
+		vi.useFakeTimers()
+		let currentTime = 0
+		let finishTask!: () => void
+		let taskSignal!: AbortSignal
+		const clear = vi.fn().mockResolvedValue(true)
+		const markerStore: AutoTaskMarkerStore = {
+			touch: vi.fn().mockResolvedValue({ generation: 1, updatedAt: 0 }),
+			get: vi.fn().mockResolvedValue({ generation: 1, updatedAt: 0 }),
+			clear,
+		}
+		const handler = createAutoTaskHandler({
+			debounceId: 'lease-loss',
+			task: (signal) => {
+				taskSignal = signal
+				return new Promise<void>((resolve) => {
+					finishTask = resolve
+				})
+			},
+			lockProvider: {
+				tryAcquire: vi.fn().mockResolvedValue({
+					name: 'bulk-operation',
+					token: 'token',
+					renew: vi.fn().mockResolvedValue(false),
+					release: vi.fn().mockResolvedValue(false),
+				}),
+			},
+			markerStore,
+			debounceMs: 10,
+			taskLeaseMs: 100,
+			renewalIntervalMs: 20,
+			now: () => currentTime,
+			logger,
+		})
+
+		await handler()
+		currentTime = 10
+		await vi.advanceTimersByTimeAsync(10)
+		await vi.advanceTimersByTimeAsync(20)
+		expect(taskSignal.aborted).toBe(true)
+		finishTask()
+		await vi.runOnlyPendingTimersAsync()
+		expect(clear).not.toHaveBeenCalled()
 		handler.dispose()
 	})
 
@@ -297,5 +343,25 @@ describe('createAutoTaskHandler', () => {
 		handler.dispose()
 		await vi.advanceTimersByTimeAsync(100)
 		expect(task).not.toHaveBeenCalled()
+	})
+
+	it('does not reject when the error handler throws', async () => {
+		vi.useFakeTimers()
+		const handler = createAutoTaskHandler({
+			debounceId: 'error-handler',
+			task: () => {
+				throw new Error('task failed')
+			},
+			lockProvider: createMemoryLockProvider(),
+			debounceMs: 10,
+			logger,
+			onError: () => {
+				throw new Error('reporting failed')
+			},
+		})
+
+		await expect(handler()).resolves.toBeUndefined()
+		await vi.advanceTimersByTimeAsync(10)
+		handler.dispose()
 	})
 })

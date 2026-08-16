@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import * as app from '../src/app/index.js'
-import * as server from '../src/server/index.js'
-import * as shared from '../src/shared/index.js'
+import * as app from '../src/app/index'
+import * as server from '../src/server/index'
+import * as shared from '../src/shared/index'
 
 describe('runtime-aware exports', () => {
 	it('exposes the same framework-neutral utilities from every supported subpath', () => {

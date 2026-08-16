@@ -1,5 +1,5 @@
-import { BULK_OPERATION_LOCK, type LockProvider } from './lock.js'
-import { createLogger, type LoggerLike } from './logger.js'
+import { BULK_OPERATION_LOCK, type LockProvider } from './lock'
+import { createLogger, type LoggerLike } from './logger'
 
 /** A marker identifying the latest trigger generation. */
 export interface AutoTaskMarker {
@@ -63,6 +63,11 @@ const TOUCH_MARKER_SCRIPT =
 const CLEAR_MARKER_SCRIPT =
 	"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[2]) else return 0 end"
 
+/** Validates marker data crossing a storage adapter boundary.
+ * @param value - Marker value to validate.
+ * @param source - Adapter name for diagnostics.
+ * @returns A copied, validated marker.
+ */
 const validateMarker = (value: AutoTaskMarker, source: string): AutoTaskMarker => {
 	if (
 		!Number.isSafeInteger(value.generation) ||
@@ -89,6 +94,10 @@ export function createRedisAutoTaskMarkerStore(
 	options: RedisAutoTaskMarkerStoreOptions = {},
 ): AutoTaskMarkerStore {
 	const keyPrefix = options.keyPrefix ?? 'extension-utils:auto-task:'
+	/** Maps one logical identifier to its Redis generation and marker keys.
+	 * @param identifier - Logical marker identifier.
+	 * @returns Redis generation and marker keys.
+	 */
 	const keysFor = (identifier: string): [string, string] => {
 		const key = `${keyPrefix}${encodeURIComponent(identifier)}`
 		return [`${key}:generation`, `${key}:marker`]
@@ -152,8 +161,8 @@ const defaultScheduler: AutoTaskScheduler = {
 export interface AutoTaskHandlerOptions {
 	/** Unique marker identifier, such as `schema-snapshot`. */
 	debounceId: string
-	/** Work to execute after the debounce window. */
-	task: () => Promise<void> | void
+	/** Work to execute after the debounce window. The signal aborts when the lease is lost. */
+	task: (signal: AbortSignal) => Promise<void> | void
 	/** Lock provider used to exclude concurrent task executions. */
 	lockProvider: LockProvider
 	/** Optional logger for lifecycle messages. */
@@ -188,6 +197,11 @@ export interface AutoTaskHandler {
 	dispose(): void
 }
 
+/** Validates a non-negative timer duration.
+ * @param name - Option name for diagnostics.
+ * @param value - Duration to validate.
+ * @returns The validated duration.
+ */
 const validateDuration = (name: string, value: number): number => {
 	if (!Number.isFinite(value) || value < 0) {
 		throw new RangeError(`${name} must be a finite non-negative number`)
@@ -195,6 +209,12 @@ const validateDuration = (name: string, value: number): number => {
 	return value
 }
 
+/** Reports a task failure without allowing the error callback to reject the handler.
+ * @param error - Failure to report.
+ * @param logger - Logger adapter.
+ * @param onError - Optional consumer error callback.
+ * @returns A promise that resolves after reporting.
+ */
 const reportError = async (
 	error: unknown,
 	logger: ReturnType<typeof createLogger>,
@@ -203,7 +223,14 @@ const reportError = async (
 	logger.error('Auto task failed', {
 		cause: error instanceof Error ? error.message : String(error),
 	})
-	if (onError) await onError(error)
+	if (!onError) return
+	try {
+		await onError(error)
+	} catch (handlerError) {
+		logger.error('Auto task error handler failed', {
+			cause: handlerError instanceof Error ? handlerError.message : String(handlerError),
+		})
+	}
 }
 
 /**
@@ -244,6 +271,11 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 	let timer: ReturnType<typeof setTimeout> | undefined
 	let disposed = false
 
+	/** Replaces the pending timer with one for the newest known generation.
+	 * @param generation - Generation the timer should execute.
+	 * @param delayMs - Delay before execution.
+	 * @returns Nothing.
+	 */
 	const schedule = (generation: number, delayMs: number): void => {
 		if (disposed) return
 		if (timer !== undefined) scheduler.clearTimeout(timer)
@@ -253,9 +285,14 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 		}, delayMs)
 	}
 
+	/** Reads, claims, runs, and finalizes one debounce generation.
+	 * @param expectedGeneration - Generation this timer observed.
+	 * @returns A promise that resolves after orchestration.
+	 */
 	const run = async (expectedGeneration: number): Promise<void> => {
 		if (disposed) return
 		try {
+			// Re-read shared state before doing work: a newer trigger makes this timer obsolete.
 			const marker = await markerStore.get(options.debounceId)
 			if (!marker || marker.generation !== expectedGeneration) return
 			const elapsed = now() - marker.updatedAt
@@ -264,26 +301,34 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 				return
 			}
 			if (elapsed > markerLeaseMs) {
+				// Expired work is discarded only for the generation observed by this run.
 				await markerStore.clear(options.debounceId, expectedGeneration)
 				return
 			}
 
 			const lease = await options.lockProvider.tryAcquire(lockName, { leaseMs: taskLeaseMs })
 			if (!lease) {
+				// Keep the marker pending; another owner may release the lock before retry.
 				schedule(expectedGeneration, retryMs)
 				return
 			}
 
 			let renewalTimer: ReturnType<typeof setInterval> | undefined
 			let leaseLost = false
+			const taskController = new AbortController()
+			/** Renews the lease and aborts work when this owner no longer holds it.
+			 * @returns A promise that resolves after the renewal attempt.
+			 */
 			const renew = async (): Promise<void> => {
 				try {
 					if (!(await lease.renew())) {
 						leaseLost = true
+						taskController.abort(new Error('Auto task lock lease was lost'))
 						if (renewalTimer !== undefined) scheduler.clearInterval(renewalTimer)
 					}
 				} catch (error) {
 					leaseLost = true
+					taskController.abort(error)
 					if (renewalTimer !== undefined) scheduler.clearInterval(renewalTimer)
 					await reportError(error, logger, options.onError)
 				}
@@ -294,7 +339,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 
 			try {
 				logger.info(`Running auto task: ${options.debounceId}`)
-				await options.task()
+				await options.task(taskController.signal)
 				if (leaseLost) {
 					await reportError(
 						new Error('Auto task lock lease was lost'),
@@ -307,16 +352,20 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 			} catch (error) {
 				await reportError(error, logger, options.onError)
 			} finally {
+				// Stop renewal before releasing the lease so finalization cannot race renewal.
 				if (renewalTimer !== undefined) scheduler.clearInterval(renewalTimer)
 				try {
 					await lease.release()
 				} catch (error) {
 					await reportError(error, logger, options.onError)
 				}
-				try {
-					await markerStore.clear(options.debounceId, expectedGeneration)
-				} catch (error) {
-					await reportError(error, logger, options.onError)
+				if (!leaseLost) {
+					// A lost owner must not acknowledge work another owner may need to retry.
+					try {
+						await markerStore.clear(options.debounceId, expectedGeneration)
+					} catch (error) {
+						await reportError(error, logger, options.onError)
+					}
 				}
 			}
 		} catch (error) {
@@ -324,6 +373,9 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 		}
 	}
 
+	/** Records a trigger and starts or replaces the debounce timer.
+	 * @returns A promise that resolves after recording the trigger.
+	 */
 	const trigger = async (): Promise<void> => {
 		if (disposed) return
 		try {

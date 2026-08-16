@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { generateDeterministicUUID, generateUUID, UUID_NAMESPACE_URL } from '../src/index.js'
+import { generateDeterministicUUID, generateUUID, UUID_NAMESPACE_URL } from '../src/index'
 
 describe('UUID utilities', () => {
 	it('generates UUID v4 values', () => {

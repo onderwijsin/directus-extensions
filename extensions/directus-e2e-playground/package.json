@@ -30,7 +30,8 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@onderwijsin/directus-extension-utils": "workspace:*"
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"redis": "catalog:"
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",

@@ -4,7 +4,7 @@ import {
 	createMemoryLockProvider,
 	createRedisLockProvider,
 	type RedisLockClient,
-} from '../src/index.js'
+} from '../src/index'
 
 describe('lock utilities', () => {
 	it('acquires, contends, renews, and releases memory locks by owner token', async () => {

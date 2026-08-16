@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createRedisAutoTaskMarkerStore, type RedisAutoTaskMarkerClient } from '../src/index.js'
+import { createRedisAutoTaskMarkerStore, type RedisAutoTaskMarkerClient } from '../src/index'
 
 describe('createRedisAutoTaskMarkerStore', () => {
 	it('atomically increments generations and clears only the requested generation', async () => {

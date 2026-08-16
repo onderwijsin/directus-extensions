@@ -34,6 +34,10 @@ interface MemoryEntry {
 	expiresAt: number | undefined
 }
 
+/** Validates and returns the optional cache entry lifetime.
+ * @param options - Cache write options.
+ * @returns The validated lifetime, when provided.
+ */
 const validateTtl = (options: CacheSetOptions | undefined): number | undefined => {
 	const ttlMs = options?.ttlMs
 	if (ttlMs === undefined) return undefined
@@ -43,6 +47,11 @@ const validateTtl = (options: CacheSetOptions | undefined): number | undefined =
 	return ttlMs
 }
 
+/** Returns whether a cache entry has reached its expiration time.
+ * @param entry - Cache entry to inspect.
+ * @param now - Current timestamp.
+ * @returns Whether the entry is expired.
+ */
 const isExpired = (entry: MemoryEntry, now: number): boolean =>
 	entry.expiresAt !== undefined && entry.expiresAt <= now
 
@@ -107,6 +116,10 @@ export function createMemoryCache(options: MemoryCacheOptions = {}): CacheStore 
  */
 export function createNamespacedCache(store: CacheStore, namespace: string): CacheNamespace {
 	const prefix = `${namespace}:`
+	/** Maps a namespace-local key to the underlying store key.
+	 * @param key - Namespace-local key.
+	 * @returns The namespaced key.
+	 */
 	const keyFor = (key: string) => `${prefix}${key}`
 
 	return {
