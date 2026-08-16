@@ -64,6 +64,10 @@ const createMemoryLease = (
 	locks: Map<string, MemoryLockRecord>,
 ): LockLease =>
 	createLockLease(name, token, {
+		/**
+		 * Renews the in-memory lease when its token is still current.
+		 * @returns Whether renewal succeeded.
+		 */
 		renew: () => {
 			const currentTime = now()
 			const record = locks.get(name)
@@ -74,6 +78,10 @@ const createMemoryLease = (
 			record.expiresAt = currentTime + leaseMs
 			return true
 		},
+		/**
+		 * Releases the in-memory lease when its token is still current.
+		 * @returns Whether release succeeded.
+		 */
 		release: () => {
 			const currentTime = now()
 			const record = locks.get(name)
@@ -101,6 +109,12 @@ export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}
 	const locks = new Map<string, MemoryLockRecord>()
 
 	return {
+		/**
+		 * Attempts to acquire a process-local lock.
+		 * @param name - Logical lock name.
+		 * @param acquireOptions - Optional lease configuration.
+		 * @returns An owner-bound lease, or `null` on contention.
+		 */
 		tryAcquire: async (name, acquireOptions = {}) => {
 			const normalizedName = validateLockName(name)
 			const leaseMs = resolveLeaseMs(acquireOptions, config.defaultLeaseMs)

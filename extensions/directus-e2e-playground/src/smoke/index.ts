@@ -19,6 +19,12 @@ export const runUtilitySmokeTest = async (meta: unknown): Promise<void> => {
 	if (!process.env.REDIS) return
 	const record = isRecord(meta) ? meta : {}
 	const logger = createLogger({
+		/**
+		 * Writes the smoke-test logger output.
+		 * @param message - Log message.
+		 * @param fields - Structured fields.
+		 * @returns Nothing.
+		 */
 		info: (message, fields) =>
 			console.log(`directus-e2e-playground logger: ${message}`, fields),
 	})

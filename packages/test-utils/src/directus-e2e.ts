@@ -33,6 +33,12 @@ export interface DirectusE2EClient {
  * @returns A client for authenticated item requests and log assertions.
  */
 export function createDirectusE2EClient(options: DirectusE2EClientOptions): DirectusE2EClient {
+	/**
+	 * Builds the Directus items API path for a collection and optional key.
+	 * @param collection - User collection name.
+	 * @param key - Optional item primary key.
+	 * @returns The encoded items API path.
+	 */
 	const itemPath = (collection: string, key?: string | number) =>
 		`/items/${encodeURIComponent(collection)}${
 			key === undefined ? '' : `/${encodeURIComponent(String(key))}`
@@ -45,11 +51,25 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @returns The unwrapped Directus response data.
 	 */
 	async function request<T>(path: string, init?: RequestInit): Promise<T>
+	/**
+	 * Sends an authenticated request that may return an empty response.
+	 * @param path - API path relative to the Directus base URL.
+	 * @param init - Optional fetch request options.
+	 * @param allowEmptyResponse - Whether a `204` response is valid.
+	 * @returns Nothing when the response is empty.
+	 */
 	async function request(
 		path: string,
 		init: RequestInit | undefined,
 		allowEmptyResponse: true,
 	): Promise<void>
+	/**
+	 * Sends an authenticated request and unwraps the Directus response.
+	 * @param path - API path relative to the Directus base URL.
+	 * @param init - Fetch request options.
+	 * @param allowEmptyResponse - Whether a `204` response is valid.
+	 * @returns The unwrapped response data, or nothing for an allowed empty response.
+	 */
 	async function request<T>(
 		path: string,
 		init: RequestInit = {},

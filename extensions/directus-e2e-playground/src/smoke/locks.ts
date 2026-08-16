@@ -11,15 +11,29 @@ import {
  * @returns The observed lock results.
  */
 export const runLockSmokeTest = async (redisUrl: string) => {
-	const memory = createMemoryLockProvider({ tokenFactory: () => 'memory-token' })
+	const memory = createMemoryLockProvider({
+		/**
+		 * Returns the fixed memory owner token used by this smoke test.
+		 * @returns The memory owner token.
+		 */
+		tokenFactory: () => 'memory-token',
+	})
 	const memoryLease = await memory.tryAcquire('item', { leaseMs: 1000 })
 	const memoryContended = await memory.tryAcquire('item')
 	await memoryLease?.release()
 
 	const file = createFsLockProvider({
 		directory: `/tmp/directus-e2e-playground-locks-${uuid()}`,
+		/**
+		 * Creates deterministic tokens for this smoke test.
+		 * @returns The token factory.
+		 */
 		tokenFactory: (() => {
 			let sequence = 0
+			/**
+			 * Returns the next deterministic filesystem owner token.
+			 * @returns The owner token.
+			 */
 			return () => `file-token-${++sequence}`
 		})(),
 	})

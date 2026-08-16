@@ -50,6 +50,9 @@ describe('createAutoTaskHandler', () => {
 		await vi.advanceTimersByTimeAsync(1)
 
 		expect(task).toHaveBeenCalledOnce()
+		expect(logger.info).toHaveBeenNthCalledWith(1, '📅 Auto task scheduled: items')
+		expect(logger.info).toHaveBeenNthCalledWith(2, '▶️ Running auto task: items')
+		expect(logger.info).toHaveBeenNthCalledWith(3, '✅ Completed auto task: items')
 		handler.dispose()
 	})
 
@@ -279,6 +282,9 @@ describe('createAutoTaskHandler', () => {
 		await expect(handler()).resolves.toBeUndefined()
 		await vi.advanceTimersByTimeAsync(10)
 		expect(onError).toHaveBeenCalledWith(taskFailure)
+		expect(logger.error).toHaveBeenCalledWith('❌ Auto task failed', {
+			cause: 'task failed',
+		})
 		expect(onError).toHaveBeenCalledWith(releaseFailure)
 		handler.dispose()
 	})

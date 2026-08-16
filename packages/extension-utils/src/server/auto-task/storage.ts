@@ -21,6 +21,12 @@ import { createFsMarkerStore, createRedisMarkerStore } from './markers'
 export function createMemoryMarkerStore(): AutoTaskMarkerStore {
 	const markers = new Map<string, AutoTaskMarker>()
 	return {
+		/**
+		 * Records a new in-memory marker generation.
+		 * @param identifier - Logical marker identifier.
+		 * @param updatedAt - Trigger timestamp.
+		 * @returns The new marker.
+		 */
 		touch: (identifier, updatedAt) => {
 			if (!isFiniteNumber(updatedAt)) {
 				return Promise.reject(new RangeError('Auto task marker time must be finite'))
@@ -32,7 +38,18 @@ export function createMemoryMarkerStore(): AutoTaskMarkerStore {
 			markers.set(identifier, marker)
 			return Promise.resolve(marker)
 		},
+		/**
+		 * Reads the current in-memory marker.
+		 * @param identifier - Logical marker identifier.
+		 * @returns The marker, or `undefined` when none exists.
+		 */
 		get: (identifier) => Promise.resolve(markers.get(identifier)),
+		/**
+		 * Clears a marker only when its generation still matches.
+		 * @param identifier - Logical marker identifier.
+		 * @param generation - Expected marker generation.
+		 * @returns Whether the marker was cleared.
+		 */
 		clear: (identifier, generation) => {
 			if (markers.get(identifier)?.generation !== generation) return Promise.resolve(false)
 			markers.delete(identifier)
@@ -60,6 +77,10 @@ export function createMemoryTaskHandlerStorage(
 			tokenFactory: options.tokenFactory,
 		}),
 		markerStore: createMemoryMarkerStore(),
+		/**
+		 * Releases no external resources for memory storage.
+		 * @returns A promise that resolves immediately.
+		 */
 		dispose: () => Promise.resolve(),
 	}
 }
@@ -104,6 +125,10 @@ export function createRedisTaskHandlerStorage(
 	return {
 		lockProvider,
 		markerStore,
+		/**
+		 * Closes the shared Redis connection owned by this storage.
+		 * @returns A promise that resolves after disposal.
+		 */
 		dispose: async () => {
 			if (disposed) return
 			disposed = true
@@ -144,6 +169,10 @@ export function createFsTaskHandlerStorage(
 			lockProvider,
 			lockTimeoutMs: options.lockTimeoutMs,
 		}),
+		/**
+		 * Releases no external resources for filesystem storage.
+		 * @returns A promise that resolves immediately.
+		 */
 		dispose: () => Promise.resolve(),
 	}
 }

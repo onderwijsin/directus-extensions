@@ -44,6 +44,11 @@ export function createProcessWorker<Message = unknown>(
 	let failure: Error | undefined
 	let errorOutput = ''
 
+	/**
+	 * Fails all pending message waiters and records the worker failure.
+	 * @param error - Failure that ended communication with the worker.
+	 * @returns Nothing.
+	 */
 	const rejectAll = (error: Error): void => {
 		failure = error
 		for (const waiter of waiters.splice(0)) waiter.reject(error)
@@ -77,10 +82,19 @@ export function createProcessWorker<Message = unknown>(
 	})
 
 	return {
+		/**
+		 * Sends one JSON command to the worker process.
+		 * @param command - JSON-serializable command payload.
+		 * @returns Nothing.
+		 */
 		send(command) {
 			if (failure) throw failure
 			child.stdin.write(`${JSON.stringify(command)}\n`)
 		},
+		/**
+		 * Waits for the next JSON message or rejects when the worker fails.
+		 * @returns The next worker message.
+		 */
 		next() {
 			if (messages.length > 0) return Promise.resolve(messages.shift() as Message)
 			if (failure) return Promise.reject(failure)
@@ -97,10 +111,20 @@ export function createProcessWorker<Message = unknown>(
 					)
 				}, options.timeoutMs ?? 10_000)
 				waiterEntry = {
+					/**
+					 * Resolves this waiter and clears its timeout.
+					 * @param message - Worker message.
+					 * @returns Nothing.
+					 */
 					resolve: (message) => {
 						clearTimeout(timeout)
 						resolve(message)
 					},
+					/**
+					 * Rejects this waiter and clears its timeout.
+					 * @param error - Worker failure.
+					 * @returns Nothing.
+					 */
 					reject: (error) => {
 						clearTimeout(timeout)
 						reject(error)
@@ -109,6 +133,10 @@ export function createProcessWorker<Message = unknown>(
 				waiters.push(waiterEntry)
 			})
 		},
+		/**
+		 * Terminates the worker process and waits for its close event.
+		 * @returns A promise that resolves after the worker exits.
+		 */
 		terminate() {
 			if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve()
 			return new Promise<void>((resolve) => {

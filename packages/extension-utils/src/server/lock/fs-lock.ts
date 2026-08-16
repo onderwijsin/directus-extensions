@@ -169,6 +169,10 @@ const createFsLease = (
 	now: () => number,
 ): LockLease =>
 	createLockLease(name, token, {
+		/**
+		 * Renews the filesystem lease when its owner record is still valid.
+		 * @returns Whether renewal succeeded.
+		 */
 		renew: async () => {
 			const owner = await readOwnerRecord(ownerPath)
 			if (!owner || owner.token !== token || owner.expiresAt <= now()) return false
@@ -176,6 +180,10 @@ const createFsLease = (
 			await writeOwnerRecord(ownerPath, { token, expiresAt: now() + leaseMs })
 			return true
 		},
+		/**
+		 * Releases the filesystem lease when its claim still belongs to this token.
+		 * @returns Whether release succeeded.
+		 */
 		release: async () => {
 			// Release is owner-bound; a replacement is never removed.
 			const owner = await readOwnerRecord(ownerPath)
@@ -266,6 +274,12 @@ export function createFsLockProvider(options: FsLockProviderOptions): LockProvid
 	const dependencies = validateFsLockConfig(options)
 
 	return {
+		/**
+		 * Attempts to acquire a filesystem-backed lock.
+		 * @param name - Logical lock name.
+		 * @param acquireOptions - Optional lease configuration.
+		 * @returns An owner-bound lease, or `null` on contention.
+		 */
 		tryAcquire: (name, acquireOptions = {}) =>
 			acquireFsLock(dependencies, name, acquireOptions),
 	}

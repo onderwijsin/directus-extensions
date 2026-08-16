@@ -65,6 +65,12 @@ export function createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTa
 
 	let disposed = false
 	return {
+		/**
+		 * Records a Redis-backed marker generation while holding its update lock.
+		 * @param identifier - Logical marker identifier.
+		 * @param updatedAt - Trigger timestamp.
+		 * @returns The new marker.
+		 */
 		touch: (identifier, updatedAt) =>
 			kv.usingLock(lockFor(identifier), async () => {
 				if (!isFiniteNumber(updatedAt)) {
@@ -75,7 +81,18 @@ export function createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTa
 				await kv.set(keyFor('marker', identifier), marker)
 				return marker
 			}),
+		/**
+		 * Reads a Redis-backed marker.
+		 * @param identifier - Logical marker identifier.
+		 * @returns The marker, or `undefined` when none exists.
+		 */
 		get: (identifier) => kv.get<AutoTaskMarker>(keyFor('marker', identifier)),
+		/**
+		 * Clears a Redis-backed marker only when its generation still matches.
+		 * @param identifier - Logical marker identifier.
+		 * @param generation - Expected marker generation.
+		 * @returns Whether the marker was cleared.
+		 */
 		clear: (identifier, generation) =>
 			kv.usingLock(lockFor(identifier), async () => {
 				const marker = await kv.get<AutoTaskMarker>(keyFor('marker', identifier))
@@ -83,6 +100,10 @@ export function createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTa
 				await kv.delete(keyFor('marker', identifier))
 				return true
 			}),
+		/**
+		 * Closes the Redis connection when this store owns it.
+		 * @returns A promise that resolves after disposal.
+		 */
 		dispose: async () => {
 			if (disposed) return
 			disposed = true
@@ -341,16 +362,33 @@ export function createFsMarkerStore(options: FsMarkerStoreOptions): AutoTaskMark
 	const config = validateFsMarkerConfig(options)
 	const queues = new Map<string, Promise<unknown>>()
 	return {
+		/**
+		 * Records a filesystem-backed marker generation.
+		 * @param identifier - Logical marker identifier.
+		 * @param updatedAt - Trigger timestamp.
+		 * @returns The new marker.
+		 */
 		touch: (identifier, updatedAt) =>
 			queueMarkerOperation(queues, identifier, () =>
 				touchFsMarker(config, identifier, updatedAt),
 			),
+		/**
+		 * Reads a filesystem-backed marker.
+		 * @param identifier - Logical marker identifier.
+		 * @returns The marker, or `undefined` when none exists.
+		 */
 		get: (identifier) =>
 			queueMarkerOperation(queues, identifier, () =>
 				withMarkerLock(config, identifier, () =>
 					readMarker(join(config.directory, markerFileName(identifier))),
 				),
 			),
+		/**
+		 * Clears a filesystem-backed marker only when its generation still matches.
+		 * @param identifier - Logical marker identifier.
+		 * @param generation - Expected marker generation.
+		 * @returns Whether the marker was cleared.
+		 */
 		clear: (identifier, generation) =>
 			queueMarkerOperation(queues, identifier, () =>
 				clearFsMarker(config, identifier, generation),

@@ -106,10 +106,18 @@ const createRedisLease = (
 	lock: { extend(ms: number): Promise<void>; release(): Promise<void> },
 ): LockLease =>
 	createLockLease(name, token, {
+		/**
+		 * Renews the Redis lease.
+		 * @returns Whether renewal succeeded.
+		 */
 		renew: async () => {
 			await lock.extend(leaseMs)
 			return true
 		},
+		/**
+		 * Releases the Redis lease.
+		 * @returns Whether release succeeded.
+		 */
 		release: async () => {
 			await lock.release()
 			return true
@@ -167,12 +175,26 @@ export function createRedisLockProvider(options: RedisLockProviderOptions): Redi
 	const dependencies: RedisLockDependencies = {
 		config,
 		redis,
+		/**
+		 * Reports whether this provider has been disposed.
+		 * @returns Whether disposal occurred.
+		 */
 		isDisposed: () => disposed,
 	}
 
 	return {
+		/**
+		 * Attempts to acquire a Redis-backed lock.
+		 * @param name - Logical lock name.
+		 * @param acquireOptions - Optional lease configuration.
+		 * @returns An owner-bound lease, or `null` on contention.
+		 */
 		tryAcquire: (name, acquireOptions = {}) =>
 			acquireRedisLock(dependencies, name, acquireOptions),
+		/**
+		 * Closes the Redis connection when this provider owns it.
+		 * @returns A promise that resolves after disposal.
+		 */
 		dispose: async () => {
 			if (disposed) return
 			disposed = true

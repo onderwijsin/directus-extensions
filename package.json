@@ -56,6 +56,7 @@
 		"@vitejs/plugin-vue": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
 		"@workspace/typescript-config": "workspace:*",
+		"eslint-plugin-jsdoc": "catalog:",
 		"github-actionlint": "catalog:",
 		"happy-dom": "catalog:",
 		"husky": "catalog:",

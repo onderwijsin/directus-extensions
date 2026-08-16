@@ -57,7 +57,15 @@ export const createLockLease = (
 	return {
 		name,
 		token,
+		/**
+		 * Renews this lease while its token still owns the lock.
+		 * @returns Whether the lease remains owned by this token.
+		 */
 		renew: () => Promise.resolve(released ? false : callbacks.renew()),
+		/**
+		 * Releases this lease when its token still owns the lock.
+		 * @returns Whether the lease was released.
+		 */
 		release: () => {
 			if (released) return Promise.resolve(false)
 			released = true
