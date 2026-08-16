@@ -13,5 +13,7 @@ describe('runtime-aware exports', () => {
 		expect(shared.hasKey).toBeDefined()
 		expect(app.attempt).toBe(shared.attempt)
 		expect(server.fromEntries).toBe(shared.fromEntries)
+		expect(app.createMemoryCache).toBe(shared.createMemoryCache)
+		expect(server.createNamespacedCache).toBe(shared.createNamespacedCache)
 	})
 })

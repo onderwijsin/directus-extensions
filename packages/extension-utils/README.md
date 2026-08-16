@@ -2,7 +2,7 @@
 
 Framework-neutral utilities shared by Onderwijs in Directus extensions. This package exists to keep
 small, stable runtime helpers in one place instead of reimplementing them in every extension. The
-current API includes primitive guards, attempted operations, object conversions, MIME
+current API includes primitive guards, cache stores, attempted operations, object conversions, MIME
 classification, explicit environment predicates, UUID generation, logging adapters, and reusable
 types. It deliberately does not contain Directus services, extension registration, or schema
 validation.
@@ -28,6 +28,29 @@ if (isRecord(value) && isString(value.name)) {
   return value.name
 }
 ```
+
+Cache behavior is explicit and backend-independent. Choose a process-local memory store or inject a
+Redis-compatible client; the package never reads environment variables or creates a connection:
+
+```ts
+import {
+  createMemoryCache,
+  createNamespacedCache,
+  createRedisCache,
+} from '@onderwijsin/directus-extension-utils'
+
+const cache = createNamespacedCache(createMemoryCache(), 'items')
+await cache.set('42', { title: 'Example' }, { ttlMs: 60_000 })
+const item = await cache.get<{ title: string }>('42')
+
+// Redis uses the same CacheStore contract with an injected client.
+const distributedCache = createRedisCache(redisClient)
+```
+
+Cache entries are best-effort optimizations. Missing or expired entries return `undefined`, TTLs are
+non-negative milliseconds, and backend errors are propagated. The Redis adapter uses JSON by
+default, supports an injected codec, sends TTLs using `SET ... PX`, and intentionally does not
+expose a global clear operation. Use separate namespaces for independent consumers.
 
 Attempted operations can return failures as data instead of throwing:
 

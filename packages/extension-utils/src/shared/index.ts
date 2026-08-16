@@ -1,4 +1,5 @@
 export * from '../attempt.js'
+export * from '../cache.js'
 export * from '../environment.js'
 export * from '../guards.js'
 export * from '../logger.js'

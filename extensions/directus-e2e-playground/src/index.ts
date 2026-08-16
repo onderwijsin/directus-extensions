@@ -1,4 +1,8 @@
-import type { Geometry, PartialNested } from '@onderwijsin/directus-extension-utils'
+import type {
+	Geometry,
+	PartialNested,
+	RedisCacheClient,
+} from '@onderwijsin/directus-extension-utils'
 
 import { defineHook } from '@directus/extensions-sdk'
 import {
@@ -7,6 +11,9 @@ import {
 	attemptWithRetry,
 	classifyMimeType,
 	createLogger,
+	createMemoryCache,
+	createNamespacedCache,
+	createRedisCache,
 	fromEntries,
 	generateDeterministicUUID,
 	generateUUID,
@@ -54,6 +61,20 @@ export default defineHook(({ action }) => {
 		)
 		const asyncAttempt = await attempt(() => Promise.resolve('async'))
 		const syncAttempt = attemptSync(() => 'sync')
+		const memoryCache = createMemoryCache()
+		const namespacedCache = createNamespacedCache(memoryCache, 'e2e')
+		await namespacedCache.set('item', 'memory')
+		const redisValues = new Map<string, string>()
+		const redisClient: RedisCacheClient = {
+			get: (key) => Promise.resolve(redisValues.get(key) ?? null),
+			set: (key, value) => {
+				redisValues.set(key, value)
+				return Promise.resolve('OK')
+			},
+			del: (key) => Promise.resolve(Number(redisValues.delete(key))),
+		}
+		const redisCache = createRedisCache(redisClient)
+		await redisCache.set('item', 'redis')
 		const object = { collection: record.collection ?? 'unknown', retry: retry.data }
 		const entries = toEntries(object)
 		const rebuilt = fromEntries(entries)
@@ -102,6 +123,10 @@ export default defineHook(({ action }) => {
 				object: { entries, keys: keys(object), rebuilt },
 				types: { point, partial },
 				loggerFields: { ...loggerFields, fileType: getFileType('text/plain') },
+				cache: {
+					memory: await namespacedCache.get('item'),
+					redis: await redisCache.get('item'),
+				},
 			})}`,
 		)
 	}

@@ -8,6 +8,7 @@ The current package provides the following public utility families:
 
 - primitive runtime guards such as `isRecord`, `isString`, `isDefined`, `isFiniteNumber`,
   `isNonBlankString`, `hasKey`, and `hasKeys`;
+- backend-independent cache contracts with memory, namespace, and injected Redis adapters;
 - `attempt`, `attemptSync`, and bounded `attemptWithRetry` result wrappers;
 - typed `toEntries`, `fromEntries`, and `keys` helpers;
 - configurable MIME classification through `classifyMimeType`, `getFileType`, and category
@@ -34,5 +35,5 @@ The root and `/shared` exports are the framework-neutral public surface. `/serve
 compatibility boundaries and currently expose the same symbols. No utility currently selects a
 Directus service, cache backend, filesystem, Redis connection, or deployment topology implicitly.
 
-Cache providers, lock providers, and debounced task coordination remain design work documented in
-[`UTILITIES.md`](../../UTILITIES.md); they are intentionally not part of the current package API.
+Cache contracts and adapters are now part of the package API. Lock providers and debounced task
+coordination remain design work documented in [`UTILITIES.md`](../../UTILITIES.md).

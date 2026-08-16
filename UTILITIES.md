@@ -1,8 +1,8 @@
 # Utility consolidation inventory and specification
 
 Status: inventory and design specification. The framework-neutral utility families described below
-are now implemented in `packages/extension-utils`; cache, lock, and debounced-task consolidation
-remain future work.
+are implemented in `packages/extension-utils` where marked current; lock and debounced-task
+consolidation remain future work.
 
 ## Scope and source snapshots
 
@@ -45,10 +45,10 @@ or assume one Directus deployment topology.
 
 The current `directus-extensions` package exposes primitive guards, attempted operations, typed
 object helpers, MIME classification, explicit environment predicates, UUID helpers, logger adapters,
-and framework-neutral types. A clean packed-consumer smoke test confirms that the root, `/app`,
-`/server`, and `/shared` exports resolve and preserve shared utility identities. The private
-`directus-e2e-playground` is packed and installed alongside the public package for Directus E2E
-validation.
+cache contracts/adapters, and framework-neutral types. A clean packed-consumer smoke test confirms
+that the root, `/app`, `/server`, and `/shared` exports resolve and preserve shared utility
+identities. The private `directus-e2e-playground` is packed and installed alongside the public
+package for Directus E2E validation.
 
 The four source repositories are not yet fully migratable to this package without an API gap or
 breaking shim. Their current consumers use private `@workspace/extension-utils` or
@@ -112,9 +112,12 @@ only selects between two hard-coded implementations. The factory logs directly t
 not expose lifecycle/connection ownership, and cannot express cache-unavailable, fail-open, or
 fail-closed policy.
 
-Required consolidation direction: define a small cache contract and inject an implementation. Keep
-memory and Redis adapters outside the core; environment parsing belongs in an application adapter.
-Distributed cache semantics must be explicit rather than inferred from an environment variable.
+Current implementation: `CacheStore` is backend-independent and asynchronous. `createMemoryCache`
+uses a closure over a `Map` and an injectable clock; `createNamespacedCache` composes deterministic
+key prefixes; and `createRedisCache` accepts an injected Redis-compatible client and optional codec.
+TTL validation, Redis `PX` arguments, serialization failures, and backend failures are explicit and
+tested. The package does not select a backend from environment variables, create Redis connections,
+or claim that memory cache is safe across Directus replicas.
 
 ### Locks and auto-task coordination
 
@@ -210,12 +213,12 @@ or less portable runtime merely because another subpath does.
 
 ### 1. Cache contract
 
-Define a backend-independent contract, for example:
+The implemented backend-independent contract is:
 
 ```ts
-export interface CacheStore<T = unknown> {
-  get(key: string): Promise<T | undefined>
-  set(key: string, value: T, options?: { ttlMs?: number }): Promise<void>
+export interface CacheStore {
+  get<T>(key: string): Promise<T | undefined>
+  set<T>(key: string, value: T, options?: { ttlMs?: number }): Promise<void>
   delete(key: string): Promise<boolean>
   clear?(): Promise<void>
 }
@@ -227,18 +230,19 @@ export interface CacheNamespace {
 }
 ```
 
-Specify that a cache is an optimization, values may disappear, TTL is a maximum freshness hint,
-serialization is the adapter's responsibility, and cache errors are surfaced unless the caller
-explicitly chooses a fail-open wrapper. Namespace construction must be deterministic and must not
-depend on the backend.
+The contract specifies that a cache is an optimization, values may disappear, TTL is a maximum
+freshness hint, serialization is the adapter's responsibility, and cache errors are surfaced unless
+the caller explicitly chooses a fail-open wrapper. Namespace construction must be deterministic and
+must not depend on the backend.
 
-Provide:
+The package provides:
 
 - `createNamespacedCache(store, namespace)` as the core composition;
 - `createMemoryCache()` as a process-local server adapter;
-- `createRedisCache(options)` as an opt-in distributed adapter;
-- `createCacheFromEnvironment` only as an application-owned convenience adapter, with an explicit
-  configuration schema and no silent fallback from a requested distributed mode to local mode.
+- `createRedisCache(client, options?)` as an opt-in distributed adapter;
+- `createCacheFromEnvironment` is intentionally not included; environment selection belongs in an
+  application-owned adapter with an explicit configuration schema and no silent fallback from a
+  requested distributed mode to local mode.
 
 The caller chooses the store. The utility does not read `context.env`, construct Redis clients as a
 side effect, or claim that memory cache is safe across Directus replicas.
