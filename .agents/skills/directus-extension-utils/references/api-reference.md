@@ -1,6 +1,8 @@
 # @onderwijsin/directus-extension-utils API reference
 
-This is the current source API for Directus extensions. The root, /shared, and /app paths expose the shared surface.
+This is the current source API for Directus extensions. For lock and task vocabulary, read the
+[utility glossary](../../../../docs/extension-cookbook/extension-utils-glossary.md). The root, /shared,
+and /app paths expose the shared surface.
 The /server path exposes the shared surface plus filesystem adapters. Read the source export indexes
 when a new API is added; this file is a maintainer reference, not a replacement for tests.
 

@@ -6,6 +6,10 @@ runtime-agnostic within Directus, so they can work across different Directus set
 intended as a general-purpose package for non-Directus applications. Extension-specific behavior
 stays in the owning extension.
 
+For the vocabulary used by locks, leases, markers, and auto-tasks, read the
+[extension-utils glossary](extension-utils-glossary.md) before choosing or configuring a
+coordination utility.
+
 The current package provides the following public utility families:
 
 - primitive runtime guards such as `isRecord`, `isString`, `isDefined`, `isFiniteNumber`,

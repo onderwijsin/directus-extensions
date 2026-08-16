@@ -9,7 +9,8 @@ adapters, and reusable types. It deliberately does not contain Directus services
 registration, or schema validation.
 
 For the complete API and design rules, read the
-[extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md) and the
+[extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md), the
+[utility glossary](../../docs/extension-cookbook/extension-utils-glossary.md), and the
 [primitive guards article](../../docs/extension-cookbook/guards.md).
 
 ## Usage

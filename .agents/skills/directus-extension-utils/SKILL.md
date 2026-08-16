@@ -16,12 +16,13 @@ Read the smallest set of sources that covers the task, then inspect current sour
 
 1. Always read [`docs/extension-cookbook/extension-utils.md`](../../../docs/extension-cookbook/extension-utils.md)
    and [`packages/extension-utils/README.md`](../../../packages/extension-utils/README.md).
-2. For primitive narrowing, also read [`docs/extension-cookbook/guards.md`](../../../docs/extension-cookbook/guards.md).
-3. For package, test, build, export, or documentation changes, follow
+2. For locks or auto-tasks, also read [`docs/extension-cookbook/extension-utils-glossary.md`](../../../docs/extension-cookbook/extension-utils-glossary.md).
+3. For primitive narrowing, also read [`docs/extension-cookbook/guards.md`](../../../docs/extension-cookbook/guards.md).
+4. For package, test, build, export, or documentation changes, follow
    [`docs/agent-workflow.md`](../../../docs/agent-workflow.md) and [`docs/workspace.md`](../../../docs/workspace.md).
-4. For runtime-specific work, verify the package `exports` map in
+5. For runtime-specific work, verify the package `exports` map in
    [`packages/extension-utils/package.json`](../../../packages/extension-utils/package.json).
-5. Consult [`references/api-reference.md`](references/api-reference.md) for the complete API surface.
+6. Consult [`references/api-reference.md`](references/api-reference.md) for the complete API surface.
 
 Treat `packages/extension-utils/src/` and its public export indexes as the implementation source of
 truth. `dist/` is generated; rebuild it before using declarations or packed output as evidence.
