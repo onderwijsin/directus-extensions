@@ -1,4 +1,4 @@
-import { generateUUID } from './uuid'
+import { uuid } from '../shared/uuid'
 
 /** Options controlling the lifetime of an acquired lock lease. */
 export interface LockAcquireOptions {
@@ -124,7 +124,7 @@ const createMemoryLease = (
 export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}): LockProvider {
 	const locks = new Map<string, MemoryLockRecord>()
 	const now = options.now ?? Date.now
-	const tokenFactory = options.tokenFactory ?? generateUUID
+	const tokenFactory = options.tokenFactory ?? uuid
 
 	return {
 		tryAcquire: async (name, acquireOptions = {}) => {

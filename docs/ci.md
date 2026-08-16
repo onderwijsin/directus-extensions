@@ -11,9 +11,9 @@
 | `prepare-release.yml` | Manual on `main`                                     | Create or update the Changesets version pull request |
 | `publish.yml`         | Merged release PR or manual on `main`                | Validate, publish, and create GitHub releases        |
 
-## Quality and E2E phases
+## Quality checks
 
-The normal CI workflow runs a full quality path and then a packed-artifact Directus E2E path:
+The normal CI workflow runs:
 
 1. formatting;
 2. linting;
@@ -21,12 +21,22 @@ The normal CI workflow runs a full quality path and then a packed-artifact Direc
 4. unit tests with V8 coverage collection;
 5. extension-utils and extension builds;
 6. packed-package validation;
-7. packed artifact upload; and
-8. Directus E2E tests using those packed artifacts in a clean temporary consumer.
+7. packed artifact creation; and
+8. packed artifact upload.
 
-The E2E job requires the quality job and downloads its artifacts. This ensures Directus loads the
-same package output that passed archive validation. `ci-yolo.yml` intentionally skips steps 5–8 and
-is not sufficient release evidence.
+`ci-yolo.yml` skips package builds, package validation, artifact creation, and E2E testing. It is
+not sufficient release evidence.
+
+## Directus E2E testing
+
+The E2E job requires the quality job, downloads its packed artifacts, installs them into a clean
+temporary consumer, and runs the isolated Directus E2E runner. Directus therefore loads the same
+package archives that passed package validation.
+
+The E2E runner starts the isolated Compose project, waits for service readiness, creates the test
+data through the Directus API, runs the E2E Vitest project, and removes the Compose project and
+disposable volumes on success, failure, or interruption. See [`testing.md`](testing.md) and
+[`docker.md`](docker.md) for local execution, service topology, and timeout details.
 
 Workflow syntax and extension documentation coverage run in separate required workflows.
 Documentation validation is invoked directly through `node scripts/validate-docs.mjs`, so that
@@ -38,21 +48,10 @@ disclosure for non-sandboxed API extensions. Its failure cases are covered by
 ## Release workflows
 
 `prepare-release.yml` is manually dispatched on `main` and uses Changesets to create or update the
-version pull request. After that pull request is merged, `publish.yml` runs the complete quality and
-package path before invoking `pnpm changeset:publish`. A manual publish is accepted only from
-`main`.
+version pull request. After that pull request is merged, `publish.yml` runs the release quality and
+package validation path before invoking `pnpm changeset:publish`. A manual publish is accepted only
+from `main`.
 
 The publish workflow has a non-canceling concurrency group and notifies Slack only when packages
 were actually published. Do not bypass the release workflow by publishing an individual package
 manually.
-
-## Later validation
-
-The packed E2E consumer is already a clean temporary consumer project: CI installs the packed
-archives, copies the packed extension into that consumer’s Directus extensions directory, and loads
-the artifact through Directus. This validates package contents and the Directus loading contract.
-
-Future external-consumer validation would be a smaller, independent package contract check. It would
-import the published package root and subpaths directly, verify public exports and declarations, and
-run without requiring a Directus instance. This is especially important for
-`@onderwijsin/directus-extension-utils`.

@@ -1,10 +1,9 @@
-import type { TaskHandlerStorage } from '../shared/task-storage'
+import type { TaskHandlerStorage } from './task-storage-memory'
 
 import { createKv } from '@directus/memory'
 import Redis from 'ioredis'
 
-import { createDirectusAutoTaskMarkerStore } from './auto-task'
-import { createFsAutoTaskMarkerStore } from './auto-task'
+import { createDirectusAutoTaskMarkerStore, createFsAutoTaskMarkerStore } from './auto-task'
 import { createFsLockProvider } from './lock'
 import { createRedisLockProvider } from './lock'
 

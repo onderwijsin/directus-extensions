@@ -1,4 +1,4 @@
-import type { LockAcquireOptions, LockLease, LockProvider } from '../shared/lock'
+import type { LockAcquireOptions, LockLease, LockProvider } from './lock-core'
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { createKv } from '@directus/memory'
 import Redis from 'ioredis'
 
-import { generateUUID } from '../shared/uuid'
+import { uuid } from '../shared/uuid'
 
 /** Options for the explicit local-filesystem lock provider. */
 export interface FsLockProviderOptions {
@@ -94,7 +94,7 @@ export function createRedisLockProvider(options: RedisLockProviderOptions): Redi
 				})
 				const lock = await kv.acquireLock(keyFor(normalizedName))
 				let released = false
-				const token = generateUUID()
+				const token = uuid()
 				return {
 					name: normalizedName,
 					token,
@@ -191,7 +191,7 @@ export function createFsLockProvider(options: FsLockProviderOptions): LockProvid
 		throw new TypeError('Lock directory must not be empty')
 	}
 	const now = options.now ?? Date.now
-	const tokenFactory = options.tokenFactory ?? generateUUID
+	const tokenFactory = options.tokenFactory ?? uuid
 
 	return {
 		tryAcquire: async (name, acquireOptions: LockAcquireOptions = {}) => {

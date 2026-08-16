@@ -2,8 +2,8 @@
 
 This is the current source API for Directus extensions. For lock and task vocabulary, read the
 [utility glossary](../../../../docs/extension-cookbook/extension-utils-glossary.md). The root, /shared,
-and /app paths expose the shared surface.
-The /server path exposes the shared surface plus filesystem adapters. Read the source export indexes
+and /app paths expose the browser-safe common surface. The /server path exposes that surface plus
+Directus-runtime utilities. Read the source export indexes
 when a new API is added; this file is a maintainer reference, not a replacement for tests.
 
 ## Attempts
@@ -62,7 +62,7 @@ Use `createCache` for disposable derived data and `createKv` for coordination st
 provided by `@directus/memory` and support local and Redis-backed stores. `Kv` additionally exposes
 `increment`, `acquireLock`, and `usingLock`.
 
-## Locks
+## Server-only locks
 
 ~~~ts
 interface LockAcquireOptions {
@@ -101,7 +101,7 @@ Lock names are trimmed and must not be empty. The memory provider is process-loc
 same concept as `lockTimeoutMs`. Lease renewal and release are owner-bound and idempotent; they
 return false for an expired, released, or replaced generation.
 
-## Auto-task coordination
+## Server-only auto-task coordination
 
 ~~~ts
 interface AutoTaskMarker {
@@ -242,7 +242,7 @@ const getFileType: typeof classifyMimeType
 Values are trimmed and compared case-insensitively. Text types are documents. Unknown values return
 unknown; custom document MIME types extend the default registry.
 
-## Logging
+## Server-only logging
 
 ~~~ts
 interface Logger {
@@ -276,15 +276,16 @@ behavior for duplicate keys.
 
 ~~~ts
 const UUID_NAMESPACE_URL: string
-generateUUID(): string
-generateDeterministicUUID(input: string, namespace?: string): string
+uuid(): string
+uuid(input: string, namespace?: string): string
+uuidv4(): string
 
 type PartialNested<T>
 type LngLatCoordinates = [longitude: number, latitude: number]
 type Geometry
 ~~~
 
-generateUUID returns UUID v4. generateDeterministicUUID returns UUID v5 and defaults to
-UUID_NAMESPACE_URL. PartialNested recursively makes object properties optional while preserving
-functions and constructors. Geometry covers GeoJSON Point, LineString, Polygon, MultiPoint,
-MultiLineString, and MultiPolygon.
+uuid() returns UUID v7. When given an input, uuid() returns a deterministic UUID v5 and defaults to
+UUID_NAMESPACE_URL. uuidv4() returns UUID v4. PartialNested recursively makes object properties
+optional while preserving functions and constructors. Geometry covers GeoJSON Point, LineString,
+Polygon, MultiPoint, MultiLineString, and MultiPolygon.

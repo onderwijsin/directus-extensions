@@ -1,11 +1,11 @@
 import type { Kv } from '@directus/memory'
-import type { AutoTaskMarker, AutoTaskMarkerStore } from '../shared/auto-task'
-import type { LockProvider } from '../shared/lock'
+import type { AutoTaskMarker, AutoTaskMarkerStore } from './auto-task-handler'
+import type { LockProvider } from './lock-core'
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { generateUUID } from '../shared/uuid'
+import { uuid } from '../shared/uuid'
 import { createFsLockProvider } from './lock'
 
 /** Options for the Directus KV-backed marker store. */
@@ -230,7 +230,7 @@ export function createFsAutoTaskMarkerStore(
 				 * @returns A promise that resolves after the rename.
 				 */
 				const writeAtomic = async (targetPath: string, content: string): Promise<void> => {
-					const temporaryPath = `${targetPath}.${generateUUID()}.tmp`
+					const temporaryPath = `${targetPath}.${uuid()}.tmp`
 					await writeFile(temporaryPath, content, {
 						encoding: 'utf8',
 						flag: 'wx',

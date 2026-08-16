@@ -47,8 +47,8 @@ Compose volumes and should only be used when discarding that state is intentiona
 
 The stack uses two explicit networks:
 
-- `frontend` is the application-facing network. Directus joins this network so it can later be
-  connected to other application-facing services without exposing infrastructure broadly.
+- `frontend` is the application-facing network. Directus joins this network for application-facing
+  traffic without exposing infrastructure broadly.
 - `backend` contains the database, cache, storage, mail, and search services. Directus joins it as
   the only application service that needs to reach those dependencies.
 

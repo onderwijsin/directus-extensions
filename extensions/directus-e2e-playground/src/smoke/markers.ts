@@ -1,7 +1,7 @@
 import type Redis from 'ioredis'
 
 import { createKv } from '@directus/memory'
-import { generateUUID } from '@onderwijsin/directus-extension-utils'
+import { uuid } from '@onderwijsin/directus-extension-utils'
 import {
 	createDirectusAutoTaskMarkerStore,
 	createFsTaskHandlerStorage,
@@ -14,7 +14,7 @@ import {
  */
 export const runMarkerSmokeTest = async (redis: Redis) => {
 	const fileStorage = createFsTaskHandlerStorage({
-		directory: `/tmp/directus-e2e-playground-markers-${generateUUID()}`,
+		directory: `/tmp/directus-e2e-playground-markers-${uuid()}`,
 		tokenFactory: (() => {
 			let sequence = 0
 			return () => `file-token-${++sequence}`

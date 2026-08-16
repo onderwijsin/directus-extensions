@@ -9,7 +9,7 @@ import {
 	type LockLease,
 	type LockProvider,
 	type TaskHandlerStorage,
-} from '../src/index'
+} from '../src/server'
 
 const createTestStorage = (
 	lockProvider: LockProvider,

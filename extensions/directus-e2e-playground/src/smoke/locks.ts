@@ -1,5 +1,6 @@
-import { createMemoryLockProvider, generateUUID } from '@onderwijsin/directus-extension-utils'
+import { uuid } from '@onderwijsin/directus-extension-utils'
 import {
+	createMemoryLockProvider,
 	createFsLockProvider,
 	createRedisLockProvider,
 } from '@onderwijsin/directus-extension-utils/server'
@@ -16,7 +17,7 @@ export const runLockSmokeTest = async (redisUrl: string) => {
 	await memoryLease?.release()
 
 	const file = createFsLockProvider({
-		directory: `/tmp/directus-e2e-playground-locks-${generateUUID()}`,
+		directory: `/tmp/directus-e2e-playground-locks-${uuid()}`,
 		tokenFactory: (() => {
 			let sequence = 0
 			return () => `file-token-${++sequence}`

@@ -40,7 +40,7 @@ documentation. Do not start from an isolated file when the contract crosses a pa
 
 Read each selected article completely. Nearby implementations are evidence for local patterns, not
 permission to contradict a documented contract. Use a decision record when a choice affects multiple
-packages, runtime boundaries, security, release behavior, or future maintenance.
+packages, runtime boundaries, security, release behavior, or maintenance impact.
 
 ## 3. Plan and implement
 

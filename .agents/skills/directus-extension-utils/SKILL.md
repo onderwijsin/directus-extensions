@@ -36,7 +36,8 @@ truth. `dist/` is generated; rebuild it before using declarations or packed outp
 - Use an auto-task handler when triggers must be debounced and execution coordinated.
 - Use an attempt helper when an operation's failure should be returned as data.
 - Use MIME helpers for classification, not structured input validation.
-- Use UUID helpers when IDs need random or deterministic generation.
+- Use `uuid()` for UUID v7 or deterministic UUID v5 values, and `uuidv4()` when an explicitly
+  random UUID v4 is required.
 - Use object helpers when preserving key/value types around standard object operations matters.
 - Use `createLogger` when a runtime logger is partial or optional.
 
@@ -50,14 +51,15 @@ Use Zod for structured external input and local guards for small runtime narrowi
 The package has one shared Directus-extension implementation and four public import paths:
 
 - `@onderwijsin/directus-extension-utils` — default shared surface;
-- `@onderwijsin/directus-extension-utils/shared` — explicit shared Directus-extension surface;
+- `@onderwijsin/directus-extension-utils/shared` — explicit browser-safe common surface;
 - `@onderwijsin/directus-extension-utils/app` — browser-safe shared surface; and
-- `@onderwijsin/directus-extension-utils/server` — shared surface plus filesystem adapters.
+- `@onderwijsin/directus-extension-utils/server` — common surface plus Directus-runtime utilities.
 
-Import from the root unless the runtime boundary is meaningful. Use `/server` for
-`createRedisLockProvider`, `createFsLockProvider`, and `createFsAutoTaskMarkerStore`; never
-import server filesystem or Redis code in app or browser code. The app path must remain free of
-Node-only imports.
+Import common browser-safe helpers from the root or `/shared`. Always use `/server` for
+`createMemoryLockProvider`, `createRedisLockProvider`, `createFsLockProvider`,
+`createAutoTaskHandler`, task-storage factories, marker stores, and `createLogger`. Never import
+these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
+of Node-only imports.
 
 Use `@directus/memory` for Directus runtime caches and KV state. Use `createRedisLockProvider` for
 Redis-backed locks; it initializes and owns the Redis connection. Filesystem helpers remain explicit
@@ -122,7 +124,8 @@ consumer skill together when the public contract changes.
 6. Run formatting, lint autofix, typecheck, unit tests, build, package validation, and docs
    validation required by the repository. Run packed-consumer or E2E checks when loading or runtime
    behavior is affected.
-7. Review root, `/shared`, `/app`, and `/server` exports and documentation for drift.
+7. Review root, `/shared`, `/app`, and `/server` exports and documentation for drift. Confirm that
+   Directus-runtime utilities remain server-only.
 
 Completion means the selected utility is used through a documented public import, its runtime
 boundary is valid, its failure and lifecycle semantics are covered, and every affected export,

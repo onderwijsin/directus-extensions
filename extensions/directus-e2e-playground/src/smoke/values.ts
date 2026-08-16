@@ -3,8 +3,7 @@ import type { Geometry, PartialNested } from '@onderwijsin/directus-extension-ut
 import {
 	classifyMimeType,
 	fromEntries,
-	generateDeterministicUUID,
-	generateUUID,
+	uuid,
 	getFileType,
 	keys,
 	toEntries,
@@ -33,8 +32,8 @@ export const runValueSmokeTest = (
 		loggerFields: {
 			attempt: asyncAttempt,
 			classification: classifyMimeType('application/json'),
-			deterministicUuid: generateDeterministicUUID('e2e-playground'),
-			uuid: generateUUID(),
+			deterministicUuid: uuid('e2e-playground'),
+			uuid: uuid(),
 			fileType: getFileType('text/plain'),
 		},
 	}

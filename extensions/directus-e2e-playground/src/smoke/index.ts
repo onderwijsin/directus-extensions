@@ -1,4 +1,5 @@
-import { createLogger, isRecord } from '@onderwijsin/directus-extension-utils'
+import { isRecord } from '@onderwijsin/directus-extension-utils'
+import { createLogger } from '@onderwijsin/directus-extension-utils/server'
 import Redis from 'ioredis'
 
 import { runAttemptSmokeTest } from './attempts'

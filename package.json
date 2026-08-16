@@ -43,8 +43,7 @@
 		"compose:down": "docker compose down",
 		"compose:logs": "docker compose logs -f",
 		"compose:reset": "docker compose down --volumes --remove-orphans",
-		"prepare": "husky",
-		"release": "pnpm build && pnpm validate:packages && pnpm changeset:publish"
+		"prepare": "husky"
 	},
 	"devDependencies": {
 		"@changesets/changelog-git": "catalog:",

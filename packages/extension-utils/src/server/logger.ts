@@ -1,4 +1,4 @@
-/** Minimal structured logger contract shared across runtimes. */
+/** Minimal structured logger contract shared across Directus runtimes. */
 export interface Logger {
 	trace?(message: string, fields?: Record<string, unknown>): void
 	debug?(message: string, fields?: Record<string, unknown>): void
@@ -13,7 +13,7 @@ export type LoggerLike = Partial<Logger>
 /**
  * Returns the supplied logger or a console-backed logger with the shared contract.
  * @param logger - Optional runtime-provided logger.
- * @returns A logger implementing the shared contract.
+ * @returns A logger implementing the Directus runtime logger contract.
  */
 export function createLogger(logger?: LoggerLike): Logger {
 	return {

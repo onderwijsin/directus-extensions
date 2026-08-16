@@ -2,7 +2,7 @@ import {
 	createAutoTaskHandler,
 	type LoggerLike,
 	type TaskHandlerStorage,
-} from '@onderwijsin/directus-extension-utils'
+} from '@onderwijsin/directus-extension-utils/server'
 
 /**
  * Runs one debounced task against the supplied task handler storage.

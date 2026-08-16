@@ -42,14 +42,14 @@ the repository's `authoring-directus-extensions` skill and this cookbook.
 
 Trace the implementation change through both consumer surfaces:
 
-| Change                                                                                                          | README                                        | Consumer skill                                     |
-| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------- |
-| Installation, extension loading, registration, or requirements                                                  | Update                                        | Update                                             |
-| Public option, configuration value, default, or disabled behavior                                               | Update                                        | Update                                             |
-| Endpoint, hook, operation, interface, display, layout, panel, module, theme, or other consumer-visible behavior | Update                                        | Update                                             |
-| Required collection, field, permission, role, policy, environment variable, or Directus configuration           | Update                                        | Update                                             |
-| Compatibility, dependency, security boundary, limitation, error, or troubleshooting behavior                    | Update                                        | Update when it affects agent integration decisions |
-| Internal refactor with identical consumer-visible behavior                                                      | No content change required; record the reason | No content change required; record the reason      |
+| Change                                                                                                          | README                                        | Consumer skill                                         |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------ |
+| Installation, extension loading, registration, or requirements                                                  | Update                                        | Update                                                 |
+| Public option, configuration value, default, or disabled behavior                                               | Update                                        | Update                                                 |
+| Endpoint, hook, operation, interface, display, layout, panel, module, theme, or other consumer-visible behavior | Update                                        | Update                                                 |
+| Required collection, field, permission, role, policy, environment variable, or Directus configuration           | Update                                        | Update                                                 |
+| Compatibility, dependency, security boundary, limitation, error, or troubleshooting behavior                    | Update                                        | Update when it affects installation or usage decisions |
+| Internal refactor with identical consumer-visible behavior                                                      | No content change required; record the reason | No content change required; record the reason          |
 
 The README and consumer skill have different audiences but must describe the same public contract.
 Do not copy maintainer implementation details into either document merely to prove synchronization.

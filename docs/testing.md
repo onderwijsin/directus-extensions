@@ -24,8 +24,39 @@ fixture. See [`docs/docker.md`](docker.md) for the local and E2E Compose contrac
 
 CI runs formatting, linting, TypeScript checks, V8-covered unit tests, package builds, and packed
 package validation. Its E2E job installs the packed artifacts into a clean staging consumer before
-loading them through Directus. Independent external-consumer validation for package imports and
-exports remains a separate concern.
+loading them through Directus.
+
+## `@workspace/test-utils`
+
+`packages/test-utils` is the private package for shared Vitest fixtures and Directus E2E helpers. It
+must never become a runtime dependency of a published extension.
+
+Use it when a helper is shared by multiple tests or packages. Keep one-off fixtures beside the tests
+that use them, and keep helpers focused on the public extension contract:
+
+```ts
+import { createDirectusE2EClient } from '@workspace/test-utils'
+
+const client = createDirectusE2EClient({
+  baseUrl,
+  token,
+  composeFiles: ['docker/compose.yaml', 'tests/compose.e2e.yaml'],
+  composeProject,
+})
+
+const post = await client.createItem<{ id: string }>('posts', { title: 'from E2E' })
+await client.updateItem('posts', post.id, { title: 'updated' })
+await client.deleteItem('posts', post.id)
+```
+
+The package currently provides an authenticated Directus E2E client with item operations and Compose
+log polling. Typecheck it directly with:
+
+```sh
+pnpm --filter @workspace/test-utils typecheck
+```
+
+Do not add production helpers here or import this package from published runtime code.
 
 ## Directus E2E tests
 
@@ -63,8 +94,7 @@ filename suffixes:
 - `*.vue.test.ts` or `*.vue.spec.ts` for Vue-oriented tests.
 
 Those files run in `happy-dom`; all other tests run in Node. The shared setup restores Vitest mocks
-after each test. Add reusable Directus-specific fixtures or helpers to `packages/test-utils` when
-they emerge; the package is intentionally still an empty scaffold.
+after each test. Reusable Directus-specific fixtures and helpers belong in `packages/test-utils`.
 
 ## Test cleanup
 

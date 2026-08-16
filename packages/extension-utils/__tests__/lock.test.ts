@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createMemoryLockProvider } from '../src/index'
+import { createMemoryLockProvider } from '../src/server'
 
 describe('lock utilities', () => {
 	it('acquires, contends, renews, and releases memory locks by owner token', async () => {

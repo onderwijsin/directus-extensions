@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createLogger } from '../src/index'
+import { createLogger } from '../src/server'
 
 describe('logger utilities', () => {
 	afterEach(() => vi.restoreAllMocks())
