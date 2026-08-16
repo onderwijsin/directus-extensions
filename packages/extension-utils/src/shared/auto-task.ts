@@ -27,22 +27,20 @@ export function createMemoryAutoTaskMarkerStore(): AutoTaskMarkerStore {
 	const markers = new Map<string, AutoTaskMarker>()
 
 	return {
-		touch: (identifier, updatedAt) =>
-			Promise.resolve().then(() => {
-				const marker = {
-					generation: (markers.get(identifier)?.generation ?? 0) + 1,
-					updatedAt,
-				}
-				markers.set(identifier, marker)
-				return marker
-			}),
-		get: (identifier) => Promise.resolve(markers.get(identifier)),
-		clear: (identifier, generation) =>
-			Promise.resolve().then(() => {
-				if (markers.get(identifier)?.generation !== generation) return false
-				markers.delete(identifier)
-				return true
-			}),
+		touch: async (identifier, updatedAt) => {
+			const marker = {
+				generation: (markers.get(identifier)?.generation ?? 0) + 1,
+				updatedAt,
+			}
+			markers.set(identifier, marker)
+			return marker
+		},
+		get: async (identifier) => markers.get(identifier),
+		clear: async (identifier, generation) => {
+			if (markers.get(identifier)?.generation !== generation) return false
+			markers.delete(identifier)
+			return true
+		},
 	}
 }
 

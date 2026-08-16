@@ -84,28 +84,28 @@ const createMemoryLease = (
 	return {
 		name,
 		token,
-		renew: () => {
-			if (released) return Promise.resolve(false)
+		async renew() {
+			if (released) return false
 			const currentTime = now()
 			const record = locks.get(name)
 			if (!record || record.token !== token || record.expiresAt <= currentTime) {
 				if (record?.token === token) locks.delete(name)
-				return Promise.resolve(false)
+				return false
 			}
 			record.expiresAt = currentTime + leaseMs
-			return Promise.resolve(true)
+			return true
 		},
-		release: () => {
-			if (released) return Promise.resolve(false)
+		async release() {
+			if (released) return false
 			released = true
 			const currentTime = now()
 			const record = locks.get(name)
 			if (!record || record.token !== token || record.expiresAt <= currentTime) {
 				if (record?.token === token) locks.delete(name)
-				return Promise.resolve(false)
+				return false
 			}
 			locks.delete(name)
-			return Promise.resolve(true)
+			return true
 		},
 	}
 }
@@ -125,19 +125,18 @@ export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}
 	const tokenFactory = options.tokenFactory ?? generateUUID
 
 	return {
-		tryAcquire: (name, acquireOptions = {}) =>
-			Promise.resolve().then(() => {
-				const normalizedName = validateName(name)
-				const leaseMs = validateLeaseMs(acquireOptions.leaseMs)
-				const currentTime = now()
-				const current = locks.get(normalizedName)
-				if (current && current.expiresAt > currentTime) return null
-				if (current) locks.delete(normalizedName)
+		tryAcquire: async (name, acquireOptions = {}) => {
+			const normalizedName = validateName(name)
+			const leaseMs = validateLeaseMs(acquireOptions.leaseMs)
+			const currentTime = now()
+			const current = locks.get(normalizedName)
+			if (current && current.expiresAt > currentTime) return null
+			if (current) locks.delete(normalizedName)
 
-				const token = tokenFactory()
-				locks.set(normalizedName, { token, expiresAt: currentTime + leaseMs })
-				return createMemoryLease(normalizedName, token, leaseMs, now, locks)
-			}),
+			const token = tokenFactory()
+			locks.set(normalizedName, { token, expiresAt: currentTime + leaseMs })
+			return createMemoryLease(normalizedName, token, leaseMs, now, locks)
+		},
 	}
 }
 

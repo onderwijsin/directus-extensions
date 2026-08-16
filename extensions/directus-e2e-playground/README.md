@@ -9,6 +9,10 @@ contains the event, collection, and item key when Directus provides one. Logs ar
 The Redis smoke checks use the same `@directus/memory` cache and key-value patterns as Directus,
 backed by the Redis service configured through `REDIS`.
 
+The utility smoke checks live in `src/smoke/`, grouped by concern: attempts, guards, values, cache,
+locks, markers, and auto-tasks. The hook entrypoint only registers Directus events and coordinates
+the smoke run.
+
 This playground is intentionally non-sandboxed because it imports and exercises the packed
 `extension-utils` package. Sandbox hooks cannot import arbitrary workspace packages; future tests
 can validate the sandbox path separately.

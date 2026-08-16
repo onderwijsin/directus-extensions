@@ -110,6 +110,7 @@ describe('Directus E2E client', () => {
 				'--no-color',
 				'directus',
 			],
+			{ timeout: 60_000 },
 			expect.any(Function),
 		)
 	})

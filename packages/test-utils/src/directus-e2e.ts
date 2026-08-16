@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
+const e2eOperationTimeoutMs = 60_000
 
 export interface DirectusE2EClientOptions {
 	baseUrl: string
@@ -61,6 +62,7 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		const response = await fetch(new URL(path, options.baseUrl), {
 			...init,
 			headers,
+			signal: init.signal ?? AbortSignal.timeout(e2eOperationTimeoutMs),
 		})
 
 		if (response.status === 204) {
@@ -123,20 +125,24 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @param timeoutMs - Maximum time to wait in milliseconds.
 	 * @returns The complete matching log output.
 	 */
-	async function waitForLog(pattern: RegExp, timeoutMs = 15_000): Promise<string> {
+	async function waitForLog(pattern: RegExp, timeoutMs = e2eOperationTimeoutMs): Promise<string> {
 		const deadline = Date.now() + timeoutMs
 		let output = ''
 
 		while (Date.now() < deadline) {
-			const result = await execFileAsync('docker', [
-				'compose',
-				...options.composeFiles.flatMap((file) => ['-f', file]),
-				'-p',
-				options.composeProject,
-				'logs',
-				'--no-color',
-				'directus',
-			])
+			const result = await execFileAsync(
+				'docker',
+				[
+					'compose',
+					...options.composeFiles.flatMap((file) => ['-f', file]),
+					'-p',
+					options.composeProject,
+					'logs',
+					'--no-color',
+					'directus',
+				],
+				{ timeout: e2eOperationTimeoutMs },
+			)
 			output = result.stdout
 			pattern.lastIndex = 0
 			if (pattern.test(output)) return output

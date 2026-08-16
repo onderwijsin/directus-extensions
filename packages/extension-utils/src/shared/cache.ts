@@ -69,36 +69,30 @@ export function createMemoryCache(options: MemoryCacheOptions = {}): CacheStore 
 	const now = options.now ?? Date.now
 
 	return {
-		get<T>(key: string): Promise<T | undefined> {
-			return Promise.resolve().then(() => {
-				const entry = entries.get(key)
-				if (!entry) return undefined
-				if (isExpired(entry, now())) {
-					entries.delete(key)
-					return undefined
-				}
-				return entry.value as T
+		async get<T>(key: string): Promise<T | undefined> {
+			const entry = entries.get(key)
+			if (!entry) return undefined
+			if (isExpired(entry, now())) {
+				entries.delete(key)
+				return undefined
+			}
+			return entry.value as T
+		},
+		async set<T>(key: string, value: T, setOptions?: CacheSetOptions): Promise<void> {
+			const ttlMs = validateTtl(setOptions)
+			entries.set(key, {
+				value,
+				expiresAt: ttlMs === undefined ? undefined : now() + ttlMs,
 			})
 		},
-		set<T>(key: string, value: T, setOptions?: CacheSetOptions): Promise<void> {
-			return Promise.resolve().then(() => {
-				const ttlMs = validateTtl(setOptions)
-				entries.set(key, {
-					value,
-					expiresAt: ttlMs === undefined ? undefined : now() + ttlMs,
-				})
-			})
-		},
-		delete(key: string): Promise<boolean> {
-			return Promise.resolve().then(() => {
-				const entry = entries.get(key)
-				if (!entry) return false
-				if (isExpired(entry, now())) {
-					entries.delete(key)
-					return false
-				}
-				return entries.delete(key)
-			})
+		async delete(key: string): Promise<boolean> {
+			const entry = entries.get(key)
+			if (!entry) return false
+			if (isExpired(entry, now())) {
+				entries.delete(key)
+				return false
+			}
+			return entries.delete(key)
 		},
 		clear(): Promise<void> {
 			entries.clear()

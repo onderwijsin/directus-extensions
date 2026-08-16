@@ -203,6 +203,20 @@ The package also exports `PartialNested`, `Geometry`, and `LngLatCoordinates` fo
 typing. `PartialNested` recursively makes object properties optional while preserving functions and
 constructors.
 
+## Choosing an API
+
+Keep orchestration in the consuming extension and choose the smallest utility that matches its
+needs:
+
+- use guards for one-value runtime narrowing;
+- use a cache for disposable derived data;
+- use a lock when only one owner may perform work;
+- use an auto-task handler when triggers should be debounced and coordinated; and
+- use `attempt` when failure should be returned as data.
+
+Each utility accepts its runtime dependencies explicitly. The package does not read environment
+variables, open connections, select filesystem directories, or register Directus handlers.
+
 Runtime-aware subpaths are available when an extension has an explicit runtime boundary:
 
 ```ts

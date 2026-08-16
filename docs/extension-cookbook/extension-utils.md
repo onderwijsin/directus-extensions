@@ -53,3 +53,17 @@ replacement generation.
 
 `applyingFlagPath` is intentionally not supported. It is an unowned second lock and can be replaced
 by a second named `LockProvider` lease shared by the applying operation and the auto-task handler.
+
+## Choosing a utility
+
+Keep orchestration in the consuming extension and choose the smallest utility that matches its
+needs:
+
+- guards answer one runtime-narrowing question;
+- caches hold disposable derived data;
+- locks grant one owner a renewable lease;
+- auto-task handlers debounce triggers and coordinate execution; and
+- attempt helpers turn expected operation failures into result values.
+
+All external resources are explicit dependencies. Utilities do not read environment variables,
+create Redis connections, choose filesystem directories, or register Directus handlers.
