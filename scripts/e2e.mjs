@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process'
 /**
  * End-to-end runner for the repository's isolated Directus test project.
  *
@@ -6,6 +5,7 @@ import { spawn } from 'node:child_process'
  * stack, initializes the test data, runs Vitest, prints diagnostics on failure,
  * and always removes the stack afterwards.
  */
+import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 
 /** @typedef {import('node:child_process').ChildProcessWithoutNullStreams} ChildProcess */
@@ -23,6 +23,12 @@ const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
 const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
+
+/**
+ * Determines whether an HTTP response indicates that a service is ready.
+ * @param {Response} response - HTTP response returned by the readiness probe.
+ * @returns {boolean} Whether the response has a successful status.
+ */
 const responseIsReady = (response) => response.ok
 /** @type {ChildProcess | undefined} */
 let activeChild
@@ -95,6 +101,10 @@ function runCommand(
  * @returns Environment variables shared by the E2E Compose services.
  */
 function generateEnvironmentSecrets() {
+	/**
+	 * Generates one cryptographically random secret for the Compose environment.
+	 * @returns {string} A hexadecimal secret value.
+	 */
 	const randomSecret = () => randomBytes(32).toString('hex')
 
 	return {
