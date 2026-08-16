@@ -31,7 +31,9 @@ async function expectEvent(event: string) {
 async function expectUtilityResults() {
 	const output = await client.waitForLog(/directus-e2e-playground: utilities /u)
 	const marker = 'directus-e2e-playground: utilities '
-	const payload = JSON.parse(output.slice(output.indexOf(marker) + marker.length))
+	const utilityLine = output.split('\n').find((line) => line.includes(marker))
+	if (!utilityLine) throw new Error('Expected the utility result log line')
+	const payload = JSON.parse(utilityLine.slice(utilityLine.indexOf(marker) + marker.length))
 
 	expect(payload).toMatchObject({
 		attempts: { async: 'async', sync: 'sync', retry: 'retried', calls: 2 },
