@@ -1,19 +1,36 @@
 # Extension utilities
 
 `@onderwijsin/directus-extension-utils` provides small, reusable building blocks for Directus
-extensions. The examples below are the quickest way to choose and use them.
+extensions. Read this article before adding a local helper or importing a shared utility. The
+examples below are grouped by concern so the import boundary and coordination vocabulary stay
+visible.
 
 ## Choose a utility
 
-| Need                                | Use                             |
-| ----------------------------------- | ------------------------------- |
-| Narrow an unknown value             | Guards                          |
-| Return an error instead of throwing | `attempt` or `attemptWithRetry` |
-| Store derived data                  | Directus `createCache`          |
-| Store coordination state            | Directus `createKv`             |
-| Coordinate one owner at a time      | A lock provider                 |
-| Debounce and coordinate work        | `createAutoTaskHandler`         |
-| Adapt a Directus logger             | `createLogger`                  |
+| Need                                                                | Use                                                                               |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Narrow an unknown value                                             | [Guards](guards.md)                                                               |
+| Return an error instead of throwing                                 | [`attempt`](#attempts-and-retries) or [`attemptWithRetry`](#attempts-and-retries) |
+| Store derived data                                                  | Directus `createCache`                                                            |
+| Store coordination state                                            | Directus `createKv`                                                               |
+| Coordinate one [owner](extension-utils-glossary.md#owner) at a time | A lock provider                                                                   |
+| Debounce and coordinate work                                        | [`createAutoTaskHandler`](#auto-task-handlers)                                    |
+| Adapt a Directus logger                                             | [`createLogger`](#logging)                                                        |
+
+## Runtime subpaths
+
+Use public package subpaths rather than source paths:
+
+| Subpath                                        | Contents                                                    | Intended use                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
+| `@onderwijsin/directus-extension-utils`        | Common helpers                                              | Server and app code that does not need server-only coordination |
+| `@onderwijsin/directus-extension-utils/shared` | Common helpers                                              | Explicit shared/runtime imports                                 |
+| `@onderwijsin/directus-extension-utils/app`    | Common helpers                                              | App extensions; no server-only utilities                        |
+| `@onderwijsin/directus-extension-utils/server` | Common helpers plus locks, auto-tasks, storage, and logging | Directus server extensions and server lifecycle code            |
+
+The root, `/shared`, and `/app` exports are the common browser-safe surface. The `/server` export
+adds Node/server utilities and re-exports the common surface. Keep server-only imports out of app
+bundles.
 
 ## Import from the right runtime
 
@@ -38,9 +55,26 @@ import {
 Do not import server utilities from an app bundle. The `/app`, `/shared`, and root exports contain
 only the common helper surface.
 
+## Utility reference
+
+| Group          | Public utilities                                                                                                                                                                  | Import from       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Guards         | `isDefined`, `isRecord`, `isArray`, `isString`, `isNonEmptyString`, `isNonBlankString`, `isNumber`, `isFiniteNumber`, `isInteger`, `isBoolean`, `isFunction`, `hasKeys`, `hasKey` | Root or `/shared` |
+| Attempts       | `attempt`, `attemptSync`, `attemptWithRetry`                                                                                                                                      | Root or `/shared` |
+| Object helpers | `keys`, `toEntries`, `fromEntries`                                                                                                                                                | Root or `/shared` |
+| MIME and IDs   | `classifyMimeType`, `isAudioMimeType`, `isVideoMimeType`, `isImageMimeType`, `isDocumentMimeType`, `uuid`, `uuidv4`                                                               | Root or `/shared` |
+| Locks          | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                     | `/server`         |
+| Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                | `/server`         |
+| Logging        | `createLogger`                                                                                                                                                                    | `/server`         |
+
+The package README and
+[maintainer API reference](../../.agents/skills/directus-extension-utils/references/api-reference.md)
+contain the complete signatures. This article focuses on choosing a group and using it safely.
+
 ## Guards
 
-Guards narrow `unknown` values without assertions:
+Guards narrow `unknown` values without assertions. See the [primitive runtime guards](guards.md)
+article for exact semantics and selection rules:
 
 ```ts
 import { hasKey, isRecord, isString } from '@onderwijsin/directus-extension-utils'
@@ -89,8 +123,9 @@ For cache and KV guidance, see [Cache and KV](patterns-and-conventions.md#cache-
 
 ## Locks
 
-A lock acquisition returns an owner-bound lease. If another owner holds the lock, `tryAcquire`
-returns `null`. Always release an acquired lease in `finally`.
+A [lock](extension-utils-glossary.md#lock) acquisition returns an owner-bound
+[lease](extension-utils-glossary.md#lease). If another [owner](extension-utils-glossary.md#owner)
+holds the lock, `tryAcquire` returns `null`. Always release an acquired lease in `finally`.
 
 ### Process-local lock
 
@@ -143,9 +178,12 @@ try {
 }
 ```
 
-The provider creates and owns the Redis connection. `leaseMs` is the expiry window: renew it while
-long work is running, and release it when the work ends. A lease token prevents an old owner from
-releasing a newer lock generation.
+The provider creates and owns the Redis connection. `leaseMs` is the
+[lease duration](extension-utils-glossary.md#lease-duration):
+[renew](extension-utils-glossary.md#renew) it while long work is running, and
+[release](extension-utils-glossary.md#release) it when the work ends. A
+[token](extension-utils-glossary.md#token) prevents an old owner from releasing a newer lock
+generation.
 
 ### Filesystem lock
 
@@ -187,14 +225,16 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 ```
 
-Each trigger writes the newest marker generation; a burst is not silently deduplicated because the
-latest generation and timestamp must remain observable. Memory updates are process-local and
+Each trigger writes the newest [marker](extension-utils-glossary.md#marker)
+[generation](extension-utils-glossary.md#generation); a burst is not silently deduplicated because
+the latest generation and timestamp must remain observable. Memory updates are process-local and
 synchronous, Redis updates are serialized by the backend KV lock, and filesystem updates are queued
 per identifier within one store instance and protected by the shared filesystem lock. Use Redis for
 cross-replica coordination.
 
-An auto-task handler turns repeated triggers into one debounced execution. The marker records the
-latest trigger; the task lease elects one owner to run it.
+An [auto-task handler](extension-utils-glossary.md#auto-task-handler) turns repeated triggers into
+one debounced execution. The marker records the latest trigger; the
+[task lease](extension-utils-glossary.md#task-lease) elects one owner to run it.
 
 ### Process-local auto-task
 
@@ -230,12 +270,14 @@ await storage.dispose()
 ```
 
 `markerLeaseMs` limits how long an unprocessed trigger remains useful. `taskLeaseMs` controls the
-owner lease while the task runs. They are separate because a pending trigger and active work have
-different lifetimes; in many extensions, setting them to the same value is still reasonable.
+[owner lease](extension-utils-glossary.md#lease) while the task runs. They are separate because a
+pending trigger and active work have different lifetimes; in many extensions, setting them to the
+same value is still reasonable.
 
 ### Redis auto-task for multiple replicas
 
-Use one storage factory so locks and markers share the same backend and namespace:
+Use one [storage](extension-utils-glossary.md#storage) factory so locks and markers share the same
+backend and namespace:
 
 ```ts
 import {
@@ -291,10 +333,41 @@ const handleImport = createAutoTaskHandler({
 })
 ```
 
-For tests, the storage factories also accept injectable clocks and token factories where exposed.
-For production code, use the defaults.
+For tests, the storage factories also accept injectable clocks and
+[token](extension-utils-glossary.md#token) factories where exposed. For production code, use the
+defaults.
 
-## UUIDs
+## Object helpers, MIME, and UUIDs
+
+The common entry point also includes typed object helpers, MIME classification, and UUID helpers.
+Use these for small reusable transformations; keep domain-specific parsing at the owning boundary.
+
+### Typed object helpers
+
+```ts
+import { fromEntries, keys, toEntries } from '@onderwijsin/directus-extension-utils'
+
+const options = { retries: 3, timeoutMs: 5_000 }
+const names = keys(options)
+const doubled = fromEntries(toEntries(options).map(([key, value]) => [key, value * 2] as const))
+```
+
+`keys` and `toEntries` preserve the input key and value types for typed iteration. `fromEntries`
+uses the standard last-entry-wins behavior for duplicate keys.
+
+### MIME classification
+
+```ts
+import { classifyMimeType } from '@onderwijsin/directus-extension-utils'
+
+const category = classifyMimeType(upload.mimeType)
+if (category === 'image') await createImagePreview(upload)
+```
+
+Classification trims and compares case-insensitively. Unknown values return `'unknown'`; pass
+`documentMimeTypes` when an extension supports additional document types.
+
+### UUIDs
 
 Use UUID v7 for new sortable identifiers. Use v4 when you specifically need an unsorted random ID,
 or pass an input when the ID must be deterministic:
@@ -332,8 +405,10 @@ await storage.dispose() // closes provider resources, such as Redis
 await locks.dispose() // only for a standalone Redis lock provider
 ```
 
-Disposal does not delete markers and does not abort a task that is already running. The task should
-honor its `AbortSignal` when the lease is lost.
+[`dispose()`](extension-utils-glossary.md#handler-disposal) does not delete markers and does not
+abort a task that is already running. The task should honor its
+[`AbortSignal`](extension-utils-glossary.md#abort-signal) when the lease is lost. Dispose the
+handler before the [storage](extension-utils-glossary.md#storage) that owns its resources.
 
 ## More detail
 
