@@ -101,15 +101,16 @@ export default defineHook(({ action }) => {
 		await fileLease?.release()
 		const redisLockValues = new Map<string, string>()
 		const redisLockClient: RedisLockClient = {
-			set: async (key, value, ...arguments_) => {
-				if (arguments_.includes('NX') && redisLockValues.has(key)) return null
+			set: (key, value, ...arguments_) => {
+				if (arguments_.includes('NX') && redisLockValues.has(key))
+					return Promise.resolve(null)
 				redisLockValues.set(key, value)
-				return 'OK'
+				return Promise.resolve('OK')
 			},
-			eval: async (script, _numberOfKeys, key, token) => {
-				if (redisLockValues.get(String(key)) !== token) return 0
+			eval: (script, _numberOfKeys, key, token) => {
+				if (redisLockValues.get(String(key)) !== token) return Promise.resolve(0)
 				if (script.includes('del')) redisLockValues.delete(String(key))
-				return 1
+				return Promise.resolve(1)
 			},
 		}
 		const redisLock = createRedisLockProvider(redisLockClient, {
@@ -128,8 +129,8 @@ export default defineHook(({ action }) => {
 		let redisMarkerGeneration = 0
 		const redisMarkerValues = new Map<string, string>()
 		const redisMarkerClient: RedisAutoTaskMarkerClient = {
-			get: async (key) => redisMarkerValues.get(key) ?? null,
-			eval: async (script, _numberOfKeys, generationKey, markerKey, value) => {
+			get: (key) => Promise.resolve(redisMarkerValues.get(key) ?? null),
+			eval: (script, _numberOfKeys, generationKey, markerKey, value) => {
 				if (script.includes('incr')) {
 					redisMarkerGeneration += 1
 					redisMarkerValues.set(String(generationKey), String(redisMarkerGeneration))
@@ -137,11 +138,13 @@ export default defineHook(({ action }) => {
 						String(markerKey),
 						`${redisMarkerGeneration}:${String(value)}`,
 					)
-					return redisMarkerGeneration
+					return Promise.resolve(redisMarkerGeneration)
 				}
-				if (redisMarkerValues.get(String(generationKey)) !== String(value)) return 0
+				if (redisMarkerValues.get(String(generationKey)) !== String(value)) {
+					return Promise.resolve(0)
+				}
 				redisMarkerValues.delete(String(markerKey))
-				return 1
+				return Promise.resolve(1)
 			},
 		}
 		const redisMarkerStore = createRedisAutoTaskMarkerStore(redisMarkerClient)

@@ -128,14 +128,14 @@ describe('lock utilities', () => {
 	it('does not release a Redis replacement and propagates client failures', async () => {
 		const values = new Map<string, string>()
 		const client: RedisLockClient = {
-			set: async (key, value) => {
-				if (values.has(key)) return null
+			set: (key, value) => {
+				if (values.has(key)) return Promise.resolve(null)
 				values.set(key, value)
-				return 'OK'
+				return Promise.resolve('OK')
 			},
-			eval: async (_script, _numberOfKeys, key, token) => {
-				if (values.get(String(key)) !== String(token)) return 0
-				return 1
+			eval: (_script, _numberOfKeys, key, token) => {
+				if (values.get(String(key)) !== String(token)) return Promise.resolve(0)
+				return Promise.resolve(1)
 			},
 		}
 		const provider = createRedisLockProvider(client, {
@@ -157,8 +157,8 @@ describe('lock utilities', () => {
 
 	it('treats non-success Redis SET replies as contention', async () => {
 		const provider = createRedisLockProvider({
-			set: async () => undefined,
-			eval: async () => 1,
+			set: () => Promise.resolve(undefined),
+			eval: () => Promise.resolve(1),
 		})
 
 		expect(await provider.tryAcquire('item')).toBeNull()
@@ -168,11 +168,11 @@ describe('lock utilities', () => {
 		let evaluationCount = 0
 		const failure = new Error('redis eval unavailable')
 		const provider = createRedisLockProvider({
-			set: async () => 'OK',
-			eval: async () => {
+			set: () => Promise.resolve('OK'),
+			eval: () => {
 				evaluationCount += 1
 				if (evaluationCount < 3) throw failure
-				return 1
+				return Promise.resolve(1)
 			},
 		})
 		const lease = await provider.tryAcquire('item')

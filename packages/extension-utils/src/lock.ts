@@ -109,18 +109,19 @@ export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}
 	const tokenFactory = options.tokenFactory ?? generateUUID
 
 	return {
-		tryAcquire: async (name, acquireOptions = {}) => {
-			const normalizedName = validateName(name)
-			const leaseMs = validateLeaseMs(acquireOptions.leaseMs)
-			const currentTime = now()
-			const current = locks.get(normalizedName)
-			if (current && current.expiresAt > currentTime) return null
-			if (current) locks.delete(normalizedName)
+		tryAcquire: (name, acquireOptions = {}) =>
+			Promise.resolve().then(() => {
+				const normalizedName = validateName(name)
+				const leaseMs = validateLeaseMs(acquireOptions.leaseMs)
+				const currentTime = now()
+				const current = locks.get(normalizedName)
+				if (current && current.expiresAt > currentTime) return null
+				if (current) locks.delete(normalizedName)
 
-			const token = tokenFactory()
-			locks.set(normalizedName, { token, expiresAt: currentTime + leaseMs })
-			return createMemoryLease(normalizedName, token, leaseMs, now, locks)
-		},
+				const token = tokenFactory()
+				locks.set(normalizedName, { token, expiresAt: currentTime + leaseMs })
+				return createMemoryLease(normalizedName, token, leaseMs, now, locks)
+			}),
 	}
 }
 

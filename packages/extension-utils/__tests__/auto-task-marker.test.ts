@@ -7,18 +7,18 @@ describe('createRedisAutoTaskMarkerStore', () => {
 		const values = new Map<string, string>()
 		const generations = new Map<string, number>()
 		const client: RedisAutoTaskMarkerClient = {
-			get: async (key) => values.get(key) ?? null,
-			eval: async (script, _numberOfKeys, generationKey, markerKey, value) => {
+			get: (key) => Promise.resolve(values.get(key) ?? null),
+			eval: (script, _numberOfKeys, generationKey, markerKey, value) => {
 				if (script.includes('incr')) {
 					const generation = (generations.get(String(generationKey)) ?? 0) + 1
 					generations.set(String(generationKey), generation)
 					values.set(String(generationKey), String(generation))
 					values.set(String(markerKey), `${generation}:${String(value)}`)
-					return generation
+					return Promise.resolve(generation)
 				}
-				if (values.get(String(generationKey)) !== String(value)) return 0
+				if (values.get(String(generationKey)) !== String(value)) return Promise.resolve(0)
 				values.delete(String(markerKey))
-				return 1
+				return Promise.resolve(1)
 			},
 		}
 		const store = createRedisAutoTaskMarkerStore(client, { keyPrefix: 'test:' })
@@ -44,8 +44,8 @@ describe('createRedisAutoTaskMarkerStore', () => {
 		await expect(failingStore.touch('items', 1)).rejects.toBe(failure)
 
 		const malformedStore = createRedisAutoTaskMarkerStore({
-			get: async () => 'broken',
-			eval: async () => 1,
+			get: () => Promise.resolve('broken'),
+			eval: () => Promise.resolve(1),
 		})
 		await expect(malformedStore.get('items')).rejects.toThrow('Invalid auto-task marker')
 		await expect(malformedStore.touch('items', Number.NaN)).rejects.toThrow(
@@ -53,8 +53,8 @@ describe('createRedisAutoTaskMarkerStore', () => {
 		)
 
 		const invalidGenerationStore = createRedisAutoTaskMarkerStore({
-			get: async () => null,
-			eval: async () => 0,
+			get: () => Promise.resolve(null),
+			eval: () => Promise.resolve(0),
 		})
 		await expect(invalidGenerationStore.touch('items', 1)).rejects.toThrow(
 			'Invalid auto-task marker',
