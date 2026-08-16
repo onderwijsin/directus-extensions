@@ -113,11 +113,15 @@ interface AutoTaskMarkerStore {
   get(identifier: string): Promise<AutoTaskMarker | undefined>
   clear(identifier: string, generation: number): Promise<boolean>
 }
-createMemoryAutoTaskMarkerStore(): AutoTaskMarkerStore
-createDirectusAutoTaskMarkerStore(
-  kv: Kv,
-  options?: { namespace?: string },
-): AutoTaskMarkerStore
+createMemoryMarkerStore(): AutoTaskMarkerStore
+interface RedisMarkerStoreOptions {
+  redisUrl: string
+  namespace?: string
+  lockTimeoutMs?: number // default 5_000
+}
+createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTaskMarkerStore & {
+  dispose(): Promise<void>
+}
 ~~~
 
 The Directus marker adapter uses `Kv.increment` and `Kv.usingLock` to update generations safely.
@@ -187,12 +191,12 @@ interface FsLockProviderOptions {
 }
 createFsLockProvider(options: FsLockProviderOptions): LockProvider
 
-interface FsAutoTaskMarkerStoreOptions {
+interface FsMarkerStoreOptions {
   directory: string
   lockProvider?: LockProvider
   lockTimeoutMs?: number // default 5_000; finite and positive
 }
-createFsAutoTaskMarkerStore(options: FsAutoTaskMarkerStoreOptions): AutoTaskMarkerStore
+createFsMarkerStore(options: FsMarkerStoreOptions): AutoTaskMarkerStore
 
 interface FsTaskHandlerStorageOptions {
   directory: string
@@ -210,6 +214,10 @@ interface RedisTaskHandlerStorageOptions {
 }
 createRedisTaskHandlerStorage(options: RedisTaskHandlerStorageOptions): TaskHandlerStorage
 ~~~
+
+Marker writes preserve each generation. Memory writes are process-local, Redis writes are
+serialized by the backend KV lock, and filesystem writes are serialized per identifier within a
+store instance and protected by the shared filesystem lock across processes.
 
 These functions are exported only from /server. Filesystem factories require a non-empty explicit
 directory and coordinate processes only when that directory is shared. The filesystem marker store

@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -26,11 +26,12 @@ describe('createFsLockProvider', () => {
 		expect(await second.tryAcquire('shared/item')).toBeNull()
 		expect(await lease?.release()).toBe(true)
 		expect(await lease?.release()).toBe(false)
-		expect(await readdir(directory)).toEqual([])
+		expect(await readdir(directory)).toEqual(['shared%2Fitem.lock'])
 
 		const replacement = await second.tryAcquire('shared/item')
 		expect(replacement?.token).toBe('second')
 		expect(await replacement?.release()).toBe(true)
+		expect(await readdir(directory)).toEqual(['shared%2Fitem.lock'])
 	})
 
 	it('renews an active lease and rejects an expired owner', async () => {
@@ -58,6 +59,29 @@ describe('createFsLockProvider', () => {
 		const replacement = await second.tryAcquire('expiring', { leaseMs: 10 })
 		expect(replacement?.token).toBe('second')
 		expect(await replacement?.renew()).toBe(true)
+	})
+
+	it('does not remove a replacement claim when an old lease releases late', async () => {
+		let now = 0
+		const first = createFsLockProvider({
+			directory,
+			now: () => now,
+			tokenFactory: () => 'first',
+		})
+		const second = createFsLockProvider({
+			directory,
+			now: () => now,
+			tokenFactory: () => 'second',
+		})
+		const oldLease = await first.tryAcquire('replacement', { leaseMs: 10 })
+		now = 10
+		const newLease = await second.tryAcquire('replacement', { leaseMs: 10 })
+
+		expect(newLease?.token).toBe('second')
+		expect(await oldLease?.release()).toBe(false)
+		expect(await readFile(join(directory, 'replacement.lock'), 'utf8')).toBe('second')
+		expect(await newLease?.release()).toBe(true)
+		expect(await readFile(join(directory, 'replacement.lock'), 'utf8')).toBe('second')
 	})
 
 	it('uses safe namespacing for names containing path separators', async () => {

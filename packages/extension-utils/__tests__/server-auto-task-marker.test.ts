@@ -4,9 +4,9 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { createFsAutoTaskMarkerStore } from '../src/server/auto-task'
+import { createFsMarkerStore } from '../src/server/auto-task'
 
-describe('createFsAutoTaskMarkerStore', () => {
+describe('createFsMarkerStore', () => {
 	let directory: string
 
 	beforeEach(async () => {
@@ -18,7 +18,7 @@ describe('createFsAutoTaskMarkerStore', () => {
 	})
 
 	it('persists generations and clears only the matching marker', async () => {
-		const store = createFsAutoTaskMarkerStore({ directory })
+		const store = createFsMarkerStore({ directory })
 
 		const first = await store.touch('items/a', 100)
 		const second = await store.touch('items/a', 200)
@@ -31,22 +31,32 @@ describe('createFsAutoTaskMarkerStore', () => {
 	})
 
 	it('supports safe identifiers and recovers after a released marker lock', async () => {
-		const store = createFsAutoTaskMarkerStore({ directory })
+		const store = createFsMarkerStore({ directory })
 		await store.touch('items/a?b', 100)
 		expect(await store.get('items/a?b')).toEqual({ generation: 1, updatedAt: 100 })
 		await store.clear('items/a?b', 1)
 		expect(await store.touch('items/a?b', 200)).toEqual({ generation: 2, updatedAt: 200 })
 	})
 
+	it('serializes burst writes for one marker identifier', async () => {
+		const store = createFsMarkerStore({ directory })
+		const markers = await Promise.all(
+			Array.from({ length: 5 }, (_, index) => store.touch('burst', index)),
+		)
+
+		expect(markers.map((marker) => marker.generation)).toEqual([1, 2, 3, 4, 5])
+		expect(await store.get('burst')).toEqual({ generation: 5, updatedAt: 4 })
+	})
+
 	it('rejects malformed markers, invalid options, and invalid timestamps', async () => {
-		expect(() => createFsAutoTaskMarkerStore({ directory: ' ' })).toThrow(
+		expect(() => createFsMarkerStore({ directory: ' ' })).toThrow(
 			'Auto task marker directory must not be empty',
 		)
-		expect(() => createFsAutoTaskMarkerStore({ directory, lockTimeoutMs: 0 })).toThrow(
+		expect(() => createFsMarkerStore({ directory, lockTimeoutMs: 0 })).toThrow(
 			'Auto task marker lockTimeoutMs must be a finite positive number',
 		)
 
-		const store = createFsAutoTaskMarkerStore({ directory })
+		const store = createFsMarkerStore({ directory })
 		await expect(store.touch('items', Number.NaN)).rejects.toThrow(
 			'Auto task marker time must be finite',
 		)
@@ -58,7 +68,7 @@ describe('createFsAutoTaskMarkerStore', () => {
 	it('surfaces filesystem failures', async () => {
 		const filePath = join(directory, 'not-a-directory')
 		await writeFile(filePath, 'file')
-		const store = createFsAutoTaskMarkerStore({ directory: filePath })
+		const store = createFsMarkerStore({ directory: filePath })
 
 		await expect(store.touch('items', 100)).rejects.toThrow()
 	})

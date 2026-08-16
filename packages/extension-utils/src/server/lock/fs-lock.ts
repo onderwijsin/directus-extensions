@@ -10,6 +10,7 @@ import {
 	createLockToken,
 	isNodeError,
 	resolveLeaseMs,
+	validateLeaseMs,
 	validateLockName,
 } from './lock-core'
 
@@ -31,6 +32,31 @@ interface FsLockDependencies {
 	defaultLeaseMs?: number
 	now: () => number
 	tokenFactory: () => string
+}
+
+/**
+ * Validates and normalizes filesystem lock configuration.
+ * @param options - Filesystem provider options.
+ * @returns Validated filesystem lock configuration.
+ */
+const validateFsLockConfig = (options: FsLockProviderOptions): FsLockDependencies => {
+	if (!isString(options.directory) || options.directory.trim().length === 0) {
+		throw new TypeError('Lock directory must not be empty')
+	}
+	if (options.now !== undefined && !isFunction(options.now)) {
+		throw new TypeError('Lock now must be a function')
+	}
+	if (options.tokenFactory !== undefined && !isFunction(options.tokenFactory)) {
+		throw new TypeError('Lock tokenFactory must be a function')
+	}
+	if (options.defaultLeaseMs !== undefined) validateLeaseMs(options.defaultLeaseMs)
+
+	return {
+		directory: options.directory,
+		defaultLeaseMs: options.defaultLeaseMs,
+		now: options.now ?? Date.now,
+		tokenFactory: options.tokenFactory ?? createLockToken,
+	}
 }
 
 const ownerRecordFile = 'owner.json'
@@ -159,7 +185,6 @@ const createFsLease = (
 				return false
 			}
 			if ((await readClaimToken(lockPath)) !== token) return false
-			await rm(lockPath, { force: true })
 			await rm(ownerPath, { force: true, recursive: true })
 			return true
 		},
@@ -238,22 +263,7 @@ const acquireFsLock = async (
  * @returns A local-filesystem lock provider.
  */
 export function createFsLockProvider(options: FsLockProviderOptions): LockProvider {
-	if (!isString(options.directory) || options.directory.trim().length === 0) {
-		throw new TypeError('Lock directory must not be empty')
-	}
-	if (options.now !== undefined && !isFunction(options.now)) {
-		throw new TypeError('Lock now must be a function')
-	}
-	if (options.tokenFactory !== undefined && !isFunction(options.tokenFactory)) {
-		throw new TypeError('Lock tokenFactory must be a function')
-	}
-
-	const dependencies: FsLockDependencies = {
-		directory: options.directory,
-		defaultLeaseMs: options.defaultLeaseMs,
-		now: options.now ?? Date.now,
-		tokenFactory: options.tokenFactory ?? createLockToken,
-	}
+	const dependencies = validateFsLockConfig(options)
 
 	return {
 		tryAcquire: (name, acquireOptions = {}) =>

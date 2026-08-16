@@ -4,11 +4,12 @@ import type {
 	TaskHandlerStorage,
 } from './auto-task-core'
 
-import { createKv } from '@directus/memory'
 import Redis from 'ioredis'
 
+import { isFiniteNumber } from '../../shared/guards'
 import { createFsLockProvider, createRedisLockProvider } from '../lock'
-import { createDirectusAutoTaskMarkerStore, createFsAutoTaskMarkerStore } from './markers'
+import { validateRedisNamespace, validateRedisUrl } from '../redis-config'
+import { createFsMarkerStore, createRedisMarkerStore } from './markers'
 
 /**
  * Creates Redis-backed storage for an auto-task handler.
@@ -22,11 +23,11 @@ import { createDirectusAutoTaskMarkerStore, createFsAutoTaskMarkerStore } from '
 export function createRedisTaskHandlerStorage(
 	options: RedisTaskHandlerStorageOptions,
 ): TaskHandlerStorage {
-	const redisUrl = options.redisUrl.trim()
-	if (redisUrl.length === 0) throw new TypeError('Redis URL must not be empty')
-	const namespace =
-		options.namespace === undefined ? 'directus:task-handler' : options.namespace.trim()
-	if (namespace.length === 0) throw new TypeError('Task handler namespace must not be empty')
+	const redisUrl = validateRedisUrl(options.redisUrl)
+	const namespace = validateRedisNamespace(
+		options.namespace ?? 'directus:task-handler',
+		'Task handler namespace',
+	)
 	const lockTimeoutMs = options.lockTimeoutMs ?? 5 * 60 * 1000
 	if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs <= 0) {
 		throw new RangeError('Task handler lockTimeoutMs must be a finite positive number')
@@ -39,17 +40,17 @@ export function createRedisTaskHandlerStorage(
 		isContentionError: options.isContentionError,
 		redis,
 	})
-	const kv = createKv({
-		type: 'redis',
+	const markerStore = createRedisMarkerStore({
+		redisUrl,
 		namespace: `${namespace}:markers`,
+		lockTimeoutMs,
 		redis,
-		lockTimeout: lockTimeoutMs,
 	})
 	let disposed = false
 
 	return {
 		lockProvider,
-		markerStore: createDirectusAutoTaskMarkerStore(kv),
+		markerStore,
 		dispose: async () => {
 			if (disposed) return
 			disposed = true
@@ -70,6 +71,12 @@ export function createRedisTaskHandlerStorage(
 export function createFsTaskHandlerStorage(
 	options: FsTaskHandlerStorageOptions,
 ): TaskHandlerStorage {
+	if (options.lockTimeoutMs !== undefined && !isFiniteNumber(options.lockTimeoutMs)) {
+		throw new RangeError('Auto task marker lockTimeoutMs must be a finite positive number')
+	}
+	if (options.lockTimeoutMs !== undefined && options.lockTimeoutMs <= 0) {
+		throw new RangeError('Auto task marker lockTimeoutMs must be a finite positive number')
+	}
 	const lockProvider = createFsLockProvider({
 		directory: options.directory,
 		defaultLeaseMs: options.lockTimeoutMs,
@@ -79,7 +86,7 @@ export function createFsTaskHandlerStorage(
 
 	return {
 		lockProvider,
-		markerStore: createFsAutoTaskMarkerStore({
+		markerStore: createFsMarkerStore({
 			directory: options.directory,
 			lockProvider,
 			lockTimeoutMs: options.lockTimeoutMs,

@@ -7,7 +7,7 @@ on:
   workflow_call:
     inputs:
       yolo:
-        description: Skip package builds, package validation, and E2E tests.
+        description: Skip package builds, package validation, process integration, and E2E tests.
         required: false
         type: boolean
         default: false
@@ -95,3 +95,25 @@ jobs:
         env:
           DIRECTUS_E2E_EXTENSIONS_DIR: ${{ runner.temp }}/e2e-consumer/extensions
         run: node scripts/e2e.mjs
+
+  integration:
+    needs: quality
+    if: inputs.yolo != true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          run_install: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build extension-utils
+        run: pnpm build:utils
+      - name: Run process integration tests
+        run: pnpm integration

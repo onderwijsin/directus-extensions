@@ -10,14 +10,14 @@ describe('runtime-aware exports', () => {
 		expect(Object.keys(server).sort()).toEqual(
 			[
 				...Object.keys(shared),
-				'createDirectusAutoTaskMarkerStore',
+				'createRedisMarkerStore',
 				'createRedisLockProvider',
-				'createFsAutoTaskMarkerStore',
+				'createFsMarkerStore',
 				'createFsLockProvider',
 				'createFsTaskHandlerStorage',
 				'createRedisTaskHandlerStorage',
 				'createAutoTaskHandler',
-				'createMemoryAutoTaskMarkerStore',
+				'createMemoryMarkerStore',
 				'createMemoryLockProvider',
 				'createMemoryTaskHandlerStorage',
 				'createLogger',
@@ -33,8 +33,10 @@ describe('runtime-aware exports', () => {
 		expect(server.createMemoryLockProvider).toBeDefined()
 		expect(server.createRedisLockProvider).toBeDefined()
 		expect(server.createFsLockProvider).toBeDefined()
-		expect(server.createFsAutoTaskMarkerStore).toBeDefined()
+		expect(server.createFsMarkerStore).toBeDefined()
 		expect(server.createAutoTaskHandler).toBeDefined()
+		expect(server.createRedisMarkerStore).toBeDefined()
+		expect(server.createMemoryMarkerStore).toBeDefined()
 		expect(server.createLogger).toBeDefined()
 	})
 })

@@ -169,9 +169,29 @@ try {
 ```
 
 Filesystem locks do not coordinate containers unless the directory is genuinely shared between them.
-Use Redis for normal multi-replica deployments.
+Use Redis for normal multi-replica deployments. After a filesystem lease is released, its owner
+metadata is removed immediately; the claim marker is reclaimed atomically by the next contender so a
+late old owner cannot remove a replacement claim.
 
 ## Auto-task handlers
+
+### Marker stores and concurrent triggers
+
+Standalone marker stores are available from the server entry point:
+
+```ts
+import {
+  createFsMarkerStore,
+  createMemoryMarkerStore,
+  createRedisMarkerStore,
+} from '@onderwijsin/directus-extension-utils/server'
+```
+
+Each trigger writes the newest marker generation; a burst is not silently deduplicated because the
+latest generation and timestamp must remain observable. Memory updates are process-local and
+synchronous, Redis updates are serialized by the backend KV lock, and filesystem updates are queued
+per identifier within one store instance and protected by the shared filesystem lock. Use Redis for
+cross-replica coordination.
 
 An auto-task handler turns repeated triggers into one debounced execution. The marker records the
 latest trigger; the task lease elects one owner to run it.

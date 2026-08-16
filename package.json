@@ -27,6 +27,7 @@
 		"validate:docs": "node scripts/validate-docs.mjs",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
+		"integration": "EXTENSION_UTILS_INTEGRATION=1 vitest run --project integration",
 		"e2e": "pnpm build && node scripts/e2e.mjs",
 		"pack:packages": "node scripts/pack-packages.mjs",
 		"prepare:e2e-consumer": "node scripts/prepare-e2e-consumer.mjs",

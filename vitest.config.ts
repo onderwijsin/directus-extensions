@@ -9,11 +9,18 @@ const e2eEnvironmentInitialized = [
 	'DIRECTUS_E2E_COMPOSE_FILES',
 	'DIRECTUS_E2E_COMPOSE_PROJECT',
 ].every((name) => Boolean(process.env[name]))
+const integrationEnvironmentInitialized = process.env.EXTENSION_UTILS_INTEGRATION === '1'
 
 export default defineConfig({
 	plugins: [vue()],
 	resolve: {
 		alias: [
+			{
+				find: /^@workspace\/test-utils$/u,
+				replacement: fileURLToPath(
+					new URL('./packages/test-utils/src/index.ts', import.meta.url),
+				),
+			},
 			{
 				find: /^@onderwijsin\/directus-extension-utils\/server$/u,
 				replacement: fileURLToPath(
@@ -57,6 +64,7 @@ export default defineConfig({
 						'**/dist/**',
 						'**/coverage/**',
 						'**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
+						'**/*.integration.{test,spec}.{js,jsx,ts,tsx}',
 						'**/*.dom.{test,spec}.{js,jsx,ts,tsx}',
 						'**/*.vue.{test,spec}.{js,jsx,ts,tsx}',
 					],
@@ -86,6 +94,18 @@ export default defineConfig({
 								'extensions/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
 								'packages/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
 							]
+						: [],
+				},
+			},
+			{
+				extends: true,
+				test: {
+					name: 'integration',
+					environment: 'node',
+					testTimeout: 30_000,
+					hookTimeout: 30_000,
+					include: integrationEnvironmentInitialized
+						? ['packages/**/__tests__/**/*.integration.{test,spec}.{js,jsx,ts,tsx}']
 						: [],
 				},
 			},

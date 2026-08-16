@@ -2,14 +2,14 @@
 
 ## Workflow entry points
 
-| Workflow              | Trigger                                              | Purpose                                              |
-| --------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
-| `ci.yml`              | Pull request, merge queue, manual, reusable workflow | Quality, package validation, and Directus E2E        |
-| `ci-yolo.yml`         | Pull request labeled `YOLO`                          | Quality checks without package or E2E validation     |
-| `docs.yml`            | Pull request, merge queue, manual                    | Dependency-free consumer documentation coverage      |
-| `actionlint.yml`      | Pull request, merge queue, manual                    | GitHub Actions syntax validation                     |
-| `prepare-release.yml` | Manual on `main`                                     | Create or update the Changesets version pull request |
-| `publish.yml`         | Merged release PR or manual on `main`                | Validate, publish, and create GitHub releases        |
+| Workflow              | Trigger                                              | Purpose                                                            |
+| --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| `ci.yml`              | Pull request, merge queue, manual, reusable workflow | Quality, process integration, package validation, and Directus E2E |
+| `ci-yolo.yml`         | Pull request labeled `YOLO`                          | Quality checks without package or E2E validation                   |
+| `docs.yml`            | Pull request, merge queue, manual                    | Dependency-free consumer documentation coverage                    |
+| `actionlint.yml`      | Pull request, merge queue, manual                    | GitHub Actions syntax validation                                   |
+| `prepare-release.yml` | Manual on `main`                                     | Create or update the Changesets version pull request               |
+| `publish.yml`         | Merged release PR or manual on `main`                | Validate, publish, and create GitHub releases                      |
 
 ## Quality checks
 
@@ -24,8 +24,16 @@ The normal CI workflow runs:
 7. packed artifact creation; and
 8. packed artifact upload.
 
-`ci-yolo.yml` skips package builds, package validation, artifact creation, and E2E testing. It is
-not sufficient release evidence.
+`ci-yolo.yml` skips package builds, package validation, artifact creation, process integration, and
+E2E testing. It is not sufficient release evidence.
+
+## Process integration testing
+
+The `integration` job requires `quality`, builds `@onderwijsin/directus-extension-utils`, and runs
+the real child-process filesystem coordination tests. It has no Docker or Compose dependency and
+runs in parallel with the E2E job. Keeping it separate from quality makes the normal unit-test
+project fast while giving process and filesystem races a dedicated CI budget. It is also a natural
+place for future cross-process integration suites.
 
 ## Directus E2E testing
 

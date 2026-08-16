@@ -83,14 +83,20 @@ export interface MemoryTaskHandlerStorageOptions {
 	tokenFactory?: () => string
 }
 
-/** Options for the Directus KV-backed marker store. */
-export interface DirectusAutoTaskMarkerStoreOptions {
+/** Options for a Redis-backed marker store. */
+export interface RedisMarkerStoreOptions {
+	/** Redis connection URL. The provider owns the created connection. */
+	redisUrl: string
 	/** Namespace used for marker and generation keys. */
 	namespace?: string
+	/** @internal Reuses a connection owned by a higher-level storage factory. */
+	redis?: import('ioredis').default
+	/** Lock lifetime for one marker update. Defaults to five seconds. */
+	lockTimeoutMs?: number
 }
 
 /** Options for the explicit local-filesystem marker store. */
-export interface FsAutoTaskMarkerStoreOptions {
+export interface FsMarkerStoreOptions {
 	/** Directory shared by the processes that should share debounce markers. */
 	directory: string
 	/** Optional provider used to serialize marker updates. */

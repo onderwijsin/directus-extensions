@@ -20,6 +20,33 @@ interface MemoryLockRecord {
 	expiresAt: number
 }
 
+interface MemoryLockConfig {
+	defaultLeaseMs?: number
+	now: () => number
+	tokenFactory: () => string
+}
+
+/**
+ * Validates and normalizes memory lock configuration.
+ * @param options - Memory provider options.
+ * @returns Validated memory lock configuration.
+ */
+const validateMemoryLockConfig = (options: MemoryLockProviderOptions): MemoryLockConfig => {
+	if (options.now !== undefined && !isFunction(options.now)) {
+		throw new TypeError('Lock now must be a function')
+	}
+	if (options.tokenFactory !== undefined && !isFunction(options.tokenFactory)) {
+		throw new TypeError('Lock tokenFactory must be a function')
+	}
+	if (options.defaultLeaseMs !== undefined) validateLeaseMs(options.defaultLeaseMs)
+
+	return {
+		defaultLeaseMs: options.defaultLeaseMs,
+		now: options.now ?? Date.now,
+		tokenFactory: options.tokenFactory ?? createLockToken,
+	}
+}
+
 /**
  * Creates an owner-bound lease over one process-local lock record.
  * @param name - Normalized lock name.
@@ -69,30 +96,24 @@ const createMemoryLease = (
  * @returns A process-local lock provider.
  */
 export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}): LockProvider {
-	if (options.now !== undefined && !isFunction(options.now)) {
-		throw new TypeError('Lock now must be a function')
-	}
-	if (options.tokenFactory !== undefined && !isFunction(options.tokenFactory)) {
-		throw new TypeError('Lock tokenFactory must be a function')
-	}
-	if (options.defaultLeaseMs !== undefined) validateLeaseMs(options.defaultLeaseMs)
+	const config = validateMemoryLockConfig(options)
 
 	const locks = new Map<string, MemoryLockRecord>()
-	const now = options.now ?? Date.now
-	const tokenFactory = options.tokenFactory ?? createLockToken
 
 	return {
 		tryAcquire: (name, acquireOptions = {}) => {
 			const normalizedName = validateLockName(name)
-			const leaseMs = resolveLeaseMs(acquireOptions, options.defaultLeaseMs)
-			const currentTime = now()
+			const leaseMs = resolveLeaseMs(acquireOptions, config.defaultLeaseMs)
+			const currentTime = config.now()
 			const current = locks.get(normalizedName)
 			if (current && current.expiresAt > currentTime) return Promise.resolve(null)
 			if (current) locks.delete(normalizedName)
 
-			const token = tokenFactory()
+			const token = config.tokenFactory()
 			locks.set(normalizedName, { token, expiresAt: currentTime + leaseMs })
-			return Promise.resolve(createMemoryLease(normalizedName, token, leaseMs, now, locks))
+			return Promise.resolve(
+				createMemoryLease(normalizedName, token, leaseMs, config.now, locks),
+			)
 		},
 	}
 }

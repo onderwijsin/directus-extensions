@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
 	createAutoTaskHandler,
-	createMemoryAutoTaskMarkerStore,
+	createMemoryMarkerStore,
 	createMemoryTaskHandlerStorage,
 	createMemoryLockProvider,
 	type AutoTaskMarkerStore,
@@ -13,7 +13,7 @@ import {
 
 const createTestStorage = (
 	lockProvider: LockProvider,
-	markerStore: AutoTaskMarkerStore = createMemoryAutoTaskMarkerStore(),
+	markerStore: AutoTaskMarkerStore = createMemoryMarkerStore(),
 ): TaskHandlerStorage => ({
 	lockProvider,
 	markerStore,
@@ -53,6 +53,15 @@ describe('createAutoTaskHandler', () => {
 		handler.dispose()
 	})
 
+	it('keeps only the newest generation after a trigger burst', async () => {
+		const markerStore = createMemoryMarkerStore()
+		await Promise.all(
+			Array.from({ length: 5 }, (_, index) => markerStore.touch('items', index)),
+		)
+
+		expect(await markerStore.get('items')).toEqual({ generation: 5, updatedAt: 4 })
+	})
+
 	it('retries a generation after lock contention', async () => {
 		vi.useFakeTimers()
 		const lockProvider = createMemoryLockProvider()
@@ -76,6 +85,46 @@ describe('createAutoTaskHandler', () => {
 		await vi.advanceTimersByTimeAsync(1)
 		expect(task).toHaveBeenCalledOnce()
 		handler.dispose()
+	})
+
+	it('runs one shared generation when handlers contend after observing it', async () => {
+		vi.useFakeTimers()
+		let markerPresent = true
+		const markerStore: AutoTaskMarkerStore = {
+			touch: vi.fn().mockResolvedValue({ generation: 1, updatedAt: 0 }),
+			get: vi
+				.fn()
+				.mockImplementation(async () =>
+					markerPresent ? { generation: 1, updatedAt: 0 } : undefined,
+				),
+			clear: vi.fn().mockImplementation(async () => {
+				markerPresent = false
+				return true
+			}),
+		}
+		const lockProvider = createMemoryLockProvider()
+		const task = vi.fn()
+		const first = createAutoTaskHandler({
+			taskId: 'shared',
+			task,
+			storage: createTestStorage(lockProvider, markerStore),
+			debounceMs: 10,
+			logger,
+		})
+		const second = createAutoTaskHandler({
+			taskId: 'shared',
+			task,
+			storage: createTestStorage(lockProvider, markerStore),
+			debounceMs: 10,
+			logger,
+		})
+
+		await Promise.all([first(), second()])
+		await vi.advanceTimersByTimeAsync(10)
+
+		expect(task).toHaveBeenCalledOnce()
+		first.dispose()
+		second.dispose()
 	})
 
 	it('renews the task lease while work is running', async () => {

@@ -20,11 +20,13 @@ fixture. See [`docs/docker.md`](docker.md) for the local and E2E Compose contrac
 - pure unit tests cover utilities, schemas, guards, and deterministic extension logic;
 - extension tests cover registration, observable hook behavior, malformed inputs, errors, and
   sandbox limitations; and
+- process integration tests cover real child-process coordination, filesystem leases, and
+  cross-process marker updates; and
 - the shared local Directus instance provides the first integration check for extension loading.
 
-CI runs formatting, linting, TypeScript checks, V8-covered unit tests, package builds, and packed
-package validation. Its E2E job installs the packed artifacts into a clean staging consumer before
-loading them through Directus.
+CI runs formatting, linting, TypeScript checks, V8-covered unit tests, package builds, process
+integration tests, and packed-package validation. Its E2E job installs the packed artifacts into a
+clean staging consumer before loading them through Directus.
 
 ## `@workspace/test-utils`
 
@@ -57,6 +59,23 @@ pnpm --filter @workspace/test-utils typecheck
 ```
 
 Do not add production helpers here or import this package from published runtime code.
+
+The package also provides `createProcessWorker`, a small JSON-lines child-process harness for tests
+that need real process boundaries without creating a second test framework. Keep worker entrypoints
+beside the integration tests that use them, pass only explicit arguments and temporary directories,
+and always terminate workers in test cleanup. Shared worker protocol or lifecycle behavior belongs
+in `packages/test-utils`; provider-specific commands belong in the package-local fixture.
+
+Run the process integration project with:
+
+```sh
+pnpm build:utils
+pnpm integration
+```
+
+Integration tests use the `*.integration.test.ts` (or `*.integration.spec.ts`) suffix. They are
+excluded from `pnpm test` and run in a separate CI job because they spawn child processes and must
+exercise built package output rather than source aliases.
 
 ## Directus E2E tests
 

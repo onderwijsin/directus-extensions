@@ -1,8 +1,8 @@
 # `@workspace/test-utils`
 
-Private test infrastructure for this workspace. It centralizes reusable Vitest and Directus E2E
-helpers so package-specific tests can focus on the behavior they verify. It is not a published
-package and must never become a runtime dependency of an extension.
+Private test infrastructure for this workspace. It centralizes reusable Vitest, Directus E2E, and
+child-process helpers so package-specific tests can focus on the behavior they verify. It is not a
+published package and must never become a runtime dependency of an extension.
 
 The package currently provides the small authenticated Directus client used by the isolated E2E
 stack. For its API boundaries and promotion rules, read the
@@ -17,6 +17,10 @@ instance where practical; source-only mocks must not hide registration or packag
 
 Do not add production helpers here, and do not import this package from a published package's
 runtime code.
+
+`createProcessWorker` starts a Node child process that exchanges newline-delimited JSON messages.
+Use it for real process-boundary tests; keep worker entrypoints and provider-specific commands next
+to the package integration tests that use them. Always terminate workers in `afterEach` cleanup.
 
 ## Development
 
@@ -40,5 +44,6 @@ deterministic helpers and package-specific Directus E2E tests under that package
 directory. E2E tests must exercise a built extension through Directus rather than importing
 extension source directly.
 
-Use `pnpm test` for unit tests, `pnpm test:coverage` for the coverage run, and `pnpm e2e` for the
-isolated Directus E2E stack. Do not add tests merely to satisfy a coverage threshold.
+Use `pnpm test` for unit tests, `pnpm test:coverage` for the coverage run, `pnpm integration` for
+child-process tests after `pnpm build:utils`, and `pnpm e2e` for the isolated Directus E2E stack. Do
+not add tests merely to satisfy a coverage threshold.

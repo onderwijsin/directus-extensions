@@ -102,6 +102,11 @@ five minutes but are independent. Use `handler.dispose()` to cancel pending time
 `await storage.dispose()` when the extension shuts down. Errors are reported through `onError` and do
 not make the trigger reject.
 
+Standalone marker stores are named `createMemoryMarkerStore`, `createRedisMarkerStore`, and
+`createFsMarkerStore`. Marker writes preserve every generation; memory writes are process-local,
+Redis writes use the backend KV lock, and filesystem writes are serialized per identifier within a
+store instance plus the shared filesystem lock.
+
 ### Attempts
 
 `attempt` and `attemptSync` return `{ data, error: null }` on success or `{ data: null, error }` on

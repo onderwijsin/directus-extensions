@@ -1,7 +1,35 @@
-import type { MemoryTaskHandlerStorageOptions, TaskHandlerStorage } from './auto-task-core'
+import type {
+	AutoTaskMarker,
+	AutoTaskMarkerStore,
+	MemoryTaskHandlerStorageOptions,
+	TaskHandlerStorage,
+} from './auto-task-core'
 
 import { createMemoryLockProvider } from '../lock/memory-lock'
-import { createMemoryAutoTaskMarkerStore } from './markers'
+
+/**
+ * Creates a process-local marker store backed by a memory map.
+ * @returns A process-local marker store.
+ */
+export function createMemoryMarkerStore(): AutoTaskMarkerStore {
+	const markers = new Map<string, AutoTaskMarker>()
+	return {
+		touch: (identifier, updatedAt) => {
+			const marker = {
+				generation: (markers.get(identifier)?.generation ?? 0) + 1,
+				updatedAt,
+			}
+			markers.set(identifier, marker)
+			return Promise.resolve(marker)
+		},
+		get: (identifier) => Promise.resolve(markers.get(identifier)),
+		clear: (identifier, generation) => {
+			if (markers.get(identifier)?.generation !== generation) return Promise.resolve(false)
+			markers.delete(identifier)
+			return Promise.resolve(true)
+		},
+	}
+}
 
 /**
  * Creates process-local storage for an auto-task handler.
@@ -21,7 +49,7 @@ export function createMemoryTaskHandlerStorage(
 			now: options.now,
 			tokenFactory: options.tokenFactory,
 		}),
-		markerStore: createMemoryAutoTaskMarkerStore(),
+		markerStore: createMemoryMarkerStore(),
 		dispose: () => Promise.resolve(),
 	}
 }

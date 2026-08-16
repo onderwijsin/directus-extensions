@@ -4,7 +4,8 @@ import { createKv } from '@directus/memory'
 import Redis from 'ioredis'
 
 import { attempt } from '../../shared/attempt'
-import { isFunction, isNonBlankString, isString } from '../../shared/guards'
+import { isFunction } from '../../shared/guards'
+import { validateRedisNamespace, validateRedisUrl } from '../redis-config'
 import {
 	createLockLease,
 	createLockToken,
@@ -61,13 +62,11 @@ const raiseRedisError = (error: unknown): never => {
  * @returns Validated Redis configuration.
  */
 const validateRedisConfig = (options: RedisLockProviderOptions): RedisLockConfig => {
-	if (!isString(options.redisUrl) || !isNonBlankString(options.redisUrl)) {
-		throw new TypeError('Redis URL must not be empty')
-	}
-	const namespace = options.namespace ?? 'directus:locks'
-	if (!isString(namespace) || !isNonBlankString(namespace)) {
-		throw new TypeError('Lock namespace must not be empty')
-	}
+	const redisUrl = validateRedisUrl(options.redisUrl)
+	const namespace = validateRedisNamespace(
+		options.namespace ?? 'directus:locks',
+		'Lock namespace',
+	)
 	const defaultLeaseMs = validateLeaseMs(options.defaultLeaseMs)
 	const isContentionError = options.isContentionError ?? defaultContentionError
 	if (!isFunction(isContentionError))
@@ -76,7 +75,7 @@ const validateRedisConfig = (options: RedisLockProviderOptions): RedisLockConfig
 	if (!isFunction(tokenFactory)) throw new TypeError('Lock tokenFactory must be a function')
 
 	return {
-		redisUrl: options.redisUrl.trim(),
+		redisUrl,
 		namespace,
 		defaultLeaseMs,
 		isContentionError,

@@ -79,6 +79,8 @@ pnpm validate:docs
 pnpm typecheck
 pnpm test
 pnpm test:coverage
+pnpm build:utils
+pnpm integration
 pnpm build
 pnpm validate:packages
 ```
@@ -153,3 +155,6 @@ pnpm validate:packages
 Add `pnpm e2e` when the change affects Directus loading, built artifacts, runtime integration,
 Compose services, or E2E behavior. If a required check cannot run, record the exact command and
 blocker; a narrower successful check does not imply that a broader check passed.
+
+Add `pnpm build:utils && pnpm integration` when the change affects process coordination, filesystem
+locks, marker stores, or other behavior that crosses a real Node process boundary.
