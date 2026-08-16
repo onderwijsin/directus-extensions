@@ -6,6 +6,9 @@ events and exercises every currently published `extension-utils` utility through
 It registers the `items.create`, `items.update`, and `items.delete` action events. Each message
 contains the event, collection, and item key when Directus provides one. Logs are not persisted.
 
+The Redis smoke checks use the same `@directus/memory` cache and key-value patterns as Directus,
+backed by the Redis service configured through `REDIS`.
+
 This playground is intentionally non-sandboxed because it imports and exercises the packed
 `extension-utils` package. Sandbox hooks cannot import arbitrary workspace packages; future tests
 can validate the sandbox path separately.

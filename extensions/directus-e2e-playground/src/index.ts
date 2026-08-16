@@ -1,14 +1,11 @@
 import type {
 	Geometry,
 	PartialNested,
-	RedisCacheClient,
 	RedisAutoTaskMarkerClient,
-	RedisLockClient,
 } from '@onderwijsin/directus-extension-utils'
 
-import { createRequire } from 'node:module'
-
 import { defineHook } from '@directus/extensions-sdk'
+import { createCache, createKv } from '@directus/memory'
 import {
 	attempt,
 	attemptSync,
@@ -20,8 +17,6 @@ import {
 	createMemoryCache,
 	createMemoryLockProvider,
 	createNamespacedCache,
-	createRedisCache,
-	createRedisLockProvider,
 	fromEntries,
 	generateDeterministicUUID,
 	generateUUID,
@@ -50,8 +45,7 @@ import {
 	createFileAutoTaskMarkerStore,
 	createFileLockProvider,
 } from '@onderwijsin/directus-extension-utils/server'
-
-const require = createRequire(import.meta.url)
+import Redis from 'ioredis'
 
 export default defineHook(({ action }) => {
 	const logger = createLogger({
@@ -76,25 +70,15 @@ export default defineHook(({ action }) => {
 		const memoryCache = createMemoryCache()
 		const namespacedCache = createNamespacedCache(memoryCache, 'e2e')
 		await namespacedCache.set('item', 'memory')
-		const { createClient } = require('redis') as typeof import('redis')
-		const redisConnection = createClient({ url: process.env.REDIS })
+		const redisConnection = new Redis(process.env.REDIS)
 		redisConnection.on('error', (error: Error) =>
 			logger.error('Redis E2E client failed', { error }),
 		)
-		await redisConnection.connect()
-		const redisClient: RedisCacheClient = {
-			get: (key) => redisConnection.get(key),
-			set: async (key, value, ...arguments_) => {
-				const expiryIndex = arguments_.indexOf('PX')
-				const expiry = expiryIndex === -1 ? undefined : Number(arguments_[expiryIndex + 1])
-				return redisConnection.set(key, value, {
-					...(expiry === undefined ? {} : { PX: expiry }),
-					...(arguments_.includes('NX') ? { NX: true } : {}),
-				})
-			},
-			del: async (key) => Number(await redisConnection.del(key)),
-		}
-		const redisCache = createRedisCache(redisClient)
+		const redisCache = createCache({
+			type: 'redis',
+			namespace: 'extension-utils:e2e:cache',
+			redis: redisConnection,
+		})
 		await redisCache.set('item', 'redis')
 		const memoryLock = createMemoryLockProvider({ tokenFactory: () => 'memory-token' })
 		const memoryLease = await memoryLock.tryAcquire('item', { leaseMs: 1000 })
@@ -110,20 +94,16 @@ export default defineHook(({ action }) => {
 		const fileLease = await fileLock.tryAcquire('item', { leaseMs: 1000 })
 		const fileContended = await fileLock.tryAcquire('item')
 		await fileLease?.release()
-		const redisLockClient: RedisLockClient = {
-			set: (key, value, ...arguments_) => redisClient.set(key, value, ...arguments_),
-			eval: (script, numberOfKeys, ...arguments_) =>
-				redisConnection.eval(script, {
-					keys: arguments_.slice(0, numberOfKeys).map(String),
-					arguments: arguments_.slice(numberOfKeys).map(String),
-				}),
-		}
-		const redisLock = createRedisLockProvider(redisLockClient, {
-			tokenFactory: () => 'redis-token',
+		const redisLock = createKv({
+			type: 'redis',
+			namespace: 'extension-utils:e2e:lock',
+			redis: redisConnection,
+			lockTimeout: 1000,
 		})
-		const redisLease = await redisLock.tryAcquire('item', { leaseMs: 1000 })
-		const redisContended = await redisLock.tryAcquire('item')
-		await redisLease?.release()
+		let redisLockUsed = false
+		await redisLock.usingLock('item', async () => {
+			redisLockUsed = true
+		})
 		const fileMarkerStore = createFileAutoTaskMarkerStore({
 			directory: `/tmp/directus-e2e-playground-markers-${generateUUID()}`,
 		})
@@ -134,10 +114,7 @@ export default defineHook(({ action }) => {
 		const redisMarkerClient: RedisAutoTaskMarkerClient = {
 			get: (key) => redisConnection.get(key),
 			eval: (script, numberOfKeys, ...arguments_) =>
-				redisConnection.eval(script, {
-					keys: arguments_.slice(0, numberOfKeys).map(String),
-					arguments: arguments_.slice(numberOfKeys).map(String),
-				}),
+				redisConnection.eval(script, numberOfKeys, ...arguments_.map(String)),
 		}
 		const redisMarkerStore = createRedisAutoTaskMarkerStore(redisMarkerClient)
 		await redisMarkerStore.touch('e2e', Date.now())
@@ -210,7 +187,7 @@ export default defineHook(({ action }) => {
 				locks: {
 					memoryContended: memoryContended === null,
 					fileContended: fileContended === null,
-					redisContended: redisContended === null,
+					redisLockUsed,
 				},
 				autoTask: {
 					runs: autoTaskRuns,

@@ -71,7 +71,7 @@ async function expectUtilityResults() {
 			fileType: 'document',
 		},
 		cache: { memory: 'memory', redis: 'redis' },
-		locks: { memoryContended: true, fileContended: true, redisContended: true },
+		locks: { memoryContended: true, fileContended: true, redisLockUsed: true },
 		autoTask: {
 			runs: 1,
 			fileMarkerGeneration: 2,
