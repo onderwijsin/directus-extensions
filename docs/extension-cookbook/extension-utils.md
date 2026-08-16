@@ -9,6 +9,8 @@ The current package provides the following public utility families:
 - primitive runtime guards such as `isRecord`, `isString`, `isDefined`, `isFiniteNumber`,
   `isNonBlankString`, `hasKey`, and `hasKeys`;
 - backend-independent cache contracts with memory, namespace, and injected Redis adapters;
+- owner-bound lock leases with memory, injected Redis, and explicit server filesystem providers;
+- debounced auto-task handlers backed by injected marker stores, schedulers, and lock providers;
 - `attempt`, `attemptSync`, and bounded `attemptWithRetry` result wrappers;
 - typed `toEntries`, `fromEntries`, and `keys` helpers;
 - configurable MIME classification through `classifyMimeType`, `getFileType`, and category
@@ -27,13 +29,24 @@ global process state. The default deterministic UUID namespace is `UUID_NAMESPAC
 Use public package subpaths, keep runtime dependencies intentional, test exports, and ensure private
 test utilities never leak into the published package. The package has one intentional runtime
 dependency, `uuid`, for UUID v4/v5 generation. It exposes runtime-aware `/server`, `/app`, and
-`/shared` export paths. The server and app paths currently re-export the framework-neutral shared
-helpers; runtime-specific helpers can be added behind those boundaries without changing consumer
-imports.
+`/shared` export paths. The server and app paths re-export the framework-neutral shared helpers,
+with the server path additionally exposing the filesystem lock adapter.
 
-The root and `/shared` exports are the framework-neutral public surface. `/server` and `/app` are
-compatibility boundaries and currently expose the same symbols. No utility currently selects a
-Directus service, cache backend, filesystem, Redis connection, or deployment topology implicitly.
+The root and `/shared` exports are the framework-neutral public surface. `/server` re-exports those
+helpers and adds the filesystem lock adapter; `/app` remains browser-safe and exposes the shared
+helpers only. No utility selects a Directus service, cache backend, filesystem, Redis connection, or
+deployment topology implicitly.
 
-Cache contracts and adapters are now part of the package API. Lock providers and debounced task
-coordination remain design work documented in [`UTILITIES.md`](../../UTILITIES.md).
+Cache contracts and lock adapters are now part of the package API. Debounced task coordination is
+implemented by `createAutoTaskHandler`, with Redis and explicit-directory filesystem marker
+adapters.
+
+The lock API is deliberately close to Tio's process-lock feature surface while correcting its
+ownership hazards. `BULK_OPERATION_LOCK` preserves the conventional lock name, named acquisition and
+stale recovery remain available, and filesystem coordination is still supported. The consolidated
+API returns an asynchronous owner-bound lease instead of a lock-file path, requires an explicit
+filesystem directory, returns `null` for contention, and prevents an old lease from releasing a
+replacement generation.
+
+`applyingFlagPath` is intentionally not supported. It is an unowned second lock and can be replaced
+by a second named `LockProvider` lease shared by the applying operation and the auto-task handler.

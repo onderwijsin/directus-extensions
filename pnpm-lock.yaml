@@ -167,6 +167,9 @@ importers:
         specifier: 'catalog:'
         version: 14.0.1
     devDependencies:
+      '@types/node':
+        specifier: catalog:node24
+        version: 24.13.3
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config

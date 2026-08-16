@@ -2,10 +2,10 @@
 
 Framework-neutral utilities shared by Onderwijs in Directus extensions. This package exists to keep
 small, stable runtime helpers in one place instead of reimplementing them in every extension. The
-current API includes primitive guards, cache stores, attempted operations, object conversions, MIME
-classification, explicit environment predicates, UUID generation, logging adapters, and reusable
-types. It deliberately does not contain Directus services, extension registration, or schema
-validation.
+current API includes primitive guards, cache stores, lock providers, attempted operations, object
+conversions, MIME classification, explicit environment predicates, UUID generation, logging
+adapters, and reusable types. It deliberately does not contain Directus services, extension
+registration, or schema validation.
 
 For the complete API and design rules, read the
 [extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md) and the
@@ -51,6 +51,84 @@ Cache entries are best-effort optimizations. Missing or expired entries return `
 non-negative milliseconds, and backend errors are propagated. The Redis adapter uses JSON by
 default, supports an injected codec, sends TTLs using `SET ... PX`, and intentionally does not
 expose a global clear operation. Use separate namespaces for independent consumers.
+
+Lock providers return owner-bound leases. Contention returns `null`, while renewal and release
+return `false` when the lease has expired, was already released, or no longer owns the generation:
+
+```ts
+import {
+  createMemoryLockProvider,
+  createRedisLockProvider,
+} from '@onderwijsin/directus-extension-utils'
+import { createFileLockProvider } from '@onderwijsin/directus-extension-utils/server'
+
+const localLock = createMemoryLockProvider()
+const lease = await localLock.tryAcquire('items:sync', { leaseMs: 30_000 })
+if (lease) {
+  await lease.renew()
+  await lease.release()
+}
+
+const distributedLock = createRedisLockProvider(redisClient)
+const filesystemLock = createFileLockProvider({ directory: '/var/lock/my-extension' })
+```
+
+Memory locks coordinate one provider instance in one process. Redis coordinates consumers sharing
+the injected Redis-compatible client. The filesystem provider is server-only, requires an explicit
+shared directory, and coordinates only processes that can access that directory; it never chooses
+`tmpdir()` or a backend from environment variables.
+
+The lock surface intentionally preserves Tio's core concepts: named locks, the conventional
+`bulk-operation` name (`BULK_OPERATION_LOCK`), atomic acquisition, stale recovery, and explicit
+release. The new lease API is asynchronous and owner-bound: `tryAcquire` returns `null` on
+contention, and `renew`/`release` return booleans. This replaces Tio's synchronous path-returning
+helpers so a stale or replaced owner cannot delete another generation. Consumers migrating from Tio
+should map `acquireLock({ lockName })` to `await provider.tryAcquire(lockName)`, retain the returned
+lease, and call `lease.release()` in a `finally` block. The new filesystem adapter requires an
+explicit directory rather than defaulting to the host temporary directory.
+
+Auto-task handlers debounce trigger generations and use the same lock contract for execution:
+
+```ts
+import {
+  createAutoTaskHandler,
+  createMemoryLockProvider,
+  createRedisAutoTaskMarkerStore,
+} from '@onderwijsin/directus-extension-utils'
+import { createFileAutoTaskMarkerStore } from '@onderwijsin/directus-extension-utils/server'
+
+const handler = createAutoTaskHandler({
+  debounceId: 'schema-snapshot',
+  lockProvider: createMemoryLockProvider(),
+  debounceMs: 15_000,
+  taskLeaseMs: 5 * 60_000,
+  task: async () => snapshotSchema(),
+  onError: (error) => reportTaskFailure(error),
+})
+
+// Use one of these when debounce state must be shared across processes:
+const redisMarkers = createRedisAutoTaskMarkerStore(redisClient)
+const fileMarkers = createFileAutoTaskMarkerStore({ directory: '/var/lock/my-extension' })
+
+await handler()
+// Call handler() for each trigger; only the latest generation executes.
+handler.dispose()
+```
+
+`createAutoTaskHandler` defaults to the `BULK_OPERATION_LOCK` name, a five-minute marker lease, and
+a retry after lock contention. Inject `markerStore` when debounce state must be shared across
+processes, and inject `scheduler` and `now` for deterministic runtimes or tests. The default marker
+store is process-local; a distributed lock alone prevents simultaneous execution but does not merge
+debounce triggers across processes. Task failures, lock failures, marker failures, and lease renewal
+failures are sent to `onError` and do not reject the trigger.
+
+The Redis marker adapter atomically increments generations through the injected client. The
+filesystem marker adapter uses an explicit directory and an owner-bound lock to serialize marker
+updates. Neither adapter creates connections or chooses a directory from the environment.
+
+The former `applyingFlagPath` pattern is intentionally not part of this API. Migrate that gate to a
+second named lock shared by the operation that creates the flag and the auto-task handler, rather
+than coordinating through an unowned path.
 
 Attempted operations can return failures as data instead of throwing:
 
@@ -146,9 +224,10 @@ import { isString } from '@onderwijsin/directus-extension-utils/app'
 import { isDefined } from '@onderwijsin/directus-extension-utils/shared'
 ```
 
-The root and `shared` exports are the framework-neutral public surface. `server` and `app` currently
-re-export the shared helpers so runtime-specific utilities can be added later without changing
-consumer imports. The implementation module is internal; import guards from the root or `/shared`.
+The root and `shared` exports are the framework-neutral public surface. `server` re-exports those
+helpers and adds the filesystem lock provider; `app` remains browser-safe and exposes the shared
+helpers only. The implementation modules are internal; import utilities from the root or an explicit
+runtime subpath.
 
 ## Extending the package
 

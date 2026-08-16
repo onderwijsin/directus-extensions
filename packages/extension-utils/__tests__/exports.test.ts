@@ -7,7 +7,13 @@ import * as shared from '../src/shared/index.js'
 describe('runtime-aware exports', () => {
 	it('exposes the same framework-neutral utilities from every supported subpath', () => {
 		expect(Object.keys(app).sort()).toEqual(Object.keys(shared).sort())
-		expect(Object.keys(server).sort()).toEqual(Object.keys(shared).sort())
+		expect(Object.keys(server).sort()).toEqual(
+			[
+				...Object.keys(shared),
+				'createFileAutoTaskMarkerStore',
+				'createFileLockProvider',
+			].sort(),
+		)
 		expect(app.isRecord).toBe(shared.isRecord)
 		expect(server.isString).toBe(shared.isString)
 		expect(shared.hasKey).toBeDefined()
@@ -15,5 +21,9 @@ describe('runtime-aware exports', () => {
 		expect(server.fromEntries).toBe(shared.fromEntries)
 		expect(app.createMemoryCache).toBe(shared.createMemoryCache)
 		expect(server.createNamespacedCache).toBe(shared.createNamespacedCache)
+		expect(app.createMemoryLockProvider).toBe(shared.createMemoryLockProvider)
+		expect(server.createRedisLockProvider).toBe(shared.createRedisLockProvider)
+		expect(server.createFileLockProvider).toBeDefined()
+		expect(server.createFileAutoTaskMarkerStore).toBeDefined()
 	})
 })

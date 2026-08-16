@@ -53,6 +53,7 @@
 		"uuid": "catalog:"
 	},
 	"devDependencies": {
+		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",
 		"tsdown": "catalog:",
 		"typescript": "catalog:"

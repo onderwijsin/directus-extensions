@@ -13,11 +13,20 @@ const e2eEnvironmentInitialized = [
 export default defineConfig({
 	plugins: [vue()],
 	resolve: {
-		alias: {
-			'@onderwijsin/directus-extension-utils': fileURLToPath(
-				new URL('./packages/extension-utils/src/index.ts', import.meta.url),
-			),
-		},
+		alias: [
+			{
+				find: /^@onderwijsin\/directus-extension-utils\/server$/u,
+				replacement: fileURLToPath(
+					new URL('./packages/extension-utils/src/server/index.ts', import.meta.url),
+				),
+			},
+			{
+				find: /^@onderwijsin\/directus-extension-utils$/u,
+				replacement: fileURLToPath(
+					new URL('./packages/extension-utils/src/index.ts', import.meta.url),
+				),
+			},
+		],
 	},
 	test: {
 		coverage: {

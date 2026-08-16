@@ -2,6 +2,8 @@ import type {
 	Geometry,
 	PartialNested,
 	RedisCacheClient,
+	RedisAutoTaskMarkerClient,
+	RedisLockClient,
 } from '@onderwijsin/directus-extension-utils'
 
 import { defineHook } from '@directus/extensions-sdk'
@@ -9,11 +11,15 @@ import {
 	attempt,
 	attemptSync,
 	attemptWithRetry,
+	createAutoTaskHandler,
+	createRedisAutoTaskMarkerStore,
 	classifyMimeType,
 	createLogger,
 	createMemoryCache,
+	createMemoryLockProvider,
 	createNamespacedCache,
 	createRedisCache,
+	createRedisLockProvider,
 	fromEntries,
 	generateDeterministicUUID,
 	generateUUID,
@@ -41,6 +47,10 @@ import {
 	shouldSkipConfirmation,
 	toEntries,
 } from '@onderwijsin/directus-extension-utils'
+import {
+	createFileAutoTaskMarkerStore,
+	createFileLockProvider,
+} from '@onderwijsin/directus-extension-utils/server'
 
 export default defineHook(({ action }) => {
 	const logger = createLogger({
@@ -75,6 +85,85 @@ export default defineHook(({ action }) => {
 		}
 		const redisCache = createRedisCache(redisClient)
 		await redisCache.set('item', 'redis')
+		const memoryLock = createMemoryLockProvider({ tokenFactory: () => 'memory-token' })
+		const memoryLease = await memoryLock.tryAcquire('item', { leaseMs: 1000 })
+		const memoryContended = await memoryLock.tryAcquire('item')
+		await memoryLease?.release()
+		const fileLock = createFileLockProvider({
+			directory: `/tmp/directus-e2e-playground-locks-${generateUUID()}`,
+			tokenFactory: (() => {
+				let sequence = 0
+				return () => `file-token-${++sequence}`
+			})(),
+		})
+		const fileLease = await fileLock.tryAcquire('item', { leaseMs: 1000 })
+		const fileContended = await fileLock.tryAcquire('item')
+		await fileLease?.release()
+		const redisLockValues = new Map<string, string>()
+		const redisLockClient: RedisLockClient = {
+			set: async (key, value, ...arguments_) => {
+				if (arguments_.includes('NX') && redisLockValues.has(key)) return null
+				redisLockValues.set(key, value)
+				return 'OK'
+			},
+			eval: async (script, _numberOfKeys, key, token) => {
+				if (redisLockValues.get(String(key)) !== token) return 0
+				if (script.includes('del')) redisLockValues.delete(String(key))
+				return 1
+			},
+		}
+		const redisLock = createRedisLockProvider(redisLockClient, {
+			tokenFactory: () => 'redis-token',
+		})
+		const redisLease = await redisLock.tryAcquire('item', { leaseMs: 1000 })
+		const redisContended = await redisLock.tryAcquire('item')
+		await redisLease?.release()
+		const fileMarkerStore = createFileAutoTaskMarkerStore({
+			directory: `/tmp/directus-e2e-playground-markers-${generateUUID()}`,
+		})
+		await fileMarkerStore.touch('e2e', Date.now())
+		const secondFileMarker = await fileMarkerStore.touch('e2e', Date.now())
+		const fileMarker = await fileMarkerStore.get('e2e')
+		const fileMarkerCleared = await fileMarkerStore.clear('e2e', secondFileMarker.generation)
+		let redisMarkerGeneration = 0
+		const redisMarkerValues = new Map<string, string>()
+		const redisMarkerClient: RedisAutoTaskMarkerClient = {
+			get: async (key) => redisMarkerValues.get(key) ?? null,
+			eval: async (script, _numberOfKeys, generationKey, markerKey, value) => {
+				if (script.includes('incr')) {
+					redisMarkerGeneration += 1
+					redisMarkerValues.set(String(generationKey), String(redisMarkerGeneration))
+					redisMarkerValues.set(
+						String(markerKey),
+						`${redisMarkerGeneration}:${String(value)}`,
+					)
+					return redisMarkerGeneration
+				}
+				if (redisMarkerValues.get(String(generationKey)) !== String(value)) return 0
+				redisMarkerValues.delete(String(markerKey))
+				return 1
+			},
+		}
+		const redisMarkerStore = createRedisAutoTaskMarkerStore(redisMarkerClient)
+		await redisMarkerStore.touch('e2e', Date.now())
+		const redisMarker = await redisMarkerStore.get('e2e')
+		const redisMarkerCleared = await redisMarkerStore.clear('e2e', redisMarker?.generation ?? 0)
+		let autoTaskRuns = 0
+		const autoTask = createAutoTaskHandler({
+			debounceId: 'e2e-playground',
+			task: () => {
+				autoTaskRuns += 1
+			},
+			lockProvider: createMemoryLockProvider({ tokenFactory: () => 'auto-task-token' }),
+			markerStore: fileMarkerStore,
+			debounceMs: 0,
+			markerLeaseMs: 1000,
+			taskLeaseMs: 1000,
+			logger,
+		})
+		await autoTask()
+		await new Promise<void>((resolve) => setTimeout(resolve, 0))
+		autoTask.dispose()
 		const object = { collection: record.collection ?? 'unknown', retry: retry.data }
 		const entries = toEntries(object)
 		const rebuilt = fromEntries(entries)
@@ -126,6 +215,18 @@ export default defineHook(({ action }) => {
 				cache: {
 					memory: await namespacedCache.get('item'),
 					redis: await redisCache.get('item'),
+				},
+				locks: {
+					memoryContended: memoryContended === null,
+					fileContended: fileContended === null,
+					redisContended: redisContended === null,
+				},
+				autoTask: {
+					runs: autoTaskRuns,
+					fileMarkerGeneration: fileMarker?.generation,
+					fileMarkerCleared,
+					redisMarkerGeneration: redisMarker?.generation,
+					redisMarkerCleared,
 				},
 			})}`,
 		)

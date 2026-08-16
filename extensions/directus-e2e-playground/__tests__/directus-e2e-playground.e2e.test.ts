@@ -72,6 +72,14 @@ async function expectUtilityResults() {
 			fileType: 'document',
 		},
 		cache: { memory: 'memory', redis: 'redis' },
+		locks: { memoryContended: true, fileContended: true, redisContended: true },
+		autoTask: {
+			runs: 1,
+			fileMarkerGeneration: 2,
+			fileMarkerCleared: true,
+			redisMarkerGeneration: 1,
+			redisMarkerCleared: true,
+		},
 	})
 	expect(payload.loggerFields.deterministicUuid).toMatch(
 		/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
