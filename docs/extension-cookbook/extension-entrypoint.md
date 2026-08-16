@@ -8,8 +8,25 @@ normalize every extension to one layout.
 - operations keep their app and API entrypoints separate; and
 - bundles keep independently typed entries under `src/<entry>/` and synchronize their metadata.
 
-Keep registration and orchestration at the entrypoint. Move domain logic, schemas, services, types,
-and UI components into nearby owned files as complexity appears. Sandbox mode is optional in this
-repository; use it only when an extension's requirements fit its restrictions and Marketplace
-distribution justifies the trade-off. Do not import arbitrary workspace packages from sandboxed
-code. Use the Directus MCP to verify event and context contracts.
+Keep registration and orchestration at the entrypoint. For example, a hook entrypoint should keep
+the Directus registration visible while delegating domain work:
+
+```ts
+import { defineHook } from '@directus/extensions-sdk'
+
+import { rebuildSearchIndex } from './services/search-index'
+
+export default defineHook(({ action }) => {
+  action('items.create', (meta) => {
+    void rebuildSearchIndex(meta.collection, meta.key)
+  })
+})
+```
+
+Move domain logic, schemas, services, types, and UI components into nearby owned files as complexity
+appears. Keep the entrypoint responsible for registration and lifecycle wiring, not business rules
+or reusable utility implementations.
+
+Sandbox mode is optional in this repository; use it only when an extension's requirements fit its
+restrictions and Marketplace distribution justifies the trade-off. Do not import arbitrary workspace
+packages from sandboxed code. Use the Directus MCP to verify event and context contracts.

@@ -25,9 +25,10 @@
 		"lint:fix": "oxlint --fix",
 		"lint:actions": "github-actionlint -config-file .github/actionlint.yaml",
 		"validate:docs": "node scripts/validate-docs.mjs",
-		"test": "vitest run",
-		"test:coverage": "vitest run --coverage",
-		"e2e": "pnpm build && node scripts/e2e.mjs",
+		"test:unit": "vitest run",
+		"test:unit:coverage": "vitest run --coverage",
+		"test:integration": "EXTENSION_UTILS_INTEGRATION=1 vitest run --project test:integration",
+		"test:e2e": "pnpm build && node scripts/e2e.mjs",
 		"pack:packages": "node scripts/pack-packages.mjs",
 		"prepare:e2e-consumer": "node scripts/prepare-e2e-consumer.mjs",
 		"test:watch": "vitest",
@@ -43,8 +44,7 @@
 		"compose:down": "docker compose down",
 		"compose:logs": "docker compose logs -f",
 		"compose:reset": "docker compose down --volumes --remove-orphans",
-		"prepare": "husky",
-		"release": "pnpm build && pnpm validate:packages && pnpm changeset:publish"
+		"prepare": "husky"
 	},
 	"devDependencies": {
 		"@changesets/changelog-git": "catalog:",
@@ -56,6 +56,7 @@
 		"@vitejs/plugin-vue": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
 		"@workspace/typescript-config": "workspace:*",
+		"eslint-plugin-jsdoc": "catalog:",
 		"github-actionlint": "catalog:",
 		"happy-dom": "catalog:",
 		"husky": "catalog:",

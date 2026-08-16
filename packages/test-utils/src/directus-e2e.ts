@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
+const e2eOperationTimeoutMs = 60_000
 
 export interface DirectusE2EClientOptions {
 	baseUrl: string
@@ -32,6 +33,12 @@ export interface DirectusE2EClient {
  * @returns A client for authenticated item requests and log assertions.
  */
 export function createDirectusE2EClient(options: DirectusE2EClientOptions): DirectusE2EClient {
+	/**
+	 * Builds the Directus items API path for a collection and optional key.
+	 * @param collection - User collection name.
+	 * @param key - Optional item primary key.
+	 * @returns The encoded items API path.
+	 */
 	const itemPath = (collection: string, key?: string | number) =>
 		`/items/${encodeURIComponent(collection)}${
 			key === undefined ? '' : `/${encodeURIComponent(String(key))}`
@@ -44,11 +51,25 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @returns The unwrapped Directus response data.
 	 */
 	async function request<T>(path: string, init?: RequestInit): Promise<T>
+	/**
+	 * Sends an authenticated request that may return an empty response.
+	 * @param path - API path relative to the Directus base URL.
+	 * @param init - Optional fetch request options.
+	 * @param allowEmptyResponse - Whether a `204` response is valid.
+	 * @returns Nothing when the response is empty.
+	 */
 	async function request(
 		path: string,
 		init: RequestInit | undefined,
 		allowEmptyResponse: true,
 	): Promise<void>
+	/**
+	 * Sends an authenticated request and unwraps the Directus response.
+	 * @param path - API path relative to the Directus base URL.
+	 * @param init - Fetch request options.
+	 * @param allowEmptyResponse - Whether a `204` response is valid.
+	 * @returns The unwrapped response data, or nothing for an allowed empty response.
+	 */
 	async function request<T>(
 		path: string,
 		init: RequestInit = {},
@@ -61,6 +82,7 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		const response = await fetch(new URL(path, options.baseUrl), {
 			...init,
 			headers,
+			signal: init.signal ?? AbortSignal.timeout(e2eOperationTimeoutMs),
 		})
 
 		if (response.status === 204) {
@@ -123,20 +145,24 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @param timeoutMs - Maximum time to wait in milliseconds.
 	 * @returns The complete matching log output.
 	 */
-	async function waitForLog(pattern: RegExp, timeoutMs = 15_000): Promise<string> {
+	async function waitForLog(pattern: RegExp, timeoutMs = e2eOperationTimeoutMs): Promise<string> {
 		const deadline = Date.now() + timeoutMs
 		let output = ''
 
 		while (Date.now() < deadline) {
-			const result = await execFileAsync('docker', [
-				'compose',
-				...options.composeFiles.flatMap((file) => ['-f', file]),
-				'-p',
-				options.composeProject,
-				'logs',
-				'--no-color',
-				'directus',
-			])
+			const result = await execFileAsync(
+				'docker',
+				[
+					'compose',
+					...options.composeFiles.flatMap((file) => ['-f', file]),
+					'-p',
+					options.composeProject,
+					'logs',
+					'--no-color',
+					'directus',
+				],
+				{ timeout: e2eOperationTimeoutMs },
+			)
 			output = result.stdout
 			pattern.lastIndex = 0
 			if (pattern.test(output)) return output

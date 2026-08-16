@@ -47,8 +47,8 @@ Compose volumes and should only be used when discarding that state is intentiona
 
 The stack uses two explicit networks:
 
-- `frontend` is the application-facing network. Directus joins this network so it can later be
-  connected to other application-facing services without exposing infrastructure broadly.
+- `frontend` is the application-facing network. Directus joins this network for application-facing
+  traffic without exposing infrastructure broadly.
 - `backend` contains the database, cache, storage, mail, and search services. Directus joins it as
   the only application service that needs to reach those dependencies.
 
@@ -108,7 +108,7 @@ them. The development defaults are not production secrets; set `GARAGE_RPC_SECRE
 Run the isolated E2E path with:
 
 ```sh
-pnpm e2e
+pnpm test:e2e
 ```
 
 The runner:
@@ -126,11 +126,12 @@ ports `18055` (Directus), `18025` (Mailpit), `13900` (Garage S3), and `17700` (M
 read-only extension mounts, `EXTENSIONS_MUST_LOAD=true`, and disabled extension auto-reload. The
 runner explicitly waits for Garage initialization, then probes Directus, Mailpit, Garage S3, and
 Meilisearch before seeding the test collection. It emits timestamped phase messages and streams
-child-process output to make slow startup visible in CI. The Garage initialization logs are sampled
-every 15 seconds, service probes wait up to eight minutes, and child processes are bounded by a
-fifteen-minute timeout. The initialization step also reports its download, RPC readiness, layout,
-bucket, and key stages; its CLI download has bounded retries so network stalls fail with a useful
-diagnostic.
+child-process output to make slow startup visible in CI. Individual E2E operations and cleanup
+commands time out after 60 seconds; Compose startup retains a longer 15-minute budget. The Garage
+initialization logs are sampled every 15 seconds, service probes wait up to eight minutes, and child
+processes are bounded by a fifteen-minute timeout. The initialization step also reports its
+download, RPC readiness, layout, bucket, and key stages; its CLI download has bounded retries so
+network stalls fail with a useful diagnostic.
 
 CI prepares a clean consumer from packed extension artifacts and sets `DIRECTUS_E2E_EXTENSIONS_DIR`
 to that consumer’s extension directory before invoking the same E2E runner.
@@ -148,5 +149,5 @@ HSTS, and Marketplace trust.
 pnpm compose:logs
 pnpm compose:down
 pnpm compose:reset
-pnpm e2e
+pnpm test:e2e
 ```

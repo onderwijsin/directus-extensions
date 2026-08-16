@@ -1,19 +1,20 @@
 ---
-name: sample-hook
+name: directus-e2e-playground
 description:
-  Use the sample hook only to validate local Directus extension development in this repository.
+  Use the Directus E2E playground only to validate packed extension behavior in this repository.
 ---
 
-# Sample hook
+# Directus E2E playground
 
-`@onderwijsin/directus-extension-sample-hook` is a development fixture, not a production extension.
-It logs after `items.create`, `items.update`, and `items.delete` events. It requires a trusted
-Directus 12.2+ instance running Node 24; the repository Compose stack is the supported local setup.
+`@onderwijsin/directus-extension-e2e-playground` is a private development fixture, not a production
+extension. It logs item lifecycle events and exercises the packed `extension-utils` package. It
+requires a trusted Directus 12.2+ instance running Node 24; the repository E2E Compose stack is the
+supported setup.
 
 Install it with:
 
 ```sh
-pnpm add @onderwijsin/directus-extension-sample-hook
+pnpm test:e2e
 ```
 
 Place the package directory containing `package.json` and `dist/` in Directus' `extensions/`

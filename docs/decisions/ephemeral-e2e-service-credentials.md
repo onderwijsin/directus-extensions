@@ -7,7 +7,7 @@
 ## Context
 
 The E2E stack runs databases, caches, Directus, object storage, and search services. Fixed passwords
-and service secrets make accidental reuse easy and can leak into logs, local state, or future test
+and service secrets make accidental reuse easy and can leak into logs, local state, or test
 environments.
 
 ## Decision

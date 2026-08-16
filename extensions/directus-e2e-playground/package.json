@@ -1,7 +1,8 @@
 {
-	"name": "@onderwijsin/directus-extension-sample-hook",
+	"name": "@onderwijsin/directus-extension-e2e-playground",
 	"version": "0.1.0",
-	"description": "Logs item lifecycle events for local Directus extension development",
+	"private": true,
+	"description": "Private Directus extension playground for packed end-to-end tests",
 	"keywords": [
 		"directus-extension"
 	],
@@ -13,7 +14,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
-		"directory": "extensions/sample-hook"
+		"directory": "extensions/directus-e2e-playground"
 	},
 	"files": [
 		"dist",
@@ -22,17 +23,16 @@
 	],
 	"type": "module",
 	"main": "./dist/index.js",
-	"publishConfig": {
-		"access": "public"
-	},
 	"scripts": {
 		"build": "directus-extension build",
 		"dev": "directus-extension build --watch",
-		"test": "vitest run --config ../../vitest.config.ts",
+		"test:unit": "vitest run --config ../../vitest.config.ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@onderwijsin/directus-extension-utils": "workspace:*"
+		"@directus/memory": "catalog:",
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"ioredis": "catalog:"
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",
@@ -44,6 +44,7 @@
 	"engines": {
 		"node": ">=24.10.0"
 	},
+	"directus:e2e": true,
 	"directus:extension": {
 		"type": "hook",
 		"path": "dist/index.js",

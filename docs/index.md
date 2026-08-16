@@ -24,7 +24,7 @@ article that matches the work, then follow its linked source-of-truth documents 
 - **Extension cookbook:** reusable Directus extension patterns and shared-package contracts.
 - **Decision records:** accepted choices that constrain implementation until explicitly revisited.
 - **Consumer documentation:** package READMEs and installable skills describe public behavior for
-  operators, developers, and coding agents.
+  operators and developers.
 - **Official references:** Directus-specific facts must be checked against the official Directus
   documentation and MCP rather than inferred from local code.
 

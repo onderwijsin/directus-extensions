@@ -57,7 +57,7 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
       - name: Unit tests
-        run: pnpm test:coverage
+        run: pnpm test:unit:coverage
       - name: Build extension-utils
         run: pnpm build:utils
       - name: Build extensions

@@ -1,18 +1,19 @@
-import { spawn } from 'node:child_process'
 /**
  * End-to-end runner for the repository's isolated Directus test project.
  *
- * Invoked by `pnpm e2e` and directly by the CI E2E job. It starts the Compose
+ * Invoked by `pnpm test:e2e` and directly by the CI E2E job. It starts the Compose
  * stack, initializes the test data, runs Vitest, prints diagnostics on failure,
  * and always removes the stack afterwards.
  */
+import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 
 /** @typedef {import('node:child_process').ChildProcessWithoutNullStreams} ChildProcess */
 /** @typedef {import('node:child_process').SpawnOptions} SpawnOptions */
-/** @typedef {SpawnOptions & {streamOutput?: boolean}} RunCommandOptions */
+/** @typedef {SpawnOptions & {streamOutput?: boolean, timeoutMs?: number}} RunCommandOptions */
 /** @typedef {{State?: string, ExitCode?: number}} ComposeService */
 const composeFiles = ['docker/compose.yaml', 'tests/compose.e2e.yaml']
+const e2eOperationTimeoutMs = 60_000
 const composeCommandTimeout = 900_000
 const serviceReadinessTimeout = 480_000
 const composeProject = `directus-extensions-e2e-${process.pid}`
@@ -22,6 +23,12 @@ const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
 const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
+
+/**
+ * Determines whether an HTTP response indicates that a service is ready.
+ * @param {Response} response - HTTP response returned by the readiness probe.
+ * @returns {boolean} Whether the response has a successful status.
+ */
 const responseIsReady = (response) => response.ok
 /** @type {ChildProcess | undefined} */
 let activeChild
@@ -43,7 +50,11 @@ function log(message) {
  * @param {RunCommandOptions} options - Child-process options and output behavior.
  * @returns {Promise<{stdout: string, stderr: string}>} The completed process result.
  */
-function runCommand(command, args, { streamOutput = true, ...options } = {}) {
+function runCommand(
+	command,
+	args,
+	{ streamOutput = true, timeoutMs = composeCommandTimeout, ...options } = {},
+) {
 	return new Promise((resolve, reject) => {
 		const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] })
 		activeChild = child
@@ -53,7 +64,7 @@ function runCommand(command, args, { streamOutput = true, ...options } = {}) {
 		const timer = setTimeout(() => {
 			timedOut = true
 			child.kill('SIGTERM')
-		}, composeCommandTimeout)
+		}, timeoutMs)
 
 		child.stdout.on('data', (chunk) => {
 			const output = String(chunk)
@@ -78,7 +89,7 @@ function runCommand(command, args, { streamOutput = true, ...options } = {}) {
 				return
 			}
 			const reason = timedOut
-				? `timed out after ${composeCommandTimeout / 60_000} minutes`
+				? `timed out after ${timeoutMs / 1_000} seconds`
 				: `exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`
 			reject(new Error(`${command} ${args.join(' ')} ${reason}`))
 		})
@@ -90,6 +101,10 @@ function runCommand(command, args, { streamOutput = true, ...options } = {}) {
  * @returns Environment variables shared by the E2E Compose services.
  */
 function generateEnvironmentSecrets() {
+	/**
+	 * Generates one cryptographically random secret for the Compose environment.
+	 * @returns {string} A hexadecimal secret value.
+	 */
 	const randomSecret = () => randomBytes(32).toString('hex')
 
 	return {
@@ -111,7 +126,7 @@ const password = environmentSecrets.ADMIN_PASSWORD
 /**
  * Runs Docker Compose for the isolated E2E project.
  * @param {string[]} args - Compose arguments.
- * @param {{streamOutput?: boolean}} options - Output behavior for the Compose command.
+ * @param {{streamOutput?: boolean, timeoutMs?: number}} options - Output and timeout behavior.
  * @returns {Promise<{stdout: string, stderr: string}>} The completed command output.
  */
 async function compose(args, options = {}) {
@@ -125,6 +140,7 @@ async function compose(args, options = {}) {
 	log(`Starting: docker ${command.join(' ')}`)
 	const result = await runCommand('docker', command, {
 		env: { ...process.env, ...environmentSecrets, DIRECTUS_E2E_PORT: port },
+		timeoutMs: e2eOperationTimeoutMs,
 		...options,
 	})
 	log(`Completed: docker compose ${args.join(' ')}`)
@@ -145,7 +161,9 @@ async function waitForHttp(url, name, isReady = responseIsReady) {
 	while (Date.now() < deadline) {
 		if (interrupted) throw new Error('E2E run interrupted')
 		try {
-			const response = await fetch(url)
+			const response = await fetch(url, {
+				signal: AbortSignal.timeout(e2eOperationTimeoutMs),
+			})
 			if (isReady(response)) {
 				log(`${name} is ready`)
 				return
@@ -226,6 +244,7 @@ async function request(path, init = {}) {
 	const response = await fetch(`${baseUrl}${path}`, {
 		...init,
 		headers: { 'Content-Type': 'application/json', ...init.headers },
+		signal: init.signal ?? AbortSignal.timeout(e2eOperationTimeoutMs),
 	})
 	/** @type {{data: unknown}} */
 	const body = await response.json()
@@ -303,6 +322,7 @@ async function runTests(token) {
 			DIRECTUS_E2E_COMPOSE_FILES: JSON.stringify(composeFiles),
 			DIRECTUS_E2E_COMPOSE_PROJECT: composeProject,
 		},
+		timeoutMs: e2eOperationTimeoutMs,
 	})
 }
 
@@ -330,7 +350,9 @@ function registerSignalHandlers() {
  */
 async function cleanup() {
 	log('Cleaning up E2E Compose resources')
-	await compose(['down', '--volumes', '--remove-orphans'])
+	await compose(['down', '--volumes', '--remove-orphans'], {
+		timeoutMs: e2eOperationTimeoutMs,
+	})
 	log('E2E cleanup completed')
 }
 
@@ -341,9 +363,11 @@ try {
 	log(`Directus endpoint: ${baseUrl}`)
 	// Start from a clean project so stale containers or database volumes cannot affect the run.
 	log('Removing stale Compose resources')
-	await compose(['down', '--volumes', '--remove-orphans'])
+	await compose(['down', '--volumes', '--remove-orphans'], {
+		timeoutMs: e2eOperationTimeoutMs,
+	})
 	log('Starting Compose services; readiness probes will report progress')
-	await compose(['up', '-d'])
+	await compose(['up', '-d'], { timeoutMs: composeCommandTimeout })
 	await waitForComposeCompletion('garage-init')
 	await waitForServices()
 	// Seed the shared test collection before handing control to the E2E Vitest project.

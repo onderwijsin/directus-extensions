@@ -1,77 +1,55 @@
 # `@onderwijsin/directus-extension-utils`
 
-Framework-neutral utilities shared by Onderwijs in Directus extensions. This package exists to keep
-small, stable runtime helpers in one place instead of reimplementing them in every extension. It
-deliberately does not contain Directus services, extension registration, or schema validation.
+Small, reusable utilities for Directus extensions. The package is runtime-portable across Directus
+setups, but is intended to run inside Directus—not as a framework-agnostic utility library.
 
-For the complete API and design rules, read the
-[extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md) and the
-[primitive guards article](../../docs/extension-cookbook/guards.md).
+The public surface includes:
 
-## Usage
+- runtime guards, attempt/retry helpers, object helpers, MIME classification, and UUIDs;
+- server-only locks, debounced auto-task handlers, task storage, and logging; and
+- reusable Directus extension types.
 
-Install the package in an extension that needs a shared utility:
+## Install
 
 ```sh
 pnpm add @onderwijsin/directus-extension-utils
 ```
 
-Import from the root for shared helpers:
+## Import
+
+Use the root entry point for common helpers:
 
 ```ts
-import { isRecord, isString } from '@onderwijsin/directus-extension-utils'
-
-if (isRecord(value) && isString(value.name)) {
-  return value.name
-}
+import { isRecord, uuid } from '@onderwijsin/directus-extension-utils'
 ```
 
-Runtime-aware subpaths are available when an extension has an explicit runtime boundary:
+Use `/server` for server-only utilities:
 
 ```ts
-import { isRecord } from '@onderwijsin/directus-extension-utils/server'
-import { isString } from '@onderwijsin/directus-extension-utils/app'
-import { isDefined } from '@onderwijsin/directus-extension-utils/shared'
+import {
+  createAutoTaskHandler,
+  createRedisTaskHandlerStorage,
+  createRedisLockProvider,
+} from '@onderwijsin/directus-extension-utils/server'
 ```
 
-The root and `shared` exports are the framework-neutral public surface. `server` and `app` currently
-re-export the shared helpers so runtime-specific utilities can be added later without changing
-consumer imports. The implementation module is internal; import guards from the root or `/shared`.
+The `/app` and `/shared` entry points expose the common browser-safe surface. Do not import locks,
+tasks, task storage, or logging from those paths.
 
-## Extending the package
+All lock providers use the same `tryAcquire`/lease contract and `defaultLeaseMs` option. Choose the
+memory provider for one process, the filesystem provider for processes sharing a directory, or the
+Redis provider for shared coordination across replicas.
 
-Add a helper only when it is framework-neutral, has stable semantics, and has more than one credible
-consumer. Keep Directus-specific behavior in the owning extension. Add shared helpers to
-`src/shared/` and export them through `src/shared/index.ts`; expose them from the root only when
-they belong in the default shared API. Add runtime-specific helpers to `src/server/` or `src/app/`
-without leaking them through the root export.
+Auto-task handlers clear a marker only after the task succeeds. Task failures and lost leases are
+reported through `onError` and leave the marker pending for a later trigger; failed tasks are not
+automatically retried. Tasks should honor the supplied `AbortSignal` and be safe to run again.
 
-Use Zod for structured external input. These helpers are type-narrowing predicates, not parsers,
-coercion utilities, or a schema system.
+## Documentation
 
-## Development
-
-From the repository root:
-
-```sh
-pnpm --filter @onderwijsin/directus-extension-utils typecheck
-pnpm --filter @onderwijsin/directus-extension-utils build
-pnpm test:watch
-```
-
-The package has no standalone dev server or watch script. `build` writes generated declarations and
-JavaScript to `dist/`; do not commit that output. Use the root watch command for an interactive
-development loop.
-
-## Testing policy
-
-Tests live in [`__tests__/`](./__tests__/) and cover the public guard behavior and export contract.
-Prefer focused unit tests for deterministic helpers. Do not add tests solely to increase coverage,
-and do not test private implementation details when a public import expresses the consumer contract.
-
-Run the package tests or the full repository suite with:
-
-```sh
-pnpm test -- packages/extension-utils/__tests__
-pnpm test
-```
+Start with the
+[extension-utils cookbook article](https://github.com/onderwijsin/directus-extensions/blob/main/docs/extension-cookbook/extension-utils.md)
+for usage examples and the
+[utility glossary](https://github.com/onderwijsin/directus-extensions/blob/main/docs/extension-cookbook/extension-utils-glossary.md)
+for coordination terminology. Maintainers can use the
+[API reference](https://github.com/onderwijsin/directus-extensions/blob/main/.agents/skills/directus-extension-utils/references/api-reference.md)
+for the complete export and option surface.

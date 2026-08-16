@@ -14,7 +14,7 @@ import {
 	isNumber,
 	isRecord,
 	isString,
-} from '../src/index.js'
+} from '../src/index'
 
 describe('primitive guards', () => {
 	it('narrows primitive values', () => {

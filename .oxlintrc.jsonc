@@ -10,7 +10,24 @@
 		"suspicious": "off"
 	},
 	"plugins": ["jsdoc", "typescript", "vue"],
+	"jsPlugins": [
+		{
+			"name": "jsdoc-js",
+			"specifier": "eslint-plugin-jsdoc"
+		}
+	],
 	"rules": {
+		"jsdoc-js/require-jsdoc": [
+			"error",
+			{
+				"require": {
+					"FunctionDeclaration": true,
+					"FunctionExpression": true,
+					"ArrowFunctionExpression": true,
+					"MethodDefinition": true
+				}
+			}
+		],
 		"jsdoc/check-tag-names": ["error", { "definedTags": ["fileoverview"] }],
 		"jsdoc/require-param": "error",
 		"jsdoc/require-param-description": "error",
@@ -66,6 +83,12 @@
 		"typescript/prefer-string-starts-ends-with": "warn"
 	},
 	"overrides": [
+		{
+			"files": ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
+			"rules": {
+				"jsdoc-js/require-jsdoc": "off"
+			}
+		},
 		{
 			"files": ["scripts/**/*.mjs", ".github/actions/**/*.js", "lint-staged.config.mjs"],
 			"rules": {

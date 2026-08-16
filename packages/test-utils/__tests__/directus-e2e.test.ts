@@ -6,7 +6,10 @@ vi.mock('node:child_process', () => ({
 	execFile: vi.fn((...args: unknown[]) => {
 		const callback = args.at(-1)
 		if (typeof callback === 'function')
-			Reflect.apply(callback, null, [null, { stdout: 'sample-hook log', stderr: '' }])
+			Reflect.apply(callback, null, [
+				null,
+				{ stdout: 'directus-e2e-playground log', stderr: '' },
+			])
 	}),
 }))
 
@@ -90,7 +93,9 @@ describe('Directus E2E client', () => {
 			composeProject: 'test-project',
 		})
 
-		await expect(client.waitForLog(/sample-hook log/u)).resolves.toBe('sample-hook log')
+		await expect(client.waitForLog(/directus-e2e-playground log/u)).resolves.toBe(
+			'directus-e2e-playground log',
+		)
 		expect(execFile).toHaveBeenCalledWith(
 			'docker',
 			[
@@ -105,6 +110,7 @@ describe('Directus E2E client', () => {
 				'--no-color',
 				'directus',
 			],
+			{ timeout: 60_000 },
 			expect.any(Function),
 		)
 	})

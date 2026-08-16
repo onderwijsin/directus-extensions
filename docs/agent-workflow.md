@@ -40,7 +40,7 @@ documentation. Do not start from an isolated file when the contract crosses a pa
 
 Read each selected article completely. Nearby implementations are evidence for local patterns, not
 permission to contradict a documented contract. Use a decision record when a choice affects multiple
-packages, runtime boundaries, security, release behavior, or future maintenance.
+packages, runtime boundaries, security, release behavior, or maintenance impact.
 
 ## 3. Plan and implement
 
@@ -62,8 +62,11 @@ Run the applicable checks:
 corepack pnpm format
 corepack pnpm lint:fix
 corepack pnpm typecheck
-corepack pnpm test
+corepack pnpm test:unit
 ```
+
+Lint is successful only when it reports zero errors and zero warnings. Treat warnings as findings
+that must be fixed before handoff; do not describe a warning-producing lint run as passing.
 
 Add focused package, packed-consumer, or E2E checks when the change affects those surfaces. Review:
 

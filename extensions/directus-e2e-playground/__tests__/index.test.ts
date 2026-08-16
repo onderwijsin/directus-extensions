@@ -15,7 +15,7 @@ vi.mock('@directus/extensions-sdk', () => ({
 
 import '../src/index'
 
-describe('sample hook', () => {
+describe('Directus E2E playground hook', () => {
 	it('registers handlers for item creation, updates, and deletion', () => {
 		expect(action).toHaveBeenCalledTimes(3)
 		expect(action.mock.calls.map(([event]) => event)).toEqual([
@@ -34,7 +34,7 @@ describe('sample hook', () => {
 		handler({ collection: 'articles' })
 
 		expect(log).toHaveBeenCalledWith(
-			'sample-hook: item-event {"event":"created","collection":"articles","key":"unknown"}',
+			'directus-e2e-playground: item-event {"event":"created","collection":"articles","key":"unknown"}',
 		)
 	})
 
@@ -51,7 +51,7 @@ describe('sample hook', () => {
 		else handler({ collection: 'articles', keys: ['first', 'second'] })
 
 		expect(log).toHaveBeenCalledWith(
-			`sample-hook: item-event {"event":"${event}","collection":"articles","key":"${key}"}`,
+			`directus-e2e-playground: item-event {"event":"${event}","collection":"articles","key":"${key}"}`,
 		)
 	})
 
@@ -68,15 +68,15 @@ describe('sample hook', () => {
 
 		expect(log).toHaveBeenNthCalledWith(
 			1,
-			'sample-hook: item-event {"event":"created","collection":"articles","key":"7"}',
+			'directus-e2e-playground: item-event {"event":"created","collection":"articles","key":"7"}',
 		)
 		expect(log).toHaveBeenNthCalledWith(
 			2,
-			'sample-hook: item-event {"event":"created","collection":"unknown","key":"unknown"}',
+			'directus-e2e-playground: item-event {"event":"created","collection":"unknown","key":"unknown"}',
 		)
 		expect(log).toHaveBeenNthCalledWith(
 			3,
-			'sample-hook: item-event {"event":"updated","collection":"unknown","key":"unknown"}',
+			'directus-e2e-playground: item-event {"event":"updated","collection":"unknown","key":"unknown"}',
 		)
 	})
 })

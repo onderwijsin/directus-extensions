@@ -1,7 +1,7 @@
 {
 	"name": "@onderwijsin/directus-extension-utils",
 	"version": "0.1.0",
-	"description": "Framework-neutral utilities for Onderwijs in Directus extensions",
+	"description": "Reusable utilities for Onderwijs in Directus extensions",
 	"keywords": [
 		"directus",
 		"directus-extension"
@@ -46,11 +46,18 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.build.json",
+		"build": "tsdown",
 		"typecheck": "tsc --noEmit"
 	},
+	"dependencies": {
+		"@directus/memory": "catalog:",
+		"ioredis": "catalog:",
+		"uuid": "catalog:"
+	},
 	"devDependencies": {
+		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",
+		"tsdown": "catalog:",
 		"typescript": "catalog:"
 	},
 	"engines": {
