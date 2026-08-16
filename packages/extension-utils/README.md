@@ -36,6 +36,10 @@ import {
 The `/app` and `/shared` entry points expose the common browser-safe surface. Do not import locks,
 tasks, task storage, or logging from those paths.
 
+All lock providers use the same `tryAcquire`/lease contract and `defaultLeaseMs` option. Choose the
+memory provider for one process, the filesystem provider for processes sharing a directory, or the
+Redis provider for shared coordination across replicas.
+
 ## Documentation
 
 Start with the [extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md)

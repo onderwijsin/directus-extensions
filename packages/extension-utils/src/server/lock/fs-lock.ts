@@ -1,20 +1,24 @@
-import type { LockAcquireOptions, LockLease, LockProvider } from './lock-core'
+import type { LockAcquireOptions, LockLease, LockProvider, LockProviderOptions } from './lock-core'
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { attempt } from '../../shared/attempt'
 import { isFiniteNumber, isFunction, isRecord, hasKey, isString } from '../../shared/guards'
-import { createLockToken, isNodeError, validateLeaseMs, validateLockName } from './lock-core'
+import {
+	createLockLease,
+	createLockToken,
+	isNodeError,
+	resolveLeaseMs,
+	validateLockName,
+} from './lock-core'
 
 /** Options for the explicit local-filesystem lock provider. */
-export interface FsLockProviderOptions {
+export interface FsLockProviderOptions extends LockProviderOptions {
 	/** Directory shared by the processes that should coordinate. */
 	directory: string
 	/** Injectable clock returning milliseconds since epoch. */
 	now?: () => number
-	/** Injectable owner-token factory. */
-	tokenFactory?: () => string
 }
 
 interface OwnerRecord {
@@ -24,6 +28,7 @@ interface OwnerRecord {
 
 interface FsLockDependencies {
 	directory: string
+	defaultLeaseMs?: number
 	now: () => number
 	tokenFactory: () => string
 }
@@ -136,28 +141,17 @@ const createFsLease = (
 	ownerPath: string,
 	lockPath: string,
 	now: () => number,
-): LockLease => {
-	let released = false
-
-	const ownsClaim = async (): Promise<boolean> => {
-		const owner = await readOwnerRecord(ownerPath)
-		if (!owner || owner.token !== token || owner.expiresAt <= now()) return false
-		return (await readClaimToken(lockPath)) === token
-	}
-
-	return {
-		name,
-		token,
+): LockLease =>
+	createLockLease(name, token, {
 		renew: async () => {
-			// Both the owner record and claim must still identify this token.
-			if (released || !(await ownsClaim())) return false
+			const owner = await readOwnerRecord(ownerPath)
+			if (!owner || owner.token !== token || owner.expiresAt <= now()) return false
+			if ((await readClaimToken(lockPath)) !== token) return false
 			await writeOwnerRecord(ownerPath, { token, expiresAt: now() + leaseMs })
 			return true
 		},
 		release: async () => {
-			// Release is owner-bound and idempotent; a replacement is never removed.
-			if (released) return false
-			released = true
+			// Release is owner-bound; a replacement is never removed.
 			const owner = await readOwnerRecord(ownerPath)
 			if (!owner || owner.token !== token) return false
 			if (owner.expiresAt <= now()) {
@@ -169,8 +163,7 @@ const createFsLease = (
 			await rm(ownerPath, { force: true, recursive: true })
 			return true
 		},
-	}
-}
+	})
 
 /**
  * Acquires one filesystem lock, recovering expired or orphaned claims.
@@ -186,7 +179,7 @@ const acquireFsLock = async (
 ): Promise<LockLease | null> => {
 	const { directory, now, tokenFactory } = dependencies
 	const normalizedName = validateLockName(name)
-	const leaseMs = validateLeaseMs(acquireOptions.leaseMs)
+	const leaseMs = resolveLeaseMs(acquireOptions, dependencies.defaultLeaseMs)
 	await mkdir(directory, { recursive: true })
 	const lockPath = join(directory, `${encodedComponent(normalizedName)}.lock`)
 
@@ -257,6 +250,7 @@ export function createFsLockProvider(options: FsLockProviderOptions): LockProvid
 
 	const dependencies: FsLockDependencies = {
 		directory: options.directory,
+		defaultLeaseMs: options.defaultLeaseMs,
 		now: options.now ?? Date.now,
 		tokenFactory: options.tokenFactory ?? createLockToken,
 	}

@@ -123,7 +123,7 @@ import { createRedisLockProvider } from '@onderwijsin/directus-extension-utils/s
 const locks = createRedisLockProvider({
   redisUrl: process.env.REDIS_URL!,
   namespace: 'my-extension:locks', // defaults to directus:locks
-  lockTimeoutMs: 30_000, // default lease when tryAcquire omits leaseMs
+  defaultLeaseMs: 30_000, // default lease when tryAcquire omits leaseMs
   isContentionError: (error) => error instanceof Error && error.name === 'ExecutionError',
 })
 
@@ -189,14 +189,13 @@ const storage = createMemoryTaskHandlerStorage({
 })
 
 const handleSchemaChange = createAutoTaskHandler({
-  debounceId: 'schema:snapshot',
+  taskId: 'schema:snapshot',
   storage,
   debounceMs: 15_000,
   markerLeaseMs: 5 * 60_000,
   taskLeaseMs: 5 * 60_000,
   retryMs: 30_000,
   renewalIntervalMs: 60_000,
-  lockName: 'schema:snapshot',
   task: async (signal) => {
     await writeSchemaSnapshot({ signal })
   },
@@ -232,14 +231,13 @@ const storage = createRedisTaskHandlerStorage({
 })
 
 const handleOrderChange = createAutoTaskHandler({
-  debounceId: 'orders:reindex',
+  taskId: 'orders:reindex',
   storage,
   debounceMs: 10_000,
   markerLeaseMs: 10 * 60_000,
   taskLeaseMs: 5 * 60_000,
   retryMs: 30_000,
   renewalIntervalMs: 60_000,
-  lockName: 'orders:reindex',
   task: async (signal) => reindexOrders({ signal }),
   onError: (error) => logger.error('Order reindex failed', { cause: error }),
 })
@@ -267,7 +265,7 @@ const storage = createFsTaskHandlerStorage({
 })
 
 const handleImport = createAutoTaskHandler({
-  debounceId: 'catalog:import',
+  taskId: 'catalog:import',
   storage,
   task: (signal) => importCatalog({ signal }),
 })

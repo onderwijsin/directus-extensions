@@ -100,6 +100,15 @@ describe('createFsLockProvider', () => {
 		)
 	})
 
+	it('uses the configured default lease', async () => {
+		let now = 1000
+		const provider = createFsLockProvider({ directory, defaultLeaseMs: 10, now: () => now })
+		const lease = await provider.tryAcquire('default')
+
+		now = 1010
+		expect(await lease?.renew()).toBe(false)
+	})
+
 	it('surfaces malformed owner records instead of stealing an undecidable lock', async () => {
 		await mkdir(join(directory, 'broken.' + 'token' + '.owner'))
 		await writeFile(join(directory, 'broken.lock'), 'token')

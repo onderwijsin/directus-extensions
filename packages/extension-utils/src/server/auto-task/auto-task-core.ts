@@ -30,7 +30,7 @@ export interface AutoTaskScheduler {
 /** Configuration for a debounced, lock-protected task handler. */
 export interface AutoTaskHandlerOptions {
 	/** Unique marker identifier, such as `schema-snapshot`. */
-	debounceId: string
+	taskId: string
 	/** Work to execute after the debounce window. The signal aborts when the lease is lost. */
 	task: (signal: AbortSignal) => Promise<void> | void
 	/** Lock and marker storage used to coordinate task executions. */
@@ -53,8 +53,6 @@ export interface AutoTaskHandlerOptions {
 	scheduler?: AutoTaskScheduler
 	/** Receives task, lock, marker, and renewal failures. */
 	onError?: (error: unknown) => void | Promise<void>
-	/** Lock name. Defaults to the debounce identifier. */
-	lockName?: string
 }
 
 /** A trigger function with an explicit timer cleanup operation. */

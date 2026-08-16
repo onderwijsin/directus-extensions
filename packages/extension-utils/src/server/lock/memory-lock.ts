@@ -1,16 +1,18 @@
-import type { LockLease, LockProvider } from './lock-core'
+import type { LockLease, LockProvider, LockProviderOptions } from './lock-core'
 
 import { isFunction } from '../../shared/guards'
-import { createLockToken, validateLeaseMs, validateLockName } from './lock-core'
+import {
+	createLockLease,
+	createLockToken,
+	resolveLeaseMs,
+	validateLeaseMs,
+	validateLockName,
+} from './lock-core'
 
 /** Options for deterministic in-memory lock providers. */
-export interface MemoryLockProviderOptions {
-	/** Default lease lifetime when an acquire call omits `leaseMs`. */
-	defaultLeaseMs?: number
+export interface MemoryLockProviderOptions extends LockProviderOptions {
 	/** Injectable clock returning milliseconds since epoch. */
 	now?: () => number
-	/** Injectable owner-token factory. */
-	tokenFactory?: () => string
 }
 
 interface MemoryLockRecord {
@@ -33,14 +35,9 @@ const createMemoryLease = (
 	leaseMs: number,
 	now: () => number,
 	locks: Map<string, MemoryLockRecord>,
-): LockLease => {
-	let released = false
-
-	return {
-		name,
-		token,
-		async renew() {
-			if (released) return false
+): LockLease =>
+	createLockLease(name, token, {
+		renew: () => {
 			const currentTime = now()
 			const record = locks.get(name)
 			if (!record || record.token !== token || record.expiresAt <= currentTime) {
@@ -50,9 +47,7 @@ const createMemoryLease = (
 			record.expiresAt = currentTime + leaseMs
 			return true
 		},
-		async release() {
-			if (released) return false
-			released = true
+		release: () => {
 			const currentTime = now()
 			const record = locks.get(name)
 			if (!record || record.token !== token || record.expiresAt <= currentTime) {
@@ -62,8 +57,7 @@ const createMemoryLease = (
 			locks.delete(name)
 			return true
 		},
-	}
-}
+	})
 
 /**
  * Creates a process-local lock provider.
@@ -88,17 +82,17 @@ export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}
 	const tokenFactory = options.tokenFactory ?? createLockToken
 
 	return {
-		tryAcquire: async (name, acquireOptions = {}) => {
+		tryAcquire: (name, acquireOptions = {}) => {
 			const normalizedName = validateLockName(name)
-			const leaseMs = validateLeaseMs(acquireOptions.leaseMs ?? options.defaultLeaseMs)
+			const leaseMs = resolveLeaseMs(acquireOptions, options.defaultLeaseMs)
 			const currentTime = now()
 			const current = locks.get(normalizedName)
-			if (current && current.expiresAt > currentTime) return null
+			if (current && current.expiresAt > currentTime) return Promise.resolve(null)
 			if (current) locks.delete(normalizedName)
 
 			const token = tokenFactory()
 			locks.set(normalizedName, { token, expiresAt: currentTime + leaseMs })
-			return createMemoryLease(normalizedName, token, leaseMs, now, locks)
+			return Promise.resolve(createMemoryLease(normalizedName, token, leaseMs, now, locks))
 		},
 	}
 }

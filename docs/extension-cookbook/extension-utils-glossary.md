@@ -70,8 +70,14 @@ work.”
 
 ### Generation
 
-The increasing number assigned to each trigger for one debounce identifier. If generation 3 is
-followed by generation 4, generation 3 is obsolete and must not run or clear generation 4.
+The increasing number assigned to each trigger for one task ID. If generation 3 is followed by
+generation 4, generation 3 is obsolete and must not run or clear generation 4.
+
+### Task ID
+
+The stable identifier passed as `taskId`. It names both the marker stream and the execution lock.
+Every trigger uses the same task ID and creates a new marker generation; the task ID is not
+regenerated per trigger.
 
 ### Trigger
 
@@ -97,9 +103,9 @@ business data; it only prevents multiple owners from doing the same protected wo
 
 ### Lock name
 
-The logical name of the protected operation, such as `products:reindex`. The same name must be used
-by contenders that should exclude one another. Auto-task handlers use their debounce identifier as
-the default lock name.
+The logical name of a standalone protected operation, such as `products:reindex`. The same name must
+be used by contenders that should exclude one another. Auto-task handlers use their task ID for this
+purpose and do not expose a separate lock-name option.
 
 ### Owner
 

@@ -83,6 +83,8 @@ an old owner to remove a replacement generation.
 `createMemoryLockProvider` coordinates one provider instance in one process. Directus KV/Cache
 locks coordinate clients sharing their configured backend. The filesystem adapter coordinates only
 processes sharing its directory; it is not cluster-wide without shared storage.
+All lock providers expose the same `defaultLeaseMs` and `tokenFactory` options where applicable;
+`leaseMs` on `tryAcquire` overrides the provider default.
 
 ### Auto-tasks
 

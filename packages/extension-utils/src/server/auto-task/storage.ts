@@ -35,7 +35,7 @@ export function createRedisTaskHandlerStorage(
 	const lockProvider = createRedisLockProvider({
 		redisUrl,
 		namespace: `${namespace}:locks`,
-		lockTimeoutMs,
+		defaultLeaseMs: lockTimeoutMs,
 		isContentionError: options.isContentionError,
 		redis,
 	})
@@ -72,6 +72,7 @@ export function createFsTaskHandlerStorage(
 ): TaskHandlerStorage {
 	const lockProvider = createFsLockProvider({
 		directory: options.directory,
+		defaultLeaseMs: options.lockTimeoutMs,
 		now: options.now,
 		tokenFactory: options.tokenFactory,
 	})

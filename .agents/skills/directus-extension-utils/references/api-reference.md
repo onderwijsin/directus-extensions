@@ -77,16 +77,18 @@ interface LockLease {
 interface LockProvider {
   tryAcquire(name: string, options?: LockAcquireOptions): Promise<LockLease | null>
 }
-interface MemoryLockProviderOptions {
+interface LockProviderOptions {
   defaultLeaseMs?: number
-  now?: () => number
   tokenFactory?: () => string
 }
+interface MemoryLockProviderOptions extends LockProviderOptions {
+  now?: () => number
+}
 createMemoryLockProvider(options?: MemoryLockProviderOptions): LockProvider
-interface RedisLockProviderOptions {
+interface RedisLockProviderOptions extends LockProviderOptions {
   redisUrl: string
   namespace?: string
-  lockTimeoutMs?: number
+  defaultLeaseMs?: number
   isContentionError?: (error: unknown) => boolean
 }
 interface RedisLockProvider extends LockProvider {
@@ -95,10 +97,9 @@ interface RedisLockProvider extends LockProvider {
 createRedisLockProvider(options: RedisLockProviderOptions): RedisLockProvider
 ~~~
 
-Lock names are trimmed and must not be empty. The memory provider is process-local. Its
-`defaultLeaseMs` is used only when `tryAcquire` does not receive `leaseMs`; task storage exposes the
-same concept as `lockTimeoutMs`. Lease renewal and release are owner-bound and idempotent; they
-return false for an expired, released, or replaced generation.
+Lock names are trimmed and must not be empty. All providers use `defaultLeaseMs` when `tryAcquire`
+does not receive `leaseMs`. The memory provider is process-local. Lease renewal and release are
+owner-bound and idempotent; they return false for an expired, released, or replaced generation.
 
 ## Server-only auto-task coordination
 
@@ -144,7 +145,7 @@ interface AutoTaskScheduler {
   clearInterval(handle: ReturnType<typeof setInterval>): void
 }
 interface AutoTaskHandlerOptions {
-  debounceId: string
+  taskId: string
   task: (signal: AbortSignal) => Promise<void> | void
   storage: TaskHandlerStorage
   logger?: LoggerLike
@@ -156,7 +157,6 @@ interface AutoTaskHandlerOptions {
   now?: () => number
   scheduler?: AutoTaskScheduler
   onError?: (error: unknown) => void | Promise<void>
-  lockName?: string               // default debounceId
 }
 interface AutoTaskHandler {
   (): Promise<void>
@@ -181,6 +181,7 @@ filesystem storage currently implement disposal as a no-op.
 ~~~ts
 interface FsLockProviderOptions {
   directory: string
+  defaultLeaseMs?: number
   now?: () => number
   tokenFactory?: () => string
 }

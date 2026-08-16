@@ -7,6 +7,14 @@ export interface LockAcquireOptions {
 	leaseMs?: number
 }
 
+/** Common configuration for lock providers. */
+export interface LockProviderOptions {
+	/** Default lease lifetime when an acquire call omits `leaseMs`. */
+	defaultLeaseMs?: number
+	/** Injectable owner-token factory. */
+	tokenFactory?: () => string
+}
+
 /** An owner-bound lock lease. */
 export interface LockLease {
 	/** Normalized lock name. */
@@ -27,6 +35,36 @@ export interface LockProvider {
 
 /** Default lease lifetime for memory and filesystem providers. */
 const DEFAULT_LOCK_LEASE_MS = 30_000
+
+interface LockLeaseCallbacks {
+	renew: () => boolean | Promise<boolean>
+	release: () => boolean | Promise<boolean>
+}
+
+/**
+ * Creates the common owner-bound lease wrapper used by every lock provider.
+ * @param name - Normalized lock name.
+ * @param token - Owner token for this lease generation.
+ * @param callbacks - Provider-specific ownership operations.
+ * @returns An idempotent lock lease.
+ */
+export const createLockLease = (
+	name: string,
+	token: string,
+	callbacks: LockLeaseCallbacks,
+): LockLease => {
+	let released = false
+	return {
+		name,
+		token,
+		renew: () => Promise.resolve(released ? false : callbacks.renew()),
+		release: () => {
+			if (released) return Promise.resolve(false)
+			released = true
+			return Promise.resolve(callbacks.release())
+		},
+	}
+}
 
 /**
  * Normalizes and validates a logical lock name.
@@ -51,6 +89,17 @@ export const validateLeaseMs = (leaseMs: number | undefined): number => {
 	}
 	return value
 }
+
+/**
+ * Resolves and validates the lease lifetime for one acquisition.
+ * @param acquireOptions - Per-acquisition options.
+ * @param defaultLeaseMs - Provider default.
+ * @returns The validated lease duration.
+ */
+export const resolveLeaseMs = (
+	acquireOptions: LockAcquireOptions,
+	defaultLeaseMs?: number,
+): number => validateLeaseMs(acquireOptions.leaseMs ?? defaultLeaseMs)
 
 /**
  * Returns whether an unknown failure is a Node filesystem error with the given code.

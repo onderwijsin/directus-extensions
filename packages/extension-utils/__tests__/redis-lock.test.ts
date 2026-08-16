@@ -33,7 +33,7 @@ describe('createRedisLockProvider', () => {
 		const provider = createRedisLockProvider({
 			redisUrl: 'redis://localhost:6379',
 			namespace: 'test:locks',
-			lockTimeoutMs: 10_000,
+			defaultLeaseMs: 10_000,
 		})
 		const lease = await provider.tryAcquire('item', { leaseMs: 2_000 })
 
@@ -73,8 +73,8 @@ describe('createRedisLockProvider', () => {
 			'Redis URL must not be empty',
 		)
 		expect(() =>
-			createRedisLockProvider({ redisUrl: 'redis://localhost', lockTimeoutMs: 0 }),
-		).toThrow('Lock lockTimeoutMs must be a finite positive number')
+			createRedisLockProvider({ redisUrl: 'redis://localhost', defaultLeaseMs: 0 }),
+		).toThrow('Lock leaseMs must be a finite positive number')
 	})
 
 	it('maps contention errors to null and propagates other backend failures', async () => {

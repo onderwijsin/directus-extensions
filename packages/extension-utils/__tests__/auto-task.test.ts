@@ -37,7 +37,7 @@ describe('createAutoTaskHandler', () => {
 		vi.useFakeTimers()
 		const task = vi.fn()
 		const handler = createAutoTaskHandler({
-			debounceId: 'items',
+			taskId: 'items',
 			task,
 			storage: createMemoryTaskHandlerStorage(),
 			debounceMs: 100,
@@ -59,7 +59,7 @@ describe('createAutoTaskHandler', () => {
 		const blocker = await lockProvider.tryAcquire('items', { leaseMs: 1000 })
 		const task = vi.fn()
 		const handler = createAutoTaskHandler({
-			debounceId: 'items',
+			taskId: 'items',
 			task,
 			storage: createTestStorage(lockProvider),
 			debounceMs: 100,
@@ -99,7 +99,7 @@ describe('createAutoTaskHandler', () => {
 			tryAcquire: vi.fn().mockResolvedValue(lease),
 		}
 		const handler = createAutoTaskHandler({
-			debounceId: 'items',
+			taskId: 'items',
 			task,
 			storage: createTestStorage(lockProvider),
 			debounceMs: 10,
@@ -130,7 +130,7 @@ describe('createAutoTaskHandler', () => {
 			clear,
 		}
 		const handler = createAutoTaskHandler({
-			debounceId: 'lease-loss',
+			taskId: 'lease-loss',
 			task: (signal) => {
 				taskSignal = signal
 				return new Promise<void>((resolve) => {
@@ -178,7 +178,7 @@ describe('createAutoTaskHandler', () => {
 			release: vi.fn().mockRejectedValue(releaseFailure),
 		}
 		const handler = createAutoTaskHandler({
-			debounceId: 'items',
+			taskId: 'items',
 			task: () => {
 				throw taskFailure
 			},
@@ -209,7 +209,7 @@ describe('createAutoTaskHandler', () => {
 			tryAcquire,
 		}
 		const handler = createAutoTaskHandler({
-			debounceId: 'items',
+			taskId: 'items',
 			task: vi.fn(),
 			storage: createTestStorage(lockProvider, markerFailure),
 			debounceMs: 10,
@@ -234,7 +234,7 @@ describe('createAutoTaskHandler', () => {
 			release: vi.fn().mockResolvedValue(true),
 		}
 		const renewalHandler = createAutoTaskHandler({
-			debounceId: 'renewal',
+			taskId: 'renewal',
 			task: () =>
 				new Promise<void>((resolve) => {
 					finishRenew = resolve
@@ -260,7 +260,7 @@ describe('createAutoTaskHandler', () => {
 			clear: vi.fn().mockRejectedValue(clearFailure),
 		}
 		const clearHandler = createAutoTaskHandler({
-			debounceId: 'clear',
+			taskId: 'clear',
 			task: vi.fn(),
 			storage: createTestStorage(createMemoryLockProvider(), clearStore),
 			debounceMs: 10,
@@ -284,7 +284,7 @@ describe('createAutoTaskHandler', () => {
 		}
 		const staleTask = vi.fn()
 		const staleHandler = createAutoTaskHandler({
-			debounceId: 'stale',
+			taskId: 'stale',
 			task: staleTask,
 			storage: createTestStorage(createMemoryLockProvider(), staleStore),
 			debounceMs: 10,
@@ -308,7 +308,7 @@ describe('createAutoTaskHandler', () => {
 			return Promise.resolve()
 		})
 		const handler = createAutoTaskHandler({
-			debounceId: 'items',
+			taskId: 'items',
 			task,
 			storage: createMemoryTaskHandlerStorage(),
 			debounceMs: 10,
@@ -329,12 +329,12 @@ describe('createAutoTaskHandler', () => {
 	it('validates configuration and disposes pending work', async () => {
 		const lockProvider = createMemoryLockProvider()
 		for (const options of [
-			{ debounceId: ' ', debounceMs: 1 },
-			{ debounceId: 'id', debounceMs: -1 },
-			{ debounceId: 'id', markerLeaseMs: -1 },
-			{ debounceId: 'id', taskLeaseMs: 0 },
-			{ debounceId: 'id', retryMs: -1 },
-			{ debounceId: 'id', renewalIntervalMs: 0 },
+			{ taskId: ' ', debounceMs: 1 },
+			{ taskId: 'id', debounceMs: -1 },
+			{ taskId: 'id', markerLeaseMs: -1 },
+			{ taskId: 'id', taskLeaseMs: 0 },
+			{ taskId: 'id', retryMs: -1 },
+			{ taskId: 'id', renewalIntervalMs: 0 },
 		]) {
 			expect(() =>
 				createAutoTaskHandler({
@@ -348,7 +348,7 @@ describe('createAutoTaskHandler', () => {
 		vi.useFakeTimers()
 		const task = vi.fn()
 		const handler = createAutoTaskHandler({
-			debounceId: 'disposed',
+			taskId: 'disposed',
 			task,
 			storage: createTestStorage(lockProvider),
 			debounceMs: 10,
@@ -363,7 +363,7 @@ describe('createAutoTaskHandler', () => {
 	it('does not reject when the error handler throws', async () => {
 		vi.useFakeTimers()
 		const handler = createAutoTaskHandler({
-			debounceId: 'error-handler',
+			taskId: 'error-handler',
 			task: () => {
 				throw new Error('task failed')
 			},

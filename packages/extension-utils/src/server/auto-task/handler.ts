@@ -57,8 +57,8 @@ const reportError = async (
  * @returns A trigger function with timer disposal.
  */
 export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTaskHandler {
-	if (options.debounceId.trim().length === 0) {
-		throw new TypeError('Auto task debounceId must not be empty')
+	if (options.taskId.trim().length === 0) {
+		throw new TypeError('Auto task taskId must not be empty')
 	}
 	const debounceMs = validateDuration('Auto task debounceMs', options.debounceMs ?? 15_000)
 	const markerLeaseMs = validateDuration(
@@ -79,7 +79,6 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 	const { lockProvider, markerStore } = options.storage
 	const scheduler = options.scheduler ?? defaultScheduler
 	const now = options.now ?? Date.now
-	const lockName = options.lockName ?? options.debounceId
 	let timer: ReturnType<typeof setTimeout> | undefined
 	let disposed = false
 
@@ -105,7 +104,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 		if (disposed) return
 		try {
 			// Re-read shared state before doing work: a newer trigger makes this timer obsolete.
-			const marker = await markerStore.get(options.debounceId)
+			const marker = await markerStore.get(options.taskId)
 			if (!marker || marker.generation !== expectedGeneration) return
 			const elapsed = now() - marker.updatedAt
 			if (elapsed < debounceMs) {
@@ -114,11 +113,11 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 			}
 			if (elapsed > markerLeaseMs) {
 				// Expired work is discarded only for the generation observed by this run.
-				await markerStore.clear(options.debounceId, expectedGeneration)
+				await markerStore.clear(options.taskId, expectedGeneration)
 				return
 			}
 
-			const lease = await lockProvider.tryAcquire(lockName, { leaseMs: taskLeaseMs })
+			const lease = await lockProvider.tryAcquire(options.taskId, { leaseMs: taskLeaseMs })
 			if (!lease) {
 				// Keep the marker pending; another owner may release the lock before retry.
 				schedule(expectedGeneration, retryMs)
@@ -150,7 +149,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 			}, renewalIntervalMs)
 
 			try {
-				logger.info(`Running auto task: ${options.debounceId}`)
+				logger.info(`Running auto task: ${options.taskId}`)
 				await options.task(taskController.signal)
 				if (leaseLost) {
 					await reportError(
@@ -159,7 +158,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 						options.onError,
 					)
 				} else {
-					logger.info(`Completed auto task: ${options.debounceId}`)
+					logger.info(`Completed auto task: ${options.taskId}`)
 				}
 			} catch (error) {
 				await reportError(error, logger, options.onError)
@@ -174,7 +173,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 				if (!leaseLost) {
 					// A lost owner must not acknowledge work another owner may need to retry.
 					try {
-						await markerStore.clear(options.debounceId, expectedGeneration)
+						await markerStore.clear(options.taskId, expectedGeneration)
 					} catch (error) {
 						await reportError(error, logger, options.onError)
 					}
@@ -191,8 +190,8 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 	const trigger = async (): Promise<void> => {
 		if (disposed) return
 		try {
-			const marker = await markerStore.touch(options.debounceId, now())
-			logger.info(`Auto task scheduled: ${options.debounceId}`)
+			const marker = await markerStore.touch(options.taskId, now())
+			logger.info(`Auto task scheduled: ${options.taskId}`)
 			schedule(marker.generation, debounceMs)
 		} catch (error) {
 			await reportError(error, logger, options.onError)

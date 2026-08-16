@@ -17,7 +17,7 @@ export const runAutoTaskSmokeTest = async (storage: TaskHandlerStorage, logger: 
 		resolveTaskCompletion = resolve
 	})
 	const handler = createAutoTaskHandler({
-		debounceId: 'e2e-playground',
+		taskId: 'e2e-playground',
 		task: () => {
 			runs += 1
 			resolveTaskCompletion?.()

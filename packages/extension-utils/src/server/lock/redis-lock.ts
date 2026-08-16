@@ -1,20 +1,24 @@
-import type { LockAcquireOptions, LockLease, LockProvider } from './lock-core'
+import type { LockAcquireOptions, LockLease, LockProvider, LockProviderOptions } from './lock-core'
 
 import { createKv } from '@directus/memory'
 import Redis from 'ioredis'
 
 import { attempt } from '../../shared/attempt'
-import { isFiniteNumber, isFunction, isNonBlankString, isString } from '../../shared/guards'
-import { createLockToken, validateLeaseMs, validateLockName } from './lock-core'
+import { isFunction, isNonBlankString, isString } from '../../shared/guards'
+import {
+	createLockLease,
+	createLockToken,
+	resolveLeaseMs,
+	validateLeaseMs,
+	validateLockName,
+} from './lock-core'
 
 /** Options for the Redis-backed lock provider. */
-export interface RedisLockProviderOptions {
+export interface RedisLockProviderOptions extends LockProviderOptions {
 	/** Redis connection URL. The provider owns the created connection. */
 	redisUrl: string
 	/** Namespace used for lock keys. Defaults to `directus:locks`. */
 	namespace?: string
-	/** Default lock lifetime in milliseconds. Defaults to 30 seconds. */
-	lockTimeoutMs?: number
 	/** Identifies backend errors that represent lock contention. */
 	isContentionError?: (error: unknown) => boolean
 	/** @internal Reuses a connection owned by a higher-level server storage factory. */
@@ -30,8 +34,9 @@ export interface RedisLockProvider extends LockProvider {
 interface RedisLockConfig {
 	redisUrl: string
 	namespace: string
-	lockTimeoutMs: number
+	defaultLeaseMs: number
 	isContentionError: (error: unknown) => boolean
+	tokenFactory: () => string
 }
 
 interface RedisLockDependencies {
@@ -63,19 +68,19 @@ const validateRedisConfig = (options: RedisLockProviderOptions): RedisLockConfig
 	if (!isString(namespace) || !isNonBlankString(namespace)) {
 		throw new TypeError('Lock namespace must not be empty')
 	}
-	const lockTimeoutMs = options.lockTimeoutMs ?? 30_000
-	if (!isFiniteNumber(lockTimeoutMs) || lockTimeoutMs <= 0) {
-		throw new RangeError('Lock lockTimeoutMs must be a finite positive number')
-	}
+	const defaultLeaseMs = validateLeaseMs(options.defaultLeaseMs)
 	const isContentionError = options.isContentionError ?? defaultContentionError
 	if (!isFunction(isContentionError))
 		throw new TypeError('Contention error handler must be a function')
+	const tokenFactory = options.tokenFactory ?? createLockToken
+	if (!isFunction(tokenFactory)) throw new TypeError('Lock tokenFactory must be a function')
 
 	return {
 		redisUrl: options.redisUrl.trim(),
 		namespace,
-		lockTimeoutMs,
+		defaultLeaseMs,
 		isContentionError,
+		tokenFactory,
 	}
 }
 
@@ -90,34 +95,27 @@ const defaultContentionError = (error: unknown): boolean =>
 /**
  * Creates an owner-bound Redis lease around a Directus KV lock.
  * @param name - Normalized lock name.
+ * @param token - Owner token for this lease generation.
  * @param leaseMs - Lease duration.
  * @param lock - Directus KV lock.
  * @returns An owner-bound lock lease.
  */
 const createRedisLease = (
 	name: string,
+	token: string,
 	leaseMs: number,
 	lock: { extend(ms: number): Promise<void>; release(): Promise<void> },
-): LockLease => {
-	let released = false
-	const token = createLockToken()
-
-	return {
-		name,
-		token,
+): LockLease =>
+	createLockLease(name, token, {
 		renew: async () => {
-			if (released) return false
 			await lock.extend(leaseMs)
 			return true
 		},
 		release: async () => {
-			if (released) return false
-			released = true
 			await lock.release()
 			return true
 		},
-	}
-}
+	})
 
 /**
  * Acquires one Redis lock and maps configured contention failures to `null`.
@@ -134,7 +132,7 @@ const acquireRedisLock = async (
 	const { config, redis, isDisposed } = dependencies
 	if (isDisposed()) throw new Error('Redis lock provider has been disposed')
 	const normalizedName = validateLockName(name)
-	const leaseMs = validateLeaseMs(acquireOptions.leaseMs ?? config.lockTimeoutMs)
+	const leaseMs = resolveLeaseMs(acquireOptions, config.defaultLeaseMs)
 	const key = `${config.namespace}:${encodeURIComponent(normalizedName)}`
 
 	const result = await attempt(async () => {
@@ -145,7 +143,7 @@ const acquireRedisLock = async (
 			lockTimeout: leaseMs,
 		})
 		const lock = await kv.acquireLock(key)
-		return createRedisLease(normalizedName, leaseMs, lock)
+		return createRedisLease(normalizedName, config.tokenFactory(), leaseMs, lock)
 	})
 
 	if (result.error === null) return result.data
