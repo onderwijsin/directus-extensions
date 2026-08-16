@@ -54,55 +54,11 @@ These are predicates, not coercion, parsing, diagnostics, or structured validati
 non-null non-array objects. isNonEmptyString accepts whitespace; use isNonBlankString when
 whitespace-only values should fail.
 
-## Cache
+## Directus memory
 
-~~~ts
-interface CacheSetOptions {
-  ttlMs?: number
-}
-interface CacheStore {
-  get<T>(key: string): Promise<T | undefined>
-  set<T>(key: string, value: T, options?: CacheSetOptions): Promise<void>
-  delete(key: string): Promise<boolean>
-  clear?(): Promise<void>
-}
-interface CacheNamespace {
-  get<T>(key: string): Promise<T | undefined>
-  set<T>(key: string, value: T, options?: CacheSetOptions): Promise<void>
-  delete(key: string): Promise<boolean>
-}
-interface MemoryCacheOptions {
-  now?: () => number
-}
-createMemoryCache(options?: MemoryCacheOptions): CacheStore
-createNamespacedCache(store: CacheStore, namespace: string): CacheNamespace
-~~~
-
-Memory cache is process-local and uses a Map. An expired entry is removed on access. TTL is finite
-and non-negative; 0 is immediately expired. The optional clear operation is available on the
-memory store.
-
-### Redis cache adapter
-
-~~~ts
-interface RedisCacheClient {
-  get(key: string): Promise<string | null>
-  set(key: string, value: string, ...arguments_: unknown[]): Promise<unknown>
-  del(key: string): Promise<number>
-}
-interface CacheCodec {
-  serialize(value: unknown): string
-  deserialize<T>(value: string): T
-}
-interface RedisCacheOptions {
-  codec?: CacheCodec
-}
-createRedisCache(client: RedisCacheClient, options?: RedisCacheOptions): CacheStore
-~~~
-
-The adapter JSON-serializes values by default and writes TTLs with Redis SET ... PX. It does not
-provide clear, create a connection, or close the client. Serialization and client errors propagate.
-Supply a codec when the default JSON representation is unsuitable.
+Use `createCache` for disposable derived data and `createKv` for coordination state. Both are
+provided by `@directus/memory` and support local and Redis-backed stores. `Kv` additionally exposes
+`increment`, `acquireLock`, and `usingLock`.
 
 ## Locks
 
@@ -121,35 +77,27 @@ interface LockProvider {
 }
 const BULK_OPERATION_LOCK = 'bulk-operation'
 interface MemoryLockProviderOptions {
+  defaultLeaseMs?: number
   now?: () => number
   tokenFactory?: () => string
 }
 createMemoryLockProvider(options?: MemoryLockProviderOptions): LockProvider
-~~~
-
-Lock names are trimmed and must not be empty. The memory provider is process-local. Lease renewal
-and release are owner-bound and idempotent; they return false for an expired, released, or replaced
-generation.
-
-### Redis lock adapter
-
-~~~ts
-interface RedisLockClient {
-  set(key: string, value: string, ...arguments_: unknown[]): Promise<unknown>
-  eval(script: string, numberOfKeys: number, ...arguments_: unknown[]): Promise<unknown>
-}
 interface RedisLockProviderOptions {
-  keyPrefix?: string // default extension-utils:lock:
-  tokenFactory?: () => string
+  redisUrl: string
+  namespace?: string
+  lockTimeoutMs?: number
+  isContentionError?: (error: unknown) => boolean
 }
-createRedisLockProvider(
-  client: RedisLockClient,
-  options?: RedisLockProviderOptions,
-): LockProvider
+interface RedisLockProvider extends LockProvider {
+  dispose(): Promise<void>
+}
+createRedisLockProvider(options: RedisLockProviderOptions): RedisLockProvider
 ~~~
 
-Redis acquisition uses SET key token PX lease NX; renewal and release verify the token through Lua
-scripts. The client is injected and remains owned by the caller.
+Lock names are trimmed and must not be empty. The memory provider is process-local. Its
+`defaultLeaseMs` is used only when `tryAcquire` does not receive `leaseMs`; task storage exposes the
+same concept as `lockTimeoutMs`. Lease renewal and release are owner-bound and idempotent; they
+return false for an expired, released, or replaced generation.
 
 ## Auto-task coordination
 
@@ -164,22 +112,28 @@ interface AutoTaskMarkerStore {
   clear(identifier: string, generation: number): Promise<boolean>
 }
 createMemoryAutoTaskMarkerStore(): AutoTaskMarkerStore
-
-interface RedisAutoTaskMarkerClient {
-  get(key: string): Promise<string | null>
-  eval(script: string, numberOfKeys: number, ...arguments_: unknown[]): Promise<unknown>
-}
-interface RedisAutoTaskMarkerStoreOptions {
-  keyPrefix?: string // default extension-utils:auto-task:
-}
-createRedisAutoTaskMarkerStore(
-  client: RedisAutoTaskMarkerClient,
-  options?: RedisAutoTaskMarkerStoreOptions,
+createDirectusAutoTaskMarkerStore(
+  kv: Kv,
+  options?: { namespace?: string },
 ): AutoTaskMarkerStore
 ~~~
 
-The Redis marker adapter atomically increments generations and clears only the requested generation.
-It does not create or close the client. Marker timestamps must be finite.
+The Directus marker adapter uses `Kv.increment` and `Kv.usingLock` to update generations safely.
+Marker timestamps must be finite.
+
+~~~ts
+interface TaskHandlerStorage {
+  lockProvider: LockProvider
+  markerStore: AutoTaskMarkerStore
+  dispose(): Promise<void>
+}
+interface MemoryTaskHandlerStorageOptions {
+  lockTimeoutMs?: number // default 30 seconds
+  now?: () => number
+  tokenFactory?: () => string
+}
+createMemoryTaskHandlerStorage(options?: MemoryTaskHandlerStorageOptions): TaskHandlerStorage
+~~~
 
 ~~~ts
 interface AutoTaskScheduler {
@@ -191,7 +145,7 @@ interface AutoTaskScheduler {
 interface AutoTaskHandlerOptions {
   debounceId: string
   task: (signal: AbortSignal) => Promise<void> | void
-  lockProvider: LockProvider
+  storage: TaskHandlerStorage
   logger?: LoggerLike
   debounceMs?: number             // default 15_000
   markerLeaseMs?: number          // default 5 minutes
@@ -199,7 +153,6 @@ interface AutoTaskHandlerOptions {
   retryMs?: number                // default debounceMs
   renewalIntervalMs?: number      // default taskLeaseMs / 2
   now?: () => number
-  markerStore?: AutoTaskMarkerStore
   scheduler?: AutoTaskScheduler
   onError?: (error: unknown) => void | Promise<void>
   lockName?: string               // default BULK_OPERATION_LOCK
@@ -212,30 +165,54 @@ createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTaskHandler
 ~~~
 
 The handler schedules the latest marker generation, retries on lock contention, renews the task
-lease, and aborts the task when renewal fails. It does not acknowledge a generation after lease
-loss. onError is best-effort; failures from it are logged and do not reject the trigger.
+lease, and aborts the task when renewal fails. `markerLeaseMs` limits how long a pending generation
+remains eligible; `taskLeaseMs` controls the execution lock lifetime. They default to five minutes
+and are independent. It does not acknowledge a generation after lease loss. onError is best-effort;
+failures from it are logged and do not reject the trigger.
+
+`handler.dispose()` is synchronous and cancels pending debounce/retry timers; it does not abort a
+task that is already running or clear its marker. `storage.dispose()` releases resources owned by
+the storage, such as a Redis connection. Dispose the handler before the storage. Memory and
+filesystem storage currently implement disposal as a no-op.
 
 ## Server-only filesystem adapters
 
 ~~~ts
-interface FileLockProviderOptions {
+interface FsLockProviderOptions {
   directory: string
   now?: () => number
   tokenFactory?: () => string
 }
-createFileLockProvider(options: FileLockProviderOptions): LockProvider
+createFsLockProvider(options: FsLockProviderOptions): LockProvider
 
-interface FileAutoTaskMarkerStoreOptions {
+interface FsAutoTaskMarkerStoreOptions {
   directory: string
   lockProvider?: LockProvider
-  operationLeaseMs?: number // default 5_000; finite and positive
+  lockTimeoutMs?: number // default 5_000; finite and positive
 }
-createFileAutoTaskMarkerStore(options: FileAutoTaskMarkerStoreOptions): AutoTaskMarkerStore
+createFsAutoTaskMarkerStore(options: FsAutoTaskMarkerStoreOptions): AutoTaskMarkerStore
+
+interface FsTaskHandlerStorageOptions {
+  directory: string
+  now?: () => number
+  tokenFactory?: () => string
+  lockTimeoutMs?: number // default 5_000
+}
+createFsTaskHandlerStorage(options: FsTaskHandlerStorageOptions): TaskHandlerStorage
+
+interface RedisTaskHandlerStorageOptions {
+  redisUrl: string
+  namespace?: string // default directus:task-handler
+  lockTimeoutMs?: number // default 5 minutes
+  isContentionError?: (error: unknown) => boolean
+}
+createRedisTaskHandlerStorage(options: RedisTaskHandlerStorageOptions): TaskHandlerStorage
 ~~~
 
-These functions are exported only from /server. They require a non-empty explicit directory.
-Filesystem locks and markers coordinate processes only when the directory is shared. The marker
-store serializes operations with a filesystem lock provider by default.
+These functions are exported only from /server. Filesystem factories require a non-empty explicit
+directory and coordinate processes only when that directory is shared. The filesystem marker store
+serializes operations with a filesystem lock provider by default. Redis storage owns its Redis
+connection and should be disposed during server shutdown.
 
 ## MIME classification
 

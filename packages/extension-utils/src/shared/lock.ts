@@ -29,6 +29,8 @@ export const BULK_OPERATION_LOCK = 'bulk-operation'
 
 /** Options for deterministic in-memory lock providers. */
 export interface MemoryLockProviderOptions {
+	/** Default lease lifetime when an acquire call omits `leaseMs`. */
+	defaultLeaseMs?: number
 	/** Injectable clock returning milliseconds since epoch. */
 	now?: () => number
 	/** Injectable owner-token factory. */
@@ -127,7 +129,7 @@ export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}
 	return {
 		tryAcquire: async (name, acquireOptions = {}) => {
 			const normalizedName = validateName(name)
-			const leaseMs = validateLeaseMs(acquireOptions.leaseMs)
+			const leaseMs = validateLeaseMs(acquireOptions.leaseMs ?? options.defaultLeaseMs)
 			const currentTime = now()
 			const current = locks.get(normalizedName)
 			if (current && current.expiresAt > currentTime) return null
@@ -136,83 +138,6 @@ export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}
 			const token = tokenFactory()
 			locks.set(normalizedName, { token, expiresAt: currentTime + leaseMs })
 			return createMemoryLease(normalizedName, token, leaseMs, now, locks)
-		},
-	}
-}
-
-/** Minimal Redis-compatible client required by the distributed lock provider. */
-export interface RedisLockClient {
-	set(key: string, value: string, ...arguments_: unknown[]): Promise<unknown>
-	eval(script: string, numberOfKeys: number, ...arguments_: unknown[]): Promise<unknown>
-}
-
-/** Options for the injected Redis lock provider. */
-export interface RedisLockProviderOptions {
-	/** Prefix shared by all keys created by this provider. */
-	keyPrefix?: string
-	/** Injectable owner-token factory. */
-	tokenFactory?: () => string
-}
-
-const RENEW_SCRIPT =
-	"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end"
-const RELEASE_SCRIPT =
-	"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
-
-/** Interprets Redis integer replies used by renewal and release scripts.
- * @param result - Redis reply.
- * @returns Whether the operation succeeded.
- */
-const redisResultSucceeded = (result: unknown): boolean => Number(result) === 1
-
-/**
- * Creates a distributed lock provider backed by an injected Redis-compatible client.
- *
- * Acquisition uses `SET key token PX lease NX`; renewal and release use token-checked Lua scripts.
- * The adapter does not create, connect, or close the client.
- *
- * @param client - Connected Redis-compatible client.
- * @param options - Optional key prefix and token factory.
- * @returns A Redis-backed lock provider.
- */
-export function createRedisLockProvider(
-	client: RedisLockClient,
-	options: RedisLockProviderOptions = {},
-): LockProvider {
-	const keyPrefix = options.keyPrefix ?? 'extension-utils:lock:'
-	const tokenFactory = options.tokenFactory ?? generateUUID
-	/** Maps a logical lock name to its Redis key.
-	 * @param name - Logical lock name.
-	 * @returns Redis key.
-	 */
-	const keyFor = (name: string) => `${keyPrefix}${encodeURIComponent(name)}`
-
-	return {
-		tryAcquire: async (name, acquireOptions = {}) => {
-			// SET NX publishes ownership atomically; all later operations verify the token.
-			const normalizedName = validateName(name)
-			const leaseMs = validateLeaseMs(acquireOptions.leaseMs)
-			const token = tokenFactory()
-			const key = keyFor(normalizedName)
-			const result = await client.set(key, token, 'PX', leaseMs, 'NX')
-			if (result !== 'OK' && result !== true && result !== 1) return null
-
-			let released = false
-			return {
-				name: normalizedName,
-				token,
-				renew: async () => {
-					if (released) return false
-					const renewed = await client.eval(RENEW_SCRIPT, 1, key, token, leaseMs)
-					return redisResultSucceeded(renewed)
-				},
-				release: async () => {
-					if (released) return false
-					const releasedResult = await client.eval(RELEASE_SCRIPT, 1, key, token)
-					released = true
-					return redisResultSucceeded(releasedResult)
-				},
-			}
 		},
 	}
 }

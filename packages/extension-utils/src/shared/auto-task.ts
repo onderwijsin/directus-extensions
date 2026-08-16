@@ -1,4 +1,6 @@
-import { BULK_OPERATION_LOCK, type LockProvider } from './lock'
+import type { TaskHandlerStorage } from './task-storage'
+
+import { BULK_OPERATION_LOCK } from './lock'
 import { createLogger, type LoggerLike } from './logger'
 
 /** A marker identifying the latest trigger generation. */
@@ -44,102 +46,6 @@ export function createMemoryAutoTaskMarkerStore(): AutoTaskMarkerStore {
 	}
 }
 
-/** Minimal Redis-compatible client required by the distributed marker store. */
-export interface RedisAutoTaskMarkerClient {
-	get(key: string): Promise<string | null>
-	eval(script: string, numberOfKeys: number, ...arguments_: unknown[]): Promise<unknown>
-}
-
-/** Options for the Redis-backed marker store. */
-export interface RedisAutoTaskMarkerStoreOptions {
-	/** Prefix shared by marker keys created by this store. */
-	keyPrefix?: string
-}
-
-const TOUCH_MARKER_SCRIPT =
-	"local generation = redis.call('incr', KEYS[1]); redis.call('set', KEYS[2], generation .. ':' .. ARGV[1]); return generation"
-const CLEAR_MARKER_SCRIPT =
-	"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[2]) else return 0 end"
-
-/** Validates marker data crossing a storage adapter boundary.
- * @param value - Marker value to validate.
- * @param source - Adapter name for diagnostics.
- * @returns A copied, validated marker.
- */
-const validateMarker = (value: AutoTaskMarker, source: string): AutoTaskMarker => {
-	if (
-		!Number.isSafeInteger(value.generation) ||
-		value.generation < 1 ||
-		!Number.isFinite(value.updatedAt)
-	) {
-		throw new Error(`Invalid auto-task marker returned by ${source}`)
-	}
-	return { ...value }
-}
-
-/**
- * Creates a distributed marker store backed by an injected Redis-compatible client.
- *
- * Marker generations are incremented atomically in Redis. The adapter does not create, connect,
- * or close the client.
- *
- * @param client - Connected Redis-compatible client.
- * @param options - Optional key prefix.
- * @returns A Redis-backed marker store.
- */
-export function createRedisAutoTaskMarkerStore(
-	client: RedisAutoTaskMarkerClient,
-	options: RedisAutoTaskMarkerStoreOptions = {},
-): AutoTaskMarkerStore {
-	const keyPrefix = options.keyPrefix ?? 'extension-utils:auto-task:'
-	/** Maps one logical identifier to its Redis generation and marker keys.
-	 * @param identifier - Logical marker identifier.
-	 * @returns Redis generation and marker keys.
-	 */
-	const keysFor = (identifier: string): [string, string] => {
-		const key = `${keyPrefix}${encodeURIComponent(identifier)}`
-		return [`${key}:generation`, `${key}:marker`]
-	}
-
-	return {
-		touch: async (identifier, updatedAt) => {
-			if (!Number.isFinite(updatedAt))
-				throw new RangeError('Auto task marker time must be finite')
-			const [generationKey, markerKey] = keysFor(identifier)
-			const result = await client.eval(
-				TOUCH_MARKER_SCRIPT,
-				2,
-				generationKey,
-				markerKey,
-				updatedAt,
-			)
-			return validateMarker({ generation: Number(result), updatedAt }, 'Redis touch result')
-		},
-		get: async (identifier) => {
-			const [, markerKey] = keysFor(identifier)
-			const value = await client.get(markerKey)
-			if (value === null) return undefined
-			const separator = value.indexOf(':')
-			const marker = {
-				generation: Number(value.slice(0, separator)),
-				updatedAt: Number(value.slice(separator + 1)),
-			}
-			return validateMarker(marker, 'Redis marker value')
-		},
-		clear: async (identifier, generation) => {
-			const [generationKey, markerKey] = keysFor(identifier)
-			const result = await client.eval(
-				CLEAR_MARKER_SCRIPT,
-				2,
-				generationKey,
-				markerKey,
-				generation,
-			)
-			return Number(result) === 1
-		},
-	}
-}
-
 /** Timer boundary used to make scheduling deterministic in tests and specialized runtimes. */
 export interface AutoTaskScheduler {
 	setTimeout(callback: () => void, delayMs: number): ReturnType<typeof setTimeout>
@@ -161,13 +67,13 @@ export interface AutoTaskHandlerOptions {
 	debounceId: string
 	/** Work to execute after the debounce window. The signal aborts when the lease is lost. */
 	task: (signal: AbortSignal) => Promise<void> | void
-	/** Lock provider used to exclude concurrent task executions. */
-	lockProvider: LockProvider
+	/** Lock and marker storage used to coordinate task executions. */
+	storage: TaskHandlerStorage
 	/** Optional logger for lifecycle messages. */
 	logger?: LoggerLike
 	/** Debounce window in milliseconds. Defaults to 15 seconds. */
 	debounceMs?: number
-	/** Maximum lifetime of a debounce marker. Defaults to 5 minutes. */
+	/** Maximum age of a pending trigger generation. Defaults to 5 minutes. */
 	markerLeaseMs?: number
 	/** Lease duration for the execution lock. Defaults to 5 minutes. */
 	taskLeaseMs?: number
@@ -177,8 +83,6 @@ export interface AutoTaskHandlerOptions {
 	renewalIntervalMs?: number
 	/** Clock returning milliseconds since epoch. */
 	now?: () => number
-	/** Shared marker store. Defaults to a process-local store. */
-	markerStore?: AutoTaskMarkerStore
 	/** Scheduler boundary. */
 	scheduler?: AutoTaskScheduler
 	/** Receives task, lock, marker, and renewal failures. */
@@ -262,7 +166,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 	}
 
 	const logger = createLogger(options.logger)
-	const markerStore = options.markerStore ?? createMemoryAutoTaskMarkerStore()
+	const { lockProvider, markerStore } = options.storage
 	const scheduler = options.scheduler ?? defaultScheduler
 	const now = options.now ?? Date.now
 	const lockName = options.lockName ?? BULK_OPERATION_LOCK
@@ -304,7 +208,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 				return
 			}
 
-			const lease = await options.lockProvider.tryAcquire(lockName, { leaseMs: taskLeaseMs })
+			const lease = await lockProvider.tryAcquire(lockName, { leaseMs: taskLeaseMs })
 			if (!lease) {
 				// Keep the marker pending; another owner may release the lock before retry.
 				schedule(expectedGeneration, retryMs)

@@ -3,10 +3,13 @@ import type { LockAcquireOptions, LockLease, LockProvider } from '../shared/lock
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { createKv } from '@directus/memory'
+import Redis from 'ioredis'
+
 import { generateUUID } from '../shared/uuid'
 
 /** Options for the explicit local-filesystem lock provider. */
-export interface FileLockProviderOptions {
+export interface FsLockProviderOptions {
 	/** Directory shared by the processes that should coordinate. */
 	directory: string
 	/** Injectable clock returning milliseconds since epoch. */
@@ -21,6 +24,105 @@ interface OwnerRecord {
 }
 
 const ownerRecordFile = 'owner.json'
+
+/** Options for the Redis-backed lock provider. */
+export interface RedisLockProviderOptions {
+	/** Redis connection URL. The provider owns the created connection. */
+	redisUrl: string
+	/** Namespace used for lock keys. Defaults to `directus:locks`. */
+	namespace?: string
+	/** Default lock lifetime in milliseconds. Defaults to 30 seconds. */
+	lockTimeoutMs?: number
+	/** Identifies backend errors that represent lock contention. */
+	isContentionError?: (error: unknown) => boolean
+	/** @internal Reuses a connection owned by a higher-level server storage factory. */
+	redis?: Redis
+}
+
+/** Redis lock provider with explicit connection cleanup. */
+export interface RedisLockProvider extends LockProvider {
+	/** Closes the Redis connection created by this provider. */
+	dispose(): Promise<void>
+}
+
+/**
+ * Creates a lock provider backed by Directus' Redis KV implementation.
+ *
+ * The provider creates and owns the Redis connection. Only errors identified as contention are
+ * converted to `null`; all other backend failures propagate to the caller.
+ *
+ * @param options - Redis connection and lock configuration.
+ * @returns A Redis-backed lock provider.
+ */
+export function createRedisLockProvider(options: RedisLockProviderOptions): RedisLockProvider {
+	const redisUrl = options.redisUrl.trim()
+	if (redisUrl.length === 0) throw new TypeError('Redis URL must not be empty')
+	const namespace = options.namespace === undefined ? 'directus:locks' : options.namespace.trim()
+	if (namespace.trim().length === 0) throw new TypeError('Lock namespace must not be empty')
+	const lockTimeoutMs = options.lockTimeoutMs ?? 30_000
+	if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs <= 0) {
+		throw new RangeError('Lock lockTimeoutMs must be a finite positive number')
+	}
+	const isContentionError =
+		options.isContentionError ??
+		((error: unknown) => error instanceof Error && error.name === 'ExecutionError')
+	const ownsRedis = options.redis === undefined
+	const redis = options.redis ?? new Redis(redisUrl)
+	let disposed = false
+	/**
+	 * Maps a logical lock name to the Directus KV namespace.
+	 * @param name - Normalized logical lock name.
+	 * @returns The namespaced KV key.
+	 */
+	const keyFor = (name: string): string => `${namespace}:${encodeURIComponent(name.trim())}`
+
+	return {
+		tryAcquire: async (name, acquireOptions = {}) => {
+			if (disposed) throw new Error('Redis lock provider has been disposed')
+			const normalizedName = name.trim()
+			if (normalizedName.length === 0) throw new TypeError('Lock name must not be empty')
+			const leaseMs = acquireOptions.leaseMs ?? lockTimeoutMs
+			if (!Number.isFinite(leaseMs) || leaseMs <= 0) {
+				throw new RangeError('Lock leaseMs must be a finite positive number')
+			}
+			try {
+				const kv = createKv({
+					type: 'redis',
+					namespace,
+					redis,
+					lockTimeout: leaseMs,
+				})
+				const lock = await kv.acquireLock(keyFor(normalizedName))
+				let released = false
+				const token = generateUUID()
+				return {
+					name: normalizedName,
+					token,
+					renew: async () => {
+						if (released) return false
+						await lock.extend(leaseMs)
+						return true
+					},
+					release: async () => {
+						if (released) return false
+						released = true
+						await lock.release()
+						return true
+					},
+				}
+			} catch (error) {
+				if (isContentionError(error)) return null
+				throw error
+			}
+		},
+		dispose: async () => {
+			if (disposed) return
+			disposed = true
+			if (!ownsRedis) return
+			await redis.quit()
+		},
+	}
+}
 
 /** Returns whether an unknown failure is a Node filesystem error with the given code.
  * @param error - Unknown failure.
@@ -84,7 +186,7 @@ const encodedComponent = (value: string): string => encodeURIComponent(value)
  * @param options - Shared directory and optional deterministic dependencies.
  * @returns A local-filesystem lock provider.
  */
-export function createFileLockProvider(options: FileLockProviderOptions): LockProvider {
+export function createFsLockProvider(options: FsLockProviderOptions): LockProvider {
 	if (options.directory.trim().length === 0) {
 		throw new TypeError('Lock directory must not be empty')
 	}

@@ -1,6 +1,6 @@
 ---
-name: directis-extension-utils
-description: Use when implementing, reviewing, or documenting Directus extensions that could use @onderwijsin/directus-extension-utils, especially guards, cache, locks, auto-tasks, retries, MIME classification, UUIDs, logging, typed object helpers, or runtime-specific imports.
+name: directus-extension-utils
+description: Use when implementing, reviewing, or documenting Directus extensions that could use @onderwijsin/directus-extension-utils, especially guards, Directus memory/KV, locks, auto-tasks, retries, MIME classification, UUIDs, logging, typed object helpers, or runtime-specific imports.
 ---
 
 # Directus extension utilities
@@ -28,7 +28,7 @@ truth. `dist/` is generated; rebuild it before using declarations or packed outp
 ## Choose the smallest utility
 
 - Use a guard when one value needs runtime narrowing.
-- Use a cache for disposable derived data; cache misses are normal.
+- Use `@directus/memory` caches for disposable derived data; cache misses are normal.
 - Use a lock when one owner may perform work and ownership must be renewed or released.
 - Use an auto-task handler when triggers must be debounced and execution coordinated.
 - Use an attempt helper when an operation's failure should be returned as data.
@@ -51,21 +51,21 @@ The package has one framework-neutral implementation and four public import path
 - `@onderwijsin/directus-extension-utils/server` — shared surface plus filesystem adapters.
 
 Import from the root unless the runtime boundary is meaningful. Use `/server` for
-`createFileLockProvider` and `createFileAutoTaskMarkerStore`; never import server filesystem code in
-app or browser code. The app path must remain free of Node-only imports.
+`createRedisLockProvider`, `createFsLockProvider`, and `createFsAutoTaskMarkerStore`; never
+import server filesystem or Redis code in app or browser code. The app path must remain free of
+Node-only imports.
 
-Use extension-owned adapters for external clients. Redis helpers receive an already connected,
-Redis-compatible client and never create, connect, or close it. Filesystem helpers require an
-explicit shared directory and never choose one from the environment or temporary-directory default.
+Use `@directus/memory` for Directus runtime caches and KV state. Use `createRedisLockProvider` for
+Redis-backed locks; it initializes and owns the Redis connection. Filesystem helpers remain explicit
+server-only adapters because `@directus/memory` has no filesystem backend.
 
 ## Contract rules
 
-### Cache
+### Directus memory
 
-Cache values are best-effort. `get` returns `undefined` for a miss or expired entry; backend and
-serialization errors propagate. TTLs are finite, non-negative milliseconds, and `0` expires an
-entry immediately. Use `createNamespacedCache` for independent consumers. Do not assume `clear()`
-exists on every cache implementation or use Redis cache as a source of truth.
+Use `createCache` for disposable derived data and `createKv` for coordination state such as
+markers. Both support local and Redis-backed stores. Use `createRedisLockProvider` for Redis locks
+so Redis connection ownership stays inside the utility.
 
 ### Locks
 
@@ -74,20 +74,25 @@ release it in `finally`; call `renew` while long-running work continues. A `fals
 release means the owner no longer owns the generation. Never release by name alone and never allow
 an old owner to remove a replacement generation.
 
-`createMemoryLockProvider` coordinates one provider instance in one process. The Redis adapter
-coordinates clients sharing its backend. The filesystem adapter coordinates only processes sharing
-its directory; it is not cluster-wide without shared storage.
+`createMemoryLockProvider` coordinates one provider instance in one process. Directus KV/Cache
+locks coordinate clients sharing their configured backend. The filesystem adapter coordinates only
+processes sharing its directory; it is not cluster-wide without shared storage.
 
 ### Auto-tasks
 
 `createAutoTaskHandler` records trigger generations, runs only the latest eligible generation, uses
-the supplied lock provider, renews the task lease, and passes an `AbortSignal` to the task. The task
-must stop promptly when the signal is aborted. A lost lease must not clear the marker. The default
-marker store is process-local; distributed debounce requires both a distributed lock and a shared
-marker store.
+the supplied `storage`, renews the task lease, and passes an `AbortSignal` to the task. The task must
+stop promptly when the signal is aborted. A lost lease must not clear the marker. Use one storage
+factory so the lock and marker store share a backend.
 
-Use `dispose()` to cancel pending timers. Inject `now` and `scheduler` for deterministic tests.
-Errors are reported through `onError` and do not make the trigger reject.
+Use `createMemoryTaskHandlerStorage`, `createRedisTaskHandlerStorage`, or
+`createFsTaskHandlerStorage` for the common providers. Their common `lockTimeoutMs` option controls
+the provider's default coordination lock lifetime when an acquire operation omits an explicit lease.
+`markerLeaseMs` limits how long a pending
+generation remains eligible; `taskLeaseMs` controls the execution lock lifetime. They default to
+five minutes but are independent. Use `handler.dispose()` to cancel pending timers and
+`await storage.dispose()` when the extension shuts down. Errors are reported through `onError` and do
+not make the trigger reject.
 
 ### Attempts
 

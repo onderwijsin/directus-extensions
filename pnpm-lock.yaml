@@ -175,6 +175,12 @@ importers:
 
   packages/extension-utils:
     dependencies:
+      '@directus/memory':
+        specifier: 'catalog:'
+        version: 4.0.2(supports-color@7.2.0)(vue@3.5.41(typescript@5.9.3))
+      ioredis:
+        specifier: 'catalog:'
+        version: 5.8.2(supports-color@7.2.0)
       uuid:
         specifier: 'catalog:'
         version: 14.0.1
@@ -4353,6 +4359,18 @@ snapshots:
       - supports-color
       - vue
 
+  '@directus/memory@4.0.2(supports-color@7.2.0)(vue@3.5.41(typescript@5.9.3))':
+    dependencies:
+      '@directus/errors': 2.5.0
+      '@directus/utils': 13.5.2(vue@3.5.41(typescript@5.9.3))
+      '@sesamecare-oss/redlock': 1.4.0(ioredis@5.8.2(supports-color@7.2.0))
+      ioredis: 5.8.2(supports-color@7.2.0)
+      lru-cache: 11.2.2
+      rate-limiter-flexible: 7.2.0
+    transitivePeerDependencies:
+      - supports-color
+      - vue
+
   '@directus/schema@14.0.1(supports-color@7.2.0)':
     dependencies:
       knex: 3.1.0(supports-color@7.2.0)
@@ -4419,6 +4437,21 @@ snapshots:
       zod: 4.1.12
     optionalDependencies:
       vue: 3.5.24(typescript@5.9.3)
+
+  '@directus/utils@13.5.2(vue@3.5.41(typescript@5.9.3))':
+    dependencies:
+      '@directus/constants': 14.4.1
+      '@directus/system-data': 4.6.0
+      date-fns: 4.1.0
+      fs-extra: 11.3.2
+      ipaddr.js: 2.4.0
+      joi: 18.0.1
+      js-yaml: 4.3.0
+      lodash-es: 4.18.1
+      micromustache: 8.0.3
+      zod: 4.1.12
+    optionalDependencies:
+      vue: 3.5.41(typescript@5.9.3)
 
   '@emnapi/core@1.11.1':
     dependencies:

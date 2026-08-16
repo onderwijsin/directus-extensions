@@ -50,6 +50,8 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@directus/memory": "catalog:",
+		"ioredis": "catalog:",
 		"uuid": "catalog:"
 	},
 	"devDependencies": {

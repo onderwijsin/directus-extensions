@@ -1,3 +1,4 @@
+import type { Kv } from '@directus/memory'
 import type { AutoTaskMarker, AutoTaskMarkerStore } from '../shared/auto-task'
 import type { LockProvider } from '../shared/lock'
 
@@ -5,16 +6,75 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { generateUUID } from '../shared/uuid'
-import { createFileLockProvider } from './lock'
+import { createFsLockProvider } from './lock'
+
+/** Options for the Directus KV-backed marker store. */
+export interface DirectusAutoTaskMarkerStoreOptions {
+	/** Namespace used for marker and generation keys. */
+	namespace?: string
+}
+
+/**
+ * Creates an auto-task marker store backed by Directus' KV abstraction.
+ *
+ * Marker generations are incremented and updated while holding the KV lock. The supplied KV
+ * instance owns the backend and its lifecycle; this adapter does not create connections.
+ *
+ * @param kv - Directus KV store, configured for local memory or Redis.
+ * @param options - Optional key namespace.
+ * @returns A Directus KV-backed marker store.
+ */
+export function createDirectusAutoTaskMarkerStore(
+	kv: Kv,
+	options: DirectusAutoTaskMarkerStoreOptions = {},
+): AutoTaskMarkerStore {
+	const namespace = options.namespace ?? 'extension-utils:auto-task'
+	/**
+	 * Maps a marker kind and identifier to a namespaced KV key.
+	 * @param kind - Marker key kind.
+	 * @param identifier - Logical marker identifier.
+	 * @returns The namespaced KV key.
+	 */
+	const keyFor = (kind: string, identifier: string): string =>
+		`${namespace}:${encodeURIComponent(identifier)}:${kind}`
+	/**
+	 * Maps an identifier to the lock key protecting its marker updates.
+	 * @param identifier - Logical marker identifier.
+	 * @returns The namespaced lock key.
+	 */
+	const lockFor = (identifier: string): string =>
+		`${namespace}:${encodeURIComponent(identifier)}:lock`
+
+	return {
+		touch: (identifier, updatedAt) =>
+			kv.usingLock(lockFor(identifier), async () => {
+				if (!Number.isFinite(updatedAt)) {
+					throw new RangeError('Auto task marker time must be finite')
+				}
+				const generation = await kv.increment(keyFor('generation', identifier))
+				const marker = { generation, updatedAt }
+				await kv.set(keyFor('marker', identifier), marker)
+				return marker
+			}),
+		get: (identifier) => kv.get<AutoTaskMarker>(keyFor('marker', identifier)),
+		clear: (identifier, generation) =>
+			kv.usingLock(lockFor(identifier), async () => {
+				const marker = await kv.get<AutoTaskMarker>(keyFor('marker', identifier))
+				if (marker?.generation !== generation) return false
+				await kv.delete(keyFor('marker', identifier))
+				return true
+			}),
+	}
+}
 
 /** Options for the explicit local-filesystem marker store. */
-export interface FileAutoTaskMarkerStoreOptions {
+export interface FsAutoTaskMarkerStoreOptions {
 	/** Directory shared by the processes that should share debounce markers. */
 	directory: string
 	/** Optional provider used to serialize marker updates. */
 	lockProvider?: LockProvider
-	/** Lease used for one marker read/update operation. Defaults to five seconds. */
-	operationLeaseMs?: number
+	/** Lock lifetime used for one marker read/update operation. Defaults to five seconds. */
+	lockTimeoutMs?: number
 }
 
 /** Maps a debounce identifier to its marker filename.
@@ -106,18 +166,18 @@ const readGeneration = async (path: string): Promise<number> => {
  * @param options - Shared directory and optional coordination provider.
  * @returns A filesystem-backed marker store.
  */
-export function createFileAutoTaskMarkerStore(
-	options: FileAutoTaskMarkerStoreOptions,
+export function createFsAutoTaskMarkerStore(
+	options: FsAutoTaskMarkerStoreOptions,
 ): AutoTaskMarkerStore {
 	if (options.directory.trim().length === 0) {
 		throw new TypeError('Auto task marker directory must not be empty')
 	}
-	const operationLeaseMs = options.operationLeaseMs ?? 5000
-	if (!Number.isFinite(operationLeaseMs) || operationLeaseMs <= 0) {
-		throw new RangeError('Auto task marker operationLeaseMs must be a finite positive number')
+	const lockTimeoutMs = options.lockTimeoutMs ?? 5000
+	if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs <= 0) {
+		throw new RangeError('Auto task marker lockTimeoutMs must be a finite positive number')
 	}
 	const lockProvider =
-		options.lockProvider ?? createFileLockProvider({ directory: options.directory })
+		options.lockProvider ?? createFsLockProvider({ directory: options.directory })
 	/** Resolves the marker path for one identifier.
 	 * @param identifier - Logical marker identifier.
 	 * @returns Marker file path.
@@ -140,7 +200,7 @@ export function createFileAutoTaskMarkerStore(
 		operation: () => Promise<T>,
 	): Promise<T> => {
 		const lease = await lockProvider.tryAcquire(markerLockName(identifier), {
-			leaseMs: operationLeaseMs,
+			leaseMs: lockTimeoutMs,
 		})
 		if (!lease) throw new Error(`Auto task marker is busy: ${identifier}`)
 		try {

@@ -2,9 +2,9 @@
 
 Framework-neutral utilities shared by Onderwijs in Directus extensions. This package exists to keep
 small, stable runtime helpers in one place instead of reimplementing them in every extension. The
-current API includes primitive guards, cache stores, lock providers, attempted operations, object
-conversions, MIME classification, UUID generation, logging adapters, and reusable types. It
-deliberately does not contain Directus services, extension registration, or schema validation.
+current API includes primitive guards, lock providers, attempted operations, object conversions,
+MIME classification, UUID generation, logging adapters, and reusable types. It deliberately does not
+contain Directus services, extension registration, or schema validation.
 
 For the complete API and design rules, read the
 [extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md) and the
@@ -28,38 +28,20 @@ if (isRecord(value) && isString(value.name)) {
 }
 ```
 
-Cache behavior is explicit and backend-independent. Choose a process-local memory store or inject a
-Redis-compatible client; the package never reads environment variables or creates a connection:
-
-```ts
-import {
-  createMemoryCache,
-  createNamespacedCache,
-  createRedisCache,
-} from '@onderwijsin/directus-extension-utils'
-
-const cache = createNamespacedCache(createMemoryCache(), 'items')
-await cache.set('42', { title: 'Example' }, { ttlMs: 60_000 })
-const item = await cache.get<{ title: string }>('42')
-
-// Redis uses the same CacheStore contract with an injected client.
-const distributedCache = createRedisCache(redisClient)
-```
-
-Cache entries are best-effort optimizations. Missing or expired entries return `undefined`, TTLs are
-non-negative milliseconds, and backend errors are propagated. The Redis adapter uses JSON by
-default, supports an injected codec, sends TTLs using `SET ... PX`, and intentionally does not
-expose a global clear operation. Use separate namespaces for independent consumers.
+For caches and key-value state inside a Directus runtime, use `@directus/memory` directly. Choose
+`createCache` for disposable derived data and `createKv` for coordination state such as markers.
+Both support local and Redis-backed stores; configure the Redis namespace explicitly in the
+consuming server extension.
 
 Lock providers return owner-bound leases. Contention returns `null`, while renewal and release
 return `false` when the lease has expired, was already released, or no longer owns the generation:
 
 ```ts
+import { createMemoryLockProvider } from '@onderwijsin/directus-extension-utils'
 import {
-  createMemoryLockProvider,
+  createFsLockProvider,
   createRedisLockProvider,
-} from '@onderwijsin/directus-extension-utils'
-import { createFileLockProvider } from '@onderwijsin/directus-extension-utils/server'
+} from '@onderwijsin/directus-extension-utils/server'
 
 const localLock = createMemoryLockProvider()
 const lease = await localLock.tryAcquire('items:sync', { leaseMs: 30_000 })
@@ -68,14 +50,29 @@ if (lease) {
   await lease.release()
 }
 
-const distributedLock = createRedisLockProvider(redisClient)
-const filesystemLock = createFileLockProvider({ directory: '/var/lock/my-extension' })
+const filesystemLock = createFsLockProvider({ directory: '/var/lock/my-extension' })
+const redisLock = createRedisLockProvider({
+  redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
+  namespace: 'my-extension:locks',
+  lockTimeoutMs: 30_000,
+})
+
+const redisLease = await redisLock.tryAcquire('items:sync', { leaseMs: 60_000 })
+if (redisLease) {
+  try {
+    await synchronizeItems()
+  } finally {
+    await redisLease.release()
+    await redisLock.dispose()
+  }
+}
 ```
 
-Memory locks coordinate one provider instance in one process. Redis coordinates consumers sharing
-the injected Redis-compatible client. The filesystem provider is server-only, requires an explicit
-shared directory, and coordinates only processes that can access that directory; it never chooses
-`tmpdir()` or a backend from environment variables.
+Memory locks coordinate one provider instance in one process. For Directus Redis coordination, use
+`createRedisLockProvider`, which initializes Directus KV and owns the Redis connection. Its default
+namespace is `directus:locks`, and its default lock timeout is 30 seconds. The filesystem provider
+is server-only, requires an explicit shared directory, and coordinates only processes that can
+access that directory; it never chooses `tmpdir()` or a backend from environment variables.
 
 The lock surface intentionally preserves Tio's core concepts: named locks, the conventional
 `bulk-operation` name (`BULK_OPERATION_LOCK`), atomic acquisition, stale recovery, and explicit
@@ -91,42 +88,69 @@ Auto-task handlers debounce trigger generations and use the same lock contract f
 ```ts
 import {
   createAutoTaskHandler,
-  createMemoryLockProvider,
-  createRedisAutoTaskMarkerStore,
+  createMemoryTaskHandlerStorage,
 } from '@onderwijsin/directus-extension-utils'
-import { createFileAutoTaskMarkerStore } from '@onderwijsin/directus-extension-utils/server'
 
 const handler = createAutoTaskHandler({
   debounceId: 'schema-snapshot',
-  lockProvider: createMemoryLockProvider(),
+  storage: createMemoryTaskHandlerStorage(),
   debounceMs: 15_000,
+  markerLeaseMs: 5 * 60_000,
   taskLeaseMs: 5 * 60_000,
   task: async (signal) => snapshotSchema({ signal }),
   onError: (error) => reportTaskFailure(error),
 })
-
-// Use one of these when debounce state must be shared across processes:
-const redisMarkers = createRedisAutoTaskMarkerStore(redisClient)
-const fileMarkers = createFileAutoTaskMarkerStore({ directory: '/var/lock/my-extension' })
 
 await handler()
 // Call handler() for each trigger; only the latest generation executes.
 handler.dispose()
 ```
 
-`createAutoTaskHandler` defaults to the `BULK_OPERATION_LOCK` name, a five-minute marker lease, and
-a retry after lock contention. The task receives an `AbortSignal`; it must stop promptly when the
-signal is aborted because the execution lease was lost. The marker is not completed after lease
-loss, allowing a later owner to retry it. Inject `markerStore` when debounce state must be shared
-across processes, and inject `scheduler` and `now` for deterministic runtimes or tests. The default
-marker store is process-local; a distributed lock alone prevents simultaneous execution but does not
-merge debounce triggers across processes. Task failures, lock failures, marker failures, and lease
-renewal failures are sent to `onError`; failures thrown by `onError` itself are logged and do not
-reject the trigger.
+Choose one storage factory for the handler:
 
-The Redis marker adapter atomically increments generations through the injected client. The
-filesystem marker adapter uses an explicit directory and an owner-bound lock to serialize marker
-updates. Neither adapter creates connections or chooses a directory from the environment.
+```ts
+import {
+  createFsTaskHandlerStorage,
+  createRedisTaskHandlerStorage,
+} from '@onderwijsin/directus-extension-utils/server'
+
+const redisStorage = createRedisTaskHandlerStorage({
+  redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
+  namespace: 'my-extension:tasks',
+  lockTimeoutMs: 5 * 60_000,
+})
+
+const fileStorage = createFsTaskHandlerStorage({
+  directory: '/var/lock/my-extension',
+  lockTimeoutMs: 5_000,
+})
+
+const redisHandler = createAutoTaskHandler({
+  debounceId: 'schema-snapshot',
+  storage: redisStorage,
+  task: async (signal) => snapshotSchema({ signal }),
+})
+```
+
+All task-storage factories expose `lockTimeoutMs` as the provider's default coordination lock
+lifetime when an acquire operation omits an explicit lease; filesystem marker operations use it
+directly. `markerLeaseMs` is the maximum age of a pending trigger generation. `taskLeaseMs` is the
+lifetime of the execution lock before renewal. They default to five minutes but can differ when
+queued work and task execution have different limits. The task receives an `AbortSignal`; it must
+stop promptly when the signal is aborted because the execution lease was lost. Call
+`handler.dispose()` to cancel pending timers, then `await storage.dispose()` when the owning
+extension is shutting down. Task failures, lock failures, marker failures, and lease renewal
+failures are sent to `onError`.
+
+Disposal has two layers: `handler.dispose()` cancels pending debounce/retry timers and prevents new
+work, while `storage.dispose()` closes resources owned by the storage, such as its Redis connection.
+Dispose the handler before the storage; neither call clears a marker or aborts a task that is
+already running. Memory and filesystem storage currently have no external resource to close, so
+their storage disposal is a no-op.
+
+The Directus marker adapter uses `Kv.increment` and `Kv.usingLock` for atomic shared state. The
+filesystem marker adapter remains available because `@directus/memory` has no filesystem backend.
+Neither adapter creates connections or chooses a directory from the environment.
 
 The former `applyingFlagPath` pattern is intentionally not part of this API. Migrate that gate to a
 second named lock shared by the operation that creates the flag and the auto-task handler, rather
@@ -215,7 +239,8 @@ needs:
 - use `attempt` when failure should be returned as data.
 
 Each utility accepts its runtime dependencies explicitly. The package does not read environment
-variables, open connections, select filesystem directories, or register Directus handlers.
+variables, select filesystem directories, or register Directus handlers. Redis server utilities open
+the connection represented by their explicit `redisUrl` and expose disposal for it.
 
 Runtime-aware subpaths are available when an extension has an explicit runtime boundary:
 
@@ -226,9 +251,9 @@ import { isDefined } from '@onderwijsin/directus-extension-utils/shared'
 ```
 
 The root and `shared` exports are the framework-neutral public surface. `server` re-exports those
-helpers and adds the filesystem lock provider; `app` remains browser-safe and exposes the shared
-helpers only. The implementation modules are internal; import utilities from the root or an explicit
-runtime subpath.
+helpers and adds the Redis and filesystem coordination providers; `app` remains browser-safe and
+exposes the shared helpers only. The implementation modules are internal; import utilities from the
+root or an explicit runtime subpath.
 
 ## Extending the package
 

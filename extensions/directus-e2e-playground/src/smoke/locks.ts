@@ -1,21 +1,21 @@
-import type Redis from 'ioredis'
-
-import { createKv } from '@directus/memory'
 import { createMemoryLockProvider, generateUUID } from '@onderwijsin/directus-extension-utils'
-import { createFileLockProvider } from '@onderwijsin/directus-extension-utils/server'
+import {
+	createFsLockProvider,
+	createRedisLockProvider,
+} from '@onderwijsin/directus-extension-utils/server'
 
 /**
  * Runs process-local, filesystem, and Directus-compatible Redis lock checks.
- * @param redis - Connected Redis client shared by the smoke groups.
+ * @param redisUrl - Redis connection URL used by the distributed provider.
  * @returns The observed lock results.
  */
-export const runLockSmokeTest = async (redis: Redis) => {
+export const runLockSmokeTest = async (redisUrl: string) => {
 	const memory = createMemoryLockProvider({ tokenFactory: () => 'memory-token' })
 	const memoryLease = await memory.tryAcquire('item', { leaseMs: 1000 })
 	const memoryContended = await memory.tryAcquire('item')
 	await memoryLease?.release()
 
-	const file = createFileLockProvider({
+	const file = createFsLockProvider({
 		directory: `/tmp/directus-e2e-playground-locks-${generateUUID()}`,
 		tokenFactory: (() => {
 			let sequence = 0
@@ -26,17 +26,15 @@ export const runLockSmokeTest = async (redis: Redis) => {
 	const fileContended = await file.tryAcquire('item')
 	await fileLease?.release()
 
-	const distributed = createKv({
-		type: 'redis',
+	const distributed = createRedisLockProvider({
+		redisUrl,
 		namespace: 'extension-utils:e2e:lock',
-		redis,
-		lockTimeout: 1000,
+		lockTimeoutMs: 1000,
 	})
-	let redisLockUsed = false
-	await distributed.usingLock('item', () => {
-		redisLockUsed = true
-		return Promise.resolve()
-	})
+	const redisLease = await distributed.tryAcquire('item', { leaseMs: 1000 })
+	const redisLockUsed = redisLease !== null
+	await redisLease?.release()
+	await distributed.dispose()
 
 	return {
 		memoryContended: memoryContended === null,

@@ -4,9 +4,9 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { createFileLockProvider } from '../src/server/lock'
+import { createFsLockProvider } from '../src/server/lock'
 
-describe('createFileLockProvider', () => {
+describe('createFsLockProvider', () => {
 	let directory: string
 
 	beforeEach(async () => {
@@ -18,8 +18,8 @@ describe('createFileLockProvider', () => {
 	})
 
 	it('coordinates contenders and reclaims released markers', async () => {
-		const first = createFileLockProvider({ directory, tokenFactory: () => 'first' })
-		const second = createFileLockProvider({ directory, tokenFactory: () => 'second' })
+		const first = createFsLockProvider({ directory, tokenFactory: () => 'first' })
+		const second = createFsLockProvider({ directory, tokenFactory: () => 'second' })
 
 		const lease = await first.tryAcquire('shared/item', { leaseMs: 1000 })
 		expect(lease?.token).toBe('first')
@@ -35,12 +35,12 @@ describe('createFileLockProvider', () => {
 
 	it('renews an active lease and rejects an expired owner', async () => {
 		let now = 1000
-		const first = createFileLockProvider({
+		const first = createFsLockProvider({
 			directory,
 			now: () => now,
 			tokenFactory: () => 'first',
 		})
-		const second = createFileLockProvider({
+		const second = createFsLockProvider({
 			directory,
 			now: () => now,
 			tokenFactory: () => 'second',
@@ -61,7 +61,7 @@ describe('createFileLockProvider', () => {
 	})
 
 	it('uses safe namespacing for names containing path separators', async () => {
-		const provider = createFileLockProvider({ directory, tokenFactory: () => 'token' })
+		const provider = createFsLockProvider({ directory, tokenFactory: () => 'token' })
 		const lease = await provider.tryAcquire('a/b?c')
 
 		expect(lease?.name).toBe('a/b?c')
@@ -70,7 +70,7 @@ describe('createFileLockProvider', () => {
 
 	it('reclaims an orphaned claim after an owner disappears', async () => {
 		await writeFile(join(directory, 'orphan.lock'), 'missing-owner')
-		const provider = createFileLockProvider({ directory, tokenFactory: () => 'replacement' })
+		const provider = createFsLockProvider({ directory, tokenFactory: () => 'replacement' })
 
 		const lease = await provider.tryAcquire('orphan')
 		expect(lease?.token).toBe('replacement')
@@ -78,7 +78,7 @@ describe('createFileLockProvider', () => {
 	})
 
 	it('does not release or renew a replaced filesystem generation', async () => {
-		const provider = createFileLockProvider({ directory, tokenFactory: () => 'first' })
+		const provider = createFsLockProvider({ directory, tokenFactory: () => 'first' })
 		const lease = await provider.tryAcquire('replaced')
 		await writeFile(join(directory, 'replaced.lock'), 'replacement')
 
@@ -87,10 +87,10 @@ describe('createFileLockProvider', () => {
 	})
 
 	it('rejects invalid names, leases, and directories', async () => {
-		expect(() => createFileLockProvider({ directory: '  ' })).toThrow(
+		expect(() => createFsLockProvider({ directory: '  ' })).toThrow(
 			'Lock directory must not be empty',
 		)
-		const provider = createFileLockProvider({ directory })
+		const provider = createFsLockProvider({ directory })
 		await expect(provider.tryAcquire('  ')).rejects.toThrow('Lock name must not be empty')
 		await expect(provider.tryAcquire('name', { leaseMs: 0 })).rejects.toThrow(
 			'Lock leaseMs must be a finite positive number',
@@ -105,21 +105,21 @@ describe('createFileLockProvider', () => {
 		await writeFile(join(directory, 'broken.lock'), 'token')
 		await writeFile(join(directory, 'broken.token.owner', 'owner.json'), '{broken')
 
-		const provider = createFileLockProvider({ directory })
+		const provider = createFsLockProvider({ directory })
 		await expect(provider.tryAcquire('broken')).rejects.toThrow()
 	})
 
 	it('surfaces filesystem failures', async () => {
 		const filePath = join(directory, 'not-a-directory')
 		await writeFile(filePath, 'file')
-		const provider = createFileLockProvider({ directory: filePath })
+		const provider = createFsLockProvider({ directory: filePath })
 
 		await expect(provider.tryAcquire('name')).rejects.toThrow()
 	})
 
 	it('surfaces token, clock, and owner-path failures', async () => {
 		const tokenFailure = new Error('token unavailable')
-		const tokenProvider = createFileLockProvider({
+		const tokenProvider = createFsLockProvider({
 			directory,
 			tokenFactory: () => {
 				throw tokenFailure
@@ -128,7 +128,7 @@ describe('createFileLockProvider', () => {
 		await expect(tokenProvider.tryAcquire('name')).rejects.toBe(tokenFailure)
 
 		const clockFailure = new Error('clock unavailable')
-		const clockProvider = createFileLockProvider({
+		const clockProvider = createFsLockProvider({
 			directory,
 			now: () => {
 				throw clockFailure
@@ -137,7 +137,7 @@ describe('createFileLockProvider', () => {
 		await expect(clockProvider.tryAcquire('name')).rejects.toBe(clockFailure)
 
 		await mkdir(join(directory, 'conflict.token.owner'))
-		const conflictProvider = createFileLockProvider({
+		const conflictProvider = createFsLockProvider({
 			directory,
 			tokenFactory: () => 'token',
 		})

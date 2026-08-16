@@ -8,9 +8,9 @@ The current package provides the following public utility families:
 
 - primitive runtime guards such as `isRecord`, `isString`, `isDefined`, `isFiniteNumber`,
   `isNonBlankString`, `hasKey`, and `hasKeys`;
-- backend-independent cache contracts with memory, namespace, and injected Redis adapters;
-- owner-bound lock leases with memory, injected Redis, and explicit server filesystem providers;
-- debounced auto-task handlers backed by injected marker stores, schedulers, and lock providers;
+- Directus memory/KV integration for runtime caches and coordination state;
+- owner-bound lock leases with memory, Redis, and explicit server filesystem providers;
+- debounced auto-task handlers backed by unified memory, Redis, or filesystem storage providers;
 - `attempt`, `attemptSync`, and bounded `attemptWithRetry` result wrappers;
 - typed `toEntries`, `fromEntries`, and `keys` helpers;
 - configurable MIME classification through `classifyMimeType`, `getFileType`, and category
@@ -26,23 +26,32 @@ additional document MIME types. Environment helpers receive explicit values rath
 global process state. The default deterministic UUID namespace is `UUID_NAMESPACE_URL`.
 
 Use public package subpaths, keep runtime dependencies intentional, test exports, and ensure private
-test utilities never leak into the published package. The package has one intentional runtime
-dependency, `uuid`, for UUID v4/v5 generation. It exposes runtime-aware `/server`, `/app`, and
-`/shared` export paths. The server and app paths re-export the framework-neutral shared helpers,
-with the server path additionally exposing the filesystem lock adapter.
+test utilities never leak into the published package. The package uses `uuid`, `@directus/memory`,
+and `ioredis` for its runtime integrations. Directus runtime extensions should add
+`@directus/memory` when they need cache or KV storage. It exposes runtime-aware `/server`, `/app`,
+and `/shared` export paths. The server and app paths re-export the framework-neutral shared helpers,
+with the server path additionally exposing Redis and filesystem coordination adapters.
 
 The root and `/shared` exports are the framework-neutral public surface. `/server` re-exports those
-helpers and adds the filesystem lock adapter; `/app` remains browser-safe and exposes the shared
-helpers only. No utility selects a Directus service, cache backend, filesystem, Redis connection, or
-deployment topology implicitly.
+helpers and adds Redis and filesystem coordination adapters; `/app` remains browser-safe and exposes
+the shared helpers only. Utilities do not select a Directus service, cache backend, filesystem, or
+deployment topology implicitly. The Redis lock utility explicitly owns the connection created from
+its URL.
 
-Cache contracts and lock adapters are now part of the package API. Debounced task coordination is
-implemented by `createAutoTaskHandler`, with Redis and explicit-directory filesystem marker
-adapters.
+Cache and KV implementations belong to `@directus/memory`. Debounced task coordination is
+implemented by `createAutoTaskHandler` and one of the unified task storage factories. Use
+`createMemoryTaskHandlerStorage`, `createRedisTaskHandlerStorage`, or `createFsTaskHandlerStorage`;
+each exposes `lockTimeoutMs` for the provider's default lock lease. The handler's `markerLeaseMs`
+and `taskLeaseMs` remain separate controls.
 
 Auto-task callbacks receive an `AbortSignal`. They must stop promptly when the execution lease is
 lost; a lease-lost generation is not marked complete and remains eligible for a later retry. Error
 callbacks are best-effort and cannot make the trigger reject.
+
+Dispose an auto-task handler before its storage: `handler.dispose()` cancels pending timers, while
+`storage.dispose()` closes resources owned by the provider, such as a Redis connection. Neither
+operation clears markers or aborts a task that is already running. Memory and filesystem storage
+currently have no external resources to close.
 
 The lock API is deliberately close to Tio's process-lock feature surface while correcting its
 ownership hazards. `BULK_OPERATION_LOCK` preserves the conventional lock name, named acquisition and
@@ -60,10 +69,12 @@ Keep orchestration in the consuming extension and choose the smallest utility th
 needs:
 
 - guards answer one runtime-narrowing question;
-- caches hold disposable derived data;
+- Directus `createCache` holds disposable derived data;
+- Directus `createKv` holds coordination state and supports shared locks;
 - locks grant one owner a renewable lease;
-- auto-task handlers debounce triggers and coordinate execution; and
+- auto-task handlers debounce triggers and coordinate execution through one storage provider; and
 - attempt helpers turn expected operation failures into result values.
 
 All external resources are explicit dependencies. Utilities do not read environment variables,
-create Redis connections, choose filesystem directories, or register Directus handlers.
+choose filesystem directories, or register Directus handlers. The Redis lock provider is the one
+intentional exception: it receives an explicit Redis URL and owns that connection.

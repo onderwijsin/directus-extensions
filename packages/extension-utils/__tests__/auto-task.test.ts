@@ -2,11 +2,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
 	createAutoTaskHandler,
+	createMemoryAutoTaskMarkerStore,
+	createMemoryTaskHandlerStorage,
 	createMemoryLockProvider,
 	type AutoTaskMarkerStore,
 	type LockLease,
 	type LockProvider,
+	type TaskHandlerStorage,
 } from '../src/index'
+
+const createTestStorage = (
+	lockProvider: LockProvider,
+	markerStore: AutoTaskMarkerStore = createMemoryAutoTaskMarkerStore(),
+): TaskHandlerStorage => ({
+	lockProvider,
+	markerStore,
+	dispose: () => Promise.resolve(),
+})
 
 const logger = {
 	info: vi.fn(),
@@ -27,7 +39,7 @@ describe('createAutoTaskHandler', () => {
 		const handler = createAutoTaskHandler({
 			debounceId: 'items',
 			task,
-			lockProvider: createMemoryLockProvider(),
+			storage: createMemoryTaskHandlerStorage(),
 			debounceMs: 100,
 			logger,
 		})
@@ -49,7 +61,7 @@ describe('createAutoTaskHandler', () => {
 		const handler = createAutoTaskHandler({
 			debounceId: 'items',
 			task,
-			lockProvider,
+			storage: createTestStorage(lockProvider),
 			debounceMs: 100,
 			retryMs: 25,
 			logger,
@@ -89,7 +101,7 @@ describe('createAutoTaskHandler', () => {
 		const handler = createAutoTaskHandler({
 			debounceId: 'items',
 			task,
-			lockProvider,
+			storage: createTestStorage(lockProvider),
 			debounceMs: 10,
 			taskLeaseMs: 100,
 			renewalIntervalMs: 50,
@@ -125,15 +137,17 @@ describe('createAutoTaskHandler', () => {
 					finishTask = resolve
 				})
 			},
-			lockProvider: {
-				tryAcquire: vi.fn().mockResolvedValue({
-					name: 'bulk-operation',
-					token: 'token',
-					renew: vi.fn().mockResolvedValue(false),
-					release: vi.fn().mockResolvedValue(false),
-				}),
-			},
-			markerStore,
+			storage: createTestStorage(
+				{
+					tryAcquire: vi.fn().mockResolvedValue({
+						name: 'bulk-operation',
+						token: 'token',
+						renew: vi.fn().mockResolvedValue(false),
+						release: vi.fn().mockResolvedValue(false),
+					}),
+				},
+				markerStore,
+			),
 			debounceMs: 10,
 			taskLeaseMs: 100,
 			renewalIntervalMs: 20,
@@ -168,7 +182,7 @@ describe('createAutoTaskHandler', () => {
 			task: () => {
 				throw taskFailure
 			},
-			lockProvider: { tryAcquire: vi.fn().mockResolvedValue(lease) },
+			storage: createTestStorage({ tryAcquire: vi.fn().mockResolvedValue(lease) }),
 			debounceMs: 10,
 			logger,
 			onError,
@@ -197,8 +211,7 @@ describe('createAutoTaskHandler', () => {
 		const handler = createAutoTaskHandler({
 			debounceId: 'items',
 			task: vi.fn(),
-			lockProvider,
-			markerStore: markerFailure,
+			storage: createTestStorage(lockProvider, markerFailure),
 			debounceMs: 10,
 			logger,
 			onError,
@@ -226,7 +239,7 @@ describe('createAutoTaskHandler', () => {
 				new Promise<void>((resolve) => {
 					finishRenew = resolve
 				}),
-			lockProvider: { tryAcquire: vi.fn().mockResolvedValue(lease) },
+			storage: createTestStorage({ tryAcquire: vi.fn().mockResolvedValue(lease) }),
 			debounceMs: 10,
 			taskLeaseMs: 100,
 			renewalIntervalMs: 20,
@@ -249,8 +262,7 @@ describe('createAutoTaskHandler', () => {
 		const clearHandler = createAutoTaskHandler({
 			debounceId: 'clear',
 			task: vi.fn(),
-			lockProvider: createMemoryLockProvider(),
-			markerStore: clearStore,
+			storage: createTestStorage(createMemoryLockProvider(), clearStore),
 			debounceMs: 10,
 			logger,
 			onError,
@@ -274,8 +286,7 @@ describe('createAutoTaskHandler', () => {
 		const staleHandler = createAutoTaskHandler({
 			debounceId: 'stale',
 			task: staleTask,
-			lockProvider: createMemoryLockProvider(),
-			markerStore: staleStore,
+			storage: createTestStorage(createMemoryLockProvider(), staleStore),
 			debounceMs: 10,
 			markerLeaseMs: 20,
 			logger,
@@ -299,7 +310,7 @@ describe('createAutoTaskHandler', () => {
 		const handler = createAutoTaskHandler({
 			debounceId: 'items',
 			task,
-			lockProvider: createMemoryLockProvider(),
+			storage: createMemoryTaskHandlerStorage(),
 			debounceMs: 10,
 			markerLeaseMs: 100,
 			logger,
@@ -326,7 +337,11 @@ describe('createAutoTaskHandler', () => {
 			{ debounceId: 'id', renewalIntervalMs: 0 },
 		]) {
 			expect(() =>
-				createAutoTaskHandler({ ...options, task: vi.fn(), lockProvider }),
+				createAutoTaskHandler({
+					...options,
+					task: vi.fn(),
+					storage: createTestStorage(lockProvider),
+				}),
 			).toThrow()
 		}
 
@@ -335,7 +350,7 @@ describe('createAutoTaskHandler', () => {
 		const handler = createAutoTaskHandler({
 			debounceId: 'disposed',
 			task,
-			lockProvider,
+			storage: createTestStorage(lockProvider),
 			debounceMs: 10,
 			logger,
 		})
@@ -352,7 +367,7 @@ describe('createAutoTaskHandler', () => {
 			task: () => {
 				throw new Error('task failed')
 			},
-			lockProvider: createMemoryLockProvider(),
+			storage: createMemoryTaskHandlerStorage(),
 			debounceMs: 10,
 			logger,
 			onError: () => {

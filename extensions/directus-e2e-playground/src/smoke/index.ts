@@ -28,10 +28,10 @@ export const runUtilitySmokeTest = async (meta: unknown): Promise<void> => {
 		const attempts = await runAttemptSmokeTest()
 		const guards = runGuardSmokeTest(record)
 		const cache = await runCacheSmokeTest(redis)
-		const locks = await runLockSmokeTest(redis)
+		const locks = await runLockSmokeTest(process.env.REDIS)
 		const markers = await runMarkerSmokeTest(redis)
 		const values = runValueSmokeTest(record, attempts.retry)
-		const runs = await runAutoTaskSmokeTest(markers.file, logger)
+		const runs = await runAutoTaskSmokeTest(markers.fileStorage, logger)
 
 		logger.info('utilities', values.loggerFields)
 		console.log(

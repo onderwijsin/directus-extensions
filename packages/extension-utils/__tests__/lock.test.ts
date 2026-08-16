@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-	createMemoryLockProvider,
-	createRedisLockProvider,
-	type RedisLockClient,
-} from '../src/index'
+import { createMemoryLockProvider } from '../src/index'
 
 describe('lock utilities', () => {
 	it('acquires, contends, renews, and releases memory locks by owner token', async () => {
@@ -55,6 +51,18 @@ describe('lock utilities', () => {
 		)
 	})
 
+	it('uses the configured default lease when an acquire call omits one', async () => {
+		let currentTime = 1000
+		const provider = createMemoryLockProvider({
+			now: () => currentTime,
+			defaultLeaseMs: 10,
+		})
+
+		const lease = await provider.tryAcquire('item')
+		currentTime = 1010
+		expect(await lease?.renew()).toBe(false)
+	})
+
 	it('propagates memory clock and token failures', async () => {
 		const clockFailure = new Error('clock unavailable')
 		const clockProvider = createMemoryLockProvider({
@@ -81,104 +89,5 @@ describe('lock utilities', () => {
 		currentTime = 1010
 		await expect(lease?.renew()).resolves.toBe(false)
 		await expect(lease?.release()).resolves.toBe(false)
-	})
-
-	it('uses Redis NX acquisition and token-checked renew/release scripts', async () => {
-		const values = new Map<string, string>()
-		const set = vi.fn((key: string, value: string, ...arguments_: unknown[]) => {
-			if (values.has(key)) return Promise.resolve(null)
-			expect(arguments_[0]).toBe('PX')
-			expect(arguments_[2]).toBe('NX')
-			values.set(key, value)
-			return Promise.resolve('OK')
-		})
-		const evalScript = vi.fn(
-			(script: string, _numberOfKeys: number, key: string, token: string) => {
-				if (values.get(key) !== token) return Promise.resolve(0)
-				if (script.includes('pexpire')) return Promise.resolve(1)
-				values.delete(key)
-				return Promise.resolve(1)
-			},
-		)
-		const client: RedisLockClient = {
-			set,
-			eval: evalScript,
-		}
-		const provider = createRedisLockProvider(client, {
-			keyPrefix: 'test:',
-			tokenFactory: vi
-				.fn()
-				.mockReturnValueOnce('first')
-				.mockReturnValueOnce('contender')
-				.mockReturnValueOnce('second'),
-		})
-
-		const first = await provider.tryAcquire('item', { leaseMs: 100 })
-		expect(first?.token).toBe('first')
-		expect(await provider.tryAcquire('item')).toBeNull()
-		expect(await first?.renew()).toBe(true)
-		expect(await first?.release()).toBe(true)
-		expect(await first?.release()).toBe(false)
-		const second = await provider.tryAcquire('item')
-		expect(second?.token).toBe('second')
-		expect(set).toHaveBeenCalledWith('test:item', 'first', 'PX', 100, 'NX')
-		expect(evalScript).toHaveBeenCalledTimes(2)
-	})
-
-	it('does not release a Redis replacement and propagates client failures', async () => {
-		const values = new Map<string, string>()
-		const client: RedisLockClient = {
-			set: (key, value) => {
-				if (values.has(key)) return Promise.resolve(null)
-				values.set(key, value)
-				return Promise.resolve('OK')
-			},
-			eval: (_script, _numberOfKeys, key, token) => {
-				if (values.get(String(key)) !== String(token)) return Promise.resolve(0)
-				return Promise.resolve(1)
-			},
-		}
-		const provider = createRedisLockProvider(client, {
-			tokenFactory: vi.fn().mockReturnValueOnce('old').mockReturnValueOnce('new'),
-		})
-		const oldLease = await provider.tryAcquire('item', { leaseMs: 10 })
-		values.set('extension-utils:lock:item', 'new')
-
-		expect(await oldLease?.release()).toBe(false)
-		expect(values.get('extension-utils:lock:item')).toBe('new')
-
-		const failure = new Error('redis unavailable')
-		const failingProvider = createRedisLockProvider({
-			set: () => Promise.reject(failure),
-			eval: () => Promise.reject(failure),
-		})
-		await expect(failingProvider.tryAcquire('item')).rejects.toBe(failure)
-	})
-
-	it('treats non-success Redis SET replies as contention', async () => {
-		const provider = createRedisLockProvider({
-			set: () => Promise.resolve(undefined),
-			eval: () => Promise.resolve(1),
-		})
-
-		expect(await provider.tryAcquire('item')).toBeNull()
-	})
-
-	it('propagates Redis renewal and release failures while allowing release retry', async () => {
-		let evaluationCount = 0
-		const failure = new Error('redis eval unavailable')
-		const provider = createRedisLockProvider({
-			set: () => Promise.resolve('OK'),
-			eval: () => {
-				evaluationCount += 1
-				if (evaluationCount < 3) throw failure
-				return Promise.resolve(1)
-			},
-		})
-		const lease = await provider.tryAcquire('item')
-
-		await expect(lease?.renew()).rejects.toBe(failure)
-		await expect(lease?.release()).rejects.toBe(failure)
-		await expect(lease?.release()).resolves.toBe(true)
 	})
 })

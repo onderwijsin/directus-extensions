@@ -10,8 +10,12 @@ describe('runtime-aware exports', () => {
 		expect(Object.keys(server).sort()).toEqual(
 			[
 				...Object.keys(shared),
-				'createFileAutoTaskMarkerStore',
-				'createFileLockProvider',
+				'createDirectusAutoTaskMarkerStore',
+				'createRedisLockProvider',
+				'createFsAutoTaskMarkerStore',
+				'createFsLockProvider',
+				'createFsTaskHandlerStorage',
+				'createRedisTaskHandlerStorage',
 			].sort(),
 		)
 		expect(app.isRecord).toBe(shared.isRecord)
@@ -19,11 +23,9 @@ describe('runtime-aware exports', () => {
 		expect(shared.hasKey).toBeDefined()
 		expect(app.attempt).toBe(shared.attempt)
 		expect(server.fromEntries).toBe(shared.fromEntries)
-		expect(app.createMemoryCache).toBe(shared.createMemoryCache)
-		expect(server.createNamespacedCache).toBe(shared.createNamespacedCache)
 		expect(app.createMemoryLockProvider).toBe(shared.createMemoryLockProvider)
-		expect(server.createRedisLockProvider).toBe(shared.createRedisLockProvider)
-		expect(server.createFileLockProvider).toBeDefined()
-		expect(server.createFileAutoTaskMarkerStore).toBeDefined()
+		expect(server.createRedisLockProvider).toBeDefined()
+		expect(server.createFsLockProvider).toBeDefined()
+		expect(server.createFsAutoTaskMarkerStore).toBeDefined()
 	})
 })

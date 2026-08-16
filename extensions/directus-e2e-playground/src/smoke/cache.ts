@@ -1,7 +1,6 @@
 import type Redis from 'ioredis'
 
 import { createCache } from '@directus/memory'
-import { createMemoryCache, createNamespacedCache } from '@onderwijsin/directus-extension-utils'
 
 /**
  * Runs memory and Directus-compatible Redis cache checks.
@@ -9,7 +8,10 @@ import { createMemoryCache, createNamespacedCache } from '@onderwijsin/directus-
  * @returns The values read from both cache implementations.
  */
 export const runCacheSmokeTest = async (redis: Redis) => {
-	const memory = createNamespacedCache(createMemoryCache(), 'e2e')
+	const memory = createCache({
+		type: 'local',
+		maxKeys: 100,
+	})
 	await memory.set('item', 'memory')
 
 	const distributed = createCache({
