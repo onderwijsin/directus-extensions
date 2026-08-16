@@ -1,10 +1,12 @@
 # `@onderwijsin/directus-extension-utils`
 
-Framework-neutral utilities shared by Onderwijs in Directus extensions. This package exists to keep
-small, stable runtime helpers in one place instead of reimplementing them in every extension. The
-current API includes primitive guards, lock providers, attempted operations, object conversions,
-MIME classification, UUID generation, logging adapters, and reusable types. It deliberately does not
-contain Directus services, extension registration, or schema validation.
+Utilities for Onderwijs in Directus extensions. This package exists to keep small, stable helpers
+for Directus extension code in one place instead of reimplementing them in every extension. The
+helpers are runtime-agnostic within Directus: they can be used across different Directus setups, but
+are not intended for non-Directus applications. The current API includes primitive guards, lock
+providers, attempted operations, object conversions, MIME classification, UUID generation, logging
+adapters, and reusable types. It deliberately does not contain Directus services, extension
+registration, or schema validation.
 
 For the complete API and design rules, read the
 [extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md) and the
@@ -223,9 +225,9 @@ The adapter preserves supplied methods and falls back independently to `console`
 methods. `trace` and `debug` are optional on the logger contract; `info`, `warn`, and `error` are
 always available.
 
-The package also exports `PartialNested`, `Geometry`, and `LngLatCoordinates` for framework-neutral
-typing. `PartialNested` recursively makes object properties optional while preserving functions and
-constructors.
+The package also exports `PartialNested`, `Geometry`, and `LngLatCoordinates` for reusable typing in
+Directus extensions. `PartialNested` recursively makes object properties optional while preserving
+functions and constructors.
 
 ## Choosing an API
 
@@ -250,18 +252,19 @@ import { isString } from '@onderwijsin/directus-extension-utils/app'
 import { isDefined } from '@onderwijsin/directus-extension-utils/shared'
 ```
 
-The root and `shared` exports are the framework-neutral public surface. `server` re-exports those
+The root and `shared` exports are the common Directus-extension surface. `server` re-exports those
 helpers and adds the Redis and filesystem coordination providers; `app` remains browser-safe and
-exposes the shared helpers only. The implementation modules are internal; import utilities from the
-root or an explicit runtime subpath.
+exposes the shared helpers only. These subpaths describe the extension runtime boundary, not support
+for use outside Directus. The implementation modules are internal; import utilities from the root or
+an explicit runtime subpath.
 
 ## Extending the package
 
-Add a helper only when it is framework-neutral, has stable semantics, and has more than one credible
-consumer. Keep Directus-specific behavior in the owning extension. Add shared helpers to
-`src/shared/` and export them through `src/shared/index.ts`; expose them from the root only when
-they belong in the default shared API. Add runtime-specific helpers to `src/server/` or `src/app/`
-without leaking them through the root export.
+Add a helper only when it serves Directus extensions, has stable semantics, and has more than one
+credible Directus-extension consumer. Keep extension-specific orchestration in the owning extension.
+Add shared helpers to `src/shared/` and export them through `src/shared/index.ts`; expose them from
+the root only when they belong in the default shared API. Add runtime-specific helpers to
+`src/server/` or `src/app/` without leaking them through the root export.
 
 Use Zod for structured external input. These helpers are type-narrowing predicates, not parsers,
 coercion utilities, or a schema system.

@@ -5,9 +5,10 @@ description: Use when implementing, reviewing, or documenting Directus extension
 
 # Directus extension utilities
 
-Use this skill when an extension needs a small, framework-neutral helper. The package keeps
-reusable behavior out of individual extensions while keeping Directus registration, environment
-selection, service access, and application orchestration in the consuming extension.
+Use this skill when a Directus extension needs a small reusable helper. The package keeps common
+behavior out of individual extensions while keeping Directus registration, environment selection,
+service access, and application orchestration in the consuming extension. Utilities are runtime-
+portable across Directus setups, not general-purpose libraries for non-Directus applications.
 
 ## Route the work
 
@@ -28,7 +29,8 @@ truth. `dist/` is generated; rebuild it before using declarations or packed outp
 ## Choose the smallest utility
 
 - Use a guard when one value needs runtime narrowing.
-- Use `@directus/memory` caches for disposable derived data; cache misses are normal.
+- Use `@directus/memory` caches for disposable derived data in Directus runtimes; cache misses are
+  normal.
 - Use a lock when one owner may perform work and ownership must be renewed or released.
 - Use an auto-task handler when triggers must be debounced and execution coordinated.
 - Use an attempt helper when an operation's failure should be returned as data.
@@ -37,16 +39,17 @@ truth. `dist/` is generated; rebuild it before using declarations or packed outp
 - Use object helpers when preserving key/value types around standard object operations matters.
 - Use `createLogger` when a runtime logger is partial or optional.
 
-Do not add a utility for one extension, Directus service access, schema validation, environment
-lookup, connection creation, or extension registration. Keep those concerns in the owning extension.
+Do not add a utility for one extension, direct service orchestration, schema validation, environment
+lookup, connection creation, or extension registration. Keep those concerns in the owning extension
+while retaining shared Directus runtime integration in this package.
 Use Zod for structured external input and local guards for small runtime narrowing.
 
 ## Runtime and import rules
 
-The package has one framework-neutral implementation and four public import paths:
+The package has one shared Directus-extension implementation and four public import paths:
 
 - `@onderwijsin/directus-extension-utils` — default shared surface;
-- `@onderwijsin/directus-extension-utils/shared` — explicit framework-neutral surface;
+- `@onderwijsin/directus-extension-utils/shared` — explicit shared Directus-extension surface;
 - `@onderwijsin/directus-extension-utils/app` — browser-safe shared surface; and
 - `@onderwijsin/directus-extension-utils/server` — shared surface plus filesystem adapters.
 

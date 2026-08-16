@@ -1,8 +1,10 @@
 # `extension-utils`
 
-`extension-utils` is the publishable, framework-neutral helper package. It contains helpers with
-stable semantics and more than one credible consumer. Extension-specific behavior stays in the
-owning extension.
+`extension-utils` is the publishable utility package for Directus extensions. It contains helpers
+with stable semantics and more than one credible Directus-extension consumer. The utilities are
+runtime-agnostic within Directus, so they can work across different Directus setups; they are not
+intended as a general-purpose package for non-Directus applications. Extension-specific behavior
+stays in the owning extension.
 
 The current package provides the following public utility families:
 
@@ -17,7 +19,7 @@ The current package provides the following public utility families:
   predicates;
 - random UUID v4 and deterministic UUID v5 helpers;
 - `Logger`, `LoggerLike`, and `createLogger`; and
-- framework-neutral `PartialNested`, `Geometry`, and `LngLatCoordinates` types.
+- reusable `PartialNested`, `Geometry`, and `LngLatCoordinates` types for Directus extensions.
 
 Attempt helpers capture thrown or rejected values as `{ data: null, error }`. Retry options control
 the total execution count, initial delay, and exponential versus constant backoff. MIME values are
@@ -29,10 +31,10 @@ Use public package subpaths, keep runtime dependencies intentional, test exports
 test utilities never leak into the published package. The package uses `uuid`, `@directus/memory`,
 and `ioredis` for its runtime integrations. Directus runtime extensions should add
 `@directus/memory` when they need cache or KV storage. It exposes runtime-aware `/server`, `/app`,
-and `/shared` export paths. The server and app paths re-export the framework-neutral shared helpers,
-with the server path additionally exposing Redis and filesystem coordination adapters.
+and `/shared` export paths. The server and app paths re-export the common Directus-extension
+helpers, with the server path additionally exposing Redis and filesystem coordination adapters.
 
-The root and `/shared` exports are the framework-neutral public surface. `/server` re-exports those
+The root and `/shared` exports are the common Directus-extension surface. `/server` re-exports those
 helpers and adds Redis and filesystem coordination adapters; `/app` remains browser-safe and exposes
 the shared helpers only. Utilities do not select a Directus service, cache backend, filesystem, or
 deployment topology implicitly. The Redis lock utility explicitly owns the connection created from

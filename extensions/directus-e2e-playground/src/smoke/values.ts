@@ -13,11 +13,16 @@ import {
 /**
  * Runs object, type, MIME, and UUID utility checks.
  * @param record - Event metadata used to build the object result.
- * @param attempt - Retry result used in the object result.
+ * @param retryAttempt - Retry result used in the object result.
+ * @param asyncAttempt - Async attempt result used in logger fields.
  * @returns The observed value utility results.
  */
-export const runValueSmokeTest = (record: Record<string, unknown>, attempt: string | null) => {
-	const object = { collection: record.collection ?? 'unknown', retry: attempt }
+export const runValueSmokeTest = (
+	record: Record<string, unknown>,
+	retryAttempt: string | null,
+	asyncAttempt: string | null,
+) => {
+	const object = { collection: record.collection ?? 'unknown', retry: retryAttempt }
 	const entries = toEntries(object)
 	const point: Geometry = { type: 'Point', coordinates: [4.9, 52.3] }
 	const partial: PartialNested<{ nested: { enabled: boolean } }> = { nested: {} }
@@ -26,7 +31,7 @@ export const runValueSmokeTest = (record: Record<string, unknown>, attempt: stri
 		object: { entries, keys: keys(object), rebuilt: fromEntries(entries) },
 		types: { point, partial },
 		loggerFields: {
-			attempt,
+			attempt: asyncAttempt,
 			classification: classifyMimeType('application/json'),
 			deterministicUuid: generateDeterministicUUID('e2e-playground'),
 			uuid: generateUUID(),
