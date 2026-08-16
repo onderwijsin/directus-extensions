@@ -1,13 +1,13 @@
-# `@onderwijsin/directus-extension-sample-hook`
+# `@onderwijsin/directus-extension-e2e-playground`
 
-Development-only sample Directus hook. It logs a message after items are created, updated, or
-deleted, and exists to verify workspace dependencies, extension builds, and local Directus loading.
+Private Directus hook used by the repository's packed-artifact E2E tests. It logs item lifecycle
+events and exercises every currently published `extension-utils` utility through Directus.
 
 It registers the `items.create`, `items.update`, and `items.delete` action events. Each message
 contains the event, collection, and item key when Directus provides one. Logs are not persisted.
 
-This first sample is intentionally non-sandboxed because it imports and exercises the workspace
-`extension-utils` package. Sandbox hooks cannot import arbitrary workspace packages; future samples
+This playground is intentionally non-sandboxed because it imports and exercises the packed
+`extension-utils` package. Sandbox hooks cannot import arbitrary workspace packages; future tests
 can validate the sandbox path separately.
 
 The extension requires a trusted Directus installation. It is not sandbox-compatible and is not
@@ -16,14 +16,16 @@ repository's local development stack or another trusted Directus 12.2+ instance 
 
 ## Installation
 
-Install the published package in a trusted Directus project:
+This package is private and is not publishable. The E2E runner packs and installs it into a clean
+consumer automatically:
 
 ```sh
-pnpm add @onderwijsin/directus-extension-sample-hook
+pnpm e2e
 ```
 
-Build the package, then place its package directory containing `package.json` and `dist/` in the
-Directus `extensions/` directory. Restart Directus after installation.
+The E2E preparation script installs the packed archive, then places its package directory containing
+`package.json` and `dist/` in the Directus `extensions/` directory. Restart Directus after manual
+installation.
 
 ## Local development
 

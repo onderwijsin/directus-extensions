@@ -56,8 +56,8 @@ Focused examples:
 
 ```sh
 pnpm --filter @onderwijsin/directus-extension-utils build
-pnpm --filter @onderwijsin/directus-extension-sample-hook test
-pnpm --filter @onderwijsin/directus-extension-sample-hook typecheck
+pnpm --filter @onderwijsin/directus-extension-e2e-playground test
+pnpm --filter @onderwijsin/directus-extension-e2e-playground typecheck
 ```
 
 For package-facing changes, use this order:

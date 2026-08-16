@@ -33,7 +33,11 @@ for (const archive of archives.filter((file) => file.endsWith('.tgz'))) {
 		continue
 	}
 
-	if (manifest.private === true || typeof manifest.name !== 'string') continue
+	if (
+		(manifest.private === true && manifest['directus:e2e'] !== true) ||
+		typeof manifest.name !== 'string'
+	)
+		continue
 	dependencies[manifest.name] = `file:${archivePath}`
 	packedPackages.push({ archivePath, manifest })
 }

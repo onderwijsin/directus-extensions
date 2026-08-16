@@ -28,7 +28,7 @@ for (const packageRoot of packageRoots) {
 		} catch {
 			continue
 		}
-		if (manifest.private === true) continue
+		if (manifest.private === true && manifest['directus:e2e'] !== true) continue
 
 		// pnpm writes the archive to the shared destination and returns its exact filename as JSON.
 		const output = execFileSync(

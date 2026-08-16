@@ -46,11 +46,15 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.build.json",
+		"build": "tsdown",
 		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"uuid": "catalog:"
 	},
 	"devDependencies": {
 		"@workspace/typescript-config": "workspace:*",
+		"tsdown": "catalog:",
 		"typescript": "catalog:"
 	},
 	"engines": {

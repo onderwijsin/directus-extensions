@@ -2,18 +2,19 @@
 
 # Directus Extensions
 
-This repository is a collection of publishable Directus extensions and shared packages maintained by
-_Onderwijs in_. The extensions are opinionated building blocks for use in internal _Onderwijs in_
-projects.
+This repository is a collection of Directus extensions and shared packages maintained by _Onderwijs
+in_. Public extensions are opinionated building blocks for use in internal _Onderwijs in_ projects;
+private fixtures support repository validation.
 
 ## 📦 What's in the box?
 
-| Package                                                                           | Description                                                                      |
-| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [`@onderwijsin/directus-extension-sample-hook`](extensions/sample-hook/README.md) | Development-only hook for verifying workspace builds and local Directus loading. |
+| Package                                                                                          | Description                                              |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| [`@onderwijsin/directus-extension-utils`](packages/extension-utils/README.md)                    | Public framework-neutral utility package.                |
+| [`@onderwijsin/directus-extension-e2e-playground`](extensions/directus-e2e-playground/README.md) | Private hook used by packed-artifact Directus E2E tests. |
 
-The repository also contains private workspace packages for shared TypeScript configuration and test
-infrastructure. The sample hook is scaffolding, not a production audit or logging solution.
+The repository also contains private workspace packages for shared TypeScript configuration, test
+infrastructure, and the Directus E2E playground.
 
 ## 🧱 Requirements
 
@@ -41,7 +42,7 @@ To install only one skill, pass its name:
 
 ```sh
 npx skills add onderwijsin/directus-extensions --skill "<extension-name>"
-# npx skills add onderwijsin/directus-extensions --skill sample-hook
+# npx skills add onderwijsin/directus-extensions --skill directus-e2e-playground
 ```
 
 These skills provide extension-specific integration guidance for agents working in Directus
