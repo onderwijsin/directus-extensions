@@ -67,4 +67,15 @@ describe('createRedisMarkerStore', () => {
 		vi.spyOn(failingKv, 'usingLock').mockRejectedValue(new Error('KV unavailable'))
 		await expect(failingStore.clear('items', 1)).rejects.toThrow('KV unavailable')
 	})
+
+	it('rejects invalid lock timeouts before creating a Redis store', () => {
+		for (const lockTimeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+			expect(() =>
+				createRedisMarkerStore({
+					redisUrl: 'redis://localhost',
+					lockTimeoutMs,
+				}),
+			).toThrow('Auto task marker lockTimeoutMs must be a finite positive number')
+		}
+	})
 })

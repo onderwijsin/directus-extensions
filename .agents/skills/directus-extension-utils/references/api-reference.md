@@ -172,8 +172,13 @@ createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTaskHandler
 The handler schedules the latest marker generation, retries on lock contention, renews the task
 lease, and aborts the task when renewal fails. `markerLeaseMs` limits how long a pending generation
 remains eligible; `taskLeaseMs` controls the execution lock lifetime. They default to five minutes
-and are independent. It does not acknowledge a generation after lease loss. onError is best-effort;
-failures from it are logged and do not reject the trigger.
+and are independent. A successful task acknowledges its matching generation; task failures and lease
+loss do not acknowledge it, so the marker remains pending for a later trigger. The handler does not
+automatically retry failed tasks. `onError` is best-effort; failures from it are logged and do not
+reject the trigger.
+
+Handler durations must be finite. `debounceMs`, `markerLeaseMs`, and `retryMs` accept zero or a
+positive value; `taskLeaseMs` and `renewalIntervalMs` must be positive. `taskId` must be non-blank.
 
 `handler.dispose()` is synchronous and cancels pending debounce/retry timers; it does not abort a
 task that is already running or clear its marker. `storage.dispose()` releases resources owned by
@@ -214,6 +219,12 @@ interface RedisTaskHandlerStorageOptions {
 }
 createRedisTaskHandlerStorage(options: RedisTaskHandlerStorageOptions): TaskHandlerStorage
 ~~~
+
+When supplied, `lockTimeoutMs` must be finite and positive. Redis task storage uses it for both
+marker-operation locking and the default execution-lock configuration; the handler still passes its
+explicit `taskLeaseMs` for task execution. Filesystem task storage uses it for marker operations and
+passes it to the shared filesystem provider when configured. `createMemoryMarkerStore().touch()`
+and all persistent marker stores reject non-finite `updatedAt` values.
 
 Marker writes preserve each generation. Memory writes are process-local, Redis writes are
 serialized by the backend KV lock, and filesystem writes are serialized per identifier within a

@@ -62,6 +62,43 @@ describe('createAutoTaskHandler', () => {
 		expect(await markerStore.get('items')).toEqual({ generation: 5, updatedAt: 4 })
 	})
 
+	it('rejects invalid timestamps in the memory marker store', async () => {
+		const markerStore = createMemoryMarkerStore()
+
+		await expect(markerStore.touch('items', Number.NaN)).rejects.toThrow(
+			'Auto task marker time must be finite',
+		)
+		await expect(markerStore.touch('items', Number.POSITIVE_INFINITY)).rejects.toThrow(
+			'Auto task marker time must be finite',
+		)
+	})
+
+	it('keeps the marker when the task fails', async () => {
+		vi.useFakeTimers()
+		const clear = vi.fn().mockResolvedValue(true)
+		const markerStore: AutoTaskMarkerStore = {
+			touch: vi.fn().mockResolvedValue({ generation: 1, updatedAt: 0 }),
+			get: vi.fn().mockResolvedValue({ generation: 1, updatedAt: 0 }),
+			clear,
+		}
+		const handler = createAutoTaskHandler({
+			taskId: 'failed-task',
+			task: () => {
+				throw new Error('task failed')
+			},
+			storage: createTestStorage(createMemoryLockProvider(), markerStore),
+			debounceMs: 10,
+			now: () => 0,
+			logger,
+		})
+
+		await handler()
+		await vi.advanceTimersByTimeAsync(10)
+
+		expect(clear).not.toHaveBeenCalled()
+		handler.dispose()
+	})
+
 	it('retries a generation after lock contention', async () => {
 		vi.useFakeTimers()
 		const lockProvider = createMemoryLockProvider()

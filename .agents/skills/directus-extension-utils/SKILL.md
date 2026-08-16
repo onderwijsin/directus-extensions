@@ -94,13 +94,16 @@ stop promptly when the signal is aborted. A lost lease must not clear the marker
 factory so the lock and marker store share a backend.
 
 Use `createMemoryTaskHandlerStorage`, `createRedisTaskHandlerStorage`, or
-`createFsTaskHandlerStorage` for the common providers. Their common `lockTimeoutMs` option controls
-the provider's default coordination lock lifetime when an acquire operation omits an explicit lease.
-`markerLeaseMs` limits how long a pending
-generation remains eligible; `taskLeaseMs` controls the execution lock lifetime. They default to
-five minutes but are independent. Use `handler.dispose()` to cancel pending timers and
-`await storage.dispose()` when the extension shuts down. Errors are reported through `onError` and do
-not make the trigger reject.
+`createFsTaskHandlerStorage` for the common providers. When supplied, `lockTimeoutMs` must be finite
+and positive. It controls marker-operation locks for Redis and filesystem storage; for memory and
+Redis task storage it also controls the provider default when an acquire call omits an explicit
+lease. The handler supplies an explicit `taskLeaseMs` for task execution. `markerLeaseMs` limits how
+long a pending generation remains eligible; `taskLeaseMs` controls the execution lock lifetime.
+They default to five minutes but are independent. Use `handler.dispose()` to cancel pending timers
+and `await storage.dispose()` when the extension shuts down. Errors are reported through `onError`
+and do not make the trigger reject. Successful tasks clear their matching marker; task failures and
+lease losses keep the marker pending for a later trigger, without automatic retry. Tasks should be
+safe to retry.
 
 Standalone marker stores are named `createMemoryMarkerStore`, `createRedisMarkerStore`, and
 `createFsMarkerStore`. Marker writes preserve every generation; memory writes are process-local,

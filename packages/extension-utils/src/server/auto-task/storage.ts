@@ -22,6 +22,9 @@ export function createMemoryMarkerStore(): AutoTaskMarkerStore {
 	const markers = new Map<string, AutoTaskMarker>()
 	return {
 		touch: (identifier, updatedAt) => {
+			if (!isFiniteNumber(updatedAt)) {
+				return Promise.reject(new RangeError('Auto task marker time must be finite'))
+			}
 			const marker = {
 				generation: (markers.get(identifier)?.generation ?? 0) + 1,
 				updatedAt,

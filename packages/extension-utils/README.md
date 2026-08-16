@@ -40,11 +40,16 @@ All lock providers use the same `tryAcquire`/lease contract and `defaultLeaseMs`
 memory provider for one process, the filesystem provider for processes sharing a directory, or the
 Redis provider for shared coordination across replicas.
 
+Auto-task handlers clear a marker only after the task succeeds. Task failures and lost leases are
+reported through `onError` and leave the marker pending for a later trigger; failed tasks are not
+automatically retried. Tasks should honor the supplied `AbortSignal` and be safe to run again.
+
 ## Documentation
 
-Start with the [extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md)
+Start with the
+[extension-utils cookbook article](https://github.com/onderwijsin/directus-extensions/blob/main/docs/extension-cookbook/extension-utils.md)
 for usage examples and the
-[utility glossary](../../docs/extension-cookbook/extension-utils-glossary.md) for coordination
-terminology. Maintainers can use the
-[API reference](../../.agents/skills/directus-extension-utils/references/api-reference.md) for the
-complete export and option surface.
+[utility glossary](https://github.com/onderwijsin/directus-extensions/blob/main/docs/extension-cookbook/extension-utils-glossary.md)
+for coordination terminology. Maintainers can use the
+[API reference](https://github.com/onderwijsin/directus-extensions/blob/main/.agents/skills/directus-extension-utils/references/api-reference.md)
+for the complete export and option surface.

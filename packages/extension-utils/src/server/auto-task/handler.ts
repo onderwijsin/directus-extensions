@@ -136,8 +136,9 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 		lease: LockLease,
 		generation: number,
 		leaseLost: boolean,
+		taskSucceeded: boolean,
 	): Promise<void> => {
-		if (!leaseLost) {
+		if (!leaseLost && taskSucceeded) {
 			const markerResult = await attempt(() => markerStore.clear(config.taskId, generation))
 			if (markerResult.error !== null) {
 				await reportError(markerResult.error, logger, options.onError)
@@ -152,6 +153,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 	const execute = async (lease: LockLease, generation: number): Promise<void> => {
 		const controller = new AbortController()
 		let leaseLost = false
+		let taskSucceeded = false
 		let renewalTimer: ReturnType<typeof setInterval> | undefined
 		const renew = async (): Promise<void> => {
 			const result = await attempt(() => lease.renew())
@@ -176,10 +178,11 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 		} else if (leaseLost) {
 			await reportError(new Error('Auto task lock lease was lost'), logger, options.onError)
 		} else {
+			taskSucceeded = true
 			logger.info(`Completed auto task: ${config.taskId}`)
 		}
 		if (renewalTimer !== undefined) config.scheduler.clearInterval(renewalTimer)
-		await finish(lease, generation, leaseLost)
+		await finish(lease, generation, leaseLost, taskSucceeded)
 	}
 
 	const run = async (generation: number): Promise<void> => {

@@ -35,13 +35,17 @@ export function createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTa
 		options.namespace ?? 'extension-utils:auto-task',
 		'Marker namespace',
 	)
+	const lockTimeoutMs = options.lockTimeoutMs ?? 5000
+	if (!isFiniteNumber(lockTimeoutMs) || lockTimeoutMs <= 0) {
+		throw new RangeError('Auto task marker lockTimeoutMs must be a finite positive number')
+	}
 	const ownsRedis = options.redis === undefined
 	const redis = options.redis ?? new Redis(redisUrl)
 	const kv = createKv({
 		type: 'redis',
 		namespace,
 		redis,
-		lockTimeout: options.lockTimeoutMs ?? 5000,
+		lockTimeout: lockTimeoutMs,
 	})
 	/**
 	 * Maps a marker kind and identifier to a namespaced KV key.

@@ -213,6 +213,11 @@ late old owner cannot remove a replacement claim.
 
 ## Auto-task handlers
 
+Successful tasks clear their matching marker. If a task throws or rejects, the handler reports the
+failure through `onError`, releases the lease, and keeps the marker pending for a later trigger; it
+does not automatically retry the task. Lease loss also keeps the marker pending after aborting the
+task signal. Tasks should cooperate with the signal and be safe to run again after a failure.
+
 ### Marker stores and concurrent triggers
 
 Standalone marker stores are available from the server entry point:
