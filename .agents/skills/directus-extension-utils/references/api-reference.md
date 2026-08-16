@@ -281,11 +281,8 @@ uuid(input: string, namespace?: string): string
 uuidv4(): string
 
 type PartialNested<T>
-type LngLatCoordinates = [longitude: number, latitude: number]
-type Geometry
 ~~~
 
 uuid() returns UUID v7. When given an input, uuid() returns a deterministic UUID v5 and defaults to
 UUID_NAMESPACE_URL. uuidv4() returns UUID v4. PartialNested recursively makes object properties
-optional while preserving functions and constructors. Geometry covers GeoJSON Point, LineString,
-Polygon, MultiPoint, MultiLineString, and MultiPolygon.
+optional while preserving functions and constructors.

@@ -1,9 +1,6 @@
 import { createMemoryAutoTaskMarkerStore, type AutoTaskMarkerStore } from './auto-task-handler'
-import {
-	createMemoryLockProvider,
-	type LockProvider,
-	type MemoryLockProviderOptions,
-} from './lock-core'
+import { type LockProvider, type MemoryLockProviderOptions } from './lock/lock-core'
+import { createMemoryLockProvider } from './lock/memory-lock'
 
 /** The coordinated state required by an auto-task handler. */
 export interface TaskHandlerStorage {

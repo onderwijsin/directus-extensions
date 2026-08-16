@@ -85,52 +85,7 @@ const result = await attemptWithRetry(() => syncSearchIndex(), {
 if (result.error) throw result.error
 ```
 
-## Cache and KV
-
-Cache and KV are Directus runtime concerns. Use `@directus/memory` directly; the extension utilities
-do not add another cache abstraction.
-
-```ts
-import { createCache, createKv } from '@directus/memory'
-
-const cache = createCache({
-  type: 'local',
-  namespace: 'orders:derived',
-})
-
-const kv = createKv({
-  type: 'local',
-  namespace: 'orders:coordination',
-})
-
-await cache.set('summary:42', { total: 3 }, 60_000)
-const summary = await cache.get('summary:42')
-
-await kv.set('last-sync', new Date().toISOString())
-const lastSync = await kv.get('last-sync')
-```
-
-For multiple Directus replicas, configure the Directus memory provider for Redis and give the
-cache/KV namespaces a stable extension-specific prefix. Use KV for coordination state; use cache for
-disposable derived values.
-
-```ts
-const sharedCache = createCache({
-  type: 'redis',
-  namespace: 'orders:derived',
-  redis,
-})
-
-const sharedKv = createKv({
-  type: 'redis',
-  namespace: 'orders:coordination',
-  redis,
-})
-```
-
-`createCache` is for disposable values: a miss is normal, and the value can be rebuilt. `createKv`
-is for state that coordinates work, such as markers or a last-processed value. Both are supplied by
-`@directus/memory`; this package does not wrap either API.
+For cache and KV guidance, see [Cache and KV](patterns-and-conventions.md#cache-and-kv).
 
 ## Locks
 

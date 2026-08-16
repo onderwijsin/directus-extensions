@@ -64,7 +64,7 @@ async function expectUtilityResults() {
 			keys: ['collection', 'retry'],
 			rebuilt: { collection: 'posts', retry: 'retried' },
 		},
-		types: { point: { type: 'Point', coordinates: [4.9, 52.3] }, partial: { nested: {} } },
+		types: { partial: { nested: {} } },
 		loggerFields: {
 			attempt: 'async',
 			classification: 'document',
@@ -84,7 +84,7 @@ async function expectUtilityResults() {
 		/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
 	)
 	expect(payload.loggerFields.uuid).toMatch(
-		/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+		/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
 	)
 }
 

@@ -1,4 +1,4 @@
-import type { Geometry, PartialNested } from '@onderwijsin/directus-extension-utils'
+import type { PartialNested } from '@onderwijsin/directus-extension-utils'
 
 import {
 	classifyMimeType,
@@ -23,12 +23,11 @@ export const runValueSmokeTest = (
 ) => {
 	const object = { collection: record.collection ?? 'unknown', retry: retryAttempt }
 	const entries = toEntries(object)
-	const point: Geometry = { type: 'Point', coordinates: [4.9, 52.3] }
 	const partial: PartialNested<{ nested: { enabled: boolean } }> = { nested: {} }
 
 	return {
 		object: { entries, keys: keys(object), rebuilt: fromEntries(entries) },
-		types: { point, partial },
+		types: { partial },
 		loggerFields: {
 			attempt: asyncAttempt,
 			classification: classifyMimeType('application/json'),

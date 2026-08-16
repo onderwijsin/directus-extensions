@@ -36,16 +36,6 @@ import {
 The `/app` and `/shared` entry points expose the common browser-safe surface. Do not import locks,
 tasks, task storage, or logging from those paths.
 
-## UUIDs
-
-```ts
-import { uuid, uuidv4 } from '@onderwijsin/directus-extension-utils'
-
-const sortableId = uuid() // UUID v7
-const randomId = uuidv4() // UUID v4
-const stableId = uuid('external-item') // UUID v5
-```
-
 ## Documentation
 
 Start with the [extension-utils cookbook article](../../docs/extension-cookbook/extension-utils.md)

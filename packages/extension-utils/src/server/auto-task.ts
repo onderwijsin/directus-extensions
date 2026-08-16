@@ -1,6 +1,6 @@
 import type { Kv } from '@directus/memory'
 import type { AutoTaskMarker, AutoTaskMarkerStore } from './auto-task-handler'
-import type { LockProvider } from './lock-core'
+import type { LockProvider } from './lock/lock-core'
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'

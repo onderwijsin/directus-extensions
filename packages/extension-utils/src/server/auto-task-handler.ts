@@ -1,6 +1,6 @@
 import type { TaskHandlerStorage } from './task-storage-memory'
 
-import { BULK_OPERATION_LOCK } from './lock-core'
+import { BULK_OPERATION_LOCK } from './lock/lock-core'
 import { createLogger, type LoggerLike } from './logger'
 
 /** A marker identifying the latest trigger generation. */
