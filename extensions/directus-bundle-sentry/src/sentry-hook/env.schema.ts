@@ -19,7 +19,7 @@ export const sentryLoaderScriptSchema = z
  * @returns A Zod schema accepting valid environment variables.
  */
 export const envSchema = z.object({
-	SENTRY_ENABLED: z.stringbool().default(false),
+	SENTRY_ENABLED: z.boolean().default(false),
 	SENTRY_DSN: z.url().trim().optional(),
 	SENTRY_LOADER_SCRIPT: sentryLoaderScriptSchema.optional(),
 	SENTRY_RELEASE_PREFIX: z.string().trim().default('dev'),

@@ -25,19 +25,11 @@ export default defineHook(({ action }) => {
 
 ## Setup and configuration validation
 
-Server and API entrypoints should use the shared setup pattern when they have environment-backed
-configuration:
-
-1. Create the setup object with a stable extension name, environment, and logger.
-2. Call `start()` before performing setup work.
-3. Return when `isEnabled()` is false.
-4. Import the complete environment schema from the entrypoint's sibling `src/env.schema.ts` and
-   validate with `validateExtensionOptions`.
-5. Register Directus behavior and call `end()` only after registration succeeds.
-
-`src/env.schema.ts` is the required home for an extension's environment schema. Keeping schemas in
-their own file makes configuration reusable across entrypoints, keeps registration files focused,
-and gives tests a stable import target.
+Server and API entrypoints with environment-backed configuration should validate their options at
+the entrypoint boundary. Use the shared setup lifecycle, keep the schema in the entrypoint's sibling
+`src/env.schema.ts`, and validate only after the extension has been enabled. See
+[Environment validation](environment-validation.md) for the complete pattern, including Directus's
+environment type casting and nesting behavior.
 
 ```ts
 import { defineEndpoint } from '@directus/extensions-sdk'

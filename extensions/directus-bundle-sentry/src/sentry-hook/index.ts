@@ -14,6 +14,8 @@ export default defineHook(({ init, embed }, { env, logger }) => {
 	const setup = extensionSetup('sentry', env, logger)
 	setup.start()
 
+	console.log(typeof env.SENTRY_ENABLED)
+
 	if (!setup.isEnabled()) return
 
 	const options = validateExtensionOptions(env, envSchema, logger)

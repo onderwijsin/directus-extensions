@@ -58,6 +58,8 @@ consumer. CI also pins `PUBLIC_URL` to `http://localhost:18055`, so license acti
 absolute URL on every run.
 
 The Sentry bundle is explicitly disabled by default in both local Compose and E2E Compose with
-`SENTRY_ENABLED=false`. Enabling it requires the consumer to install the Sentry Node dependencies in
-the Directus runtime image and provide a `sentry-instrument.js` file through `NODE_OPTIONS`; the
-extension package does not provide either deployment artifact.
+`SENTRY_ENABLED=false`. This is an accepted repository decision:
+[Sentry runtime configuration is deferred to consumers](decisions/defer-sentry-runtime-configuration-to-consumers.md).
+Enabling it requires the consumer to install the Sentry Node dependencies in the Directus runtime
+image and provide a `sentry-instrument.js` file through `NODE_OPTIONS`; the extension package does
+not provide either deployment artifact.
