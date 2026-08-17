@@ -8,9 +8,11 @@ private fixtures support repository validation.
 
 ## 📦 What's in the box?
 
-| Package                                                                              | Description                                                 |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| [`@onderwijsin/directus-bundle-sentry`](extensions/directus-bundle-sentry/README.md) | Sentry integration bundle for trusted Directus deployments. |
+| Package                                                                                                                  | Description                                                       |
+| ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| [`@onderwijsin/directus-enhanced-server-health-endpoint`](extensions/directus-enhanced-server-health-endpoint/README.md) | Configurable health endpoint based on Directus server checks.     |
+| [`@onderwijsin/directus-policies-endpoint`](extensions/directus-policies-endpoint/README.md)                             | Authenticated endpoint for resolving a user's effective policies. |
+| [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.       |
 
 The repository also contains supporting workspace packages and private infrastructure for shared
 TypeScript configuration and test execution.

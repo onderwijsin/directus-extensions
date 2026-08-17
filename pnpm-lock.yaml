@@ -18,12 +18,18 @@ catalogs:
     '@commitlint/config-conventional':
       specifier: 21.2.2
       version: 21.2.2
+    '@directus/errors':
+      specifier: 2.5.0
+      version: 2.5.0
     '@directus/extensions-sdk':
       specifier: 18.0.2
       version: 18.0.2
     '@directus/memory':
       specifier: 4.0.2
       version: 4.0.2
+    '@directus/types':
+      specifier: 16.1.0
+      version: 16.1.0
     '@sentry/node':
       specifier: 10.69.0
       version: 10.69.0
@@ -163,7 +169,94 @@ importers:
         specifier: 'catalog:'
         version: 3.5.24(typescript@5.9.3)
 
-  extensions/directus-bundle-sentry:
+  extensions/directus-e2e-playground:
+    dependencies:
+      '@directus/memory':
+        specifier: 'catalog:'
+        version: 4.0.2(supports-color@7.2.0)(vue@3.5.24(typescript@5.9.3))
+      '@onderwijsin/directus-extension-utils':
+        specifier: workspace:*
+        version: link:../../packages/extension-utils
+      ioredis:
+        specifier: 'catalog:'
+        version: 5.8.2(supports-color@7.2.0)
+    devDependencies:
+      '@directus/extensions-sdk':
+        specifier: 'catalog:'
+        version: 18.0.2(@types/node@24.13.3)(@unhead/vue@1.11.20(vue@3.5.24(typescript@5.9.3)))(debug@4.4.3(supports-color@7.2.0))(jiti@2.6.1)(knex@3.1.0(supports-color@7.2.0))(pinia@2.3.1(typescript@5.9.3)(vue@3.5.24(typescript@5.9.3)))(pino@9.7.0)(supports-color@7.2.0)(terser@5.50.0)(typescript@5.9.3)(yaml@2.9.0)
+      '@types/node':
+        specifier: catalog:node24
+        version: 24.13.3
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.11.2)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
+
+  extensions/directus-enhanced-server-health-endpoint:
+    dependencies:
+      '@directus/errors':
+        specifier: 'catalog:'
+        version: 2.5.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@directus/extensions-sdk':
+        specifier: 'catalog:'
+        version: 18.0.2(@types/node@24.13.3)(@unhead/vue@1.11.20(vue@3.5.24(typescript@5.9.3)))(debug@4.4.3(supports-color@7.2.0))(jiti@2.6.1)(knex@3.1.0(supports-color@7.2.0))(pinia@2.3.1(typescript@5.9.3)(vue@3.5.24(typescript@5.9.3)))(pino@9.7.0)(supports-color@7.2.0)(terser@5.50.0)(typescript@5.9.3)(yaml@2.9.0)
+      '@directus/types':
+        specifier: 'catalog:'
+        version: 16.1.0(knex@3.1.0(supports-color@7.2.0))(pino@9.7.0)(supports-color@7.2.0)(vue@3.5.24(typescript@5.9.3))
+      '@onderwijsin/directus-extension-utils':
+        specifier: workspace:*
+        version: link:../../packages/extension-utils
+      '@types/node':
+        specifier: catalog:node24
+        version: 24.13.3
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      pino:
+        specifier: 'catalog:'
+        version: 9.7.0
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.11.2)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
+
+  extensions/directus-policies-endpoint:
+    dependencies:
+      '@directus/errors':
+        specifier: 'catalog:'
+        version: 2.5.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@directus/extensions-sdk':
+        specifier: 'catalog:'
+        version: 18.0.2(@types/node@24.13.3)(@unhead/vue@1.11.20(vue@3.5.24(typescript@5.9.3)))(debug@4.4.3(supports-color@7.2.0))(jiti@2.6.1)(knex@3.1.0(supports-color@7.2.0))(pinia@2.3.1(typescript@5.9.3)(vue@3.5.24(typescript@5.9.3)))(pino@9.7.0)(supports-color@7.2.0)(terser@5.50.0)(typescript@5.9.3)(yaml@2.9.0)
+      '@directus/types':
+        specifier: 'catalog:'
+        version: 16.1.0(knex@3.1.0(supports-color@7.2.0))(pino@9.7.0)(supports-color@7.2.0)(vue@3.5.24(typescript@5.9.3))
+      '@onderwijsin/directus-extension-utils':
+        specifier: workspace:*
+        version: link:../../packages/extension-utils
+      '@types/node':
+        specifier: catalog:node24
+        version: 24.13.3
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.11.2)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
+
+  extensions/directus-sentry-bundle:
     dependencies:
       '@sentry/profiling-node':
         specifier: 'catalog:'
@@ -194,34 +287,6 @@ importers:
         specifier: 'catalog:'
         version: 3.5.24(typescript@5.9.3)
 
-  extensions/directus-e2e-playground:
-    dependencies:
-      '@directus/memory':
-        specifier: 'catalog:'
-        version: 4.0.2(supports-color@7.2.0)(vue@3.5.24(typescript@5.9.3))
-      '@onderwijsin/directus-extension-utils':
-        specifier: workspace:*
-        version: link:../../packages/extension-utils
-      ioredis:
-        specifier: 'catalog:'
-        version: 5.8.2(supports-color@7.2.0)
-    devDependencies:
-      '@directus/extensions-sdk':
-        specifier: 'catalog:'
-        version: 18.0.2(@types/node@24.13.3)(@unhead/vue@1.11.20(vue@3.5.24(typescript@5.9.3)))(debug@4.4.3(supports-color@7.2.0))(jiti@2.6.1)(knex@3.1.0(supports-color@7.2.0))(pinia@2.3.1(typescript@5.9.3)(vue@3.5.24(typescript@5.9.3)))(pino@9.7.0)(supports-color@7.2.0)(terser@5.50.0)(typescript@5.9.3)(yaml@2.9.0)
-      '@types/node':
-        specifier: catalog:node24
-        version: 24.13.3
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../../packages/typescript-config
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.11.2)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
-
   packages/extension-utils:
     dependencies:
       '@directus/memory':
@@ -243,6 +308,9 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
+      '@directus/types':
+        specifier: 'catalog:'
+        version: 16.1.0(knex@3.1.0(supports-color@7.2.0))(pino@9.7.0)(supports-color@7.2.0)(vue@3.5.24(typescript@5.9.3))
       '@types/node':
         specifier: catalog:node24
         version: 24.13.3

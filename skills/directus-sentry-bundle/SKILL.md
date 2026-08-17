@@ -1,11 +1,11 @@
 ---
-name: directus-bundle-sentry
+name: directus-sentry-bundle
 description: Configure and deploy the Sentry bundle in a trusted Directus runtime.
 ---
 
 # Directus Sentry bundle
 
-`@onderwijsin/directus-bundle-sentry` provides Directus-specific Sentry wiring:
+`@onderwijsin/directus-sentry-bundle` provides Directus-specific Sentry wiring:
 
 - a server hook that adds the Express error handler when a DSN is configured;
 - a server hook that embeds the Sentry browser loader and initializes it with release and
@@ -40,7 +40,7 @@ installed bundle
 ## Installation
 
 ```sh
-pnpm add @onderwijsin/directus-bundle-sentry
+pnpm add @onderwijsin/directus-sentry-bundle
 ```
 
 The bundle declares `@sentry/node` and `@sentry/profiling-node` as optional peer dependencies.
@@ -119,16 +119,15 @@ replaced by the bundle hook, and installing the bundle does not cause Directus t
 All values are Directus environment variables. Empty optional values should be omitted or supplied
 as an empty string according to the consumer's environment-management conventions.
 
-| Variable                    | Default       | Used by               | Description                                                                                               |
-| --------------------------- | ------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |
-| `SENTRY_ENABLED`            | `false`       | Hook, test endpoint   | Master switch for the bundle. Set to `true` only in a prepared trusted runtime.                           |
-| `SENTRY_DSN`                | unset         | Hook, instrumentation | Sentry DSN for Node error reporting. The hook skips the Express handler when it is absent.                |
-| `SENTRY_LOADER_SCRIPT`      | unset         | Hook                  | Exact Sentry hosted loader `<script>` tag used for browser reporting.                                     |
-| `SENTRY_RELEASE_PREFIX`     | `dev`         | Hook                  | Prefix for the browser release when `SENTRY_RELEASE` is not set.                                          |
-| `SOURCE_COMMIT`             | `unknown`     | Hook                  | Commit suffix for the generated browser release.                                                          |
-| `SENTRY_RELEASE`            | unset         | Hook                  | Explicit browser release override.                                                                        |
-| `DEPLOYMENT_ENV`            | `development` | Hook, instrumentation | Deployment environment passed to Sentry. Supported values are `development`, `staging`, and `production`. |
-| `SENTRY_TEST_SUITE_ENABLED` | `false`       | Test endpoint         | Enables the intentional-error endpoint when the master switch is also enabled.                            |
+| Variable                | Default       | Used by               | Description                                                                                               |
+| ----------------------- | ------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |
+| `SENTRY_ENABLED`        | `false`       | Hook                  | Master switch for the bundle. Set to `true` only in a prepared trusted runtime.                           |
+| `SENTRY_DSN`            | unset         | Hook, instrumentation | Sentry DSN for Node error reporting. The hook skips the Express handler when it is absent.                |
+| `SENTRY_LOADER_SCRIPT`  | unset         | Hook                  | Exact Sentry hosted loader `<script>` tag used for browser reporting.                                     |
+| `SENTRY_RELEASE_PREFIX` | `dev`         | Hook                  | Prefix for the browser release when `SENTRY_RELEASE` is not set.                                          |
+| `SOURCE_COMMIT`         | `unknown`     | Hook                  | Commit suffix for the generated browser release.                                                          |
+| `SENTRY_RELEASE`        | unset         | Hook                  | Explicit browser release override.                                                                        |
+| `DEPLOYMENT_ENV`        | `development` | Hook, instrumentation | Deployment environment passed to Sentry. Supported values are `development`, `staging`, and `production`. |
 
 The loader script must use Sentry's hosted format and a 32-character hexadecimal project id:
 
@@ -158,31 +157,7 @@ The hook follows this sequence:
 5. It completes setup after registration.
 
 When the bundle is disabled, the hook does not load `@sentry/node`. This lets consumers keep the
-bundle installed while local and CI environments use `SENTRY_ENABLED=false`.
-
-### Test endpoint
-
-The endpoint is available only when both switches are enabled:
-
-```env
-SENTRY_ENABLED=true
-SENTRY_TEST_SUITE_ENABLED=true
-```
-
-It intentionally throws an error from `GET /sentry-test-endpoint`. Enable it only in a controlled
-development or test environment; do not expose the intentional-error surface in production.
-
-### Test module
-
-The Data Studio module exposes a `Trigger Error` button. Clicking it calls the browser Sentry API:
-
-```ts
-const error = new Error('Intentional front end error for Sentry')
-Sentry.captureException(error)
-```
-
-The embedded loader supplies the runtime `Sentry` global. The module does not bundle a browser
-Sentry SDK. Verify that the loader script is configured and that the browser project accepts events.
+bundle installed while local environments use `SENTRY_ENABLED=false`.
 
 ## Using extension-utils Sentry helpers
 
@@ -269,16 +244,15 @@ to the intended project, and the runtime can reach Sentry.
 Configure the complete hosted loader tag, rebuild the bundle if the environment is embedded at
 startup, and inspect the Data Studio browser console for loader or CSP errors.
 
-### Local or CI unexpectedly reports events
+### Local environments unexpectedly report events
 
-Set `SENTRY_ENABLED=false`. This repository's local Compose and CI E2E defaults already set that
-value; consumer Compose files and deployment manifests must preserve the same safe default.
+Set `SENTRY_ENABLED=false` in consumer Compose files and deployment manifests that should not report
+events.
 
 ## Security and compatibility
 
 - Run the bundle only in a trusted, non-sandboxed Directus runtime.
 - Keep DSNs and deployment credentials in secret management where appropriate.
-- Keep the intentional test endpoint disabled outside controlled test environments.
-- Pin Directus and Sentry versions in consumer images and test upgrades together.
+- Pin Directus and Sentry versions in consumer images and validate upgrades together.
 - The bundle does not own Sentry organization, project, sampling, release, Docker, or
   instrumentation configuration.

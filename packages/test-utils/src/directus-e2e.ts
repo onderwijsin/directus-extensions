@@ -15,8 +15,24 @@ interface DirectusResponse<T> {
 	data: T
 }
 
+export type DirectusE2ERequest = <T>(path: string, init?: RequestInit) => Promise<T>
+
 export interface DirectusE2EClient {
 	request<T>(path: string, init?: RequestInit): Promise<T>
+	fetchAsAdmin<T>(path: string, init?: RequestInit): Promise<T>
+	fetchAsUser<T>(
+		userId: string,
+		callback: (request: DirectusE2ERequest) => Promise<T>,
+	): Promise<T>
+	fetchAsCredentials<T>(
+		email: string,
+		password: string,
+		callback: (request: DirectusE2ERequest) => Promise<T>,
+	): Promise<T>
+	fetchAsRole<T>(
+		roleId: string,
+		callback: (request: DirectusE2ERequest) => Promise<T>,
+	): Promise<T>
 	createItem<T>(collection: string, item: Record<string, unknown>): Promise<T>
 	updateItem<T>(
 		collection: string,
@@ -24,6 +40,11 @@ export interface DirectusE2EClient {
 		item: Record<string, unknown>,
 	): Promise<T>
 	deleteItem(collection: string, key: string | number): Promise<void>
+	createPolicy<T>(policy: Record<string, unknown>): Promise<T>
+	deletePolicy(policyId: string): Promise<void>
+	createRole<T>(role: Record<string, unknown>): Promise<T>
+	deleteRole(roleId: string): Promise<void>
+	deleteUser(userId: string): Promise<void>
 	waitForLog(pattern: RegExp, timeoutMs?: number): Promise<string>
 }
 
@@ -45,38 +66,36 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		}`
 
 	/**
-	 * Sends an authenticated request to Directus.
-	 * @param path - API path relative to the Directus base URL.
-	 * @param init - Optional fetch request options.
-	 * @returns The unwrapped Directus response data.
-	 */
-	async function request<T>(path: string, init?: RequestInit): Promise<T>
-	/**
-	 * Sends an authenticated request that may return an empty response.
+	 * Sends a request using the supplied Directus token.
+	 * @param token - Static token to use for the request.
 	 * @param path - API path relative to the Directus base URL.
 	 * @param init - Optional fetch request options.
 	 * @param allowEmptyResponse - Whether a `204` response is valid.
-	 * @returns Nothing when the response is empty.
+	 * @returns The unwrapped Directus response data.
 	 */
-	async function request(
+	async function requestWithToken<T>(token: string, path: string, init?: RequestInit): Promise<T>
+	async function requestWithToken(
+		token: string,
 		path: string,
 		init: RequestInit | undefined,
 		allowEmptyResponse: true,
 	): Promise<void>
 	/**
-	 * Sends an authenticated request and unwraps the Directus response.
+	 * Implements token-authenticated requests for the public client helpers.
+	 * @param token - Static token to use for the request.
 	 * @param path - API path relative to the Directus base URL.
 	 * @param init - Fetch request options.
 	 * @param allowEmptyResponse - Whether a `204` response is valid.
 	 * @returns The unwrapped response data, or nothing for an allowed empty response.
 	 */
-	async function request<T>(
+	async function requestWithToken<T>(
+		token: string,
 		path: string,
 		init: RequestInit = {},
 		allowEmptyResponse = false,
 	): Promise<T | void> {
 		const headers = new Headers(init.headers)
-		headers.set('Authorization', `Bearer ${options.token}`)
+		headers.set('Authorization', `Bearer ${token}`)
 		headers.set('Content-Type', 'application/json')
 
 		const response = await fetch(new URL(path, options.baseUrl), {
@@ -90,12 +109,108 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 			throw new Error('Directus returned an empty response where JSON was expected')
 		}
 
-		const body = (await response.json()) as DirectusResponse<T> | { errors?: unknown }
+		const body = (await response.json()) as DirectusResponse<T> | T | { errors?: unknown }
 		if (!response.ok) {
 			throw new Error(`Directus ${response.status}: ${JSON.stringify(body)}`)
 		}
 
-		return 'data' in body ? body.data : undefined
+		return typeof body === 'object' && body !== null && 'data' in body ? body.data : (body as T)
+	}
+
+	/**
+	 * Sends an authenticated request as the E2E admin user.
+	 * @param path - API path relative to the Directus base URL.
+	 * @param init - Optional fetch request options.
+	 * @returns The unwrapped Directus response data.
+	 */
+	async function request<T>(path: string, init?: RequestInit): Promise<T> {
+		return requestWithToken<T>(options.token, path, init)
+	}
+
+	/**
+	 * Alias for an admin-authenticated request, useful when a test uses multiple identities.
+	 * @param path - API path relative to the Directus base URL.
+	 * @param init - Optional fetch request options.
+	 * @returns The unwrapped Directus response data.
+	 */
+	async function fetchAsAdmin<T>(path: string, init?: RequestInit): Promise<T> {
+		return request(path, init)
+	}
+
+	/**
+	 * Runs a callback with a request function authenticated as a Directus user.
+	 * @param userId - User primary key whose static token should be used.
+	 * @param callback - Work to perform with the user-authenticated request function.
+	 * @returns The callback result.
+	 */
+	async function fetchAsUser<T>(
+		userId: string,
+		callback: (request: DirectusE2ERequest) => Promise<T>,
+	): Promise<T> {
+		const user = await request<{ token: string | null }>(
+			`/users/${encodeURIComponent(userId)}?fields=token`,
+		)
+		if (user.token === null || user.token.length === 0) {
+			throw new Error(`Directus user ${userId} does not have a static token`)
+		}
+		const token = user.token
+		/**
+		 * Sends a request with the resolved user's static token.
+		 * @param path - API path relative to the Directus base URL.
+		 * @param init - Optional fetch request options.
+		 * @returns The unwrapped Directus response data.
+		 */
+		const userRequest: DirectusE2ERequest = <T>(path: string, init?: RequestInit) =>
+			requestWithToken<T>(token, path, init)
+
+		return callback(userRequest)
+	}
+
+	/**
+	 * Runs a callback with a request authenticated through the Directus login API.
+	 * @param email - User email.
+	 * @param password - User password.
+	 * @param callback - Work to perform with the user-authenticated request function.
+	 * @returns The callback result.
+	 */
+	async function fetchAsCredentials<T>(
+		email: string,
+		password: string,
+		callback: (request: DirectusE2ERequest) => Promise<T>,
+	): Promise<T> {
+		const login = await request<{ access_token: string }>('/auth/login', {
+			method: 'POST',
+			body: JSON.stringify({ email, password }),
+		})
+		/**
+		 * Sends a request with the logged-in user's access token.
+		 * @param path - API path relative to the Directus base URL.
+		 * @param init - Optional fetch request options.
+		 * @returns The unwrapped response data.
+		 */
+		const userRequest: DirectusE2ERequest = <T>(path: string, init?: RequestInit) =>
+			requestWithToken<T>(login.access_token, path, init)
+
+		return callback(userRequest)
+	}
+
+	/**
+	 * Runs a callback with a request function authenticated as a user in a Directus role.
+	 * @param roleId - Role primary key whose first assigned user's static token should be used.
+	 * @param callback - Work to perform with the role-authenticated request function.
+	 * @returns The callback result.
+	 */
+	async function fetchAsRole<T>(
+		roleId: string,
+		callback: (request: DirectusE2ERequest) => Promise<T>,
+	): Promise<T> {
+		const users = await request<{ id: string }[]>(
+			`/users?filter[role][_eq]=${encodeURIComponent(roleId)}&fields=id&limit=1`,
+		)
+		const user = users[0]
+		if (user === undefined) throw new Error(`Directus role ${roleId} has no assigned user`)
+
+		return fetchAsUser(user.id, callback)
 	}
 
 	/**
@@ -136,7 +251,73 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	 * @returns Nothing.
 	 */
 	async function deleteItem(collection: string, key: string | number): Promise<void> {
-		await request(itemPath(collection, key), { method: 'DELETE' }, true)
+		await requestWithToken(options.token, itemPath(collection, key), { method: 'DELETE' }, true)
+	}
+
+	/**
+	 * Creates a policy through Directus's dedicated policies endpoint.
+	 * @param policy - Policy payload.
+	 * @returns The created policy.
+	 */
+	async function createPolicy<T>(policy: Record<string, unknown>): Promise<T> {
+		return request<T>('/policies', {
+			method: 'POST',
+			body: JSON.stringify(policy),
+		})
+	}
+
+	/**
+	 * Deletes a policy through Directus's dedicated policies endpoint.
+	 * @param policyId - Policy primary key.
+	 * @returns Nothing.
+	 */
+	async function deletePolicy(policyId: string): Promise<void> {
+		await requestWithToken(
+			options.token,
+			'/policies',
+			{ method: 'DELETE', body: JSON.stringify([policyId]) },
+			true,
+		)
+	}
+
+	/**
+	 * Creates a role through Directus's dedicated roles endpoint.
+	 * @param role - Role payload.
+	 * @returns The created role.
+	 */
+	async function createRole<T>(role: Record<string, unknown>): Promise<T> {
+		return request<T>('/roles', {
+			method: 'POST',
+			body: JSON.stringify(role),
+		})
+	}
+
+	/**
+	 * Deletes a role through Directus's dedicated roles endpoint.
+	 * @param roleId - Role primary key.
+	 * @returns Nothing.
+	 */
+	async function deleteRole(roleId: string): Promise<void> {
+		await requestWithToken(
+			options.token,
+			'/roles',
+			{ method: 'DELETE', body: JSON.stringify([roleId]) },
+			true,
+		)
+	}
+
+	/**
+	 * Deletes a user through Directus's dedicated users endpoint.
+	 * @param userId - User primary key.
+	 * @returns Nothing.
+	 */
+	async function deleteUser(userId: string): Promise<void> {
+		await requestWithToken(
+			options.token,
+			'/users',
+			{ method: 'DELETE', body: JSON.stringify([userId]) },
+			true,
+		)
 	}
 
 	/**
@@ -172,5 +353,20 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		throw new Error(`Timed out waiting for Directus log ${pattern}:\n${output}`)
 	}
 
-	return { request, createItem, updateItem, deleteItem, waitForLog }
+	return {
+		request,
+		fetchAsAdmin,
+		fetchAsUser,
+		fetchAsCredentials,
+		fetchAsRole,
+		createItem,
+		updateItem,
+		deleteItem,
+		createPolicy,
+		deletePolicy,
+		createRole,
+		deleteRole,
+		deleteUser,
+		waitForLog,
+	}
 }

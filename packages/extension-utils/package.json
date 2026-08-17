@@ -13,13 +13,13 @@
 	"license": "MIT",
 	"author": {
 		"name": "Onderwijs in",
-		"email": "hallo@onderwijs.in",
+		"email": "hallo@onderwijsin.nl",
 		"url": "https://github.com/onderwijsin"
 	},
 	"contributors": [
 		{
 			"name": "Remi Huigen",
-			"email": "remi@onderwijs.in",
+			"email": "remi@onderwijsin.nl",
 			"url": "https://github.com/remihuigen"
 		}
 	],
@@ -82,6 +82,7 @@
 		"zod": "catalog:"
 	},
 	"devDependencies": {
+		"@directus/types": "catalog:",
 		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",
 		"tsdown": "catalog:",

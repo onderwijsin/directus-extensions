@@ -1,5 +1,5 @@
 {
-	"name": "@onderwijsin/directus-bundle-sentry",
+	"name": "@onderwijsin/directus-sentry-bundle",
 	"version": "0.1.0",
 	"description": "Extensions for adding Sentry to Directus projects and tools for testing the integration",
 	"keywords": [
@@ -14,13 +14,13 @@
 	"license": "MIT",
 	"author": {
 		"name": "Onderwijs in",
-		"email": "hallo@onderwijs.in",
+		"email": "hallo@onderwijsin.nl",
 		"url": "https://github.com/onderwijsin"
 	},
 	"contributors": [
 		{
 			"name": "Remi Huigen",
-			"email": "remi@onderwijs.in",
+			"email": "remi@onderwijsin.nl",
 			"url": "https://github.com/remihuigen"
 		},
 		{
@@ -32,7 +32,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
-		"directory": "extensions/directus-bundle-sentry"
+		"directory": "extensions/directus-sentry-bundle"
 	},
 	"files": [
 		"dist",

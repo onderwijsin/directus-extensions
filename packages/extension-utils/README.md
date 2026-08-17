@@ -64,6 +64,19 @@ console.log(deploymentEnvs, environment)
 `deploymentEnvs` is the readonly tuple `['development', 'staging', 'production']`, and
 `DEPLOYMENT_ENV` is its corresponding TypeScript union.
 
+Use the accountability factories when a service needs admin permissions. The system variant
+identifies the operation as owned by Directus system code:
+
+```ts
+import {
+  createAdminAccountability,
+  createSystemAdminAccountability,
+} from '@onderwijsin/directus-extension-utils'
+
+const admin = createAdminAccountability()
+const systemAdmin = createSystemAdminAccountability()
+```
+
 Create a logger from a Pino-compatible runtime logger, or use the console-backed fallback:
 
 ```ts

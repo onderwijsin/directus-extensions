@@ -85,6 +85,114 @@ describe('Directus E2E client', () => {
 		)
 	})
 
+	it('uses dedicated policy and role endpoints', async () => {
+		const fetchMock = vi.fn()
+		vi.stubGlobal('fetch', fetchMock)
+		fetchMock
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'policy-id' } })))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'role-id' } })))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+		const client = createDirectusE2EClient({
+			baseUrl: 'http://directus.test',
+			token: 'admin-token',
+			composeFiles: [],
+			composeProject: 'test-project',
+		})
+
+		await expect(client.createPolicy<{ id: string }>({ name: 'policy' })).resolves.toEqual({
+			id: 'policy-id',
+		})
+		await expect(client.createRole<{ id: string }>({ name: 'role' })).resolves.toEqual({
+			id: 'role-id',
+		})
+		await expect(client.deleteRole('role-id')).resolves.toBeUndefined()
+		await expect(client.deletePolicy('policy-id')).resolves.toBeUndefined()
+
+		expect(fetchMock.mock.calls[0]?.[0]).toEqual(new URL('http://directus.test/policies'))
+		expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+			method: 'POST',
+			body: '{"name":"policy"}',
+		})
+		expect(fetchMock.mock.calls[1]?.[0]).toEqual(new URL('http://directus.test/roles'))
+		expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+			method: 'POST',
+			body: '{"name":"role"}',
+		})
+		expect(fetchMock.mock.calls[2]?.[0]).toEqual(new URL('http://directus.test/roles'))
+		expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+			method: 'DELETE',
+			body: '["role-id"]',
+		})
+		expect(fetchMock.mock.calls[3]?.[0]).toEqual(new URL('http://directus.test/policies'))
+		expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
+			method: 'DELETE',
+			body: '["policy-id"]',
+		})
+	})
+
+	it('runs callback requests as a user and as a role', async () => {
+		const fetchMock = vi.fn()
+		vi.stubGlobal('fetch', fetchMock)
+		fetchMock
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { token: 'user-token' } })))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { identity: 'user' } })))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ id: 'user-id' }] })))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { token: 'role-token' } })))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { identity: 'role' } })))
+
+		const client = createDirectusE2EClient({
+			baseUrl: 'http://directus.test',
+			token: 'admin-token',
+			composeFiles: [],
+			composeProject: 'test-project',
+		})
+
+		await expect(
+			client.fetchAsUser('user-id', (request) => request('/users/me/policies')),
+		).resolves.toEqual({ identity: 'user' })
+		await expect(
+			client.fetchAsRole('role-id', (request) => request('/users/me/policies')),
+		).resolves.toEqual({ identity: 'role' })
+
+		expect(fetchMock.mock.calls[0]?.[0]).toEqual(
+			new URL('http://directus.test/users/user-id?fields=token'),
+		)
+		expect(fetchMock.mock.calls[2]?.[0]).toEqual(
+			new URL('http://directus.test/users?filter[role][_eq]=role-id&fields=id&limit=1'),
+		)
+		for (const [index, token] of ['user-token', 'role-token'].entries()) {
+			const callIndex = index === 0 ? 1 : 4
+			const headers = fetchMock.mock.calls[callIndex]?.[1]?.headers
+			expect(headers).toBeInstanceOf(Headers)
+			if (!(headers instanceof Headers)) throw new Error('Expected request headers')
+			expect(headers.get('Authorization')).toBe(`Bearer ${token}`)
+		}
+	})
+
+	it('rejects identity helpers when no usable test identity exists', async () => {
+		const fetchMock = vi.fn()
+		vi.stubGlobal('fetch', fetchMock)
+		fetchMock
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { token: null } })))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: [] })))
+
+		const client = createDirectusE2EClient({
+			baseUrl: 'http://directus.test',
+			token: 'admin-token',
+			composeFiles: [],
+			composeProject: 'test-project',
+		})
+
+		await expect(
+			client.fetchAsUser('user-id', () => Promise.resolve({ ok: true })),
+		).rejects.toThrow('Directus user user-id does not have a static token')
+		await expect(
+			client.fetchAsRole('role-id', () => Promise.resolve({ ok: true })),
+		).rejects.toThrow('Directus role role-id has no assigned user')
+	})
+
 	it('polls Compose logs until the requested event appears', async () => {
 		const client = createDirectusE2EClient({
 			baseUrl: 'http://directus.test',

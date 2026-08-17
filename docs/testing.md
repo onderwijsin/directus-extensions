@@ -51,8 +51,10 @@ await client.updateItem('posts', post.id, { title: 'updated' })
 await client.deleteItem('posts', post.id)
 ```
 
-The package currently provides an authenticated Directus E2E client with item operations and Compose
-log polling. Typecheck it directly with:
+The package currently provides an authenticated Directus E2E client with item operations, Compose
+log polling, and callback-scoped identity helpers. Use `fetchAsUser(userId, callback)` or
+`fetchAsRole(roleId, callback)` to run requests with a provisioned static-token identity while
+keeping token handling inside the utility. Typecheck it directly with:
 
 ```sh
 pnpm --filter @workspace/test-utils typecheck
@@ -94,8 +96,8 @@ directory and are excluded from the regular unit-test project. They must exercis
 extension through Directus rather than importing extension source directly. The E2E Vitest project
 is activated only when the runner has initialized all four `DIRECTUS_E2E_*` environment variables;
 this keeps `pnpm test:unit` focused on unit and component tests. E2E tests and Directus log polls
-use a 60-second operation timeout; service startup and Compose readiness retain their longer
-budgets.
+use a 60-second operation timeout; service readiness waits up to three minutes and one-shot Compose
+initialization completion waits up to five minutes.
 
 Use `pnpm test:unit:coverage` for the V8 coverage run. Coverage includes source files under
 `extensions/` and `packages/`, while generated output, declarations, and test files are excluded.

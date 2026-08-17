@@ -6,7 +6,7 @@ import {
 
 import { envSchema } from './env.schema'
 
-const EXTENSION_NAME = 'sentry-test-endpoint'
+const EXTENSION_NAME = 'sentry_test_endpoint'
 
 export default defineEndpoint((router, { env, logger }) => {
 	const setup = extensionSetup(EXTENSION_NAME, env, logger)

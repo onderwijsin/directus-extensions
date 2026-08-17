@@ -3,7 +3,9 @@ packages:
   - packages/*
 
 catalog:
+  '@directus/errors': 2.5.0
   '@directus/memory': 4.0.2
+  '@directus/types': 16.1.0
   # Upgrading would require node ">=24.15.0" while we are on ">=24.10.0"
   eslint-plugin-jsdoc: 62.4.0
   '@changesets/changelog-git': 1.0.0

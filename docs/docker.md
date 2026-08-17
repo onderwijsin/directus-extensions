@@ -72,6 +72,13 @@ stack:
 - extension auto-reload and WebSockets; and
 - telemetry disabled.
 
+The shared service also mounts the repository's `migrations/` directory at `/directus/migrations`
+and sets `MIGRATIONS_PATH` explicitly. Directus runs the custom migrations after its system database
+migrations during startup, so the singleton `directus_settings` row is seeded consistently in both
+local development and E2E. The current migration fixes the project ID to
+`01a00571-d545-776d-99b3-359350cdeb18` and the project owner to `remi@onderwijsin.nl`; both
+environments can safely share that ID because their `PUBLIC_URL` values differ.
+
 These values are local defaults and can be overridden through `.env`. The CSP defaults allow local
 origins for frames and frame ancestors; add narrower values when a consuming application needs a
 specific policy.
@@ -128,10 +135,10 @@ runner explicitly waits for Garage initialization, then probes Directus, Mailpit
 Meilisearch before seeding the test collection. It emits timestamped phase messages and streams
 child-process output to make slow startup visible in CI. Individual E2E operations and cleanup
 commands time out after 60 seconds; Compose startup retains a longer 15-minute budget. The Garage
-initialization logs are sampled every 15 seconds, service probes wait up to eight minutes, and child
-processes are bounded by a fifteen-minute timeout. The initialization step also reports its
-download, RPC readiness, layout, bucket, and key stages; its CLI download has bounded retries so
-network stalls fail with a useful diagnostic.
+initialization logs are sampled every 5 seconds, service probes wait up to three minutes, Garage
+completion waits up to five minutes, and child processes are bounded by a fifteen-minute timeout.
+The initialization step also reports its download, RPC readiness, layout, bucket, and key stages;
+its CLI download has bounded retries so network stalls fail with a useful diagnostic.
 
 CI prepares a clean consumer from packed extension artifacts and sets `DIRECTUS_E2E_EXTENSIONS_DIR`
 to that consumer’s extension directory before invoking the same E2E runner.

@@ -10,7 +10,7 @@ import {
 	validateDocumentation,
 	validateDocumentStructure,
 	validateExtensionDocumentation,
-} from '../scripts/validate-docs.mjs'
+} from './validate-docs.mjs'
 
 const temporaryDirectories: string[] = []
 
