@@ -8,14 +8,12 @@ private fixtures support repository validation.
 
 ## 📦 What's in the box?
 
-| Package                                                                                          | Description                                                 |
-| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| [`@onderwijsin/directus-bundle-sentry`](extensions/directus-bundle-sentry/README.md)             | Sentry integration bundle for trusted Directus deployments. |
-| [`@onderwijsin/directus-extension-utils`](packages/extension-utils/README.md)                    | Public framework-neutral utility package.                   |
-| [`@onderwijsin/directus-extension-e2e-playground`](extensions/directus-e2e-playground/README.md) | Private hook used by packed-artifact Directus E2E tests.    |
+| Package                                                                              | Description                                                 |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| [`@onderwijsin/directus-bundle-sentry`](extensions/directus-bundle-sentry/README.md) | Sentry integration bundle for trusted Directus deployments. |
 
-The repository also contains private workspace packages for shared TypeScript configuration, test
-infrastructure, and the Directus E2E playground.
+The repository also contains supporting workspace packages and private infrastructure for shared
+TypeScript configuration and test execution.
 
 ## 🧱 Requirements
 
@@ -123,11 +121,12 @@ Extension request:
 
 This project contains supporting workspace packages with different publication policies.
 
-| Package                                                                       | Description                              |
-| ----------------------------------------------------------------------------- | ---------------------------------------- |
-| [`@onderwijsin/directus-extension-utils`](packages/extension-utils/README.md) | Published shared runtime utilities.      |
-| `@workspace/test-utils`                                                       | Private, test-only workspace utilities.  |
-| `@workspace/typescript-config`                                                | Private shared TypeScript configuration. |
+| Package                                                                                          | Description                                              |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| [`@onderwijsin/directus-extension-utils`](packages/extension-utils/README.md)                    | Published shared runtime utilities.                      |
+| [`@onderwijsin/directus-extension-e2e-playground`](extensions/directus-e2e-playground/README.md) | Private hook used by packed-artifact Directus E2E tests. |
+| `@workspace/test-utils`                                                                          | Private, test-only workspace utilities.                  |
+| `@workspace/typescript-config`                                                                   | Private shared TypeScript configuration.                 |
 
 ## 📚 Documentation
 
