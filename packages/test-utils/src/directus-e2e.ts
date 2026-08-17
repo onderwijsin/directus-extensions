@@ -1,8 +1,25 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { randomBytes, randomUUID } from 'node:crypto'
 
-const execFileAsync = promisify(execFile)
-const e2eOperationTimeoutMs = 60_000
+import {
+	createDirectus,
+	createPermission,
+	createPolicy,
+	createRole,
+	createUser,
+	deletePermission,
+	deletePolicy,
+	deleteRole,
+	deleteUser,
+	readUser,
+	rest,
+	staticToken,
+	customEndpoint,
+	type DirectusClient,
+	type RestClient,
+	type StaticTokenClient,
+} from '@directus/sdk'
+
+import { waitForDirectusLog, type DirectusLogOptions } from './directus-log'
 
 export interface DirectusE2EClientOptions {
 	baseUrl: string
@@ -11,362 +28,251 @@ export interface DirectusE2EClientOptions {
 	composeProject: string
 }
 
-interface DirectusResponse<T> {
-	data: T
+interface E2EPost {
+	id: string | number
+	title: string
 }
 
-export type DirectusE2ERequest = <T>(path: string, init?: RequestInit) => Promise<T>
+interface DirectusE2ESchema {
+	posts: E2EPost[]
+}
 
-export interface DirectusE2EClient {
-	request<T>(path: string, init?: RequestInit): Promise<T>
-	fetchAsAdmin<T>(path: string, init?: RequestInit): Promise<T>
-	fetchAsUser<T>(
+export type DirectusE2ESdkClient = DirectusClient<DirectusE2ESchema> &
+	RestClient<DirectusE2ESchema> &
+	StaticTokenClient<DirectusE2ESchema>
+
+export interface EphemeralPermission {
+	collection: string
+	action: string
+	fields?: string[]
+	permissions?: Record<string, unknown> | null
+	validation?: Record<string, unknown> | null
+	presets?: Record<string, unknown> | null
+}
+
+export interface EphemeralPolicy {
+	name: string
+	icon?: string
+	description?: string | null
+	enforce_tfa?: boolean
+	admin_access?: boolean
+	app_access?: boolean
+	permissions?: EphemeralPermission[]
+}
+
+export interface EphemeralRole {
+	name: string
+	icon?: string
+	description?: string | null
+	parent?: string | null
+	policies?: EphemeralPolicy[]
+}
+
+export interface CreateEphemeralUserOptions {
+	role?: EphemeralRole
+	policies?: EphemeralPolicy[]
+}
+
+export interface EphemeralUser {
+	id: string
+	dispose(): Promise<void>
+}
+
+export interface DirectusE2EClient extends DirectusE2ESdkClient {
+	withUserContext<T>(
 		userId: string,
-		callback: (request: DirectusE2ERequest) => Promise<T>,
+		callback: (client: DirectusE2ESdkClient) => Promise<T>,
 	): Promise<T>
-	fetchAsCredentials<T>(
-		email: string,
-		password: string,
-		callback: (request: DirectusE2ERequest) => Promise<T>,
-	): Promise<T>
-	fetchAsRole<T>(
-		roleId: string,
-		callback: (request: DirectusE2ERequest) => Promise<T>,
-	): Promise<T>
-	createItem<T>(collection: string, item: Record<string, unknown>): Promise<T>
-	updateItem<T>(
-		collection: string,
-		key: string | number,
-		item: Record<string, unknown>,
-	): Promise<T>
-	deleteItem(collection: string, key: string | number): Promise<void>
-	createPolicy<T>(policy: Record<string, unknown>): Promise<T>
-	deletePolicy(policyId: string): Promise<void>
-	createRole<T>(role: Record<string, unknown>): Promise<T>
-	deleteRole(roleId: string): Promise<void>
-	deleteUser(userId: string): Promise<void>
+	createEphemeralUser(options?: CreateEphemeralUserOptions): Promise<EphemeralUser>
 	waitForLog(pattern: RegExp, timeoutMs?: number): Promise<string>
 }
 
 /**
- * Creates a small authenticated client for the isolated Directus E2E stack.
+ * Adds the policy relationship required by a Directus permission payload.
+ * @param permission - Permission definition without its policy identifier.
+ * @param policyId - Policy primary key.
+ * @returns A permission payload linked to the policy.
+ */
+const defaultPermission = (permission: EphemeralPermission, policyId: string) => ({
+	...permission,
+	policy: policyId,
+})
+
+/**
+ * Creates an SDK-backed client for the isolated Directus E2E stack.
  * @param options - Connection and Compose details for the E2E stack.
- * @returns A client for authenticated item requests and log assertions.
+ * @returns A root-authenticated SDK client with E2E fixture helpers.
  */
 export function createDirectusE2EClient(options: DirectusE2EClientOptions): DirectusE2EClient {
 	/**
-	 * Builds the Directus items API path for a collection and optional key.
-	 * @param collection - User collection name.
-	 * @param key - Optional item primary key.
-	 * @returns The encoded items API path.
+	 * Creates an SDK client authenticated with one static token.
+	 * @param token - Directus static token.
+	 * @returns An SDK client configured with REST and static-token support.
 	 */
-	const itemPath = (collection: string, key?: string | number) =>
-		`/items/${encodeURIComponent(collection)}${
-			key === undefined ? '' : `/${encodeURIComponent(String(key))}`
-		}`
+	const createClient = (token: string): DirectusE2ESdkClient =>
+		createDirectus<DirectusE2ESchema>(options.baseUrl).with(rest()).with(staticToken(token))
+
+	const rootClient = createClient(options.token)
 
 	/**
-	 * Sends a request using the supplied Directus token.
-	 * @param token - Static token to use for the request.
-	 * @param path - API path relative to the Directus base URL.
-	 * @param init - Optional fetch request options.
-	 * @param allowEmptyResponse - Whether a `204` response is valid.
-	 * @returns The unwrapped Directus response data.
-	 */
-	async function requestWithToken<T>(token: string, path: string, init?: RequestInit): Promise<T>
-	async function requestWithToken(
-		token: string,
-		path: string,
-		init: RequestInit | undefined,
-		allowEmptyResponse: true,
-	): Promise<void>
-	/**
-	 * Implements token-authenticated requests for the public client helpers.
-	 * @param token - Static token to use for the request.
-	 * @param path - API path relative to the Directus base URL.
-	 * @param init - Fetch request options.
-	 * @param allowEmptyResponse - Whether a `204` response is valid.
-	 * @returns The unwrapped response data, or nothing for an allowed empty response.
-	 */
-	async function requestWithToken<T>(
-		token: string,
-		path: string,
-		init: RequestInit = {},
-		allowEmptyResponse = false,
-	): Promise<T | void> {
-		const headers = new Headers(init.headers)
-		headers.set('Authorization', `Bearer ${token}`)
-		headers.set('Content-Type', 'application/json')
-
-		const response = await fetch(new URL(path, options.baseUrl), {
-			...init,
-			headers,
-			signal: init.signal ?? AbortSignal.timeout(e2eOperationTimeoutMs),
-		})
-
-		if (response.status === 204) {
-			if (allowEmptyResponse) return
-			throw new Error('Directus returned an empty response where JSON was expected')
-		}
-
-		const body = (await response.json()) as DirectusResponse<T> | T | { errors?: unknown }
-		if (!response.ok) {
-			throw new Error(`Directus ${response.status}: ${JSON.stringify(body)}`)
-		}
-
-		return typeof body === 'object' && body !== null && 'data' in body ? body.data : (body as T)
-	}
-
-	/**
-	 * Sends an authenticated request as the E2E admin user.
-	 * @param path - API path relative to the Directus base URL.
-	 * @param init - Optional fetch request options.
-	 * @returns The unwrapped Directus response data.
-	 */
-	async function request<T>(path: string, init?: RequestInit): Promise<T> {
-		return requestWithToken<T>(options.token, path, init)
-	}
-
-	/**
-	 * Alias for an admin-authenticated request, useful when a test uses multiple identities.
-	 * @param path - API path relative to the Directus base URL.
-	 * @param init - Optional fetch request options.
-	 * @returns The unwrapped Directus response data.
-	 */
-	async function fetchAsAdmin<T>(path: string, init?: RequestInit): Promise<T> {
-		return request(path, init)
-	}
-
-	/**
-	 * Runs a callback with a request function authenticated as a Directus user.
-	 * @param userId - User primary key whose static token should be used.
-	 * @param callback - Work to perform with the user-authenticated request function.
-	 * @returns The callback result.
-	 */
-	async function fetchAsUser<T>(
-		userId: string,
-		callback: (request: DirectusE2ERequest) => Promise<T>,
-	): Promise<T> {
-		const user = await request<{ token: string | null }>(
-			`/users/${encodeURIComponent(userId)}?fields=token`,
-		)
-		if (user.token === null || user.token.length === 0) {
-			throw new Error(`Directus user ${userId} does not have a static token`)
-		}
-		const token = user.token
-		/**
-		 * Sends a request with the resolved user's static token.
-		 * @param path - API path relative to the Directus base URL.
-		 * @param init - Optional fetch request options.
-		 * @returns The unwrapped Directus response data.
-		 */
-		const userRequest: DirectusE2ERequest = <T>(path: string, init?: RequestInit) =>
-			requestWithToken<T>(token, path, init)
-
-		return callback(userRequest)
-	}
-
-	/**
-	 * Runs a callback with a request authenticated through the Directus login API.
-	 * @param email - User email.
-	 * @param password - User password.
-	 * @param callback - Work to perform with the user-authenticated request function.
-	 * @returns The callback result.
-	 */
-	async function fetchAsCredentials<T>(
-		email: string,
-		password: string,
-		callback: (request: DirectusE2ERequest) => Promise<T>,
-	): Promise<T> {
-		const login = await request<{ access_token: string }>('/auth/login', {
-			method: 'POST',
-			body: JSON.stringify({ email, password }),
-		})
-		/**
-		 * Sends a request with the logged-in user's access token.
-		 * @param path - API path relative to the Directus base URL.
-		 * @param init - Optional fetch request options.
-		 * @returns The unwrapped response data.
-		 */
-		const userRequest: DirectusE2ERequest = <T>(path: string, init?: RequestInit) =>
-			requestWithToken<T>(login.access_token, path, init)
-
-		return callback(userRequest)
-	}
-
-	/**
-	 * Runs a callback with a request function authenticated as a user in a Directus role.
-	 * @param roleId - Role primary key whose first assigned user's static token should be used.
-	 * @param callback - Work to perform with the role-authenticated request function.
-	 * @returns The callback result.
-	 */
-	async function fetchAsRole<T>(
-		roleId: string,
-		callback: (request: DirectusE2ERequest) => Promise<T>,
-	): Promise<T> {
-		const users = await request<{ id: string }[]>(
-			`/users?filter[role][_eq]=${encodeURIComponent(roleId)}&fields=id&limit=1`,
-		)
-		const user = users[0]
-		if (user === undefined) throw new Error(`Directus role ${roleId} has no assigned user`)
-
-		return fetchAsUser(user.id, callback)
-	}
-
-	/**
-	 * Creates an item in a user collection.
-	 * @param collection - User collection name.
-	 * @param item - Item payload.
-	 * @returns The created item.
-	 */
-	async function createItem<T>(collection: string, item: Record<string, unknown>): Promise<T> {
-		return request<T>(itemPath(collection), {
-			method: 'POST',
-			body: JSON.stringify(item),
-		})
-	}
-
-	/**
-	 * Updates an item in a user collection.
-	 * @param collection - User collection name.
-	 * @param key - Primary key of the item.
-	 * @param item - Partial item payload.
-	 * @returns The updated item.
-	 */
-	async function updateItem<T>(
-		collection: string,
-		key: string | number,
-		item: Record<string, unknown>,
-	): Promise<T> {
-		return request<T>(itemPath(collection, key), {
-			method: 'PATCH',
-			body: JSON.stringify(item),
-		})
-	}
-
-	/**
-	 * Deletes an item from a user collection.
-	 * @param collection - User collection name.
-	 * @param key - Primary key of the item.
-	 * @returns Nothing.
-	 */
-	async function deleteItem(collection: string, key: string | number): Promise<void> {
-		await requestWithToken(options.token, itemPath(collection, key), { method: 'DELETE' }, true)
-	}
-
-	/**
-	 * Creates a policy through Directus's dedicated policies endpoint.
-	 * @param policy - Policy payload.
-	 * @returns The created policy.
-	 */
-	async function createPolicy<T>(policy: Record<string, unknown>): Promise<T> {
-		return request<T>('/policies', {
-			method: 'POST',
-			body: JSON.stringify(policy),
-		})
-	}
-
-	/**
-	 * Deletes a policy through Directus's dedicated policies endpoint.
-	 * @param policyId - Policy primary key.
-	 * @returns Nothing.
-	 */
-	async function deletePolicy(policyId: string): Promise<void> {
-		await requestWithToken(
-			options.token,
-			'/policies',
-			{ method: 'DELETE', body: JSON.stringify([policyId]) },
-			true,
-		)
-	}
-
-	/**
-	 * Creates a role through Directus's dedicated roles endpoint.
-	 * @param role - Role payload.
-	 * @returns The created role.
-	 */
-	async function createRole<T>(role: Record<string, unknown>): Promise<T> {
-		return request<T>('/roles', {
-			method: 'POST',
-			body: JSON.stringify(role),
-		})
-	}
-
-	/**
-	 * Deletes a role through Directus's dedicated roles endpoint.
-	 * @param roleId - Role primary key.
-	 * @returns Nothing.
-	 */
-	async function deleteRole(roleId: string): Promise<void> {
-		await requestWithToken(
-			options.token,
-			'/roles',
-			{ method: 'DELETE', body: JSON.stringify([roleId]) },
-			true,
-		)
-	}
-
-	/**
-	 * Deletes a user through Directus's dedicated users endpoint.
+	 * Runs a callback with a fresh SDK client authenticated as a specific user.
 	 * @param userId - User primary key.
+	 * @param callback - Work to perform in the user context.
+	 * @returns The callback result.
+	 */
+	const withUserContext = async <T>(
+		userId: string,
+		callback: (client: DirectusE2ESdkClient) => Promise<T>,
+	): Promise<T> => {
+		const user = await rootClient.request(readUser(userId, { fields: ['token'] }))
+		if (!user.token) throw new Error(`Directus user ${userId} does not have a static token`)
+
+		return callback(createClient(user.token))
+	}
+
+	/**
+	 * Creates a policy and all nested permission rules.
+	 * @param policy - Policy definition.
+	 * @returns The created policy identifier.
+	 */
+	const createPolicyWithPermissions = async (
+		policy: EphemeralPolicy,
+	): Promise<{ id: string; permissionIds: number[] }> => {
+		const { permissions = [], ...policyData } = policy
+		const created = await rootClient.request(createPolicy(policyData))
+		const permissionIds: number[] = []
+		for (const permission of permissions) {
+			const createdPermission = await rootClient.request(
+				createPermission(defaultPermission(permission, created.id)),
+			)
+			permissionIds.push(createdPermission.id)
+		}
+		return { id: created.id, permissionIds }
+	}
+
+	/**
+	 * Assigns a policy to a role or user through the SDK custom endpoint command.
+	 * @param assignment - Access assignment.
 	 * @returns Nothing.
 	 */
-	async function deleteUser(userId: string): Promise<void> {
-		await requestWithToken(
-			options.token,
-			'/users',
-			{ method: 'DELETE', body: JSON.stringify([userId]) },
-			true,
+	const assignPolicy = async (assignment: { role?: string; user?: string; policy: string }) => {
+		await rootClient.request(
+			customEndpoint({
+				path: '/access',
+				method: 'POST',
+				body: JSON.stringify([assignment]),
+			}),
 		)
 	}
 
 	/**
-	 * Waits until the Directus container emits a matching log line.
-	 * @param pattern - Regular expression to find in the container logs.
-	 * @param timeoutMs - Maximum time to wait in milliseconds.
+	 * Creates an isolated user, role, policies, permissions, and access assignments.
+	 * @param userOptions - Nested role and policy definitions.
+	 * @returns The user identifier and an idempotent disposer.
+	 */
+	const createEphemeralUser = async (
+		userOptions: CreateEphemeralUserOptions = {},
+	): Promise<EphemeralUser> => {
+		const policyIds: string[] = []
+		const permissionIds: number[] = []
+		const roleIds: string[] = []
+		const token = randomBytes(32).toString('hex')
+		const email = `e2e-${randomUUID()}@example.com`
+		let userId: string | undefined
+
+		try {
+			const directPolicyIds = []
+			for (const policy of userOptions.policies ?? []) {
+				const createdPolicy = await createPolicyWithPermissions(policy)
+				policyIds.push(createdPolicy.id)
+				permissionIds.push(...createdPolicy.permissionIds)
+				directPolicyIds.push(createdPolicy.id)
+			}
+
+			let roleId: string | undefined
+			if (userOptions.role) {
+				const rolePolicyIds = []
+				for (const policy of userOptions.role.policies ?? []) {
+					const createdPolicy = await createPolicyWithPermissions(policy)
+					policyIds.push(createdPolicy.id)
+					permissionIds.push(...createdPolicy.permissionIds)
+					rolePolicyIds.push(createdPolicy.id)
+				}
+
+				const { policies: _policies, parent, ...roleData } = userOptions.role
+				const role = await rootClient.request(
+					createRole(parent === null ? roleData : { ...roleData, parent }),
+				)
+				roleId = role.id
+				roleIds.push(roleId)
+				for (const policyId of rolePolicyIds)
+					await assignPolicy({ role: roleId, policy: policyId })
+			}
+
+			const user = await rootClient.request(
+				createUser({
+					email,
+					password: randomBytes(24).toString('hex'),
+					status: 'active',
+					token,
+					role: roleId ?? null,
+				}),
+			)
+			userId = user.id
+
+			for (const policyId of directPolicyIds)
+				await assignPolicy({ user: user.id, policy: policyId })
+
+			let disposed = false
+			return {
+				id: user.id,
+				/**
+				 * Disposes of the ephemeral user and all resources created for it.
+				 * @returns A promise that resolves when cleanup is complete.
+				 */
+				dispose: async () => {
+					if (disposed) return
+					disposed = true
+					await rootClient.request(deleteUser(user.id))
+					for (const roleIdToDelete of roleIds)
+						await rootClient.request(deleteRole(roleIdToDelete))
+					for (const permissionId of permissionIds)
+						await rootClient.request(deletePermission(permissionId))
+					for (const policyId of policyIds)
+						await rootClient.request(deletePolicy(policyId))
+				},
+			}
+		} catch (error) {
+			if (userId) await rootClient.request(deleteUser(userId)).catch(() => undefined)
+			for (const roleIdToDelete of roleIds)
+				await rootClient.request(deleteRole(roleIdToDelete)).catch(() => undefined)
+			for (const permissionId of permissionIds)
+				await rootClient.request(deletePermission(permissionId)).catch(() => undefined)
+			for (const policyId of policyIds)
+				await rootClient.request(deletePolicy(policyId)).catch(() => undefined)
+			throw error
+		}
+	}
+
+	/**
+	 * Waits for extension output in the Directus Compose logs.
+	 * @param pattern - Regular expression to match in the logs.
+	 * @param timeoutMs - Optional polling timeout in milliseconds.
 	 * @returns The complete matching log output.
 	 */
-	async function waitForLog(pattern: RegExp, timeoutMs = e2eOperationTimeoutMs): Promise<string> {
-		const deadline = Date.now() + timeoutMs
-		let output = ''
-
-		while (Date.now() < deadline) {
-			const result = await execFileAsync(
-				'docker',
-				[
-					'compose',
-					...options.composeFiles.flatMap((file) => ['-f', file]),
-					'-p',
-					options.composeProject,
-					'logs',
-					'--no-color',
-					'directus',
-				],
-				{ timeout: e2eOperationTimeoutMs },
-			)
-			output = result.stdout
-			pattern.lastIndex = 0
-			if (pattern.test(output)) return output
-			await new Promise((resolve) => setTimeout(resolve, 250))
+	const waitForLog = (pattern: RegExp, timeoutMs?: number) => {
+		const logOptions: DirectusLogOptions = {
+			composeFiles: options.composeFiles,
+			composeProject: options.composeProject,
+			pattern,
+			timeoutMs,
 		}
-
-		throw new Error(`Timed out waiting for Directus log ${pattern}:\n${output}`)
+		return waitForDirectusLog(logOptions)
 	}
 
-	return {
-		request,
-		fetchAsAdmin,
-		fetchAsUser,
-		fetchAsCredentials,
-		fetchAsRole,
-		createItem,
-		updateItem,
-		deleteItem,
-		createPolicy,
-		deletePolicy,
-		createRole,
-		deleteRole,
-		deleteUser,
+	return Object.assign(rootClient, {
+		withUserContext,
+		createEphemeralUser,
 		waitForLog,
-	}
+	})
 }

@@ -22,6 +22,7 @@ describe('runtime-aware exports', () => {
 				'createMemoryLockProvider',
 				'createMemoryTaskHandlerStorage',
 				'createLogger',
+				'schemaChangeSchema',
 				'extensionSetup',
 				'validateExtensionOptions',
 			].sort(),

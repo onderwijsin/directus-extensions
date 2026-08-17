@@ -13,7 +13,46 @@ Install the bundle into a Directus project:
 pnpm add @onderwijsin/directus-magic-links-bundle
 ```
 
-The bundle requires a trusted Directus runtime and configured SMTP settings for email delivery.
+The bundle requires a trusted Directus runtime, configured SMTP settings for email delivery, and at
+least one HTTPS redirect URL in `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`.
+
+## Configuration
+
+The endpoint and startup hook validate the shared environment configuration. Each entry also
+validates only the settings it owns: schema-change and cleanup settings belong to the hook, while
+token, redirect, and email settings belong to the endpoint. Directus casts values from `.env` before
+the extension receives them; arrays therefore use Directus's array syntax.
+
+| Variable                                       | Default                    | Description                                        |
+| ---------------------------------------------- | -------------------------- | -------------------------------------------------- |
+| `MAGIC_LINKS_ENABLED`                          | `true`                     | Enable the bundle entries.                         |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`   | `true`                     | Global schema-change switch.                       |
+| `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`           | `true`                     | Enable this bundle's schema changes.               |
+| `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`            | `true`                     | Abort bundle setup after a schema error.           |
+| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | `true`                     | Default shared schema lock switch.                 |
+| `MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE`         | unset                      | Override the shared lock switch for this bundle.   |
+| `MAGIC_LINKS_TOKEN_SECRET`                     | Directus `SECRET` fallback | HMAC secret for token digests.                     |
+| `MAGIC_LINKS_TOKEN_TTL`                        | `15m`                      | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`). |
+| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`           | required                   | Non-empty array of allowed redirect URLs.          |
+| `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`            | `token`                    | Query parameter used for the raw token.            |
+| `MAGIC_LINKS_COLLECTION`                       | `directus_magic_links`     | Magic-link collection name.                        |
+| `MAGIC_LINKS_EMAIL_TEMPLATE`                   | `magic-link`               | Directus Liquid template name.                     |
+| `MAGIC_LINKS_EMAIL_SUBJECT`                    | unset                      | Optional subject passed to the mail service.       |
+| `USE_MAGIC_LINK_CLEANUP`                       | `false`                    | Enable scheduled cleanup.                          |
+| `MAGIC_LINK_CLEANUP_WINDOW`                    | `24h`                      | Retention grace period after expiry or redemption. |
+| `MAGIC_LINK_CLEANUP_CRON`                      | `*/15 * * * *`             | Directus schedule expression for cleanup.          |
+
+Example:
+
+```dotenv
+MAGIC_LINKS_ENABLED=true
+MAGIC_LINKS_REDIRECT_URL_ALLOWLIST=array:https://app.example.com/auth/magic-link
+MAGIC_LINKS_TOKEN_TTL=15m
+```
+
+`EMAIL_TRANSPORT=smtp`, `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USER`,
+`EMAIL_SMTP_PASSWORD`, and `EMAIL_FROM` remain Directus mail configuration prerequisites. They are
+not extension-owned options.
 
 ## Planned package surfaces
 

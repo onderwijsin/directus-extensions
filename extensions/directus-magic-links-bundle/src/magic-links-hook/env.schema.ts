@@ -1,4 +1,22 @@
+import { validateCronExpression } from 'cron'
 import { z } from 'zod'
+
+import { sharedEnvSchema } from '../shared/env.schema'
+
+const durationSchema = z
+	.string()
+	.trim()
+	.regex(/^\d+(?:ms|s|m|h|d|w)$/u)
+
+/**
+ * Schema for cron expressions accepted by Directus.
+ */
+export const cronSchema = z
+	.string()
+	.trim()
+	.refine((value: string): boolean => validateCronExpression(value).valid, {
+		error: 'must be a valid cron expression',
+	})
 
 /**
  * Validates the environment values used by the magic-links hook entrypoint.
@@ -6,5 +24,13 @@ import { z } from 'zod'
  * @returns The hook environment schema.
  */
 export const envSchema = z.object({
-	MAGIC_LINKS_ENABLED: z.boolean().default(true),
+	...sharedEnvSchema.shape,
+	MAGIC_LINKS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
+	MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR: z.boolean().default(true),
+	MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE: z.boolean().optional(),
+	USE_MAGIC_LINK_CLEANUP: z.boolean().default(false),
+	MAGIC_LINK_CLEANUP_WINDOW: durationSchema.default('24h'),
+	MAGIC_LINK_CLEANUP_CRON: cronSchema.default('*/15 * * * *'),
 })
+
+export type MagicLinksEnv = z.output<typeof envSchema>

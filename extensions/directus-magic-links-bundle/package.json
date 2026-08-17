@@ -57,6 +57,7 @@
 	},
 	"dependencies": {
 		"@directus/errors": "catalog:",
+		"cron": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

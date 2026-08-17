@@ -110,6 +110,22 @@ const options = validateExtensionOptions(env, envSchema, logger)
 setup.end()
 ```
 
+For extensions that modify Directus schema, compose the entrypoint environment schema with the
+shared server-side schema-change settings:
+
+```ts
+import { schemaChangeSchema } from '@onderwijsin/directus-extension-utils/server'
+import { z } from 'zod'
+
+const envSchema = z.object({
+  ...schemaChangeSchema.shape,
+  MY_EXTENSION_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
+})
+```
+
+`schemaChangeSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` and
+`DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE`, both defaulting to `true`.
+
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
 `validateExtensionOptions` parses a complete extension environment with Zod, logs validation
 details, and throws when the configuration is invalid.

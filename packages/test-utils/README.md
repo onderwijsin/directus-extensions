@@ -4,11 +4,12 @@ Private test infrastructure for this workspace. It centralizes reusable Vitest, 
 child-process helpers so package-specific tests can focus on the behavior they verify. It is not a
 published package and must never become a runtime dependency of an extension.
 
-The package currently provides the small authenticated Directus client used by the isolated E2E
-stack. `createDirectusE2EClient` exposes `fetchAsAdmin` for explicit admin requests and
-callback-scoped `fetchAsUser(userId, callback)` and `fetchAsRole(roleId, callback)` helpers. The
-latter helpers resolve a static-token user through an admin request and never expose that token to
-the test. For its API boundaries and promotion rules, read the
+The package provides an SDK-backed Directus client used by the isolated E2E stack. The root
+administrator token is the default context. `withUserContext(userId, callback)` creates an isolated
+SDK client for a user's static token, and `createEphemeralUser` provisions nested roles, policies,
+permissions, and cleanup lifecycle through the SDK. Official SDK commands are available from the
+`@workspace/test-utils/commands` subpath, so E2E tests only need a dev dependency on
+`@workspace/test-utils`. For its API boundaries and promotion rules, read the
 [test-utils cookbook article](../../docs/extension-cookbook/test-utils.md) and the
 [testing guide](../../docs/testing.md).
 

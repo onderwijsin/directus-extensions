@@ -275,43 +275,6 @@ async function login() {
 }
 
 /**
- * Creates the user collection used by the E2E tests.
- * @param token - Directus access token.
- * @returns Nothing.
- */
-async function createPostsCollection(token) {
-	/**
-	 * Sends an authenticated request to Directus.
-	 * @param path - API path.
-	 * @param init - Fetch options.
-	 * @returns The unwrapped response data.
-	 */
-	const authenticated = (path, init = {}) =>
-		request(path, {
-			...init,
-			headers: { Authorization: `Bearer ${token}`, ...init.headers },
-		})
-
-	await authenticated('/collections', {
-		method: 'POST',
-		body: JSON.stringify({
-			collection: 'posts',
-			meta: { icon: 'article', note: 'Created for Directus extension E2E tests' },
-			schema: {},
-		}),
-	})
-	await authenticated('/fields/posts', {
-		method: 'POST',
-		body: JSON.stringify({
-			field: 'title',
-			type: 'string',
-			meta: { interface: 'input', required: true },
-			schema: { is_nullable: false },
-		}),
-	})
-}
-
-/**
  * Runs the E2E Vitest project.
  * @param {string} token - Access token for the initialized Directus instance.
  * @returns {Promise<{stdout: string, stderr: string}>} The completed test command output.
@@ -379,11 +342,8 @@ export async function main() {
 		await compose(['up', '-d'], { timeoutMs: composeCommandTimeout })
 		await waitForComposeCompletion('garage-init')
 		await waitForServices()
-		// Seed the shared test collection before handing control to the E2E Vitest project.
 		log('Authenticating against Directus')
 		const token = await login()
-		log('Creating E2E posts collection and title field')
-		await createPostsCollection(token)
 		await runTests(token)
 		log(interrupted ? 'E2E run interrupted' : 'E2E tests completed successfully')
 	} catch (error) {
