@@ -117,6 +117,7 @@ function generateEnvironmentSecrets() {
 		GARAGE_ADMIN_TOKEN: randomSecret(),
 		GARAGE_METRICS_TOKEN: randomSecret(),
 		MEILISEARCH_MASTER_KEY: randomSecret(),
+		SENTRY_ENABLED: 'false',
 	}
 }
 

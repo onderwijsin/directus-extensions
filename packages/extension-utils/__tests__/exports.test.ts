@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import * as app from '../src/app/index'
 import * as server from '../src/server/index'
+import * as sentry from '../src/server/sentry'
 import * as shared from '../src/shared/index'
 
 describe('runtime-aware exports', () => {
@@ -21,6 +22,8 @@ describe('runtime-aware exports', () => {
 				'createMemoryLockProvider',
 				'createMemoryTaskHandlerStorage',
 				'createLogger',
+				'extensionSetup',
+				'validateExtensionOptions',
 			].sort(),
 		)
 		expect(app.isRecord).toBe(shared.isRecord)
@@ -38,5 +41,16 @@ describe('runtime-aware exports', () => {
 		expect(server.createRedisMarkerStore).toBeDefined()
 		expect(server.createMemoryMarkerStore).toBeDefined()
 		expect(server.createLogger).toBeDefined()
+	})
+
+	it('keeps Sentry utilities on their explicit subpath', () => {
+		expect(Object.keys(server)).not.toContain('captureException')
+		expect(Object.keys(server)).not.toContain('captureMessage')
+		expect(Object.keys(server)).not.toContain('addBreadcrumb')
+		expect(Object.keys(server)).not.toContain('setUser')
+		expect(sentry.captureException).toBeDefined()
+		expect(sentry.captureMessage).toBeDefined()
+		expect(sentry.addBreadcrumb).toBeDefined()
+		expect(sentry.setUser).toBeDefined()
 	})
 })
