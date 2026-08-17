@@ -27,6 +27,9 @@ catalogs:
     '@directus/memory':
       specifier: 4.0.2
       version: 4.0.2
+    '@directus/sdk':
+      specifier: 24.0.0
+      version: 24.0.0
     '@directus/types':
       specifier: 16.1.0
       version: 16.1.0
@@ -187,6 +190,9 @@ importers:
       '@types/node':
         specifier: catalog:node24
         version: 24.13.3
+      '@workspace/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
@@ -218,6 +224,9 @@ importers:
       '@types/node':
         specifier: catalog:node24
         version: 24.13.3
+      '@workspace/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
@@ -249,6 +258,9 @@ importers:
       '@types/node':
         specifier: catalog:node24
         version: 24.13.3
+      '@workspace/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
@@ -326,6 +338,9 @@ importers:
 
   packages/test-utils:
     devDependencies:
+      '@directus/sdk':
+        specifier: 'catalog:'
+        version: 24.0.0
       '@types/node':
         specifier: catalog:node24
         version: 24.13.3
@@ -574,6 +589,10 @@ packages:
 
   '@directus/schema@14.0.1':
     resolution: {integrity: sha512-IFOAbd2+pxd9K4s0fqhEGsBWTD3UeRIaQdNJUWgR3ie2QO/x1uJC2z876Z8Ppc0auDsp0PJHaeWSSZ7UBD3pEw==}
+
+  '@directus/sdk@24.0.0':
+    resolution: {integrity: sha512-8sibVOa1OZAgDg9d3NwIX51mhXrvUmobChYe4QvaVCyq/rECD57yHYzKfjfjmbFMogkVxI8tnqyoA+TIJVcAoQ==}
+    engines: {node: '>=22'}
 
   '@directus/storage@13.0.0':
     resolution: {integrity: sha512-0o2IMwbANUwZh2K8j9mO8scXOTl0YUc+71pWdkGmX38wLfGXjN96Kuc+KMaUfeTYoZYhwp4GaemBiK4UaCk/Iw==}
@@ -4807,6 +4826,8 @@ snapshots:
       - sqlite3
       - supports-color
       - tedious
+
+  '@directus/sdk@24.0.0': {}
 
   '@directus/storage@13.0.0': {}
 

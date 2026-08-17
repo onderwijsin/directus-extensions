@@ -1,29 +1,126 @@
 # `test-utils`
 
-`test-utils` is a private package for shared Vitest fixtures, Directus integration helpers, and
-child-process test infrastructure. It is never a runtime dependency of a published extension and
-must not appear in packed output.
+`@workspace/test-utils` contains private Vitest, Directus E2E, and process-worker helpers. It must
+never be imported by published extension runtime code.
 
-Keep helpers close to the tests they support until repetition justifies promotion. Prefer fixtures
-that exercise the public extension contract and the shared local Directus instance rather than
-source-only mocks that can hide packaging or registration failures.
+## Package dependency and imports
+
+Add the workspace package to an E2E extension package:
+
+```json
+{
+  "devDependencies": {
+    "@workspace/test-utils": "workspace:*"
+  }
+}
+```
+
+Import both the E2E helper and Directus SDK commands from the same boundary:
+
+```ts
+import {
+  createDirectusE2EClient,
+  createItem,
+  customEndpoint,
+  deleteItem,
+  updateItem,
+} from '@workspace/test-utils'
+```
+
+The package re-exports `@directus/sdk`; E2E packages do not need to declare the SDK separately.
+
+## Root and user contexts
+
+The configured token is the default root context:
+
+```ts
+const client = createDirectusE2EClient({
+  baseUrl,
+  token,
+  composeFiles,
+  composeProject,
+})
+
+const item = await client.request(createItem('posts', { title: 'root request' }))
+```
+
+Run a callback with an isolated user SDK client:
+
+```ts
+const policies = await client.withUserContext(userId, (userClient) =>
+  userClient.request(
+    customEndpoint({
+      path: '/users/me/policies',
+      method: 'GET',
+    }),
+  ),
+)
+```
+
+The callback receives an SDK client authenticated with the user’s static token. The root client is
+not mutated, so nested or concurrent tests cannot accidentally retain the user token.
+
+## Ephemeral users and access fixtures
+
+Use `createEphemeralUser` when a test needs a user with nested policies and permissions:
+
+```ts
+const user = await client.createEphemeralUser({
+  role: {
+    name: 'E2E editor',
+    policies: [
+      {
+        name: 'E2E posts policy',
+        permissions: [
+          {
+            collection: 'posts',
+            action: 'read',
+            fields: ['*'],
+          },
+        ],
+      },
+    ],
+  },
+  policies: [],
+})
+
+try {
+  await client.withUserContext(user.id, async (userClient) => {
+    await userClient.request(customEndpoint({ path: '/users/me', method: 'GET' }))
+  })
+} finally {
+  await user.dispose()
+}
+```
+
+The disposer removes the user, role, permissions, and policies created for the fixture.
+
+## Compose log assertions
+
+`waitForLog` polls `docker compose logs directus` until a regular expression matches:
+
+```ts
+await expect(client.waitForLog(/directus-e2e-playground: utilities /u)).resolves.toBeDefined()
+```
+
+Use it for extension-side effects that are not represented by the HTTP response. The helper is
+generic; fixture creation remains in the test that owns the fixture.
 
 ## Process workers
 
-Use `createProcessWorker` when a test needs a real Node process boundary, for example to verify
-filesystem lock ownership or concurrent marker writes. It uses newline-delimited JSON over stdin and
-stdout. Keep the worker script and provider-specific protocol next to the integration test, and
-promote only process lifecycle and transport behavior to `test-utils`.
+Use `createProcessWorker` for tests that need a real Node process boundary:
 
-Always terminate workers in test cleanup and give them explicit temporary directories. This keeps
-future process integration suites isolated without coupling the private helper package to one
-provider.
+```ts
+const worker = await createProcessWorker(workerPath, {
+  directory: temporaryDirectory,
+})
 
-## Directus identities
+try {
+  await worker.request({ type: 'write-marker' })
+} finally {
+  await worker.terminate()
+}
+```
 
-`createDirectusE2EClient` uses its configured token for admin requests. Use
-`fetchAsUser(userId, callback)` or `fetchAsRole(roleId, callback)` when a test needs to exercise an
-endpoint with another accountability. These helpers resolve a user's static token through the admin
-client and pass only a callback-scoped request function to the test. `fetchAsRole` selects the first
-user assigned to the role, so tests should create an isolated role assignment when the exact
-identity matters.
+Keep worker entrypoints and provider-specific messages beside the integration test. The shared
+package should contain only reusable worker lifecycle and transport behavior.

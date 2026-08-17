@@ -1,43 +1,71 @@
 # Testing
 
-Tests belong to the package they exercise. Test the contract a Directus consumer depends on, not
-coverage thresholds.
+Test the contract a Directus consumer depends on. Keep tests beside the package they exercise.
 
 ## Test layout
 
-The repository has one top-level `tests/` directory for shared test setup, test infrastructure, and
-tests that are not specific to a package. Package-specific tests belong in that package's
-`__tests__/` directory, including package-specific E2E tests. Do not create or use a separate
-top-level `test/` directory.
+```text
+tests/
+  setup.ts                 # shared Vitest setup and E2E Compose definition
+packages/<name>/__tests__/ # package tests
+extensions/<name>/__tests__/
+scripts/e2e.mjs            # Compose orchestration, not a test fixture
+```
 
-The shared Vitest setup is `tests/setup.ts`. The isolated Directus E2E Compose definition is
-`tests/compose.e2e.yaml`; its shared service definitions live in `docker/compose.yaml`. The E2E
-runner remains in `scripts/e2e.mjs` because it is repository orchestration rather than a test or
-fixture. See [`docs/docker.md`](docker.md) for the local and E2E Compose contract.
+Use these filename conventions:
 
-## Layers
+| Test type           | Filename                | Vitest project     |
+| ------------------- | ----------------------- | ------------------ |
+| Unit                | `*.test.ts`             | `node`             |
+| Browser             | `*.dom.test.ts`         | `vue`              |
+| Vue component       | `*.vue.test.ts`         | `vue`              |
+| Process integration | `*.integration.test.ts` | `test:integration` |
+| Directus E2E        | `*.e2e.test.ts`         | `e2e`              |
 
-- pure unit tests cover utilities, schemas, guards, and deterministic extension logic;
-- extension tests cover registration, observable hook behavior, malformed inputs, errors, and
-  sandbox limitations; and
-- process integration tests cover real child-process coordination, filesystem leases, and
-  cross-process marker updates; and
-- the shared local Directus instance provides the first integration check for extension loading.
+Do not create `test/` directories. Use only the `.test.ts` suffixes shown above.
 
-CI runs formatting, linting, TypeScript checks, V8-covered unit tests, package builds, process
-integration tests, and packed-package validation. Its E2E job installs the packed artifacts into a
-clean staging consumer before loading them through Directus.
+## Test layers
+
+- Unit tests cover schemas, guards, utilities, and deterministic logic.
+- Extension tests cover registration, observable behavior, malformed input, and errors.
+- Process integration tests cover real child-process and filesystem coordination.
+- Directus E2E tests load the built extension through Directus.
+
+## Unit and integration tests
+
+```sh
+pnpm test:unit
+pnpm build:utils
+pnpm test:integration
+pnpm test:unit:coverage
+```
+
+Integration tests use the `*.integration.test.ts` suffix because they spawn child processes and must
+exercise built package output.
 
 ## `@workspace/test-utils`
 
-`packages/test-utils` is the private package for shared Vitest fixtures and Directus E2E helpers. It
-must never become a runtime dependency of a published extension.
+`packages/test-utils` is private test infrastructure. It is never a runtime dependency of a
+published extension. E2E extension packages should declare it as a dev dependency:
 
-Use it when a helper is shared by multiple tests or packages. Keep one-off fixtures beside the tests
-that use them, and keep helpers focused on the public extension contract:
+```json
+{
+  "devDependencies": {
+    "@workspace/test-utils": "workspace:*"
+  }
+}
+```
+
+The package re-exports the official Directus SDK, so tests use one import boundary:
 
 ```ts
-import { createDirectusE2EClient } from '@workspace/test-utils'
+import {
+  createDirectusE2EClient,
+  createItem,
+  customEndpoint,
+  deleteItem,
+  updateItem,
+} from '@workspace/test-utils'
 
 const client = createDirectusE2EClient({
   baseUrl,
@@ -46,85 +74,112 @@ const client = createDirectusE2EClient({
   composeProject,
 })
 
-const post = await client.createItem<{ id: string }>('posts', { title: 'from E2E' })
-await client.updateItem('posts', post.id, { title: 'updated' })
-await client.deleteItem('posts', post.id)
+const post = await client.request(createItem('posts', { title: 'from E2E' }))
+await client.request(updateItem('posts', post.id, { title: 'updated' }))
+await client.request(deleteItem('posts', post.id))
 ```
 
-The package currently provides an authenticated Directus E2E client with item operations, Compose
-log polling, and callback-scoped identity helpers. Use `fetchAsUser(userId, callback)` or
-`fetchAsRole(roleId, callback)` to run requests with a provisioned static-token identity while
-keeping token handling inside the utility. Typecheck it directly with:
+The client uses the root token by default. Use a separate SDK context for a user:
 
-```sh
-pnpm --filter @workspace/test-utils typecheck
+```ts
+await client.withUserContext(userId, async (userClient) => {
+  const result = await userClient.request(
+    customEndpoint({
+      path: '/users/me/policies',
+      method: 'GET',
+    }),
+  )
+
+  return result
+})
 ```
 
-Do not add production helpers here or import this package from published runtime code.
+Create and dispose access-control fixtures in the test that owns them:
 
-The package also provides `createProcessWorker`, a small JSON-lines child-process harness for tests
-that need real process boundaries without creating a second test framework. Keep worker entrypoints
-beside the integration tests that use them, pass only explicit arguments and temporary directories,
-and always terminate workers in test cleanup. Shared worker protocol or lifecycle behavior belongs
-in `packages/test-utils`; provider-specific commands belong in the package-local fixture.
+```ts
+const user = await client.createEphemeralUser({
+  role: {
+    name: 'E2E role',
+    policies: [
+      {
+        name: 'E2E policy',
+        permissions: [{ collection: 'posts', action: 'read', fields: ['*'] }],
+      },
+    ],
+  },
+})
 
-Run the process integration project with:
-
-```sh
-pnpm build:utils
-pnpm test:integration
+try {
+  await client.withUserContext(user.id, async (userClient) => {
+    await userClient.request(customEndpoint({ path: '/users/me', method: 'GET' }))
+  })
+} finally {
+  await user.dispose()
+}
 ```
 
-Integration tests use the `*.integration.test.ts` (or `*.integration.spec.ts`) suffix. They are
-excluded from `pnpm test:unit` and run in a separate CI job because they spawn child processes and
-must exercise built package output rather than source aliases.
+`waitForLog` polls the Directus container output. Use it when the assertion is an extension-side
+effect, such as a hook log:
+
+```ts
+await expect(
+  client.waitForLog(/directus-e2e-playground: item-event .*"event":"created"/u),
+).resolves.toBeDefined()
+```
+
+For process workers, keep the worker entrypoint and provider-specific protocol beside the test:
+
+```ts
+const worker = await createProcessWorker(workerPath, { directory: temporaryDirectory })
+try {
+  await worker.request({ type: 'check' })
+} finally {
+  await worker.terminate()
+}
+```
 
 ## Directus E2E tests
 
-Run `pnpm test:e2e` to build the extensions and test them against an isolated Directus 12.2.0 and
-PostgreSQL Compose stack. The runner creates a user collection named `posts` and a required `title`
-field through the Directus data-model API before starting the E2E Vitest project. Tests then create,
-update, and delete items only in that user collection.
+Run the isolated stack with:
 
-The E2E stack uses named Docker volumes and the `directus-extensions-e2e` Compose project. It does
-not reuse local `.data` directories. The runner always removes the containers, network, and
-disposable volumes after the test, including when interrupted, and prints the service logs when
-startup or a test fails. It does not stop the shared Docker daemon.
+```sh
+pnpm test:e2e
+```
 
-E2E tests are named `*.e2e.test.ts` (or `*.e2e.spec.ts`) under the relevant package's `__tests__/`
-directory and are excluded from the regular unit-test project. They must exercise the built
-extension through Directus rather than importing extension source directly. The E2E Vitest project
-is activated only when the runner has initialized all four `DIRECTUS_E2E_*` environment variables;
-this keeps `pnpm test:unit` focused on unit and component tests. E2E tests and Directus log polls
-use a 60-second operation timeout; service readiness waits up to three minutes and one-shot Compose
-initialization completion waits up to five minutes.
+The runner builds extensions, starts Compose, waits for service readiness, logs in the root
+administrator, runs the E2E Vitest project, prints diagnostics, and removes containers, networks,
+and named volumes in `finally`.
 
-Use `pnpm test:unit:coverage` for the V8 coverage run. Coverage includes source files under
-`extensions/` and `packages/`, while generated output, declarations, and test files are excluded.
+Tests own their Directus fixtures. For example, the playground creates and removes `posts` locally:
 
-Do not import source through private paths in tests when the public package contract is what
-matters. Do not add tests solely to satisfy coverage. Keep generated output and local service data
-out of git.
+```ts
+const disposeCollection = await createPlaygroundCollection()
+try {
+  await client.request(createItem('posts', { title: 'created' }))
+} finally {
+  await disposeCollection()
+}
+```
 
-## Vitest environments
+The policies test similarly owns its roles, policies, permissions, user, and access assignments. Do
+not put test-specific collections in the shared runner.
 
-The root `vitest.config.ts` uses the Node environment by default and loads `tests/setup.ts` for
-every test project. Tests that need browser APIs or Vue component rendering should use one of these
-filename suffixes:
+The E2E Vitest project is enabled only when the runner sets all four values below:
 
-- `*.dom.test.ts` or `*.dom.spec.ts` for browser APIs;
-- `*.vue.test.ts` or `*.vue.spec.ts` for Vue-oriented tests.
+```text
+DIRECTUS_E2E_URL
+DIRECTUS_E2E_TOKEN
+DIRECTUS_E2E_COMPOSE_FILES
+DIRECTUS_E2E_COMPOSE_PROJECT
+```
 
-Those files run in `happy-dom`; all other tests run in Node. The shared setup restores Vitest mocks
-after each test. Reusable Directus-specific fixtures and helpers belong in `packages/test-utils`.
+Operation and log polling time out after 60 seconds. Service readiness waits up to three minutes;
+one-shot Compose initialization waits up to five minutes.
 
-## Test cleanup
+## Vitest environments and cleanup
 
-No pre-test cleanup hook is currently needed. This repository does not create framework-generated
-test directories that must be removed before Vitest starts. Unit tests use temporary in-memory or
-mocked state, and the E2E runner creates a uniquely named Compose project and removes its
-containers, network, and disposable volumes in its `finally` block and handles SIGINT/SIGTERM so
-that interrupted local runs follow the same cleanup path. Keep generated output such as `dist/`,
-coverage, and local service data ignored rather than deleting it globally in a pre-test hook. Add
-targeted cleanup only when a test introduces a persistent artifact and its ownership and lifecycle
-are documented.
+The default environment is Node. Use the suffixes in the table above for browser or Vue tests.
+Shared setup is loaded from `tests/setup.ts`.
+
+No global pre-test cleanup is needed. Use targeted cleanup in the owning test and keep it in
+`finally` blocks. Generated `dist/`, coverage, and local service data remain ignored.

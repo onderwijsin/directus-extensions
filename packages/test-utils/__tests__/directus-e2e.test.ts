@@ -13,190 +13,72 @@ vi.mock('node:child_process', () => ({
 	}),
 }))
 
+const { fetchMock } = vi.hoisted(() => {
+	const fetchMock = vi.fn()
+	vi.stubGlobal('fetch', fetchMock)
+	return { fetchMock }
+})
+
 import { execFile } from 'node:child_process'
 
-import { createDirectusE2EClient } from '../src/directus-e2e'
+import { createDirectusE2EClient, createItem, deleteItem } from '../src'
 
-describe('Directus E2E client', () => {
+describe('Directus E2E SDK client', () => {
 	afterEach(() => vi.unstubAllGlobals())
 
-	it('sends authenticated item requests and unwraps response data', async () => {
-		const fetchMock = vi.fn()
-		vi.stubGlobal('fetch', fetchMock)
+	it('uses the official SDK for root-authenticated item requests', async () => {
+		fetchMock.mockReset()
 		fetchMock
 			.mockResolvedValueOnce(
-				new Response(JSON.stringify({ data: { id: 1 } }), { status: 200 }),
-			)
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify({ data: { id: 1, title: 'updated' } }), {
+				new Response(JSON.stringify({ data: { id: 1 } }), {
 					status: 200,
+					headers: { 'Content-Type': 'application/json' },
 				}),
 			)
 			.mockResolvedValueOnce(new Response(null, { status: 204 }))
 
 		const client = createDirectusE2EClient({
 			baseUrl: 'http://directus.test',
-			token: 'test-token',
+			token: 'root-token',
 			composeFiles: [],
 			composeProject: 'test-project',
 		})
 
-		await expect(client.createItem('posts', { title: 'created' })).resolves.toEqual({ id: 1 })
-		await expect(client.updateItem('posts', 1, { title: 'updated' })).resolves.toEqual({
+		await expect(client.request(createItem('posts', { title: 'created' }))).resolves.toEqual({
 			id: 1,
-			title: 'updated',
 		})
-		await expect(client.deleteItem('posts', 1)).resolves.toBeUndefined()
+		await expect(client.request(deleteItem('posts', 1))).resolves.toBeNull()
 
-		expect(fetchMock.mock.calls[0]?.[0]).toEqual(new URL('http://directus.test/items/posts'))
-		expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
-			method: 'POST',
-			body: '{"title":"created"}',
-		})
-		const requestHeaders = fetchMock.mock.calls[0]?.[1]?.headers
-		expect(requestHeaders).toBeInstanceOf(Headers)
-		if (!(requestHeaders instanceof Headers)) throw new Error('Expected request headers')
-		expect(requestHeaders.get('Authorization')).toBe('Bearer test-token')
-		expect(requestHeaders.get('Content-Type')).toBe('application/json')
-		expect(fetchMock.mock.calls[1]?.[0]).toEqual(new URL('http://directus.test/items/posts/1'))
-		expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: 'PATCH' })
+		const headers = fetchMock.mock.calls[0]?.[1]?.headers
+		expect(headers).toMatchObject({ Authorization: 'Bearer root-token' })
 	})
 
-	it('reports Directus errors and unexpected empty responses', async () => {
-		const fetchMock = vi.fn()
-		vi.stubGlobal('fetch', fetchMock)
-		const client = createDirectusE2EClient({
-			baseUrl: 'http://directus.test',
-			token: 'test-token',
-			composeFiles: [],
-			composeProject: 'test-project',
-		})
-
+	it('creates an isolated SDK client for user context', async () => {
+		fetchMock.mockReset()
 		fetchMock.mockResolvedValueOnce(
-			new Response(JSON.stringify({ errors: [{ message: 'Forbidden' }] }), { status: 403 }),
+			new Response(JSON.stringify({ data: { token: 'user-token' } }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			}),
 		)
-		await expect(client.request('/items/posts')).rejects.toThrow(
-			'Directus 403: {"errors":[{"message":"Forbidden"}]}',
-		)
-
-		fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
-		await expect(client.request('/items/posts')).rejects.toThrow(
-			'Directus returned an empty response where JSON was expected',
-		)
-	})
-
-	it('uses dedicated policy and role endpoints', async () => {
-		const fetchMock = vi.fn()
-		vi.stubGlobal('fetch', fetchMock)
-		fetchMock
-			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'policy-id' } })))
-			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'role-id' } })))
-			.mockResolvedValueOnce(new Response(null, { status: 204 }))
-			.mockResolvedValueOnce(new Response(null, { status: 204 }))
 
 		const client = createDirectusE2EClient({
 			baseUrl: 'http://directus.test',
-			token: 'admin-token',
-			composeFiles: [],
-			composeProject: 'test-project',
-		})
-
-		await expect(client.createPolicy<{ id: string }>({ name: 'policy' })).resolves.toEqual({
-			id: 'policy-id',
-		})
-		await expect(client.createRole<{ id: string }>({ name: 'role' })).resolves.toEqual({
-			id: 'role-id',
-		})
-		await expect(client.deleteRole('role-id')).resolves.toBeUndefined()
-		await expect(client.deletePolicy('policy-id')).resolves.toBeUndefined()
-
-		expect(fetchMock.mock.calls[0]?.[0]).toEqual(new URL('http://directus.test/policies'))
-		expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
-			method: 'POST',
-			body: '{"name":"policy"}',
-		})
-		expect(fetchMock.mock.calls[1]?.[0]).toEqual(new URL('http://directus.test/roles'))
-		expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
-			method: 'POST',
-			body: '{"name":"role"}',
-		})
-		expect(fetchMock.mock.calls[2]?.[0]).toEqual(new URL('http://directus.test/roles'))
-		expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
-			method: 'DELETE',
-			body: '["role-id"]',
-		})
-		expect(fetchMock.mock.calls[3]?.[0]).toEqual(new URL('http://directus.test/policies'))
-		expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
-			method: 'DELETE',
-			body: '["policy-id"]',
-		})
-	})
-
-	it('runs callback requests as a user and as a role', async () => {
-		const fetchMock = vi.fn()
-		vi.stubGlobal('fetch', fetchMock)
-		fetchMock
-			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { token: 'user-token' } })))
-			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { identity: 'user' } })))
-			.mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ id: 'user-id' }] })))
-			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { token: 'role-token' } })))
-			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { identity: 'role' } })))
-
-		const client = createDirectusE2EClient({
-			baseUrl: 'http://directus.test',
-			token: 'admin-token',
+			token: 'root-token',
 			composeFiles: [],
 			composeProject: 'test-project',
 		})
 
 		await expect(
-			client.fetchAsUser('user-id', (request) => request('/users/me/policies')),
-		).resolves.toEqual({ identity: 'user' })
-		await expect(
-			client.fetchAsRole('role-id', (request) => request('/users/me/policies')),
-		).resolves.toEqual({ identity: 'role' })
-
-		expect(fetchMock.mock.calls[0]?.[0]).toEqual(
-			new URL('http://directus.test/users/user-id?fields=token'),
-		)
-		expect(fetchMock.mock.calls[2]?.[0]).toEqual(
-			new URL('http://directus.test/users?filter[role][_eq]=role-id&fields=id&limit=1'),
-		)
-		for (const [index, token] of ['user-token', 'role-token'].entries()) {
-			const callIndex = index === 0 ? 1 : 4
-			const headers = fetchMock.mock.calls[callIndex]?.[1]?.headers
-			expect(headers).toBeInstanceOf(Headers)
-			if (!(headers instanceof Headers)) throw new Error('Expected request headers')
-			expect(headers.get('Authorization')).toBe(`Bearer ${token}`)
-		}
-	})
-
-	it('rejects identity helpers when no usable test identity exists', async () => {
-		const fetchMock = vi.fn()
-		vi.stubGlobal('fetch', fetchMock)
-		fetchMock
-			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { token: null } })))
-			.mockResolvedValueOnce(new Response(JSON.stringify({ data: [] })))
-
-		const client = createDirectusE2EClient({
-			baseUrl: 'http://directus.test',
-			token: 'admin-token',
-			composeFiles: [],
-			composeProject: 'test-project',
-		})
-
-		await expect(
-			client.fetchAsUser('user-id', () => Promise.resolve({ ok: true })),
-		).rejects.toThrow('Directus user user-id does not have a static token')
-		await expect(
-			client.fetchAsRole('role-id', () => Promise.resolve({ ok: true })),
-		).rejects.toThrow('Directus role role-id has no assigned user')
+			client.withUserContext('user-id', async (userClient) => userClient.getToken()),
+		).resolves.toBe('user-token')
+		await expect(client.getToken()).resolves.toBe('root-token')
 	})
 
 	it('polls Compose logs until the requested event appears', async () => {
 		const client = createDirectusE2EClient({
 			baseUrl: 'http://directus.test',
-			token: 'test-token',
+			token: 'root-token',
 			composeFiles: ['docker/compose.yaml', 'tests/compose.e2e.yaml'],
 			composeProject: 'test-project',
 		})

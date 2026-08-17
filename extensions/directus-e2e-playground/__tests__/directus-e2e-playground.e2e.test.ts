@@ -1,6 +1,13 @@
+import {
+	createCollection,
+	createDirectusE2EClient,
+	createField,
+	createItem,
+	deleteCollection,
+	deleteItem,
+	updateItem,
+} from '@workspace/test-utils'
 import { describe, expect, it } from 'vitest'
-
-import { createDirectusE2EClient } from '../../../packages/test-utils/src'
 
 const baseUrl = process.env.DIRECTUS_E2E_URL
 const token = process.env.DIRECTUS_E2E_TOKEN
@@ -17,6 +24,28 @@ if (!Array.isArray(composeFiles) || composeFiles.some((file) => typeof file !== 
 }
 
 const client = createDirectusE2EClient({ baseUrl, token, composeFiles, composeProject })
+
+async function createPlaygroundCollection(): Promise<() => Promise<void>> {
+	await client.request(
+		createCollection({
+			collection: 'posts',
+			meta: { icon: 'article', note: 'Created for Directus extension E2E tests' },
+			schema: {},
+		}),
+	)
+	await client.request(
+		createField('posts', {
+			field: 'title',
+			type: 'string',
+			meta: { interface: 'input', required: true },
+			schema: { is_nullable: false },
+		}),
+	)
+
+	return async () => {
+		await client.request(deleteCollection('posts'))
+	}
+}
 
 async function expectEvent(event: string) {
 	await expect(
@@ -90,17 +119,22 @@ async function expectUtilityResults() {
 
 describe('Directus E2E playground', () => {
 	it('logs create, update, and delete events for posts items', async () => {
-		const created = await client.createItem<{ id: string | number }>('posts', {
-			title: `e2e-${Date.now()}`,
-		})
+		const disposeCollection = await createPlaygroundCollection()
+		try {
+			const created = await client.request(
+				createItem('posts', { title: `e2e-${Date.now()}` }),
+			)
 
-		await expectEvent('created')
-		await expectUtilityResults()
+			await expectEvent('created')
+			await expectUtilityResults()
 
-		await client.updateItem('posts', created.id, { title: 'updated' })
-		await expectEvent('updated')
+			await client.request(updateItem('posts', created.id, { title: 'updated' }))
+			await expectEvent('updated')
 
-		await client.deleteItem('posts', created.id)
-		await expectEvent('deleted')
+			await client.request(deleteItem('posts', created.id))
+			await expectEvent('deleted')
+		} finally {
+			await disposeCollection()
+		}
 	})
 })

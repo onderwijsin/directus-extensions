@@ -54,6 +54,7 @@
 		"@directus/types": "catalog:",
 		"@onderwijsin/directus-extension-utils": "workspace:*",
 		"@types/node": "catalog:node24",
+		"@workspace/test-utils": "workspace:*",
 		"@workspace/typescript-config": "workspace:*",
 		"vitest": "catalog:"
 	},
