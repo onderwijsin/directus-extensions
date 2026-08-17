@@ -12,31 +12,31 @@ import { join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
 const packageRoots = ['extensions', 'packages']
-const errors = []
+export const errors = []
 
 /**
  * @typedef {Object} PackageManifest
- * @property {unknown} name - Package name.
- * @property {unknown} version - Package version.
- * @property {unknown} description - Package description.
- * @property {unknown} license - Package license.
- * @property {unknown} files - Published file list.
- * @property {unknown} main - CommonJS entry point.
- * @property {unknown} types - TypeScript declaration entry point.
- * @property {{access?: unknown}|undefined} publishConfig - Publish settings.
- * @property {{node?: unknown}|undefined} engines - Runtime requirements.
- * @property {{type?: unknown, url?: unknown, directory?: unknown}|undefined} repository - Repository metadata.
- * @property {unknown} homepage - Package homepage.
- * @property {{url?: unknown}|undefined} bugs - Issue tracker metadata.
- * @property {Record<string, unknown>|undefined} dependencies - Runtime dependencies.
- * @property {Record<string, unknown>|undefined} optionalDependencies - Optional runtime dependencies.
- * @property {Record<string, unknown>|undefined} peerDependencies - Peer dependencies.
- * @property {unknown} keywords - npm keywords.
- * @property {unknown} author - npm author metadata.
- * @property {unknown} contributors - npm contributor metadata.
- * @property {unknown} icon - Directus extension icon.
- * @property {unknown} private - Whether the package is private.
- * @property {unknown} ["directus:extension"] - Directus extension metadata.
+ * @property {unknown} [name] - Package name.
+ * @property {unknown} [version] - Package version.
+ * @property {unknown} [description] - Package description.
+ * @property {unknown} [license] - Package license.
+ * @property {unknown} [files] - Published file list.
+ * @property {unknown} [main] - CommonJS entry point.
+ * @property {unknown} [types] - TypeScript declaration entry point.
+ * @property {{access?: unknown}|undefined} [publishConfig] - Publish settings.
+ * @property {{node?: unknown}|undefined} [engines] - Runtime requirements.
+ * @property {{type?: unknown, url?: unknown, directory?: unknown}|undefined} [repository] - Repository metadata.
+ * @property {unknown} [homepage] - Package homepage.
+ * @property {{url?: unknown}|undefined} [bugs] - Issue tracker metadata.
+ * @property {Record<string, unknown>|undefined} [dependencies] - Runtime dependencies.
+ * @property {Record<string, unknown>|undefined} [optionalDependencies] - Optional runtime dependencies.
+ * @property {Record<string, unknown>|undefined} [peerDependencies] - Peer dependencies.
+ * @property {unknown} [keywords] - npm keywords.
+ * @property {unknown} [author] - npm author metadata.
+ * @property {unknown} [contributors] - npm contributor metadata.
+ * @property {unknown} [icon] - Directus extension icon.
+ * @property {unknown} [private] - Whether the package is private.
+ * @property {unknown} [directusExtension] - Directus extension metadata.
  */
 
 /**
@@ -44,14 +44,14 @@ const errors = []
  * @param {string} packageDirectory - Workspace package directory.
  * @returns {Promise<PackageManifest>} Parsed package manifest.
  */
-async function readManifest(packageDirectory) {
+export async function readManifest(packageDirectory) {
 	const manifestPath = resolve(packageDirectory, 'package.json')
 	/** @type {unknown} */
 	const parsed = JSON.parse(await readFile(manifestPath, 'utf8'))
 	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
 		throw new Error(`Invalid package manifest: ${manifestPath}`)
 	}
-	return /** @type {PackageManifest} */ (parsed)
+	return parsed
 }
 
 /**
@@ -86,7 +86,7 @@ async function requirePath(packageName, packageDirectory, relativePath) {
  * @param {PackageManifest} manifest - Package manifest.
  * @returns {Promise<void>} A promise that resolves after validation completes.
  */
-async function validateMetadata(packageName, packageDirectory, manifest) {
+export async function validateMetadata(packageName, packageDirectory, manifest) {
 	// Check fields that npm consumers and the repository release process require.
 	const requiredStrings = ['name', 'version', 'description', 'license']
 	for (const field of requiredStrings) {
@@ -183,7 +183,7 @@ async function validateMetadata(packageName, packageDirectory, manifest) {
  * @param {PackageManifest} manifest - Package manifest.
  * @returns {Promise<void>} A promise that resolves after validation completes.
  */
-async function validateExtension(packageName, packageDirectory, manifest) {
+export async function validateExtension(packageName, packageDirectory, manifest) {
 	if (typeof manifest.icon !== 'string' || manifest.icon.length === 0) {
 		report(packageName, 'must declare icon')
 	}
@@ -274,7 +274,7 @@ async function validateExtension(packageName, packageDirectory, manifest) {
  * @param {string} outputDirectory - Temporary package output directory.
  * @returns {void} Nothing.
  */
-function validatePackedPackage(packageName, manifest, outputDirectory) {
+export function validatePackedPackage(packageName, manifest, outputDirectory) {
 	let packOutput
 	try {
 		// Pack from the workspace root so the archive is built using the same filter as release CI.
@@ -356,7 +356,8 @@ function validatePackedPackage(packageName, manifest, outputDirectory) {
  * Validates all publishable workspace packages.
  * @returns A promise that resolves after validation completes.
  */
-async function main() {
+export async function main() {
+	errors.length = 0
 	const outputDirectory = await mkdtemp(join(tmpdir(), 'directus-extensions-pack-'))
 	try {
 		// Validate every public package under both workspace roots using one temporary archive directory.
@@ -397,4 +398,4 @@ async function main() {
 	console.log('All publishable packages passed metadata and packed-artifact validation.')
 }
 
-await main()
+if (import.meta.main) await main()

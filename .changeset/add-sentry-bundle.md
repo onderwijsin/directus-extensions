@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-bundle-sentry': minor
+'@onderwijsin/directus-sentry-bundle': minor
 ---
 
 Add the initial Sentry integration bundle for trusted Directus deployments. Sentry Node and

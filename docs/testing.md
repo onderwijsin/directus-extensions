@@ -51,8 +51,10 @@ await client.updateItem('posts', post.id, { title: 'updated' })
 await client.deleteItem('posts', post.id)
 ```
 
-The package currently provides an authenticated Directus E2E client with item operations and Compose
-log polling. Typecheck it directly with:
+The package currently provides an authenticated Directus E2E client with item operations, Compose
+log polling, and callback-scoped identity helpers. Use `fetchAsUser(userId, callback)` or
+`fetchAsRole(roleId, callback)` to run requests with a provisioned static-token identity while
+keeping token handling inside the utility. Typecheck it directly with:
 
 ```sh
 pnpm --filter @workspace/test-utils typecheck

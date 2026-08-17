@@ -1,8 +1,7 @@
-# `@onderwijsin/directus-bundle-sentry`
+# `@onderwijsin/directus-sentry-bundle`
 
 Sentry integration bundle for trusted Directus deployments. It provides a server hook that embeds
-the browser loader and registers the Express error handler, plus an optional test endpoint and Data
-Studio module for verifying the integration.
+the browser loader and registers the Express error handler.
 
 The bundle is disabled by default. Set `SENTRY_ENABLED=true` only after the Directus runtime has
 been prepared with the Sentry Node dependencies and instrumentation described below.
@@ -12,7 +11,7 @@ been prepared with the Sentry Node dependencies and instrumentation described be
 Install the bundle into a Directus project using the published package:
 
 ```sh
-pnpm add @onderwijsin/directus-bundle-sentry
+pnpm add @onderwijsin/directus-sentry-bundle
 ```
 
 The bundle is non-sandboxed and must run in a trusted Directus installation. Installing the bundle
@@ -87,16 +86,9 @@ The loader script must match Sentry's hosted format:
 
 Whitespace and newlines between the tag attributes are accepted.
 
-## Test integration
-
-The test endpoint is disabled unless both `SENTRY_ENABLED=true` and
-`SENTRY_TEST_SUITE_ENABLED=true`. The test module exposes a button that intentionally throws a
-browser exception. Enable these only in a controlled development or test environment.
-
 ## Compatibility and boundaries
 
 - Requires a trusted, non-sandboxed Directus runtime.
 - Requires a Directus runtime image capable of loading the Sentry Node dependencies.
-- The default local Compose and repository E2E environments keep `SENTRY_ENABLED=false`.
 - Sentry organization, project, DSN, sampling, and deployment-image configuration remain consumer
   responsibilities.

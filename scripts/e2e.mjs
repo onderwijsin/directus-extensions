@@ -31,7 +31,7 @@ const email = 'admin@example.com'
  * @param {Response} response - HTTP response returned by the readiness probe.
  * @returns {boolean} Whether the response has a successful status.
  */
-const responseIsReady = (response) => response.ok
+export const responseIsReady = (response) => response.ok
 /** @type {ChildProcess | undefined} */
 let activeChild
 let interrupted = false
@@ -102,7 +102,7 @@ function runCommand(
  * Generates secrets for one isolated E2E run.
  * @returns Environment variables shared by the E2E Compose services.
  */
-function generateEnvironmentSecrets() {
+export function generateEnvironmentSecrets() {
 	/**
 	 * Generates one cryptographically random secret for the Compose environment.
 	 * @returns {string} A hexadecimal secret value.
@@ -360,44 +360,52 @@ async function cleanup() {
 	log('E2E cleanup completed')
 }
 
-try {
+/**
+ * Runs the complete isolated E2E lifecycle.
+ * @returns {Promise<void>} Nothing.
+ */
+export async function main() {
 	registerSignalHandlers()
-	log(`Starting E2E run for project ${composeProject}`)
-	log(`Compose files: ${composeFiles.join(', ')}`)
-	log(`Directus endpoint: ${baseUrl}`)
-	// Start from a clean project so stale containers or database volumes cannot affect the run.
-	log('Removing stale Compose resources')
-	await compose(['down', '--volumes', '--remove-orphans'], {
-		timeoutMs: e2eOperationTimeoutMs,
-	})
-	log('Starting Compose services; readiness probes will report progress')
-	await compose(['up', '-d'], { timeoutMs: composeCommandTimeout })
-	await waitForComposeCompletion('garage-init')
-	await waitForServices()
-	// Seed the shared test collection before handing control to the E2E Vitest project.
-	log('Authenticating against Directus')
-	const token = await login()
-	log('Creating E2E posts collection and title field')
-	await createPostsCollection(token)
-	await runTests(token)
-	log(interrupted ? 'E2E run interrupted' : 'E2E tests completed successfully')
-} catch (error) {
-	console.error(`[e2e ${new Date().toISOString()}] E2E run failed`, error)
-	// Service logs are the most useful startup/test failure diagnostic available from Compose.
 	try {
-		log('Collecting Compose service logs')
-		const logs = await compose(['logs', '--no-color'])
-		console.error(logs.stdout)
-	} catch (logError) {
-		console.error(logError)
-	}
-	process.exitCode = 1
-} finally {
-	// Cleanup runs for both passing and failing tests, including failed startup attempts.
-	try {
-		await cleanup()
+		log(`Starting E2E run for project ${composeProject}`)
+		log(`Compose files: ${composeFiles.join(', ')}`)
+		log(`Directus endpoint: ${baseUrl}`)
+		// Start from a clean project so stale containers or database volumes cannot affect the run.
+		log('Removing stale Compose resources')
+		await compose(['down', '--volumes', '--remove-orphans'], {
+			timeoutMs: e2eOperationTimeoutMs,
+		})
+		log('Starting Compose services; readiness probes will report progress')
+		await compose(['up', '-d'], { timeoutMs: composeCommandTimeout })
+		await waitForComposeCompletion('garage-init')
+		await waitForServices()
+		// Seed the shared test collection before handing control to the E2E Vitest project.
+		log('Authenticating against Directus')
+		const token = await login()
+		log('Creating E2E posts collection and title field')
+		await createPostsCollection(token)
+		await runTests(token)
+		log(interrupted ? 'E2E run interrupted' : 'E2E tests completed successfully')
 	} catch (error) {
-		console.error(error)
+		console.error(`[e2e ${new Date().toISOString()}] E2E run failed`, error)
+		// Service logs are the most useful startup/test failure diagnostic available from Compose.
+		try {
+			log('Collecting Compose service logs')
+			const logs = await compose(['logs', '--no-color'])
+			console.error(logs.stdout)
+		} catch (logError) {
+			console.error(logError)
+		}
 		process.exitCode = 1
+	} finally {
+		// Cleanup runs for both passing and failing tests, including failed startup attempts.
+		try {
+			await cleanup()
+		} catch (error) {
+			console.error(error)
+			process.exitCode = 1
+		}
 	}
 }
+
+if (import.meta.main) await main()

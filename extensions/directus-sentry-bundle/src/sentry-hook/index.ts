@@ -11,16 +11,13 @@ import {
 import { envSchema } from './env.schema'
 
 export default defineHook(({ init, embed }, { env, logger }) => {
+	// Keep the existing setup key so SENTRY_ENABLED remains the public switch.
 	const setup = extensionSetup('sentry', env, logger)
 	setup.start()
 
 	if (!setup.isEnabled()) return
 
 	const options = validateExtensionOptions(env, envSchema, logger)
-	if (!options.SENTRY_ENABLED) {
-		logger.info('⛔️ Extension sentry is disabled via "SENTRY_ENABLED". Skipping setup...')
-		return
-	}
 
 	// Do not register Sentry Express Error handler without DSN
 	if (!options.SENTRY_DSN) {

@@ -5,7 +5,10 @@ child-process helpers so package-specific tests can focus on the behavior they v
 published package and must never become a runtime dependency of an extension.
 
 The package currently provides the small authenticated Directus client used by the isolated E2E
-stack. For its API boundaries and promotion rules, read the
+stack. `createDirectusE2EClient` exposes `fetchAsAdmin` for explicit admin requests and
+callback-scoped `fetchAsUser(userId, callback)` and `fetchAsRole(roleId, callback)` helpers. The
+latter helpers resolve a static-token user through an admin request and never expose that token to
+the test. For its API boundaries and promotion rules, read the
 [test-utils cookbook article](../../docs/extension-cookbook/test-utils.md) and the
 [testing guide](../../docs/testing.md).
 

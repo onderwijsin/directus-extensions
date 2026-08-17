@@ -18,3 +18,12 @@ promote only process lifecycle and transport behavior to `test-utils`.
 Always terminate workers in test cleanup and give them explicit temporary directories. This keeps
 future process integration suites isolated without coupling the private helper package to one
 provider.
+
+## Directus identities
+
+`createDirectusE2EClient` uses its configured token for admin requests. Use
+`fetchAsUser(userId, callback)` or `fetchAsRole(roleId, callback)` when a test needs to exercise an
+endpoint with another accountability. These helpers resolve a user's static token through the admin
+client and pass only a callback-scoped request function to the test. `fetchAsRole` selects the first
+user assigned to the role, so tests should create an isolated role assignment when the exact
+identity matters.
