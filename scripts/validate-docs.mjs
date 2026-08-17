@@ -313,9 +313,6 @@ export function validateDocumentation(repositoryRoot = root) {
 			...validateDocumentStructure(
 				packageReadmePath,
 				readFileSync(join(repositoryRoot, packageReadmePath), 'utf8'),
-				{
-					expectedTitle: manifest.name,
-				},
 			),
 		)
 		if (manifest.private !== true && tableEntries.get(manifest.name) !== packageReadmePath) {

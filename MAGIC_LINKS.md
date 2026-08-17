@@ -23,7 +23,24 @@ References:
 
 - [Directus API endpoints](https://directus.com/docs/guides/extensions/api-extensions/endpoints)
 - [Directus services](https://directus.io/docs/guides/extensions/api-extensions/services)
+- [Directus extension hooks and error handling](https://directus.com/docs/guides/extensions/api-extensions/hooks)
 - [Directus authentication service](https://raw.githubusercontent.com/directus/directus/main/api/src/services/authentication.ts)
+
+## Error handling
+
+All endpoint failures must use `@directus/errors`. Prefer the standard Directus error classes,
+including `InvalidPayloadError`, `InvalidCredentialsError`, `ForbiddenError`, and
+`ServiceUnavailableError`. If no standard error is suitable, define a narrowly scoped error with
+`createError()`.
+
+The extension must not return ad-hoc error JSON or invent client-facing error shapes. Directus
+serializes thrown errors consistently for REST and SDK clients.
+
+For TFA, the extension must call `AuthenticationService.login()` and rethrow its `InvalidOtpError`
+unchanged. It must not translate it into a custom `MFA_REQUIRED` error. This ensures that the
+magic-link flow has the identical status, message, and `extensions.code` as the normal Directus
+login flow for the supported Directus version. The frontend consumer skill must instruct clients to
+branch on the exact Directus error code returned by that version, not on a magic-link-specific code.
 
 ## Request flow
 
@@ -69,8 +86,10 @@ The endpoint must:
 4. Find an active user using Directus's default local provider only.
 5. Generate a cryptographically secure token.
 6. Store only its digest.
-7. Send the email using Directus `MailService`.
-8. Return the generic response without revealing account existence.
+7. Store the normalized email, IP, user agent, `email_status=pending`, and issuance metadata.
+8. Send the email using Directus `MailService`.
+9. Update the record to `email_status=sent` or `email_status=error`.
+10. Return the generic response without revealing account existence.
 
 Requests must not invalidate earlier links. Earlier links remain valid until they expire or are
 redeemed.
@@ -113,22 +132,11 @@ authentication error.
 
 TFA is not bypassed.
 
-The first redemption request may omit `otp`. If the token is valid but the user requires TFA, the
-endpoint returns a `401` response with a stable machine-readable code such as `MFA_REQUIRED` and no
-session:
-
-```json
-{
-  "errors": [
-    {
-      "message": "A second authentication factor is required.",
-      "extensions": {
-        "code": "MFA_REQUIRED"
-      }
-    }
-  ]
-}
-```
+The first redemption request may omit `otp`. If the token is valid but the user requires TFA,
+`AuthenticationService.login()` throws Directus's normal `InvalidOtpError`. The extension rethrows
+that error unchanged, so the response has the same status, message, and `extensions.code` as a
+normal Directus login. The exact serialized error is version-dependent and must be covered by an
+integration test against the supported Directus version.
 
 The token remains unredeemed. The frontend prompts for the OTP and repeats the request with the same
 magic-link token and `otp`. A successful OTP verification creates the session and marks the link
@@ -142,8 +150,15 @@ second TFA algorithm or silently grant a session after email possession alone.
 
 ### Generation
 
-Generate 32 random bytes with the platform cryptographic random generator and encode them as
-base64url. Do not use timestamps, UUIDs, email addresses, or predictable identifiers as tokens.
+Use the secure URL-safe random-string utility already used by the target Directus runtime. The
+current Directus authentication implementation uses `nanoid` for session tokens; the extension
+should use the supported Directus utility/adapter rather than duplicating random generation or using
+`Math.random`. The adapter should generate at least 256 bits of entropy and be covered by a unit
+test.
+
+Do not use timestamps, UUIDs, email addresses, or predictable identifiers as tokens. If the target
+Directus version does not expose a supported secure random-string utility to extensions, stop and
+record that compatibility decision before adding a direct dependency or fallback.
 
 ### Digest at rest
 
@@ -240,27 +255,36 @@ from one link.
 
 ## Collection and schema
 
-The default collection name is:
+The default collection name is configurable and defaults to:
 
 ```text
-directus_magic_links
+MAGIC_LINKS_COLLECTION=directus_magic_links
 ```
 
 The `directus_` prefix is used deliberately for this first version. Directus has many built-in
-collections using that convention, but collection names should still be checked against the
-installed Directus version. If the runtime rejects or reserves this name, the collection name must
-become configurable before implementation is released.
+collections using that convention, so startup must verify that the configured name is available and
+compatible with the installed Directus version. Consumers can override it if their version or
+deployment reserves the default name.
 
 Schema:
 
-| Field         | Type          | Required | Notes                                           |
-| ------------- | ------------- | -------: | ----------------------------------------------- |
-| `id`          | UUID          |      yes | Primary key                                     |
-| `user`        | UUID relation |      yes | Many magic links to one `directus_users` record |
-| `token_hash`  | String(64)    |      yes | Unique and indexed; hidden from the Data Studio |
-| `expires_at`  | Timestamp     |      yes | Indexed                                         |
-| `issued_at`   | Timestamp     |      yes | Creation time                                   |
-| `redeemed_at` | Timestamp     |       no | Set once; retained for audit and cleanup        |
+| Field          | Type          | Required | Notes                                             |
+| -------------- | ------------- | -------: | ------------------------------------------------- |
+| `id`           | UUID          |      yes | Primary key                                       |
+| `user`         | UUID relation |      yes | Many links to one `directus_users` record         |
+| `email`        | String        |      yes | Normalized email snapshot; indexed                |
+| `token_hash`   | String(64)    |      yes | Unique and indexed; hidden from the Data Studio   |
+| `expires_at`   | Timestamp     |      yes | Indexed                                           |
+| `issued_at`    | Timestamp     |      yes | Issuance time; indexed                            |
+| `redeemed_at`  | Timestamp     |       no | Set once; retained for audit and cleanup          |
+| `ip`           | String(45)    |       no | Request IP; hidden or read-only                   |
+| `user_agent`   | Text          |       no | Request user agent; hidden or read-only           |
+| `email_status` | String        |      yes | `pending`, `sent`, or `error`; indexed            |
+| `email_error`  | Text          |       no | Sanitized operational error; never raw token data |
+
+`email_status=pending` is useful because record creation and email delivery are separate side
+effects. A crash or transport failure can therefore be observed without pretending that delivery
+succeeded. V1 records the status but does not retry email delivery automatically.
 
 Relation:
 
@@ -268,9 +292,36 @@ Relation:
 directus_magic_links.user → directus_users.id
 ```
 
-Recommended relation behavior is cascade deletion when the user is deleted. The collection should
-have no public CRUD permissions. Extension internals use elevated access while returned sessions
-retain the user's ordinary role and permissions.
+Recommended relation behavior is cascade deletion when the user is deleted. The collection should be
+hidden in its collection metadata and have no public CRUD permissions. Extension internals use
+elevated access while returned sessions retain the user's ordinary role and permissions.
+
+`token_hash` must have a unique index. `email` and `issued_at` should have ordinary non-unique
+indexes. Unique indexes on either field would conflict with the requirement that multiple links for
+the same email remain valid and that multiple links may be issued close together. If a future schema
+contract requires uniqueness, use a separate immutable identifier rather than making email or
+timestamp unique.
+
+The JSON schema data should also configure a usable administrative presentation if an administrator
+chooses to reveal the hidden collection:
+
+| Field          | Interface             | Display         | UI metadata                          |
+| -------------- | --------------------- | --------------- | ------------------------------------ |
+| `id`           | `input`               | raw value       | hidden, readonly                     |
+| `user`         | `select-dropdown-m2o` | related values  | readonly                             |
+| `email`        | `input`               | formatted value | readonly                             |
+| `token_hash`   | `input`               | raw value       | hidden, readonly                     |
+| `expires_at`   | `datetime`            | datetime        | readonly                             |
+| `issued_at`    | `datetime`            | datetime        | readonly                             |
+| `redeemed_at`  | `datetime`            | datetime        | readonly                             |
+| `ip`           | `input`               | raw value       | readonly                             |
+| `user_agent`   | `input-multiline`     | raw value       | readonly                             |
+| `email_status` | `select-dropdown`     | raw value       | readonly; choices pending/sent/error |
+| `email_error`  | `input-multiline`     | raw value       | hidden, readonly                     |
+
+These interface and display identifiers are part of the JSON data contract and must be checked
+against the supported Directus version during implementation. They are presentation metadata only;
+they do not replace server-side access controls.
 
 ## Email template
 
@@ -281,14 +332,13 @@ by Directus.
 Directus loads custom templates from `EMAIL_TEMPLATES_PATH`, which defaults to `./templates`.
 [Directus email template documentation](https://docs.directus.io/self-hosted/email-templates).
 
-The package should ship an example at:
+The extension cannot provide or register an email template automatically. The package README and
+both consumer-facing skills must provide a copy/pastable example based on Directus's password-reset
+template and link to the
+[dynamic email template tutorial](https://directus.com/docs/tutorials/extensions/use-dynamic-values-in-custom-email-templates).
 
-```text
-templates/magic-link.liquid
-```
-
-Consumer installation should copy or mount this file into `EMAIL_TEMPLATES_PATH`. Consumers may
-replace it with a custom template while retaining the same template name and variables.
+Consumers must copy the example into `EMAIL_TEMPLATES_PATH` and may replace it with a custom
+template while retaining the same template name and variables.
 
 Required template variables:
 
@@ -301,6 +351,31 @@ Required template variables:
 
 The email must contain a button, a plain-text fallback URL, the expiration notice, and a warning
 that the user can ignore the email if they did not request it.
+
+## Consumer-facing skills
+
+The published extension must provide two installable skills:
+
+```text
+skills/directus-magic-links/SKILL.md
+skills/directus-magic-links-frontend/SKILL.md
+```
+
+The regular `directus-magic-links` skill helps agents install and configure the extension in a
+Directus project. It covers package installation, trusted runtime requirements, SMTP setup,
+environment variables, schema setup switches, importing the portable JSON schema manually,
+allowlisted redirect URLs, email-template copy/paste, permissions, cleanup scheduling, rate-limit
+prerequisites, cookie modes, troubleshooting, and known limitations.
+
+The `directus-magic-links-frontend` skill is specifically for frontend clients. It covers the
+request and redeem API contracts, redirect URL handling, token removal from browser history, JSON
+and cookie/session modes, TFA follow-up, exact Directus error handling, refresh-token storage, CORS
+and CSRF considerations, and example client flows. It must not describe server-internal utilities as
+frontend APIs.
+
+Both skills must be synchronized with the package README and endpoint behavior. The frontend skill
+must explicitly state that clients should inspect Directus's standardized error code and should not
+depend on a custom `MFA_REQUIRED` code.
 
 ## Redirect URL security
 
@@ -342,21 +417,45 @@ await ensureDirectusSchema({
 })
 ```
 
-The definition should describe collections, fields, and relations using typed Directus service
-payloads. The utility should use `CollectionsService`, `FieldsService`, and `RelationsService`,
-which are documented Directus services.
+Schema definitions must not be inline TypeScript objects. They are portable JSON data files shipped
+by the extension and included in package exports. The general repository pattern is:
+
+```text
+schema/
+└── directus_magic_links.json
+```
+
+The JSON document contains `collections`, `fields`, and `relations` arrays using the corresponding
+Directus service payload shapes. It includes the hidden collection metadata, field interfaces,
+displays, readonly/hidden settings, choices for `email_status`, indexes, and relation metadata. The
+extension imports the JSON data at runtime; consumers can also import it from the published package
+when automated schema changes are disabled.
+
+The package export should expose the data through a stable public subpath, for example:
+
+```text
+@onderwijsin/directus-magic-links/schema
+```
+
+The published artifact must include the JSON file and its package export. Source-file imports and
+workspace-only paths are not part of the consumer contract.
+
+The utility should use `CollectionsService`, `FieldsService`, and `RelationsService`, which are
+documented Directus services. JSON data files are the general pattern for every future extension
+that modifies schema.
 
 Behavior:
 
-1. Check the global schema-change switch.
-2. Check the extension-specific schema-change switch.
-3. Acquire an optional shared schema-operation lock.
-4. Reload the schema after lock acquisition.
-5. Create missing collections, fields, and relations.
-6. Preserve existing compatible resources.
-7. Reject incompatible existing resources rather than silently altering them.
-8. Log every change and every incompatibility.
-9. Release the lock in `finally`.
+1. Load the portable JSON schema definition.
+2. Check the global schema-change switch.
+3. Check the extension-specific schema-change switch.
+4. Acquire an optional shared schema-operation lock.
+5. Reload the schema after lock acquisition.
+6. Create missing collections, fields, and relations.
+7. Preserve existing compatible resources.
+8. Reject incompatible existing resources rather than silently altering them.
+9. Log every change and every incompatibility.
+10. Release the lock in `finally`.
 
 Schema setup runs from a Directus startup hook, not from a request handler. The endpoint should wait
 for a shared readiness promise and return `503` while setup is incomplete.
@@ -398,12 +497,26 @@ DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE=true
 MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE=true
 ```
 
-The extension-specific value overrides the global default. The lock key must include the extension
-ID and operation name, for example:
+The extension-specific value overrides the global default. Add this shared constant and helper to
+`@onderwijsin/directus-extension-utils/server`:
+
+```ts
+export const DIRECTUS_EXTENSION_SCHEMA_LOCK = 'directus-extension-schema'
+
+export function getSchemaLockName(name: string): string {
+  return `${DIRECTUS_EXTENSION_SCHEMA_LOCK}:${name}`
+}
+```
+
+`getSchemaLockName('magic-links')` returns:
 
 ```text
-directus-extension-schema:magic-links:ensure
+directus-extension-schema:magic-links
 ```
+
+The `:ensure` suffix is unnecessary because the lock specifically coordinates schema changes. If
+future schema operations need separate concurrency domains, add an explicit operation argument then
+rather than baking `:ensure` into the first public helper.
 
 The utility should use the repository's existing server lock providers. Redis is required for a lock
 shared across multiple Directus replicas; a process-local lock is acceptable only as a fallback and
@@ -427,7 +540,10 @@ future option.
 
 ## Cleanup
 
-Cleanup is optional and only runs through a scheduled/cron hook.
+Cleanup is optional and only runs through Directus's `schedule` hook. The extension registers the
+configured cron expression with `schedule(cron, callback)` and does not create its own timer or
+background worker.
+[Directus schedule hooks](https://directus.com/docs/guides/extensions/api-extensions/hooks#schedule).
 
 Configuration:
 
@@ -448,12 +564,13 @@ expires_at < now - cleanup window
 The cleanup window is a retention grace period. Security does not depend on cleanup because
 redemption always checks expiration and `redeemed_at`.
 
-Cleanup should use the same shared lock family so multiple Directus replicas do not all perform the
-same cleanup work when Redis coordination is available.
+Cleanup should use the same shared schema/maintenance lock family so multiple Directus replicas do
+not all perform the same cleanup work when Redis coordination is available.
 
 ## Rate limiting
 
-V1 should not implement a custom endpoint-specific rate limiter.
+V1 should mirror Directus's existing public-auth security model and must not implement a separate
+extension-specific rate limiter.
 
 Current Directus behavior provides:
 
@@ -463,9 +580,33 @@ Current Directus behavior provides:
 - an independent email queue limiter through `RATE_LIMITER_EMAIL_*`.
 
 Directus's password-request endpoint does not have a dedicated password-request rate limiter. The
-magic-link request endpoint should therefore rely on the same global API and email limiter behavior
-instead of creating an extension-specific limiter. Consumers should enable and configure Directus
-rate limiting in production.
+magic-link request endpoint should therefore rely on the same global API limiter and Directus email
+limiter behavior. Redemption should use `AuthenticationService.login()` so its authentication
+attempt limiting and TFA behavior are inherited. If a future supported Directus version adds an
+auth-specific limiter for the equivalent public endpoint, the extension should reuse that internal
+mechanism rather than add its own policy. Consumers should enable and configure Directus rate
+limiting in production.
+
+## Email prerequisites
+
+The consumer must configure a working SMTP transport before enabling the extension. V1 does not
+support falling back to sendmail, Mailgun, or SES for magic-link delivery.
+
+Required Directus configuration includes:
+
+```text
+EMAIL_TRANSPORT=smtp
+EMAIL_SMTP_HOST=...
+EMAIL_SMTP_PORT=...
+EMAIL_SMTP_USER=...
+EMAIL_SMTP_PASSWORD=...
+EMAIL_FROM=no-reply@example.com
+```
+
+The extension should validate the required SMTP configuration during setup and throw a
+`ServiceUnavailableError` or another appropriate standardized Directus error when it is missing.
+Email transport failures set `email_status=error`, log the failure without token data, and return a
+standardized service error according to the endpoint's generic-response contract.
 
 References:
 
@@ -517,6 +658,12 @@ The extension must not grant admin access or alter Data Studio login behavior.
 | `MAGIC_LINKS_COLLECTION`                       | `directus_magic_links`     | Collection name override if needed                |
 | `MAGIC_LINKS_EMAIL_TEMPLATE`                   | `magic-link`               | Liquid template name                              |
 | `MAGIC_LINKS_EMAIL_SUBJECT`                    | configurable               | Email subject                                     |
+| `EMAIL_TRANSPORT`                              | required `smtp`            | Required Directus email transport                 |
+| `EMAIL_SMTP_HOST`                              | required                   | SMTP host                                         |
+| `EMAIL_SMTP_PORT`                              | required                   | SMTP port                                         |
+| `EMAIL_SMTP_USER`                              | required                   | SMTP username                                     |
+| `EMAIL_SMTP_PASSWORD`                          | required                   | SMTP password                                     |
+| `EMAIL_FROM`                                   | required                   | Sender address                                    |
 | `USE_MAGIC_LINK_CLEANUP`                       | `false`                    | Enable scheduled cleanup                          |
 | `MAGIC_LINK_CLEANUP_WINDOW`                    | `24h`                      | Retention grace period                            |
 | `MAGIC_LINK_CLEANUP_CRON`                      | `*/15 * * * *`             | Cleanup schedule                                  |
@@ -525,12 +672,15 @@ The extension must not grant admin access or alter Data Studio login behavior.
 
 ### Unit tests
 
+- token generation through the supported Directus secure random utility;
+- standardized Directus error propagation, including exact `InvalidOtpError` behavior;
 - token generation and HMAC digesting;
 - secret fallback behavior;
 - redirect allowlist validation;
 - request/redeem schemas;
 - cookie mode selection;
 - TFA response mapping;
+- JSON schema data loading and package-export compatibility;
 - schema-switch precedence;
 - lock configuration;
 - cleanup-window parsing.
@@ -546,11 +696,13 @@ The extension must not grant admin access or alter Data Studio login behavior.
 7. Redeem successfully and verify the returned token accesses permitted content.
 8. Redeem a second time and verify failure.
 9. Redeem concurrently and verify only one session is created.
-10. Verify TFA users receive `MFA_REQUIRED`, then succeed with a valid OTP.
+10. Verify TFA users receive the exact same `InvalidOtpError` response as normal Directus login,
+    then succeed with a valid OTP.
 11. Verify invalid OTP attempts remain subject to Directus authentication limits.
 12. Verify JSON, cookie, and session modes.
-13. Verify optional scheduled cleanup and its retention window.
-14. Verify schema lock behavior with multiple extension processes.
+13. Verify pending, sent, and error email statuses.
+14. Verify optional scheduled cleanup and its retention window.
+15. Verify schema lock behavior with multiple extension processes.
 
 ## V1 implementation boundary
 
@@ -566,9 +718,12 @@ V1 includes:
 - `directus_magic_links` as the default collection name;
 - reusable idempotent schema utilities;
 - configurable shared schema locking;
-- optional scheduled cleanup;
-- no custom endpoint-specific rate limiter;
-- an example password-reset-derived Liquid template.
+- optional scheduled cleanup through the Directus schedule hook;
+- Directus-aligned public-auth rate limiting with no custom endpoint-specific limiter;
+- a copy/pastable password-reset-derived Liquid template example;
+- two consumer-facing skills, one for Directus operators and one for frontend clients;
+- portable JSON schema data included in package exports;
+- standardized `@directus/errors` handling.
 
 Out of scope for V1:
 
@@ -578,4 +733,5 @@ Out of scope for V1:
 - custom per-email or per-IP rate limiting;
 - cookie mode as the default;
 - SMS or non-email credentials;
-- automatic filesystem installation of the email template.
+- automatic filesystem installation or registration of the email template;
+- non-SMTP email transports.
