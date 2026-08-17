@@ -4,6 +4,7 @@ packages:
 
 catalog:
   '@directus/memory': 4.0.2
+  # Upgrading would require node ">=24.15.0" while we are on ">=24.10.0"
   eslint-plugin-jsdoc: 62.4.0
   '@changesets/changelog-git': 0.2.1
   '@changesets/cli': 2.31.1
