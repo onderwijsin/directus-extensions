@@ -88,6 +88,17 @@ describe('Sentry bundle', () => {
 		expect(endpointEnvSchema.parse({}).SENTRY_TEST_SUITE_ENABLED).toBe(false)
 	})
 
+	it('accepts the documented multiline loader script', () => {
+		const loaderScript = `<script
+  src="https://js-de.sentry-cdn.com/0123456789abcdef0123456789abcdef.min.js"
+  crossorigin="anonymous"
+></script>`
+
+		expect(
+			hookEnvSchema.parse({ SENTRY_LOADER_SCRIPT: loaderScript }).SENTRY_LOADER_SCRIPT,
+		).toBe(loaderScript)
+	})
+
 	it('does not load the Node Sentry dependency when disabled', () => {
 		mocks.setup.isEnabled.mockReturnValue(false)
 
@@ -131,6 +142,26 @@ describe('Sentry bundle', () => {
 		if (typeof registerErrorHandler !== 'function') throw new Error('Expected init callback')
 		registerErrorHandler({ app: {} })
 		expect(setupExpressErrorHandler).toHaveBeenCalledWith({})
+	})
+
+	it('serializes browser configuration values before embedding them', () => {
+		const embed = vi.fn<Embed>()
+		mocks.validateExtensionOptions.mockReturnValueOnce({
+			DEPLOYMENT_ENV: 'development',
+			SENTRY_DSN: undefined,
+			SENTRY_ENABLED: true,
+			SENTRY_LOADER_SCRIPT:
+				'<script src="https://js-de.sentry-cdn.com/0123456789abcdef0123456789abcdef.min.js" crossorigin="anonymous"></script>',
+			SENTRY_RELEASE: 'release"; window.pwned = true; //',
+			SENTRY_RELEASE_PREFIX: 'dev',
+			SOURCE_COMMIT: 'unknown',
+		})
+
+		mocks.hookRegister({ init: vi.fn<Init>(), embed }, { env: {}, logger })
+
+		const markup = embed.mock.calls[0]?.[1]
+		expect(markup).toContain('release: "release\\\"; window.pwned = true; //"')
+		expect(markup).not.toContain('release: "release"; window.pwned')
 	})
 
 	it('registers the test endpoint only when explicitly enabled', () => {

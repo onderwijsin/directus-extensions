@@ -52,6 +52,14 @@ describe('Sentry utilities', () => {
 		expect(mocks.scope.setTags).toHaveBeenCalledWith(exceptionTags)
 	})
 
+	it('does not mutate caller-provided tags when applying a default severity', () => {
+		const exceptionTags = { ...tags }
+
+		captureException('failed', { tags: exceptionTags })
+
+		expect(exceptionTags).toEqual(tags)
+	})
+
 	it('captures messages with the requested level and context', () => {
 		captureMessage('completed', 'warning', { extra: { itemCount: 3 }, tags })
 

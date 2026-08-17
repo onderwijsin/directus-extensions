@@ -9,7 +9,7 @@ import { z } from 'zod'
 export const sentryLoaderScriptSchema = z
 	.string()
 	.regex(
-		/^<script src="https:\/\/js-de\.sentry-cdn\.com\/[a-f0-9]{32}\.min\.js" crossorigin="anonymous"><\/script>$/,
+		/^<script\s+src="https:\/\/js-de\.sentry-cdn\.com\/[a-f0-9]{32}\.min\.js"\s+crossorigin="anonymous"\s*><\/script>$/u,
 		'Must be a valid Sentry loader script',
 	)
 

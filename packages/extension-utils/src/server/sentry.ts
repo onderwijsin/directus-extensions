@@ -106,11 +106,10 @@ export function captureException(
 		return // Sentry is not initialized
 	}
 
-	const { tags } = context
-	tags.severity ??= 'medium' // Default severity if not provided
+	const tags = { ...context.tags, severity: context.tags.severity ?? 'medium' }
 
 	Sentry.withScope((scope: Scope) => {
-		if (context?.tags) scope.setTags(context.tags)
+		if (context?.tags) scope.setTags(tags)
 		if (context?.extra) {
 			for (const [k, v] of Object.entries(context.extra)) scope.setExtra(k, v)
 		}
@@ -154,11 +153,8 @@ export function captureMessage(
 	}
 
 	Sentry.withScope((scope: Scope) => {
-		if (context?.tags) {
-			const tags = context.tags
-			tags.severity ??= 'medium'
-			scope.setTags(tags)
-		}
+		if (context?.tags)
+			scope.setTags({ ...context.tags, severity: context.tags.severity ?? 'medium' })
 		if (context?.extra) {
 			for (const [k, v] of Object.entries(context.extra)) scope.setExtra(k, v)
 		}

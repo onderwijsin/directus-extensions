@@ -43,9 +43,10 @@ installed bundle
 pnpm add @onderwijsin/directus-bundle-sentry
 ```
 
-The bundle declares `@sentry/node` and `@sentry/profiling-node` as package dependencies for its
-build and runtime contract, but Directus resolves extension dependencies from the Directus runtime
-module tree. Install the packages into that runtime image as well.
+The bundle declares `@sentry/node` and `@sentry/profiling-node` as optional peer dependencies.
+Directus resolves extension dependencies from the Directus runtime module tree, so install
+`@sentry/node` into that runtime image when Sentry is enabled. Install `@sentry/profiling-node` only
+when the consumer's instrumentation enables profiling.
 
 ## Consumer Dockerfile
 
@@ -59,8 +60,7 @@ USER root
 
 RUN corepack enable \
   && pnpm add --dir /directus --save-exact \
-    @sentry/node@10.69.0 \
-    @sentry/profiling-node@10.69.0
+    @sentry/node@10.69.0
 
 COPY sentry-instrument.js /directus/sentry-instrument.js
 ENV NODE_OPTIONS="--import /directus/sentry-instrument.js"
@@ -81,7 +81,6 @@ share the same file without sending events:
 ```js
 // sentry-instrument.js
 import * as Sentry from '@sentry/node'
-import { nodeProfilingIntegration } from '@sentry/profiling-node'
 
 const dsn = process.env.SENTRY_DSN?.trim()
 
@@ -89,12 +88,14 @@ if (dsn) {
   Sentry.init({
     dsn,
     environment: process.env.DEPLOYMENT_ENV ?? 'development',
-    integrations: [nodeProfilingIntegration()],
     tracesSampleRate: 0.1,
-    profilesSampleRate: 0.02,
   })
 }
 ```
+
+To enable profiling, install the optional peer dependency `@sentry/profiling-node@10.69.0`, import
+`nodeProfilingIntegration` in this file, and configure `integrations` and `profilesSampleRate` in
+the consumer-owned instrumentation. Profiling is not initialized by the bundle.
 
 If profiling is not wanted, omit both the profiling package and `nodeProfilingIntegration()`:
 
@@ -137,6 +138,8 @@ The loader script must use Sentry's hosted format and a 32-character hexadecimal
   crossorigin="anonymous"
 ></script>
 ```
+
+Whitespace and newlines between the tag attributes are accepted.
 
 The browser release is computed as the configured release prefix followed by `@` and the source
 commit unless `SENTRY_RELEASE` is explicitly configured. The browser initializer also sets the

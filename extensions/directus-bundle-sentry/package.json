@@ -50,22 +50,33 @@
 		"link": "directus-extension link",
 		"add": "directus-extension add",
 		"validate": "directus-extension validate",
-		"test:unit": "vitest run --config ../../vitest.config.ts",
+		"test:unit": "vitest run --config vitest.config.ts --root ../..",
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
-		"@sentry/node": "catalog:",
-		"@sentry/profiling-node": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",
 		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"@sentry/node": "catalog:",
 		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",
 		"vitest": "catalog:",
 		"vue": "catalog:",
 		"zod": "catalog:"
+	},
+	"peerDependencies": {
+		"@sentry/node": "catalog:",
+		"@sentry/profiling-node": "catalog:"
+	},
+	"peerDependenciesMeta": {
+		"@sentry/node": {
+			"optional": true
+		},
+		"@sentry/profiling-node": {
+			"optional": true
+		}
 	},
 	"icon": "extension",
 	"engines": {

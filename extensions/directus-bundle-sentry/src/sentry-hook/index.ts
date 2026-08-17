@@ -14,8 +14,6 @@ export default defineHook(({ init, embed }, { env, logger }) => {
 	const setup = extensionSetup('sentry', env, logger)
 	setup.start()
 
-	console.log(typeof env.SENTRY_ENABLED)
-
 	if (!setup.isEnabled()) return
 
 	const options = validateExtensionOptions(env, envSchema, logger)
@@ -46,6 +44,8 @@ export default defineHook(({ init, embed }, { env, logger }) => {
 	} else {
 		const release =
 			options.SENTRY_RELEASE ?? `${options.SENTRY_RELEASE_PREFIX}@${options.SOURCE_COMMIT}`
+		const releaseLiteral = JSON.stringify(release)
+		const environmentLiteral = JSON.stringify(options.DEPLOYMENT_ENV)
 
 		embed(
 			`head`,
@@ -53,8 +53,8 @@ export default defineHook(({ init, embed }, { env, logger }) => {
 			<script>
 			  window.sentryOnLoad = function () {
 				Sentry.init({
-					release: "${release}",
-					environment: "${options.DEPLOYMENT_ENV}",
+						release: ${releaseLiteral},
+						environment: ${environmentLiteral},
 					denyUrls: [/^(chrome|moz|safari)-extension:/i, /^extension:/i],
 					replaysSessionSampleRate: 0.02,
 					replaysOnErrorSampleRate: 1.0,

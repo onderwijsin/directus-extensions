@@ -16,8 +16,9 @@ pnpm add @onderwijsin/directus-bundle-sentry
 ```
 
 The bundle is non-sandboxed and must run in a trusted Directus installation. Installing the bundle
-alone is not sufficient: the Directus runtime must also provide `@sentry/node` and, when profiling
-is enabled, `@sentry/profiling-node`.
+alone is not sufficient when Sentry is enabled: the Directus runtime must provide the optional peer
+dependency `@sentry/node`. The optional peer dependency `@sentry/profiling-node` is only needed when
+the consumer's instrumentation enables profiling.
 
 ## Runtime prerequisites
 
@@ -33,8 +34,7 @@ FROM directus/directus:12.2.0
 
 USER root
 RUN corepack enable && pnpm add --dir /directus --save-exact \
-  @sentry/node@10.69.0 \
-  @sentry/profiling-node@10.69.0
+  @sentry/node@10.69.0
 COPY sentry-instrument.js /directus/sentry-instrument.js
 ENV NODE_OPTIONS="--import /directus/sentry-instrument.js"
 USER node
@@ -44,18 +44,19 @@ Example `sentry-instrument.js`:
 
 ```js
 import * as Sentry from '@sentry/node'
-import { nodeProfilingIntegration } from '@sentry/profiling-node'
 
 if (process.env.SENTRY_DSN && process.env.SENTRY_DSN.trim() !== '') {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.DEPLOYMENT_ENV ?? 'development',
-    integrations: [nodeProfilingIntegration()],
     tracesSampleRate: 0.1,
-    profilesSampleRate: 0.02,
   })
 }
 ```
+
+If profiling is required, also install the optional peer dependency
+`@sentry/profiling-node@10.69.0`, import `nodeProfilingIntegration` in the instrumentation file, and
+configure the profiling sample rate there. The bundle does not initialize profiling itself.
 
 The instrumentation file initializes the Node SDK for Directus itself. The bundle adds the
 Directus-specific Express handler and browser embedding; it does not replace global runtime
@@ -83,6 +84,8 @@ The loader script must match Sentry's hosted format:
   crossorigin="anonymous"
 ></script>
 ```
+
+Whitespace and newlines between the tag attributes are accepted.
 
 ## Test integration
 
