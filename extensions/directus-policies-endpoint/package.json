@@ -12,6 +12,18 @@
 		"url": "https://github.com/onderwijsin/directus-extensions/issues"
 	},
 	"license": "MIT",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijs.in",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijs.in",
+			"url": "https://github.com/remihuigen"
+		}
+	],
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
