@@ -128,10 +128,10 @@ runner explicitly waits for Garage initialization, then probes Directus, Mailpit
 Meilisearch before seeding the test collection. It emits timestamped phase messages and streams
 child-process output to make slow startup visible in CI. Individual E2E operations and cleanup
 commands time out after 60 seconds; Compose startup retains a longer 15-minute budget. The Garage
-initialization logs are sampled every 15 seconds, service probes wait up to eight minutes, and child
-processes are bounded by a fifteen-minute timeout. The initialization step also reports its
-download, RPC readiness, layout, bucket, and key stages; its CLI download has bounded retries so
-network stalls fail with a useful diagnostic.
+initialization logs are sampled every 5 seconds, service probes wait up to three minutes, Garage
+completion waits up to five minutes, and child processes are bounded by a fifteen-minute timeout.
+The initialization step also reports its download, RPC readiness, layout, bucket, and key stages;
+its CLI download has bounded retries so network stalls fail with a useful diagnostic.
 
 CI prepares a clean consumer from packed extension artifacts and sets `DIRECTUS_E2E_EXTENSIONS_DIR`
 to that consumer’s extension directory before invoking the same E2E runner.

@@ -15,7 +15,9 @@ import { randomBytes } from 'node:crypto'
 const composeFiles = ['docker/compose.yaml', 'tests/compose.e2e.yaml']
 const e2eOperationTimeoutMs = 60_000
 const composeCommandTimeout = 900_000
-const serviceReadinessTimeout = 480_000
+const composeCompletionTimeout = 300_000
+const serviceReadinessTimeout = 180_000
+const progressLogInterval = 5_000
 const composeProject = `directus-extensions-e2e-${process.pid}`
 const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
 const mailpitPort = process.env.DIRECTUS_E2E_MAILPIT_PORT ?? '18025'
@@ -127,10 +129,10 @@ const password = environmentSecrets.ADMIN_PASSWORD
 /**
  * Runs Docker Compose for the isolated E2E project.
  * @param {string[]} args - Compose arguments.
- * @param {{streamOutput?: boolean, timeoutMs?: number}} options - Output and timeout behavior.
+ * @param {{logCommand?: boolean, streamOutput?: boolean, timeoutMs?: number}} options - Output and timeout behavior.
  * @returns {Promise<{stdout: string, stderr: string}>} The completed command output.
  */
-async function compose(args, options = {}) {
+async function compose(args, { logCommand = true, ...options } = {}) {
 	const command = [
 		'compose',
 		...composeFiles.flatMap((file) => ['-f', file]),
@@ -138,13 +140,13 @@ async function compose(args, options = {}) {
 		composeProject,
 		...args,
 	]
-	log(`Starting: docker ${command.join(' ')}`)
+	if (logCommand) log(`Starting: docker ${command.join(' ')}`)
 	const result = await runCommand('docker', command, {
 		env: { ...process.env, ...environmentSecrets, DIRECTUS_E2E_PORT: port },
 		timeoutMs: e2eOperationTimeoutMs,
 		...options,
 	})
-	log(`Completed: docker compose ${args.join(' ')}`)
+	if (logCommand) log(`Completed: docker compose ${args.join(' ')}`)
 	return result
 }
 
@@ -174,7 +176,7 @@ async function waitForHttp(url, name, isReady = responseIsReady) {
 		}
 		if (Date.now() >= nextProgressLog) {
 			log(`Still waiting for ${name}`)
-			nextProgressLog = Date.now() + 15_000
+			nextProgressLog = Date.now() + progressLogInterval
 		}
 		await new Promise((resolve) => setTimeout(resolve, 1_000))
 	}
@@ -187,12 +189,13 @@ async function waitForHttp(url, name, isReady = responseIsReady) {
  * @returns {Promise<void>} Nothing.
  */
 async function waitForComposeCompletion(service) {
-	const deadline = Date.now() + serviceReadinessTimeout
+	const deadline = Date.now() + composeCompletionTimeout
 	let nextProgressLog = Date.now()
 	log(`Waiting for Compose service ${service} to complete`)
 	while (Date.now() < deadline) {
 		if (interrupted) throw new Error('E2E run interrupted')
 		const result = await compose(['ps', '--all', '--format', 'json', service], {
+			logCommand: false,
 			streamOutput: false,
 		})
 		const records = result.stdout
@@ -211,8 +214,8 @@ async function waitForComposeCompletion(service) {
 		}
 		if (Date.now() >= nextProgressLog) {
 			log(`Still waiting for Compose service ${service}`)
-			await compose(['logs', '--no-color', '--tail', '50', service])
-			nextProgressLog = Date.now() + 15_000
+			await compose(['logs', '--no-color', '--tail', '50', service], { logCommand: false })
+			nextProgressLog = Date.now() + progressLogInterval
 		}
 		await new Promise((resolve) => setTimeout(resolve, 1_000))
 	}
