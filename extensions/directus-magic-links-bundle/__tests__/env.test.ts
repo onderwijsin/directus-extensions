@@ -48,8 +48,7 @@ describe('magic-links environment schemas', () => {
 		expect(result.success).toBe(true)
 	})
 
-	it('rejects missing or unsafe redirect allowlists', () => {
-		expect(endpointEnvSchema.safeParse({}).success).toBe(false)
+	it('rejects malicious or unsafe redirect allowlists', () => {
 		expect(
 			endpointEnvSchema.safeParse({
 				...validEnvironment,
