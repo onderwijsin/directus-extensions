@@ -1,4 +1,5 @@
-import { createDirectusE2EClient, customEndpoint } from '@workspace/test-utils'
+import { createDirectusE2EClient } from '@workspace/test-utils'
+import { customEndpoint } from '@workspace/test-utils/commands'
 import { describe, expect, it } from 'vitest'
 
 const baseUrl = process.env.DIRECTUS_E2E_URL

@@ -15,19 +15,15 @@ Add the workspace package to an E2E extension package:
 }
 ```
 
-Import both the E2E helper and Directus SDK commands from the same boundary:
+Import repository helpers from the package root and Directus SDK commands from the explicit
+`/commands` subpath:
 
 ```ts
-import {
-  createDirectusE2EClient,
-  createItem,
-  customEndpoint,
-  deleteItem,
-  updateItem,
-} from '@workspace/test-utils'
+import { createDirectusE2EClient } from '@workspace/test-utils'
+import { createItem, customEndpoint, deleteItem, updateItem } from '@workspace/test-utils/commands'
 ```
 
-The package re-exports `@directus/sdk`; E2E packages do not need to declare the SDK separately.
+E2E packages do not need to declare `@directus/sdk` separately.
 
 ## Root and user contexts
 

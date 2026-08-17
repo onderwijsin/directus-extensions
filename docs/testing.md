@@ -56,16 +56,11 @@ published extension. E2E extension packages should declare it as a dev dependenc
 }
 ```
 
-The package re-exports the official Directus SDK, so tests use one import boundary:
+The package exposes the official Directus SDK commands from an explicit subpath:
 
 ```ts
-import {
-  createDirectusE2EClient,
-  createItem,
-  customEndpoint,
-  deleteItem,
-  updateItem,
-} from '@workspace/test-utils'
+import { createDirectusE2EClient } from '@workspace/test-utils'
+import { createItem, customEndpoint, deleteItem, updateItem } from '@workspace/test-utils/commands'
 
 const client = createDirectusE2EClient({
   baseUrl,

@@ -21,7 +21,8 @@ const { fetchMock } = vi.hoisted(() => {
 
 import { execFile } from 'node:child_process'
 
-import { createDirectusE2EClient, createItem, deleteItem } from '../src'
+import { createDirectusE2EClient } from '../src'
+import { createItem, deleteItem } from '../src/commands'
 
 describe('Directus E2E SDK client', () => {
 	afterEach(() => vi.unstubAllGlobals())

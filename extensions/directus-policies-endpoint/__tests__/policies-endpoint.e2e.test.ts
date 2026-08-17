@@ -1,3 +1,4 @@
+import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
 	authentication,
 	createDirectus,
@@ -9,8 +10,7 @@ import {
 	deleteRole,
 	deleteUser,
 	rest,
-} from '@workspace/test-utils'
-import { createDirectusE2EClient } from '@workspace/test-utils'
+} from '@workspace/test-utils/commands'
 import { describe, expect, it } from 'vitest'
 
 const baseUrl = process.env.DIRECTUS_E2E_URL

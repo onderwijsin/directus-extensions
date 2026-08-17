@@ -7,9 +7,10 @@ published package and must never become a runtime dependency of an extension.
 The package provides an SDK-backed Directus client used by the isolated E2E stack. The root
 administrator token is the default context. `withUserContext(userId, callback)` creates an isolated
 SDK client for a user's static token, and `createEphemeralUser` provisions nested roles, policies,
-permissions, and cleanup lifecycle through the SDK. It re-exports the official SDK so E2E tests only
-need a dev dependency on `@workspace/test-utils`. For its API boundaries and promotion rules, read
-the [test-utils cookbook article](../../docs/extension-cookbook/test-utils.md) and the
+permissions, and cleanup lifecycle through the SDK. Official SDK commands are available from the
+`@workspace/test-utils/commands` subpath, so E2E tests only need a dev dependency on
+`@workspace/test-utils`. For its API boundaries and promotion rules, read the
+[test-utils cookbook article](../../docs/extension-cookbook/test-utils.md) and the
 [testing guide](../../docs/testing.md).
 
 ## Extending the package
