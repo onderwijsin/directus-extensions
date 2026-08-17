@@ -48,18 +48,26 @@ Use Zod for structured external input and local guards for small runtime narrowi
 
 ## Runtime and import rules
 
-The package has one shared Directus-extension implementation and four public import paths:
+The package has one shared Directus-extension implementation and five public import paths:
 
 - `@onderwijsin/directus-extension-utils` — default shared surface;
 - `@onderwijsin/directus-extension-utils/shared` — explicit browser-safe common surface;
 - `@onderwijsin/directus-extension-utils/app` — browser-safe shared surface; and
-- `@onderwijsin/directus-extension-utils/server` — common surface plus Directus-runtime utilities.
+- `@onderwijsin/directus-extension-utils/server` — common surface plus Directus-runtime utilities;
+- `@onderwijsin/directus-extension-utils/constants` — shared deployment-environment constants; and
+- `@onderwijsin/directus-extension-utils/sentry` — explicit Sentry utilities.
 
 Import common browser-safe helpers from the root or `/shared`. Always use `/server` for
 `createMemoryLockProvider`, `createRedisLockProvider`, `createFsLockProvider`,
-`createAutoTaskHandler`, task-storage factories, marker stores, and `createLogger`. Never import
+`createAutoTaskHandler`, task-storage factories, marker stores, `createLogger`,
+`extensionSetup`, and `validateExtensionOptions`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
 of Node-only imports.
+
+Use `/constants` for `deploymentEnvs` and `DEPLOYMENT_ENV` when defining or validating a shared
+deployment-environment option. Keep extension environment schemas in the entrypoint's sibling
+`src/env.schema.ts`, and import the schema into the entrypoint; do not inline the schema in a module
+or server entrypoint.
 
 Use `@directus/memory` for Directus runtime caches and KV state. Use `createRedisLockProvider` for
 Redis-backed locks; it initializes and owns the Redis connection. Filesystem helpers remain explicit
@@ -115,6 +123,19 @@ store instance plus the shared filesystem lock.
 `attempt` and `attemptSync` return `{ data, error: null }` on success or `{ data: null, error }` on
 failure. `attemptWithRetry` counts total executions, not retries after the first attempt. Validate
 that the operation is safe to repeat before enabling retries.
+
+### Extension setup
+
+Use `extensionSetup` at an API or server extension entrypoint to log loading/completion and honor
+the `<EXTENSION_NAME>_ENABLED` environment flag. Call `start()` first, return when `isEnabled()` is
+false, and call `end()` after successful registration.
+
+Use `validateExtensionOptions` with a complete Zod schema to validate the extension environment
+before registering routes or other API behavior. Valid data is returned with its inferred Zod
+output type. Invalid data is logged and throws `Invalid extension options ☝. Exiting.`.
+
+These helpers coordinate setup and validation only; Directus registration, environment lookup, and
+application resource ownership remain with the consuming extension.
 
 ### Public compatibility
 

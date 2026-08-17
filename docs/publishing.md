@@ -58,10 +58,10 @@ Before publishing, the workflow runs the release quality gate:
 
 ```sh
 pnpm format
+pnpm build:utils
 pnpm lint
 pnpm typecheck
 pnpm test:unit:coverage
-pnpm build:utils
 pnpm build:extensions
 pnpm validate:packages
 pnpm pack:packages "$RUNNER_TEMP/packages"

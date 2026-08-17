@@ -23,6 +23,39 @@ export default defineHook(({ action }) => {
 })
 ```
 
+## Setup and configuration validation
+
+Server and API entrypoints with environment-backed configuration should validate their options at
+the entrypoint boundary. Use the shared setup lifecycle, keep the schema in the entrypoint's sibling
+`src/env.schema.ts`, and validate only after the extension has been enabled. See
+[Environment validation](environment-validation.md) for the complete pattern, including Directus's
+environment type casting and nesting behavior.
+
+```ts
+import { defineEndpoint } from '@directus/extensions-sdk'
+import {
+  extensionSetup,
+  validateExtensionOptions,
+} from '@onderwijsin/directus-extension-utils/server'
+import { envSchema } from './env.schema'
+
+const EXTENSION_NAME = 'catalog'
+
+export default defineEndpoint((router, { env, logger }) => {
+  const setup = extensionSetup(EXTENSION_NAME, env, logger)
+  setup.start()
+
+  if (!setup.isEnabled()) return
+
+  const options = validateExtensionOptions(env, envSchema, logger)
+  router.get('/health', (_request, response) => response.json({ url: options.CATALOG_URL }))
+
+  setup.end()
+})
+```
+
+Keep external SDK initialization, route registration, and resource cleanup in the owning extension.
+
 Move domain logic, schemas, services, types, and UI components into nearby owned files as complexity
 appears. Keep the entrypoint responsible for registration and lifecycle wiring, not business rules
 or reusable utility implementations.

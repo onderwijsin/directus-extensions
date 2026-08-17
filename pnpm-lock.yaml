@@ -27,6 +27,9 @@ catalogs:
     '@sentry/node':
       specifier: 10.69.0
       version: 10.69.0
+    '@sentry/profiling-node':
+      specifier: 10.69.0
+      version: 10.69.0
     '@typescript/native-preview':
       specifier: 7.0.0-dev.20260707.2
       version: 7.0.0-dev.20260707.2
@@ -84,6 +87,9 @@ catalogs:
     vue:
       specifier: 3.5.24
       version: 3.5.24
+    zod:
+      specifier: 4.4.3
+      version: 4.4.3
   node24:
     '@types/node':
       specifier: 24.13.3
@@ -157,6 +163,37 @@ importers:
         specifier: 'catalog:'
         version: 3.5.24(typescript@5.9.3)
 
+  extensions/directus-bundle-sentry:
+    dependencies:
+      '@sentry/profiling-node':
+        specifier: 'catalog:'
+        version: 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@7.2.0)
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@directus/extensions-sdk':
+        specifier: 'catalog:'
+        version: 18.0.2(@types/node@24.13.3)(@unhead/vue@1.11.20(vue@3.5.24(typescript@5.9.3)))(debug@4.4.3(supports-color@7.2.0))(jiti@2.6.1)(knex@3.1.0(supports-color@7.2.0))(pinia@2.3.1(typescript@5.9.3)(vue@3.5.24(typescript@5.9.3)))(pino@9.7.0)(supports-color@7.2.0)(terser@5.50.0)(typescript@5.9.3)(yaml@2.9.0)
+      '@onderwijsin/directus-extension-utils':
+        specifier: workspace:*
+        version: link:../../packages/extension-utils
+      '@sentry/node':
+        specifier: 'catalog:'
+        version: 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@7.2.0)
+      '@types/node':
+        specifier: catalog:node24
+        version: 24.13.3
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.11.2)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(yaml@2.9.0))
+      vue:
+        specifier: 'catalog:'
+        version: 3.5.24(typescript@5.9.3)
+
   extensions/directus-e2e-playground:
     dependencies:
       '@directus/memory':
@@ -202,6 +239,9 @@ importers:
       uuid:
         specifier: 'catalog:'
         version: 14.0.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: catalog:node24
@@ -1710,6 +1750,10 @@ packages:
       '@opentelemetry/sdk-trace-base':
         optional: true
 
+  '@sentry/node-cpu-profiler@2.4.3':
+    resolution: {integrity: sha512-18g/yJKRUk4PNcnZYEPyT2nS+9UoFcTRrIrct1DbpfI7k//RtQ+8araZrR0WH5MT8xoiLCm67GEX/RcxDsI0iQ==}
+    engines: {node: '>=18'}
+
   '@sentry/node@10.69.0':
     resolution: {integrity: sha512-xEXA1YGIiTZbrW6MWV34uS6JGQuQg2ijTI0zed+FsJb9JZKPYel/GZK8Km26vfTVb+yCXFmWZNBesKegNcVdzg==}
     engines: {node: '>=18'}
@@ -1721,6 +1765,11 @@ packages:
       '@opentelemetry/api': ^1.9.0
       '@opentelemetry/core': ^1.30.1 || ^2.1.0
       '@opentelemetry/sdk-trace-base': ^1.30.1 || ^2.1.0
+
+  '@sentry/profiling-node@10.69.0':
+    resolution: {integrity: sha512-Xp85pRtPi8AIplXArYFLO5ggphP31h3EAXLsNEYxaCRMp4e8Kt0X57mq6Zney+eHa6mi1x7HJaScI8NBhmUKXw==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@sentry/server-utils@10.69.0':
     resolution: {integrity: sha512-0MwHrA8+nNvMIsqf8m3cXwCBlUjr6AS7N6CZvHJtY1DkqEvQqEbD5VIrhzEyHN/KMZIgQ8XeDCQRhjnXFQGRhg==}
@@ -3246,6 +3295,10 @@ packages:
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
+  node-abi@3.94.0:
+    resolution: {integrity: sha512-W5ZNO5KRPB5TkYmGVD9F6YqhsglXJzE6etpbmT+f6EQElhiX/UTG551cnsRGvLG3fyZEg9HwaDmNmj5nwJ4z9g==}
+    engines: {node: '>=10'}
+
   node-releases@2.0.53:
     resolution: {integrity: sha512-D9UOmYG3UH1V+ENW56t5QXBwJw1YEY18ruVeus89Rw+SyIgjPkCO84bRzO3uNIYosJbNwiabWVn48o3uJLjxFQ==}
     engines: {node: '>=18'}
@@ -4259,6 +4312,9 @@ packages:
 
   zod@4.1.12:
     resolution: {integrity: sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ==}
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -5527,6 +5583,11 @@ snapshots:
       '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.9.1)(supports-color@7.2.0)
       '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
 
+  '@sentry/node-cpu-profiler@2.4.3':
+    dependencies:
+      detect-libc: 2.1.2
+      node-abi: 3.94.0
+
   '@sentry/node@10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@7.2.0)':
     dependencies:
       '@opentelemetry/api': 1.9.1
@@ -5550,6 +5611,16 @@ snapshots:
       '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
       '@sentry/conventions': 0.16.0
       '@sentry/core': 10.69.0
+
+  '@sentry/profiling-node@10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@7.2.0)':
+    dependencies:
+      '@sentry/core': 10.69.0
+      '@sentry/node': 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@7.2.0)
+      '@sentry/node-cpu-profiler': 2.4.3
+    transitivePeerDependencies:
+      - '@opentelemetry/core'
+      - '@opentelemetry/exporter-trace-otlp-http'
+      - supports-color
 
   '@sentry/server-utils@10.69.0(supports-color@7.2.0)':
     dependencies:
@@ -6976,6 +7047,10 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
+  node-abi@3.94.0:
+    dependencies:
+      semver: 7.8.5
+
   node-releases@2.0.53: {}
 
   npm-run-path@6.0.0:
@@ -7950,3 +8025,5 @@ snapshots:
   zhead@2.2.4: {}
 
   zod@4.1.12: {}
+
+  zod@4.4.3: {}

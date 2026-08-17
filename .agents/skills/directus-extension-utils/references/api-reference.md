@@ -127,6 +127,42 @@ createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTaskMarkerStore & 
 The Directus marker adapter uses `Kv.increment` and `Kv.usingLock` to update generations safely.
 Marker timestamps must be finite.
 
+## Shared constants
+
+~~~ts
+const deploymentEnvs: readonly ['development', 'staging', 'production']
+type DEPLOYMENT_ENV = 'development' | 'staging' | 'production'
+~~~
+
+Import these values from `/constants`. Use `deploymentEnvs` in Zod environment schemas and
+`DEPLOYMENT_ENV` for TypeScript annotations.
+
+## Server-only extension setup
+
+~~~ts
+interface ExtensionSetup {
+  start(): void
+  end(): void
+  isEnabled(): boolean
+}
+extensionSetup<ENV extends Record<string, unknown>>(
+  extensionName: string,
+  env: ENV,
+  logger: Logger,
+): ExtensionSetup
+
+validateExtensionOptions<S extends ZodType>(
+  options: unknown,
+  schema: S,
+  logger: Logger,
+): z.output<S>
+~~~
+
+`extensionSetup` logs lifecycle messages and treats missing or true `<EXTENSION_NAME>_ENABLED`
+values as enabled. The string `"false"` and boolean `false` disable the extension.
+`validateExtensionOptions` logs Zod's formatted error and throws `Invalid extension options ☝.
+Exiting.` when parsing fails.
+
 ~~~ts
 interface TaskHandlerStorage {
   lockProvider: LockProvider
@@ -272,6 +308,17 @@ createLogger(logger?: LoggerLike): LoggerLike
 
 When a logger is supplied, it is returned unchanged. Without one, the fallback forwards each method
 to the corresponding console method. info, warn, and error are required; debug and trace are optional.
+
+## Sentry browser type
+
+The explicit `/sentry` entrypoint also exports the minimal browser contract used by extensions whose
+Sentry client is provided by an embedded loader:
+
+~~~ts
+interface SentryBrowser {
+  captureException(error: unknown): string | undefined
+}
+~~~
 
 ## Object helpers
 

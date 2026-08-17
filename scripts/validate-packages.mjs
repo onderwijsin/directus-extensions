@@ -32,6 +32,9 @@ const errors = []
  * @property {Record<string, unknown>|undefined} optionalDependencies - Optional runtime dependencies.
  * @property {Record<string, unknown>|undefined} peerDependencies - Peer dependencies.
  * @property {unknown} keywords - npm keywords.
+ * @property {unknown} author - npm author metadata.
+ * @property {unknown} contributors - npm contributor metadata.
+ * @property {unknown} icon - Directus extension icon.
  * @property {unknown} private - Whether the package is private.
  * @property {unknown} ["directus:extension"] - Directus extension metadata.
  */
@@ -87,9 +90,42 @@ async function validateMetadata(packageName, packageDirectory, manifest) {
 	// Check fields that npm consumers and the repository release process require.
 	const requiredStrings = ['name', 'version', 'description', 'license']
 	for (const field of requiredStrings) {
-		if (typeof manifest[field] !== 'string' || manifest[field].length === 0) {
+		if (typeof manifest[field] !== 'string' || manifest[field].trim().length === 0) {
 			report(packageName, `must declare ${field}`)
 		}
+	}
+
+	const author = manifest.author
+	if (
+		!author ||
+		typeof author !== 'object' ||
+		Array.isArray(author) ||
+		author.name !== 'Onderwijs in' ||
+		author.email !== 'hallo@onderwijs.in' ||
+		author.url !== 'https://github.com/onderwijsin'
+	) {
+		report(
+			packageName,
+			'author must be Onderwijs in with hallo@onderwijs.in and https://github.com/onderwijsin',
+		)
+	}
+
+	if (
+		!Array.isArray(manifest.contributors) ||
+		!manifest.contributors.some(
+			(contributor) =>
+				contributor &&
+				typeof contributor === 'object' &&
+				!Array.isArray(contributor) &&
+				typeof contributor.name === 'string' &&
+				contributor.name.trim().length > 0,
+		)
+	) {
+		report(packageName, 'must declare at least one contributor with a name')
+	}
+
+	if (!Array.isArray(manifest.keywords) || manifest.keywords.length === 0) {
+		report(packageName, 'must declare at least one keyword')
 	}
 
 	if (!Array.isArray(manifest.files) || !manifest.files.some((file) => file === 'dist')) {
@@ -148,10 +184,14 @@ async function validateMetadata(packageName, packageDirectory, manifest) {
  * @returns {Promise<void>} A promise that resolves after validation completes.
  */
 async function validateExtension(packageName, packageDirectory, manifest) {
-	if (
-		!Array.isArray(manifest.keywords) ||
-		!manifest.keywords.some((keyword) => keyword === 'directus-extension')
-	) {
+	if (typeof manifest.icon !== 'string' || manifest.icon.length === 0) {
+		report(packageName, 'must declare icon')
+	}
+
+	if (!Array.isArray(manifest.keywords) || !manifest.keywords.includes('directus')) {
+		report(packageName, 'must include the directus keyword')
+	}
+	if (!Array.isArray(manifest.keywords) || !manifest.keywords.includes('directus-extension')) {
 		report(packageName, 'must include the directus-extension keyword')
 	}
 
@@ -161,16 +201,67 @@ async function validateExtension(packageName, packageDirectory, manifest) {
 		return
 	}
 	const extension = /** @type {Record<string, unknown>} */ (extensionValue)
-	for (const field of ['type', 'path', 'source', 'host']) {
+	for (const field of ['type', 'host']) {
 		if (typeof extension[field] !== 'string' || extension[field].length === 0) {
 			report(packageName, `directus:extension.${field} is required`)
 		}
 	}
-	if (typeof extension.path === 'string' && !extension.path.startsWith('dist/')) {
-		report(packageName, 'directus:extension.path must point into dist')
+
+	if (extension.type === 'bundle') {
+		const bundlePath = extension.path
+		if (!bundlePath || typeof bundlePath !== 'object' || Array.isArray(bundlePath)) {
+			report(packageName, 'directus:extension.path must declare bundle app and api paths')
+		} else {
+			for (const field of ['app', 'api']) {
+				const path = bundlePath[field]
+				if (typeof path !== 'string' || !path.startsWith('dist/')) {
+					report(packageName, `directus:extension.path.${field} must point into dist`)
+				} else {
+					await requirePath(packageName, packageDirectory, path)
+				}
+			}
+		}
+		if (!Array.isArray(extension.entries) || extension.entries.length === 0) {
+			report(packageName, 'directus:extension.entries must declare bundle entries')
+		} else {
+			for (const [index, entryValue] of extension.entries.entries()) {
+				if (!entryValue || typeof entryValue !== 'object' || Array.isArray(entryValue)) {
+					report(packageName, `directus:extension.entries[${index}] must be an object`)
+					continue
+				}
+				const entry = /** @type {Record<string, unknown>} */ (entryValue)
+				for (const field of ['name', 'type', 'source']) {
+					if (typeof entry[field] !== 'string' || entry[field].length === 0) {
+						report(
+							packageName,
+							`directus:extension.entries[${index}].${field} is required`,
+						)
+					}
+				}
+				if (typeof entry.source === 'string') {
+					await requirePath(packageName, packageDirectory, entry.source)
+				}
+			}
+		}
+		if (
+			!Array.isArray(manifest.keywords) ||
+			!manifest.keywords.includes('directus-extension-bundle')
+		) {
+			report(
+				packageName,
+				'bundle extensions must include the directus-extension-bundle keyword',
+			)
+		}
+		return
 	}
+
 	for (const field of ['path', 'source']) {
-		if (typeof extension[field] === 'string') {
+		if (typeof extension[field] !== 'string' || extension[field].length === 0) {
+			report(packageName, `directus:extension.${field} is required`)
+		} else {
+			if (field === 'path' && !extension[field].startsWith('dist/')) {
+				report(packageName, 'directus:extension.path must point into dist')
+			}
 			await requirePath(packageName, packageDirectory, extension[field])
 		}
 	}
@@ -282,12 +373,12 @@ async function main() {
 				}
 
 				const manifest = await readManifest(packageDirectory)
-				if (manifest.private === true) continue
 				const packageName = manifest.name ?? packageDirectory
-				await validateMetadata(packageName, packageDirectory, manifest)
 				if (packageRoot === 'extensions') {
 					await validateExtension(packageName, packageDirectory, manifest)
 				}
+				if (manifest.private === true) continue
+				await validateMetadata(packageName, packageDirectory, manifest)
 				validatePackedPackage(packageName, manifest, outputDirectory)
 			}
 		}

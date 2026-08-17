@@ -6,6 +6,7 @@ extensions have been developed.
 | Task                                              | Read                                                                    |
 | ------------------------------------------------- | ----------------------------------------------------------------------- |
 | Extension entrypoint or type                      | `extension-entrypoint.md`, official Directus extension docs             |
+| Environment-backed configuration                  | `environment-validation.md`, `extension-entrypoint.md`                  |
 | Shared runtime helper                             | `extension-utils.md`, `extension-utils-glossary.md`, `guards.md`        |
 | Package/test infrastructure                       | `test-utils.md`, `../workspace.md`, `../testing.md`                     |
 | Directus API, hook, endpoint, service, or sandbox | `official-directus-documentation.md`, Directus MCP                      |

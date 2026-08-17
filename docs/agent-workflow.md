@@ -60,6 +60,7 @@ Run the applicable checks:
 
 ```sh
 corepack pnpm format
+corepack pnpm build:utils
 corepack pnpm lint:fix
 corepack pnpm typecheck
 corepack pnpm test:unit

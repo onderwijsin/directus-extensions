@@ -52,5 +52,14 @@ secret manager; checked-in defaults are for local development and E2E isolation 
 
 The E2E runner does not require `.env`. It generates fresh, run-scoped credentials for the database,
 cache, Directus, Garage, and Meilisearch, passes them to every Compose invocation, and removes the
-associated containers and volumes afterward. CI only needs to provide `DIRECTUS_E2E_EXTENSIONS_DIR`
-when testing the packed consumer.
+associated containers and volumes afterward. CI provides `DIRECTUS_E2E_EXTENSIONS_DIR` and passes
+the `DIRECTUS_LICENSE_KEY` GitHub secret to Directus as `LICENSE_KEY` when testing the packed
+consumer. CI also pins `PUBLIC_URL` to `http://localhost:18055`, so license activation uses the same
+absolute URL on every run.
+
+The Sentry bundle is explicitly disabled by default in both local Compose and E2E Compose with
+`SENTRY_ENABLED=false`. This is an accepted repository decision:
+[Sentry runtime configuration is deferred to consumers](decisions/defer-sentry-runtime-configuration-to-consumers.md).
+Enabling it requires the consumer to install the Sentry Node dependencies in the Directus runtime
+image and provide a `sentry-instrument.js` file through `NODE_OPTIONS`; the extension package does
+not provide either deployment artifact.

@@ -1,0 +1,110 @@
+{
+	"name": "@onderwijsin/directus-bundle-sentry",
+	"version": "0.1.0",
+	"description": "Extensions for adding Sentry to Directus projects and tools for testing the integration",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle"
+	],
+	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
+	"bugs": {
+		"url": "https://github.com/onderwijsin/directus-extensions/issues"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijs.in",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijs.in",
+			"url": "https://github.com/remihuigen"
+		},
+		{
+			"name": "Jogchum Koerts",
+			"email": "jogchum@onderwijsin.nl",
+			"url": "https://github.com/joggienl"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
+		"directory": "extensions/directus-bundle-sentry"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"main": "./dist/api.js",
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"add": "directus-extension add",
+		"validate": "directus-extension validate",
+		"test:unit": "vitest run --config vitest.config.ts --root ../..",
+		"typecheck": "tsgo --noEmit"
+	},
+	"dependencies": {
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "catalog:",
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"@sentry/node": "catalog:",
+		"@types/node": "catalog:node24",
+		"@workspace/typescript-config": "workspace:*",
+		"vitest": "catalog:",
+		"vue": "catalog:",
+		"zod": "catalog:"
+	},
+	"peerDependencies": {
+		"@sentry/node": "catalog:",
+		"@sentry/profiling-node": "catalog:"
+	},
+	"peerDependenciesMeta": {
+		"@sentry/node": {
+			"optional": true
+		},
+		"@sentry/profiling-node": {
+			"optional": true
+		}
+	},
+	"icon": "extension",
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"name": "sentry-hook",
+				"type": "hook",
+				"source": "src/sentry-hook/index.ts"
+			},
+			{
+				"name": "sentry-test-endpoint",
+				"type": "endpoint",
+				"source": "src/sentry-test-endpoint/index.ts"
+			},
+			{
+				"name": "sentry-test-module",
+				"type": "module",
+				"source": "src/sentry-test-module/index.ts"
+			}
+		],
+		"host": ">=11.0.0 <=12.0.0"
+	}
+}

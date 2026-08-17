@@ -7,7 +7,7 @@ on:
   workflow_call:
     inputs:
       yolo:
-        description: Skip package builds, package validation, process integration, and E2E tests.
+        description: Skip extension builds, package validation, process integration, and E2E tests.
         required: false
         type: boolean
         default: false
@@ -40,15 +40,14 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check formatting
         run: pnpm format
+      - name: Build extension-utils for type-aware linting
+        run: pnpm build:utils
       - name: Lint
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
       - name: Unit tests
         run: pnpm test:unit:coverage
-      - name: Build extension-utils
-        if: inputs.yolo != true
-        run: pnpm build:utils
       - name: Build extensions
         if: inputs.yolo != true
         run: pnpm build:extensions
@@ -94,6 +93,8 @@ jobs:
       - name: Run Directus E2E tests
         env:
           DIRECTUS_E2E_EXTENSIONS_DIR: ${{ runner.temp }}/e2e-consumer/extensions
+          LICENSE_KEY: ${{ secrets.DIRECTUS_LICENSE_KEY }}
+          PUBLIC_URL: http://localhost:18055
         run: node scripts/e2e.mjs
 
   integration:

@@ -73,17 +73,21 @@ Run the workspace checks from the root:
 
 ```sh
 pnpm format
+pnpm build:utils
 pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs
 pnpm typecheck
 pnpm test:unit
 pnpm test:unit:coverage
-pnpm build:utils
 pnpm test:integration
 pnpm build
 pnpm validate:packages
 ```
+
+Build `@onderwijsin/directus-extension-utils` before linting because type-aware Oxlint resolves its
+public subpaths through the generated declarations in `dist/`. The lint commands themselves do not
+build or modify generated output.
 
 The root `build` script runs available package build scripts recursively. `build:utils` and
 `build:extensions` select the two publishable package groups used by CI and release validation.
@@ -127,7 +131,8 @@ The CI E2E job uses the same packed-artifact path. See [`testing.md`](testing.md
 
 - Oxfmt formats source and documentation.
 - Oxlint performs linting, including JSDoc checks.
-- TypeScript typechecks workspace packages and extensions.
+- The TypeScript native preview provides the `tsgo` executable used to typecheck workspace packages
+  and extensions.
 - Vitest runs unit, component, and E2E tests.
 - tsdown builds `@onderwijsin/directus-extension-utils`.
 - Changesets manages package versions and release notes.
@@ -137,12 +142,37 @@ The CI E2E job uses the same packed-artifact path. See [`testing.md`](testing.md
 - Gitleaks detects secrets in local changes.
 - Docker Compose runs the Directus development and isolated E2E stacks.
 
+### Typechecking with the TypeScript native preview
+
+The workspace uses `@typescript/native-preview` for package typechecking. Each package that is
+included in the recursive typecheck exposes this script:
+
+```json
+{
+  "scripts": {
+    "typecheck": "tsgo --noEmit"
+  }
+}
+```
+
+Run all configured package checks from the workspace root with:
+
+```sh
+pnpm typecheck
+```
+
+The regular `typescript` dependency remains required alongside `@typescript/native-preview`. `tsgo`
+is the native-preview typechecker, while tools such as tsdown use the package named `typescript`
+when generating declaration files. The native preview does not replace the tsdown build step; build
+and package validation must continue to run after typechecking.
+
 ## Validation order
 
 Run the baseline checks from the repository root:
 
 ```sh
 pnpm format
+pnpm build:utils
 pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs

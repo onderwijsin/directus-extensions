@@ -6,7 +6,8 @@ setups, but is intended to run inside Directus—not as a framework-agnostic uti
 The public surface includes:
 
 - runtime guards, attempt/retry helpers, object helpers, MIME classification, and UUIDs;
-- server-only locks, debounced auto-task handlers, task storage, and logging; and
+- server-only locks, debounced auto-task handlers, task storage, logging, and extension setup
+  helpers; and
 - reusable Directus extension types.
 
 ## Install
@@ -33,6 +34,36 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 ```
 
+Use `/sentry` when an extension explicitly needs the Sentry helpers. This separate entry point keeps
+Sentry out of consumers that only import `/server` utilities:
+
+```ts
+import { captureException } from '@onderwijsin/directus-extension-utils/sentry'
+```
+
+The shared Directus extension build configuration is available as an unbundled package subpath:
+
+```js
+import config, {
+  createExtensionConfig,
+} from '@onderwijsin/directus-extension-utils/extension.config.js'
+
+export default createExtensionConfig({ externals: ['oxfmt'] })
+// Or: export default config
+```
+
+Use `/constants` for shared deployment-environment values:
+
+```ts
+import { DEPLOYMENT_ENV, deploymentEnvs } from '@onderwijsin/directus-extension-utils/constants'
+
+const environment: DEPLOYMENT_ENV = 'development'
+console.log(deploymentEnvs, environment)
+```
+
+`deploymentEnvs` is the readonly tuple `['development', 'staging', 'production']`, and
+`DEPLOYMENT_ENV` is its corresponding TypeScript union.
+
 Create a logger from a Pino-compatible runtime logger, or use the console-backed fallback:
 
 ```ts
@@ -47,7 +78,28 @@ When a logger is provided, it is returned unchanged. Without one, the fallback e
 the corresponding console methods.
 
 The `/app` and `/shared` entry points expose the common browser-safe surface. Do not import locks,
-tasks, task storage, or logging from those paths.
+tasks, task storage, logging, or setup helpers from those paths.
+
+Use `/server` setup helpers at an API extension boundary:
+
+```ts
+import {
+  extensionSetup,
+  validateExtensionOptions,
+} from '@onderwijsin/directus-extension-utils/server'
+import { envSchema } from './env.schema'
+
+const setup = extensionSetup('my-extension', env, logger)
+setup.start()
+if (!setup.isEnabled()) return
+const options = validateExtensionOptions(env, envSchema, logger)
+// Register routes or other API behavior using options.
+setup.end()
+```
+
+`extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
+`validateExtensionOptions` parses a complete extension environment with Zod, logs validation
+details, and throws when the configuration is invalid.
 
 All lock providers use the same `tryAcquire`/lease contract and `defaultLeaseMs` option. Choose the
 memory provider for one process, the filesystem provider for processes sharing a directory, or the

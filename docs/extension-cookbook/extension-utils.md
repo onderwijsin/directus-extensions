@@ -21,12 +21,21 @@ visible.
 
 Use public package subpaths rather than source paths:
 
-| Subpath                                        | Contents                                                    | Intended use                                                    |
-| ---------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
-| `@onderwijsin/directus-extension-utils`        | Common helpers                                              | Server and app code that does not need server-only coordination |
-| `@onderwijsin/directus-extension-utils/shared` | Common helpers                                              | Explicit shared/runtime imports                                 |
-| `@onderwijsin/directus-extension-utils/app`    | Common helpers                                              | App extensions; no server-only utilities                        |
-| `@onderwijsin/directus-extension-utils/server` | Common helpers plus locks, auto-tasks, storage, and logging | Directus server extensions and server lifecycle code            |
+| Subpath                                           | Contents                                                           | Intended use                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `@onderwijsin/directus-extension-utils`           | Common helpers                                                     | Server and app code that does not need server-only coordination |
+| `@onderwijsin/directus-extension-utils/shared`    | Common helpers                                                     | Explicit shared/runtime imports                                 |
+| `@onderwijsin/directus-extension-utils/app`       | Common helpers                                                     | App extensions; no server-only utilities                        |
+| `@onderwijsin/directus-extension-utils/server`    | Common helpers plus locks, auto-tasks, storage, logging, and setup | Directus server extensions and server lifecycle code            |
+| `@onderwijsin/directus-extension-utils/constants` | Deployment constants                                               | Environment schemas and deployment-value validation             |
+| `@onderwijsin/directus-extension-utils/sentry`    | Sentry capture and context helpers                                 | Server extensions that explicitly use Sentry                    |
+
+The `/sentry` entry point is intentionally separate from `/server`. This prevents consumers that
+only import server utilities such as `createLogger` from loading the Sentry integration.
+
+The package also exposes an unbundled build configuration at
+`@onderwijsin/directus-extension-utils/extension.config.js`. It can be imported as the default
+configuration or used to add extension-specific externals with `createExtensionConfig`.
 
 The root, `/shared`, and `/app` exports are the common browser-safe surface. The `/server` export
 adds Node/server utilities and re-exports the common surface. Keep server-only imports out of app
@@ -41,6 +50,16 @@ Use the common entry point for browser-safe helpers:
 
 ```ts
 import { attempt, isRecord, isString } from '@onderwijsin/directus-extension-utils'
+```
+
+Use `/constants` for shared deployment-environment values:
+
+```ts
+import { DEPLOYMENT_ENV, deploymentEnvs } from '@onderwijsin/directus-extension-utils/constants'
+import { z } from 'zod'
+
+const defaultEnvironment: DEPLOYMENT_ENV = 'development'
+const environmentSchema = z.enum(deploymentEnvs)
 ```
 
 Use `/server` for locks, tasks, task storage, and logging:
@@ -66,6 +85,40 @@ only the common helper surface.
 | Locks          | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                     | `/server`         |
 | Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                | `/server`         |
 | Logging        | `createLogger`                                                                                                                                                                    | `/server`         |
+| Setup          | `extensionSetup`, `validateExtensionOptions`                                                                                                                                      | `/server`         |
+| Constants      | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                | `/constants`      |
+| Sentry         | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                  | `/sentry`         |
+
+### Extension setup
+
+Use `extensionSetup` at an API or server extension boundary to log lifecycle state and honor the
+`<EXTENSION_NAME>_ENABLED` environment flag. Every extension environment schema belongs in the
+entrypoint's sibling `src/env.schema.ts`; import it into the entrypoint and pass it to
+`validateExtensionOptions` before registering extension behavior:
+
+```ts
+import {
+  extensionSetup,
+  validateExtensionOptions,
+} from '@onderwijsin/directus-extension-utils/server'
+
+import { envSchema } from './env.schema'
+
+// Extension registration (defineHook, defineEndpoint, etc)
+export default defineHook(({ init, embed }, { env, logger }) => {
+  const setup = extensionSetup('my-extension', env, logger)
+  setup.start()
+  if (!setup.isEnabled()) return
+
+  const options = validateExtensionOptions(env, envSchema, logger)
+  // Register extension behavior using options.
+  setup.end()
+})
+```
+
+The setup helper does not register routes or events. The caller owns Directus registration and
+resource cleanup. Invalid Zod configuration is logged and throws
+`Invalid extension options ☝. Exiting.`.
 
 The package README and
 [maintainer API reference](../../.agents/skills/directus-extension-utils/references/api-reference.md)

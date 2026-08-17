@@ -13,6 +13,34 @@ public behavior, compatibility, important dependencies, required permissions or 
 configuration, and troubleshooting or boundaries where useful. Include concise, copyable examples
 using the published package name and documented Directus configuration.
 
+## Consumer skill completeness
+
+The consumer skill is an operational reference, not a shorter README or a pointer to one. It must be
+at least as complete as the extension README and should expand on it wherever consumers need
+decision-making or deployment context. Before considering a consumer skill complete, cover all of
+the following that apply:
+
+- every configuration option, environment variable, Directus setting, default, required value,
+  accepted value, and interaction with other options, preferably in a configuration table;
+- the complete consumer-facing API surface, including exported functions, components, routes, hooks,
+  operations, inputs, outputs, errors, events, and runtime behavior;
+- plenty of copyable code examples for installation, the normal setup, each important integration
+  path, and common customization or error-handling paths;
+- prerequisites and context, including Directus version, runtime dependencies, permissions,
+  collections, fields, roles, policies, sandbox or trust boundaries, deployment requirements,
+  secrets, build steps, and compatibility constraints;
+- operational guidance, including enabling and disabling behavior, startup order, lifecycle,
+  production considerations, observability, security, troubleshooting, and known limitations; and
+- a clear explanation of what the package does not provide or own, so consumers do not infer that an
+  extension installs infrastructure, dependencies, configuration, or services outside its published
+  contract.
+
+Use the README as the minimum content baseline, then use the skill to provide the full task-oriented
+reference an agent or operator needs. Keep both documents synchronized with implementation and
+package metadata. When a detail is consumer-visible, document it in both places; when the skill adds
+deployment recipes or troubleshooting context, ensure those recipes still agree with the README's
+contract.
+
 Adapt the documentation to the extension type. Describe the consumer-facing contract that actually
 exists, such as:
 

@@ -8,6 +8,42 @@ safety, and performance in that order. Record Directus-specific assumptions with
 documentation or MCP evidence. Do not copy concepts from another framework into Directus extensions
 without an equivalent Directus contract.
 
+## Disabling extensions via env
+
+Environment-backed extensions can be disabled without removing the installed package. Use the
+extension's stable name to derive its switch:
+
+```text
+${EXTENSION_NAME.toUpperCase()}_ENABLED
+```
+
+For example, an extension named `catalog` checks `CATALOG_ENABLED`:
+
+```ts
+import { extensionSetup } from '@onderwijsin/directus-extension-utils/server'
+
+export default defineEndpoint((router, { env, logger }) => {
+  const setup = extensionSetup('catalog', env, logger)
+  setup.start()
+
+  if (!setup.isEnabled()) return
+
+  router.get('/health', (_request, response) => response.json({ ok: true }))
+  setup.end()
+})
+```
+
+The setup helper treats a missing value as enabled for backwards-compatible defaults. The string
+`"false"` and boolean `false` disable the extension; other configured values leave it enabled. Place
+the check immediately after `setup.start()` and before validation, SDK initialization, route
+registration, or other side effects. This makes local, test, and emergency-disable configuration
+safe even when optional runtime dependencies are unavailable.
+
+Document the switch in the extension README and consumer skill, including its default, the behavior
+that is skipped, and any additional switches required to enable test-only surfaces. Keep the
+environment schema in the entrypoint's sibling `src/env.schema.ts` and validate it after the setup
+switch has allowed registration to continue.
+
 ## Cache and KV
 
 Cache and KV are Directus runtime concerns. Use `@directus/memory` directly; extension utilities do
