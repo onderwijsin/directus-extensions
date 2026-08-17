@@ -115,6 +115,53 @@ schemas merely to validate bundled JSON files. Existing compatible resources are
 incompatible structural resources are logged loudly and left unchanged; UI metadata is not
 authoritative.
 
+The schema-change configuration surface is:
+
+| Setting | Scope | Default | Meaning |
+| --- | --- | --- | --- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global | `true` | Master enablement switch. |
+| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | global | `true` | Global default for lock coordination. |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | global | `MEMORY` | Provider: `MEMORY`, `REDIS`, or `FS`. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | global | — | Required for `REDIS`. |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | global | — | Required for `FS`. |
+| `useLockedSchemaChange` | call | — | Enable or disable locking for one ensure. |
+| `lockProviderConfig` | call | — | Validated config used to construct a provider. |
+| `lockProvider` | call | — | Explicit provider, owned and disposed by the consumer. |
+| `abortOnError` | call | `true` | Rethrow unexpected service failures when true. |
+| `lockLeaseMs` | call | provider default | Override the acquisition lease. |
+
+Recommended registration pattern:
+
+```ts
+registerSchemaChangeOnStart(
+  action,
+  logger,
+  () => ensureDirectusSchema({
+    extensionId: 'orders',
+    database: context.database,
+    getSchema: context.getSchema,
+    services: context.services,
+    logger,
+    definition: ordersDefinition,
+    options: {
+      useLockedSchemaChange: options.DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE,
+      lockProviderConfig: options,
+    },
+  }),
+  {
+    name: 'Orders',
+    disabled: !options.ORDERS_SCHEMA_CHANGES_ENABLED,
+    disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
+  },
+)
+```
+
+`ensureDirectusSchema` only treats structural invariants as authoritative: collection identity, field
+type, and relation endpoints. It does not overwrite UI metadata. A second call should therefore be
+safe and return no changes for compatible resources; incompatible resources are preserved and logged.
+For live tests, use a unique temporary collection and delete it in `finally`; the E2E runner must also
+remove its Compose project and disposable volumes on every exit path.
+
 ### Auto-tasks
 
 `createAutoTaskHandler` records trigger generations, runs only the latest eligible generation, uses

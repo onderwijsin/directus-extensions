@@ -83,7 +83,7 @@ Create a logger from a Pino-compatible runtime logger, or use the console-backed
 import { createLogger } from '@onderwijsin/directus-extension-utils/server'
 
 const logger = createLogger(context.logger)
-logger.info('Extension started', { extension: 'orders' })
+logger.info({ msg: 'Extension started', extension: 'orders' })
 ```
 
 When a logger is provided, it is returned unchanged. Without one, the fallback exposes the same
@@ -139,6 +139,28 @@ owned by the consumer.
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
 `validateExtensionOptions` parses a complete extension environment with Zod, logs validation
 details, and throws when the configuration is invalid.
+
+Schema configuration and operation options:
+
+| Option                                         | Scope     | Default          | Purpose                                                 |
+| ---------------------------------------------- | --------- | ---------------- | ------------------------------------------------------- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`   | global    | `true`           | Master switch for schema setup.                         |
+| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | global    | `true`           | Coordinates schema setup between processes.             |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`            | global    | `MEMORY`         | Selects `MEMORY`, `REDIS`, or `FS`.                     |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`           | global    | —                | Required for the Redis provider.                        |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`        | global    | —                | Required for the filesystem provider.                   |
+| `useLockedSchemaChange`                        | operation | —                | Overrides whether this ensure acquires a lock.          |
+| `lockProviderConfig`                           | operation | —                | Uses validated environment config to create a provider. |
+| `lockProvider`                                 | operation | —                | Supplies a consumer-owned provider directly.            |
+| `abortOnError`                                 | operation | `true`           | Rethrows service failures after logging them.           |
+| `lockLeaseMs`                                  | operation | provider default | Overrides one lock acquisition lease.                   |
+
+`ensureDirectusSchema` returns `{ changed, skipped }`. It creates missing resources, skips
+compatible resources, and logs incompatible collections, fields, or relations without changing them.
+Structural compatibility is deliberately narrow: collection identity, field identity/type, and
+relation endpoints are authoritative; interfaces, displays, labels, icons, visibility, notes, and
+similar UI metadata are left under the site's control. Bundled extension definitions are trusted
+data and do not need a second runtime Zod schema.
 
 All lock providers use the same `tryAcquire`/lease contract and `defaultLeaseMs` option. Choose the
 memory provider for one process, the filesystem provider for processes sharing a directory, or the

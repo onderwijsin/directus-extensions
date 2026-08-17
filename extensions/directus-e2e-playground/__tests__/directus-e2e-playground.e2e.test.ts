@@ -5,6 +5,9 @@ import {
 	createItem,
 	deleteCollection,
 	deleteItem,
+	readCollection,
+	readField,
+	readRelationByCollection,
 	updateItem,
 } from '@workspace/test-utils/commands'
 import { describe, expect, it } from 'vitest'
@@ -118,6 +121,35 @@ async function expectUtilityResults() {
 }
 
 describe('Directus E2E playground', () => {
+	it('ensures a live collection, field, and relation idempotently', async () => {
+		try {
+			await expect(
+				client.waitForLog(/🧪 E2E schema-management scenarios completed/u),
+			).resolves.toBeDefined()
+
+			const collection = await client.request(readCollection('e2e_schema_management'))
+			expect(collection).toMatchObject({ collection: 'e2e_schema_management' })
+
+			const field = await client.request(readField('e2e_schema_management', 'title'))
+			expect(field).toMatchObject({ field: 'title', type: 'string' })
+
+			const relations = await client.request(
+				readRelationByCollection('e2e_schema_management'),
+			)
+			expect(relations).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						collection: 'e2e_schema_management',
+						field: 'user',
+						related_collection: 'directus_users',
+					}),
+				]),
+			)
+		} finally {
+			await client.request(deleteCollection('e2e_schema_management')).catch(() => undefined)
+		}
+	})
+
 	it('logs create, update, and delete events for posts items', async () => {
 		const disposeCollection = await createPlaygroundCollection()
 		try {

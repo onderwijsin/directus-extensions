@@ -274,6 +274,22 @@ registerSchemaChangeOnStart(
 The startup helper performs the global and extension-specific disabled checks, invokes the callback
 on `server.start`, and logs asynchronous setup failures without rejecting action registration.
 
+Schema-change configuration summary:
+
+| Key | Default | Validation/behavior |
+| --- | --- | --- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | `true` | Global master switch. |
+| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | `true` | Global locking default. |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | `MEMORY` | Enum: `MEMORY`, `REDIS`, `FS`. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | absent | Required for `REDIS`; provider is disposed when factory-created. |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | absent | Required for `FS`. |
+
+`ensureDirectusSchema` returns stable resource identifiers in `changed` and reports lock contention as
+`skipped: true`. It only creates missing resources. Compatibility checks are structural: collection
+identity, field type, and relation endpoints. It never overwrites UI metadata, and it preserves an
+incompatible existing resource after logging an error. Use `abortOnError: false` only for a deliberate
+best-effort setup; it applies to unexpected service failures, not to incompatible resources.
+
 ~~~ts
 interface TaskHandlerStorage {
   lockProvider: LockProvider
