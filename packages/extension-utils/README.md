@@ -117,14 +117,24 @@ shared server-side schema-change settings:
 import { schemaChangeSchema } from '@onderwijsin/directus-extension-utils/server'
 import { z } from 'zod'
 
-const envSchema = z.object({
-  ...schemaChangeSchema.shape,
+const envSchema = schemaChangeSchema.extend({
   MY_EXTENSION_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 })
 ```
 
 `schemaChangeSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` and
-`DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE`, both defaulting to `true`.
+`DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE`, both defaulting to `true`. It also supports
+`DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`MEMORY`, `REDIS`, or `FS`). `REDIS` requires
+`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; `FS` requires `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
+
+Use `ensureDirectusSchema` from the same `/server` subpath to apply portable collection, field, and
+relation definitions. Pass the Directus hook context's `database`, `getSchema`, and `services`, and
+provide a logger plus an extension identifier. Existing compatible resources are preserved;
+incompatible structural resources are logged loudly and left unchanged rather than being silently
+modified. The validated environment options select the provider automatically. Set
+`options.lockProvider` to override that selection programmatically. Redis providers created from
+environment options are disposed after the ensure operation; explicitly supplied providers remain
+owned by the consumer.
 
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
 `validateExtensionOptions` parses a complete extension environment with Zod, logs validation

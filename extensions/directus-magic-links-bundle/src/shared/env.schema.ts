@@ -6,8 +6,7 @@ import { z } from 'zod'
  *
  * @returns The shared magic-links environment schema.
  */
-export const sharedEnvSchema = z.object({
-	...schemaChangeSchema.shape,
+export const sharedEnvSchema = schemaChangeSchema.extend({
 	MAGIC_LINKS_ENABLED: z.boolean().default(true),
 	MAGIC_LINKS_COLLECTION: z
 		.string()

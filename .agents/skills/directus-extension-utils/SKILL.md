@@ -60,7 +60,8 @@ The package has one shared Directus-extension implementation and five public imp
 Import common browser-safe helpers from the root or `/shared`. Always use `/server` for
 `createMemoryLockProvider`, `createRedisLockProvider`, `createFsLockProvider`,
 `createAutoTaskHandler`, task-storage factories, marker stores, `createLogger`,
-`extensionSetup`, and `validateExtensionOptions`. Never import
+`extensionSetup`, `validateExtensionOptions`, `schemaChangeSchema`, `ensureDirectusSchema`, and
+`registerSchemaChangeOnStart`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
 of Node-only imports.
 
@@ -93,6 +94,26 @@ locks coordinate clients sharing their configured backend. The filesystem adapte
 processes sharing its directory; it is not cluster-wide without shared storage.
 All lock providers expose the same `defaultLeaseMs` and `tokenFactory` options where applicable;
 `leaseMs` on `tryAcquire` overrides the provider default.
+
+### Schema changes
+
+Use `schemaChangeSchema` when an extension can create or update Directus collections, fields, or
+relations. It validates the global enablement flags and selects a lock provider with
+`DIRECTUS_EXTENSIONS_LOCK_PROVIDER=MEMORY|REDIS|FS`. Redis requires
+`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; filesystem locking requires
+`DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
+
+Pass the validated environment options as `options.lockProviderConfig` to
+`ensureDirectusSchema`. The utility creates and disposes providers selected from environment
+configuration. An explicitly supplied `options.lockProvider` takes precedence and remains owned by
+the consumer. Always pass `database`, `getSchema`, and the complete `ApiExtensionContext['services']`
+object from the hook context.
+
+Use `registerSchemaChangeOnStart` to centralize global and extension-specific disabled checks and
+startup error logging. Schema definitions are trusted extension-owned data; do not add runtime Zod
+schemas merely to validate bundled JSON files. Existing compatible resources are preserved,
+incompatible structural resources are logged loudly and left unchanged; UI metadata is not
+authoritative.
 
 ### Auto-tasks
 

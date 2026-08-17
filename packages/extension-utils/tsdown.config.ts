@@ -3,6 +3,9 @@ import { defineConfig } from 'tsdown'
 export default defineConfig({
 	clean: true,
 	dts: true,
+	deps: {
+		neverBundle: ['@directus/types'],
+	},
 	entry: [
 		'src/index.ts',
 		'src/app/index.ts',

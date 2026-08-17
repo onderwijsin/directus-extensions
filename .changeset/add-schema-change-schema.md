@@ -2,4 +2,5 @@
 '@onderwijsin/directus-extension-utils': minor
 ---
 
-Export a reusable server-side Zod schema for global extension schema-change settings.
+Export reusable server-side schema-management utilities, including global schema-change settings
+and portable Directus schema ensuring.

@@ -5,9 +5,9 @@ description: Set up and operate the Directus magic-links authentication bundle.
 
 # Directus Magic Links
 
-This skill is the operator-facing setup reference. The bundle currently validates its shared and
-extension-specific environment configuration; endpoint, schema setup, cleanup, and email delivery
-behavior remain scaffolded.
+This skill is the operator-facing setup reference. The bundle validates its shared and
+entrypoint-specific environment configuration and ensures its portable schema at Directus startup;
+endpoint, cleanup, and email delivery behavior remain scaffolded.
 
 ## Configuration
 
@@ -45,6 +45,17 @@ MAGIC_LINKS_TOKEN_TTL=15m
 The extension also requires Directus SMTP configuration: `EMAIL_TRANSPORT=smtp`, `EMAIL_SMTP_HOST`,
 `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USER`, `EMAIL_SMTP_PASSWORD`, and `EMAIL_FROM`. Those variables
 belong to Directus and are not parsed by the bundle schemas.
+
+## Schema setup
+
+With both schema switches enabled, the hook creates the hidden `directus_magic_links` collection,
+its fields, and the relation to `directus_users`. Compatible existing resources are preserved.
+Incompatible structural resources are logged loudly and left unchanged. Unexpected schema service
+failures abort setup by default; set `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR=false` to log the failure
+and continue the hook setup.
+
+The portable schema data is exported as `@onderwijsin/directus-magic-links-bundle/schema` for manual
+inspection or application when automated schema changes are disabled.
 
 When implementation is available, this skill will cover installation, trusted runtime requirements,
 SMTP configuration, environment variables, schema setup and exported schema data, redirect URL

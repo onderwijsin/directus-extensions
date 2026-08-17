@@ -23,8 +23,7 @@ export const cronSchema = z
  *
  * @returns The hook environment schema.
  */
-export const envSchema = z.object({
-	...sharedEnvSchema.shape,
+export const envSchema = sharedEnvSchema.extend({
 	MAGIC_LINKS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 	MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR: z.boolean().default(true),
 	MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE: z.boolean().optional(),

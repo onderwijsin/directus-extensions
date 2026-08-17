@@ -408,6 +408,7 @@ await ensureDirectusSchema({
   extensionId: 'magic-links',
   database,
   getSchema,
+  services,
   logger,
   definition: magicLinksSchema,
   options: {
@@ -416,6 +417,9 @@ await ensureDirectusSchema({
   },
 })
 ```
+
+`services` is the `services` object supplied by the Directus hook context. It provides the
+`CollectionsService`, `FieldsService`, and `RelationsService` constructors used by the utility.
 
 Schema definitions must not be inline TypeScript objects. They are portable JSON data files shipped
 by the extension and included in package exports. The general repository pattern is:
@@ -453,7 +457,9 @@ Behavior:
 5. Reload the schema after lock acquisition.
 6. Create missing collections, fields, and relations.
 7. Preserve existing compatible resources.
-8. Reject incompatible existing resources rather than silently altering them.
+8. Log incompatible existing resources loudly and preserve them rather than silently altering them.
+   Compatibility is structural only: collection identity, field identity/type, and relation
+   endpoints are authoritative; presentation metadata is not overwritten.
 9. Log every change and every incompatibility.
 10. Release the lock in `finally`.
 
