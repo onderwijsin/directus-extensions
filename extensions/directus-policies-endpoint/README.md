@@ -1,4 +1,4 @@
-# `@onderwijsin/directus-policies-endpoint`
+# @onderwijsin/directus-policies-endpoint
 
 An authenticated Directus endpoint that returns the policies available to the current user,
 including policies assigned directly to the user and policies assigned to nested roles.

@@ -43,10 +43,24 @@ function policyPayload(name: string, adminAccess = false) {
 	}
 }
 
+async function assignPolicyToRole(role: string, policy: string): Promise<void> {
+	await client.request('/access', {
+		method: 'POST',
+		body: JSON.stringify([{ role, policy }]),
+	})
+}
+
+async function assignPolicyToUser(user: string, policy: string): Promise<void> {
+	await client.request('/access', {
+		method: 'POST',
+		body: JSON.stringify([{ user, policy }]),
+	})
+}
+
 describe('users policies endpoint', () => {
 	it('resolves direct, nested, and de-duplicated policies', async () => {
 		const email = `policies-e2e-${Date.now()}@example.com`
-		const staticToken = `policies-e2e-token-${Date.now()}`
+		const password = `policies-e2e-password-${Date.now()}`
 		let userId: string | undefined
 		let rootRoleId: string | undefined
 		let childRoleId: string | undefined
@@ -56,26 +70,10 @@ describe('users policies endpoint', () => {
 		let grandchildPolicyId: string | undefined
 
 		try {
-			const directPolicy = await client.createPolicy<CreatedRecord>(
-				policyPayload('E2E direct policy', true),
-			)
-			directPolicyId = directPolicy.id
-
-			const childPolicy = await client.createPolicy<CreatedRecord>(
-				policyPayload('E2E child policy'),
-			)
-			childPolicyId = childPolicy.id
-
-			const grandchildPolicy = await client.createPolicy<CreatedRecord>(
-				policyPayload('E2E grandchild policy'),
-			)
-			grandchildPolicyId = grandchildPolicy.id
-
 			const rootRole = await client.createRole<CreatedRecord>({
 				name: 'E2E root role',
 				icon: 'group',
 				description: 'E2E root role',
-				policies: [directPolicy.id],
 			})
 			rootRoleId = rootRole.id
 
@@ -84,7 +82,6 @@ describe('users policies endpoint', () => {
 				icon: 'group',
 				description: 'E2E child role',
 				parent: rootRole.id,
-				policies: [childPolicy.id],
 			})
 			childRoleId = childRole.id
 
@@ -93,21 +90,42 @@ describe('users policies endpoint', () => {
 				icon: 'group',
 				description: 'E2E grandchild role',
 				parent: childRole.id,
-				policies: [grandchildPolicy.id],
 			})
 			grandchildRoleId = grandchildRole.id
 
-			const user = await client.createItem<CreatedRecord>('users', {
-				email,
-				token: staticToken,
-				first_name: 'Policies E2E',
-				status: 'active',
-				role: rootRole.id,
-				policies: [directPolicy.id],
+			const directPolicy = await client.createPolicy<CreatedRecord>(
+				policyPayload('E2E direct policy', true),
+			)
+			directPolicyId = directPolicy.id
+			await assignPolicyToRole(rootRole.id, directPolicy.id)
+
+			const childPolicy = await client.createPolicy<CreatedRecord>(
+				policyPayload('E2E child policy'),
+			)
+			childPolicyId = childPolicy.id
+			await assignPolicyToRole(childRole.id, directPolicy.id)
+			await assignPolicyToRole(childRole.id, childPolicy.id)
+
+			const grandchildPolicy = await client.createPolicy<CreatedRecord>(
+				policyPayload('E2E grandchild policy'),
+			)
+			grandchildPolicyId = grandchildPolicy.id
+			await assignPolicyToRole(grandchildRole.id, grandchildPolicy.id)
+
+			const user = await client.request<CreatedRecord>('/users', {
+				method: 'POST',
+				body: JSON.stringify({
+					email,
+					password,
+					first_name: 'Policies E2E',
+					status: 'active',
+					role: rootRole.id,
+				}),
 			})
 			userId = user.id
+			await assignPolicyToUser(user.id, directPolicy.id)
 
-			const recursive = await client.fetchAsUser(user.id, (request) =>
+			const recursive = await client.fetchAsCredentials(email, password, (request) =>
 				request<PolicyResponse[]>('/users/me/policies'),
 			)
 			expect(recursive.map((policy) => policy.id)).toEqual([
@@ -125,17 +143,17 @@ describe('users policies endpoint', () => {
 				]),
 			)
 
-			const depthZero = await client.fetchAsUser(user.id, (request) =>
+			const depthZero = await client.fetchAsCredentials(email, password, (request) =>
 				request<PolicyResponse[]>('/users/me/policies?depth=0'),
 			)
 			expect(depthZero.map((policy) => policy.id)).toEqual([directPolicy.id])
 
-			const depthOne = await client.fetchAsRole(rootRole.id, (request) =>
+			const depthOne = await client.fetchAsCredentials(email, password, (request) =>
 				request<PolicyResponse[]>('/users/me/policies?depth=1'),
 			)
 			expect(depthOne.map((policy) => policy.id)).toEqual([directPolicy.id, childPolicy.id])
 		} finally {
-			if (userId) await client.deleteItem('users', userId)
+			if (userId) await client.deleteUser(userId)
 			if (grandchildRoleId) await client.deleteRole(grandchildRoleId)
 			if (childRoleId) await client.deleteRole(childRoleId)
 			if (rootRoleId) await client.deleteRole(rootRoleId)

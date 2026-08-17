@@ -29,8 +29,8 @@ describe('users policies endpoint helpers', () => {
 	})
 
 	it('builds a bounded nested relation field', () => {
-		expect(nestedRoleFields(0)).toContain('policies.id')
-		expect(nestedRoleFields(2)).toContain('children.children.policies.id')
+		expect(nestedRoleFields(0)).toContain('policies.policy.id')
+		expect(nestedRoleFields(2)).toContain('children.children.policies.policy.id')
 	})
 
 	it('parses an optional non-negative depth', () => {

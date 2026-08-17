@@ -25,14 +25,20 @@ export type PolicyRecord = Pick<
 	'id' | 'name' | 'icon' | 'description' | 'enforce_tfa' | 'admin_access' | 'app_access'
 >
 
+interface PolicyRelation {
+	policy: PolicyRecord
+}
+
+type PolicyValue = PolicyRecord | PolicyRelation
+
 export type RoleRecord = Omit<Partial<Role>, 'id'> & {
 	id: string
-	policies?: PolicyRecord[]
+	policies?: PolicyValue[]
 	children?: RoleRecord[]
 } & Record<string, unknown>
 
 export type UserRecord = Omit<Partial<User>, 'policies' | 'role'> & {
-	policies: PolicyRecord[]
+	policies: PolicyValue[]
 	role: RoleRecord | null
 } & Record<string, unknown>
 
@@ -109,7 +115,16 @@ export function nestedRoleFields(depth: number): string[] {
 		prefix += 'children.'
 	}
 
-	return POLICY_FIELDS.map((field) => `${prefix}policies.${field}`)
+	return POLICY_FIELDS.map((field) => `${prefix}policies.policy.${field}`)
+}
+
+/**
+ * Resolves policy junction records returned by Directus 12 to policy records.
+ * @param values - Policy records or policy junction records.
+ * @returns The underlying policy records.
+ */
+export function resolvePolicies(values: PolicyValue[]): PolicyRecord[] {
+	return values.flatMap((value) => ('policy' in value ? [value.policy] : [value]))
 }
 
 /**
@@ -130,7 +145,7 @@ export function collectPolicies(user: UserRecord): PolicyRecord[] {
 		policies.set(policy.id, policy)
 	}
 
-	for (const policy of user.policies) add(policy)
+	for (const policy of resolvePolicies(user.policies)) add(policy)
 
 	/**
 	 * Recursively collects policies from a bounded role tree.
@@ -141,7 +156,7 @@ export function collectPolicies(user: UserRecord): PolicyRecord[] {
 	const collectRole = (role: RoleRecord | null): void => {
 		if (!role) return
 
-		for (const policy of role.policies ?? []) add(policy)
+		for (const policy of resolvePolicies(role.policies ?? [])) add(policy)
 		for (const child of role.children ?? []) collectRole(child)
 	}
 
@@ -169,10 +184,10 @@ export async function walkRole(
 	visited.add(roleId)
 
 	const role = await roles.readOne(roleId, {
-		fields: [...POLICY_FIELDS.map((field) => `policies.${field}`), 'children.id'],
+		fields: [...POLICY_FIELDS.map((field) => `policies.policy.${field}`), 'children.id'],
 	})
 
-	for (const policy of role.policies ?? []) policies.set(policy.id, policy)
+	for (const policy of resolvePolicies(role.policies ?? [])) policies.set(policy.id, policy)
 	for (const child of role.children ?? []) {
 		await walkRole(roles, child.id, policies, visited)
 	}

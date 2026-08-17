@@ -1,4 +1,4 @@
-# `@onderwijsin/directus-sentry-bundle`
+# @onderwijsin/directus-sentry-bundle
 
 Sentry integration bundle for trusted Directus deployments. It provides a server hook that embeds
 the browser loader and registers the Express error handler.
