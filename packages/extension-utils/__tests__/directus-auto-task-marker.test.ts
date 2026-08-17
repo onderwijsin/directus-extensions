@@ -1,23 +1,34 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({
-	createKv: vi.fn(() => {
-		const markers = new Map<string, unknown>()
-		const generations = new Map<string, number>()
-		return {
-			usingLock: vi.fn((_key: string, operation: () => Promise<unknown>) => operation()),
-			increment: vi.fn((key: string) => {
-				const generation = (generations.get(key) ?? 0) + 1
-				generations.set(key, generation)
-				return generation
-			}),
-			set: vi.fn((key: string, value: unknown) => void markers.set(key, value)),
-			get: vi.fn((key: string) => markers.get(key)),
-			delete: vi.fn((key: string) => void markers.delete(key)),
-		}
-	}),
-	quit: vi.fn().mockResolvedValue(undefined),
-}))
+interface MockKv {
+	usingLock: (key: string, operation: () => Promise<unknown>) => Promise<unknown>
+	increment: (key: string) => number
+	set: (key: string, value: unknown) => void
+	get: (key: string) => unknown
+	delete: (key: string) => void
+}
+
+const mocks = vi.hoisted(() => {
+	const markers = new Map<string, unknown>()
+	return {
+		markers,
+		createKv: vi.fn<() => MockKv>(() => {
+			const generations = new Map<string, number>()
+			return {
+				usingLock: vi.fn((_key: string, operation: () => Promise<unknown>) => operation()),
+				increment: vi.fn((key: string) => {
+					const generation = (generations.get(key) ?? 0) + 1
+					generations.set(key, generation)
+					return generation
+				}),
+				set: vi.fn((key: string, value: unknown) => void markers.set(key, value)),
+				get: vi.fn((key: string) => markers.get(key)),
+				delete: vi.fn((key: string) => void markers.delete(key)),
+			}
+		}),
+		quit: vi.fn().mockResolvedValue(undefined),
+	}
+})
 
 vi.mock('@directus/memory', () => ({ createKv: mocks.createKv }))
 vi.mock('ioredis', () => ({
@@ -66,6 +77,34 @@ describe('createRedisMarkerStore', () => {
 		if (!failingKv) throw new Error('Expected a KV store')
 		vi.spyOn(failingKv, 'usingLock').mockRejectedValue(new Error('KV unavailable'))
 		await expect(failingStore.clear('items', 1)).rejects.toThrow('KV unavailable')
+	})
+
+	it('validates persisted marker values before returning or clearing them', async () => {
+		const store = createRedisMarkerStore({
+			redisUrl: 'redis://localhost',
+			redis: new Redis('redis://localhost'),
+			namespace: 'test',
+		})
+		const invalidValues: unknown[] = [
+			null,
+			[],
+			{},
+			{ generation: 0, updatedAt: 100 },
+			{ generation: -1, updatedAt: 100 },
+			{ generation: 1.5, updatedAt: 100 },
+			{ generation: Number.MAX_SAFE_INTEGER + 1, updatedAt: 100 },
+			{ generation: 1, updatedAt: Number.NaN },
+			{ generation: 1, updatedAt: Number.POSITIVE_INFINITY },
+		]
+		for (const value of invalidValues) {
+			mocks.markers.set('test:items%2Fa:marker', value)
+			await expect(store.get('items/a')).rejects.toThrow('Invalid auto-task marker')
+			await expect(store.clear('items/a', 1)).rejects.toThrow('Invalid auto-task marker')
+		}
+
+		const valid = { generation: 3, updatedAt: 100 }
+		mocks.markers.set('test:items%2Fa:marker', valid)
+		expect(await store.get('items/a')).toEqual(valid)
 	})
 
 	it('rejects invalid lock timeouts before creating a Redis store', () => {

@@ -20,7 +20,7 @@
 		"changeset": "changeset",
 		"changeset:publish": "changeset publish",
 		"changeset:status": "changeset status",
-		"changeset:version": "changeset version",
+		"changeset:version": "changeset version && oxfmt",
 		"lint": "oxlint",
 		"lint:fix": "oxlint --fix",
 		"lint:actions": "github-actionlint -config-file .github/actionlint.yaml",

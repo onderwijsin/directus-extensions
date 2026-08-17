@@ -264,19 +264,14 @@ unknown; custom document MIME types extend the default registry.
 ## Server-only logging
 
 ~~~ts
-interface Logger {
-  trace?(message: string, fields?: Record<string, unknown>): void
-  debug?(message: string, fields?: Record<string, unknown>): void
-  info(message: string, fields?: Record<string, unknown>): void
-  warn(message: string, fields?: Record<string, unknown>): void
-  error(message: string, fields?: Record<string, unknown>): void
-}
-type LoggerLike = Partial<Logger>
-createLogger(logger?: LoggerLike): Logger
+type Logger = import('pino').Logger
+type LoggerLike = Pick<Logger, 'info' | 'warn' | 'error'> &
+  Partial<Pick<Logger, 'debug' | 'trace'>>
+createLogger(logger?: LoggerLike): LoggerLike
 ~~~
 
-Missing methods fall back independently to the corresponding console method. info, warn, and error
-are required on the returned logger.
+When a logger is supplied, it is returned unchanged. Without one, the fallback forwards each method
+to the corresponding console method. info, warn, and error are required; debug and trace are optional.
 
 ## Object helpers
 

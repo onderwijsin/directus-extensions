@@ -51,7 +51,9 @@
 	},
 	"dependencies": {
 		"@directus/memory": "catalog:",
+		"@sentry/node": "catalog:",
 		"ioredis": "catalog:",
+		"pino": "catalog:",
 		"uuid": "catalog:"
 	},
 	"devDependencies": {

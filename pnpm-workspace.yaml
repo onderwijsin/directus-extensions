@@ -4,9 +4,10 @@ packages:
 
 catalog:
   '@directus/memory': 4.0.2
+  # Upgrading would require node ">=24.15.0" while we are on ">=24.10.0"
   eslint-plugin-jsdoc: 62.4.0
-  '@changesets/changelog-git': 0.2.1
-  '@changesets/cli': 2.31.1
+  '@changesets/changelog-git': 1.0.0
+  '@changesets/cli': 3.0.0
   '@vitejs/plugin-vue': 6.0.8
   '@commitlint/cli': 21.2.2
   '@commitlint/config-conventional': 21.2.2
@@ -20,13 +21,18 @@ catalog:
   vitest: 4.1.10
   '@directus/extensions-sdk': 18.0.2
   happy-dom: 20.11.2
-  vue: 3.5.41
   '@typescript/native-preview': 7.0.0-dev.20260707.2
   oxlint-tsgolint: 7.0.2001
   github-actionlint: 1.7.12
   tsdown: 0.22.14
-  uuid: 14.0.1
+  uuid: 14.0.1 # note: do not upgrade ioredis because of Directus, keep it at 5.8.2!
   ioredis: 5.8.2
+  # note: do not upgrade pino because of Directus, keep it at 9.7.0!
+  pino: 9.7.0
+  '@sentry/node': 10.69.0
+  # '@sentry/profiling-node': 10.69.0
+  # note: do not upgrade vue because of Directus, keep it at 3.5.24!
+  vue: 3.5.24
 catalogs:
   node24:
     '@types/node': 24.13.3

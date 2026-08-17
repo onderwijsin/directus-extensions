@@ -400,6 +400,9 @@ logger.info('Extension started', { extension: 'orders' })
 logger.error('Import failed', { cause: error instanceof Error ? error.message : error })
 ```
 
+When supplied, the Pino logger is returned unchanged. Without one, `createLogger` provides a
+Pino-like API backed by the corresponding console methods.
+
 ## Shutdown
 
 Dispose resources owned by your extension during Directus shutdown:

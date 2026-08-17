@@ -26,7 +26,7 @@ jobs:
       github.event.pull_request.head.ref == 'changeset-release/main')
     runs-on: blacksmith-2vcpu-ubuntu-2404
     outputs:
-      releases: ${{ steps.changesets.outputs.publishedPackages }}
+      releases: ${{ steps.changesets.outputs.published-packages }}
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -68,13 +68,13 @@ jobs:
         run: pnpm pack:packages "$RUNNER_TEMP/packages"
       - name: Publish packages
         id: changesets
-        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
+        uses: changesets/action@72b60a2c449090fd1871c5578768a32a76011a9d # v2.1.0
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
-          publish: pnpm changeset:publish
-          createGithubReleases: true
+          publish-script: pnpm changeset:publish
+          create-github-releases: true
   notify-slack:
     name: Notify Slack about published packages
     needs: publish

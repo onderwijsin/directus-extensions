@@ -33,6 +33,19 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 ```
 
+Create a logger from a Pino-compatible runtime logger, or use the console-backed fallback:
+
+```ts
+import { createLogger } from '@onderwijsin/directus-extension-utils/server'
+
+const logger = createLogger(context.logger)
+logger.info('Extension started', { extension: 'orders' })
+```
+
+When a logger is provided, it is returned unchanged. Without one, the fallback exposes the same
+`info`, `warn`, `error`, `debug`, and `trace` methods and forwards messages plus optional fields to
+the corresponding console methods.
+
 The `/app` and `/shared` entry points expose the common browser-safe surface. Do not import locks,
 tasks, task storage, or logging from those paths.
 
