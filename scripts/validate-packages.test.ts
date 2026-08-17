@@ -34,7 +34,7 @@ describe('package validation script', () => {
 			license: 'MIT',
 			author: {
 				name: 'Onderwijs in',
-				email: 'hallo@onderwijs.in',
+				email: 'hallo@onderwijsin.nl',
 				url: 'https://github.com/onderwijsin',
 			},
 			contributors: [{ name: 'Example contributor' }],

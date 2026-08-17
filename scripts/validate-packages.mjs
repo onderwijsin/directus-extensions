@@ -101,12 +101,12 @@ export async function validateMetadata(packageName, packageDirectory, manifest) 
 		typeof author !== 'object' ||
 		Array.isArray(author) ||
 		author.name !== 'Onderwijs in' ||
-		author.email !== 'hallo@onderwijs.in' ||
+		author.email !== 'hallo@onderwijsin.nl' ||
 		author.url !== 'https://github.com/onderwijsin'
 	) {
 		report(
 			packageName,
-			'author must be Onderwijs in with hallo@onderwijs.in and https://github.com/onderwijsin',
+			'author must be Onderwijs in with hallo@onderwijsin.nl and https://github.com/onderwijsin',
 		)
 	}
 
