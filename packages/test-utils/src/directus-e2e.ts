@@ -35,6 +35,10 @@ export interface DirectusE2EClient {
 		item: Record<string, unknown>,
 	): Promise<T>
 	deleteItem(collection: string, key: string | number): Promise<void>
+	createPolicy<T>(policy: Record<string, unknown>): Promise<T>
+	deletePolicy(policyId: string): Promise<void>
+	createRole<T>(role: Record<string, unknown>): Promise<T>
+	deleteRole(roleId: string): Promise<void>
 	waitForLog(pattern: RegExp, timeoutMs?: number): Promise<string>
 }
 
@@ -217,6 +221,58 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 	}
 
 	/**
+	 * Creates a policy through Directus's dedicated policies endpoint.
+	 * @param policy - Policy payload.
+	 * @returns The created policy.
+	 */
+	async function createPolicy<T>(policy: Record<string, unknown>): Promise<T> {
+		return request<T>('/policies', {
+			method: 'POST',
+			body: JSON.stringify(policy),
+		})
+	}
+
+	/**
+	 * Deletes a policy through Directus's dedicated policies endpoint.
+	 * @param policyId - Policy primary key.
+	 * @returns Nothing.
+	 */
+	async function deletePolicy(policyId: string): Promise<void> {
+		await requestWithToken(
+			options.token,
+			'/policies',
+			{ method: 'DELETE', body: JSON.stringify([policyId]) },
+			true,
+		)
+	}
+
+	/**
+	 * Creates a role through Directus's dedicated roles endpoint.
+	 * @param role - Role payload.
+	 * @returns The created role.
+	 */
+	async function createRole<T>(role: Record<string, unknown>): Promise<T> {
+		return request<T>('/roles', {
+			method: 'POST',
+			body: JSON.stringify(role),
+		})
+	}
+
+	/**
+	 * Deletes a role through Directus's dedicated roles endpoint.
+	 * @param roleId - Role primary key.
+	 * @returns Nothing.
+	 */
+	async function deleteRole(roleId: string): Promise<void> {
+		await requestWithToken(
+			options.token,
+			'/roles',
+			{ method: 'DELETE', body: JSON.stringify([roleId]) },
+			true,
+		)
+	}
+
+	/**
 	 * Waits until the Directus container emits a matching log line.
 	 * @param pattern - Regular expression to find in the container logs.
 	 * @param timeoutMs - Maximum time to wait in milliseconds.
@@ -257,6 +313,10 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		createItem,
 		updateItem,
 		deleteItem,
+		createPolicy,
+		deletePolicy,
+		createRole,
+		deleteRole,
 		waitForLog,
 	}
 }

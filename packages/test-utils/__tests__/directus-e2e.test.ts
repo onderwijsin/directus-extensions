@@ -85,6 +85,53 @@ describe('Directus E2E client', () => {
 		)
 	})
 
+	it('uses dedicated policy and role endpoints', async () => {
+		const fetchMock = vi.fn()
+		vi.stubGlobal('fetch', fetchMock)
+		fetchMock
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'policy-id' } })))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'role-id' } })))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+		const client = createDirectusE2EClient({
+			baseUrl: 'http://directus.test',
+			token: 'admin-token',
+			composeFiles: [],
+			composeProject: 'test-project',
+		})
+
+		await expect(client.createPolicy<{ id: string }>({ name: 'policy' })).resolves.toEqual({
+			id: 'policy-id',
+		})
+		await expect(client.createRole<{ id: string }>({ name: 'role' })).resolves.toEqual({
+			id: 'role-id',
+		})
+		await expect(client.deleteRole('role-id')).resolves.toBeUndefined()
+		await expect(client.deletePolicy('policy-id')).resolves.toBeUndefined()
+
+		expect(fetchMock.mock.calls[0]?.[0]).toEqual(new URL('http://directus.test/policies'))
+		expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+			method: 'POST',
+			body: '{"name":"policy"}',
+		})
+		expect(fetchMock.mock.calls[1]?.[0]).toEqual(new URL('http://directus.test/roles'))
+		expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+			method: 'POST',
+			body: '{"name":"role"}',
+		})
+		expect(fetchMock.mock.calls[2]?.[0]).toEqual(new URL('http://directus.test/roles'))
+		expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+			method: 'DELETE',
+			body: '["role-id"]',
+		})
+		expect(fetchMock.mock.calls[3]?.[0]).toEqual(new URL('http://directus.test/policies'))
+		expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
+			method: 'DELETE',
+			body: '["policy-id"]',
+		})
+	})
+
 	it('runs callback requests as a user and as a role', async () => {
 		const fetchMock = vi.fn()
 		vi.stubGlobal('fetch', fetchMock)

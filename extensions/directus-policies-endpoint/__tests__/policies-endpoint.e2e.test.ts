@@ -56,25 +56,22 @@ describe('users policies endpoint', () => {
 		let grandchildPolicyId: string | undefined
 
 		try {
-			const directPolicy = await client.createItem<CreatedRecord>(
-				'policies',
+			const directPolicy = await client.createPolicy<CreatedRecord>(
 				policyPayload('E2E direct policy', true),
 			)
 			directPolicyId = directPolicy.id
 
-			const childPolicy = await client.createItem<CreatedRecord>(
-				'policies',
+			const childPolicy = await client.createPolicy<CreatedRecord>(
 				policyPayload('E2E child policy'),
 			)
 			childPolicyId = childPolicy.id
 
-			const grandchildPolicy = await client.createItem<CreatedRecord>(
-				'policies',
+			const grandchildPolicy = await client.createPolicy<CreatedRecord>(
 				policyPayload('E2E grandchild policy'),
 			)
 			grandchildPolicyId = grandchildPolicy.id
 
-			const rootRole = await client.createItem<CreatedRecord>('roles', {
+			const rootRole = await client.createRole<CreatedRecord>({
 				name: 'E2E root role',
 				icon: 'group',
 				description: 'E2E root role',
@@ -82,7 +79,7 @@ describe('users policies endpoint', () => {
 			})
 			rootRoleId = rootRole.id
 
-			const childRole = await client.createItem<CreatedRecord>('roles', {
+			const childRole = await client.createRole<CreatedRecord>({
 				name: 'E2E child role',
 				icon: 'group',
 				description: 'E2E child role',
@@ -91,7 +88,7 @@ describe('users policies endpoint', () => {
 			})
 			childRoleId = childRole.id
 
-			const grandchildRole = await client.createItem<CreatedRecord>('roles', {
+			const grandchildRole = await client.createRole<CreatedRecord>({
 				name: 'E2E grandchild role',
 				icon: 'group',
 				description: 'E2E grandchild role',
@@ -139,12 +136,12 @@ describe('users policies endpoint', () => {
 			expect(depthOne.map((policy) => policy.id)).toEqual([directPolicy.id, childPolicy.id])
 		} finally {
 			if (userId) await client.deleteItem('users', userId)
-			if (grandchildRoleId) await client.deleteItem('roles', grandchildRoleId)
-			if (childRoleId) await client.deleteItem('roles', childRoleId)
-			if (rootRoleId) await client.deleteItem('roles', rootRoleId)
-			if (grandchildPolicyId) await client.deleteItem('policies', grandchildPolicyId)
-			if (childPolicyId) await client.deleteItem('policies', childPolicyId)
-			if (directPolicyId) await client.deleteItem('policies', directPolicyId)
+			if (grandchildRoleId) await client.deleteRole(grandchildRoleId)
+			if (childRoleId) await client.deleteRole(childRoleId)
+			if (rootRoleId) await client.deleteRole(rootRoleId)
+			if (grandchildPolicyId) await client.deletePolicy(grandchildPolicyId)
+			if (childPolicyId) await client.deletePolicy(childPolicyId)
+			if (directPolicyId) await client.deletePolicy(directPolicyId)
 		}
 	})
 })
