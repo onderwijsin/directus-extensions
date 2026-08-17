@@ -47,6 +47,7 @@ Run the full baseline from the repository root:
 
 ```sh
 pnpm format
+pnpm build:utils
 pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs

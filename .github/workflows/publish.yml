@@ -52,14 +52,14 @@ jobs:
 
       - name: Check formatting
         run: pnpm format
+      - name: Build extension-utils for type-aware linting
+        run: pnpm build:utils
       - name: Lint
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
       - name: Unit tests
         run: pnpm test:unit:coverage
-      - name: Build extension-utils
-        run: pnpm build:utils
       - name: Build extensions
         run: pnpm build:extensions
       - name: Validate packed packages

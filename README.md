@@ -10,8 +10,8 @@ private fixtures support repository validation.
 
 | Package                                                                                          | Description                                                 |
 | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| [`@onderwijsin/directus-extension-utils`](packages/extension-utils/README.md)                    | Public framework-neutral utility package.                   |
 | [`@onderwijsin/directus-bundle-sentry`](extensions/directus-bundle-sentry/README.md)             | Sentry integration bundle for trusted Directus deployments. |
+| [`@onderwijsin/directus-extension-utils`](packages/extension-utils/README.md)                    | Public framework-neutral utility package.                   |
 | [`@onderwijsin/directus-extension-e2e-playground`](extensions/directus-e2e-playground/README.md) | Private hook used by packed-artifact Directus E2E tests.    |
 
 The repository also contains private workspace packages for shared TypeScript configuration, test
@@ -85,6 +85,7 @@ Apply formatting and lint fixes, then run the complete local validation suite:
 
 ```sh
 pnpm format:fix
+pnpm build:utils
 pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs

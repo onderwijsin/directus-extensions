@@ -73,17 +73,21 @@ Run the workspace checks from the root:
 
 ```sh
 pnpm format
+pnpm build:utils
 pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs
 pnpm typecheck
 pnpm test:unit
 pnpm test:unit:coverage
-pnpm build:utils
 pnpm test:integration
 pnpm build
 pnpm validate:packages
 ```
+
+Build `@onderwijsin/directus-extension-utils` before linting because type-aware Oxlint resolves its
+public subpaths through the generated declarations in `dist/`. The lint commands themselves do not
+build or modify generated output.
 
 The root `build` script runs available package build scripts recursively. `build:utils` and
 `build:extensions` select the two publishable package groups used by CI and release validation.
@@ -168,6 +172,7 @@ Run the baseline checks from the repository root:
 
 ```sh
 pnpm format
+pnpm build:utils
 pnpm lint:fix
 pnpm lint:actions
 pnpm validate:docs
