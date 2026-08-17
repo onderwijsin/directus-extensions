@@ -19,6 +19,26 @@ import { createFsLockProvider } from '../lock'
 import { validateRedisNamespace, validateRedisUrl } from '../redis-config'
 
 /**
+ * Parses a persisted auto-task marker at the storage boundary.
+ * @param value - Unknown marker value read from storage.
+ * @returns The validated marker, or `undefined` when no marker exists.
+ */
+const parseAutoTaskMarker = (value: unknown): AutoTaskMarker | undefined => {
+	if (value === undefined) return undefined
+	if (
+		!isRecord(value) ||
+		!hasKey(value, 'generation') ||
+		!isFiniteNumber(value.generation) ||
+		!Number.isSafeInteger(value.generation) ||
+		value.generation < 1 ||
+		!hasKey(value, 'updatedAt') ||
+		!isFiniteNumber(value.updatedAt)
+	)
+		throw new Error('Invalid auto-task marker')
+	return { generation: value.generation, updatedAt: value.updatedAt }
+}
+
+/**
  * Creates a marker store backed by Directus' Redis KV abstraction.
  *
  * Marker generations are incremented and updated while holding the KV lock. The supplied KV
@@ -86,7 +106,8 @@ export function createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTa
 		 * @param identifier - Logical marker identifier.
 		 * @returns The marker, or `undefined` when none exists.
 		 */
-		get: (identifier) => kv.get<AutoTaskMarker>(keyFor('marker', identifier)),
+		get: async (identifier) =>
+			parseAutoTaskMarker(await kv.get<unknown>(keyFor('marker', identifier))),
 		/**
 		 * Clears a Redis-backed marker only when its generation still matches.
 		 * @param identifier - Logical marker identifier.
@@ -95,7 +116,9 @@ export function createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTa
 		 */
 		clear: (identifier, generation) =>
 			kv.usingLock(lockFor(identifier), async () => {
-				const marker = await kv.get<AutoTaskMarker>(keyFor('marker', identifier))
+				const marker = parseAutoTaskMarker(
+					await kv.get<unknown>(keyFor('marker', identifier)),
+				)
 				if (marker?.generation !== generation) return false
 				await kv.delete(keyFor('marker', identifier))
 				return true
@@ -174,18 +197,11 @@ const readMarker = async (path: string): Promise<AutoTaskMarker | undefined> => 
 		}
 		raiseMarkerError(result.error)
 	}
-	const value = result.data
-	if (
-		!isRecord(value) ||
-		!hasKey(value, 'generation') ||
-		!isFiniteNumber(value.generation) ||
-		!Number.isSafeInteger(value.generation) ||
-		value.generation < 1 ||
-		!hasKey(value, 'updatedAt') ||
-		!isFiniteNumber(value.updatedAt)
-	)
+	try {
+		return parseAutoTaskMarker(result.data)
+	} catch {
 		throw new Error(`Invalid auto-task marker: ${path}`)
-	return { generation: value.generation, updatedAt: value.updatedAt }
+	}
 }
 
 /**
