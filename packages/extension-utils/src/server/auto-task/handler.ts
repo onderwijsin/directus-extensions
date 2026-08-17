@@ -119,13 +119,15 @@ const reportError = async (
 	logger: ReturnType<typeof createLogger>,
 	onError: AutoTaskHandlerOptions['onError'],
 ): Promise<void> => {
-	logger.error('❌ Auto task failed', {
+	logger.error({
+		msg: '❌ Auto task failed',
 		cause: error instanceof Error ? error.message : String(error),
 	})
 	if (!onError) return
 	const result = await attempt(() => onError(error))
 	if (result.error !== null) {
-		logger.error('❌ Auto task error handler failed', {
+		logger.error({
+			msg: '❌ Auto task error handler failed',
 			cause:
 				result.error instanceof Error
 					? result.error.message
@@ -238,7 +240,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 		}
 		renewalTimer = config.scheduler.setInterval(() => void renew(), config.renewalIntervalMs)
 
-		logger.info(`▶️ Running auto task: ${config.taskId}`)
+		logger.info({ msg: `▶️ Running auto task: ${config.taskId}` })
 		const result = await attempt(() => options.task(controller.signal))
 		if (result.error !== null) {
 			await reportError(result.error, logger, options.onError)
@@ -246,7 +248,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 			await reportError(new Error('Auto task lock lease was lost'), logger, options.onError)
 		} else {
 			taskSucceeded = true
-			logger.info(`✅ Completed auto task: ${config.taskId}`)
+			logger.info({ msg: `✅ Completed auto task: ${config.taskId}` })
 		}
 		if (renewalTimer !== undefined) config.scheduler.clearInterval(renewalTimer)
 		await finish(lease, generation, leaseLost, taskSucceeded)
@@ -287,7 +289,7 @@ export function createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTask
 		if (disposed) return
 		const result = await attempt(async () => {
 			const marker = await markerStore.touch(config.taskId, config.now())
-			logger.info(`📅 Auto task scheduled: ${config.taskId}`)
+			logger.info({ msg: `📅 Auto task scheduled: ${config.taskId}` })
 			schedule(marker.generation, config.debounceMs)
 		})
 		if (result.error !== null) {

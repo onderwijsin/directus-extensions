@@ -36,7 +36,7 @@ the extension receives them; arrays therefore use Directus's array syntax.
 | `MAGIC_LINKS_TOKEN_TTL`                        | `15m`                      | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).   |
 | `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`           | required                   | Non-empty array of allowed redirect URLs.            |
 | `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`            | `token`                    | Query parameter used for the raw token.              |
-| `MAGIC_LINKS_COLLECTION`                       | `directus_magic_links`     | Magic-link collection name.                          |
+| `MAGIC_LINKS_COLLECTION`                       | `magic_links`              | Magic-link collection name.                          |
 | `MAGIC_LINKS_EMAIL_TEMPLATE`                   | `magic-link`               | Directus Liquid template name.                       |
 | `MAGIC_LINKS_EMAIL_SUBJECT`                    | unset                      | Optional subject passed to the mail service.         |
 | `USE_MAGIC_LINK_CLEANUP`                       | `false`                    | Enable scheduled cleanup.                            |
@@ -57,10 +57,10 @@ not extension-owned options.
 
 ## Schema setup
 
-When schema changes are enabled, the startup hook creates the portable `directus_magic_links`
-collection, fields, and relation from the package's exported schema data. Existing compatible schema
-resources are preserved. Set `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=false` to disable schema
-changes globally, or `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bundle.
+When schema changes are enabled, the startup hook creates the portable `magic_links` collection,
+fields, and relation from the package's exported schema data. Existing compatible schema resources
+are preserved. Set `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=false` to disable schema changes
+globally, or `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bundle.
 
 The schema data is also available at:
 

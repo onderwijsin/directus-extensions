@@ -12,7 +12,10 @@ export const sharedEnvSchema = schemaChangeSchema.extend({
 		.string()
 		.trim()
 		.regex(/^[A-Za-z_][A-Za-z0-9_]*$/u)
-		.default('directus_magic_links'),
+		.refine((value) => !value.startsWith('directus_'), {
+			message: 'Collection names may not start with directus_',
+		})
+		.default('magic_links'),
 })
 
 export type SharedEnv = z.output<typeof sharedEnvSchema>

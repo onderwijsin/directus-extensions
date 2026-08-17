@@ -101,7 +101,8 @@ const logIncompatible = (
 	resource: string,
 	details: Record<string, unknown>,
 ): null => {
-	logger.error('Incompatible Directus schema resource; preserving the existing resource', {
+	logger.error({
+		msg: 'Incompatible Directus schema resource; preserving the existing resource',
 		resource,
 		...details,
 	})
@@ -124,7 +125,7 @@ const ensureCollection = async (
 	if (existing) return null
 
 	await service.createOne(collection)
-	logger.info('Created Directus collection', { collection: collection.collection })
+	logger.info({ msg: 'Created Directus collection', collection: collection.collection })
 	return 'collection:' + collection.collection
 }
 
@@ -161,7 +162,8 @@ const ensureField = async (
 	}
 
 	await service.createField(field.collection, field)
-	logger.info('Created Directus field', {
+	logger.info({
+		msg: 'Created Directus field',
 		collection: field.collection,
 		field: field.field,
 	})
@@ -205,7 +207,8 @@ const ensureRelation = async (
 	}
 
 	await service.createOne(relation)
-	logger.info('Created Directus relation', {
+	logger.info({
+		msg: 'Created Directus relation',
 		collection: relation.collection,
 		field: relation.field,
 		relatedCollection: relation.related_collection,
@@ -246,16 +249,17 @@ export async function ensureDirectusSchema(
 	try {
 		if (options.useLockedSchemaChange) {
 			if (!options.lockProvider && !options.lockProviderConfig) {
-				logger.warn(
-					'Using a process-local schema lock; configure a shared provider for replicas',
-					{ extensionId },
-				)
+				logger.warn({
+					msg: 'Using a process-local schema lock; configure a shared provider for replicas',
+					extensionId,
+				})
 			}
 			lease = await lockProvider.tryAcquire(getSchemaLockName(extensionId), {
 				...(options.lockLeaseMs === undefined ? {} : { leaseMs: options.lockLeaseMs }),
 			})
 			if (!lease) {
-				logger.info('Skipped schema ensure because another operation holds the lock', {
+				logger.info({
+					msg: 'Skipped schema ensure because another operation holds the lock',
 					extensionId,
 				})
 				return { changed, skipped: true }
@@ -284,7 +288,7 @@ export async function ensureDirectusSchema(
 		})
 
 		if (result.error !== null) {
-			logger.error('Directus schema ensure failed', { extensionId, cause: result.error })
+			logger.error({ msg: 'Directus schema ensure failed', extensionId, cause: result.error })
 			if (options.abortOnError ?? true) {
 				const error =
 					result.error instanceof Error

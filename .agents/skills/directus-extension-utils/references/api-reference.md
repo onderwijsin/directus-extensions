@@ -163,6 +163,117 @@ values as enabled. The string `"false"` and boolean `false` disable the extensio
 `validateExtensionOptions` logs Zod's formatted error and throws `Invalid extension options ☝.
 Exiting.` when parsing fails.
 
+## Server-only schema management
+
+~~~ts
+const schemaLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
+
+const schemaChangeSchema = z.object({
+  DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
+  DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE: z.boolean().default(true),
+  DIRECTUS_EXTENSIONS_LOCK_PROVIDER: schemaLockProviderSchema.default('MEMORY'),
+  DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: z.string().trim().min(1).optional(),
+  DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: z.string().trim().min(1).optional(),
+})
+  // REDIS requires LOCK_REDIS_URL; FS requires LOCK_FS_DIRECTORY.
+
+type SchemaChangeOptions = z.output<typeof schemaChangeSchema>
+
+const DIRECTUS_EXTENSION_SCHEMA_LOCK = 'directus-extension-schema'
+getSchemaLockName(name: string): string
+~~~
+
+`schemaChangeSchema` validates the global enablement and provider settings. Extend it with
+`.extend(...)` so its conditional Redis and filesystem requirements remain active:
+
+~~~ts
+const envSchema = schemaChangeSchema.extend({
+  ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
+})
+~~~
+
+~~~ts
+interface SchemaChangeLockProvider {
+  provider: LockProvider
+  dispose(): Promise<void>
+}
+
+createSchemaChangeLockProvider(
+  options: SchemaChangeOptions,
+): SchemaChangeLockProvider
+~~~
+
+The factory selects the memory, Redis, or filesystem provider from
+`DIRECTUS_EXTENSIONS_LOCK_PROVIDER`. It owns and disposes Redis providers that it creates. An
+explicit `options.lockProvider` passed to `ensureDirectusSchema` remains owned by the consumer.
+
+~~~ts
+interface DirectusSchemaDefinition {
+  collections: CollectionDefinition[]
+  fields: FieldDefinition[]
+  relations: Partial<Relation>[]
+}
+
+interface EnsureDirectusSchemaOptions {
+  useLockedSchemaChange?: boolean
+  abortOnError?: boolean // default true
+  lockProvider?: LockProvider
+  lockProviderConfig?: SchemaChangeOptions
+  lockLeaseMs?: number
+}
+
+interface EnsureDirectusSchemaInput {
+  extensionId: string
+  database: ApiExtensionContext['database']
+  getSchema: (options?: {
+    database?: ApiExtensionContext['database']
+    bypassCache?: boolean
+  }) => Promise<SchemaOverview>
+  logger: LoggerLike
+  definition: DirectusSchemaDefinition
+  services: ApiExtensionContext['services']
+  options?: EnsureDirectusSchemaOptions
+}
+
+interface EnsureDirectusSchemaResult {
+  changed: string[]
+  skipped: boolean
+}
+
+ensureDirectusSchema(
+  input: EnsureDirectusSchemaInput,
+): Promise<EnsureDirectusSchemaResult>
+~~~
+
+`ensureDirectusSchema` passes the supplied database into `getSchema` and Directus service
+constructors. It creates missing collections, fields, and relations. Existing compatible resources
+are preserved; incompatible structural resources are logged and left unchanged. UI metadata is not
+authoritative and is not overwritten. Unexpected service failures are logged and rethrown by
+default; set `abortOnError: false` to continue.
+
+~~~ts
+type ActionRegistrar = (
+  event: 'server.start',
+  handler: () => void,
+) => void
+
+interface RegisterSchemaChangeOnStartOptions {
+  name: string
+  disabled: boolean
+  disabledGlobally: boolean
+}
+
+registerSchemaChangeOnStart(
+  action: ActionRegistrar,
+  logger: LoggerLike,
+  callback: () => Promise<EnsureDirectusSchemaResult>,
+  options: RegisterSchemaChangeOnStartOptions,
+): void
+~~~
+
+The startup helper performs the global and extension-specific disabled checks, invokes the callback
+on `server.start`, and logs asynchronous setup failures without rejecting action registration.
+
 ~~~ts
 interface TaskHandlerStorage {
   lockProvider: LockProvider

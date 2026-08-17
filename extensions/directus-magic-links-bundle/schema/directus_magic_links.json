@@ -1,7 +1,7 @@
 {
 	"collections": [
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"meta": {
 				"hidden": true,
 				"icon": "link"
@@ -10,7 +10,7 @@
 	],
 	"fields": [
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "id",
 			"type": "uuid",
 			"schema": {
@@ -25,7 +25,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "user",
 			"type": "uuid",
 			"schema": {
@@ -39,7 +39,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "email",
 			"type": "string",
 			"schema": {
@@ -54,7 +54,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "token_hash",
 			"type": "string",
 			"schema": {
@@ -71,7 +71,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "expires_at",
 			"type": "timestamp",
 			"schema": {
@@ -85,7 +85,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "issued_at",
 			"type": "timestamp",
 			"schema": {
@@ -99,7 +99,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "redeemed_at",
 			"type": "timestamp",
 			"schema": {
@@ -113,7 +113,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "ip",
 			"type": "string",
 			"schema": {
@@ -128,7 +128,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "user_agent",
 			"type": "text",
 			"schema": {
@@ -142,7 +142,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "email_status",
 			"type": "string",
 			"schema": {
@@ -164,7 +164,7 @@
 			}
 		},
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "email_error",
 			"type": "text",
 			"schema": {
@@ -181,14 +181,14 @@
 	],
 	"relations": [
 		{
-			"collection": "directus_magic_links",
+			"collection": "magic_links",
 			"field": "user",
 			"related_collection": "directus_users",
 			"schema": {
 				"on_delete": "CASCADE"
 			},
 			"meta": {
-				"many_collection": "directus_magic_links",
+				"many_collection": "magic_links",
 				"many_field": "user",
 				"one_collection": "directus_users",
 				"one_field": "id",

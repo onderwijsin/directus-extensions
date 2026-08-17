@@ -27,7 +27,7 @@ the endpoint even while the runtime behavior is scaffolded.
 | `MAGIC_LINKS_TOKEN_TTL`                        | `15m`                      | Duration such as `30m` or `7d`.                    |
 | `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`           | required                   | Non-empty array of valid redirect URLs.            |
 | `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`            | `token`                    | Token query parameter name.                        |
-| `MAGIC_LINKS_COLLECTION`                       | `directus_magic_links`     | Underscore-compatible collection name.             |
+| `MAGIC_LINKS_COLLECTION`                       | `magic_links`              | Underscore-compatible collection name.             |
 | `MAGIC_LINKS_EMAIL_TEMPLATE`                   | `magic-link`               | Template name using letters, numbers, `_`, or `-`. |
 | `MAGIC_LINKS_EMAIL_SUBJECT`                    | unset                      | Optional non-empty email subject.                  |
 | `USE_MAGIC_LINK_CLEANUP`                       | `false`                    | Boolean scheduled-cleanup switch.                  |
@@ -48,11 +48,11 @@ belong to Directus and are not parsed by the bundle schemas.
 
 ## Schema setup
 
-With both schema switches enabled, the hook creates the hidden `directus_magic_links` collection,
-its fields, and the relation to `directus_users`. Compatible existing resources are preserved.
-Incompatible structural resources are logged loudly and left unchanged. Unexpected schema service
-failures abort setup by default; set `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR=false` to log the failure
-and continue the hook setup.
+With both schema switches enabled, the hook creates the hidden `magic_links` collection, its fields,
+and the relation to `directus_users`. Compatible existing resources are preserved. Incompatible
+structural resources are logged loudly and left unchanged. Unexpected schema service failures abort
+setup by default; set `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR=false` to log the failure and continue the
+hook setup.
 
 The portable schema data is exported as `@onderwijsin/directus-magic-links-bundle/schema` for manual
 inspection or application when automated schema changes are disabled.

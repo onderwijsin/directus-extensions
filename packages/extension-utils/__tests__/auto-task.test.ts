@@ -50,11 +50,11 @@ describe('createAutoTaskHandler', () => {
 		await vi.advanceTimersByTimeAsync(1)
 
 		expect(task).toHaveBeenCalledOnce()
-		expect(logger.info).toHaveBeenNthCalledWith(1, '📅 Auto task scheduled: items')
-		expect(logger.info).toHaveBeenNthCalledWith(2, '📅 Auto task scheduled: items')
-		expect(logger.info).toHaveBeenNthCalledWith(3, '📅 Auto task scheduled: items')
-		expect(logger.info).toHaveBeenNthCalledWith(4, '▶️ Running auto task: items')
-		expect(logger.info).toHaveBeenNthCalledWith(5, '✅ Completed auto task: items')
+		expect(logger.info).toHaveBeenNthCalledWith(1, { msg: '📅 Auto task scheduled: items' })
+		expect(logger.info).toHaveBeenNthCalledWith(2, { msg: '📅 Auto task scheduled: items' })
+		expect(logger.info).toHaveBeenNthCalledWith(3, { msg: '📅 Auto task scheduled: items' })
+		expect(logger.info).toHaveBeenNthCalledWith(4, { msg: '▶️ Running auto task: items' })
+		expect(logger.info).toHaveBeenNthCalledWith(5, { msg: '✅ Completed auto task: items' })
 		handler.dispose()
 	})
 
@@ -284,7 +284,8 @@ describe('createAutoTaskHandler', () => {
 		await expect(handler()).resolves.toBeUndefined()
 		await vi.advanceTimersByTimeAsync(10)
 		expect(onError).toHaveBeenCalledWith(taskFailure)
-		expect(logger.error).toHaveBeenCalledWith('❌ Auto task failed', {
+		expect(logger.error).toHaveBeenCalledWith({
+			msg: '❌ Auto task failed',
 			cause: 'task failed',
 		})
 		expect(onError).toHaveBeenCalledWith(releaseFailure)

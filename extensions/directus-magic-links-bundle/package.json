@@ -29,7 +29,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
-		"directory": "extensions/directus-magic-links"
+		"directory": "extensions/directus-magic-links-bundle"
 	},
 	"files": [
 		"dist",
@@ -75,6 +75,7 @@
 	"directus:extension": {
 		"type": "bundle",
 		"path": {
+			"app": "dist/app.js",
 			"api": "dist/api.js"
 		},
 		"entries": [

@@ -205,7 +205,7 @@ Redemption must be atomic. Use Knex, not raw SQL:
 
 ```ts
 await database.transaction(async (transaction) => {
-  const link = await transaction('directus_magic_links as magic_links')
+  const link = await transaction('magic_links as magic_links')
     .select(
       'magic_links.*',
       'users.email as user_email',
@@ -240,7 +240,7 @@ await database.transaction(async (transaction) => {
     },
   )
 
-  await transaction('directus_magic_links')
+  await transaction('magic_links')
     .where({ id: link.id, redeemed_at: null })
     .update({ redeemed_at: transaction.fn.now() })
 
@@ -258,7 +258,7 @@ from one link.
 The default collection name is configurable and defaults to:
 
 ```text
-MAGIC_LINKS_COLLECTION=directus_magic_links
+MAGIC_LINKS_COLLECTION=magic_links
 ```
 
 The `directus_` prefix is used deliberately for this first version. Directus has many built-in
@@ -289,7 +289,7 @@ succeeded. V1 records the status but does not retry email delivery automatically
 Relation:
 
 ```text
-directus_magic_links.user → directus_users.id
+magic_links.user → directus_users.id
 ```
 
 Recommended relation behavior is cascade deletion when the user is deleted. The collection should be
@@ -661,7 +661,7 @@ The extension must not grant admin access or alter Data Studio login behavior.
 | `MAGIC_LINKS_TOKEN_TTL`                        | `15m`                      | Token lifetime                                    |
 | `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`           | required                   | Allowed frontend URLs                             |
 | `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`            | `token`                    | Query parameter name                              |
-| `MAGIC_LINKS_COLLECTION`                       | `directus_magic_links`     | Collection name override if needed                |
+| `MAGIC_LINKS_COLLECTION`                       | `magic_links`              | Collection name override if needed                |
 | `MAGIC_LINKS_EMAIL_TEMPLATE`                   | `magic-link`               | Liquid template name                              |
 | `MAGIC_LINKS_EMAIL_SUBJECT`                    | configurable               | Email subject                                     |
 | `EMAIL_TRANSPORT`                              | required `smtp`            | Required Directus email transport                 |
@@ -696,7 +696,7 @@ The extension must not grant admin access or alter Data Studio login behavior.
 1. Start without the magic-link collection.
 2. Verify collection, fields, and relation are created at startup.
 3. Restart and verify no duplicates are created.
-4. Verify `directus_magic_links` is accepted by the target Directus version.
+4. Verify `magic_links` is accepted by the target Directus version.
 5. Request a link and verify only the digest is stored.
 6. Verify unknown-email requests are indistinguishable from known-email requests.
 7. Redeem successfully and verify the returned token accesses permitted content.
@@ -721,7 +721,7 @@ V1 includes:
 - HMAC token digests using a dedicated secret or explicit Directus `SECRET` fallback;
 - retained magic-link records with `redeemed_at`;
 - Knex transactions and row locking;
-- `directus_magic_links` as the default collection name;
+- `magic_links` as the default collection name;
 - reusable idempotent schema utilities;
 - configurable shared schema locking;
 - optional scheduled cleanup through the Directus schedule hook;

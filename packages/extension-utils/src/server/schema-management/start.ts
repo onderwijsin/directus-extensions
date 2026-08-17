@@ -37,7 +37,7 @@ export function registerSchemaChangeOnStart(
 		}
 
 		void callback().catch((error: unknown) => {
-			logger.error(name + ' schema setup failed', { cause: error })
+			logger.error({ msg: name + ' schema setup failed', cause: error })
 		})
 	})
 }
