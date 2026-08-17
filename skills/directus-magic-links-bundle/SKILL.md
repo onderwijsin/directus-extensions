@@ -54,6 +54,9 @@ structural resources are logged loudly and left unchanged. Unexpected schema ser
 setup by default; set `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR=false` to log the failure and continue the
 hook setup.
 
+The related user's current `email` is the authoritative delivery address. The magic-links table does
+not duplicate an email snapshot.
+
 The portable schema data is exported as `@onderwijsin/directus-magic-links-bundle/schema` for manual
 inspection or application when automated schema changes are disabled.
 

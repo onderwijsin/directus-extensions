@@ -122,10 +122,16 @@ const ensureCollection = async (
 	logger: LoggerLike,
 ): Promise<string | null> => {
 	const existing = await getCollection(service, collection)
-	if (existing) return null
+	if (existing) {
+		logger.info({
+			msg: '⏭️ Directus collection already exists',
+			collection: collection.collection,
+		})
+		return null
+	}
 
 	await service.createOne(collection)
-	logger.info({ msg: 'Created Directus collection', collection: collection.collection })
+	logger.info({ msg: '🛠️ Created Directus collection', collection: collection.collection })
 	return 'collection:' + collection.collection
 }
 
@@ -153,17 +159,24 @@ const ensureField = async (
 
 	const existing = schema.collections[field.collection]?.fields[field.field]
 	if (existing) {
-		return existing.type === field.type
-			? null
-			: logIncompatible(logger, 'field:' + field.collection + '.' + field.field, {
-					expectedType: field.type,
-					actualType: existing.type,
-				})
+		if (existing.type === field.type) {
+			logger.info({
+				msg: '⏭️ Directus field already exists and is compatible',
+				collection: field.collection,
+				field: field.field,
+				type: field.type,
+			})
+			return null
+		}
+		return logIncompatible(logger, 'field:' + field.collection + '.' + field.field, {
+			expectedType: field.type,
+			actualType: existing.type,
+		})
 	}
 
 	await service.createField(field.collection, field)
 	logger.info({
-		msg: 'Created Directus field',
+		msg: '🛠️ Created Directus field',
 		collection: field.collection,
 		field: field.field,
 	})
@@ -198,17 +211,24 @@ const ensureRelation = async (
 			candidate.collection === relation.collection && candidate.field === relation.field,
 	)
 	if (existing) {
-		return existing.related_collection === relation.related_collection
-			? null
-			: logIncompatible(logger, 'relation:' + relation.collection + '.' + relation.field, {
-					expectedRelatedCollection: relation.related_collection,
-					actualRelatedCollection: existing.related_collection,
-				})
+		if (existing.related_collection === relation.related_collection) {
+			logger.info({
+				msg: '⏭️ Directus relation already exists and is compatible',
+				collection: relation.collection,
+				field: relation.field,
+				relatedCollection: relation.related_collection,
+			})
+			return null
+		}
+		return logIncompatible(logger, 'relation:' + relation.collection + '.' + relation.field, {
+			expectedRelatedCollection: relation.related_collection,
+			actualRelatedCollection: existing.related_collection,
+		})
 	}
 
 	await service.createOne(relation)
 	logger.info({
-		msg: 'Created Directus relation',
+		msg: '🛠️ Created Directus relation',
 		collection: relation.collection,
 		field: relation.field,
 		relatedCollection: relation.related_collection,
@@ -232,6 +252,26 @@ export async function ensureDirectusSchema(
 	const { extensionId, database, getSchema, logger, definition, services } = input
 	const options = input.options ?? {}
 	const changed: string[] = []
+	const startedAt = Date.now()
+	const lockEnabled = options.useLockedSchemaChange === true
+	const lockProviderName = options.lockProvider
+		? 'custom'
+		: (options.lockProviderConfig?.DIRECTUS_EXTENSIONS_LOCK_PROVIDER ?? 'MEMORY')
+	let currentPhase = 'initialization'
+	let currentResource: string | undefined
+
+	logger.info({
+		msg: '🚀 Starting Directus schema ensure',
+		extensionId,
+		resources: {
+			collections: definition.collections.length,
+			fields: definition.fields.length,
+			relations: definition.relations.length,
+		},
+		locking: lockEnabled,
+		lockProvider: lockProviderName,
+	})
+
 	const configuredProvider = options.lockProvider
 		? {
 				provider: options.lockProvider,
@@ -259,14 +299,21 @@ export async function ensureDirectusSchema(
 			})
 			if (!lease) {
 				logger.info({
-					msg: 'Skipped schema ensure because another operation holds the lock',
+					msg: '🔒 Skipped schema ensure; another operation holds the lock',
 					extensionId,
+					lockProvider: lockProviderName,
 				})
 				return { changed, skipped: true }
 			}
+			logger.info({
+				msg: '🔐 Acquired schema ensure lock',
+				extensionId,
+				lockProvider: lockProviderName,
+			})
 		}
 
 		const result = await attempt(async () => {
+			currentPhase = 'schema read'
 			const schema = await getSchema({ database, bypassCache: true })
 			const serviceOptionsValue = serviceOptions(database, schema)
 			const collectionService = new services.CollectionsService(serviceOptionsValue)
@@ -274,21 +321,33 @@ export async function ensureDirectusSchema(
 			const relationService = new services.RelationsService(serviceOptionsValue)
 
 			for (const collection of definition.collections) {
+				currentPhase = 'collection'
+				currentResource = collection.collection
 				const created = await ensureCollection(collectionService, collection, logger)
 				if (created) changed.push(created)
 			}
 			for (const field of definition.fields) {
+				currentPhase = 'field'
+				currentResource = field.collection + '.' + field.field
 				const created = await ensureField(fieldService, field, schema, logger)
 				if (created) changed.push(created)
 			}
 			for (const relation of definition.relations) {
+				currentPhase = 'relation'
+				currentResource = relation.collection + '.' + relation.field
 				const created = await ensureRelation(relationService, relation, schema, logger)
 				if (created) changed.push(created)
 			}
 		})
 
 		if (result.error !== null) {
-			logger.error({ msg: 'Directus schema ensure failed', extensionId, cause: result.error })
+			logger.error({
+				msg: '❌ Directus schema ensure failed',
+				extensionId,
+				phase: currentPhase,
+				resource: currentResource,
+				cause: result.error,
+			})
 			if (options.abortOnError ?? true) {
 				const error =
 					result.error instanceof Error
@@ -296,11 +355,27 @@ export async function ensureDirectusSchema(
 						: new Error(JSON.stringify(result.error) ?? 'Unknown schema ensure failure')
 				throw error
 			}
+			logger.warn({
+				msg: '⚠️ Continuing after schema ensure failure',
+				extensionId,
+				phase: currentPhase,
+				resource: currentResource,
+			})
 		}
 
+		logger.info({
+			msg: '✅ Directus schema ensure completed',
+			extensionId,
+			changed,
+			changedCount: changed.length,
+			durationMs: Date.now() - startedAt,
+		})
 		return { changed, skipped: false }
 	} finally {
-		if (lease) await lease.release()
+		if (lease) {
+			await lease.release()
+			logger.info({ msg: '🔓 Released schema ensure lock', extensionId })
+		}
 		if (!options.lockProvider) await configuredProvider.dispose()
 	}
 }

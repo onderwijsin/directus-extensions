@@ -86,8 +86,9 @@ The endpoint must:
 4. Find an active user using Directus's default local provider only.
 5. Generate a cryptographically secure token.
 6. Store only its digest.
-7. Store the normalized email, IP, user agent, `email_status=pending`, and issuance metadata.
-8. Send the email using Directus `MailService`.
+7. Store the user relation, IP, user agent, `email_status=pending`, and issuance metadata.
+8. Resolve the delivery address from the related user's current `email` and send the email using
+   Directus `MailService`.
 9. Update the record to `email_status=sent` or `email_status=error`.
 10. Return the generic response without revealing account existence.
 
@@ -272,7 +273,6 @@ Schema:
 | -------------- | ------------- | -------: | ------------------------------------------------- |
 | `id`           | UUID          |      yes | Primary key                                       |
 | `user`         | UUID relation |      yes | Many links to one `directus_users` record         |
-| `email`        | String        |      yes | Normalized email snapshot; indexed                |
 | `token_hash`   | String(64)    |      yes | Unique and indexed; hidden from the Data Studio   |
 | `expires_at`   | Timestamp     |      yes | Indexed                                           |
 | `issued_at`    | Timestamp     |      yes | Issuance time; indexed                            |
@@ -296,28 +296,25 @@ Recommended relation behavior is cascade deletion when the user is deleted. The 
 hidden in its collection metadata and have no public CRUD permissions. Extension internals use
 elevated access while returned sessions retain the user's ordinary role and permissions.
 
-`token_hash` must have a unique index. `email` and `issued_at` should have ordinary non-unique
-indexes. Unique indexes on either field would conflict with the requirement that multiple links for
-the same email remain valid and that multiple links may be issued close together. If a future schema
-contract requires uniqueness, use a separate immutable identifier rather than making email or
-timestamp unique.
+`token_hash` must have a unique index. `issued_at` should have an ordinary non-unique index. The
+related user's current email is the authoritative delivery address; it is intentionally not
+duplicated on the magic-link record.
 
 The JSON schema data should also configure a usable administrative presentation if an administrator
 chooses to reveal the hidden collection:
 
-| Field          | Interface             | Display         | UI metadata                          |
-| -------------- | --------------------- | --------------- | ------------------------------------ |
-| `id`           | `input`               | raw value       | hidden, readonly                     |
-| `user`         | `select-dropdown-m2o` | related values  | readonly                             |
-| `email`        | `input`               | formatted value | readonly                             |
-| `token_hash`   | `input`               | raw value       | hidden, readonly                     |
-| `expires_at`   | `datetime`            | datetime        | readonly                             |
-| `issued_at`    | `datetime`            | datetime        | readonly                             |
-| `redeemed_at`  | `datetime`            | datetime        | readonly                             |
-| `ip`           | `input`               | raw value       | readonly                             |
-| `user_agent`   | `input-multiline`     | raw value       | readonly                             |
-| `email_status` | `select-dropdown`     | raw value       | readonly; choices pending/sent/error |
-| `email_error`  | `input-multiline`     | raw value       | hidden, readonly                     |
+| Field          | Interface             | Display        | UI metadata                          |
+| -------------- | --------------------- | -------------- | ------------------------------------ |
+| `id`           | `input`               | raw value      | hidden, readonly                     |
+| `user`         | `select-dropdown-m2o` | related values | readonly                             |
+| `token_hash`   | `input`               | raw value      | hidden, readonly                     |
+| `expires_at`   | `datetime`            | datetime       | readonly                             |
+| `issued_at`    | `datetime`            | datetime       | readonly                             |
+| `redeemed_at`  | `datetime`            | datetime       | readonly                             |
+| `ip`           | `input`               | raw value      | readonly                             |
+| `user_agent`   | `input-multiline`     | raw value      | readonly                             |
+| `email_status` | `select-dropdown`     | raw value      | readonly; choices pending/sent/error |
+| `email_error`  | `input-multiline`     | raw value      | hidden, readonly                     |
 
 These interface and display identifiers are part of the JSON data contract and must be checked
 against the supported Directus version during implementation. They are presentation metadata only;

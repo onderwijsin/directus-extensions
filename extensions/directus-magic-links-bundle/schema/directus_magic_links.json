@@ -2,6 +2,7 @@
 	"collections": [
 		{
 			"collection": "magic_links",
+			"schema": {},
 			"meta": {
 				"hidden": true,
 				"icon": "link"
@@ -19,6 +20,7 @@
 				"is_nullable": false
 			},
 			"meta": {
+				"hidden": false,
 				"readonly": true,
 				"interface": "input",
 				"display": "raw"
@@ -36,21 +38,6 @@
 				"readonly": true,
 				"interface": "select-dropdown-m2o",
 				"display": "related-values"
-			}
-		},
-		{
-			"collection": "magic_links",
-			"field": "email",
-			"type": "string",
-			"schema": {
-				"data_type": "varchar",
-				"max_length": 255,
-				"is_nullable": false
-			},
-			"meta": {
-				"readonly": true,
-				"interface": "input",
-				"display": "formatted-value"
 			}
 		},
 		{
@@ -124,7 +111,13 @@
 			"meta": {
 				"readonly": true,
 				"interface": "input",
-				"display": "raw"
+				"options": {
+					"masked": true
+				},
+				"display": "formatted-value",
+				"display_options": {
+					"masked": true
+				}
 			}
 		},
 		{
@@ -153,8 +146,15 @@
 			"meta": {
 				"readonly": true,
 				"interface": "select-dropdown",
-				"display": "raw",
+				"display": "labels",
 				"options": {
+					"choices": [
+						{ "text": "Pending", "value": "pending" },
+						{ "text": "Sent", "value": "sent" },
+						{ "text": "Error", "value": "error" }
+					]
+				},
+				"display_options": {
 					"choices": [
 						{ "text": "Pending", "value": "pending" },
 						{ "text": "Sent", "value": "sent" },

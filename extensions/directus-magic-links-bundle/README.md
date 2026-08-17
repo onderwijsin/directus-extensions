@@ -62,6 +62,9 @@ fields, and relation from the package's exported schema data. Existing compatibl
 are preserved. Set `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=false` to disable schema changes
 globally, or `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bundle.
 
+The magic-link record stores a required relation to `directus_users`; the related user's current
+`email` is used for delivery and is not duplicated in the magic-links table.
+
 The schema data is also available at:
 
 ```ts
