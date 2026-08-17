@@ -35,20 +35,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Create or update version pull request
         id: changesets
-        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
+        uses: changesets/action@72b60a2c449090fd1871c5578768a32a76011a9d # v2.1.0
         with:
           github-token: ${{ steps.app-token.outputs.token }}
-          version: pnpm changeset:version
-          commit: 'chore: version packages'
-          title: Publish new package versions
+          version-script: pnpm changeset:version
+          commit-message: 'chore: version packages'
+          pr-title: Publish new package versions
       - name: Label version pull request
-        if: steps.changesets.outputs.pullRequestNumber != ''
+        if: steps.changesets.outputs.pr-number != ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             await github.rest.issues.addLabels({
               ...context.repo,
-              issue_number: Number('${{ steps.changesets.outputs.pullRequestNumber }}'),
+              issue_number: Number('${{ steps.changesets.outputs.pr-number }}'),
               labels: ['automated', 'no-changeset'],
             })

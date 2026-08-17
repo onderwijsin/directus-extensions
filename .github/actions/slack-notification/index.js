@@ -93,7 +93,7 @@ function normalizeRelease(entry, repoUrl) {
 		return { tag, githubURL }
 	}
 
-	// Changesets' publishedPackages output uses { name, version }.
+	// Changesets' published-packages output uses { name, version }.
 	if (
 		typeof release.name === 'string' &&
 		release.name.trim() &&
