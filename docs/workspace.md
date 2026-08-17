@@ -127,7 +127,8 @@ The CI E2E job uses the same packed-artifact path. See [`testing.md`](testing.md
 
 - Oxfmt formats source and documentation.
 - Oxlint performs linting, including JSDoc checks.
-- TypeScript typechecks workspace packages and extensions.
+- The TypeScript native preview provides the `tsgo` executable used to typecheck workspace packages
+  and extensions.
 - Vitest runs unit, component, and E2E tests.
 - tsdown builds `@onderwijsin/directus-extension-utils`.
 - Changesets manages package versions and release notes.
@@ -136,6 +137,30 @@ The CI E2E job uses the same packed-artifact path. See [`testing.md`](testing.md
 - Husky and lint-staged provide local commit hooks.
 - Gitleaks detects secrets in local changes.
 - Docker Compose runs the Directus development and isolated E2E stacks.
+
+### Typechecking with the TypeScript native preview
+
+The workspace uses `@typescript/native-preview` for package typechecking. Each package that is
+included in the recursive typecheck exposes this script:
+
+```json
+{
+  "scripts": {
+    "typecheck": "tsgo --noEmit"
+  }
+}
+```
+
+Run all configured package checks from the workspace root with:
+
+```sh
+pnpm typecheck
+```
+
+The regular `typescript` dependency remains required alongside `@typescript/native-preview`. `tsgo`
+is the native-preview typechecker, while tools such as tsdown use the package named `typescript`
+when generating declaration files. The native preview does not replace the tsdown build step; build
+and package validation must continue to run after typechecking.
 
 ## Validation order
 

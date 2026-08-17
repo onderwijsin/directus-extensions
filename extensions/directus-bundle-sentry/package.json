@@ -51,7 +51,7 @@
 		"add": "directus-extension add",
 		"validate": "directus-extension validate",
 		"test:unit": "vitest run --config ../../vitest.config.ts",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
 		"@sentry/node": "catalog:",
