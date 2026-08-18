@@ -1,7 +1,7 @@
 import type { ApiExtensionContext } from '@directus/types'
 import type { MagicLinksEnv } from './env.schema'
 
-import { InvalidCredentialsError, InvalidPayloadError } from '@directus/errors'
+import { createError, InvalidCredentialsError, InvalidPayloadError } from '@directus/errors'
 import { attempt } from '@onderwijsin/directus-extension-utils'
 
 import {
@@ -61,6 +61,12 @@ const throwAttemptError = (error: unknown): never => {
 	if (error instanceof Error) throw error
 	throw new Error('Magic-link operation failed')
 }
+
+export const SchemaLockedError = createError(
+	'ONGOING_SCHEMA_CHANGES',
+	'There are schema changes in progress for the requested resource',
+	503,
+)
 
 /**
  * Parses the request body and validates its redirect target.

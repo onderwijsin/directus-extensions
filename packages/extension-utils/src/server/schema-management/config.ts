@@ -11,7 +11,6 @@ export const schemaLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
 export const schemaChangeSchema = z
 	.object({
 		DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
-		DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE: z.boolean().default(true),
 		DIRECTUS_EXTENSIONS_LOCK_PROVIDER: schemaLockProviderSchema.default('MEMORY'),
 		DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: z.string().trim().min(1).optional(),
 		DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: z.string().trim().min(1).optional(),

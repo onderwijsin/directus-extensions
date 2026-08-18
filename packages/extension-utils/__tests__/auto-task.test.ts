@@ -190,6 +190,7 @@ describe('createAutoTaskHandler', () => {
 		}
 		const lockProvider: LockProvider = {
 			tryAcquire: vi.fn().mockResolvedValue(lease),
+			isLocked: vi.fn().mockResolvedValue(false),
 		}
 		const handler = createAutoTaskHandler({
 			taskId: 'items',
@@ -238,6 +239,7 @@ describe('createAutoTaskHandler', () => {
 						renew: vi.fn().mockResolvedValue(false),
 						release: vi.fn().mockResolvedValue(false),
 					}),
+					isLocked: vi.fn().mockResolvedValue(false),
 				},
 				markerStore,
 			),
@@ -275,7 +277,10 @@ describe('createAutoTaskHandler', () => {
 			task: () => {
 				throw taskFailure
 			},
-			storage: createTestStorage({ tryAcquire: vi.fn().mockResolvedValue(lease) }),
+			storage: createTestStorage({
+				tryAcquire: vi.fn().mockResolvedValue(lease),
+				isLocked: vi.fn().mockResolvedValue(false),
+			}),
 			debounceMs: 10,
 			logger,
 			onError,
@@ -304,6 +309,7 @@ describe('createAutoTaskHandler', () => {
 		const tryAcquire = vi.fn().mockRejectedValue(lockFailure)
 		const lockProvider: LockProvider = {
 			tryAcquire,
+			isLocked: vi.fn().mockResolvedValue(false),
 		}
 		const handler = createAutoTaskHandler({
 			taskId: 'items',
@@ -336,7 +342,10 @@ describe('createAutoTaskHandler', () => {
 				new Promise<void>((resolve) => {
 					finishRenew = resolve
 				}),
-			storage: createTestStorage({ tryAcquire: vi.fn().mockResolvedValue(lease) }),
+			storage: createTestStorage({
+				tryAcquire: vi.fn().mockResolvedValue(lease),
+				isLocked: vi.fn().mockResolvedValue(false),
+			}),
 			debounceMs: 10,
 			taskLeaseMs: 100,
 			renewalIntervalMs: 20,

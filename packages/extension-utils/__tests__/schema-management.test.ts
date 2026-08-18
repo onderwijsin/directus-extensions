@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
 	ensureDirectusSchema,
+	getSchemaChangeStatus,
 	type DirectusSchemaDefinition,
 } from '../src/server/schema-management/ensure'
 import { registerSchemaChangeOnStart } from '../src/server/schema-management/start'
@@ -109,7 +110,7 @@ describe('ensureDirectusSchema', () => {
 			logger,
 			definition,
 			services: fixture.services,
-			options: { useLockedSchemaChange: false },
+			options: {},
 		})
 
 		expect(result).toEqual({
@@ -171,7 +172,7 @@ describe('ensureDirectusSchema', () => {
 			logger: createLogger(),
 			definition: richDefinition,
 			services: fixture.services,
-			options: { useLockedSchemaChange: false },
+			options: {},
 		})
 
 		expect(fixture.collectionCreate).toHaveBeenCalledWith(richDefinition.collections[0])
@@ -190,7 +191,7 @@ describe('ensureDirectusSchema', () => {
 				logger: createLogger(),
 				definition: { collections: [], fields: [], relations: [] },
 				services: fixture.services,
-				options: { useLockedSchemaChange: false },
+				options: {},
 			}),
 		).resolves.toEqual({ changed: [], skipped: false })
 		expect(fixture.collectionCreate).not.toHaveBeenCalled()
@@ -216,7 +217,7 @@ describe('ensureDirectusSchema', () => {
 			logger: createLogger(),
 			definition,
 			services: fixture.services,
-			options: { useLockedSchemaChange: false },
+			options: {},
 		})
 
 		expect(result).toEqual({ changed: [], skipped: false })
@@ -251,7 +252,7 @@ describe('ensureDirectusSchema', () => {
 			logger: createLogger(),
 			definition,
 			services: fixture.services,
-			options: { useLockedSchemaChange: false },
+			options: {},
 		})
 
 		expect(result).toEqual({ changed: [], skipped: false })
@@ -279,7 +280,7 @@ describe('ensureDirectusSchema', () => {
 			logger,
 			definition,
 			services: fixture.services,
-			options: { useLockedSchemaChange: false, abortOnError: false },
+			options: { abortOnError: false },
 		})
 
 		expect(result).toEqual({ changed: [], skipped: false })
@@ -304,7 +305,7 @@ describe('ensureDirectusSchema', () => {
 			logger,
 			definition: malformedDefinition,
 			services: fixture.services,
-			options: { useLockedSchemaChange: false },
+			options: {},
 		})
 
 		expect(result).toEqual({ changed: [], skipped: false })
@@ -326,7 +327,7 @@ describe('ensureDirectusSchema', () => {
 				logger,
 				definition,
 				services: fixture.services,
-				options: { useLockedSchemaChange: false },
+				options: {},
 			}),
 		).rejects.toThrow('collection write failed')
 		expect(logger.error).toHaveBeenCalledWith(
@@ -353,7 +354,7 @@ describe('ensureDirectusSchema', () => {
 			logger,
 			definition,
 			services: fixture.services,
-			options: { useLockedSchemaChange: false, abortOnError: false },
+			options: { abortOnError: false },
 		})
 
 		expect(result).toEqual({ changed: ['collection:magic_links'], skipped: false })
@@ -367,6 +368,7 @@ describe('ensureDirectusSchema', () => {
 		const fixture = createFixture(emptySchema())
 		const lockProvider = {
 			tryAcquire: vi.fn(() => Promise.resolve(null)),
+			isLocked: vi.fn(() => Promise.resolve(true)),
 		}
 
 		const result = await ensureDirectusSchema({
@@ -376,7 +378,7 @@ describe('ensureDirectusSchema', () => {
 			logger: createLogger(),
 			definition,
 			services: fixture.services,
-			options: { useLockedSchemaChange: true, lockProvider },
+			options: { lockProvider },
 		})
 
 		expect(result).toEqual({ changed: [], skipped: true })
@@ -393,6 +395,7 @@ describe('ensureDirectusSchema', () => {
 		}
 		const lockProvider = {
 			tryAcquire: vi.fn(() => Promise.resolve(lease)),
+			isLocked: vi.fn(() => Promise.resolve(false)),
 		}
 
 		const result = await ensureDirectusSchema({
@@ -402,7 +405,7 @@ describe('ensureDirectusSchema', () => {
 			logger: createLogger(),
 			definition: { collections: [], fields: [], relations: [] },
 			services: fixture.services,
-			options: { useLockedSchemaChange: true, lockProvider, lockLeaseMs: 1234 },
+			options: { lockProvider, lockLeaseMs: 1234 },
 		})
 
 		expect(result).toEqual({ changed: [], skipped: false })
@@ -427,10 +430,8 @@ describe('ensureDirectusSchema', () => {
 			definition: { collections: [], fields: [], relations: [] },
 			services: fixture.services,
 			options: {
-				useLockedSchemaChange: true,
 				lockProviderConfig: {
 					DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
-					DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE: true,
 					DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
 				},
 			},
@@ -454,13 +455,30 @@ describe('ensureDirectusSchema', () => {
 			logger,
 			definition,
 			services: fixture.services,
-			options: { useLockedSchemaChange: false, abortOnError: false },
+			options: { abortOnError: false },
 		})
 
 		expect(result).toEqual({ changed: [], skipped: false })
 		expect(logger.warn).toHaveBeenCalledWith(
 			expect.objectContaining({ msg: expect.stringContaining('Continuing') }),
 		)
+	})
+})
+
+describe('getSchemaChangeStatus', () => {
+	it('checks a schema lock without attempting to acquire it', async () => {
+		const isLocked = vi.fn(() => Promise.resolve(true))
+		const tryAcquire = vi.fn()
+		const lockProvider = { isLocked, tryAcquire }
+
+		await expect(
+			getSchemaChangeStatus({
+				extensionId: 'status-test',
+				options: { lockProvider },
+			}),
+		).resolves.toEqual({ isLocked: true })
+		expect(isLocked).toHaveBeenCalledWith('directus-extension-schema:status-test')
+		expect(tryAcquire).not.toHaveBeenCalled()
 	})
 })
 

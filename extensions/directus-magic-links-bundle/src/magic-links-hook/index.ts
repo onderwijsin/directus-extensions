@@ -12,7 +12,8 @@ import magicLinksSchema from '../../schema/directus_magic_links.json'
 import { registerMagicLinkCleanup } from './cleanup'
 import { envSchema } from './env.schema'
 
-const EXTENSION_NAME = 'magic_links'
+export const EXTENSION_NAME = 'magic_links'
+export const EXTENSION_ID = 'magic-links'
 
 /**
  * Registers lifecycle and scheduled-maintenance hooks for magic links.
@@ -36,16 +37,13 @@ export default defineHook((hook, context) => {
 		logger,
 		() =>
 			ensureDirectusSchema({
-				extensionId: 'magic-links',
+				extensionId: EXTENSION_ID,
 				database: context.database,
 				getSchema: context.getSchema,
 				logger,
 				definition: magicLinksSchema as unknown as DirectusSchemaDefinition,
 				services: context.services,
 				options: {
-					useLockedSchemaChange:
-						options.MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE ??
-						options.DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE,
 					abortOnError: options.MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR,
 					lockProviderConfig: options,
 				},

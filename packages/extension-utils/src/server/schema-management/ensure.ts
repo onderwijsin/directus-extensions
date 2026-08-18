@@ -26,8 +26,6 @@ type RelationDefinition = Partial<Relation>
 
 /** Options for one schema ensure operation. */
 export interface EnsureDirectusSchemaOptions {
-	/** Whether to coordinate the operation with a shared lock. */
-	useLockedSchemaChange?: boolean
 	/** Whether unexpected schema service failures should be rethrown. */
 	abortOnError?: boolean
 	/** Lock provider selected by the consumer. */
@@ -36,6 +34,23 @@ export interface EnsureDirectusSchemaOptions {
 	lockProviderConfig?: SchemaChangeOptions
 	/** Lock lease duration in milliseconds. */
 	lockLeaseMs?: number
+}
+
+/** Options needed to resolve the provider for schema coordination. */
+export type SchemaChangeStatusOptions = Pick<
+	EnsureDirectusSchemaOptions,
+	'lockProvider' | 'lockProviderConfig'
+>
+
+/** Input for a read-only schema-change lock status query. */
+export interface SchemaChangeStatusInput {
+	extensionId: string
+	options?: SchemaChangeStatusOptions
+}
+
+/** Current lock state for one extension schema operation. */
+export interface SchemaChangeStatus {
+	isLocked: boolean
 }
 
 /** Arguments accepted by ensureDirectusSchema. */
@@ -62,6 +77,26 @@ const fallbackLockProvider = createMemoryLockProvider()
  * @returns A resolved promise.
  */
 const disposeNoop = (): Promise<void> => Promise.resolve()
+
+/**
+ * Resolves the configured schema lock provider and its owned-resource cleanup.
+ * @param options - Provider options supplied by the consumer.
+ * @returns The provider and its owned-resource cleanup function.
+ */
+const resolveSchemaChangeLockProvider = (
+	options: SchemaChangeStatusOptions,
+): { provider: LockProvider; dispose: () => Promise<void> } =>
+	options.lockProvider
+		? {
+				provider: options.lockProvider,
+				dispose: disposeNoop,
+			}
+		: options.lockProviderConfig
+			? createSchemaChangeLockProvider(options.lockProviderConfig)
+			: {
+					provider: fallbackLockProvider,
+					dispose: disposeNoop,
+				}
 
 /**
  * Builds constructor options for a Directus schema service.
@@ -253,7 +288,6 @@ export async function ensureDirectusSchema(
 	const options = input.options ?? {}
 	const changed: string[] = []
 	const startedAt = Date.now()
-	const lockEnabled = options.useLockedSchemaChange === true
 	const lockProviderName = options.lockProvider
 		? 'custom'
 		: (options.lockProviderConfig?.DIRECTUS_EXTENSIONS_LOCK_PROVIDER ?? 'MEMORY')
@@ -268,49 +302,37 @@ export async function ensureDirectusSchema(
 			fields: definition.fields.length,
 			relations: definition.relations.length,
 		},
-		locking: lockEnabled,
+		locking: true,
 		lockProvider: lockProviderName,
 	})
 
-	const configuredProvider = options.lockProvider
-		? {
-				provider: options.lockProvider,
-				dispose: disposeNoop,
-			}
-		: options.lockProviderConfig && options.useLockedSchemaChange
-			? createSchemaChangeLockProvider(options.lockProviderConfig)
-			: {
-					provider: fallbackLockProvider,
-					dispose: disposeNoop,
-				}
+	const configuredProvider = resolveSchemaChangeLockProvider(options)
 	const lockProvider = configuredProvider.provider
 	let lease = null
 
 	try {
-		if (options.useLockedSchemaChange) {
-			if (!options.lockProvider && !options.lockProviderConfig) {
-				logger.warn({
-					msg: 'Using a process-local schema lock; configure a shared provider for replicas',
-					extensionId,
-				})
-			}
-			lease = await lockProvider.tryAcquire(getSchemaLockName(extensionId), {
-				...(options.lockLeaseMs === undefined ? {} : { leaseMs: options.lockLeaseMs }),
+		if (!options.lockProvider && !options.lockProviderConfig) {
+			logger.warn({
+				msg: 'Using a process-local schema lock; configure a shared provider for replicas',
+				extensionId,
 			})
-			if (!lease) {
-				logger.info({
-					msg: '🔒 Skipped schema ensure; another operation holds the lock',
-					extensionId,
-					lockProvider: lockProviderName,
-				})
-				return { changed, skipped: true }
-			}
+		}
+		lease = await lockProvider.tryAcquire(getSchemaLockName(extensionId), {
+			...(options.lockLeaseMs === undefined ? {} : { leaseMs: options.lockLeaseMs }),
+		})
+		if (!lease) {
 			logger.info({
-				msg: '🔐 Acquired schema ensure lock',
+				msg: '🔒 Skipped schema ensure; another operation holds the lock',
 				extensionId,
 				lockProvider: lockProviderName,
 			})
+			return { changed, skipped: true }
 		}
+		logger.info({
+			msg: '🔐 Acquired schema ensure lock',
+			extensionId,
+			lockProvider: lockProviderName,
+		})
 
 		const result = await attempt(async () => {
 			currentPhase = 'schema read'
@@ -379,6 +401,30 @@ export async function ensureDirectusSchema(
 			await lease.release()
 			logger.info({ msg: '🔓 Released schema ensure lock', extensionId })
 		}
+		if (!options.lockProvider) await configuredProvider.dispose()
+	}
+}
+
+/**
+ * Checks whether an extension's schema ensure lock is currently held.
+ *
+ * This operation is read-only: it never acquires, renews, releases, or repairs a lock.
+ * @param input - Extension identifier and provider options.
+ * @returns Whether the schema ensure lock is currently held.
+ */
+export async function getSchemaChangeStatus(
+	input: SchemaChangeStatusInput,
+): Promise<SchemaChangeStatus> {
+	const options = input.options ?? {}
+	const configuredProvider = resolveSchemaChangeLockProvider(options)
+
+	try {
+		return {
+			isLocked: await configuredProvider.provider.isLocked(
+				getSchemaLockName(input.extensionId),
+			),
+		}
+	} finally {
 		if (!options.lockProvider) await configuredProvider.dispose()
 	}
 }

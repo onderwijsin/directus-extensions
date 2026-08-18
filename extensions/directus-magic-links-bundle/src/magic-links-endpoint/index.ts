@@ -4,18 +4,19 @@ import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
 	extensionSetup,
 	validateExtensionOptions,
+	getSchemaChangeStatus,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import { EXTENSION_NAME, EXTENSION_ID } from '../magic-links-hook'
 import { envSchema } from './env.schema'
 import {
 	parseRedeemPayload,
 	parseRequestPayload,
 	redeemMagicLink,
 	requestMagicLink,
+	SchemaLockedError,
 } from './handlers'
 import { sendAuthenticationResponse } from './session'
-
-const EXTENSION_NAME = 'magic_links'
 
 /**
  * Registers the magic-link API endpoint bundle entry.
@@ -33,8 +34,17 @@ export default defineEndpoint((router, context) => {
 
 	const options = validateExtensionOptions(env, envSchema, logger)
 	const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? String(env.SECRET ?? '')
+
 	router.post('/request', (request, response, next) => {
 		void attempt(async () => {
+			const { isLocked } = await getSchemaChangeStatus({
+				extensionId: EXTENSION_ID,
+				options: { lockProviderConfig: options },
+			})
+			if (isLocked) {
+				next(new SchemaLockedError())
+				return
+			}
 			const payload = parseRequestPayload(
 				request.body,
 				options.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
@@ -57,6 +67,15 @@ export default defineEndpoint((router, context) => {
 
 	router.post('/redeem', (request, response, next) => {
 		void attempt(async () => {
+			const { isLocked } = await getSchemaChangeStatus({
+				extensionId: EXTENSION_ID,
+				options: { lockProviderConfig: options },
+			})
+			if (isLocked) {
+				next(new SchemaLockedError())
+				return
+			}
+
 			const payload = parseRedeemPayload(request.body)
 			const result = await redeemMagicLink({
 				database,

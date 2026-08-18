@@ -86,7 +86,7 @@ only the common helper surface.
 | Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                | `/server`         |
 | Logging        | `createLogger`                                                                                                                                                                    | `/server`         |
 | Setup          | `extensionSetup`, `validateExtensionOptions`, `registerSchemaChangeOnStart`                                                                                                       | `/server`         |
-| Schema changes | `schemaChangeSchema`, `ensureDirectusSchema`                                                                                                                                      | `/server`         |
+| Schema changes | `schemaChangeSchema`, `ensureDirectusSchema`, `getSchemaChangeStatus`                                                                                                             | `/server`         |
 | Constants      | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                | `/constants`      |
 | Sentry         | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                  | `/sentry`         |
 
@@ -144,7 +144,6 @@ The provider can then be selected entirely through environment configuration:
 
 ```dotenv
 DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=true
-DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE=true
 DIRECTUS_EXTENSIONS_LOCK_PROVIDER=REDIS
 DIRECTUS_EXTENSIONS_LOCK_REDIS_URL=redis://redis:6379
 ```
@@ -192,7 +191,6 @@ registerSchemaChangeOnStart(
       logger,
       definition: ordersDefinition,
       options: {
-        useLockedSchemaChange: options.DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE,
         lockProviderConfig: options,
       },
     }),
@@ -210,26 +208,40 @@ contain the complete signatures. This article focuses on choosing a group and us
 
 The shared configuration and per-operation controls are:
 
-| Option                                         | Scope     | Default          | Notes                                                           |
-| ---------------------------------------------- | --------- | ---------------- | --------------------------------------------------------------- |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`   | global    | `true`           | Disables every extension's schema setup when false.             |
-| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | global    | `true`           | Default lock behavior for extensions.                           |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`            | global    | `MEMORY`         | Choose `MEMORY`, `REDIS`, or `FS`.                              |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`           | global    | —                | Required when the provider is `REDIS`.                          |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`        | global    | —                | Required when the provider is `FS`.                             |
-| `useLockedSchemaChange`                        | operation | —                | Per-call lock override.                                         |
-| `lockProviderConfig`                           | operation | —                | Validated environment options for automatic provider creation.  |
-| `lockProvider`                                 | operation | —                | Explicit consumer-owned provider; takes precedence over config. |
-| `abortOnError`                                 | operation | `true`           | Keep false to log and continue after a service failure.         |
-| `lockLeaseMs`                                  | operation | provider default | Per-acquisition lease override.                                 |
+| Option                                       | Scope     | Default          | Notes                                                           |
+| -------------------------------------------- | --------- | ---------------- | --------------------------------------------------------------- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Disables every extension's schema setup when false.             |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Choose `MEMORY`, `REDIS`, or `FS`.                              |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Required when the provider is `REDIS`.                          |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required when the provider is `FS`.                             |
+| `lockProviderConfig`                         | operation | —                | Validated environment options for automatic provider creation.  |
+| `lockProvider`                               | operation | —                | Explicit consumer-owned provider; takes precedence over config. |
+| `abortOnError`                               | operation | `true`           | Keep false to log and continue after a service failure.         |
+| `lockLeaseMs`                                | operation | provider default | Per-acquisition lease override.                                 |
 
-The result reports created resources by stable identifiers in `changed`; `skipped` is true when the
-lock was held by another process. Existing compatible resources are not updated. An existing field
-is compatible when its type matches; an existing relation is compatible when its collection, field,
-and related collection endpoints match. Other metadata—interfaces, displays, labels, icons,
-visibility, notes, and templates—is intentionally non-authoritative. Incompatible resources are
-logged loudly and preserved. Keep schema definitions trusted and version-controlled; no runtime Zod
-schema is needed for the definition JSON itself.
+The operation always acquires the configured lock. The result reports created resources by stable
+identifiers in `changed`; `skipped` is true when the lock was held by another process. Existing
+compatible resources are not updated. An existing field is compatible when its type matches; an
+existing relation is compatible when its collection, field, and related collection endpoints match.
+Other metadata—interfaces, displays, labels, icons, visibility, notes, and templates—is
+intentionally non-authoritative. Incompatible resources are logged loudly and preserved. Keep schema
+definitions trusted and version-controlled; no runtime Zod schema is needed for the definition JSON
+itself.
+
+To inspect schema setup from another code path, use the read-only status query:
+
+```ts
+import { getSchemaChangeStatus } from '@onderwijsin/directus-extension-utils/server'
+
+const { isLocked } = await getSchemaChangeStatus({
+  extensionId: 'orders',
+  options: { lockProviderConfig: options },
+})
+```
+
+`getSchemaChangeStatus` never acquires or changes a lock. It must resolve the same provider and use
+the same extension identifier as `ensureDirectusSchema`; memory providers require the same provider
+instance, while Redis or a genuinely shared filesystem can be queried from another process.
 
 For test or migration extensions, make cleanup explicit and idempotent. Delete temporary collections
 in a `finally` block after the ensure has completed, and let the outer Compose runner remove the
@@ -289,7 +301,8 @@ For cache and KV guidance, see [Cache and KV](patterns-and-conventions.md#cache-
 
 A [lock](extension-utils-glossary.md#lock) acquisition returns an owner-bound
 [lease](extension-utils-glossary.md#lease). If another [owner](extension-utils-glossary.md#owner)
-holds the lock, `tryAcquire` returns `null`. Always release an acquired lease in `finally`.
+holds the lock, `tryAcquire` returns `null`; use `isLocked` for a read-only check. Always release an
+acquired lease in `finally`.
 
 ### Process-local lock
 

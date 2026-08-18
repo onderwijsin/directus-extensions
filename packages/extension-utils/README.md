@@ -122,10 +122,10 @@ const envSchema = schemaChangeSchema.extend({
 })
 ```
 
-`schemaChangeSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` and
-`DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE`, both defaulting to `true`. It also supports
-`DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`MEMORY`, `REDIS`, or `FS`). `REDIS` requires
-`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; `FS` requires `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
+`schemaChangeSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to
+`true`, and supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`MEMORY`, `REDIS`, or `FS`). `REDIS`
+requires `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; `FS` requires
+`DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
 
 Use `ensureDirectusSchema` from the same `/server` subpath to apply portable collection, field, and
 relation definitions. Pass the Directus hook context's `database`, `getSchema`, and `services`, and
@@ -142,29 +142,48 @@ details, and throws when the configuration is invalid.
 
 Schema configuration and operation options:
 
-| Option                                         | Scope     | Default          | Purpose                                                 |
-| ---------------------------------------------- | --------- | ---------------- | ------------------------------------------------------- |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`   | global    | `true`           | Master switch for schema setup.                         |
-| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | global    | `true`           | Coordinates schema setup between processes.             |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`            | global    | `MEMORY`         | Selects `MEMORY`, `REDIS`, or `FS`.                     |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`           | global    | —                | Required for the Redis provider.                        |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`        | global    | —                | Required for the filesystem provider.                   |
-| `useLockedSchemaChange`                        | operation | —                | Overrides whether this ensure acquires a lock.          |
-| `lockProviderConfig`                           | operation | —                | Uses validated environment config to create a provider. |
-| `lockProvider`                                 | operation | —                | Supplies a consumer-owned provider directly.            |
-| `abortOnError`                                 | operation | `true`           | Rethrows service failures after logging them.           |
-| `lockLeaseMs`                                  | operation | provider default | Overrides one lock acquisition lease.                   |
+| Option                                       | Scope     | Default          | Purpose                                                 |
+| -------------------------------------------- | --------- | ---------------- | ------------------------------------------------------- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Master switch for schema setup.                         |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Selects `MEMORY`, `REDIS`, or `FS`.                     |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Required for the Redis provider.                        |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required for the filesystem provider.                   |
+| `lockProviderConfig`                         | operation | —                | Uses validated environment config to create a provider. |
+| `lockProvider`                               | operation | —                | Supplies a consumer-owned provider directly.            |
+| `abortOnError`                               | operation | `true`           | Rethrows service failures after logging them.           |
+| `lockLeaseMs`                                | operation | provider default | Overrides one lock acquisition lease.                   |
 
-`ensureDirectusSchema` returns `{ changed, skipped }`. It creates missing resources, skips
-compatible resources, and logs incompatible collections, fields, or relations without changing them.
-Structural compatibility is deliberately narrow: collection identity, field identity/type, and
-relation endpoints are authoritative; interfaces, displays, labels, icons, visibility, notes, and
-similar UI metadata are left under the site's control. Bundled extension definitions are trusted
-data and do not need a second runtime Zod schema.
+`ensureDirectusSchema` always coordinates the operation with a lock and returns
+`{ changed, skipped }`. It creates missing resources, skips compatible resources, and logs
+incompatible collections, fields, or relations without changing them. Structural compatibility is
+deliberately narrow: collection identity, field identity/type, and relation endpoints are
+authoritative; interfaces, displays, labels, icons, visibility, notes, and similar UI metadata are
+left under the site's control. Bundled extension definitions are trusted data and do not need a
+second runtime Zod schema.
 
-All lock providers use the same `tryAcquire`/lease contract and `defaultLeaseMs` option. Choose the
-memory provider for one process, the filesystem provider for processes sharing a directory, or the
-Redis provider for shared coordination across replicas.
+Use `getSchemaChangeStatus` to check the same lock from another code path without acquiring,
+renewing, releasing, or repairing it:
+
+```ts
+import { getSchemaChangeStatus } from '@onderwijsin/directus-extension-utils/server'
+
+const status = await getSchemaChangeStatus({
+  extensionId: 'orders',
+  options: { lockProviderConfig: options },
+})
+
+if (status.isLocked) {
+  // The schema ensure operation is still in progress.
+}
+```
+
+The status query must use the same provider configuration and extension identifier as the ensure
+operation. A process-local memory provider can only be observed through the same provider instance;
+use Redis or a shared filesystem provider for separate processes.
+
+All lock providers use the same `tryAcquire`/`isLocked`/lease contract and `defaultLeaseMs` option.
+Choose the memory provider for one process, the filesystem provider for processes sharing a
+directory, or the Redis provider for shared coordination across replicas.
 
 Auto-task handlers clear a marker only after the task succeeds. Task failures and lost leases are
 reported through `onError` and leave the marker pending for a later trigger; failed tasks are not

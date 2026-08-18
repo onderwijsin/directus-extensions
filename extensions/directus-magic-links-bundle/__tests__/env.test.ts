@@ -16,13 +16,11 @@ describe('magic-links environment schemas', () => {
 		expect(endpointEnvSchema.parse(validEnvironment)).toMatchObject({
 			MAGIC_LINKS_ENABLED: true,
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
-			DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE: true,
 			MAGIC_LINKS_COLLECTION: 'magic_links',
 		})
 		expect(hookEnvSchema.parse({})).toMatchObject({
 			MAGIC_LINKS_ENABLED: true,
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
-			DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE: true,
 			MAGIC_LINKS_COLLECTION: 'magic_links',
 		})
 	})
@@ -80,7 +78,6 @@ describe('magic-links environment schemas', () => {
 		const result = hookEnvSchema.safeParse({
 			MAGIC_LINKS_SCHEMA_CHANGES_ENABLED: false,
 			MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR: false,
-			MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE: false,
 			USE_MAGIC_LINK_CLEANUP: true,
 			MAGIC_LINK_CLEANUP_WINDOW: '7d',
 			MAGIC_LINK_CLEANUP_CRON: '0 * * * *',

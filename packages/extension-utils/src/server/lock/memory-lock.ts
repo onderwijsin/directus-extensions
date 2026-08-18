@@ -127,5 +127,15 @@ export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}
 			locks.set(normalizedName, { token, expiresAt: currentTime + leaseMs })
 			return createMemoryLease(normalizedName, token, leaseMs, config.now, locks)
 		},
+		/**
+		 * Checks whether a memory lock is currently held.
+		 * @param name - Logical lock name.
+		 * @returns Whether the lock is currently held.
+		 */
+		isLocked: (name) => {
+			const normalizedName = validateLockName(name)
+			const current = locks.get(normalizedName)
+			return Promise.resolve(current !== undefined && current.expiresAt > config.now())
+		},
 	}
 }

@@ -34,7 +34,8 @@
 			"type": "uuid",
 			"schema": {
 				"data_type": "uuid",
-				"is_nullable": false
+				"is_nullable": false,
+				"is_indexed": true
 			},
 			"meta": {
 				"readonly": true,
@@ -50,7 +51,8 @@
 				"data_type": "varchar",
 				"max_length": 64,
 				"is_nullable": false,
-				"is_unique": true
+				"is_unique": true,
+				"is_indexed": true
 			},
 			"meta": {
 				"hidden": true,

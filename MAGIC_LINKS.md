@@ -409,7 +409,6 @@ await ensureDirectusSchema({
   logger,
   definition: magicLinksSchema,
   options: {
-    useLockedSchemaChange,
     abortOnError,
   },
 })
@@ -496,8 +495,7 @@ MAGIC_LINKS_ENABLED=true
 Add the lock now as a reusable utility. Proposed configuration:
 
 ```text
-DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE=true
-MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE=true
+DIRECTUS_EXTENSIONS_LOCK_PROVIDER=MEMORY
 ```
 
 The extension-specific value overrides the global default. Add this shared constant and helper to
@@ -646,30 +644,31 @@ The extension must not grant admin access or alter Data Studio login behavior.
 
 ## Configuration summary
 
-| Variable                                       | Default                    | Purpose                                           |
-| ---------------------------------------------- | -------------------------- | ------------------------------------------------- |
-| `MAGIC_LINKS_ENABLED`                          | `true`                     | Enable endpoint behavior                          |
-| `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`           | `true`                     | Enable this extension's schema setup              |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`   | `true`                     | Global schema setup switch                        |
-| `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`            | `true`                     | Abort this extension's setup after schema failure |
-| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | `true`                     | Global schema lock default                        |
-| `MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE`         | inherited                  | Extension-specific lock override                  |
-| `MAGIC_LINKS_TOKEN_SECRET`                     | Directus `SECRET` fallback | HMAC key for token digests                        |
-| `MAGIC_LINKS_TOKEN_TTL`                        | `15m`                      | Token lifetime                                    |
-| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`           | required                   | Allowed frontend URLs                             |
-| `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`            | `token`                    | Query parameter name                              |
-| `MAGIC_LINKS_COLLECTION`                       | `magic_links`              | Collection name override if needed                |
-| `MAGIC_LINKS_EMAIL_TEMPLATE`                   | `magic-link`               | Liquid template name                              |
-| `MAGIC_LINKS_EMAIL_SUBJECT`                    | configurable               | Email subject                                     |
-| `EMAIL_TRANSPORT`                              | required `smtp`            | Required Directus email transport                 |
-| `EMAIL_SMTP_HOST`                              | required                   | SMTP host                                         |
-| `EMAIL_SMTP_PORT`                              | required                   | SMTP port                                         |
-| `EMAIL_SMTP_USER`                              | required                   | SMTP username                                     |
-| `EMAIL_SMTP_PASSWORD`                          | required                   | SMTP password                                     |
-| `EMAIL_FROM`                                   | required                   | Sender address                                    |
-| `USE_MAGIC_LINK_CLEANUP`                       | `false`                    | Enable scheduled cleanup                          |
-| `MAGIC_LINK_CLEANUP_WINDOW`                    | `24h`                      | Retention grace period                            |
-| `MAGIC_LINK_CLEANUP_CRON`                      | `*/15 * * * *`             | Cleanup schedule                                  |
+| Variable                                     | Default                    | Purpose                                           |
+| -------------------------------------------- | -------------------------- | ------------------------------------------------- |
+| `MAGIC_LINKS_ENABLED`                        | `true`                     | Enable endpoint behavior                          |
+| `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`         | `true`                     | Enable this extension's schema setup              |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | `true`                     | Global schema setup switch                        |
+| `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`          | `true`                     | Abort this extension's setup after schema failure |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | `MEMORY`                   | Schema lock provider (`MEMORY`, `REDIS`, or `FS`) |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | unset                      | Required when the provider is `REDIS`             |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | unset                      | Required when the provider is `FS`                |
+| `MAGIC_LINKS_TOKEN_SECRET`                   | Directus `SECRET` fallback | HMAC key for token digests                        |
+| `MAGIC_LINKS_TOKEN_TTL`                      | `15m`                      | Token lifetime                                    |
+| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`         | required                   | Allowed frontend URLs                             |
+| `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`          | `token`                    | Query parameter name                              |
+| `MAGIC_LINKS_COLLECTION`                     | `magic_links`              | Collection name override if needed                |
+| `MAGIC_LINKS_EMAIL_TEMPLATE`                 | `magic-link`               | Liquid template name                              |
+| `MAGIC_LINKS_EMAIL_SUBJECT`                  | configurable               | Email subject                                     |
+| `EMAIL_TRANSPORT`                            | required `smtp`            | Required Directus email transport                 |
+| `EMAIL_SMTP_HOST`                            | required                   | SMTP host                                         |
+| `EMAIL_SMTP_PORT`                            | required                   | SMTP port                                         |
+| `EMAIL_SMTP_USER`                            | required                   | SMTP username                                     |
+| `EMAIL_SMTP_PASSWORD`                        | required                   | SMTP password                                     |
+| `EMAIL_FROM`                                 | required                   | Sender address                                    |
+| `USE_MAGIC_LINK_CLEANUP`                     | `false`                    | Enable scheduled cleanup                          |
+| `MAGIC_LINK_CLEANUP_WINDOW`                  | `24h`                      | Retention grace period                            |
+| `MAGIC_LINK_CLEANUP_CRON`                    | `*/15 * * * *`             | Cleanup schedule                                  |
 
 ## Testing plan
 

@@ -26,7 +26,6 @@ export const cronSchema = z
 export const envSchema = sharedEnvSchema.extend({
 	MAGIC_LINKS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 	MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR: z.boolean().default(true),
-	MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE: z.boolean().optional(),
 	USE_MAGIC_LINK_CLEANUP: z.boolean().default(false),
 	MAGIC_LINK_CLEANUP_WINDOW: durationSchema.default('24h'),
 	MAGIC_LINK_CLEANUP_CRON: cronSchema.default('*/15 * * * *'),

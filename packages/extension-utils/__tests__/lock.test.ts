@@ -14,6 +14,7 @@ describe('lock utilities', () => {
 		const first = await provider.tryAcquire('  item  ', { leaseMs: 50 })
 		expect(first?.name).toBe('item')
 		expect(first?.token).toBe('token-1')
+		expect(await provider.isLocked('item')).toBe(true)
 		expect(await provider.tryAcquire('item')).toBeNull()
 		currentTime = 1025
 		expect(await first?.renew()).toBe(true)
@@ -24,6 +25,7 @@ describe('lock utilities', () => {
 		expect(second?.token).toBe('token-2')
 		expect(await first?.release()).toBe(false)
 		expect(await second?.release()).toBe(true)
+		expect(await provider.isLocked('item')).toBe(false)
 	})
 
 	it('reclaims expired memory locks without allowing the old owner to release the replacement', async () => {
@@ -34,6 +36,7 @@ describe('lock utilities', () => {
 		})
 		const oldLease = await provider.tryAcquire('item', { leaseMs: 10 })
 		currentTime = 1010
+		expect(await provider.isLocked('item')).toBe(false)
 		const newLease = await provider.tryAcquire('item', { leaseMs: 100 })
 
 		expect(newLease?.token).toBe('new')

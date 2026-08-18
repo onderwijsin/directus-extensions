@@ -23,26 +23,27 @@ validates only the settings it owns: schema-change and cleanup settings belong t
 token, redirect, and email settings belong to the endpoint. Directus casts values from `.env` before
 the extension receives them; arrays therefore use Directus's array syntax.
 
-| Variable                                       | Default                    | Description                                          |
-| ---------------------------------------------- | -------------------------- | ---------------------------------------------------- |
-| `MAGIC_LINKS_ENABLED`                          | `true`                     | Enable the bundle entries.                           |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`   | `true`                     | Global schema-change switch.                         |
-| `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`           | `true`                     | Enable this bundle's schema changes.                 |
-| `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`            | `true`                     | Abort bundle setup after an unexpected schema error. |
-| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | `true`                     | Default shared schema lock switch.                   |
-| `MAGIC_LINKS_USE_LOCKED_SCHEMA_CHANGE`         | unset                      | Override the shared lock switch for this bundle.     |
-| `MAGIC_LINKS_TOKEN_SECRET`                     | Directus `SECRET` fallback | HMAC secret for token digests.                       |
-| `MAGIC_LINKS_TOKEN_TTL`                        | `15m`                      | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).   |
-| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`           | required                   | Non-empty array of allowed redirect URLs.            |
-| `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`            | `token`                    | Query parameter used for the raw token.              |
-| `MAGIC_LINKS_COLLECTION`                       | `magic_links`              | Magic-link collection name.                          |
-| `MAGIC_LINKS_EMAIL_TEMPLATE`                   | `magic-link`               | Directus Liquid template name.                       |
-| `MAGIC_LINKS_EMAIL_SUBJECT`                    | unset                      | Optional subject passed to the mail service.         |
-| `MAGIC_LINKS_EMAIL_REPLY_TO`                   | unset                      | Optional reply-to email address.                     |
-| `MAGIC_LINKS_EMAIL_SENDER`                     | unset                      | Optional sender passed to the mail service.          |
-| `USE_MAGIC_LINK_CLEANUP`                       | `false`                    | Enable scheduled cleanup.                            |
-| `MAGIC_LINK_CLEANUP_WINDOW`                    | `24h`                      | Retention grace period after expiry or redemption.   |
-| `MAGIC_LINK_CLEANUP_CRON`                      | `*/15 * * * *`             | Directus schedule expression for cleanup.            |
+| Variable                                     | Default                    | Description                                          |
+| -------------------------------------------- | -------------------------- | ---------------------------------------------------- |
+| `MAGIC_LINKS_ENABLED`                        | `true`                     | Enable the bundle entries.                           |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | `true`                     | Global schema-change switch.                         |
+| `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`         | `true`                     | Enable this bundle's schema changes.                 |
+| `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`          | `true`                     | Abort bundle setup after an unexpected schema error. |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | `MEMORY`                   | Schema lock provider: `MEMORY`, `REDIS`, or `FS`.    |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | unset                      | Required when the provider is `REDIS`.               |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | unset                      | Required when the provider is `FS`.                  |
+| `MAGIC_LINKS_TOKEN_SECRET`                   | Directus `SECRET` fallback | HMAC secret for token digests.                       |
+| `MAGIC_LINKS_TOKEN_TTL`                      | `15m`                      | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).   |
+| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`         | required                   | Non-empty array of allowed redirect URLs.            |
+| `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`          | `token`                    | Query parameter used for the raw token.              |
+| `MAGIC_LINKS_COLLECTION`                     | `magic_links`              | Magic-link collection name.                          |
+| `MAGIC_LINKS_EMAIL_TEMPLATE`                 | `magic-link`               | Directus Liquid template name.                       |
+| `MAGIC_LINKS_EMAIL_SUBJECT`                  | unset                      | Optional subject passed to the mail service.         |
+| `MAGIC_LINKS_EMAIL_REPLY_TO`                 | unset                      | Optional reply-to email address.                     |
+| `MAGIC_LINKS_EMAIL_SENDER`                   | unset                      | Optional sender passed to the mail service.          |
+| `USE_MAGIC_LINK_CLEANUP`                     | `false`                    | Enable scheduled cleanup.                            |
+| `MAGIC_LINK_CLEANUP_WINDOW`                  | `24h`                      | Retention grace period after expiry or redemption.   |
+| `MAGIC_LINK_CLEANUP_CRON`                    | `*/15 * * * *`             | Directus schedule expression for cleanup.            |
 
 Example:
 
@@ -65,7 +66,8 @@ values before registering its endpoint.
 When schema changes are enabled, the startup hook creates the portable `magic_links` collection,
 fields, and relation from the package's exported schema data. Existing compatible schema resources
 are preserved. Set `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=false` to disable schema changes
-globally, or `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bundle.
+globally, or `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bundle. Schema setup
+always uses a lock; configure `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` for multi-process deployments.
 
 The magic-link record stores a required relation to `directus_users`; the related user's current
 `email` is used for delivery and is not duplicated in the magic-links table.

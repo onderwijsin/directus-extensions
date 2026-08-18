@@ -24,6 +24,7 @@ describe('runtime-aware exports', () => {
 				'createLogger',
 				'DIRECTUS_EXTENSION_SCHEMA_LOCK',
 				'ensureDirectusSchema',
+				'getSchemaChangeStatus',
 				'createSchemaChangeLockProvider',
 				'schemaChangeSchema',
 				'schemaLockProviderSchema',

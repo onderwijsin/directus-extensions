@@ -6,7 +6,6 @@ describe('schemaChangeSchema', () => {
 	it('provides the documented defaults', () => {
 		expect(schemaChangeSchema.parse({})).toEqual({
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
-			DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE: true,
 			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
 		})
 	})
@@ -15,7 +14,6 @@ describe('schemaChangeSchema', () => {
 		expect(
 			schemaChangeSchema.safeParse({
 				DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: false,
-				DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE: false,
 			}).success,
 		).toBe(true)
 	})

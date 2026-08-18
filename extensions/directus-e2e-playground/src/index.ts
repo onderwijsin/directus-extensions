@@ -45,7 +45,7 @@ export default defineHook(({ action }, context) => {
 					logger,
 					definition: schemaDefinition,
 					services,
-					options: { useLockedSchemaChange: false },
+					options: {},
 				})
 				const second = await ensureDirectusSchema({
 					extensionId: 'e2e-playground',
@@ -54,7 +54,7 @@ export default defineHook(({ action }, context) => {
 					logger,
 					definition: schemaDefinition,
 					services,
-					options: { useLockedSchemaChange: false },
+					options: {},
 				})
 				const incompatible = await ensureDirectusSchema({
 					extensionId: 'e2e-playground-incompatible',
@@ -72,7 +72,7 @@ export default defineHook(({ action }, context) => {
 						],
 					},
 					services,
-					options: { useLockedSchemaChange: false, abortOnError: false },
+					options: { abortOnError: false },
 				})
 				logger.info({
 					msg: '🧪 E2E schema-management scenarios completed',
