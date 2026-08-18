@@ -7,7 +7,7 @@
  */
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { cp, mkdtemp, rm } from 'node:fs/promises'
+import { chmod, cp, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -147,6 +147,8 @@ let stagedExtensionsDirectory
  */
 async function prepareExtensionsDirectory() {
 	stagedExtensionsDirectory = await mkdtemp(join(tmpdir(), 'directus-e2e-extensions-'))
+	// mkdtemp creates 0700 directories, but Directus reads this bind mount as a non-root user.
+	await chmod(stagedExtensionsDirectory, 0o755)
 	await cp(sourceExtensionsDirectory, stagedExtensionsDirectory, { recursive: true })
 	await cp(
 		playgroundSourceDirectory,
