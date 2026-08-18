@@ -19,12 +19,14 @@ type QueryFake = ReturnType<typeof vi.fn> & {
 	first: ReturnType<typeof vi.fn>
 	insert: ReturnType<typeof vi.fn>
 	update: ReturnType<typeof vi.fn>
+	returning: ReturnType<typeof vi.fn>
 	fn: { now: ReturnType<typeof vi.fn> }
 }
 
 const options: MagicLinksEnv = {
 	DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
 	DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'FS',
+	SECRET: 'directus-secret',
 	MAGIC_LINKS_ENABLED: true,
 	MAGIC_LINKS_COLLECTION: 'magic_links',
 	MAGIC_LINKS_TOKEN_TTL: '15m',
@@ -49,8 +51,9 @@ const createQuery = (first?: unknown): QueryFake => {
 		join: vi.fn(() => query),
 		forUpdate: vi.fn(() => query),
 		first: vi.fn(() => first),
-		insert: vi.fn(() => ['link-id']),
-		update: vi.fn(() => 1),
+		insert: vi.fn(() => query),
+		update: vi.fn(() => query),
+		returning: vi.fn(() => [{ id: 'link-id' }]),
 		fn: { now: vi.fn(() => 'now') },
 	})
 	return query
@@ -127,6 +130,7 @@ describe('magic-link handlers', () => {
 				user_agent: 'test-agent',
 			}),
 		)
+		expect(userQuery.returning).toHaveBeenCalledWith('id')
 		expect(mailSend).toHaveBeenCalledWith(
 			expect.objectContaining({
 				to: 'current@example.com',
@@ -283,6 +287,7 @@ describe('magic-link handlers', () => {
 			{ otp: '123456', session: true },
 		)
 		expect(linkQuery.update).toHaveBeenCalledWith({ redeemed_at: 'now' })
+		expect(linkQuery.returning).toHaveBeenCalledWith('id')
 	})
 
 	it('does not consume a token when OTP or authentication fails', async () => {
@@ -393,7 +398,7 @@ describe('magic-link handlers', () => {
 			user_status: 'active',
 			user_provider: 'default',
 		})
-		linkQuery.update.mockResolvedValue(0)
+		linkQuery.returning.mockReturnValue([])
 		const transaction = createTransaction(linkQuery)
 		const login = vi.fn(() => ({ accessToken: 'access' }))
 

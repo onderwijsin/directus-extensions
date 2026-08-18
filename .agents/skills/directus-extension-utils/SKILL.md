@@ -156,6 +156,11 @@ registerSchemaChangeOnStart(
 )
 ```
 
+Collection definitions passed to `ensureDirectusSchema` must include a non-blank `schema.name` and
+the primary-key field in the collection's nested `fields` array. Do not also include that primary-key
+field in the top-level `fields` array; Directus may otherwise create an implicit integer primary key
+before the intended field is applied.
+
 `ensureDirectusSchema` only treats structural invariants as authoritative: collection identity, field
 type, and relation endpoints. It does not overwrite UI metadata. A second call should therefore be
 safe and return no changes for compatible resources; incompatible resources are preserved and logged.

@@ -1,5 +1,5 @@
 /**
- * Packs every publishable workspace package into a single output directory.
+ * Packs every publishable workspace package and E2E fixture into a single output directory.
  *
  * Invoked by `pnpm pack:packages` and CI to produce the archives consumed by
  * the clean E2E consumer setup. Pass an output directory as the first argument
@@ -19,7 +19,7 @@ const root = resolve(import.meta.dirname, '..')
 export async function packPackages({
 	root: workspaceRoot = root,
 	outputDirectory = resolve(workspaceRoot, '.artifacts/packages'),
-	packageRoots = ['extensions', 'packages'],
+	packageRoots = ['extensions', 'packages', 'tests'],
 	pack = (packageDirectory, destination) =>
 		execFileSync(
 			'corepack',

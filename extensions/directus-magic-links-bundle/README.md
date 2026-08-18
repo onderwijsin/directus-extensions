@@ -117,7 +117,8 @@ valid until expiry or redemption. Email delivery records transition from `pendin
 `error` while the endpoint retains the generic response.
 
 Copy [`templates/magic-link.liquid`](templates/magic-link.liquid) into the configured
-`EMAIL_TEMPLATES_PATH` before enabling delivery.
+`EMAIL_TEMPLATES_PATH` before enabling delivery. The repository's local and E2E Compose stacks mount
+this bundle directory automatically at `/directus/templates`.
 
 The template receives `url`, `email`, `expires_at`, `issued_at`, `ip`, and `user_agent`, alongside
 Directus project variables. The included template renders a human-readable expiry, a clickable URL,

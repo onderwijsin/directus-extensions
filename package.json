@@ -33,7 +33,7 @@
 		"prepare:e2e-consumer": "node scripts/prepare-e2e-consumer.mjs",
 		"test:watch": "vitest",
 		"build": "pnpm -r --if-present build",
-		"build:extensions": "pnpm --filter './extensions/*' build",
+		"build:extensions": "pnpm --filter './extensions/*' --filter './tests/*' build",
 		"build:utils": "pnpm --filter @onderwijsin/directus-extension-utils build",
 		"validate:packages": "node scripts/validate-packages.mjs",
 		"format": "oxfmt --check",
@@ -44,6 +44,7 @@
 		"compose:down": "docker compose down",
 		"compose:logs": "docker compose logs -f",
 		"compose:reset": "docker compose down --volumes --remove-orphans",
+		"compose:nuke": "docker compose down --remove-orphans && rm -rf .data/database",
 		"prepare": "husky"
 	},
 	"devDependencies": {

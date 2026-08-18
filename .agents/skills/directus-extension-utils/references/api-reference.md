@@ -245,11 +245,17 @@ ensureDirectusSchema(
 ): Promise<EnsureDirectusSchemaResult>
 ~~~
 
+Collection definitions must include a non-blank `schema.name` and a primary-key field in the
+collection's nested `fields` array. The primary-key field must not be repeated in the top-level
+`fields` array. Definitions missing either requirement are logged as incompatible and preserved
+without calling the collection service.
+
 `ensureDirectusSchema` passes the supplied database into `getSchema` and Directus service
 constructors. It creates missing collections, fields, and relations. Existing compatible resources
 are preserved; incompatible structural resources are logged and left unchanged. UI metadata is not
-authoritative and is not overwritten. Unexpected service failures are logged and rethrown by
-default; set `abortOnError: false` to continue.
+authoritative and is not overwritten. Each ensure emits an info-level plan and summary; per-resource
+and lock lifecycle details use debug-level logging. Unexpected service failures are logged and
+re-thrown by default; set `abortOnError: false` to continue.
 
 ~~~ts
 type ActionRegistrar = (

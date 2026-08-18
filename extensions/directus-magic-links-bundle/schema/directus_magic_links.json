@@ -2,7 +2,30 @@
 	"collections": [
 		{
 			"collection": "magic_links",
-			"schema": {},
+			"schema": {
+				"name": "magic_links"
+			},
+			"fields": [
+				{
+					"collection": "magic_links",
+					"field": "id",
+					"type": "uuid",
+					"schema": {
+						"data_type": "uuid",
+						"is_primary_key": true,
+						"is_nullable": false,
+						"has_auto_increment": false
+					},
+					"meta": {
+						"field": "id",
+						"hidden": false,
+						"readonly": true,
+						"special": ["uuid"],
+						"interface": "input",
+						"display": "raw"
+					}
+				}
+			],
 			"meta": {
 				"hidden": true,
 				"icon": "link"
@@ -10,24 +33,6 @@
 		}
 	],
 	"fields": [
-		{
-			"collection": "magic_links",
-			"field": "id",
-			"type": "uuid",
-			"schema": {
-				"data_type": "uuid",
-				"is_primary_key": true,
-				"is_nullable": false,
-				"has_auto_increment": false
-			},
-			"meta": {
-				"hidden": false,
-				"readonly": true,
-				"special": ["uuid"],
-				"interface": "input",
-				"display": "raw"
-			}
-		},
 		{
 			"collection": "magic_links",
 			"field": "user",

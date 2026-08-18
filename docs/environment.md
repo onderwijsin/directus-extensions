@@ -24,8 +24,9 @@ joins both, while infrastructure services join the backend network.
 
 Directus loads a built extension directory containing `package.json` and `dist/`. The local
 development workflow builds or watches extensions into `extensions/<name>/dist` and mounts the
-workspace extensions directory into Directus. `EXTENSIONS_AUTO_RELOAD` enables the local reload
-loop.
+workspace extensions directory into Directus. The E2E-only `directus-e2e-playground` extension lives
+under `tests/` and is mounted separately by the E2E Compose overlay. `EXTENSIONS_AUTO_RELOAD`
+enables the local reload loop.
 
 The local development image is the regular Directus image. Hardened deployment images are a separate
 deployment concern and do not change the local edit/build/reload workflow.

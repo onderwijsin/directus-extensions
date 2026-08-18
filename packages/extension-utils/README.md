@@ -128,13 +128,16 @@ requires `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; `FS` requires
 `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
 
 Use `ensureDirectusSchema` from the same `/server` subpath to apply portable collection, field, and
-relation definitions. Pass the Directus hook context's `database`, `getSchema`, and `services`, and
-provide a logger plus an extension identifier. Existing compatible resources are preserved;
-incompatible structural resources are logged loudly and left unchanged rather than being silently
-modified. The validated environment options select the provider automatically. Set
-`options.lockProvider` to override that selection programmatically. Redis providers created from
-environment options are disposed after the ensure operation; explicitly supplied providers remain
-owned by the consumer.
+relation definitions. Every collection definition must include a non-blank `schema.name` and its
+primary-key field in the collection's nested `fields` array; do not repeat that primary-key field in
+the top-level `fields` array. This prevents Directus from creating an implicit integer primary key
+before the extension's intended field is applied. Pass the Directus hook context's `database`,
+`getSchema`, and `services`, and provide a logger plus an extension identifier. Existing compatible
+resources are preserved; incompatible structural resources are logged loudly and left unchanged
+rather than being silently modified. The validated environment options select the provider
+automatically. Set `options.lockProvider` to override that selection programmatically. Redis
+providers created from environment options are disposed after the ensure operation; explicitly
+supplied providers remain owned by the consumer.
 
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
 `validateExtensionOptions` parses a complete extension environment with Zod, logs validation
@@ -158,8 +161,9 @@ Schema configuration and operation options:
 incompatible collections, fields, or relations without changing them. Structural compatibility is
 deliberately narrow: collection identity, field identity/type, and relation endpoints are
 authoritative; interfaces, displays, labels, icons, visibility, notes, and similar UI metadata are
-left under the site's control. Bundled extension definitions are trusted data and do not need a
-second runtime Zod schema.
+left under the site's control. It logs an info-level pre-operation plan and post-operation summary;
+per-resource and lock lifecycle details use debug-level logging. Bundled extension definitions are
+trusted data and do not need a second runtime Zod schema.
 
 Use `getSchemaChangeStatus` to check the same lock from another code path without acquiring,
 renewing, releasing, or repairing it:

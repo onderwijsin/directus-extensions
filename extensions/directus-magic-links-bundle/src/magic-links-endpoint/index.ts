@@ -25,74 +25,83 @@ import { sendAuthenticationResponse } from './session'
  * @param context - Directus endpoint context.
  * @returns void
  */
-export default defineEndpoint((router, context) => {
-	const { database, env, getSchema, logger, services } = context
-	const setup = extensionSetup(EXTENSION_NAME, env, logger)
-	setup.start()
+export default defineEndpoint({
+	id: 'auth/magic-links',
+	/**
+	 * Endpoint handler
+	 * @param router - The ExpressJS routes
+	 * @param context - Directus API Context
+	 * @returns void
+	 */
+	handler: (router, context) => {
+		const { database, env, getSchema, logger, services } = context
+		const setup = extensionSetup(EXTENSION_NAME, env, logger)
+		setup.start()
 
-	if (!setup.isEnabled()) return
+		if (!setup.isEnabled()) return
 
-	const options = validateExtensionOptions(env, envSchema, logger)
-	const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? String(env.SECRET ?? '')
+		const options = validateExtensionOptions(env, envSchema, logger)
+		const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? options.SECRET
 
-	router.post('/request', (request, response, next) => {
-		void attempt(async () => {
-			const { isLocked } = await getSchemaChangeStatus({
-				extensionId: EXTENSION_ID,
-				options: { lockProviderConfig: options },
+		router.post('/request', (request, response, next) => {
+			void attempt(async () => {
+				const { isLocked } = await getSchemaChangeStatus({
+					extensionId: EXTENSION_ID,
+					options: { lockProviderConfig: options },
+				})
+				if (isLocked) {
+					next(new SchemaLockedError())
+					return
+				}
+				const payload = parseRequestPayload(
+					request.body,
+					options.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
+				)
+				const result = await requestMagicLink({
+					database,
+					getSchema,
+					services,
+					options,
+					secret,
+					payload,
+					ip: request.ip ?? null,
+					userAgent: request.get('user-agent') ?? null,
+				})
+				response.status(202).json(result)
+			}).then(({ error }) => {
+				if (error) next(error)
 			})
-			if (isLocked) {
-				next(new SchemaLockedError())
-				return
-			}
-			const payload = parseRequestPayload(
-				request.body,
-				options.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
-			)
-			const result = await requestMagicLink({
-				database,
-				getSchema,
-				services,
-				options,
-				secret,
-				payload,
-				ip: request.ip ?? null,
-				userAgent: request.get('user-agent') ?? null,
-			})
-			response.status(202).json(result)
-		}).then(({ error }) => {
-			if (error) next(error)
 		})
-	})
 
-	router.post('/redeem', (request, response, next) => {
-		void attempt(async () => {
-			const { isLocked } = await getSchemaChangeStatus({
-				extensionId: EXTENSION_ID,
-				options: { lockProviderConfig: options },
-			})
-			if (isLocked) {
-				next(new SchemaLockedError())
-				return
-			}
+		router.post('/redeem', (request, response, next) => {
+			void attempt(async () => {
+				const { isLocked } = await getSchemaChangeStatus({
+					extensionId: EXTENSION_ID,
+					options: { lockProviderConfig: options },
+				})
+				if (isLocked) {
+					next(new SchemaLockedError())
+					return
+				}
 
-			const payload = parseRedeemPayload(request.body)
-			const result = await redeemMagicLink({
-				database,
-				getSchema,
-				services,
-				options,
-				secret,
-				payload,
+				const payload = parseRedeemPayload(request.body)
+				const result = await redeemMagicLink({
+					database,
+					getSchema,
+					services,
+					options,
+					secret,
+					payload,
+				})
+				if (!result) throw new InvalidCredentialsError()
+				sendAuthenticationResponse(response, env, payload, result)
+			}).then(({ error }) => {
+				if (error) next(error)
 			})
-			if (!result) throw new InvalidCredentialsError()
-			sendAuthenticationResponse(response, env, payload, result)
-		}).then(({ error }) => {
-			if (error) next(error)
 		})
-	})
 
-	setup.end()
+		setup.end()
+	},
 })
 
 export { parseRedeemPayload, parseRequestPayload, redeemMagicLink, requestMagicLink }

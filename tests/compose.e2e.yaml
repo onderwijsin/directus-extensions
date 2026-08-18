@@ -49,6 +49,8 @@ services:
         condition: service_healthy
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
+      - '${DIRECTUS_E2E_PLAYGROUND_DIR:-../tests/directus-e2e-playground}:/directus/extensions/directus-e2e-playground:ro'
+      - '${DIRECTUS_E2E_EMAIL_TEMPLATES_DIR:-../extensions/directus-magic-links-bundle/templates}:/directus/templates:ro'
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:${DIRECTUS_E2E_PORT:-18055}}
       SECRET: ${DIRECTUS_SECRET:-directus-extensions-e2e-secret}
@@ -57,9 +59,11 @@ services:
       EXTENSIONS_MUST_LOAD: 'true'
       EXTENSIONS_AUTO_RELOAD: 'false'
       EMAIL_TRANSPORT: smtp
+      EMAIL_TEMPLATES_PATH: /directus/templates
       EMAIL_FROM: noreply@localhost
       EMAIL_SMTP_HOST: mailpit
       EMAIL_SMTP_PORT: 1025
+      MAGIC_LINKS_ENABLED: 'true'
       STORAGE_LOCATIONS: bucket
       STORAGE_BUCKET_DRIVER: s3
       STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}

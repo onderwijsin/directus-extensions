@@ -129,6 +129,28 @@ Existing compatible resources are preserved; incompatible structural resources a
 unchanged. Register the operation with `registerSchemaChangeOnStart` to apply the global and
 extension-specific disabled checks consistently.
 
+Each collection definition must include a non-blank `schema.name` and the collection's primary-key
+field in its nested `fields` array. Keep that primary-key field out of the top-level `fields` array:
+
+```json
+{
+  "collection": "magic_links",
+  "schema": { "name": "magic_links" },
+  "fields": [
+    {
+      "collection": "magic_links",
+      "field": "id",
+      "type": "uuid",
+      "schema": { "is_primary_key": true }
+    }
+  ]
+}
+```
+
+The collection guard preserves malformed definitions instead of allowing Directus to create an
+implicit integer primary key. The utility logs the incompatible collection and continues with the
+rest of the ensure operation.
+
 Compose the shared schema-change environment into an extension schema:
 
 ```ts
@@ -224,9 +246,10 @@ identifiers in `changed`; `skipped` is true when the lock was held by another pr
 compatible resources are not updated. An existing field is compatible when its type matches; an
 existing relation is compatible when its collection, field, and related collection endpoints match.
 Other metadata—interfaces, displays, labels, icons, visibility, notes, and templates—is
-intentionally non-authoritative. Incompatible resources are logged loudly and preserved. Keep schema
-definitions trusted and version-controlled; no runtime Zod schema is needed for the definition JSON
-itself.
+intentionally non-authoritative. Each ensure emits an info-level plan and summary; per-resource and
+lock lifecycle details are debug-level, while incompatible resources and failures remain logged
+loudly. Keep schema definitions trusted and version-controlled; no runtime Zod schema is needed for
+the definition JSON itself.
 
 To inspect schema setup from another code path, use the read-only status query:
 

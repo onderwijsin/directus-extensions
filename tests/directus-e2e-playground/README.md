@@ -19,7 +19,7 @@ can validate the sandbox path separately.
 
 The extension requires a trusted Directus installation. It is not sandbox-compatible and is not
 available for Marketplace installation when `MARKETPLACE_TRUST=sandbox`. Use it only in the
-repository's local development stack or another trusted Directus 12.2+ instance running Node 24.
+repository's E2E Compose stack or another trusted Directus 12.2+ instance running Node 24.
 
 ## Installation
 
@@ -43,5 +43,5 @@ pnpm compose:up
 pnpm compose:logs
 ```
 
-The hook is loaded from the mounted `extensions` directory. Use the Directus API or Data Studio to
+The hook is loaded from the E2E-only playground mount. Use the Directus API or Data Studio to
 create, update, and delete an item, then inspect the Directus logs.

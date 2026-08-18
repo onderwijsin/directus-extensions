@@ -93,6 +93,7 @@ export default defineConfig({
 						? [
 								'extensions/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
 								'packages/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
+								'tests/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
 							]
 						: [],
 				},

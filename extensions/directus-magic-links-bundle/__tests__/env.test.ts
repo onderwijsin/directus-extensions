@@ -4,6 +4,7 @@ import { envSchema as endpointEnvSchema } from '../src/magic-links-endpoint/env.
 import { envSchema as hookEnvSchema } from '../src/magic-links-hook/env.schema'
 
 const validEnvironment = {
+	SECRET: 'directus-secret',
 	MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: ['https://app.example.com/auth/magic-link'],
 	EMAIL_TRANSPORT: 'smtp',
 	EMAIL_SMTP_HOST: 'mailpit',
@@ -121,13 +122,10 @@ describe('magic-links environment schemas', () => {
 		).toBe(false)
 	})
 
-	it('ignores unrelated Directus environment values', () => {
-		const result = endpointEnvSchema.safeParse({
-			...validEnvironment,
-			SECRET: 'directus-secret',
-		})
+	it('accepts the Directus SECRET fallback', () => {
+		const result = endpointEnvSchema.safeParse(validEnvironment)
 
 		expect(result.success).toBe(true)
-		if (result.success) expect(result.data).not.toHaveProperty('SECRET')
+		if (result.success) expect(result.data.SECRET).toBe('directus-secret')
 	})
 })

@@ -124,12 +124,12 @@ Extension request:
 
 This project contains supporting workspace packages with different publication policies.
 
-| Package                                                                                          | Description                                              |
-| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| [`@onderwijsin/directus-extension-utils`](packages/extension-utils/README.md)                    | Published shared runtime utilities.                      |
-| [`@onderwijsin/directus-extension-e2e-playground`](extensions/directus-e2e-playground/README.md) | Private hook used by packed-artifact Directus E2E tests. |
-| `@workspace/test-utils`                                                                          | Private, test-only workspace utilities.                  |
-| `@workspace/typescript-config`                                                                   | Private shared TypeScript configuration.                 |
+| Package                                                                                     | Description                                              |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [`@onderwijsin/directus-extension-utils`](packages/extension-utils/README.md)               | Published shared runtime utilities.                      |
+| [`@onderwijsin/directus-extension-e2e-playground`](tests/directus-e2e-playground/README.md) | Private hook used by packed-artifact Directus E2E tests. |
+| `@workspace/test-utils`                                                                     | Private, test-only workspace utilities.                  |
+| `@workspace/typescript-config`                                                              | Private shared TypeScript configuration.                 |
 
 ## 📚 Documentation
 

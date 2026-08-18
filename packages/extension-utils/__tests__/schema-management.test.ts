@@ -18,6 +18,7 @@ const createLogger = () => {
 		info: vi.fn(),
 		warn: vi.fn(),
 		error: vi.fn(),
+		debug: vi.fn(),
 	}
 	return logger
 }
@@ -76,7 +77,20 @@ const createFixture = (schema: SchemaOverview) => {
 }
 
 const definition: DirectusSchemaDefinition = {
-	collections: [{ collection: 'magic_links' }],
+	collections: [
+		{
+			collection: 'magic_links',
+			schema: { name: 'magic_links' },
+			fields: [
+				{
+					collection: 'magic_links',
+					field: 'id',
+					type: 'uuid',
+					schema: { is_primary_key: true } as never,
+				},
+			],
+		},
+	],
 	fields: [
 		{
 			collection: 'magic_links',
@@ -128,6 +142,42 @@ describe('ensureDirectusSchema', () => {
 		expect(fixture.collectionCreate).toHaveBeenCalledWith(definition.collections[0])
 		expect(fixture.fieldCreate).toHaveBeenCalledWith('magic_links', definition.fields[0])
 		expect(fixture.relationCreate).toHaveBeenCalledWith(definition.relations[0])
+		expect(logger.info).toHaveBeenCalledTimes(2)
+		expect(logger.debug).toHaveBeenCalled()
+	})
+
+	it('includes collection-nested fields in the schema plan', async () => {
+		const fixture = createFixture(emptySchema())
+		const logger = createLogger()
+
+		await ensureDirectusSchema({
+			extensionId: 'nested-fields-test',
+			database: fixture.database,
+			getSchema: fixture.getSchema,
+			logger,
+			definition: {
+				collections: [
+					{
+						collection: 'nested_fields',
+						fields: [
+							{ collection: 'nested_fields', field: 'title', type: 'string' },
+							{ collection: 'nested_fields', field: 'count', type: 'integer' },
+						],
+					},
+				],
+				fields: [{ collection: 'nested_fields', field: 'status', type: 'string' }],
+				relations: [],
+			},
+			services: fixture.services,
+			options: {},
+		})
+
+		expect(logger.info).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining({
+				resources: { collections: 1, fields: 3, relations: 0 },
+			}),
+		)
 	})
 
 	it('passes collection, field, and relation properties through unchanged', async () => {
@@ -137,7 +187,15 @@ describe('ensureDirectusSchema', () => {
 				{
 					collection: 'rich_schema',
 					meta: { icon: 'bolt', hidden: true, note: 'owned by the extension' },
-					schema: {},
+					schema: { name: 'rich_schema' },
+					fields: [
+						{
+							collection: 'rich_schema',
+							field: 'id',
+							type: 'uuid',
+							schema: { is_primary_key: true } as never,
+						},
+					],
 				},
 			],
 			fields: [
@@ -197,6 +255,35 @@ describe('ensureDirectusSchema', () => {
 		expect(fixture.collectionCreate).not.toHaveBeenCalled()
 		expect(fixture.fieldCreate).not.toHaveBeenCalled()
 		expect(fixture.relationCreate).not.toHaveBeenCalled()
+	})
+
+	it('preserves collections without a schema name or primary key field', async () => {
+		const fixture = createFixture(emptySchema())
+		const logger = createLogger()
+		const malformedDefinition = {
+			collections: [{ collection: 'malformed' }],
+			fields: [],
+			relations: [],
+		} as DirectusSchemaDefinition
+
+		await expect(
+			ensureDirectusSchema({
+				extensionId: 'malformed-collection-test',
+				database: fixture.database,
+				getSchema: fixture.getSchema,
+				logger,
+				definition: malformedDefinition,
+				services: fixture.services,
+				options: {},
+			}),
+		).resolves.toEqual({ changed: [], skipped: false })
+		expect(fixture.collectionCreate).not.toHaveBeenCalled()
+		expect(logger.error).toHaveBeenCalledWith(
+			expect.objectContaining({
+				resource: 'collection:malformed',
+				reason: 'collection schema name and primary key field are required',
+			}),
+		)
 	})
 
 	it('does not recreate compatible resources', async () => {
@@ -438,7 +525,7 @@ describe('ensureDirectusSchema', () => {
 		})
 
 		expect(result).toEqual({ changed: [], skipped: false })
-		expect(logger.info).toHaveBeenCalledWith(
+		expect(logger.debug).toHaveBeenCalledWith(
 			expect.objectContaining({ msg: '🔐 Acquired schema ensure lock' }),
 		)
 	})

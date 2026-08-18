@@ -2,7 +2,7 @@ import type { ApiExtensionContext } from '@directus/types'
 import type { MagicLinksEnv } from './env.schema'
 
 import { createError, InvalidCredentialsError, InvalidPayloadError } from '@directus/errors'
-import { attempt } from '@onderwijsin/directus-extension-utils'
+import { attempt, uuid } from '@onderwijsin/directus-extension-utils'
 
 import {
 	GENERIC_RESPONSE,
@@ -118,18 +118,21 @@ export async function requestMagicLink(input: RequestHandlerInput) {
 				.first()
 			if (!record) return null
 
-			const id = await transaction(options.MAGIC_LINKS_COLLECTION).insert({
-				user: record.id,
-				token_hash: tokenHash,
-				expires_at: expiresAt,
-				issued_at: issuedAt,
-				ip: input.ip,
-				user_agent: input.userAgent,
-				email_status: 'pending',
-			})
+			const [inserted] = await transaction(options.MAGIC_LINKS_COLLECTION)
+				.insert({
+					id: uuid(), // Yes really. Directus generates uuid's in the service layer... Shocking!
+					user: record.id,
+					token_hash: tokenHash,
+					expires_at: expiresAt,
+					issued_at: issuedAt,
+					ip: input.ip,
+					user_agent: input.userAgent,
+					email_status: 'pending',
+				})
+				.returning('id')
 			return {
 				email: String(record.email),
-				linkId: String(id[0]),
+				linkId: String(inserted.id),
 			}
 		}),
 	)
@@ -154,6 +157,7 @@ export async function requestMagicLink(input: RequestHandlerInput) {
 		}),
 	)
 	if (delivery.error) {
+		console.log({ delivery: delivery.error })
 		await attempt(() =>
 			database(options.MAGIC_LINKS_COLLECTION)
 				.where({ id: user.linkId })
@@ -173,6 +177,7 @@ export async function sendMagicLinkEmail(input: MagicLinkEmailInput): Promise<vo
 	const url = new URL(input.payload.redirectUrl)
 	url.searchParams.set(input.options.MAGIC_LINKS_TOKEN_QUERY_PARAMETER, input.rawToken)
 	const mail = new input.services.MailService({ knex: input.database, schema: input.schema })
+
 	await mail.send({
 		to: input.user.email,
 		subject: input.options.MAGIC_LINKS_EMAIL_SUBJECT ?? 'Your sign-in link',
@@ -190,6 +195,7 @@ export async function sendMagicLinkEmail(input: MagicLinkEmailInput): Promise<vo
 			},
 		},
 	})
+
 	await input
 		.database(input.options.MAGIC_LINKS_COLLECTION)
 		.where({ id: input.user.linkId })
@@ -243,7 +249,8 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 			const updated = await transaction(options.MAGIC_LINKS_COLLECTION)
 				.where({ id: link.id, redeemed_at: null })
 				.update({ redeemed_at: transaction.fn.now() })
-			if (updated !== 1) throw new InvalidCredentialsError()
+				.returning('id')
+			if (updated.length !== 1) throw new InvalidCredentialsError()
 
 			return session
 		}),

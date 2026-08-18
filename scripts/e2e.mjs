@@ -7,6 +7,7 @@
  */
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { join } from 'node:path'
 
 /** @typedef {import('node:child_process').ChildProcessWithoutNullStreams} ChildProcess */
 /** @typedef {import('node:child_process').SpawnOptions} SpawnOptions */
@@ -125,6 +126,11 @@ export function generateEnvironmentSecrets() {
 
 const environmentSecrets = generateEnvironmentSecrets()
 const password = environmentSecrets.ADMIN_PASSWORD
+const playgroundDirectory =
+	process.env.DIRECTUS_E2E_PLAYGROUND_DIR ??
+	(process.env.DIRECTUS_E2E_EXTENSIONS_DIR
+		? join(process.env.DIRECTUS_E2E_EXTENSIONS_DIR, 'directus-e2e-playground')
+		: undefined)
 
 /**
  * Runs Docker Compose for the isolated E2E project.
@@ -142,7 +148,12 @@ async function compose(args, { logCommand = true, ...options } = {}) {
 	]
 	if (logCommand) log(`Starting: docker ${command.join(' ')}`)
 	const result = await runCommand('docker', command, {
-		env: { ...process.env, ...environmentSecrets, DIRECTUS_E2E_PORT: port },
+		env: {
+			...process.env,
+			...environmentSecrets,
+			DIRECTUS_E2E_PORT: port,
+			...(playgroundDirectory ? { DIRECTUS_E2E_PLAYGROUND_DIR: playgroundDirectory } : {}),
+		},
 		timeoutMs: e2eOperationTimeoutMs,
 		...options,
 	})

@@ -65,6 +65,11 @@ The local defaults are intentionally development-only. Override them in an ignor
 cp .env.example .env
 ```
 
+The local and E2E Compose stacks mount the magic-links bundle template directory at
+`/directus/templates` and configure `EMAIL_TEMPLATES_PATH` accordingly. For E2E runs using a
+different extension checkout, override `DIRECTUS_E2E_EMAIL_TEMPLATES_DIR` with the corresponding
+host template directory.
+
 ## E2E lifecycle
 
 ```text
@@ -112,7 +117,8 @@ The shared runner does not create application collections or access-control fixt
 | Garage S3   |       `13900` |
 | Meilisearch |       `17700` |
 
-The E2E stack mounts the extension directory read-only and sets:
+The E2E stack mounts the regular extension directory read-only and adds the private playground
+extension from `tests/directus-e2e-playground`. It sets:
 
 ```yaml
 EXTENSIONS_MUST_LOAD: 'true'
