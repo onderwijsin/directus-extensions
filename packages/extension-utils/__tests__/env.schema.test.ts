@@ -7,6 +7,7 @@ describe('schemaChangeSchema', () => {
 		expect(schemaChangeSchema.parse({})).toEqual({
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
 			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
+			DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'memory',
 		})
 	})
 
@@ -32,6 +33,25 @@ describe('schemaChangeSchema', () => {
 			schemaChangeSchema.safeParse({
 				DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'FS',
 				DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: '/tmp/directus-locks',
+			}).success,
+		).toBe(true)
+		expect(
+			schemaChangeSchema.safeParse({
+				DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'REDIS',
+				REDIS: 'redis://localhost:6379',
+			}).success,
+		).toBe(true)
+	})
+
+	it('requires the Directus Redis connection for the distributed rate limiter', () => {
+		expect(
+			schemaChangeSchema.safeParse({ DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'redis' })
+				.success,
+		).toBe(false)
+		expect(
+			schemaChangeSchema.safeParse({
+				DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'redis',
+				REDIS: 'redis://localhost:6379',
 			}).success,
 		).toBe(true)
 	})

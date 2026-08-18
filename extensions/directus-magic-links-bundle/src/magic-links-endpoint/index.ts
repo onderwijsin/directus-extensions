@@ -16,6 +16,7 @@ import {
 	requestMagicLink,
 	SchemaLockedError,
 } from './handlers'
+import { createMagicLinkLimiter } from './rate-limiter'
 import { sendAuthenticationResponse } from './session'
 
 /**
@@ -42,6 +43,9 @@ export default defineEndpoint({
 
 		const options = validateExtensionOptions(env, envSchema, logger)
 		const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? options.SECRET
+		let limiter: ReturnType<typeof createMagicLinkLimiter> | undefined
+		const getLimiter = () =>
+			(limiter ??= createMagicLinkLimiter({ database, getSchema, options, services }))
 
 		router.post('/request', (request, response, next) => {
 			void attempt(async () => {
@@ -99,6 +103,7 @@ export default defineEndpoint({
 					ip: request.ip ?? null,
 					userAgent: request.get('user-agent') ?? null,
 					origin: request.get('origin') ?? null,
+					limiter: await getLimiter(),
 				})
 				if (!result) throw new InvalidCredentialsError()
 				sendAuthenticationResponse(response, env, payload, result)

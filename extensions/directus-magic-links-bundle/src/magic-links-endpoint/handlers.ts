@@ -1,3 +1,4 @@
+import type { Limiter } from '@directus/memory'
 import type { ApiExtensionContext, PrimaryKey } from '@directus/types'
 import type { MagicLinksEnv } from './env.schema'
 
@@ -47,6 +48,7 @@ interface RedeemHandlerInput {
 	ip?: string | null
 	userAgent?: string | null
 	origin?: string | null
+	limiter?: Limiter | null
 }
 
 interface MagicLinkEmailInput {
@@ -256,6 +258,7 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 			}
 
 			if (link.user_tfa_secret !== null) {
+				if (input.limiter) await input.limiter.consume(link.id)
 				if (!payload.otp) throw new InvalidOtpError()
 
 				const tfaService = new services.TFAService({
@@ -296,6 +299,7 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 				.update({ redeemed_at: transaction.fn.now() })
 				.returning('id')
 			if (updated.length !== 1) throw new InvalidCredentialsError()
+			if (input.limiter && link.user_tfa_secret !== null) await input.limiter.delete(link.id)
 
 			return session
 		}),

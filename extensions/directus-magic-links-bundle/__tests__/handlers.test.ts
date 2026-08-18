@@ -27,6 +27,7 @@ type QueryFake = ReturnType<typeof vi.fn> & {
 const options: MagicLinksEnv = {
 	DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
 	DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'FS',
+	DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'memory',
 	SECRET: 'directus-secret',
 	MAGIC_LINKS_ENABLED: true,
 	MAGIC_LINKS_COLLECTION: 'magic_links',
@@ -400,6 +401,73 @@ describe('magic-link handlers', () => {
 			}),
 		).resolves.toMatchObject({ accessToken: 'access' })
 		expect(linkQuery.update).toHaveBeenCalledWith({ redeemed_at: 'now' })
+	})
+
+	it('consumes failed OTP attempts and clears the counter after redemption', async () => {
+		const linkQuery = createQuery({
+			id: 'link-id',
+			user_id: 'user-id',
+			user_status: 'active',
+			user_provider: 'default',
+			user_tfa_secret: 'tfa-secret',
+		})
+		const consume = vi.fn(async () => undefined)
+		const deleteKey = vi.fn(async () => undefined)
+		const limiter = { consume, delete: deleteKey }
+		const verifyOTP = vi.fn(() => true)
+
+		await runRedeem({
+			database: createDatabase(createTransaction(linkQuery)),
+			getSchema,
+			services: {
+				TFAService: vi.fn(function () {
+					return { verifyOTP }
+				}),
+				AuthenticationService: vi.fn(function () {
+					return { refresh: vi.fn(() => ({ accessToken: 'access' })) }
+				}),
+			},
+			options,
+			secret: 'secret',
+			limiter,
+			payload: { token: 'raw-token', otp: '123456', mode: 'json' },
+		})
+
+		expect(consume).toHaveBeenCalledWith('link-id')
+		expect(deleteKey).toHaveBeenCalledWith('link-id')
+	})
+
+	it('stops OTP validation after the limiter rejects a repeated attempt', async () => {
+		const linkQuery = createQuery({
+			id: 'link-id',
+			user_id: 'user-id',
+			user_status: 'active',
+			user_provider: 'default',
+			user_tfa_secret: 'tfa-secret',
+		})
+		const consume = vi
+			.fn<() => Promise<void>>()
+			.mockResolvedValueOnce(undefined)
+			.mockRejectedValue(new Error('rate limited'))
+		const verifyOTP = vi.fn(() => false)
+		const input = {
+			database: createDatabase(createTransaction(linkQuery)),
+			getSchema,
+			services: {
+				TFAService: vi.fn(function () {
+					return { verifyOTP }
+				}),
+				AuthenticationService: vi.fn(),
+			},
+			options,
+			secret: 'secret',
+			limiter: { consume, delete: vi.fn(async () => undefined) },
+			payload: { token: 'raw-token', otp: 'wrong', mode: 'json' },
+		}
+
+		await expect(runRedeem(input)).rejects.toBeInstanceOf(InvalidOtpError)
+		await expect(runRedeem(input)).rejects.toThrow('rate limited')
+		expect(verifyOTP).toHaveBeenCalledOnce()
 	})
 
 	it('rejects a TFA-enabled user without an OTP before creating a session', async () => {

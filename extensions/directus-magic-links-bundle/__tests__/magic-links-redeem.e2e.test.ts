@@ -342,6 +342,88 @@ describe('magic-links redeem endpoint', () => {
 		}
 	})
 
+	it('throttles failed OTP attempts for an ephemeral user', async () => {
+		const password = `magic-links-rate-limit-password-${Date.now()}`
+		const email = `magic-links-rate-limit-${Date.now()}@example.com`
+		let userId: string | undefined
+		let originalLoginAttempts: number | null | undefined
+
+		try {
+			const settings = await client.request<{ auth_login_attempts: number | null }>(
+				customEndpoint({
+					path: '/settings?fields=auth_login_attempts',
+					method: 'GET',
+				}),
+			)
+			originalLoginAttempts = settings.auth_login_attempts
+			await client.request(
+				customEndpoint({
+					path: '/settings',
+					method: 'PATCH',
+					body: JSON.stringify({ auth_login_attempts: 3 }),
+				}),
+			)
+
+			const user = await client.request(createUser({ email, password, status: 'active' }))
+			userId = user.id
+
+			const loginResponse = await fetch(`${baseUrl}/auth/login`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ email, password }),
+			})
+			expect(loginResponse.status).toBe(200)
+			const login = await loginResponse.json()
+			const accessToken = login.data.access_token
+			const tfaHeaders = {
+				'content-type': 'application/json',
+				authorization: `Bearer ${accessToken}`,
+			}
+			const generatedResponse = await fetch(`${baseUrl}/users/me/tfa/generate`, {
+				method: 'POST',
+				headers: tfaHeaders,
+				body: JSON.stringify({ password }),
+			})
+			expect(generatedResponse.status).toBe(200)
+			const generated: TfaGenerateResponse = await generatedResponse.json()
+			const enableResponse = await fetch(`${baseUrl}/users/me/tfa/enable`, {
+				method: 'POST',
+				headers: tfaHeaders,
+				body: JSON.stringify({
+					secret: generated.data.secret,
+					otp: createTotp(generated.data.secret),
+				}),
+			})
+			expect(enableResponse.status).toBe(204)
+
+			const token = `magic-links-rate-limit-token-${Date.now()}`
+			await createMagicLink(user.id, token)
+			const responses = []
+			for (let attempt = 0; attempt < 4; attempt += 1) {
+				responses.push(
+					await fetch(`${baseUrl}/auth/magic-links/redeem`, {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ token, otp: '000000', mode: 'json' }),
+					}),
+				)
+			}
+
+			expect(responses.map((response) => response.status)).toEqual([401, 401, 401, 429])
+		} finally {
+			if (originalLoginAttempts !== undefined) {
+				await client.request(
+					customEndpoint({
+						path: '/settings',
+						method: 'PATCH',
+						body: JSON.stringify({ auth_login_attempts: originalLoginAttempts }),
+					}),
+				)
+			}
+			if (userId) await client.request(deleteUser(userId))
+		}
+	})
+
 	it('preserves policy-enforced TFA setup in the access token', async () => {
 		let userId: string | undefined
 		let roleId: string | undefined
