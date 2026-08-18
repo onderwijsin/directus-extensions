@@ -39,6 +39,9 @@ catalogs:
     '@sentry/profiling-node':
       specifier: 10.69.0
       version: 10.69.0
+    '@types/express':
+      specifier: 4.17.21
+      version: 4.17.21
     '@typescript/native-preview':
       specifier: 7.0.0-dev.20260707.2
       version: 7.0.0-dev.20260707.2
@@ -261,9 +264,15 @@ importers:
       '@onderwijsin/directus-extension-utils':
         specifier: workspace:*
         version: link:../../packages/extension-utils
+      '@types/express':
+        specifier: 'catalog:'
+        version: 4.17.21
       '@types/node':
         specifier: catalog:node24
         version: 24.13.3
+      '@workspace/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config

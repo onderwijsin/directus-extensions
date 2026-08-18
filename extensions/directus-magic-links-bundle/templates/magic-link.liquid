@@ -1,12 +1,10 @@
 {% layout "base" %} {% block content %}
 
-<h1>Reset your {{projectName}} password</h1>
+<h1>Sign in to {{projectName}}</h1>
 
 <p style="padding-bottom: 30px">
-  We have received a request to reset the password for your
-  <i>{{ projectName }}</i> account. If you did not make this change, please
-  contact one of your administrators. Otherwise, to complete the process, click
-  the following link to confirm your email address and enter your new password.
+  We received a request to sign in to your <i>{{ projectName }}</i> account.
+  If you did not make this request, you can safely ignore this email.
 </p>
 
 <a
@@ -31,12 +29,34 @@
       >&nbsp;</i
     >
   <![endif]-->
-  <span style="mso-text-raise: 15pt">Reset Your Password</span>
+  <span style="mso-text-raise: 15pt">Sign in</span>
   <!--[if mso]>
     <i style="letter-spacing: 25px; mso-font-width: -100%">&nbsp;</i>
   <![endif]-->
 </a>
 
-<p style="padding-top: 30px">Important: This link will expire in 24 hours.</p>
+<p style="padding-top: 30px">
+  Important: This link will expire on
+  {{ expires_at | date: "%B %-d, %Y at %-I:%M %p" }}.
+</p>
+<p>If the button does not work, copy and paste this URL into your browser:</p>
+<p><a href="{{url}}">{{ url }}</a></p>
+
+<div
+  style="
+    margin-top: 30px;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #f9fafb;
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.5;
+  "
+>
+  This magic link was requested on
+  <strong>{{ issued_at | date: "%B %-d, %Y at %-I:%M %p" }}</strong> from IP <strong>{{ ip }}</strong> by this device:
+  <i>{{ user_agent }}</i>. If you don't recognize this sign-in attempt, please discard this email.
+</div>
 
 {% endblock %}

@@ -6,8 +6,8 @@ description: Set up and operate the Directus magic-links authentication bundle.
 # Directus Magic Links
 
 This skill is the operator-facing setup reference. The bundle validates its shared and
-entrypoint-specific environment configuration and ensures its portable schema at Directus startup;
-endpoint, cleanup, and email delivery behavior remain scaffolded.
+entrypoint-specific environment configuration, ensures its portable schema at Directus startup, and
+provides public request and redemption endpoints. Scheduled cleanup is not implemented yet.
 
 ## Configuration
 
@@ -30,6 +30,8 @@ the endpoint even while the runtime behavior is scaffolded.
 | `MAGIC_LINKS_COLLECTION`                       | `magic_links`              | Underscore-compatible collection name.             |
 | `MAGIC_LINKS_EMAIL_TEMPLATE`                   | `magic-link`               | Template name using letters, numbers, `_`, or `-`. |
 | `MAGIC_LINKS_EMAIL_SUBJECT`                    | unset                      | Optional non-empty email subject.                  |
+| `MAGIC_LINKS_EMAIL_REPLY_TO`                   | unset                      | Optional reply-to email address.                   |
+| `MAGIC_LINKS_EMAIL_SENDER`                     | unset                      | Optional sender passed to Directus MailService.    |
 | `USE_MAGIC_LINK_CLEANUP`                       | `false`                    | Boolean scheduled-cleanup switch.                  |
 | `MAGIC_LINK_CLEANUP_WINDOW`                    | `24h`                      | Duration retention grace period.                   |
 | `MAGIC_LINK_CLEANUP_CRON`                      | `*/15 * * * *`             | Non-empty Directus cron expression.                |
@@ -60,6 +62,80 @@ not duplicate an email snapshot.
 The portable schema data is exported as `@onderwijsin/directus-magic-links-bundle/schema` for manual
 inspection or application when automated schema changes are disabled.
 
-When implementation is available, this skill will cover installation, trusted runtime requirements,
-SMTP configuration, environment variables, schema setup and exported schema data, redirect URL
-allowlisting, email-template setup, permissions, cleanup scheduling, and troubleshooting.
+## API surface
+
+The endpoint base path is `/auth/magic-links`.
+
+### `POST /auth/magic-links/request`
+
+Request body:
+
+```json
+{
+  "email": "user@example.com",
+  "redirectUrl": "https://app.example.com/auth/magic-link"
+}
+```
+
+The email is trimmed and lowercased for lookup. The redirect must exactly match an entry in
+`MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`; credentials, unexpected ports, unsupported schemes, and
+unconfigured paths are rejected with Directus `InvalidPayloadError`.
+
+The endpoint returns `202` and this same response for both known and unknown addresses:
+
+```json
+{
+  "message": "If an account exists for this email address, a sign-in link has been sent."
+}
+```
+
+Only active users using the default local provider receive mail. The link token is generated with
+256 bits of cryptographic entropy, digested with HMAC-SHA-256, and stored only as `token_hash`.
+Records begin with `email_status=pending` and become `sent` or `error`; delivery failures do not
+change the generic response. Requests do not revoke earlier links.
+
+### `POST /auth/magic-links/redeem`
+
+Request body:
+
+```json
+{
+  "token": "raw-token-from-email",
+  "otp": "123456",
+  "mode": "json"
+}
+```
+
+`token` is required. `otp` is optional for users without TFA. `mode` defaults to `json` and accepts
+`json`, `cookie`, or `session`. The token is digested and checked transactionally with a row lock;
+it must be unexpired, unredeemed, active, and linked to the default local provider.
+
+Modes mirror Directus login. `json` returns access and refresh tokens in JSON. `cookie` returns the
+access token in JSON and sets the refresh token in an HttpOnly cookie. `session` sets the stateful
+session token in an HttpOnly cookie and returns the expiry metadata. Cookie names, TTL, domain,
+`Secure`, and `SameSite` settings use Directus's `REFRESH_TOKEN_COOKIE_*` and `SESSION_COOKIE_*`
+configuration.
+
+On success, Directus `AuthenticationService` creates the normal authentication result and the link
+is marked redeemed in the same transaction. Invalid, expired, already redeemed, inactive, or
+unsupported-provider tokens return Directus's generic credentials error. Directus's standard TFA
+error is propagated unchanged and the link remains available for an OTP retry.
+
+The endpoint accepts public requests, but the `magic_links` collection remains private. Do not grant
+public CRUD permissions to that collection. Configure CORS and CSRF protections according to the
+frontend's deployment and the selected cookie/session mode.
+
+## Email template
+
+Copy `templates/magic-link.liquid` into `EMAIL_TEMPLATES_PATH` and retain the configured template
+name (`magic-link` by default). The template receives `url`, `email`, `first_name`, `last_name`,
+`expires_at`, `issued_at`, `ip`, and `user_agent`, alongside Directus project variables. Configure
+`EMAIL_FROM` and SMTP before testing delivery. Never add the raw token to logs or operational
+telemetry.
+
+## Limitations and operations
+
+- Rate limiting is a deployment responsibility and should be applied to the public request route.
+- Scheduled cleanup is planned; expired and redeemed records are retained until cleanup exists.
+- Rotating `MAGIC_LINKS_TOKEN_SECRET` or the Directus `SECRET` fallback invalidates existing links.
+- The bundle does not replace or modify Data Studio login.

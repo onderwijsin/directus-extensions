@@ -23,10 +23,12 @@ const redirectUrlSchema = z.url().refine((value) => {
 export const envSchema = sharedEnvSchema.extend({
 	MAGIC_LINKS_TOKEN_SECRET: z.string().trim().min(1).optional(),
 	MAGIC_LINKS_TOKEN_TTL: durationSchema.default('15m'),
-	MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: z.array(redirectUrlSchema).default([]),
+	MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: z.array(redirectUrlSchema).min(1).default([]),
 	MAGIC_LINKS_TOKEN_QUERY_PARAMETER: nameSchema.default('token'),
 	MAGIC_LINKS_EMAIL_TEMPLATE: nameSchema.default('magic-link'),
 	MAGIC_LINKS_EMAIL_SUBJECT: z.string().trim().min(1).optional(),
+	MAGIC_LINKS_EMAIL_REPLY_TO: z.email().trim().optional(),
+	MAGIC_LINKS_EMAIL_SENDER: z.string().trim().min(1).optional(),
 })
 
 export type MagicLinksEnv = z.output<typeof envSchema>

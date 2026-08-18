@@ -3,6 +3,7 @@ packages:
   - packages/*
 
 catalog:
+  '@types/express': 4.17.21
   '@directus/errors': 2.5.0
   '@directus/memory': 4.0.2
   '@directus/types': 16.1.0

@@ -64,6 +64,8 @@ services:
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8055}
       SECRET: ${DIRECTUS_SECRET:-development-only-secret-change-me}
+      MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: 'array:https://app.example.com/auth/magic-link'
+      MAGIC_LINKS_TOKEN_SECRET: ${MAGIC_LINKS_TOKEN_SECRET:-development-magic-links-secret}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-p4ssw0rd!}
       DB_CLIENT: pg

@@ -1,18 +1,21 @@
-import { createError } from '@directus/errors'
+import { InvalidCredentialsError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
+import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
 	extensionSetup,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { envSchema } from './env.schema'
+import {
+	parseRedeemPayload,
+	parseRequestPayload,
+	redeemMagicLink,
+	requestMagicLink,
+} from './handlers'
+import { sendAuthenticationResponse } from './session'
 
 const EXTENSION_NAME = 'magic_links'
-const NotImplementedError = createError(
-	'MAGIC_LINKS_NOT_IMPLEMENTED',
-	'Magic-link authentication is not implemented yet.',
-	501,
-)
 
 /**
  * Registers the magic-link API endpoint bundle entry.
@@ -22,21 +25,56 @@ const NotImplementedError = createError(
  * @returns void
  */
 export default defineEndpoint((router, context) => {
-	const { env, logger } = context
+	const { database, env, getSchema, logger, services } = context
 	const setup = extensionSetup(EXTENSION_NAME, env, logger)
 	setup.start()
 
 	if (!setup.isEnabled()) return
 
-	validateExtensionOptions(env, envSchema, logger)
+	const options = validateExtensionOptions(env, envSchema, logger)
+	const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? String(env.SECRET ?? '')
 
-	router.post('/request', () => {
-		throw new NotImplementedError()
+	router.post('/request', (request, response, next) => {
+		void attempt(async () => {
+			const payload = parseRequestPayload(
+				request.body,
+				options.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
+			)
+			const result = await requestMagicLink({
+				database,
+				getSchema,
+				services,
+				options,
+				secret,
+				payload,
+				ip: request.ip ?? null,
+				userAgent: request.get('user-agent') ?? null,
+			})
+			response.status(202).json(result)
+		}).then(({ error }) => {
+			if (error) next(error)
+		})
 	})
 
-	router.post('/redeem', () => {
-		throw new NotImplementedError()
+	router.post('/redeem', (request, response, next) => {
+		void attempt(async () => {
+			const payload = parseRedeemPayload(request.body)
+			const result = await redeemMagicLink({
+				database,
+				getSchema,
+				services,
+				options,
+				secret,
+				payload,
+			})
+			if (!result) throw new InvalidCredentialsError()
+			sendAuthenticationResponse(response, env, payload, result)
+		}).then(({ error }) => {
+			if (error) next(error)
+		})
 	})
 
 	setup.end()
 })
+
+export { parseRedeemPayload, parseRequestPayload, redeemMagicLink, requestMagicLink }

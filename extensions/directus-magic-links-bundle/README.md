@@ -2,9 +2,7 @@
 
 Passwordless magic-link authentication for Directus frontend clients.
 
-This package is currently scaffolded. The endpoint and hook entrypoints are present, and the startup
-hook can ensure the portable magic-link collection schema, but magic-link request, redemption,
-cleanup, and email delivery logic are not implemented yet.
+The request and redemption endpoints are implemented. Scheduled cleanup remains planned work.
 
 ## Installation
 
@@ -39,6 +37,8 @@ the extension receives them; arrays therefore use Directus's array syntax.
 | `MAGIC_LINKS_COLLECTION`                       | `magic_links`              | Magic-link collection name.                          |
 | `MAGIC_LINKS_EMAIL_TEMPLATE`                   | `magic-link`               | Directus Liquid template name.                       |
 | `MAGIC_LINKS_EMAIL_SUBJECT`                    | unset                      | Optional subject passed to the mail service.         |
+| `MAGIC_LINKS_EMAIL_REPLY_TO`                   | unset                      | Optional reply-to email address.                     |
+| `MAGIC_LINKS_EMAIL_SENDER`                     | unset                      | Optional sender passed to the mail service.          |
 | `USE_MAGIC_LINK_CLEANUP`                       | `false`                    | Enable scheduled cleanup.                            |
 | `MAGIC_LINK_CLEANUP_WINDOW`                    | `24h`                      | Retention grace period after expiry or redemption.   |
 | `MAGIC_LINK_CLEANUP_CRON`                      | `*/15 * * * *`             | Directus schedule expression for cleanup.            |
@@ -64,6 +64,70 @@ globally, or `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bun
 
 The magic-link record stores a required relation to `directus_users`; the related user's current
 `email` is used for delivery and is not duplicated in the magic-links table.
+
+## Request endpoint
+
+`POST /auth/magic-links/request` accepts:
+
+```json
+{
+  "email": "user@example.com",
+  "redirectUrl": "https://app.example.com/auth/magic-link"
+}
+```
+
+The email is trimmed and lowercased for lookup. `redirectUrl` must exactly match the configured
+allowlist; credentials, ports, unsupported schemes, and unconfigured paths are rejected. Invalid
+payloads and redirects return a Directus `InvalidPayloadError`.
+
+For valid requests the endpoint always returns `202`, regardless of whether an active local-provider
+user exists:
+
+```json
+{
+  "message": "If an account exists for this email address, a sign-in link has been sent."
+}
+```
+
+The link uses a 256-bit random token. Only its HMAC-SHA-256 digest is stored in `token_hash`; raw
+tokens are included only in the email URL and are never logged or persisted. Existing links remain
+valid until expiry or redemption. Email delivery records transition from `pending` to `sent` or
+`error` while the endpoint retains the generic response.
+
+Copy [`templates/magic-link.liquid`](templates/magic-link.liquid) into the configured
+`EMAIL_TEMPLATES_PATH` before enabling delivery.
+
+## Redeem endpoint
+
+`POST /auth/magic-links/redeem` accepts:
+
+```json
+{
+  "token": "raw-token-from-email",
+  "otp": "123456",
+  "mode": "json"
+}
+```
+
+`token` is required. `otp` is optional unless Directus requires TFA. `mode` defaults to `json` and
+accepts `json`, `cookie`, or `session`. The token is HMAC-digested and checked inside a transaction
+with a row lock. The link must be unexpired, unredeemed, active, and associated with Directus's
+default local provider.
+
+Session modes mirror Directus login: `json` returns access and refresh tokens, `cookie` returns the
+access token and sets the refresh token in an HttpOnly cookie, and `session` sets the stateful
+session token in an HttpOnly cookie. Cookie names, TTLs, domain, `Secure`, and `SameSite` settings
+come from Directus's `REFRESH_TOKEN_COOKIE_*` and `SESSION_COOKIE_*` environment options.
+
+Successful redemption authenticates through Directus's `AuthenticationService`, returns its normal
+authentication result, and marks the link redeemed in the same transaction. Invalid, expired,
+already redeemed, inactive, and unsupported-provider links return Directus's generic credentials
+error. Authentication failures, including TFA failures, leave the link unredeemed; Directus's
+standard TFA error is passed through unchanged.
+
+Clients should remove the token from the browser URL immediately after reading it, avoid analytics
+and application logs containing the token, and follow Directus's normal rules for storing returned
+refresh credentials. The endpoint does not modify Data Studio authentication.
 
 The schema data is also available at:
 
