@@ -11,7 +11,7 @@ import {
 	deleteRole,
 	deleteUser,
 } from '@workspace/test-utils/commands'
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const baseUrl = process.env.DIRECTUS_E2E_URL
 const token = process.env.DIRECTUS_E2E_TOKEN
@@ -158,6 +158,38 @@ const decodeJwtPayload = (token: string): Record<string, unknown> => {
 }
 
 describe('magic-links redeem endpoint', () => {
+	let originalLoginAttempts: number | null | undefined
+
+	beforeAll(async () => {
+		const settings = await client.request<{ auth_login_attempts: number | null }>(
+			customEndpoint({
+				path: '/settings?fields=auth_login_attempts',
+				method: 'GET',
+			}),
+		)
+		originalLoginAttempts = settings.auth_login_attempts
+		await client.request(
+			customEndpoint({
+				path: '/settings',
+				method: 'PATCH',
+				body: JSON.stringify({ auth_login_attempts: 3 }),
+			}),
+		)
+		await client.request(customEndpoint({ path: '/utils/cache/clear', method: 'POST' }))
+	})
+
+	afterAll(async () => {
+		if (originalLoginAttempts === undefined) return
+		await client.request(
+			customEndpoint({
+				path: '/settings',
+				method: 'PATCH',
+				body: JSON.stringify({ auth_login_attempts: originalLoginAttempts }),
+			}),
+		)
+		await client.request(customEndpoint({ path: '/utils/cache/clear', method: 'POST' }))
+	})
+
 	it('redeems a delivered token, supports cookie and session modes, and enforces single use', async () => {
 		const users: string[] = []
 		try {
@@ -346,25 +378,33 @@ describe('magic-links redeem endpoint', () => {
 		const password = `magic-links-rate-limit-password-${Date.now()}`
 		const email = `magic-links-rate-limit-${Date.now()}@example.com`
 		let userId: string | undefined
-		let originalLoginAttempts: number | null | undefined
+		let roleId: string | undefined
+		let policyId: string | undefined
 
 		try {
-			const settings = await client.request<{ auth_login_attempts: number | null }>(
-				customEndpoint({
-					path: '/settings?fields=auth_login_attempts',
-					method: 'GET',
+			const policy = await client.request(
+				createPolicy({
+					name: `Magic-links rate-limit TFA policy ${Date.now()}`,
+					app_access: true,
+					admin_access: true,
 				}),
 			)
-			originalLoginAttempts = settings.auth_login_attempts
+			policyId = policy.id
+			const role = await client.request(
+				createRole({ name: `Magic-links rate-limit TFA role ${Date.now()}` }),
+			)
+			roleId = role.id
 			await client.request(
 				customEndpoint({
-					path: '/settings',
-					method: 'PATCH',
-					body: JSON.stringify({ auth_login_attempts: 3 }),
+					path: '/access',
+					method: 'POST',
+					body: JSON.stringify([{ role: role.id, policy: policy.id }]),
 				}),
 			)
 
-			const user = await client.request(createUser({ email, password, status: 'active' }))
+			const user = await client.request(
+				createUser({ email, password, status: 'active', role: role.id }),
+			)
 			userId = user.id
 
 			const loginResponse = await fetch(`${baseUrl}/auth/login`, {
@@ -411,16 +451,9 @@ describe('magic-links redeem endpoint', () => {
 
 			expect(responses.map((response) => response.status)).toEqual([401, 401, 401, 429])
 		} finally {
-			if (originalLoginAttempts !== undefined) {
-				await client.request(
-					customEndpoint({
-						path: '/settings',
-						method: 'PATCH',
-						body: JSON.stringify({ auth_login_attempts: originalLoginAttempts }),
-					}),
-				)
-			}
 			if (userId) await client.request(deleteUser(userId))
+			if (roleId) await client.request(deleteRole(roleId))
+			if (policyId) await client.request(deletePolicy(policyId))
 		}
 	})
 
