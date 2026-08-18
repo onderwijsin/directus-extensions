@@ -536,6 +536,7 @@ describe('ensureDirectusSchema', () => {
 				lockProviderConfig: {
 					DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
 					DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
+					DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'memory',
 				},
 			},
 		})

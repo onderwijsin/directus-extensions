@@ -44,6 +44,11 @@ export default defineEndpoint({
 		const options = validateExtensionOptions(env, envSchema, logger)
 		const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? options.SECRET
 		let limiter: ReturnType<typeof createMagicLinkLimiter> | undefined
+		/**
+		 * Lazily creates the limiter so runtime settings changes are observed before the first redemption.
+		 *
+		 * @returns The magic-link redemption limiter.
+		 */
 		const getLimiter = () =>
 			(limiter ??= createMagicLinkLimiter({ database, getSchema, options, services }))
 

@@ -411,8 +411,8 @@ describe('magic-link handlers', () => {
 			user_provider: 'default',
 			user_tfa_secret: 'tfa-secret',
 		})
-		const consume = vi.fn(async () => undefined)
-		const deleteKey = vi.fn(async () => undefined)
+		const consume = vi.fn().mockResolvedValue(undefined)
+		const deleteKey = vi.fn().mockResolvedValue(undefined)
 		const limiter = { consume, delete: deleteKey }
 		const verifyOTP = vi.fn(() => true)
 
@@ -461,7 +461,7 @@ describe('magic-link handlers', () => {
 			},
 			options,
 			secret: 'secret',
-			limiter: { consume, delete: vi.fn(async () => undefined) },
+			limiter: { consume, delete: vi.fn().mockResolvedValue(undefined) },
 			payload: { token: 'raw-token', otp: 'wrong', mode: 'json' },
 		}
 

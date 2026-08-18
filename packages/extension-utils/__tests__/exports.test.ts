@@ -28,6 +28,7 @@ describe('runtime-aware exports', () => {
 				'createSchemaChangeLockProvider',
 				'schemaChangeSchema',
 				'schemaLockProviderSchema',
+				'extensionRateLimiterStoreSchema',
 				'getSchemaLockName',
 				'registerSchemaChangeOnStart',
 				'extensionSetup',
