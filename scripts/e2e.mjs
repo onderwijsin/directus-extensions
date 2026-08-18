@@ -7,7 +7,7 @@
  */
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { chmod, cp, mkdtemp, rm } from 'node:fs/promises'
+import { access, chmod, cp, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -150,12 +150,43 @@ async function prepareExtensionsDirectory() {
 	// mkdtemp creates 0700 directories, but Directus reads this bind mount as a non-root user.
 	await chmod(stagedExtensionsDirectory, 0o755)
 	await cp(sourceExtensionsDirectory, stagedExtensionsDirectory, { recursive: true })
-	await cp(
+	await stagePlayground({
+		sourceExtensionsDirectory,
 		playgroundSourceDirectory,
-		join(stagedExtensionsDirectory, 'directus-e2e-playground'),
-		{ recursive: true },
-	)
+		stagedExtensionsDirectory,
+	})
 	extensionsDirectory = stagedExtensionsDirectory
+}
+
+/**
+ * Adds the source playground when the extension tree does not already contain its packed build.
+ *
+ * @param {{sourceExtensionsDirectory: string, playgroundSourceDirectory: string, stagedExtensionsDirectory: string}} options - Playground staging paths.
+ * @returns {Promise<boolean>} Whether the source playground was copied.
+ */
+export async function stagePlayground({
+	sourceExtensionsDirectory: sourceDirectory,
+	playgroundSourceDirectory: playgroundDirectory,
+	stagedExtensionsDirectory: stagedDirectory,
+}) {
+	try {
+		await access(join(sourceDirectory, 'directus-extension-e2e-playground', 'dist', 'index.js'))
+		return !shouldStagePlayground(true)
+	} catch {
+		await cp(playgroundDirectory, join(stagedDirectory, 'directus-e2e-playground'), {
+			recursive: true,
+		})
+		return shouldStagePlayground(false)
+	}
+}
+
+/**
+ * Determines whether the source playground should be added to the staged tree.
+ * @param {boolean} hasPackedBuild - Whether the packed playground is already available.
+ * @returns {boolean} Whether source staging is required.
+ */
+export function shouldStagePlayground(hasPackedBuild) {
+	return !hasPackedBuild
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { generateEnvironmentSecrets, responseIsReady } from './e2e.mjs'
+import { generateEnvironmentSecrets, responseIsReady, shouldStagePlayground } from './e2e.mjs'
 
 describe('E2E runner helpers', () => {
 	it('recognizes successful readiness responses', () => {
@@ -15,5 +15,10 @@ describe('E2E runner helpers', () => {
 		expect(secrets.DEFAULT_PASSWORD).toMatch(/^[a-f0-9]{64}$/u)
 		expect(secrets.DIRECTUS_SECRET).toMatch(/^[a-f0-9]{64}$/u)
 		expect(secrets.DEFAULT_PASSWORD).not.toBe(secrets.DIRECTUS_SECRET)
+	})
+
+	it('does not stage source when a packed playground build is available', () => {
+		expect(shouldStagePlayground(true)).toBe(false)
+		expect(shouldStagePlayground(false)).toBe(true)
 	})
 })
