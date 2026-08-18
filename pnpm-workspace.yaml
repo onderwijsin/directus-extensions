@@ -57,4 +57,6 @@ allowBuilds:
   '@sentry-internal/node-cpu-profiler': true
   '@sentry/node-cpu-profiler': true
   esbuild: true
+  protobufjs: true
+  sqlite3: true
   vue-demi: true
