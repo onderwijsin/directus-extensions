@@ -63,6 +63,26 @@ using context clues before making them available to extensions. Prefer a schema 
 runtime values instead of adding coercion everywhere. Use explicit Directus casting syntax when a
 value could otherwise be interpreted as the wrong type.
 
+### Singular values for list options
+
+When a configuration option is conceptually a list with type `T[]`, always accept both `T` and `T[]`
+at the boundary and normalize the result to `T[]`. This keeps single-value deployments concise while
+preserving the predictable array shape used by the extension at runtime. Validate the individual
+values with the same schema in both cases; do not split arbitrary strings on commas.
+
+For example, a Zod schema for a list of strings can normalize both `"database"` and `["database"]`
+to `["database"]`:
+
+```ts
+const stringListSchema = z.preprocess(
+  (value) => (value === undefined || Array.isArray(value) ? value : [value]),
+  z.array(z.string()).default([]),
+)
+```
+
+Apply this rule to include/exclude lists and other collection-valued configuration options. Document
+both accepted input forms and the normalized output shape in the package README and consumer skill.
+
 Document every extension environment variable in its package README and consumer skill, including
 its type, default, accepted values, and whether it disables the extension. See
 [`extension-utils.md`](extension-utils.md#extension-setup) for the shared setup and validation API.

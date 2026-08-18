@@ -50,17 +50,18 @@ groups, component details, observed values, thresholds, or error diagnostics.
 
 ## Configuration reference
 
-Directus environment values are validated when the extension is enabled. Array values must be JSON
-arrays, not comma-separated strings.
+Directus environment values are validated when the extension is enabled. Check and component values
+may be JSON arrays or a single string; a single string is normalized to a one-item array. Comma-
+separated strings are not split into multiple values.
 
-| Environment variable                      | Type and accepted values                                         | Default  | Effect                                                           |
-| ----------------------------------------- | ---------------------------------------------------------------- | -------- | ---------------------------------------------------------------- |
-| `ENHANCED_SERVER_HEALTH_ENDPOINT_ENABLED` | Boolean                                                          | `true`   | `false` prevents the route from being registered.                |
-| `HEALTHCHECK_INCLUDE_CHECKS`              | Array of check names or `"*"`                                    | `["*"]`  | Selects check groups by key.                                     |
-| `HEALTHCHECK_EXCLUDE_CHECKS`              | Array of check names or `"*"`                                    | `[]`     | Removes check groups after inclusion matching.                   |
-| `HEALTHCHECK_INCLUDE_COMPONENTS`          | Array of `datastore`, `cache`, `objectstore`, `email`, `unknown` | All five | Selects component types.                                         |
-| `HEALTHCHECK_EXCLUDE_COMPONENTS`          | Array of the component types above                               | `[]`     | Removes component types after inclusion matching.                |
-| `HEALTHCHECK_EXPOSE_WARNING_STATUS`       | Boolean                                                          | `false`  | Converts selected `warn` components into a public `warn` result. |
+| Environment variable                      | Type and accepted values                                                   | Default  | Effect                                                           |
+| ----------------------------------------- | -------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------- |
+| `ENHANCED_SERVER_HEALTH_ENDPOINT_ENABLED` | Boolean                                                                    | `true`   | `false` prevents the route from being registered.                |
+| `HEALTHCHECK_INCLUDE_CHECKS`              | String or array of check names or `"*"`                                    | `["*"]`  | Selects check groups by key.                                     |
+| `HEALTHCHECK_EXCLUDE_CHECKS`              | String or array of check names or `"*"`                                    | `[]`     | Removes check groups after inclusion matching.                   |
+| `HEALTHCHECK_INCLUDE_COMPONENTS`          | String or array of `datastore`, `cache`, `objectstore`, `email`, `unknown` | All five | Selects component types.                                         |
+| `HEALTHCHECK_EXCLUDE_COMPONENTS`          | String or array of the component types above                               | `[]`     | Removes component types after inclusion matching.                |
+| `HEALTHCHECK_EXPOSE_WARNING_STATUS`       | Boolean                                                                    | `false`  | Converts selected `warn` components into a public `warn` result. |
 
 The two check lists support `*`; component lists do not. Exclusion always wins. A component must
 pass both its check filter and its component filter before its status contributes.
@@ -74,6 +75,13 @@ HEALTHCHECK_EXCLUDE_CHECKS=[]
 HEALTHCHECK_INCLUDE_COMPONENTS=["datastore","cache","objectstore","email","unknown"]
 HEALTHCHECK_EXCLUDE_COMPONENTS=["email"]
 HEALTHCHECK_EXPOSE_WARNING_STATUS=true
+```
+
+For a single value, the equivalent compact configuration is:
+
+```env
+HEALTHCHECK_INCLUDE_CHECKS=database
+HEALTHCHECK_EXCLUDE_COMPONENTS=email
 ```
 
 Example configuration that evaluates only database-related checks (using the check names returned by
