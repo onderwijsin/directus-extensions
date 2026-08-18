@@ -35,6 +35,15 @@ Directus uses Redis-backed data caching and synchronization, a 200 MB upload lim
 local-development CORS and CSP settings, HSTS, and `MARKETPLACE_TRUST=sandbox`. These defaults keep
 the local runtime explicit and easy to override.
 
+## Extension-wide configuration
+
+Environment settings shared by Onderwijs in extensions are validated by the global server schema in
+`@onderwijsin/directus-extension-utils`.
+
+`EXTENSIONS_RATE_LIMITER_STORE` selects the backing store used by extension-owned rate limiters. It
+accepts `memory` or `redis` and defaults to `memory`. Extensions that select `redis` use the Directus
+Redis connection configuration for their Redis-backed limiter instances.
+
 ## Environment files and defaults
 
 The local Compose stack does not require a `.env` file. Its shared Compose file provides development
