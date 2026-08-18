@@ -82,6 +82,7 @@ services:
       CACHE_AUTO_PURGE: ${CACHE_AUTO_PURGE:-true}
       SYNCHRONIZATION_STORE: ${SYNCHRONIZATION_STORE:-redis}
       SYNCHRONIZATION_NAMESPACE: ${SYNCHRONIZATION_NAMESPACE:-directus-sync}
+      EXTENSIONS_RATE_LIMITER_STORE: ${EXTENSIONS_RATE_LIMITER_STORE:-memory}
       FILES_MAX_UPLOAD_SIZE: ${FILES_MAX_UPLOAD_SIZE:-200mb}
       TUS_ENABLED: ${TUS_ENABLED:-true}
       CORS_ENABLED: ${CORS_ENABLED:-true}
@@ -178,49 +179,3 @@ configs:
       checkpoint_timeout = 10min
       checkpoint_completion_target = 0.9
       fsync = on
-      synchronous_commit = on
-      full_page_writes = on
-      log_min_duration_statement = 500
-      log_line_prefix = '%t [%p]: '
-      log_statement = 'none'
-      autovacuum = on
-      autovacuum_naptime = 60s
-      shared_preload_libraries = 'pg_stat_statements'
-      pg_stat_statements.track = all
-
-  redis-config:
-    content: |
-      maxmemory 2gb
-      maxmemory-policy allkeys-lru
-      appendonly no
-      save 900 1
-      save 300 100
-      save 60 1000
-      io-threads 2
-      io-threads-do-reads yes
-      activedefrag yes
-      lazyfree-lazy-eviction yes
-      lazyfree-lazy-expire yes
-      lazyfree-lazy-server-del yes
-      lazyfree-lazy-user-del no
-      tcp-backlog 511
-      hz 10
-
-  garage-config:
-    content: |
-      metadata_dir = "/var/lib/garage/meta"
-      data_dir = "/var/lib/garage/data"
-      db_engine = "lmdb"
-      replication_factor = 1
-      rpc_bind_addr = "[::]:3901"
-      rpc_public_addr = "${STORAGE_HOST:-garage}:3901"
-      rpc_secret = "${GARAGE_RPC_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
-
-      [s3_api]
-      s3_region = "${STORAGE_REGION:-garage}"
-      api_bind_addr = "[::]:3900"
-
-      [admin]
-      api_bind_addr = "[::]:3903"
-      admin_token = "${GARAGE_ADMIN_TOKEN:-development-garage-admin-token}"
-      metrics_token = "${GARAGE_METRICS_TOKEN:-development-garage-metrics-token}"
