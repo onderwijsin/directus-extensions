@@ -196,11 +196,19 @@ export function shouldStagePlayground(hasPackedBuild) {
  * @returns {Promise<{stdout: string, stderr: string}>} The completed command output.
  */
 async function compose(args, { logCommand = true, ...options } = {}) {
+	const envFile = resolve('.env')
+	const envFileArguments = []
+	try {
+		await access(envFile)
+		// Explicitly load the repository-root .env without changing Compose path resolution.
+		envFileArguments.push('--env-file', envFile)
+	} catch {
+		// CI can provide all required values through the process environment.
+	}
+
 	const command = [
 		'compose',
-		// Keep Compose's .env lookup rooted at the repository when multiple files are used.
-		'--project-directory',
-		'.',
+		...envFileArguments,
 		...composeFiles.flatMap((file) => ['-f', file]),
 		'-p',
 		composeProject,
