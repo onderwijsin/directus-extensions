@@ -1,12 +1,40 @@
 import { describe, expect, it } from 'vitest'
 
+import { extensionsEnvSchema } from '../src/server/schema'
 import { schemaChangeSchema } from '../src/server/schema-management/config'
 
-describe('schemaChangeSchema', () => {
+describe('extensionsEnvSchema', () => {
 	it('provides the documented defaults', () => {
+		expect(extensionsEnvSchema.parse({})).toEqual({
+			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
+			EXTENSIONS_RATE_LIMITER_STORE: 'memory',
+		})
+	})
+
+	it('accepts redis rate limiter storage', () => {
+		expect(
+			extensionsEnvSchema.safeParse({
+				EXTENSIONS_RATE_LIMITER_STORE: 'redis',
+			}).success,
+		).toBe(true)
+	})
+
+	it('rejects unsupported rate limiter storage', () => {
+		expect(
+			extensionsEnvSchema.safeParse({
+				EXTENSIONS_RATE_LIMITER_STORE: 'filesystem',
+			}).success,
+		).toBe(false)
+	})
+})
+
+describe('schemaChangeSchema', () => {
+	it('includes the shared extension defaults', () => {
 		expect(schemaChangeSchema.parse({})).toEqual({
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
 			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
+			EXTENSIONS_RATE_LIMITER_STORE: 'memory',
 		})
 	})
 
