@@ -11,6 +11,7 @@ import {
 } from '@directus/errors'
 import { attempt, uuid } from '@onderwijsin/directus-extension-utils'
 
+import { runAsMagicLinkRefresh } from '../shared/magic-link-refresh-context'
 import {
 	GENERIC_RESPONSE,
 	generateRawToken,
@@ -284,9 +285,11 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 				schema,
 				accountability: null,
 			})
-			const { id: _, ...session } = await authentication.refresh(bootstrapToken, {
-				session: payload.mode === 'session',
-			})
+			const { id: _, ...session } = await runAsMagicLinkRefresh(link.user_id, () =>
+				authentication.refresh(bootstrapToken, {
+					session: payload.mode === 'session',
+				}),
+			)
 
 			const updated = await transaction(options.MAGIC_LINKS_COLLECTION)
 				.where({ id: link.id, redeemed_at: null })

@@ -140,17 +140,19 @@ configuration.
 
 On success, the bundle validates a configured personal TFA secret, creates a short-lived bootstrap
 session, and calls Directus `AuthenticationService.refresh()` to create the normal authentication
-result before marking the link redeemed in the same transaction. Invalid, expired, already redeemed,
-inactive, unsupported-provider requests return Directus's generic credentials error. Missing or
-invalid OTP requests return Directus's `InvalidOtpError`; the transaction rolls back and leaves the
-link available for an OTP retry.
+result before marking the link redeemed in the same transaction. For users without a personal TFA
+secret, the access-token JWT preserves Directus's role-policy `enforce_tfa` claim. This mirrors
+Directus 12.2 login behavior and considers only policies attached to the user's directly assigned
+role.
 
-Known limitation: magic-link redemption does not currently preserve Directus's policy-based TFA
-setup claim. A user whose role requires TFA through `enforce_tfa`, but who has not finished setting
-up a personal TFA secret, can receive a normal authenticated session instead of the required TFA
-setup state. Users with a configured TFA secret are still required to provide a valid OTP. Track the
-investigation and proposed follow-up in
-[the GitHub issue](https://github.com/onderwijsin/directus-extensions/issues/20).
+Invalid, expired, already redeemed, inactive, unsupported-provider requests return Directus's
+generic credentials error. Missing or invalid OTP requests return Directus's `InvalidOtpError`; the
+transaction rolls back and leaves the link available for an OTP retry.
+
+Consumers should decode the access-token JWT payload client-side and route users with
+`enforce_tfa === true` into their TFA setup flow. Decoding does not require the Directus signing
+secret and is only suitable for UI/navigation state; server-side authentication and OTP validation
+remain authoritative.
 
 Invalid OTP attempts during redemption also do not inherit Directus's login-attempt limiter.
 Redemption verifies OTP directly and then calls `AuthenticationService.refresh()`, while Directus
@@ -178,8 +180,6 @@ testing delivery. Never add the raw token to logs or operational telemetry.
   retention process removes them.
 - Rotating `MAGIC_LINKS_TOKEN_SECRET` or the Directus `SECRET` fallback invalidates existing links.
 - The bundle does not replace or modify Data Studio login.
-- Policy-enforced users who have not completed personal TFA setup are not currently placed into
-  Directus's required TFA setup state when they redeem a magic link.
 - The bundle requires a trusted, non-sandboxed Directus runtime.
 - Keep the `magic_links` collection private; configure CORS and CSRF protections for the selected
   cookie or session mode.

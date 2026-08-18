@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto'
 
+import { isRecord } from '@onderwijsin/directus-extension-utils'
 import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
 	createPolicy,
@@ -144,6 +145,16 @@ const createTotp = (secret: string, timestamp = Date.now()): string => {
 		(digest[offset + 3]! & 0xff)
 
 	return String(code % 1_000_000).padStart(6, '0')
+}
+
+const decodeJwtPayload = (token: string): Record<string, unknown> => {
+	const [, encodedPayload] = token.split('.')
+	if (!encodedPayload) throw new Error('The access token is not a JWT')
+	const payload: unknown = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'))
+	if (!isRecord(payload)) {
+		throw new Error('The access token payload is not an object')
+	}
+	return payload
 }
 
 describe('magic-links redeem endpoint', () => {
@@ -325,6 +336,79 @@ describe('magic-links redeem endpoint', () => {
 				refresh_token: expect.any(String),
 			})
 		} finally {
+			if (userId) await client.request(deleteUser(userId))
+			if (roleId) await client.request(deleteRole(roleId))
+			if (policyId) await client.request(deletePolicy(policyId))
+		}
+	})
+
+	it('preserves policy-enforced TFA setup in the access token', async () => {
+		let userId: string | undefined
+		let roleId: string | undefined
+		let policyId: string | undefined
+		let linkId: string | undefined
+
+		try {
+			const policy = await client.request(
+				createPolicy({
+					name: `Magic-links setup TFA policy ${Date.now()}`,
+					enforce_tfa: true,
+					app_access: true,
+					admin_access: true,
+				}),
+			)
+			policyId = policy.id
+			const role = await client.request(
+				createRole({ name: `Magic-links setup TFA role ${Date.now()}` }),
+			)
+			roleId = role.id
+			await client.request(
+				customEndpoint({
+					path: '/access',
+					method: 'POST',
+					body: JSON.stringify([{ role: role.id, policy: policy.id }]),
+				}),
+			)
+
+			const email = `magic-links-setup-tfa-${Date.now()}@example.com`
+			const user = await client.request(
+				createUser({
+					email,
+					password: `unused-${Date.now()}`,
+					status: 'active',
+					role: role.id,
+				}),
+			)
+			userId = user.id
+			const token = `magic-links-setup-tfa-token-${Date.now()}`
+			linkId = await createMagicLink(user.id, token)
+
+			const authentication = await client.request<{ access_token: string }>(
+				customEndpoint({
+					path: '/auth/magic-links/redeem',
+					method: 'POST',
+					body: JSON.stringify({ token, mode: 'json' }),
+				}),
+			)
+
+			expect(decodeJwtPayload(authentication.access_token)).toMatchObject({
+				enforce_tfa: true,
+			})
+			await expect(
+				client.request(
+					customEndpoint({
+						path: `/items/custom_links/${linkId}?fields=redeemed_at`,
+						method: 'GET',
+					}),
+				),
+			).resolves.toMatchObject({ redeemed_at: expect.any(String) })
+		} finally {
+			if (linkId)
+				await client
+					.request(
+						customEndpoint({ path: `/items/custom_links/${linkId}`, method: 'DELETE' }),
+					)
+					.catch(() => undefined)
 			if (userId) await client.request(deleteUser(userId))
 			if (roleId) await client.request(deleteRole(roleId))
 			if (policyId) await client.request(deletePolicy(policyId))

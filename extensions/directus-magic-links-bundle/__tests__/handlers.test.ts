@@ -9,6 +9,7 @@ import {
 	sendMagicLinkEmail,
 } from '../src/magic-links-endpoint/handlers'
 import { hashToken } from '../src/magic-links-endpoint/helpers'
+import { getMagicLinkRefreshContext } from '../src/shared/magic-link-refresh-context'
 
 type QueryFake = ReturnType<typeof vi.fn> & {
 	select: ReturnType<typeof vi.fn>
@@ -260,12 +261,15 @@ describe('magic-link handlers', () => {
 		})
 		const transaction = createTransaction(linkQuery)
 		const database = createDatabase(transaction)
-		const refresh = vi.fn(() => ({
-			accessToken: 'access',
-			refreshToken: 'refresh',
-			expires: 900_000,
-			id: 'user-id',
-		}))
+		const refresh = vi.fn(() => {
+			expect(getMagicLinkRefreshContext()).toEqual({ userId: 'user-id' })
+			return {
+				accessToken: 'access',
+				refreshToken: 'refresh',
+				expires: 900_000,
+				id: 'user-id',
+			}
+		})
 
 		await expect(
 			runRedeem({
@@ -289,6 +293,7 @@ describe('magic-link handlers', () => {
 		expect(refresh).toHaveBeenCalledWith(expect.any(String), { session: true })
 		expect(linkQuery.update).toHaveBeenCalledWith({ redeemed_at: 'now' })
 		expect(linkQuery.returning).toHaveBeenCalledWith('id')
+		expect(getMagicLinkRefreshContext()).toBeUndefined()
 	})
 
 	it('forwards token mode to Directus refresh', async () => {
