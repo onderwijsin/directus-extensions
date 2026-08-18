@@ -8,11 +8,9 @@ import {
 
 import { registerMagicLinkJwt } from './auth-jwt'
 import { registerMagicLinkCleanup } from './cleanup'
+import { EXTENSION_ID, EXTENSION_NAME } from './constants'
 import { envSchema } from './env.schema'
 import { createMagicLinksSchema } from './schema'
-
-export const EXTENSION_NAME = 'magic_links'
-export const EXTENSION_ID = 'magic-links'
 
 /**
  * Registers lifecycle and scheduled-maintenance hooks for magic links.

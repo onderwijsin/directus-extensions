@@ -7,7 +7,7 @@ import {
 	getSchemaChangeStatus,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { EXTENSION_NAME, EXTENSION_ID } from '../magic-links-hook'
+import { EXTENSION_ID, EXTENSION_NAME } from '../magic-links-hook/constants'
 import { envSchema } from './env.schema'
 import {
 	parseRedeemPayload,
