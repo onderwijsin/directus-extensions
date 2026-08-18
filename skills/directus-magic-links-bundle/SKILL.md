@@ -13,7 +13,7 @@ provides public request and redemption endpoints. Scheduled cleanup is not imple
 
 Configure shared values for both entries. Schema-change and cleanup values are hook-only; token,
 redirect, and email values are endpoint-only. `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST` is required by
-the endpoint even while the runtime behavior is scaffolded.
+the endpoint.
 
 | Variable                                       | Default                    | Accepted values / purpose                          |
 | ---------------------------------------------- | -------------------------- | -------------------------------------------------- |
@@ -128,10 +128,9 @@ frontend's deployment and the selected cookie/session mode.
 ## Email template
 
 Copy `templates/magic-link.liquid` into `EMAIL_TEMPLATES_PATH` and retain the configured template
-name (`magic-link` by default). The template receives `url`, `email`, `first_name`, `last_name`,
-`expires_at`, `issued_at`, `ip`, and `user_agent`, alongside Directus project variables. Configure
-`EMAIL_FROM` and SMTP before testing delivery. Never add the raw token to logs or operational
-telemetry.
+name (`magic-link` by default). The template receives `url`, `email`, `expires_at`, `issued_at`,
+`ip`, and `user_agent`, alongside Directus project variables. Configure `EMAIL_FROM` and SMTP before
+testing delivery. Never add the raw token to logs or operational telemetry.
 
 ## Limitations and operations
 
@@ -139,3 +138,10 @@ telemetry.
 - Scheduled cleanup is planned; expired and redeemed records are retained until cleanup exists.
 - Rotating `MAGIC_LINKS_TOKEN_SECRET` or the Directus `SECRET` fallback invalidates existing links.
 - The bundle does not replace or modify Data Studio login.
+- The bundle requires a trusted, non-sandboxed Directus runtime.
+- Keep the `magic_links` collection private; configure CORS and CSRF protections for the selected
+  cookie or session mode.
+
+See
+[`Magic-link architecture and security boundaries`](../../docs/decisions/magic-links-architecture-and-security-boundaries.md)
+for the design rationale and explicit security boundaries.

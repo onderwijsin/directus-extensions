@@ -97,6 +97,12 @@ valid until expiry or redemption. Email delivery records transition from `pendin
 Copy [`templates/magic-link.liquid`](templates/magic-link.liquid) into the configured
 `EMAIL_TEMPLATES_PATH` before enabling delivery.
 
+The template receives `url`, `email`, `expires_at`, `issued_at`, `ip`, and `user_agent`, alongside
+Directus project variables. The included template renders a human-readable expiry, a clickable URL,
+and a neutral request-metadata callout. Configure `EMAIL_FROM` and SMTP through Directus; the
+optional `MAGIC_LINKS_EMAIL_REPLY_TO` and `MAGIC_LINKS_EMAIL_SENDER` values are passed to Directus's
+`MailService`.
+
 ## Redeem endpoint
 
 `POST /auth/magic-links/redeem` accepts:
@@ -135,12 +141,16 @@ The schema data is also available at:
 import schema from '@onderwijsin/directus-magic-links-bundle/schema'
 ```
 
-## Planned package surfaces
+## Runtime boundaries
 
-- API endpoint bundle entry for `/auth/magic-links`;
-- startup and scheduled-maintenance hook entry;
-- portable schema definition at `@onderwijsin/directus-magic-links/schema`;
-- consumer documentation and frontend integration skill.
+The bundle requires a trusted, non-sandboxed Directus runtime and a configured SMTP transport. It
+does not modify the Directus Data Studio authentication flow. The endpoint accepts public request
+and redeem calls, but the `magic_links` collection must remain private and must not be exposed
+through public CRUD permissions.
 
-The eventual implementation requires a trusted Directus runtime and a configured SMTP transport. It
-will not modify the Directus Data Studio authentication flow.
+Apply rate limiting to the request route at the edge or API gateway. Configure CORS for the frontend
+origin. Cookie and session modes require the deployment's normal CSRF protections because the
+browser sends the refresh or session cookie automatically.
+
+For the rationale and security boundaries behind these choices, see the repository decision record:
+[`Magic-link architecture and security boundaries`](../../docs/decisions/magic-links-architecture-and-security-boundaries.md).
