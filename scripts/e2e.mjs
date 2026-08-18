@@ -198,6 +198,9 @@ export function shouldStagePlayground(hasPackedBuild) {
 async function compose(args, { logCommand = true, ...options } = {}) {
 	const command = [
 		'compose',
+		// Keep Compose's .env lookup rooted at the repository when multiple files are used.
+		'--project-directory',
+		'.',
 		...composeFiles.flatMap((file) => ['-f', file]),
 		'-p',
 		composeProject,
