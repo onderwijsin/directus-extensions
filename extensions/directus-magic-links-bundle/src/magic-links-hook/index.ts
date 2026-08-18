@@ -9,6 +9,7 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 
 import magicLinksSchema from '../../schema/directus_magic_links.json'
+import { registerMagicLinkCleanup } from './cleanup'
 import { envSchema } from './env.schema'
 
 const EXTENSION_NAME = 'magic_links'
@@ -21,7 +22,7 @@ const EXTENSION_NAME = 'magic_links'
  * @returns void
  */
 export default defineHook((hook, context) => {
-	const { action } = hook
+	const { action, schedule } = hook
 	const { env, logger } = context
 	const setup = extensionSetup(EXTENSION_NAME, env, logger)
 	setup.start()
@@ -55,6 +56,15 @@ export default defineHook((hook, context) => {
 			disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
 		},
 	)
+
+	registerMagicLinkCleanup(schedule, {
+		database: context.database,
+		collection: options.MAGIC_LINKS_COLLECTION,
+		retentionWindow: options.MAGIC_LINK_CLEANUP_WINDOW,
+		cron: options.MAGIC_LINK_CLEANUP_CRON,
+		enabled: options.USE_MAGIC_LINK_CLEANUP,
+		logger,
+	})
 
 	setup.end()
 })

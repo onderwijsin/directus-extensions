@@ -7,7 +7,7 @@ description: Set up and operate the Directus magic-links authentication bundle.
 
 This skill is the operator-facing setup reference. The bundle validates its shared and
 entrypoint-specific environment configuration, ensures its portable schema at Directus startup, and
-provides public request and redemption endpoints. Scheduled cleanup is not implemented yet.
+provides public request and redemption endpoints, plus optional scheduled cleanup for old records.
 
 ## Configuration
 
@@ -42,6 +42,9 @@ Example Directus environment:
 MAGIC_LINKS_ENABLED=true
 MAGIC_LINKS_REDIRECT_URL_ALLOWLIST=array:https://app.example.com/auth/magic-link
 MAGIC_LINKS_TOKEN_TTL=15m
+USE_MAGIC_LINK_CLEANUP=true
+MAGIC_LINK_CLEANUP_WINDOW=7d
+MAGIC_LINK_CLEANUP_CRON=0 * * * *
 ```
 
 The extension also requires Directus SMTP configuration: `EMAIL_TRANSPORT=smtp`, `EMAIL_SMTP_HOST`,
@@ -58,6 +61,20 @@ hook setup.
 
 The related user's current `email` is the authoritative delivery address. The magic-links table does
 not duplicate an email snapshot.
+
+## Scheduled cleanup
+
+Set `USE_MAGIC_LINK_CLEANUP=true` to enable the hook schedule. Every run deletes records when either
+`expires_at` or `redeemed_at` is older than `MAGIC_LINK_CLEANUP_WINDOW` (24 hours by default). For
+example, a link expiring at 10:00 with a `24h` window becomes eligible after 10:00 the next day;
+pending, unexpired links are not deleted.
+
+The schedule is registered only when both `MAGIC_LINKS_ENABLED` and `USE_MAGIC_LINK_CLEANUP` are
+enabled. The delete runs in a database transaction and logs the number of removed records. Cleanup
+failures are logged and do not interrupt the Directus process or authentication endpoints. In a
+multi-instance deployment, each Directus process may run the schedule; concurrent runs are safe and
+idempotent, but coordinate scheduling externally if duplicate executions are undesirable. Keep this
+disabled if retention is managed outside the bundle.
 
 The portable schema data is exported as `@onderwijsin/directus-magic-links-bundle/schema` for manual
 inspection or application when automated schema changes are disabled.
@@ -135,7 +152,8 @@ testing delivery. Never add the raw token to logs or operational telemetry.
 ## Limitations and operations
 
 - Rate limiting is a deployment responsibility and should be applied to the public request route.
-- Scheduled cleanup is planned; expired and redeemed records are retained until cleanup exists.
+- Scheduled cleanup is opt-in; when disabled, expired and redeemed records remain until an external
+  retention process removes them.
 - Rotating `MAGIC_LINKS_TOKEN_SECRET` or the Directus `SECRET` fallback invalidates existing links.
 - The bundle does not replace or modify Data Studio login.
 - The bundle requires a trusted, non-sandboxed Directus runtime.

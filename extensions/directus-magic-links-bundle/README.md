@@ -2,7 +2,8 @@
 
 Passwordless magic-link authentication for Directus frontend clients.
 
-The request and redemption endpoints are implemented. Scheduled cleanup remains planned work.
+The request and redemption endpoints are implemented. Optional scheduled cleanup removes old expired
+and redeemed records.
 
 ## Installation
 
@@ -49,6 +50,9 @@ Example:
 MAGIC_LINKS_ENABLED=true
 MAGIC_LINKS_REDIRECT_URL_ALLOWLIST=array:https://app.example.com/auth/magic-link
 MAGIC_LINKS_TOKEN_TTL=15m
+USE_MAGIC_LINK_CLEANUP=true
+MAGIC_LINK_CLEANUP_WINDOW=7d
+MAGIC_LINK_CLEANUP_CRON=0 * * * *
 ```
 
 `EMAIL_TRANSPORT=smtp`, `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USER`,
@@ -64,6 +68,21 @@ globally, or `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bun
 
 The magic-link record stores a required relation to `directus_users`; the related user's current
 `email` is used for delivery and is not duplicated in the magic-links table.
+
+## Scheduled cleanup
+
+Set `USE_MAGIC_LINK_CLEANUP=true` to register the configured Directus schedule. Each run deletes
+records whose `expires_at` or `redeemed_at` is older than `MAGIC_LINK_CLEANUP_WINDOW`; the default
+retention window is 24 hours. For example, with `MAGIC_LINK_CLEANUP_WINDOW=24h`, a link that expired
+at 10:00 is eligible for deletion after 10:00 the following day. A link is also eligible after its
+`redeemed_at` timestamp has passed the same window. Pending, unexpired links are not deleted.
+
+The schedule is registered by the hook entry only when `MAGIC_LINKS_ENABLED` and
+`USE_MAGIC_LINK_CLEANUP` are both enabled. Cleanup runs in a database transaction and logs its
+deleted count or failure without affecting request or redemption endpoints. In a multi-instance
+deployment, each Directus process may run the schedule; concurrent cleanup runs are safe and
+idempotent, but operators should coordinate scheduling if duplicate executions are undesirable.
+Leave the feature disabled when another system owns retention for the `magic_links` collection.
 
 ## Request endpoint
 

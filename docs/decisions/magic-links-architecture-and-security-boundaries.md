@@ -22,7 +22,7 @@ configuration.
 
 The published package is a Directus bundle containing an endpoint entry for
 `POST /auth/magic-links/request` and `POST /auth/magic-links/redeem`, and a hook entry that applies
-the portable `magic_links` schema and owns the planned cleanup job.
+the portable `magic_links` schema and owns the optional cleanup job.
 
 Endpoint registration stays thin. Boundary parsing, token operations, email delivery, redemption,
 and session response mapping live in separately testable functions. Zod validates endpoint payloads
@@ -124,9 +124,10 @@ auditing delivery state without storing bearer credentials. It adds transaction 
 requirements, requires careful deployment configuration for SMTP, CORS, rate limiting, and CSRF, and
 makes secret rotation invalidate outstanding links by design.
 
-Expired and redeemed records remain until the scheduled cleanup feature is implemented. Consumers
-must copy and configure the Liquid template and must treat the request response as intentionally
-non-authoritative about account existence.
+Cleanup is opt-in and removes expired or redeemed records after the configured retention window.
+When disabled, consumers must provide their own retention process if records should not remain
+indefinitely. Consumers must copy and configure the Liquid template and must treat the request
+response as intentionally non-authoritative about account existence.
 
 ## Reconsideration criteria
 

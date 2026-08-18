@@ -71,6 +71,9 @@ services:
       MEILISEARCH_HOST_URL: http://meilisearch:7700
       MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
       SENTRY_ENABLED: ${SENTRY_ENABLED:-false}
+      USE_MAGIC_LINK_CLEANUP: 'true'
+      MAGIC_LINK_CLEANUP_WINDOW: 1ms
+      MAGIC_LINK_CLEANUP_CRON: '* * * * * *'
     healthcheck:
       test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:8055/server/ping']
       interval: 5s

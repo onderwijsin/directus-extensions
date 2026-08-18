@@ -68,6 +68,15 @@ describe('magic-links environment schemas', () => {
 		expect(result.success).toBe(true)
 	})
 
+	it('rejects invalid cleanup windows and cron expressions', () => {
+		expect(hookEnvSchema.safeParse({ MAGIC_LINK_CLEANUP_WINDOW: 'forever' }).success).toBe(
+			false,
+		)
+		expect(hookEnvSchema.safeParse({ MAGIC_LINK_CLEANUP_CRON: 'not-a-cron' }).success).toBe(
+			false,
+		)
+	})
+
 	it('rejects malicious or unsafe redirect allowlists', () => {
 		expect(
 			endpointEnvSchema.safeParse({
