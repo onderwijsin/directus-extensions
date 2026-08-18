@@ -1,7 +1,14 @@
-import type { ApiExtensionContext } from '@directus/types'
+import type { ApiExtensionContext, PrimaryKey } from '@directus/types'
 import type { MagicLinksEnv } from './env.schema'
 
-import { createError, InvalidCredentialsError, InvalidPayloadError } from '@directus/errors'
+import { randomBytes } from 'node:crypto'
+
+import {
+	createError,
+	InvalidCredentialsError,
+	InvalidOtpError,
+	InvalidPayloadError,
+} from '@directus/errors'
 import { attempt, uuid } from '@onderwijsin/directus-extension-utils'
 
 import {
@@ -36,6 +43,9 @@ interface RedeemHandlerInput {
 	options: MagicLinksEnv
 	secret: string
 	payload: RedeemPayload
+	ip?: string | null
+	userAgent?: string | null
+	origin?: string | null
 }
 
 interface MagicLinkEmailInput {
@@ -52,6 +62,15 @@ interface MagicLinkEmailInput {
 	userAgent: string | null
 }
 
+interface RedeemableMagicLink {
+	id: string
+	user_id: PrimaryKey
+	user_email: string
+	user_status: string | null
+	user_provider: string | null
+	user_tfa_secret: string | null
+}
+
 /**
  * Re-throws an attempted operation error while preserving a safe fallback.
  * @param error - Captured operation error.
@@ -61,6 +80,8 @@ const throwAttemptError = (error: unknown): never => {
 	if (error instanceof Error) throw error
 	throw new Error('Magic-link operation failed')
 }
+
+const BOOTSTRAP_SESSION_TTL_MS = 5 * 60 * 1000
 
 export const SchemaLockedError = createError(
 	'ONGOING_SCHEMA_CHANGES',
@@ -115,7 +136,7 @@ export async function requestMagicLink(input: RequestHandlerInput) {
 			const record = await transaction('directus_users')
 				.select('id', 'email')
 				.where({ email, status: 'active', provider: DEFAULT_AUTH_PROVIDER })
-				.first()
+				.first<{ id: string; email: string }>()
 			if (!record) return null
 
 			const [inserted] = await transaction(options.MAGIC_LINKS_COLLECTION)
@@ -217,34 +238,58 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 			const link = await transaction(`${options.MAGIC_LINKS_COLLECTION} as magic_links`)
 				.select(
 					'magic_links.id',
+					'users.id as user_id',
 					'users.email as user_email',
 					'users.status as user_status',
 					'users.provider as user_provider',
+					'users.tfa_secret as user_tfa_secret',
 				)
 				.join('directus_users as users', 'users.id', 'magic_links.user')
 				.where({ token_hash: digest })
 				.whereNull('magic_links.redeemed_at')
 				.where('magic_links.expires_at', '>', transaction.fn.now())
 				.forUpdate()
-				.first()
+				.first<RedeemableMagicLink>()
+
+			console.log({ link })
 
 			if (link?.user_status !== 'active' || link?.user_provider !== DEFAULT_AUTH_PROVIDER) {
 				throw new InvalidCredentialsError()
 			}
+
+			if (link.user_tfa_secret !== null) {
+				if (!payload.otp) throw new InvalidOtpError()
+
+				const tfaService = new services.TFAService({
+					knex: transaction,
+					schema,
+				})
+				const otpValid = await tfaService.verifyOTP(
+					link.user_id,
+					payload.otp,
+					link.user_tfa_secret,
+				)
+				if (!otpValid) throw new InvalidOtpError()
+			}
+
+			const bootstrapToken = randomBytes(32).toString('hex')
+			await transaction('directus_sessions').insert({
+				token: bootstrapToken,
+				user: link.user_id,
+				expires: new Date(Date.now() + BOOTSTRAP_SESSION_TTL_MS),
+				ip: input.ip ?? null,
+				user_agent: input.userAgent ?? null,
+				origin: input.origin ?? null,
+			})
 
 			const authentication = new services.AuthenticationService({
 				knex: transaction,
 				schema,
 				accountability: null,
 			})
-			const session = await authentication.login(
-				DEFAULT_AUTH_PROVIDER,
-				{ email: link.user_email },
-				{
-					...(payload.otp ? { otp: payload.otp } : {}),
-					session: payload.mode === 'session',
-				},
-			)
+			const { id: _, ...session } = await authentication.refresh(bootstrapToken, {
+				session: payload.mode === 'session',
+			})
 
 			const updated = await transaction(options.MAGIC_LINKS_COLLECTION)
 				.where({ id: link.id, redeemed_at: null })

@@ -92,6 +92,9 @@ export default defineEndpoint({
 					options,
 					secret,
 					payload,
+					ip: request.ip ?? null,
+					userAgent: request.get('user-agent') ?? null,
+					origin: request.get('origin') ?? null,
 				})
 				if (!result) throw new InvalidCredentialsError()
 				sendAuthenticationResponse(response, env, payload, result)

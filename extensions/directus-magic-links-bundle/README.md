@@ -148,11 +148,12 @@ access token and sets the refresh token in an HttpOnly cookie, and `session` set
 session token in an HttpOnly cookie. Cookie names, TTLs, domain, `Secure`, and `SameSite` settings
 come from Directus's `REFRESH_TOKEN_COOKIE_*` and `SESSION_COOKIE_*` environment options.
 
-Successful redemption authenticates through Directus's `AuthenticationService`, returns its normal
-authentication result, and marks the link redeemed in the same transaction. Invalid, expired,
-already redeemed, inactive, and unsupported-provider links return Directus's generic credentials
-error. Authentication failures, including TFA failures, leave the link unredeemed; Directus's
-standard TFA error is passed through unchanged.
+Successful redemption validates TFA when enabled, bootstraps a short-lived Directus session, and
+uses `AuthenticationService.refresh()` to issue Directus's normal authentication result before
+marking the link redeemed in the same transaction. Invalid, expired, already redeemed, inactive,
+unsupported-provider, missing-OTP, and invalid-OTP requests return Directus's `InvalidOtpError` or
+generic credentials error as appropriate. OTP failures roll back the transaction, so the link can be
+retried with another OTP; other failed authentication leaves the link unredeemed as well.
 
 Clients should remove the token from the browser URL immediately after reading it, avoid analytics
 and application logs containing the token, and follow Directus's normal rules for storing returned

@@ -136,10 +136,12 @@ session token in an HttpOnly cookie and returns the expiry metadata. Cookie name
 `Secure`, and `SameSite` settings use Directus's `REFRESH_TOKEN_COOKIE_*` and `SESSION_COOKIE_*`
 configuration.
 
-On success, Directus `AuthenticationService` creates the normal authentication result and the link
-is marked redeemed in the same transaction. Invalid, expired, already redeemed, inactive, or
-unsupported-provider tokens return Directus's generic credentials error. Directus's standard TFA
-error is propagated unchanged and the link remains available for an OTP retry.
+On success, the bundle validates TFA when enabled, creates a short-lived bootstrap session, and
+calls Directus `AuthenticationService.refresh()` to create the normal authentication result before
+marking the link redeemed in the same transaction. Invalid, expired, already redeemed, inactive,
+unsupported-provider requests return Directus's generic credentials error. Missing or invalid OTP
+requests return Directus's `InvalidOtpError`; the transaction rolls back and leaves the link
+available for an OTP retry.
 
 The endpoint accepts public requests, but the `magic_links` collection remains private. Do not grant
 public CRUD permissions to that collection. Configure CORS and CSRF protections according to the

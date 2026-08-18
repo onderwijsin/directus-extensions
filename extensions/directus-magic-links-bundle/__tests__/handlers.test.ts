@@ -249,16 +249,18 @@ describe('magic-link handlers', () => {
 		})
 	})
 
-	it('locks, authenticates, and consumes a token exactly once', async () => {
+	it('locks, refreshes through Directus, and consumes a token exactly once', async () => {
 		const linkQuery = createQuery({
 			id: 'link-id',
+			user_id: 'user-id',
 			user_email: 'user@example.com',
 			user_status: 'active',
 			user_provider: 'default',
+			user_tfa_secret: null,
 		})
 		const transaction = createTransaction(linkQuery)
 		const database = createDatabase(transaction)
-		const login = vi.fn(() => ({
+		const refresh = vi.fn(() => ({
 			accessToken: 'access',
 			refreshToken: 'refresh',
 			expires: 900_000,
@@ -271,7 +273,7 @@ describe('magic-link handlers', () => {
 				getSchema,
 				services: {
 					AuthenticationService: vi.fn(function () {
-						return { login }
+						return { refresh }
 					}),
 				},
 				options,
@@ -281,25 +283,51 @@ describe('magic-link handlers', () => {
 		).resolves.toMatchObject({ accessToken: 'access' })
 
 		expect(linkQuery.forUpdate).toHaveBeenCalledOnce()
-		expect(login).toHaveBeenCalledWith(
-			'default',
-			{ email: 'user@example.com' },
-			{ otp: '123456', session: true },
+		expect(linkQuery.insert).toHaveBeenCalledWith(
+			expect.objectContaining({ user: 'user-id', token: expect.any(String) }),
 		)
+		expect(refresh).toHaveBeenCalledWith(expect.any(String), { session: true })
 		expect(linkQuery.update).toHaveBeenCalledWith({ redeemed_at: 'now' })
 		expect(linkQuery.returning).toHaveBeenCalledWith('id')
+	})
+
+	it('forwards token mode to Directus refresh', async () => {
+		const linkQuery = createQuery({
+			id: 'link-id',
+			user_id: 'user-id',
+			user_status: 'active',
+			user_provider: 'default',
+			user_tfa_secret: null,
+		})
+		const refresh = vi.fn(() => ({ accessToken: 'access' }))
+
+		await runRedeem({
+			database: createDatabase(createTransaction(linkQuery)),
+			getSchema,
+			services: {
+				AuthenticationService: vi.fn(function () {
+					return { refresh }
+				}),
+			},
+			options,
+			secret: 'secret',
+			payload: { token: 'raw-token', mode: 'json' },
+		})
+
+		expect(refresh).toHaveBeenCalledWith(expect.any(String), { session: false })
 	})
 
 	it('does not consume a token when OTP or authentication fails', async () => {
 		const linkQuery = createQuery({
 			id: 'link-id',
-			user_email: 'user@example.com',
+			user_id: 'user-id',
 			user_status: 'active',
 			user_provider: 'default',
+			user_tfa_secret: null,
 		})
 		const transaction = createTransaction(linkQuery)
 		const database = createDatabase(transaction)
-		const login = vi.fn(() => {
+		const refresh = vi.fn(() => {
 			throw new InvalidCredentialsError()
 		})
 
@@ -309,7 +337,7 @@ describe('magic-link handlers', () => {
 				getSchema,
 				services: {
 					AuthenticationService: vi.fn(function () {
-						return { login }
+						return { refresh }
 					}),
 				},
 				options,
@@ -317,42 +345,116 @@ describe('magic-link handlers', () => {
 				payload: { token: 'raw-token', otp: 'wrong', mode: 'json' },
 			}),
 		).rejects.toBeInstanceOf(InvalidCredentialsError)
+		expect(linkQuery.insert).toHaveBeenCalledOnce()
 		expect(linkQuery.update).not.toHaveBeenCalled()
 	})
 
-	it('passes Directus OTP errors through without translating them', async () => {
+	it('requires and verifies OTP before creating a bootstrap session', async () => {
 		const linkQuery = createQuery({
 			id: 'link-id',
-			user_email: 'user@example.com',
+			user_id: 'user-id',
 			user_status: 'active',
 			user_provider: 'default',
+			user_tfa_secret: 'tfa-secret',
 		})
-		const transaction = createTransaction(linkQuery)
-		const database = createDatabase(transaction)
-		const otpError = new InvalidOtpError()
+		const verifyOTP = vi.fn(() => false)
+		const refresh = vi.fn(() => ({ accessToken: 'access' }))
+		const services = {
+			TFAService: vi.fn(function () {
+				return { verifyOTP }
+			}),
+			AuthenticationService: vi.fn(function () {
+				return { refresh }
+			}),
+		}
 
 		await expect(
 			runRedeem({
-				database,
+				database: createDatabase(createTransaction(linkQuery)),
+				getSchema,
+				services,
+				options,
+				secret: 'secret',
+				payload: { token: 'raw-token', otp: 'wrong', mode: 'json' },
+			}),
+		).rejects.toBeInstanceOf(InvalidOtpError)
+
+		expect(verifyOTP).toHaveBeenCalledWith('user-id', 'wrong', 'tfa-secret')
+		expect(linkQuery.insert).not.toHaveBeenCalled()
+		expect(refresh).not.toHaveBeenCalled()
+
+		verifyOTP.mockReturnValue(true)
+		await expect(
+			runRedeem({
+				database: createDatabase(createTransaction(linkQuery)),
+				getSchema,
+				services,
+				options,
+				secret: 'secret',
+				payload: { token: 'raw-token', otp: 'correct', mode: 'json' },
+			}),
+		).resolves.toMatchObject({ accessToken: 'access' })
+		expect(linkQuery.update).toHaveBeenCalledWith({ redeemed_at: 'now' })
+	})
+
+	it('rejects a TFA-enabled user without an OTP before creating a session', async () => {
+		const linkQuery = createQuery({
+			id: 'link-id',
+			user_id: 'user-id',
+			user_status: 'active',
+			user_provider: 'default',
+			user_tfa_secret: 'tfa-secret',
+		})
+
+		await expect(
+			runRedeem({
+				database: createDatabase(createTransaction(linkQuery)),
 				getSchema,
 				services: {
-					AuthenticationService: vi.fn(function () {
-						return {
-							login: vi.fn(() => {
-								throw otpError
-							}),
-						}
-					}),
+					TFAService: vi.fn(),
+					AuthenticationService: vi.fn(),
 				},
 				options,
 				secret: 'secret',
 				payload: { token: 'raw-token', mode: 'json' },
 			}),
-		).rejects.toBe(otpError)
-		expect(linkQuery.update).not.toHaveBeenCalled()
+		).rejects.toBeInstanceOf(InvalidOtpError)
+
+		expect(linkQuery.insert).not.toHaveBeenCalled()
 	})
 
-	it('rejects missing, expired, inactive, or already redeemed links before login', async () => {
+	it('redeems a TFA-enabled link after valid OTP verification', async () => {
+		const linkQuery = createQuery({
+			id: 'link-id',
+			user_id: 'user-id',
+			user_status: 'active',
+			user_provider: 'default',
+			user_tfa_secret: 'tfa-secret',
+		})
+		const verifyOTP = vi.fn(() => true)
+		const refresh = vi.fn(() => ({ accessToken: 'access' }))
+
+		await runRedeem({
+			database: createDatabase(createTransaction(linkQuery)),
+			getSchema,
+			services: {
+				TFAService: vi.fn(function () {
+					return { verifyOTP }
+				}),
+				AuthenticationService: vi.fn(function () {
+					return { refresh }
+				}),
+			},
+			options,
+			secret: 'secret',
+			payload: { token: 'raw-token', otp: '123456', mode: 'json' },
+		})
+
+		expect(linkQuery.insert).toHaveBeenCalledOnce()
+		expect(refresh).toHaveBeenCalledOnce()
+	})
+
+	it('rejects missing, expired, inactive, or already redeemed links before refresh', async () => {
 		for (const link of [
 			undefined,
 			{
@@ -370,7 +472,7 @@ describe('magic-link handlers', () => {
 		]) {
 			const linkQuery = createQuery(link)
 			const transaction = createTransaction(linkQuery)
-			const login = vi.fn()
+			const refresh = vi.fn()
 
 			await expect(
 				runRedeem({
@@ -378,7 +480,7 @@ describe('magic-link handlers', () => {
 					getSchema,
 					services: {
 						AuthenticationService: vi.fn(function () {
-							return { login }
+							return { refresh }
 						}),
 					},
 					options,
@@ -386,7 +488,7 @@ describe('magic-link handlers', () => {
 					payload: { token: 'raw-token', mode: 'json' },
 				}),
 			).rejects.toBeInstanceOf(InvalidCredentialsError)
-			expect(login).not.toHaveBeenCalled()
+			expect(refresh).not.toHaveBeenCalled()
 			expect(linkQuery.update).not.toHaveBeenCalled()
 		}
 	})
@@ -394,13 +496,14 @@ describe('magic-link handlers', () => {
 	it('rejects a redemption when the conditional consume update loses a race', async () => {
 		const linkQuery = createQuery({
 			id: 'link-id',
-			user_email: 'user@example.com',
+			user_id: 'user-id',
 			user_status: 'active',
 			user_provider: 'default',
+			user_tfa_secret: null,
 		})
 		linkQuery.returning.mockReturnValue([])
 		const transaction = createTransaction(linkQuery)
-		const login = vi.fn(() => ({ accessToken: 'access' }))
+		const refresh = vi.fn(() => ({ accessToken: 'access' }))
 
 		await expect(
 			runRedeem({
@@ -408,7 +511,7 @@ describe('magic-link handlers', () => {
 				getSchema,
 				services: {
 					AuthenticationService: vi.fn(function () {
-						return { login }
+						return { refresh }
 					}),
 				},
 				options,
