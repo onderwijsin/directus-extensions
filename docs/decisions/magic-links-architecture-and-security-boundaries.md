@@ -77,11 +77,23 @@ using the current transaction and schema. Missing or invalid OTPs throw Directus
 `InvalidOtpError`, allowing clients to show OTP UI. Because this error is thrown inside the
 transaction, no bootstrap session is created and the magic link remains reusable.
 
-Known limitation: when `tfa_secret` is absent, the bootstrap-session-plus-refresh path does not
-currently preserve Directus's `enforce_tfa` JWT claim for users whose role requires TFA. Such a user
-may receive a normal authenticated session instead of Directus's required TFA setup state. This is
-tracked as a security follow-up; the intended fix is to preserve the claim through a supported
-Directus authentication hook or equivalent supported authentication path.
+When `tfa_secret` is absent, the bundle's `auth.jwt` filter preserves Directus's `enforce_tfa` JWT
+claim for users whose directly assigned role has a policy with `enforce_tfa = true`. The filter
+deliberately mirrors Directus 12.2's login behavior rather than the broader effective-policy
+resolver: direct-user policies, inherited parent-role policies, and `ip_access` are not expanded
+here unless Directus's native login behavior changes. Consumers may decode the access-token payload
+for UI routing into TFA setup, but server-side authentication and OTP validation remain
+authoritative.
+
+The filter is only evaluated for refreshes initiated by this bundle's magic-link redemption flow.
+The redemption wraps its `AuthenticationService.refresh()` call in a Node `AsyncLocalStorage`
+context containing the linked user ID. The `auth.jwt` filter reads that context and requires the
+context user ID to match Directus's `meta.user` before querying policy data. Ordinary login and
+refresh events therefore return immediately without a database lookup. The context is async-local,
+not process-global, so concurrent magic-link redemptions—including concurrent redemptions for the
+same user—remain isolated. If Directus changes its hook execution model or the extension moves to a
+runtime without Node async context support, this optimization must be revisited; the JWT claim
+preservation itself remains the security contract.
 
 Once link and TFA validation succeed, the extension generates a cryptographically secure,
 short-lived bootstrap token and inserts a temporary `directus_sessions` row associated with the

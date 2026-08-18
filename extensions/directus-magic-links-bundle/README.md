@@ -152,18 +152,20 @@ come from Directus's `REFRESH_TOKEN_COOKIE_*` and `SESSION_COOKIE_*` environment
 
 Successful redemption validates a configured personal TFA secret, bootstraps a short-lived Directus
 session, and uses `AuthenticationService.refresh()` to issue Directus's normal authentication result
-before marking the link redeemed in the same transaction. Invalid, expired, already redeemed,
-inactive, unsupported-provider, missing-OTP, and invalid-OTP requests return Directus's
-`InvalidOtpError` or generic credentials error as appropriate. OTP failures roll back the
-transaction, so the link can be retried with another OTP; other failed authentication leaves the
-link unredeemed as well.
+before marking the link redeemed in the same transaction. For users without a personal TFA secret,
+the access-token JWT preserves Directus's role-policy `enforce_tfa` claim, so consumers can route
+the user into their TFA setup flow. This matches Directus 12.2 login behavior: only policies
+attached to the user's directly assigned role are considered for this claim.
 
-Known limitation: magic-link redemption does not currently preserve Directus's policy-based TFA
-setup claim. A user whose role requires TFA through `enforce_tfa`, but who has not finished setting
-up a personal TFA secret, can therefore receive a normal authenticated session instead of the
-required TFA setup state. Users with a configured TFA secret are still required to provide a valid
-OTP. See the open issue for the investigation and proposed follow-up:
-[policy-based TFA can be bypassed during magic-link redemption](https://github.com/onderwijsin/directus-extensions/issues/20).
+Invalid, expired, already redeemed, inactive, unsupported-provider, missing-OTP, and invalid-OTP
+requests return Directus's `InvalidOtpError` or generic credentials error as appropriate. OTP
+failures roll back the transaction, so the link can be retried with another OTP; other failed
+authentication leaves the link unredeemed as well.
+
+When `enforce_tfa` is `true`, decode the access-token JWT payload client-side and route the
+authenticated user into the application's TFA setup flow. JWT decoding is only a UI/navigation hint;
+the server remains authoritative for authentication and OTP validation. The JWT can be decoded
+without the Directus signing secret, but must not be treated as trusted input for authorization.
 
 Known limitation: invalid OTP attempts during magic-link redemption do not inherit Directus's normal
 login-attempt limiter. Redemption verifies the OTP directly and then calls

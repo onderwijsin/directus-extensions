@@ -105,8 +105,8 @@ reporting, application logs, or third-party URLs.
 
 ## TFA and errors
 
-The flow does not bypass TFA. When TFA is enabled, a missing or incorrect OTP returns HTTP `401`
-with Directus's standard error shape:
+The flow does not bypass TFA. Users with a configured personal TFA secret must provide an OTP; a
+missing or incorrect OTP returns HTTP `401` with Directus's standard error shape:
 
 ```json
 {
@@ -121,6 +121,12 @@ with Directus's standard error shape:
 
 On `INVALID_OTP`, keep the token, prompt for the OTP, and retry the same redeem request with `otp`.
 A failed OTP attempt does not redeem the link.
+
+Users whose directly assigned role has a policy with `enforce_tfa: true` and who have not configured
+a personal TFA secret receive `enforce_tfa: true` in the access-token JWT. Decode that JWT payload
+client-side and route the authenticated user into the application's TFA setup flow. This is only a
+UI/navigation signal: do not use decoded claims for authorization, and keep server-side OTP
+validation authoritative. The payload can be decoded without the Directus signing secret.
 
 Invalid OTP attempts are not covered by Directus's normal login-attempt limiter because this flow
 verifies OTP directly before calling `AuthenticationService.refresh()`. Until the extension gains a
