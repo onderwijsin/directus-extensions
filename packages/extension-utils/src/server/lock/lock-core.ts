@@ -31,6 +31,8 @@ export interface LockLease {
 export interface LockProvider {
 	/** Acquires a lock or returns `null` when another owner holds it. */
 	tryAcquire(name: string, options?: LockAcquireOptions): Promise<LockLease | null>
+	/** Checks whether a lock is currently held without acquiring or modifying it. */
+	isLocked(name: string): Promise<boolean>
 }
 
 /** Default lease lifetime for memory and filesystem providers. */

@@ -50,11 +50,11 @@ describe('createAutoTaskHandler', () => {
 		await vi.advanceTimersByTimeAsync(1)
 
 		expect(task).toHaveBeenCalledOnce()
-		expect(logger.info).toHaveBeenNthCalledWith(1, '📅 Auto task scheduled: items')
-		expect(logger.info).toHaveBeenNthCalledWith(2, '📅 Auto task scheduled: items')
-		expect(logger.info).toHaveBeenNthCalledWith(3, '📅 Auto task scheduled: items')
-		expect(logger.info).toHaveBeenNthCalledWith(4, '▶️ Running auto task: items')
-		expect(logger.info).toHaveBeenNthCalledWith(5, '✅ Completed auto task: items')
+		expect(logger.info).toHaveBeenNthCalledWith(1, { msg: '📅 Auto task scheduled: items' })
+		expect(logger.info).toHaveBeenNthCalledWith(2, { msg: '📅 Auto task scheduled: items' })
+		expect(logger.info).toHaveBeenNthCalledWith(3, { msg: '📅 Auto task scheduled: items' })
+		expect(logger.info).toHaveBeenNthCalledWith(4, { msg: '▶️ Running auto task: items' })
+		expect(logger.info).toHaveBeenNthCalledWith(5, { msg: '✅ Completed auto task: items' })
 		handler.dispose()
 	})
 
@@ -190,6 +190,7 @@ describe('createAutoTaskHandler', () => {
 		}
 		const lockProvider: LockProvider = {
 			tryAcquire: vi.fn().mockResolvedValue(lease),
+			isLocked: vi.fn().mockResolvedValue(false),
 		}
 		const handler = createAutoTaskHandler({
 			taskId: 'items',
@@ -238,6 +239,7 @@ describe('createAutoTaskHandler', () => {
 						renew: vi.fn().mockResolvedValue(false),
 						release: vi.fn().mockResolvedValue(false),
 					}),
+					isLocked: vi.fn().mockResolvedValue(false),
 				},
 				markerStore,
 			),
@@ -275,7 +277,10 @@ describe('createAutoTaskHandler', () => {
 			task: () => {
 				throw taskFailure
 			},
-			storage: createTestStorage({ tryAcquire: vi.fn().mockResolvedValue(lease) }),
+			storage: createTestStorage({
+				tryAcquire: vi.fn().mockResolvedValue(lease),
+				isLocked: vi.fn().mockResolvedValue(false),
+			}),
 			debounceMs: 10,
 			logger,
 			onError,
@@ -284,7 +289,8 @@ describe('createAutoTaskHandler', () => {
 		await expect(handler()).resolves.toBeUndefined()
 		await vi.advanceTimersByTimeAsync(10)
 		expect(onError).toHaveBeenCalledWith(taskFailure)
-		expect(logger.error).toHaveBeenCalledWith('❌ Auto task failed', {
+		expect(logger.error).toHaveBeenCalledWith({
+			msg: '❌ Auto task failed',
 			cause: 'task failed',
 		})
 		expect(onError).toHaveBeenCalledWith(releaseFailure)
@@ -303,6 +309,7 @@ describe('createAutoTaskHandler', () => {
 		const tryAcquire = vi.fn().mockRejectedValue(lockFailure)
 		const lockProvider: LockProvider = {
 			tryAcquire,
+			isLocked: vi.fn().mockResolvedValue(false),
 		}
 		const handler = createAutoTaskHandler({
 			taskId: 'items',
@@ -335,7 +342,10 @@ describe('createAutoTaskHandler', () => {
 				new Promise<void>((resolve) => {
 					finishRenew = resolve
 				}),
-			storage: createTestStorage({ tryAcquire: vi.fn().mockResolvedValue(lease) }),
+			storage: createTestStorage({
+				tryAcquire: vi.fn().mockResolvedValue(lease),
+				isLocked: vi.fn().mockResolvedValue(false),
+			}),
 			debounceMs: 10,
 			taskLeaseMs: 100,
 			renewalIntervalMs: 20,

@@ -262,6 +262,25 @@ const acquireFsLock = async (
 }
 
 /**
+ * Checks whether a filesystem lock has a current, matching owner record.
+ * @param dependencies - Filesystem lock dependencies.
+ * @param name - Logical lock name.
+ * @returns Whether the lock is currently held.
+ */
+const isFsLockHeld = async (dependencies: FsLockDependencies, name: string): Promise<boolean> => {
+	const normalizedName = validateLockName(name)
+	const lockPath = join(dependencies.directory, `${encodedComponent(normalizedName)}.lock`)
+	const token = await readClaimToken(lockPath)
+	if (!token) return false
+	const ownerPath = join(
+		dependencies.directory,
+		`${encodedComponent(normalizedName)}.${encodedComponent(token)}.owner`,
+	)
+	const owner = await readOwnerRecord(ownerPath)
+	return owner?.token === token && owner.expiresAt > dependencies.now()
+}
+
+/**
  * Creates a filesystem lock provider for processes sharing an explicit directory.
  *
  * Filesystem locks only coordinate processes that can access the same directory and must not be
@@ -282,5 +301,11 @@ export function createFsLockProvider(options: FsLockProviderOptions): LockProvid
 		 */
 		tryAcquire: (name, acquireOptions = {}) =>
 			acquireFsLock(dependencies, name, acquireOptions),
+		/**
+		 * Checks whether a filesystem lock is currently held.
+		 * @param name - Logical lock name.
+		 * @returns Whether the lock is currently held.
+		 */
+		isLocked: (name) => isFsLockHeld(dependencies, name),
 	}
 }

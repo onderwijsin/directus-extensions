@@ -1,8 +1,10 @@
 packages:
   - extensions/*
   - packages/*
+  - tests/*
 
 catalog:
+  '@types/express': 4.17.21
   '@directus/errors': 2.5.0
   '@directus/memory': 4.0.2
   '@directus/types': 16.1.0
@@ -14,6 +16,7 @@ catalog:
   '@commitlint/cli': 21.2.2
   '@commitlint/config-conventional': 21.2.2
   husky: 9.1.7
+  cron: 4.3.4
   lint-staged: 17.3.0
   oxfmt: 0.63.0
   oxlint: 1.78.0
@@ -54,4 +57,6 @@ allowBuilds:
   '@sentry-internal/node-cpu-profiler': true
   '@sentry/node-cpu-profiler': true
   esbuild: true
+  protobufjs: true
+  sqlite3: true
   vue-demi: true

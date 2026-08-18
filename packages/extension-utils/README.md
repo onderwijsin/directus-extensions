@@ -83,7 +83,7 @@ Create a logger from a Pino-compatible runtime logger, or use the console-backed
 import { createLogger } from '@onderwijsin/directus-extension-utils/server'
 
 const logger = createLogger(context.logger)
-logger.info('Extension started', { extension: 'orders' })
+logger.info({ msg: 'Extension started', extension: 'orders' })
 ```
 
 When a logger is provided, it is returned unchanged. Without one, the fallback exposes the same
@@ -110,13 +110,88 @@ const options = validateExtensionOptions(env, envSchema, logger)
 setup.end()
 ```
 
+For extensions that modify Directus schema, compose the entrypoint environment schema with the
+shared server-side schema-change settings:
+
+```ts
+import { schemaChangeSchema } from '@onderwijsin/directus-extension-utils/server'
+import { z } from 'zod'
+
+const envSchema = schemaChangeSchema.extend({
+  MY_EXTENSION_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
+})
+```
+
+`schemaChangeSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to
+`true`, and supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`MEMORY`, `REDIS`, or `FS`). `REDIS`
+requires `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; `FS` requires
+`DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
+
+Use `ensureDirectusSchema` from the same `/server` subpath to apply portable collection, field, and
+relation definitions. Every collection definition must include a non-blank `schema.name` and its
+primary-key field in the collection's nested `fields` array; do not repeat that primary-key field in
+the top-level `fields` array. This prevents Directus from creating an implicit integer primary key
+before the extension's intended field is applied. Pass the Directus hook context's `database`,
+`getSchema`, and `services`, and provide a logger plus an extension identifier. Existing compatible
+resources are preserved; incompatible structural resources are logged loudly and left unchanged
+rather than being silently modified. The validated environment options select the provider
+automatically. Set `options.lockProvider` to override that selection programmatically. Redis
+providers created from environment options are disposed after the ensure operation; explicitly
+supplied providers remain owned by the consumer.
+
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
 `validateExtensionOptions` parses a complete extension environment with Zod, logs validation
 details, and throws when the configuration is invalid.
 
-All lock providers use the same `tryAcquire`/lease contract and `defaultLeaseMs` option. Choose the
-memory provider for one process, the filesystem provider for processes sharing a directory, or the
-Redis provider for shared coordination across replicas.
+Schema configuration and operation options:
+
+| Option                                       | Scope     | Default          | Purpose                                                 |
+| -------------------------------------------- | --------- | ---------------- | ------------------------------------------------------- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Master switch for schema setup.                         |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Selects `MEMORY`, `REDIS`, or `FS`.                     |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Required for the Redis provider.                        |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required for the filesystem provider.                   |
+| `lockProviderConfig`                         | operation | —                | Uses validated environment config to create a provider. |
+| `lockProvider`                               | operation | —                | Supplies a consumer-owned provider directly.            |
+| `abortOnError`                               | operation | `true`           | Rethrows service failures after logging them.           |
+| `lockLeaseMs`                                | operation | provider default | Overrides one lock acquisition lease.                   |
+
+`ensureDirectusSchema` always coordinates the operation with a lock and returns
+`{ changed, skipped }`. It creates missing resources, skips compatible resources, and logs
+incompatible collections, fields, or relations without changing them. Structural compatibility is
+deliberately narrow: collection identity, field identity/type, and relation endpoints are
+authoritative; interfaces, displays, labels, icons, visibility, notes, and similar UI metadata are
+left under the site's control. It logs an info-level pre-operation plan and post-operation summary;
+per-resource and lock lifecycle details use debug-level logging. Bundled extension definitions are
+trusted data and do not need a second runtime Zod schema.
+
+Use `getSchemaChangeStatus` to check the same lock from another code path without acquiring,
+renewing, releasing, or repairing it:
+
+```ts
+import { getSchemaChangeStatus } from '@onderwijsin/directus-extension-utils/server'
+
+const status = await getSchemaChangeStatus({
+  extensionId: 'orders',
+  options: { lockProviderConfig: options },
+})
+
+if (status.isLocked) {
+  // The schema ensure operation is still in progress.
+}
+```
+
+The status query must use the same provider configuration and extension identifier as the ensure
+operation. Memory providers with the same `providerId` share state within one process; the schema
+management factory uses the stable `schema-change` provider ID so independently created ensure and
+status providers can observe one another. Use Redis or a shared filesystem provider for separate
+processes.
+
+All lock providers use the same `tryAcquire`/`isLocked`/lease contract and `defaultLeaseMs` option.
+Choose the memory provider for one process, the filesystem provider for processes sharing a
+directory, or the Redis provider for shared coordination across replicas. When creating memory
+providers directly, use the same `providerId` for callers that must coordinate and different IDs for
+isolated lock namespaces.
 
 Auto-task handlers clear a marker only after the task succeeds. Task failures and lost leases are
 reported through `onError` and leave the marker pending for a later trigger; failed tasks are not

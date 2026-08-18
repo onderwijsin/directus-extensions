@@ -40,14 +40,13 @@ to select the pinned version; user-facing documentation uses `pnpm ...`.
 ├── .agents/                         Maintainer and consumer skills
 ├── docker/                          Shared Compose service definitions
 ├── docs/                            Repository contract and extension cookbook
-├── extensions/
-│   └── directus-e2e-playground/     Publishable Directus extension used by E2E checks
+├── extensions/                      Publishable Directus extensions
 ├── packages/
 │   ├── extension-utils/             Publishable Directus extension utility package
 │   ├── test-utils/                  Private Vitest and Directus E2E helpers
 │   └── typescript-config/           Private shared TypeScript configuration
 ├── scripts/                         Build, packaging, documentation, and E2E orchestration
-├── tests/                           Shared Vitest setup and isolated E2E Compose definition
+├── tests/                           Shared test infrastructure and isolated E2E fixtures
 ├── compose.yaml                     Local development Compose wiring
 ├── package.json                     Root scripts, tool versions, and package manager pin
 ├── pnpm-workspace.yaml              Workspace discovery and dependency catalogs
@@ -89,9 +88,10 @@ Build `@onderwijsin/directus-extension-utils` before linting because type-aware 
 public subpaths through the generated declarations in `dist/`. The lint commands themselves do not
 build or modify generated output.
 
-The root `build` script runs available package build scripts recursively. `build:utils` and
-`build:extensions` select the two publishable package groups used by CI and release validation.
-`validate:packages` checks publishable metadata and packed contents; it does not build source first.
+The root `build` script runs available package build scripts recursively. `build:utils` selects the
+shared utility package, while `build:extensions` builds publishable extensions and the private E2E
+playground required by CI's packed-artifact checks. `validate:packages` checks publishable metadata
+and packed contents; it does not build source first.
 
 ## Generated output and checkout safety
 

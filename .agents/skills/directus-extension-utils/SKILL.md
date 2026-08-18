@@ -60,7 +60,8 @@ The package has one shared Directus-extension implementation and five public imp
 Import common browser-safe helpers from the root or `/shared`. Always use `/server` for
 `createMemoryLockProvider`, `createRedisLockProvider`, `createFsLockProvider`,
 `createAutoTaskHandler`, task-storage factories, marker stores, `createLogger`,
-`extensionSetup`, and `validateExtensionOptions`. Never import
+`extensionSetup`, `validateExtensionOptions`, `schemaChangeSchema`, `ensureDirectusSchema`, and
+`registerSchemaChangeOnStart`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
 of Node-only imports.
 
@@ -83,16 +84,87 @@ so Redis connection ownership stays inside the utility.
 
 ### Locks
 
-`tryAcquire` returns an owner-bound lease or `null` on contention. Always retain the lease and
-release it in `finally`; call `renew` while long-running work continues. A `false` renewal or
-release means the owner no longer owns the generation. Never release by name alone and never allow
-an old owner to remove a replacement generation.
+`tryAcquire` returns an owner-bound lease or `null` on contention. Use `isLocked` for a read-only
+lock-state check; it does not acquire, renew, release, or repair a lock. Always retain an acquired
+lease and release it in `finally`; call `renew` while long-running work continues. A `false` renewal
+or release means the owner no longer owns the generation. Never release by name alone and never
+allow an old owner to remove a replacement generation.
 
-`createMemoryLockProvider` coordinates one provider instance in one process. Directus KV/Cache
-locks coordinate clients sharing their configured backend. The filesystem adapter coordinates only
-processes sharing its directory; it is not cluster-wide without shared storage.
+`createMemoryLockProvider` coordinates providers with the same `providerId` in one process.
+Directus KV/Cache locks coordinate clients sharing their configured backend. The filesystem adapter
+coordinates only processes sharing its directory; it is not cluster-wide without shared storage.
 All lock providers expose the same `defaultLeaseMs` and `tokenFactory` options where applicable;
 `leaseMs` on `tryAcquire` overrides the provider default.
+
+### Schema changes
+
+Use `schemaChangeSchema` when an extension can create or update Directus collections, fields, or
+relations. It validates the global enablement flags and selects a lock provider with
+`DIRECTUS_EXTENSIONS_LOCK_PROVIDER=MEMORY|REDIS|FS`. Redis requires
+`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; filesystem locking requires
+`DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
+
+Pass the validated environment options as `options.lockProviderConfig` to
+`ensureDirectusSchema`. The utility creates and disposes providers selected from environment
+configuration. An explicitly supplied `options.lockProvider` takes precedence and remains owned by
+the consumer. Always pass `database`, `getSchema`, and the complete `ApiExtensionContext['services']`
+object from the hook context.
+
+Use `registerSchemaChangeOnStart` to centralize global and extension-specific disabled checks and
+startup error logging. Use `getSchemaChangeStatus` when another code path needs to inspect the same
+schema-change lock without modifying it; pass the same `extensionId` and provider configuration as
+the ensure operation. Schema definitions are trusted extension-owned data; do not add runtime Zod
+schemas merely to validate bundled JSON files. Existing compatible resources are preserved,
+incompatible structural resources are logged loudly and left unchanged; UI metadata is not
+authoritative.
+
+The schema-change configuration surface is:
+
+| Setting | Scope | Default | Meaning |
+| --- | --- | --- | --- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global | `true` | Master enablement switch. |
+| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | global | `true` | Global default for lock coordination. |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | global | `MEMORY` | Provider: `MEMORY`, `REDIS`, or `FS`. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | global | — | Required for `REDIS`. |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | global | — | Required for `FS`. |
+| `lockProviderConfig` | call | — | Validated config used to construct a provider. |
+| `lockProvider` | call | — | Explicit provider, owned and disposed by the consumer. |
+| `abortOnError` | call | `true` | Rethrow unexpected service failures when true. |
+| `lockLeaseMs` | call | provider default | Override the acquisition lease. |
+
+Recommended registration pattern:
+
+```ts
+registerSchemaChangeOnStart(
+  action,
+  logger,
+  () => ensureDirectusSchema({
+    extensionId: 'orders',
+    database: context.database,
+    getSchema: context.getSchema,
+    services: context.services,
+    logger,
+    definition: ordersDefinition,
+    options: { lockProviderConfig: options },
+  }),
+  {
+    name: 'Orders',
+    disabled: !options.ORDERS_SCHEMA_CHANGES_ENABLED,
+    disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
+  },
+)
+```
+
+Collection definitions passed to `ensureDirectusSchema` must include a non-blank `schema.name` and
+the primary-key field in the collection's nested `fields` array. Do not also include that primary-key
+field in the top-level `fields` array; Directus may otherwise create an implicit integer primary key
+before the intended field is applied.
+
+`ensureDirectusSchema` only treats structural invariants as authoritative: collection identity, field
+type, and relation endpoints. It does not overwrite UI metadata. A second call should therefore be
+safe and return no changes for compatible resources; incompatible resources are preserved and logged.
+For live tests, use a unique temporary collection and delete it in `finally`; the E2E runner must also
+remove its Compose project and disposable volumes on every exit path.
 
 ### Auto-tasks
 

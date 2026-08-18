@@ -47,6 +47,24 @@ interface RedisLockDependencies {
 }
 
 /**
+ * Builds the Redis key used by Directus KV for one lock.
+ * @param namespace - Redis lock namespace.
+ * @param name - Normalized logical lock name.
+ * @returns The fully namespaced Redis key.
+ */
+const redisLockKey = (namespace: string, name: string): string =>
+	`${namespace}:${namespace}:${encodeURIComponent(name)}`
+
+/**
+ * Builds the key passed to Directus KV before it adds its namespace.
+ * @param namespace - Redis lock namespace.
+ * @param name - Normalized logical lock name.
+ * @returns The Directus KV lock key.
+ */
+const redisKvLockKey = (namespace: string, name: string): string =>
+	`${namespace}:${encodeURIComponent(name)}`
+
+/**
  * Re-throws an attempted Redis failure as an Error.
  * @param error - Failure captured by `attempt`.
  * @returns Never returns.
@@ -140,7 +158,7 @@ const acquireRedisLock = async (
 	if (isDisposed()) throw new Error('Redis lock provider has been disposed')
 	const normalizedName = validateLockName(name)
 	const leaseMs = resolveLeaseMs(acquireOptions, config.defaultLeaseMs)
-	const key = `${config.namespace}:${encodeURIComponent(normalizedName)}`
+	const key = redisKvLockKey(config.namespace, normalizedName)
 
 	const result = await attempt(async () => {
 		const kv = createKv({
@@ -156,6 +174,22 @@ const acquireRedisLock = async (
 	if (result.error === null) return result.data
 	if (config.isContentionError(result.error)) return null
 	return raiseRedisError(result.error)
+}
+
+/**
+ * Checks the Redis lock key without attempting to acquire it.
+ * @param dependencies - Redis lock dependencies.
+ * @param name - Logical lock name.
+ * @returns Whether the lock key currently exists.
+ */
+const isRedisLockHeld = async (
+	dependencies: RedisLockDependencies,
+	name: string,
+): Promise<boolean> => {
+	if (dependencies.isDisposed()) throw new Error('Redis lock provider has been disposed')
+	const normalizedName = validateLockName(name)
+	const key = redisLockKey(dependencies.config.namespace, normalizedName)
+	return (await dependencies.redis.exists(key)) > 0
 }
 
 /**
@@ -191,6 +225,12 @@ export function createRedisLockProvider(options: RedisLockProviderOptions): Redi
 		 */
 		tryAcquire: (name, acquireOptions = {}) =>
 			acquireRedisLock(dependencies, name, acquireOptions),
+		/**
+		 * Checks whether a Redis lock is currently held.
+		 * @param name - Logical lock name.
+		 * @returns Whether the lock is currently held.
+		 */
+		isLocked: (name) => isRedisLockHeld(dependencies, name),
 		/**
 		 * Closes the Redis connection when this provider owns it.
 		 * @returns A promise that resolves after disposal.

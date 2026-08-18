@@ -15,7 +15,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
-		"directory": "extensions/directus-e2e-playground"
+		"directory": "tests/directus-e2e-playground"
 	},
 	"files": [
 		"dist",

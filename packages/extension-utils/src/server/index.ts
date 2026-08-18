@@ -1,6 +1,7 @@
 export * from '../shared/index'
 export * from './auto-task'
 export * from './lock'
+export * from './schema-management'
 export * from './setup'
 export { default as createLogger } from './logger'
 export type { Logger, LoggerLike } from './logger'

@@ -37,7 +37,8 @@ and `Expires: 0` headers.
 
 ## Configuration
 
-Directus parses array values from JSON environment-variable values. The defaults are:
+Directus parses array values from JSON environment-variable values. Each check and component list
+also accepts a single string, which is normalized to a one-item array. The defaults are:
 
 | Variable                                  | Default                                                 | Description                                                     |
 | ----------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------- |
@@ -51,8 +52,8 @@ Directus parses array values from JSON environment-variable values. The defaults
 For example:
 
 ```env
-HEALTHCHECK_INCLUDE_CHECKS=["database","redis"]
-HEALTHCHECK_EXCLUDE_COMPONENTS=["email"]
+HEALTHCHECK_INCLUDE_CHECKS=database
+HEALTHCHECK_EXCLUDE_COMPONENTS=email
 HEALTHCHECK_EXPOSE_WARNING_STATUS=true
 ```
 

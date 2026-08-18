@@ -51,7 +51,7 @@ export default defineConfig({
 				'**/*.d.ts',
 			],
 		},
-		setupFiles: ['./tests/setup.ts'],
+		setupFiles: [fileURLToPath(new URL('./tests/setup.ts', import.meta.url))],
 		projects: [
 			{
 				extends: true,
@@ -93,6 +93,7 @@ export default defineConfig({
 						? [
 								'extensions/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
 								'packages/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
+								'tests/**/__tests__/**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
 							]
 						: [],
 				},

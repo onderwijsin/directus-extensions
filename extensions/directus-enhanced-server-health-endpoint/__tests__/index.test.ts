@@ -87,4 +87,20 @@ describe('enhanced server health configuration', () => {
 			HEALTHCHECK_EXPOSE_WARNING_STATUS: false,
 		})
 	})
+
+	it('coerces single check and component values to arrays', () => {
+		expect(
+			envSchema.parse({
+				HEALTHCHECK_INCLUDE_CHECKS: 'database',
+				HEALTHCHECK_EXCLUDE_CHECKS: '*',
+				HEALTHCHECK_INCLUDE_COMPONENTS: 'cache',
+				HEALTHCHECK_EXCLUDE_COMPONENTS: 'email',
+			}),
+		).toMatchObject({
+			HEALTHCHECK_INCLUDE_CHECKS: ['database'],
+			HEALTHCHECK_EXCLUDE_CHECKS: ['*'],
+			HEALTHCHECK_INCLUDE_COMPONENTS: ['cache'],
+			HEALTHCHECK_EXCLUDE_COMPONENTS: ['email'],
+		})
+	})
 })

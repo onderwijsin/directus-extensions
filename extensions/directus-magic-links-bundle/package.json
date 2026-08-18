@@ -1,0 +1,98 @@
+{
+	"name": "@onderwijsin/directus-magic-links-bundle",
+	"version": "0.1.0",
+	"description": "Passwordless magic-link authentication for Directus frontend clients",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle",
+		"magic-links",
+		"passwordless-authentication"
+	],
+	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
+	"bugs": {
+		"url": "https://github.com/onderwijsin/directus-extensions/issues"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijsin.nl",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijsin.nl",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
+		"directory": "extensions/directus-magic-links-bundle"
+	},
+	"files": [
+		"dist",
+		"schema",
+		"templates",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"main": "./dist/api.js",
+	"exports": {
+		".": "./dist/api.js",
+		"./schema": "./schema/directus_magic_links.json"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"add": "directus-extension add",
+		"validate": "directus-extension validate",
+		"test:unit": "vitest run --config ../../vitest.config.ts",
+		"typecheck": "tsgo --noEmit"
+	},
+	"dependencies": {
+		"@directus/errors": "catalog:",
+		"cron": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "catalog:",
+		"@directus/types": "catalog:",
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"@types/express": "catalog:",
+		"@types/node": "catalog:node24",
+		"@workspace/test-utils": "workspace:*",
+		"@workspace/typescript-config": "workspace:*",
+		"vitest": "catalog:"
+	},
+	"icon": "extension",
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"name": "magic-links-endpoint",
+				"type": "endpoint",
+				"source": "src/magic-links-endpoint/index.ts"
+			},
+			{
+				"name": "magic-links-hook",
+				"type": "hook",
+				"source": "src/magic-links-hook/index.ts"
+			}
+		],
+		"host": ">=12.2.0 <13"
+	}
+}

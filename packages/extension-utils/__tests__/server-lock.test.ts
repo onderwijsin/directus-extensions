@@ -23,6 +23,7 @@ describe('createFsLockProvider', () => {
 
 		const lease = await first.tryAcquire('shared/item', { leaseMs: 1000 })
 		expect(lease?.token).toBe('first')
+		expect(await second.isLocked('shared/item')).toBe(true)
 		expect(await second.tryAcquire('shared/item')).toBeNull()
 		expect(await lease?.release()).toBe(true)
 		expect(await lease?.release()).toBe(false)
@@ -31,6 +32,7 @@ describe('createFsLockProvider', () => {
 		const replacement = await second.tryAcquire('shared/item')
 		expect(replacement?.token).toBe('second')
 		expect(await replacement?.release()).toBe(true)
+		expect(await second.isLocked('shared/item')).toBe(false)
 		expect(await readdir(directory)).toEqual(['shared%2Fitem.lock'])
 	})
 
@@ -53,6 +55,7 @@ describe('createFsLockProvider', () => {
 		now = 1018
 		expect(await second.tryAcquire('expiring', { leaseMs: 10 })).toBeNull()
 		now = 1019
+		expect(await second.isLocked('expiring')).toBe(false)
 		expect(await lease?.renew()).toBe(false)
 		expect(await lease?.release()).toBe(false)
 

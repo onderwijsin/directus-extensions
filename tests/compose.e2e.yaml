@@ -49,17 +49,23 @@ services:
         condition: service_healthy
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
+      - '${DIRECTUS_E2E_EMAIL_TEMPLATES_DIR:-../extensions/directus-magic-links-bundle/templates}:/directus/templates:ro'
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:${DIRECTUS_E2E_PORT:-18055}}
       SECRET: ${DIRECTUS_SECRET:-directus-extensions-e2e-secret}
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-p4ssw0rd!}
+      # Temporarily disable license activation while CI activation behavior is investigated.
+      LICENSE_KEY: ''
       EXTENSIONS_MUST_LOAD: 'true'
       EXTENSIONS_AUTO_RELOAD: 'false'
       EMAIL_TRANSPORT: smtp
+      EMAIL_TEMPLATES_PATH: /directus/templates
       EMAIL_FROM: noreply@localhost
       EMAIL_SMTP_HOST: mailpit
       EMAIL_SMTP_PORT: 1025
+      MAGIC_LINKS_ENABLED: 'true'
+      MAGIC_LINKS_COLLECTION: custom_links
       STORAGE_LOCATIONS: bucket
       STORAGE_BUCKET_DRIVER: s3
       STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}
@@ -71,6 +77,9 @@ services:
       MEILISEARCH_HOST_URL: http://meilisearch:7700
       MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
       SENTRY_ENABLED: ${SENTRY_ENABLED:-false}
+      USE_MAGIC_LINK_CLEANUP: 'true'
+      MAGIC_LINK_CLEANUP_WINDOW: 1ms
+      MAGIC_LINK_CLEANUP_CRON: '* * * * * *'
     healthcheck:
       test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:8055/server/ping']
       interval: 5s

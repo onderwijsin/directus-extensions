@@ -24,8 +24,9 @@ joins both, while infrastructure services join the backend network.
 
 Directus loads a built extension directory containing `package.json` and `dist/`. The local
 development workflow builds or watches extensions into `extensions/<name>/dist` and mounts the
-workspace extensions directory into Directus. `EXTENSIONS_AUTO_RELOAD` enables the local reload
-loop.
+workspace extensions directory into Directus. The E2E-only `directus-e2e-playground` extension lives
+under `tests/` and is mounted separately by the E2E Compose overlay. `EXTENSIONS_AUTO_RELOAD`
+enables the local reload loop.
 
 The local development image is the regular Directus image. Hardened deployment images are a separate
 deployment concern and do not change the local edit/build/reload workflow.
@@ -51,11 +52,12 @@ override the inline Compose defaults. Keep real credentials in ignored local fil
 secret manager; checked-in defaults are for local development and E2E isolation only.
 
 The E2E runner does not require `.env`. It generates fresh, run-scoped credentials for the database,
-cache, Directus, Garage, and Meilisearch, passes them to every Compose invocation, and removes the
-associated containers and volumes afterward. CI provides `DIRECTUS_E2E_EXTENSIONS_DIR` and passes
-the `DIRECTUS_LICENSE_KEY` GitHub secret to Directus as `LICENSE_KEY` when testing the packed
-consumer. CI also pins `PUBLIC_URL` to `http://localhost:18055`, so license activation uses the same
-absolute URL on every run.
+cache, Directus, Garage, and Meilisearch, stages the configured extension directory together with
+the private E2E playground into a disposable tree, passes the staged tree to Compose, and removes it
+along with the associated containers and volumes afterward. CI provides
+`DIRECTUS_E2E_EXTENSIONS_DIR` and passes the `DIRECTUS_LICENSE_KEY` GitHub secret to Directus as
+`LICENSE_KEY` when testing the packed consumer. CI also pins `PUBLIC_URL` to
+`http://localhost:18055`, so license activation uses the same absolute URL on every run.
 
 The Sentry bundle is explicitly disabled by default in both local Compose and E2E Compose with
 `SENTRY_ENABLED=false`. This is an accepted repository decision:

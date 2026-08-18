@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
 	acquireLock: vi.fn(),
 	createKv: vi.fn(),
+	exists: vi.fn(),
 	quit: vi.fn(),
 }))
 
@@ -12,6 +13,7 @@ vi.mock('ioredis', () => ({
 	default: class RedisMock {
 		public constructor(public readonly url: string) {}
 		public quit = mocks.quit
+		public exists = mocks.exists
 	},
 }))
 
@@ -44,6 +46,9 @@ describe('createRedisLockProvider', () => {
 			lockTimeout: 2_000,
 		})
 		expect(lease?.name).toBe('item')
+		mocks.exists.mockResolvedValue(1)
+		expect(await provider.isLocked('item')).toBe(true)
+		expect(mocks.exists).toHaveBeenCalledWith('test:locks:test:locks:item')
 		expect(await lease?.renew()).toBe(true)
 		expect(await lease?.release()).toBe(true)
 		await provider.dispose()

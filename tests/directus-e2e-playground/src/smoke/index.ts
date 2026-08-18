@@ -20,7 +20,7 @@ export const runUtilitySmokeTest = async (meta: unknown): Promise<void> => {
 	const record = isRecord(meta) ? meta : {}
 	const logger = createLogger()
 	const redis = new Redis(process.env.REDIS)
-	redis.on('error', (error: Error) => logger.error('Redis E2E client failed', { error }))
+	redis.on('error', (error: Error) => logger.error({ msg: 'Redis E2E client failed', error }))
 
 	try {
 		const attempts = await runAttemptSmokeTest()
@@ -31,7 +31,7 @@ export const runUtilitySmokeTest = async (meta: unknown): Promise<void> => {
 		const values = runValueSmokeTest(record, attempts.retry, attempts.async)
 		const runs = await runAutoTaskSmokeTest(markers.fileStorage, logger)
 
-		logger.info('utilities', values.loggerFields)
+		logger.info({ msg: 'utilities', ...values.loggerFields })
 		console.log(
 			`directus-e2e-playground: utilities ${JSON.stringify({
 				guards,

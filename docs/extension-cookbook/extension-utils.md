@@ -85,7 +85,8 @@ only the common helper surface.
 | Locks          | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                     | `/server`         |
 | Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                | `/server`         |
 | Logging        | `createLogger`                                                                                                                                                                    | `/server`         |
-| Setup          | `extensionSetup`, `validateExtensionOptions`                                                                                                                                      | `/server`         |
+| Setup          | `extensionSetup`, `validateExtensionOptions`, `registerSchemaChangeOnStart`                                                                                                       | `/server`         |
+| Schema changes | `schemaChangeSchema`, `ensureDirectusSchema`, `getSchemaChangeStatus`                                                                                                             | `/server`         |
 | Constants      | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                | `/constants`      |
 | Sentry         | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                  | `/sentry`         |
 
@@ -120,9 +121,155 @@ The setup helper does not register routes or events. The caller owns Directus re
 resource cleanup. Invalid Zod configuration is logged and throws
 `Invalid extension options ☝. Exiting.`.
 
+### Schema changes
+
+Use `schemaChangeSchema` for global enablement and locking flags, then call `ensureDirectusSchema`
+with the hook context's `database`, `getSchema`, `services`, and a trusted portable definition.
+Existing compatible resources are preserved; incompatible structural resources are logged and left
+unchanged. Register the operation with `registerSchemaChangeOnStart` to apply the global and
+extension-specific disabled checks consistently.
+
+Each collection definition must include a non-blank `schema.name` and the collection's primary-key
+field in its nested `fields` array. Keep that primary-key field out of the top-level `fields` array:
+
+```json
+{
+  "collection": "magic_links",
+  "schema": { "name": "magic_links" },
+  "fields": [
+    {
+      "collection": "magic_links",
+      "field": "id",
+      "type": "uuid",
+      "schema": { "is_primary_key": true }
+    }
+  ]
+}
+```
+
+The collection guard preserves malformed definitions instead of allowing Directus to create an
+implicit integer primary key. The utility logs the incompatible collection and continues with the
+rest of the ensure operation.
+
+Compose the shared schema-change environment into an extension schema:
+
+```ts
+import { schemaChangeSchema } from '@onderwijsin/directus-extension-utils/server'
+import { z } from 'zod'
+
+export const envSchema = schemaChangeSchema.extend({
+  ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
+})
+```
+
+The provider can then be selected entirely through environment configuration:
+
+```dotenv
+DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=true
+DIRECTUS_EXTENSIONS_LOCK_PROVIDER=REDIS
+DIRECTUS_EXTENSIONS_LOCK_REDIS_URL=redis://redis:6379
+```
+
+Use `FS` with `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` when all contenders share a filesystem, or
+`MEMORY` when all contenders run in one process. Memory providers with the same `providerId` share
+state in that process; different IDs isolate lock namespaces. Redis connections created from
+environment configuration are closed after schema setup. To supply a provider with custom lifecycle
+or connection ownership, override the environment selection:
+
+```ts
+import {
+  createRedisLockProvider,
+  ensureDirectusSchema,
+} from '@onderwijsin/directus-extension-utils/server'
+
+const lockProvider = createRedisLockProvider({
+  redisUrl: env.REDIS_URL,
+  namespace: 'orders:schema',
+})
+
+await ensureDirectusSchema({
+  extensionId: 'orders',
+  database: context.database,
+  getSchema: context.getSchema,
+  services: context.services,
+  logger,
+  definition: ordersDefinition,
+  options: { lockProvider },
+})
+```
+
+For a normal hook, use the startup helper so failures are logged without rejecting Directus hook
+registration:
+
+```ts
+registerSchemaChangeOnStart(
+  action,
+  logger,
+  () =>
+    ensureDirectusSchema({
+      extensionId: 'orders',
+      database: context.database,
+      getSchema: context.getSchema,
+      services: context.services,
+      logger,
+      definition: ordersDefinition,
+      options: {
+        lockProviderConfig: options,
+      },
+    }),
+  {
+    name: 'Orders',
+    disabled: !options.ORDERS_SCHEMA_CHANGES_ENABLED,
+    disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
+  },
+)
+```
+
 The package README and
 [maintainer API reference](../../.agents/skills/directus-extension-utils/references/api-reference.md)
 contain the complete signatures. This article focuses on choosing a group and using it safely.
+
+The shared configuration and per-operation controls are:
+
+| Option                                       | Scope     | Default          | Notes                                                           |
+| -------------------------------------------- | --------- | ---------------- | --------------------------------------------------------------- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Disables every extension's schema setup when false.             |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Choose `MEMORY`, `REDIS`, or `FS`.                              |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Required when the provider is `REDIS`.                          |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required when the provider is `FS`.                             |
+| `lockProviderConfig`                         | operation | —                | Validated environment options for automatic provider creation.  |
+| `lockProvider`                               | operation | —                | Explicit consumer-owned provider; takes precedence over config. |
+| `abortOnError`                               | operation | `true`           | Keep false to log and continue after a service failure.         |
+| `lockLeaseMs`                                | operation | provider default | Per-acquisition lease override.                                 |
+
+The operation always acquires the configured lock. The result reports created resources by stable
+identifiers in `changed`; `skipped` is true when the lock was held by another process. Existing
+compatible resources are not updated. An existing field is compatible when its type matches; an
+existing relation is compatible when its collection, field, and related collection endpoints match.
+Other metadata—interfaces, displays, labels, icons, visibility, notes, and templates—is
+intentionally non-authoritative. Each ensure emits an info-level plan and summary; per-resource and
+lock lifecycle details are debug-level, while incompatible resources and failures remain logged
+loudly. Keep schema definitions trusted and version-controlled; no runtime Zod schema is needed for
+the definition JSON itself.
+
+To inspect schema setup from another code path, use the read-only status query:
+
+```ts
+import { getSchemaChangeStatus } from '@onderwijsin/directus-extension-utils/server'
+
+const { isLocked } = await getSchemaChangeStatus({
+  extensionId: 'orders',
+  options: { lockProviderConfig: options },
+})
+```
+
+`getSchemaChangeStatus` never acquires or changes a lock. It must resolve the same provider and use
+the same extension identifier as `ensureDirectusSchema`; memory providers require the same provider
+instance, while Redis or a genuinely shared filesystem can be queried from another process.
+
+For test or migration extensions, make cleanup explicit and idempotent. Delete temporary collections
+in a `finally` block after the ensure has completed, and let the outer Compose runner remove the
+disposable database and volumes even when Vitest or Directus startup fails.
 
 ## Guards
 
@@ -178,7 +325,8 @@ For cache and KV guidance, see [Cache and KV](patterns-and-conventions.md#cache-
 
 A [lock](extension-utils-glossary.md#lock) acquisition returns an owner-bound
 [lease](extension-utils-glossary.md#lease). If another [owner](extension-utils-glossary.md#owner)
-holds the lock, `tryAcquire` returns `null`. Always release an acquired lease in `finally`.
+holds the lock, `tryAcquire` returns `null`; use `isLocked` for a read-only check. Always release an
+acquired lease in `finally`.
 
 ### Process-local lock
 
@@ -188,6 +336,7 @@ Use memory locks only when every contender is in the same process:
 import { createMemoryLockProvider } from '@onderwijsin/directus-extension-utils/server'
 
 const locks = createMemoryLockProvider({
+  providerId: 'orders',
   defaultLeaseMs: 30_000,
 })
 

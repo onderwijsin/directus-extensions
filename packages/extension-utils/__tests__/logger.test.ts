@@ -13,9 +13,9 @@ describe('logger utilities', () => {
 		const logger = createLogger(supplied)
 
 		expect(logger).toBe(supplied)
-		logger.info('message', { operation: 'test' })
+		logger.info({ msg: 'message', operation: 'test' })
 
-		expect(info).toHaveBeenCalledWith('message', { operation: 'test' })
+		expect(info).toHaveBeenCalledWith({ msg: 'message', operation: 'test' })
 		expect(consoleLog).not.toHaveBeenCalled()
 	})
 

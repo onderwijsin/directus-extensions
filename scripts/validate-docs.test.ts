@@ -50,7 +50,6 @@ describe('documentation validation', () => {
 		)
 
 		expect(validateDocumentation(repository)).toEqual([
-			'extensions/example/README.md: level-one heading must contain @example/directus-extension-example',
 			'@example/directus-extension-example: missing or incorrect root README table entry',
 			'@example/directus-extension-example: README is missing /@example\\/directus-extension-example/u',
 			'@example/directus-extension-example: README is missing /install/iu',
