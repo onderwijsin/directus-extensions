@@ -30,8 +30,10 @@ the extension receives them; arrays therefore use Directus's array syntax.
 | `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`         | `true`                     | Enable this bundle's schema changes.                 |
 | `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`          | `true`                     | Abort bundle setup after an unexpected schema error. |
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | `MEMORY`                   | Schema lock provider: `MEMORY`, `REDIS`, or `FS`.    |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | unset                      | Required when the provider is `REDIS`.               |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | unset                      | Optional override; falls back to Directus `REDIS`.   |
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | unset                      | Required when the provider is `FS`.                  |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`     | `memory`                   | Failed-OTP limiter store: `memory` or `redis`.       |
+| `REDIS`                                      | Directus setting           | Existing Redis URL required when store is `redis`.   |
 | `MAGIC_LINKS_TOKEN_SECRET`                   | Directus `SECRET` fallback | HMAC secret for token digests.                       |
 | `MAGIC_LINKS_TOKEN_TTL`                      | `15m`                      | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).   |
 | `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`         | required                   | Non-empty array of allowed redirect URLs.            |
@@ -158,23 +160,27 @@ the user into their TFA setup flow. This matches Directus 12.2 login behavior: o
 attached to the user's directly assigned role are considered for this claim.
 
 Invalid, expired, already redeemed, inactive, unsupported-provider, missing-OTP, and invalid-OTP
-requests return Directus's `InvalidOtpError` or generic credentials error as appropriate. OTP
-failures roll back the transaction, so the link can be retried with another OTP; other failed
-authentication leaves the link unredeemed as well.
+requests return Directus's `InvalidOtpError` or generic credentials error as appropriate. When
+`auth_login_attempts` is configured, missing or invalid OTP attempts consume a per-link budget;
+successful redemption clears that budget. The budget uses the same maximum as Directus login
+attempts and expires with the configured magic-link lifetime. OTP failures roll back the
+transaction, so the link can be retried until the budget is exhausted; other failed authentication
+leaves the link unredeemed as well. Set `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE=redis` and configure
+Directus's existing `REDIS` connection for coordination across Directus replicas.
+`auth_login_attempts=null` disables this limiter.
+
+When the per-link budget is exhausted, Directus returns its standard `HitRateLimitError` response
+with HTTP status `429`; stop retrying that link and use a new link after expiry or the application's
+normal sign-in flow.
 
 When `enforce_tfa` is `true`, decode the access-token JWT payload client-side and route the
 authenticated user into the application's TFA setup flow. JWT decoding is only a UI/navigation hint;
 the server remains authoritative for authentication and OTP validation. The JWT can be decoded
 without the Directus signing secret, but must not be treated as trusted input for authorization.
 
-Known limitation: invalid OTP attempts during magic-link redemption do not inherit Directus's normal
-login-attempt limiter. Redemption verifies the OTP directly and then calls
-`AuthenticationService.refresh()`; Directus does not expose its internal authentication-attempt
-limiter as a reusable extension API. A valid link therefore remains retryable after an invalid OTP
-until it expires or is successfully redeemed. Apply rate limiting to the redeem route at the edge or
-API gateway in the meantime. A distributed, redemption-specific limiter backed by `createKv` is
-tracked as backlog work in
-[the GitHub issue](https://github.com/onderwijsin/directus-extensions/issues/21).
+The redemption limiter is separate from Directus's account-suspension behavior: it bounds OTP
+attempts per magic-link credential and does not suspend the user. Apply rate limiting to both public
+routes at the edge or API gateway as an additional deployment control.
 
 Clients should remove the token from the browser URL immediately after reading it, avoid analytics
 and application logs containing the token, and follow Directus's normal rules for storing returned

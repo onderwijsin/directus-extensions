@@ -123,9 +123,11 @@ const envSchema = schemaChangeSchema.extend({
 ```
 
 `schemaChangeSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to
-`true`, and supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`MEMORY`, `REDIS`, or `FS`). `REDIS`
-requires `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; `FS` requires
-`DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
+`true`, and supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`MEMORY`, `REDIS`, or `FS`). `REDIS` uses
+`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` when set, otherwise the standard Directus `REDIS` connection;
+`FS` requires `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. It also exposes the shared
+`DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` setting (`memory` by default, or `redis`) and validates the
+Directus `REDIS` connection when the Redis store is selected.
 
 Use `ensureDirectusSchema` from the same `/server` subpath to apply portable collection, field, and
 relation definitions. Every collection definition must include a non-blank `schema.name` and its
@@ -145,16 +147,18 @@ details, and throws when the configuration is invalid.
 
 Schema configuration and operation options:
 
-| Option                                       | Scope     | Default          | Purpose                                                 |
-| -------------------------------------------- | --------- | ---------------- | ------------------------------------------------------- |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Master switch for schema setup.                         |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Selects `MEMORY`, `REDIS`, or `FS`.                     |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Required for the Redis provider.                        |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required for the filesystem provider.                   |
-| `lockProviderConfig`                         | operation | —                | Uses validated environment config to create a provider. |
-| `lockProvider`                               | operation | —                | Supplies a consumer-owned provider directly.            |
-| `abortOnError`                               | operation | `true`           | Rethrows service failures after logging them.           |
-| `lockLeaseMs`                                | operation | provider default | Overrides one lock acquisition lease.                   |
+| Option                                       | Scope     | Default          | Purpose                                                     |
+| -------------------------------------------- | --------- | ---------------- | ----------------------------------------------------------- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Master switch for schema setup.                             |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Selects `MEMORY`, `REDIS`, or `FS`.                         |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Optional override; falls back to Directus `REDIS`.          |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required for the filesystem provider.                       |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`     | global    | `memory`         | Selects the process-local or Redis extension limiter store. |
+| `REDIS`                                      | Directus  | —                | Required by extension limiters when the store is `redis`.   |
+| `lockProviderConfig`                         | operation | —                | Uses validated environment config to create a provider.     |
+| `lockProvider`                               | operation | —                | Supplies a consumer-owned provider directly.                |
+| `abortOnError`                               | operation | `true`           | Rethrows service failures after logging them.               |
+| `lockLeaseMs`                                | operation | provider default | Overrides one lock acquisition lease.                       |
 
 `ensureDirectusSchema` always coordinates the operation with a lock and returns
 `{ changed, skipped }`. It creates missing resources, skips compatible resources, and logs

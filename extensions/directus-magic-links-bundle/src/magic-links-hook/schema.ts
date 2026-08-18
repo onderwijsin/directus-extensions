@@ -1,7 +1,7 @@
 import type { DirectusSchemaDefinition } from '@onderwijsin/directus-extension-utils/server'
 
-import { EXTENSION_NAME } from '.'
 import magicLinksSchema from '../../schema/directus_magic_links.json'
+import { EXTENSION_NAME } from './constants'
 
 /**
  * Creates the magic-links schema definition for the configured collection.

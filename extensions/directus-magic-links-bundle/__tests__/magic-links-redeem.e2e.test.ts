@@ -11,7 +11,7 @@ import {
 	deleteRole,
 	deleteUser,
 } from '@workspace/test-utils/commands'
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const baseUrl = process.env.DIRECTUS_E2E_URL
 const token = process.env.DIRECTUS_E2E_TOKEN
@@ -158,6 +158,38 @@ const decodeJwtPayload = (token: string): Record<string, unknown> => {
 }
 
 describe('magic-links redeem endpoint', () => {
+	let originalLoginAttempts: number | null | undefined
+
+	beforeAll(async () => {
+		const settings = await client.request<{ auth_login_attempts: number | null }>(
+			customEndpoint({
+				path: '/settings?fields=auth_login_attempts',
+				method: 'GET',
+			}),
+		)
+		originalLoginAttempts = settings.auth_login_attempts
+		await client.request(
+			customEndpoint({
+				path: '/settings',
+				method: 'PATCH',
+				body: JSON.stringify({ auth_login_attempts: 3 }),
+			}),
+		)
+		await client.request(customEndpoint({ path: '/utils/cache/clear', method: 'POST' }))
+	})
+
+	afterAll(async () => {
+		if (originalLoginAttempts === undefined) return
+		await client.request(
+			customEndpoint({
+				path: '/settings',
+				method: 'PATCH',
+				body: JSON.stringify({ auth_login_attempts: originalLoginAttempts }),
+			}),
+		)
+		await client.request(customEndpoint({ path: '/utils/cache/clear', method: 'POST' }))
+	})
+
 	it('redeems a delivered token, supports cookie and session modes, and enforces single use', async () => {
 		const users: string[] = []
 		try {
@@ -335,6 +367,89 @@ describe('magic-links redeem endpoint', () => {
 				access_token: expect.any(String),
 				refresh_token: expect.any(String),
 			})
+		} finally {
+			if (userId) await client.request(deleteUser(userId))
+			if (roleId) await client.request(deleteRole(roleId))
+			if (policyId) await client.request(deletePolicy(policyId))
+		}
+	})
+
+	it('throttles failed OTP attempts for an ephemeral user', async () => {
+		const password = `magic-links-rate-limit-password-${Date.now()}`
+		const email = `magic-links-rate-limit-${Date.now()}@example.com`
+		let userId: string | undefined
+		let roleId: string | undefined
+		let policyId: string | undefined
+
+		try {
+			const policy = await client.request(
+				createPolicy({
+					name: `Magic-links rate-limit TFA policy ${Date.now()}`,
+					app_access: true,
+					admin_access: true,
+				}),
+			)
+			policyId = policy.id
+			const role = await client.request(
+				createRole({ name: `Magic-links rate-limit TFA role ${Date.now()}` }),
+			)
+			roleId = role.id
+			await client.request(
+				customEndpoint({
+					path: '/access',
+					method: 'POST',
+					body: JSON.stringify([{ role: role.id, policy: policy.id }]),
+				}),
+			)
+
+			const user = await client.request(
+				createUser({ email, password, status: 'active', role: role.id }),
+			)
+			userId = user.id
+
+			const loginResponse = await fetch(`${baseUrl}/auth/login`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ email, password }),
+			})
+			expect(loginResponse.status).toBe(200)
+			const login = await loginResponse.json()
+			const accessToken = login.data.access_token
+			const tfaHeaders = {
+				'content-type': 'application/json',
+				authorization: `Bearer ${accessToken}`,
+			}
+			const generatedResponse = await fetch(`${baseUrl}/users/me/tfa/generate`, {
+				method: 'POST',
+				headers: tfaHeaders,
+				body: JSON.stringify({ password }),
+			})
+			expect(generatedResponse.status).toBe(200)
+			const generated: TfaGenerateResponse = await generatedResponse.json()
+			const enableResponse = await fetch(`${baseUrl}/users/me/tfa/enable`, {
+				method: 'POST',
+				headers: tfaHeaders,
+				body: JSON.stringify({
+					secret: generated.data.secret,
+					otp: createTotp(generated.data.secret),
+				}),
+			})
+			expect(enableResponse.status).toBe(204)
+
+			const token = `magic-links-rate-limit-token-${Date.now()}`
+			await createMagicLink(user.id, token)
+			const responses = []
+			for (let attempt = 0; attempt < 4; attempt += 1) {
+				responses.push(
+					await fetch(`${baseUrl}/auth/magic-links/redeem`, {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ token, otp: '000000', mode: 'json' }),
+					}),
+				)
+			}
+
+			expect(responses.map((response) => response.status)).toEqual([401, 401, 401, 429])
 		} finally {
 			if (userId) await client.request(deleteUser(userId))
 			if (roleId) await client.request(deleteRole(roleId))

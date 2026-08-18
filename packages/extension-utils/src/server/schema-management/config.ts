@@ -3,6 +3,9 @@ import { z } from 'zod'
 /** Supported providers for global schema-change coordination. */
 export const schemaLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
 
+/** Supported stores for extension-owned rate limiters. */
+export const extensionRateLimiterStoreSchema = z.enum(['memory', 'redis'])
+
 /**
  * Validates global schema change configuration.
  *
@@ -15,16 +18,20 @@ export const schemaChangeSchema = z
 		DIRECTUS_EXTENSIONS_LOCK_PROVIDER: schemaLockProviderSchema.default('MEMORY'),
 		DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: z.string().trim().min(1).optional(),
 		DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: z.string().trim().min(1).optional(),
+		DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: extensionRateLimiterStoreSchema.default('memory'),
+		REDIS: z.string().trim().min(1).optional(),
 	})
 	.superRefine((options, context) => {
 		if (
 			options.DIRECTUS_EXTENSIONS_LOCK_PROVIDER === 'REDIS' &&
-			!options.DIRECTUS_EXTENSIONS_LOCK_REDIS_URL
+			!options.DIRECTUS_EXTENSIONS_LOCK_REDIS_URL &&
+			!options.REDIS
 		) {
 			context.addIssue({
 				code: 'custom',
 				path: ['DIRECTUS_EXTENSIONS_LOCK_REDIS_URL'],
-				message: 'is required when DIRECTUS_EXTENSIONS_LOCK_PROVIDER is REDIS',
+				message:
+					'DIRECTUS_EXTENSIONS_LOCK_REDIS_URL or REDIS is required when DIRECTUS_EXTENSIONS_LOCK_PROVIDER is REDIS',
 			})
 		}
 		if (
@@ -35,6 +42,13 @@ export const schemaChangeSchema = z
 				code: 'custom',
 				path: ['DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY'],
 				message: 'is required when DIRECTUS_EXTENSIONS_LOCK_PROVIDER is FS',
+			})
+		}
+		if (options.DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE === 'redis' && !options.REDIS) {
+			context.addIssue({
+				code: 'custom',
+				path: ['REDIS'],
+				message: 'is required when DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE is redis',
 			})
 		}
 	})

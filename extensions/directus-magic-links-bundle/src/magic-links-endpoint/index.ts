@@ -7,7 +7,7 @@ import {
 	getSchemaChangeStatus,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { EXTENSION_NAME, EXTENSION_ID } from '../magic-links-hook'
+import { EXTENSION_ID, EXTENSION_NAME } from '../magic-links-hook/constants'
 import { envSchema } from './env.schema'
 import {
 	parseRedeemPayload,
@@ -16,6 +16,7 @@ import {
 	requestMagicLink,
 	SchemaLockedError,
 } from './handlers'
+import { createMagicLinkLimiter } from './rate-limiter'
 import { sendAuthenticationResponse } from './session'
 
 /**
@@ -42,6 +43,14 @@ export default defineEndpoint({
 
 		const options = validateExtensionOptions(env, envSchema, logger)
 		const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? options.SECRET
+		let limiter: ReturnType<typeof createMagicLinkLimiter> | undefined
+		/**
+		 * Lazily creates the limiter so runtime settings changes are observed before the first redemption.
+		 *
+		 * @returns The magic-link redemption limiter.
+		 */
+		const getLimiter = () =>
+			(limiter ??= createMagicLinkLimiter({ database, getSchema, options, services }))
 
 		router.post('/request', (request, response, next) => {
 			void attempt(async () => {
@@ -99,6 +108,7 @@ export default defineEndpoint({
 					ip: request.ip ?? null,
 					userAgent: request.get('user-agent') ?? null,
 					origin: request.get('origin') ?? null,
+					limiter: await getLimiter(),
 				})
 				if (!result) throw new InvalidCredentialsError()
 				sendAuthenticationResponse(response, env, payload, result)

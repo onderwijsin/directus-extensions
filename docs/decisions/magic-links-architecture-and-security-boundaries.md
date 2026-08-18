@@ -85,6 +85,17 @@ here unless Directus's native login behavior changes. Consumers may decode the a
 for UI routing into TFA setup, but server-side authentication and OTP validation remain
 authoritative.
 
+### Bound redemption attempts with a Directus-native limiter
+
+The bundle uses `@directus/memory`'s `createLimiter` for failed OTP attempts. The shared
+`DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` setting selects process-local `memory` storage or
+Redis-backed storage using Directus's existing `REDIS` connection. The limiter reads
+`directus_settings.auth_login_attempts`; a `null` value disables it. Its duration is the configured
+magic-link lifetime, and its key is only the magic-link record ID. Invalid or missing OTPs consume a
+point immediately before validation. Successful redemption deletes the key. This coordinates across
+replicas when Redis is selected without storing raw tokens, OTPs, or account-wide state, and does
+not inherit Directus's account-suspension side effects.
+
 The filter is only evaluated for refreshes initiated by this bundle's magic-link redemption flow.
 The redemption wraps its `AuthenticationService.refresh()` call in a Node `AsyncLocalStorage`
 context containing the linked user ID. The `auth.jwt` filter reads that context and requires the

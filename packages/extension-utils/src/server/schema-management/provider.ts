@@ -21,11 +21,14 @@ export function createSchemaChangeLockProvider(
 ): SchemaChangeLockProvider {
 	switch (options.DIRECTUS_EXTENSIONS_LOCK_PROVIDER) {
 		case 'REDIS': {
-			if (!options.DIRECTUS_EXTENSIONS_LOCK_REDIS_URL) {
-				throw new Error('Redis lock provider requires DIRECTUS_EXTENSIONS_LOCK_REDIS_URL')
+			const redisUrl = options.DIRECTUS_EXTENSIONS_LOCK_REDIS_URL ?? options.REDIS
+			if (!redisUrl) {
+				throw new Error(
+					'Redis lock provider requires DIRECTUS_EXTENSIONS_LOCK_REDIS_URL or REDIS',
+				)
 			}
 			const provider = createRedisLockProvider({
-				redisUrl: options.DIRECTUS_EXTENSIONS_LOCK_REDIS_URL,
+				redisUrl,
 			})
 			return {
 				provider /**

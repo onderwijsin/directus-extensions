@@ -22,8 +22,9 @@ const nonBlankStringSchema = z.string().trim().min(1)
  * @returns The endpoint environment schema.
  */
 export const envSchema = sharedEnvSchema
-	.extend({
+	.safeExtend({
 		SECRET: z.string().trim().min(1),
+		REDIS: z.string().trim().min(1).optional(),
 		MAGIC_LINKS_TOKEN_SECRET: z.string().trim().min(1).optional(),
 		MAGIC_LINKS_TOKEN_TTL: durationSchema.default('15m'),
 		MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: z.array(redirectUrlSchema).min(1).default([]),

@@ -235,8 +235,10 @@ The shared configuration and per-operation controls are:
 | -------------------------------------------- | --------- | ---------------- | --------------------------------------------------------------- |
 | `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Disables every extension's schema setup when false.             |
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Choose `MEMORY`, `REDIS`, or `FS`.                              |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Required when the provider is `REDIS`.                          |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Optional override; falls back to Directus `REDIS`.              |
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required when the provider is `FS`.                             |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`     | global    | `memory`         | Selects the process-local or Redis extension limiter store.     |
+| `REDIS`                                      | Directus  | —                | Required by extension limiters when the store is `redis`.       |
 | `lockProviderConfig`                         | operation | —                | Validated environment options for automatic provider creation.  |
 | `lockProvider`                               | operation | —                | Explicit consumer-owned provider; takes precedence over config. |
 | `abortOnError`                               | operation | `true`           | Keep false to log and continue after a service failure.         |

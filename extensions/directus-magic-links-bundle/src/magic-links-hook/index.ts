@@ -1,5 +1,4 @@
 import { defineHook } from '@directus/extensions-sdk'
-import { isRecord } from '@onderwijsin/directus-extension-utils'
 import {
 	ensureDirectusSchema,
 	extensionSetup,
@@ -7,24 +6,11 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { getMagicLinkRefreshContext } from '../shared/magic-link-refresh-context'
+import { registerMagicLinkJwt } from './auth-jwt'
 import { registerMagicLinkCleanup } from './cleanup'
+import { EXTENSION_ID, EXTENSION_NAME } from './constants'
 import { envSchema } from './env.schema'
 import { createMagicLinksSchema } from './schema'
-
-export const EXTENSION_NAME = 'magic_links'
-export const EXTENSION_ID = 'magic-links'
-
-type JwtPayload = Record<string, unknown> & {
-	enforce_tfa?: boolean
-}
-
-/**
- * Narrows a filter payload to a mutable JWT claim object.
- * @param value - Unknown payload received from Directus.
- * @returns Whether the value is an object suitable for JWT claim updates.
- */
-const isJwtPayload = (value: unknown): value is JwtPayload => isRecord(value)
 
 /**
  * Registers lifecycle and scheduled-maintenance hooks for magic links.
@@ -42,37 +28,6 @@ export default defineHook((hook, context) => {
 	if (!setup.isEnabled()) return
 
 	const options = validateExtensionOptions(env, envSchema, logger)
-
-	filter('auth.jwt', async (payload, meta, { database }) => {
-		const refreshContext = getMagicLinkRefreshContext()
-
-		if (
-			!isJwtPayload(payload) ||
-			!meta.user ||
-			!refreshContext ||
-			refreshContext.userId !== meta.user ||
-			payload.enforce_tfa === true ||
-			meta.type !== 'refresh'
-		)
-			return payload
-
-		const user = await database('directus_users')
-			.select('role', 'tfa_secret')
-			.where({ id: meta.user })
-			.first<{ role: string | null; tfa_secret: string | null }>()
-
-		if (!user || user.tfa_secret || user.role === null) return payload
-
-		const enforcement = await database('directus_access')
-			.innerJoin('directus_policies', 'directus_access.policy', 'directus_policies.id')
-			.select('directus_policies.id')
-			.where('directus_access.role', user.role)
-			.where('directus_policies.enforce_tfa', true)
-			.first()
-
-		if (enforcement) payload.enforce_tfa = true
-		return payload
-	})
 
 	registerSchemaChangeOnStart(
 		action,
@@ -105,6 +60,8 @@ export default defineHook((hook, context) => {
 		enabled: options.USE_MAGIC_LINK_CLEANUP,
 		logger,
 	})
+
+	registerMagicLinkJwt(filter, context.database)
 
 	setup.end()
 })
