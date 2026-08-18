@@ -33,7 +33,6 @@ export default defineEndpoint((router, context) => {
 
 	const options = validateExtensionOptions(env, envSchema, logger)
 	const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? String(env.SECRET ?? '')
-
 	router.post('/request', (request, response, next) => {
 		void attempt(async () => {
 			const payload = parseRequestPayload(

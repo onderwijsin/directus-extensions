@@ -314,11 +314,10 @@ export async function ensureDirectusSchema(
 
 		const result = await attempt(async () => {
 			currentPhase = 'schema read'
-			const schema = await getSchema({ database, bypassCache: true })
-			const serviceOptionsValue = serviceOptions(database, schema)
-			const collectionService = new services.CollectionsService(serviceOptionsValue)
-			const fieldService = new services.FieldsService(serviceOptionsValue)
-			const relationService = new services.RelationsService(serviceOptionsValue)
+			let schema = await getSchema({ database, bypassCache: true })
+			const collectionService = new services.CollectionsService(
+				serviceOptions(database, schema),
+			)
 
 			for (const collection of definition.collections) {
 				currentPhase = 'collection'
@@ -326,12 +325,16 @@ export async function ensureDirectusSchema(
 				const created = await ensureCollection(collectionService, collection, logger)
 				if (created) changed.push(created)
 			}
+			schema = await getSchema({ database, bypassCache: true })
+			const fieldService = new services.FieldsService(serviceOptions(database, schema))
 			for (const field of definition.fields) {
 				currentPhase = 'field'
 				currentResource = field.collection + '.' + field.field
 				const created = await ensureField(fieldService, field, schema, logger)
 				if (created) changed.push(created)
 			}
+			schema = await getSchema({ database, bypassCache: true })
+			const relationService = new services.RelationsService(serviceOptions(database, schema))
 			for (const relation of definition.relations) {
 				currentPhase = 'relation'
 				currentResource = relation.collection + '.' + relation.field
@@ -346,7 +349,7 @@ export async function ensureDirectusSchema(
 				extensionId,
 				phase: currentPhase,
 				resource: currentResource,
-				cause: result.error,
+				cause: result.error instanceof Error ? result.error.message : result.error,
 			})
 			if (options.abortOnError ?? true) {
 				const error =

@@ -5,6 +5,10 @@ import { envSchema as hookEnvSchema } from '../src/magic-links-hook/env.schema'
 
 const validEnvironment = {
 	MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: ['https://app.example.com/auth/magic-link'],
+	EMAIL_TRANSPORT: 'smtp',
+	EMAIL_SMTP_HOST: 'mailpit',
+	EMAIL_SMTP_PORT: 1025,
+	EMAIL_FROM: 'noreply@example.com',
 }
 
 describe('magic-links environment schemas', () => {
@@ -33,6 +37,23 @@ describe('magic-links environment schemas', () => {
 		})
 
 		expect(result.success).toBe(true)
+	})
+
+	it('requires SMTP transport prerequisites and matching credentials', () => {
+		expect(
+			endpointEnvSchema.safeParse({ ...validEnvironment, EMAIL_TRANSPORT: 'sendmail' })
+				.success,
+		).toBe(false)
+		expect(
+			endpointEnvSchema.safeParse({ ...validEnvironment, EMAIL_SMTP_USER: 'user' }).success,
+		).toBe(false)
+		expect(
+			endpointEnvSchema.safeParse({
+				...validEnvironment,
+				EMAIL_SMTP_USER: 'user',
+				EMAIL_SMTP_PASSWORD: 'password',
+			}).success,
+		).toBe(true)
 	})
 
 	it('validates optional reply-to and sender configuration', () => {

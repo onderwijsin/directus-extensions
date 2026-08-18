@@ -1,6 +1,6 @@
 import type { MagicLinksEnv } from '../src/magic-links-endpoint/env.schema'
 
-import { InvalidCredentialsError } from '@directus/errors'
+import { InvalidCredentialsError, InvalidOtpError } from '@directus/errors'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -35,6 +35,10 @@ const options: MagicLinksEnv = {
 	MAGIC_LINKS_EMAIL_SUBJECT: 'Sign in',
 	MAGIC_LINKS_EMAIL_REPLY_TO: 'support@example.com',
 	MAGIC_LINKS_EMAIL_SENDER: 'Example <no-reply@example.com>',
+	EMAIL_TRANSPORT: 'smtp',
+	EMAIL_SMTP_HOST: 'mailpit',
+	EMAIL_SMTP_PORT: 1025,
+	EMAIL_FROM: 'noreply@example.com',
 }
 
 const createQuery = (first?: unknown): QueryFake => {
@@ -309,6 +313,38 @@ describe('magic-link handlers', () => {
 				payload: { token: 'raw-token', otp: 'wrong', mode: 'json' },
 			}),
 		).rejects.toBeInstanceOf(InvalidCredentialsError)
+		expect(linkQuery.update).not.toHaveBeenCalled()
+	})
+
+	it('passes Directus OTP errors through without translating them', async () => {
+		const linkQuery = createQuery({
+			id: 'link-id',
+			user_email: 'user@example.com',
+			user_status: 'active',
+			user_provider: 'default',
+		})
+		const transaction = createTransaction(linkQuery)
+		const database = createDatabase(transaction)
+		const otpError = new InvalidOtpError()
+
+		await expect(
+			runRedeem({
+				database,
+				getSchema,
+				services: {
+					AuthenticationService: vi.fn(function () {
+						return {
+							login: vi.fn(() => {
+								throw otpError
+							}),
+						}
+					}),
+				},
+				options,
+				secret: 'secret',
+				payload: { token: 'raw-token', mode: 'json' },
+			}),
+		).rejects.toBe(otpError)
 		expect(linkQuery.update).not.toHaveBeenCalled()
 	})
 

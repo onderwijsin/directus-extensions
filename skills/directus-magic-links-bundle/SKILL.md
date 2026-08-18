@@ -48,8 +48,9 @@ MAGIC_LINK_CLEANUP_CRON=0 * * * *
 ```
 
 The extension also requires Directus SMTP configuration: `EMAIL_TRANSPORT=smtp`, `EMAIL_SMTP_HOST`,
-`EMAIL_SMTP_PORT`, `EMAIL_SMTP_USER`, `EMAIL_SMTP_PASSWORD`, and `EMAIL_FROM`. Those variables
-belong to Directus and are not parsed by the bundle schemas.
+`EMAIL_SMTP_PORT`, and `EMAIL_FROM`. `EMAIL_SMTP_USER` and `EMAIL_SMTP_PASSWORD` are optional for
+unauthenticated SMTP providers, but must be configured together when authentication is required. The
+endpoint validates these Directus mail prerequisites before registering routes.
 
 ## Schema setup
 

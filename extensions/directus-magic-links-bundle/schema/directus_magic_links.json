@@ -17,11 +17,13 @@
 			"schema": {
 				"data_type": "uuid",
 				"is_primary_key": true,
-				"is_nullable": false
+				"is_nullable": false,
+				"has_auto_increment": false
 			},
 			"meta": {
 				"hidden": false,
 				"readonly": true,
+				"special": ["uuid"],
 				"interface": "input",
 				"display": "raw"
 			}
@@ -63,7 +65,8 @@
 			"type": "timestamp",
 			"schema": {
 				"data_type": "timestamp",
-				"is_nullable": false
+				"is_nullable": false,
+				"is_indexed": true
 			},
 			"meta": {
 				"readonly": true,
@@ -77,7 +80,8 @@
 			"type": "timestamp",
 			"schema": {
 				"data_type": "timestamp",
-				"is_nullable": false
+				"is_nullable": false,
+				"is_indexed": true
 			},
 			"meta": {
 				"readonly": true,
@@ -191,7 +195,7 @@
 				"many_collection": "magic_links",
 				"many_field": "user",
 				"one_collection": "directus_users",
-				"one_field": "id",
+				"one_field": null,
 				"one_deselect_action": "nullify"
 			}
 		}
