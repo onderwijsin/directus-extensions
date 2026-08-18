@@ -28,6 +28,39 @@ describe('lock utilities', () => {
 		expect(await provider.isLocked('item')).toBe(false)
 	})
 
+	it('shares lock state across providers with the same provider ID', async () => {
+		const firstProvider = createMemoryLockProvider({
+			providerId: 'shared-provider-test',
+			tokenFactory: () => 'first',
+		})
+		const secondProvider = createMemoryLockProvider({
+			providerId: 'shared-provider-test',
+			tokenFactory: () => 'second',
+		})
+
+		const lease = await firstProvider.tryAcquire('shared-provider-lock', { leaseMs: 50 })
+
+		expect(await secondProvider.isLocked('shared-provider-lock')).toBe(true)
+		expect(await secondProvider.tryAcquire('shared-provider-lock')).toBeNull()
+		expect(await lease?.release()).toBe(true)
+		expect(await secondProvider.isLocked('shared-provider-lock')).toBe(false)
+	})
+
+	it('isolates lock state across different provider IDs', async () => {
+		const firstProvider = createMemoryLockProvider({ providerId: 'isolated-provider-a' })
+		const secondProvider = createMemoryLockProvider({ providerId: 'isolated-provider-b' })
+
+		const lease = await firstProvider.tryAcquire('isolated-provider-lock', { leaseMs: 50 })
+
+		expect(await secondProvider.isLocked('isolated-provider-lock')).toBe(false)
+		expect(await secondProvider.tryAcquire('isolated-provider-lock')).not.toBeNull()
+		expect(await lease?.release()).toBe(true)
+	})
+
+	it('rejects blank provider IDs', () => {
+		expect(() => createMemoryLockProvider({ providerId: '   ' })).toThrow(TypeError)
+	})
+
 	it('reclaims expired memory locks without allowing the old owner to release the replacement', async () => {
 		let currentTime = 1000
 		const provider = createMemoryLockProvider({
@@ -42,6 +75,7 @@ describe('lock utilities', () => {
 		expect(newLease?.token).toBe('new')
 		expect(await oldLease?.release()).toBe(false)
 		expect(await newLease?.renew()).toBe(true)
+		expect(await newLease?.release()).toBe(true)
 	})
 
 	it('rejects invalid memory lock names and lease durations', async () => {

@@ -94,7 +94,7 @@ const createMagicLink = async (
 ): Promise<string> => {
 	const response = await client.request<{ id: string }>(
 		customEndpoint({
-			path: '/items/magic_links',
+			path: '/items/custom_links',
 			method: 'POST',
 			body: JSON.stringify({
 				user: userId,
@@ -381,7 +381,7 @@ describe('magic-links redeem endpoint', () => {
 			for (const linkId of links)
 				await client
 					.request(
-						customEndpoint({ path: `/items/magic_links/${linkId}`, method: 'DELETE' }),
+						customEndpoint({ path: `/items/custom_links/${linkId}`, method: 'DELETE' }),
 					)
 					.catch(() => undefined)
 			for (const userId of users) await client.request(deleteUser(userId))

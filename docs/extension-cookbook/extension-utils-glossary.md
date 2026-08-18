@@ -35,8 +35,9 @@ filesystem. The provider determines who can see the coordination state.
 
 ### Local or process-local
 
-State visible only inside one Node.js process or one provider instance. Memory locks and memory task
-storage are local. They do not coordinate separate Directus replicas.
+State visible only inside one Node.js process. Memory locks share state between providers with the
+same `providerId`, while memory task storage remains local to its store instance. Neither
+coordinates separate Directus replicas.
 
 ### Distributed or shared
 

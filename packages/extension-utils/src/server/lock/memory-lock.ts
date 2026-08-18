@@ -1,6 +1,6 @@
 import type { LockLease, LockProvider, LockProviderOptions } from './lock-core'
 
-import { isFunction } from '../../shared/guards'
+import { isFunction, isNonBlankString } from '../../shared/guards'
 import {
 	createLockLease,
 	createLockToken,
@@ -11,6 +11,8 @@ import {
 
 /** Options for deterministic in-memory lock providers. */
 export interface MemoryLockProviderOptions extends LockProviderOptions {
+	/** Identifier selecting the process-local lock namespace. */
+	providerId?: string
 	/** Injectable clock returning milliseconds since epoch. */
 	now?: () => number
 }
@@ -23,8 +25,12 @@ interface MemoryLockRecord {
 interface MemoryLockConfig {
 	defaultLeaseMs?: number
 	now: () => number
+	providerId: string
 	tokenFactory: () => string
 }
+
+const DEFAULT_MEMORY_LOCK_PROVIDER_ID = 'default'
+const memoryLockMaps = new Map<string, Map<string, MemoryLockRecord>>()
 
 /**
  * Validates and normalizes memory lock configuration.
@@ -38,11 +44,14 @@ const validateMemoryLockConfig = (options: MemoryLockProviderOptions): MemoryLoc
 	if (options.tokenFactory !== undefined && !isFunction(options.tokenFactory)) {
 		throw new TypeError('Lock tokenFactory must be a function')
 	}
+	const providerId = options.providerId?.trim() ?? DEFAULT_MEMORY_LOCK_PROVIDER_ID
+	if (!isNonBlankString(providerId)) throw new TypeError('Lock providerId must not be blank')
 	if (options.defaultLeaseMs !== undefined) validateLeaseMs(options.defaultLeaseMs)
 
 	return {
 		defaultLeaseMs: options.defaultLeaseMs,
 		now: options.now ?? Date.now,
+		providerId,
 		tokenFactory: options.tokenFactory ?? createLockToken,
 	}
 }
@@ -97,7 +106,7 @@ const createMemoryLease = (
 /**
  * Creates a process-local lock provider.
  *
- * This provider coordinates only callers sharing the returned provider instance. It is not safe
+ * Providers with the same `providerId` share lock state within the current process. It is not safe
  * for multiple processes or Directus replicas.
  *
  * @param options - Optional clock and token configuration.
@@ -105,8 +114,8 @@ const createMemoryLease = (
  */
 export function createMemoryLockProvider(options: MemoryLockProviderOptions = {}): LockProvider {
 	const config = validateMemoryLockConfig(options)
-
-	const locks = new Map<string, MemoryLockRecord>()
+	const locks = memoryLockMaps.get(config.providerId) ?? new Map<string, MemoryLockRecord>()
+	memoryLockMaps.set(config.providerId, locks)
 
 	return {
 		/**

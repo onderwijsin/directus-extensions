@@ -171,9 +171,10 @@ DIRECTUS_EXTENSIONS_LOCK_REDIS_URL=redis://redis:6379
 ```
 
 Use `FS` with `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` when all contenders share a filesystem, or
-`MEMORY` for a single process. Redis connections created from environment configuration are closed
-after schema setup. To supply a provider with custom lifecycle or connection ownership, override the
-environment selection:
+`MEMORY` when all contenders run in one process. Memory providers with the same `providerId` share
+state in that process; different IDs isolate lock namespaces. Redis connections created from
+environment configuration are closed after schema setup. To supply a provider with custom lifecycle
+or connection ownership, override the environment selection:
 
 ```ts
 import {
@@ -335,6 +336,7 @@ Use memory locks only when every contender is in the same process:
 import { createMemoryLockProvider } from '@onderwijsin/directus-extension-utils/server'
 
 const locks = createMemoryLockProvider({
+  providerId: 'orders',
   defaultLeaseMs: 30_000,
 })
 

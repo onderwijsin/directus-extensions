@@ -47,7 +47,9 @@ export default defineEndpoint({
 			void attempt(async () => {
 				const { isLocked } = await getSchemaChangeStatus({
 					extensionId: EXTENSION_ID,
-					options: { lockProviderConfig: options },
+					options: {
+						lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
+					},
 				})
 				if (isLocked) {
 					next(new SchemaLockedError())
@@ -77,7 +79,9 @@ export default defineEndpoint({
 			void attempt(async () => {
 				const { isLocked } = await getSchemaChangeStatus({
 					extensionId: EXTENSION_ID,
-					options: { lockProviderConfig: options },
+					options: {
+						lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
+					},
 				})
 				if (isLocked) {
 					next(new SchemaLockedError())

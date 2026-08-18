@@ -21,7 +21,7 @@ const client = createDirectusE2EClient({ baseUrl, token, composeFiles, composePr
 const createMagicLink = async (body: Record<string, unknown>): Promise<string> => {
 	const response = await client.request<{ id: string }>(
 		customEndpoint({
-			path: '/items/magic_links',
+			path: '/items/custom_links',
 			method: 'POST',
 			body: JSON.stringify(body),
 		}),
@@ -30,11 +30,11 @@ const createMagicLink = async (body: Record<string, unknown>): Promise<string> =
 }
 
 const deleteMagicLink = async (id: string): Promise<void> => {
-	await client.request(customEndpoint({ path: `/items/magic_links/${id}`, method: 'DELETE' }))
+	await client.request(customEndpoint({ path: `/items/custom_links/${id}`, method: 'DELETE' }))
 }
 
 const readMagicLink = async (id: string): Promise<unknown> =>
-	client.request(customEndpoint({ path: `/items/magic_links/${id}`, method: 'GET' }))
+	client.request(customEndpoint({ path: `/items/custom_links/${id}`, method: 'GET' }))
 
 const waitForMagicLinkDeletion = async (id: string): Promise<void> => {
 	const deadline = Date.now() + 10_000

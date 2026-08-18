@@ -182,12 +182,16 @@ if (status.isLocked) {
 ```
 
 The status query must use the same provider configuration and extension identifier as the ensure
-operation. A process-local memory provider can only be observed through the same provider instance;
-use Redis or a shared filesystem provider for separate processes.
+operation. Memory providers with the same `providerId` share state within one process; the schema
+management factory uses the stable `schema-change` provider ID so independently created ensure and
+status providers can observe one another. Use Redis or a shared filesystem provider for separate
+processes.
 
 All lock providers use the same `tryAcquire`/`isLocked`/lease contract and `defaultLeaseMs` option.
 Choose the memory provider for one process, the filesystem provider for processes sharing a
-directory, or the Redis provider for shared coordination across replicas.
+directory, or the Redis provider for shared coordination across replicas. When creating memory
+providers directly, use the same `providerId` for callers that must coordinate and different IDs for
+isolated lock namespaces.
 
 Auto-task handlers clear a marker only after the task succeeds. Task failures and lost leases are
 reported through `onError` and leave the marker pending for a later trigger; failed tasks are not

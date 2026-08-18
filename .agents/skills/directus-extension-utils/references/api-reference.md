@@ -83,6 +83,7 @@ interface LockProviderOptions {
   tokenFactory?: () => string
 }
 interface MemoryLockProviderOptions extends LockProviderOptions {
+  providerId?: string
   now?: () => number
 }
 createMemoryLockProvider(options?: MemoryLockProviderOptions): LockProvider
@@ -99,7 +100,8 @@ createRedisLockProvider(options: RedisLockProviderOptions): RedisLockProvider
 ```
 
 Lock names are trimmed and must not be empty. All providers use `defaultLeaseMs` when `tryAcquire`
-does not receive `leaseMs`. The memory provider is process-local. Lease renewal and release are
+does not receive `leaseMs`. The memory provider is process-local and shares state between providers
+with the same `providerId`; different IDs isolate lock namespaces. Lease renewal and release are
 owner-bound and idempotent; they return false for an expired, released, or replaced generation.
 
 ## Server-only auto-task coordination
@@ -277,8 +279,8 @@ re-thrown by default; set `abortOnError: false` to continue.
 
 `getSchemaChangeStatus` checks the same schema-change lock read-only. It never acquires, renews,
 releases, or repairs a lock. Use the same `extensionId` and provider configuration as the ensure
-operation; a process-local memory provider can only observe locks held by the same provider
-instance. Providers created from `lockProviderConfig` are disposed after the status query, while
+operation. Memory providers with the same `providerId` can observe one another within the process.
+Providers created from `lockProviderConfig` are disposed after the status query, while
 an explicitly supplied `lockProvider` remains owned by the consumer.
 
 ```ts

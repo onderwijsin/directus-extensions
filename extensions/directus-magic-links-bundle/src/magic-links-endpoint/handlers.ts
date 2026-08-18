@@ -178,7 +178,6 @@ export async function requestMagicLink(input: RequestHandlerInput) {
 		}),
 	)
 	if (delivery.error) {
-		console.log({ delivery: delivery.error })
 		await attempt(() =>
 			database(options.MAGIC_LINKS_COLLECTION)
 				.where({ id: user.linkId })

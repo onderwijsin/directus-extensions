@@ -53,7 +53,7 @@ describe('magic-links request endpoint', () => {
 
 			const links = await client.request<MagicLinkRecord[]>(
 				customEndpoint({
-					path: `/items/magic_links?filter[user][_eq]=${encodeURIComponent(userId)}&fields=token_hash,email_status`,
+					path: `/items/custom_links?filter[user][_eq]=${encodeURIComponent(userId)}&fields=token_hash,email_status`,
 					method: 'GET',
 				}),
 			)

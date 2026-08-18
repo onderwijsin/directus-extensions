@@ -63,6 +63,7 @@ services:
       EMAIL_SMTP_HOST: mailpit
       EMAIL_SMTP_PORT: 1025
       MAGIC_LINKS_ENABLED: 'true'
+      MAGIC_LINKS_COLLECTION: custom_links
       STORAGE_LOCATIONS: bucket
       STORAGE_BUCKET_DRIVER: s3
       STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}

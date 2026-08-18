@@ -1,5 +1,3 @@
-import type { DirectusSchemaDefinition } from '@onderwijsin/directus-extension-utils/server'
-
 import { defineHook } from '@directus/extensions-sdk'
 import {
 	ensureDirectusSchema,
@@ -8,9 +6,9 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import magicLinksSchema from '../../schema/directus_magic_links.json'
 import { registerMagicLinkCleanup } from './cleanup'
 import { envSchema } from './env.schema'
+import { createMagicLinksSchema } from './schema'
 
 export const EXTENSION_NAME = 'magic_links'
 export const EXTENSION_ID = 'magic-links'
@@ -41,11 +39,11 @@ export default defineHook((hook, context) => {
 				database: context.database,
 				getSchema: context.getSchema,
 				logger,
-				definition: magicLinksSchema as unknown as DirectusSchemaDefinition,
+				definition: createMagicLinksSchema(options.MAGIC_LINKS_COLLECTION),
 				services: context.services,
 				options: {
 					abortOnError: options.MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR,
-					lockProviderConfig: options,
+					lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 				},
 			}),
 		{

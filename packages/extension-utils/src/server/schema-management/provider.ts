@@ -3,6 +3,8 @@ import type { SchemaChangeOptions } from './config'
 
 import { createFsLockProvider, createMemoryLockProvider, createRedisLockProvider } from '../lock'
 
+const DEFAULT_SCHEMA_CHANGE_MEMORY_PROVIDER_ID = 'schema-change'
+
 /** A lock provider together with cleanup for resources created by the factory. */
 export interface SchemaChangeLockProvider {
 	provider: LockProvider
@@ -55,7 +57,10 @@ export function createSchemaChangeLockProvider(
 		case 'MEMORY':
 		default:
 			return {
-				provider: createMemoryLockProvider(),
+				provider: createMemoryLockProvider({
+					providerId:
+						options.DIRECTUS_EXTENSION_ID ?? DEFAULT_SCHEMA_CHANGE_MEMORY_PROVIDER_ID,
+				}),
 				/**
 				 * Releases no external resources for the memory provider.
 				 * @returns A resolved promise.

@@ -90,9 +90,9 @@ lease and release it in `finally`; call `renew` while long-running work continue
 or release means the owner no longer owns the generation. Never release by name alone and never
 allow an old owner to remove a replacement generation.
 
-`createMemoryLockProvider` coordinates one provider instance in one process. Directus KV/Cache
-locks coordinate clients sharing their configured backend. The filesystem adapter coordinates only
-processes sharing its directory; it is not cluster-wide without shared storage.
+`createMemoryLockProvider` coordinates providers with the same `providerId` in one process.
+Directus KV/Cache locks coordinate clients sharing their configured backend. The filesystem adapter
+coordinates only processes sharing its directory; it is not cluster-wide without shared storage.
 All lock providers expose the same `defaultLeaseMs` and `tokenFactory` options where applicable;
 `leaseMs` on `tryAcquire` overrides the provider default.
 

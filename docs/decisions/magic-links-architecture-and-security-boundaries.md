@@ -77,6 +77,12 @@ using the current transaction and schema. Missing or invalid OTPs throw Directus
 `InvalidOtpError`, allowing clients to show OTP UI. Because this error is thrown inside the
 transaction, no bootstrap session is created and the magic link remains reusable.
 
+Known limitation: when `tfa_secret` is absent, the bootstrap-session-plus-refresh path does not
+currently preserve Directus's `enforce_tfa` JWT claim for users whose role requires TFA. Such a user
+may receive a normal authenticated session instead of Directus's required TFA setup state. This is
+tracked as a security follow-up; the intended fix is to preserve the claim through a supported
+Directus authentication hook or equivalent supported authentication path.
+
 Once link and TFA validation succeed, the extension generates a cryptographically secure,
 short-lived bootstrap token and inserts a temporary `directus_sessions` row associated with the
 Directus user ID. Request metadata such as IP address, user agent, and origin is copied where

@@ -63,11 +63,12 @@ values before registering its endpoint.
 
 ## Schema setup
 
-When schema changes are enabled, the startup hook creates the portable `magic_links` collection,
-fields, and relation from the package's exported schema data. Existing compatible schema resources
-are preserved. Set `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=false` to disable schema changes
-globally, or `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bundle. Schema setup
-always uses a lock; configure `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` for multi-process deployments.
+When schema changes are enabled, the startup hook creates the configured `MAGIC_LINKS_COLLECTION`
+collection (default: `magic_links`), fields, and relation from the package's exported schema data.
+Existing compatible schema resources are preserved. Set
+`DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=false` to disable schema changes globally, or
+`MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bundle. Schema setup always uses a
+lock; configure `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` for multi-process deployments.
 
 The magic-link record stores a required relation to `directus_users`; the related user's current
 `email` is used for delivery and is not duplicated in the magic-links table.
@@ -85,7 +86,8 @@ The schedule is registered by the hook entry only when `MAGIC_LINKS_ENABLED` and
 deleted count or failure without affecting request or redemption endpoints. In a multi-instance
 deployment, each Directus process may run the schedule; concurrent cleanup runs are safe and
 idempotent, but operators should coordinate scheduling if duplicate executions are undesirable.
-Leave the feature disabled when another system owns retention for the `magic_links` collection.
+Leave the feature disabled when another system owns retention for the configured magic-links
+collection.
 
 ## Request endpoint
 
@@ -138,22 +140,30 @@ optional `MAGIC_LINKS_EMAIL_REPLY_TO` and `MAGIC_LINKS_EMAIL_SENDER` values are 
 }
 ```
 
-`token` is required. `otp` is optional unless Directus requires TFA. `mode` defaults to `json` and
-accepts `json`, `cookie`, or `session`. The token is HMAC-digested and checked inside a transaction
-with a row lock. The link must be unexpired, unredeemed, active, and associated with Directus's
-default local provider.
+`token` is required. `otp` is required when the user has a configured personal TFA secret. `mode`
+defaults to `json` and accepts `json`, `cookie`, or `session`. The token is HMAC-digested and
+checked inside a transaction with a row lock. The link must be unexpired, unredeemed, active, and
+associated with Directus's default local provider.
 
 Session modes mirror Directus login: `json` returns access and refresh tokens, `cookie` returns the
 access token and sets the refresh token in an HttpOnly cookie, and `session` sets the stateful
 session token in an HttpOnly cookie. Cookie names, TTLs, domain, `Secure`, and `SameSite` settings
 come from Directus's `REFRESH_TOKEN_COOKIE_*` and `SESSION_COOKIE_*` environment options.
 
-Successful redemption validates TFA when enabled, bootstraps a short-lived Directus session, and
-uses `AuthenticationService.refresh()` to issue Directus's normal authentication result before
-marking the link redeemed in the same transaction. Invalid, expired, already redeemed, inactive,
-unsupported-provider, missing-OTP, and invalid-OTP requests return Directus's `InvalidOtpError` or
-generic credentials error as appropriate. OTP failures roll back the transaction, so the link can be
-retried with another OTP; other failed authentication leaves the link unredeemed as well.
+Successful redemption validates a configured personal TFA secret, bootstraps a short-lived Directus
+session, and uses `AuthenticationService.refresh()` to issue Directus's normal authentication result
+before marking the link redeemed in the same transaction. Invalid, expired, already redeemed,
+inactive, unsupported-provider, missing-OTP, and invalid-OTP requests return Directus's
+`InvalidOtpError` or generic credentials error as appropriate. OTP failures roll back the
+transaction, so the link can be retried with another OTP; other failed authentication leaves the
+link unredeemed as well.
+
+Known limitation: magic-link redemption does not currently preserve Directus's policy-based TFA
+setup claim. A user whose role requires TFA through `enforce_tfa`, but who has not finished setting
+up a personal TFA secret, can therefore receive a normal authenticated session instead of the
+required TFA setup state. Users with a configured TFA secret are still required to provide a valid
+OTP. See the open issue for the investigation and proposed follow-up:
+[policy-based TFA can be bypassed during magic-link redemption](https://github.com/onderwijsin/directus-extensions/issues/20).
 
 Clients should remove the token from the browser URL immediately after reading it, avoid analytics
 and application logs containing the token, and follow Directus's normal rules for storing returned
@@ -169,8 +179,8 @@ import schema from '@onderwijsin/directus-magic-links-bundle/schema'
 
 The bundle requires a trusted, non-sandboxed Directus runtime and a configured SMTP transport. It
 does not modify the Directus Data Studio authentication flow. The endpoint accepts public request
-and redeem calls, but the `magic_links` collection must remain private and must not be exposed
-through public CRUD permissions.
+and redeem calls, but the configured magic-links collection must remain private and must not be
+exposed through public CRUD permissions.
 
 Apply rate limiting to the request route at the edge or API gateway. Configure CORS for the frontend
 origin. Cookie and session modes require the deployment's normal CSRF protections because the

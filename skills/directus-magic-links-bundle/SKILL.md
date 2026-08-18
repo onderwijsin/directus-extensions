@@ -55,12 +55,13 @@ endpoint validates these Directus mail prerequisites before registering routes.
 
 ## Schema setup
 
-With both schema switches enabled, the hook creates the hidden `magic_links` collection, its fields,
-and the relation to `directus_users`. Compatible existing resources are preserved. Incompatible
-structural resources are logged loudly and left unchanged. Unexpected schema service failures abort
-setup by default; set `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR=false` to log the failure and continue the
-hook setup. Schema setup always uses the configured lock provider; use `REDIS` or `FS` when multiple
-Directus processes share the same project.
+With both schema switches enabled, the hook creates the hidden configured magic-links collection
+(default: `magic_links`), its fields, and the relation to `directus_users`. Compatible existing
+resources are preserved. Incompatible structural resources are logged loudly and left unchanged.
+Unexpected schema service failures abort setup by default; set
+`MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR=false` to log the failure and continue the hook setup. Schema
+setup always uses the configured lock provider; use `REDIS` or `FS` when multiple Directus processes
+share the same project.
 
 The related user's current `email` is the authoritative delivery address. The magic-links table does
 not duplicate an email snapshot.
@@ -126,9 +127,10 @@ Request body:
 }
 ```
 
-`token` is required. `otp` is optional for users without TFA. `mode` defaults to `json` and accepts
-`json`, `cookie`, or `session`. The token is digested and checked transactionally with a row lock;
-it must be unexpired, unredeemed, active, and linked to the default local provider.
+`token` is required. `otp` is required for users with a configured personal TFA secret. `mode`
+defaults to `json` and accepts `json`, `cookie`, or `session`. The token is digested and checked
+transactionally with a row lock; it must be unexpired, unredeemed, active, and linked to the default
+local provider.
 
 Modes mirror Directus login. `json` returns access and refresh tokens in JSON. `cookie` returns the
 access token in JSON and sets the refresh token in an HttpOnly cookie. `session` sets the stateful
@@ -136,16 +138,23 @@ session token in an HttpOnly cookie and returns the expiry metadata. Cookie name
 `Secure`, and `SameSite` settings use Directus's `REFRESH_TOKEN_COOKIE_*` and `SESSION_COOKIE_*`
 configuration.
 
-On success, the bundle validates TFA when enabled, creates a short-lived bootstrap session, and
-calls Directus `AuthenticationService.refresh()` to create the normal authentication result before
-marking the link redeemed in the same transaction. Invalid, expired, already redeemed, inactive,
-unsupported-provider requests return Directus's generic credentials error. Missing or invalid OTP
-requests return Directus's `InvalidOtpError`; the transaction rolls back and leaves the link
-available for an OTP retry.
+On success, the bundle validates a configured personal TFA secret, creates a short-lived bootstrap
+session, and calls Directus `AuthenticationService.refresh()` to create the normal authentication
+result before marking the link redeemed in the same transaction. Invalid, expired, already redeemed,
+inactive, unsupported-provider requests return Directus's generic credentials error. Missing or
+invalid OTP requests return Directus's `InvalidOtpError`; the transaction rolls back and leaves the
+link available for an OTP retry.
 
-The endpoint accepts public requests, but the `magic_links` collection remains private. Do not grant
-public CRUD permissions to that collection. Configure CORS and CSRF protections according to the
-frontend's deployment and the selected cookie/session mode.
+Known limitation: magic-link redemption does not currently preserve Directus's policy-based TFA
+setup claim. A user whose role requires TFA through `enforce_tfa`, but who has not finished setting
+up a personal TFA secret, can receive a normal authenticated session instead of the required TFA
+setup state. Users with a configured TFA secret are still required to provide a valid OTP. Track the
+investigation and proposed follow-up in
+[the GitHub issue](https://github.com/onderwijsin/directus-extensions/issues/20).
+
+The endpoint accepts public requests, but the configured magic-links collection remains private. Do
+not grant public CRUD permissions to that collection. Configure CORS and CSRF protections according
+to the frontend's deployment and the selected cookie/session mode.
 
 ## Email template
 
@@ -161,6 +170,8 @@ testing delivery. Never add the raw token to logs or operational telemetry.
   retention process removes them.
 - Rotating `MAGIC_LINKS_TOKEN_SECRET` or the Directus `SECRET` fallback invalidates existing links.
 - The bundle does not replace or modify Data Studio login.
+- Policy-enforced users who have not completed personal TFA setup are not currently placed into
+  Directus's required TFA setup state when they redeem a magic link.
 - The bundle requires a trusted, non-sandboxed Directus runtime.
 - Keep the `magic_links` collection private; configure CORS and CSRF protections for the selected
   cookie or session mode.

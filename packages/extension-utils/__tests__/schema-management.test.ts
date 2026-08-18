@@ -3,11 +3,13 @@ import type { LoggerLike } from '../src/server/logger'
 
 import { describe, expect, it, vi } from 'vitest'
 
+import { schemaChangeSchema } from '../src/server/schema-management/config'
 import {
 	ensureDirectusSchema,
 	getSchemaChangeStatus,
 	type DirectusSchemaDefinition,
 } from '../src/server/schema-management/ensure'
+import { createSchemaChangeLockProvider } from '../src/server/schema-management/provider'
 import { registerSchemaChangeOnStart } from '../src/server/schema-management/start'
 
 type Services = ApiExtensionContext['services']
@@ -113,6 +115,20 @@ const emptySchema = (): SchemaOverview => ({
 })
 
 describe('ensureDirectusSchema', () => {
+	it('shares the configured memory schema lock across provider instances', async () => {
+		const options = schemaChangeSchema.parse({})
+		const first = createSchemaChangeLockProvider(options)
+		const second = createSchemaChangeLockProvider(options)
+
+		const lease = await first.provider.tryAcquire('directus-extension-schema:magic-links', {
+			leaseMs: 50,
+		})
+
+		expect(await second.provider.isLocked('directus-extension-schema:magic-links')).toBe(true)
+		expect(await lease?.release()).toBe(true)
+		expect(await second.provider.isLocked('directus-extension-schema:magic-links')).toBe(false)
+	})
+
 	it('passes the database to getSchema and all Directus services', async () => {
 		const fixture = createFixture(emptySchema())
 		const logger = createLogger()
