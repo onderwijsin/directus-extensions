@@ -35,6 +35,26 @@ describe('magic-links environment schemas', () => {
 		expect(result.success).toBe(true)
 	})
 
+	it('validates optional reply-to and sender configuration', () => {
+		expect(
+			endpointEnvSchema.safeParse({
+				...validEnvironment,
+				MAGIC_LINKS_EMAIL_REPLY_TO: 'support@example.com',
+				MAGIC_LINKS_EMAIL_SENDER: 'Example <no-reply@example.com>',
+			}).success,
+		).toBe(true)
+		expect(
+			endpointEnvSchema.safeParse({
+				...validEnvironment,
+				MAGIC_LINKS_EMAIL_REPLY_TO: 'not-an-email',
+			}).success,
+		).toBe(false)
+		expect(
+			endpointEnvSchema.safeParse({ ...validEnvironment, MAGIC_LINKS_EMAIL_SENDER: ' ' })
+				.success,
+		).toBe(false)
+	})
+
 	it('accepts hook-specific schema and cleanup configuration', () => {
 		const result = hookEnvSchema.safeParse({
 			MAGIC_LINKS_SCHEMA_CHANGES_ENABLED: false,

@@ -127,4 +127,42 @@ describe('magic-link security helpers', () => {
 			data: { expires: 900_000, id: 'user-id' },
 		})
 	})
+
+	it('uses Directus-compatible cookie defaults and security settings', () => {
+		const response = { cookie: vi.fn(), json: vi.fn() }
+		sendAuthenticationResponse(
+			response,
+			{
+				REFRESH_TOKEN_COOKIE_DOMAIN: 'auth.example.com',
+				REFRESH_TOKEN_COOKIE_TTL: '2d',
+				REFRESH_TOKEN_COOKIE_SECURE: true,
+				REFRESH_TOKEN_COOKIE_SAME_SITE: 'lax',
+			},
+			{ token: 'token', mode: 'cookie' },
+			{ accessToken: 'access', refreshToken: 'refresh', expires: 100, id: 'user' },
+		)
+		expect(response.cookie).toHaveBeenCalledWith(
+			'directus_refresh_token',
+			'refresh',
+			expect.objectContaining({
+				maxAge: 172_800_000,
+				domain: 'auth.example.com',
+				secure: true,
+				sameSite: 'lax',
+			}),
+		)
+
+		const sessionResponse = { cookie: vi.fn(), json: vi.fn() }
+		sendAuthenticationResponse(
+			sessionResponse,
+			{},
+			{ token: 'token', mode: 'session' },
+			{ accessToken: 'access', refreshToken: 'refresh', expires: 100, id: 'user' },
+		)
+		expect(sessionResponse.cookie).toHaveBeenCalledWith(
+			'directus_session_token',
+			'access',
+			expect.objectContaining({ maxAge: 86_400_000, sameSite: 'strict', secure: false }),
+		)
+	})
 })
