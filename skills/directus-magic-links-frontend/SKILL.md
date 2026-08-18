@@ -122,6 +122,12 @@ with Directus's standard error shape:
 On `INVALID_OTP`, keep the token, prompt for the OTP, and retry the same redeem request with `otp`.
 A failed OTP attempt does not redeem the link.
 
+Invalid OTP attempts are not covered by Directus's normal login-attempt limiter because this flow
+verifies OTP directly before calling `AuthenticationService.refresh()`. Until the extension gains a
+distributed redemption limiter, deploy request and redeem routes behind an edge or API-gateway rate
+limit. The planned `createKv`-backed limiter is tracked in
+[the GitHub issue](https://github.com/onderwijsin/directus-extensions/issues/21).
+
 Invalid, expired, already redeemed, inactive, and unsupported-provider tokens return Directus's
 standard invalid-credentials error. Branch on Directus's actual standardized error code and status
 for the installed version; do not invent or expect a magic-links-specific `MFA_REQUIRED` code.

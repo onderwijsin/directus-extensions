@@ -165,6 +165,15 @@ required TFA setup state. Users with a configured TFA secret are still required 
 OTP. See the open issue for the investigation and proposed follow-up:
 [policy-based TFA can be bypassed during magic-link redemption](https://github.com/onderwijsin/directus-extensions/issues/20).
 
+Known limitation: invalid OTP attempts during magic-link redemption do not inherit Directus's normal
+login-attempt limiter. Redemption verifies the OTP directly and then calls
+`AuthenticationService.refresh()`; Directus does not expose its internal authentication-attempt
+limiter as a reusable extension API. A valid link therefore remains retryable after an invalid OTP
+until it expires or is successfully redeemed. Apply rate limiting to the redeem route at the edge or
+API gateway in the meantime. A distributed, redemption-specific limiter backed by `createKv` is
+tracked as backlog work in
+[the GitHub issue](https://github.com/onderwijsin/directus-extensions/issues/21).
+
 Clients should remove the token from the browser URL immediately after reading it, avoid analytics
 and application logs containing the token, and follow Directus's normal rules for storing returned
 refresh credentials. The endpoint does not modify Data Studio authentication.
@@ -182,9 +191,10 @@ does not modify the Directus Data Studio authentication flow. The endpoint accep
 and redeem calls, but the configured magic-links collection must remain private and must not be
 exposed through public CRUD permissions.
 
-Apply rate limiting to the request route at the edge or API gateway. Configure CORS for the frontend
-origin. Cookie and session modes require the deployment's normal CSRF protections because the
-browser sends the refresh or session cookie automatically.
+Apply rate limiting to both public routes at the edge or API gateway, especially the redeem route
+because invalid OTP attempts are not covered by Directus's login-attempt limiter. Configure CORS for
+the frontend origin. Cookie and session modes require the deployment's normal CSRF protections
+because the browser sends the refresh or session cookie automatically.
 
 For the rationale and security boundaries behind these choices, see the repository decision record:
 [`Magic-link architecture and security boundaries`](../../docs/decisions/magic-links-architecture-and-security-boundaries.md).

@@ -152,6 +152,14 @@ setup state. Users with a configured TFA secret are still required to provide a 
 investigation and proposed follow-up in
 [the GitHub issue](https://github.com/onderwijsin/directus-extensions/issues/20).
 
+Invalid OTP attempts during redemption also do not inherit Directus's login-attempt limiter.
+Redemption verifies OTP directly and then calls `AuthenticationService.refresh()`, while Directus
+does not expose its internal authentication-attempt limiter as a reusable extension API. The link
+therefore remains retryable after an invalid OTP until expiry or successful redemption. Apply rate
+limiting to both public routes at the edge or API gateway. A distributed redemption limiter backed
+by `createKv` is backlog work tracked in
+[the GitHub issue](https://github.com/onderwijsin/directus-extensions/issues/21).
+
 The endpoint accepts public requests, but the configured magic-links collection remains private. Do
 not grant public CRUD permissions to that collection. Configure CORS and CSRF protections according
 to the frontend's deployment and the selected cookie/session mode.

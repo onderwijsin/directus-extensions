@@ -95,6 +95,13 @@ rotation, JWT claims, permissions, expiration, cookies, and stateful session beh
 does not call password-based `AuthenticationService.login()` and does not reimplement session
 issuance.
 
+This refresh-based flow does not inherit Directus's login-attempt limiter. Directus does not expose
+that internal limiter as a reusable extension API, and the extension must verify the magic-link OTP
+before it can create the bootstrap session. Invalid OTP attempts therefore leave the link retryable
+and are not bounded by Directus's normal failed-login policy. Until a redemption-specific limiter is
+implemented, consumers must apply edge or API-gateway rate limits to both public routes. A
+distributed limiter using `createKv` is tracked as backlog work.
+
 Only after refresh succeeds does the extension atomically set `redeemed_at`, defensively requiring
 the link to remain unredeemed. The lookup, TFA verification, bootstrap insert, refresh, and
 redemption update share one transaction. Any failure rolls back the bootstrap row and leaves the
@@ -118,9 +125,11 @@ immediately and keep it out of browser history, analytics, logs, and third-party
 ### Delegate mail and runtime security to Directus and the deployment
 
 The extension uses Directus's `MailService` and its configured SMTP transport. `EMAIL_FROM`, SMTP
-credentials, CORS, rate limiting, and edge protections remain deployment or Directus concerns. The
-extension supports optional `MAGIC_LINKS_EMAIL_REPLY_TO` and `MAGIC_LINKS_EMAIL_SENDER` values, but
-does not replace Directus mail configuration.
+credentials, CORS, rate limiting, and edge protections remain deployment or Directus concerns. In
+particular, deployment rate limits are currently required for redemption because Directus's internal
+login-attempt limiter is not inherited by the refresh-based magic-link flow. The extension supports
+optional `MAGIC_LINKS_EMAIL_REPLY_TO` and `MAGIC_LINKS_EMAIL_SENDER` values, but does not replace
+Directus mail configuration.
 
 The extension requires a trusted, non-sandboxed Directus runtime because it uses normal server-side
 Directus services, database transactions, and cryptographic Node APIs. The `magic_links` collection
