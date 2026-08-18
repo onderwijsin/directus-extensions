@@ -28,6 +28,7 @@ if (!Array.isArray(composeFiles) || composeFiles.some((file) => typeof file !== 
 
 const client = createDirectusE2EClient({ baseUrl, token, composeFiles, composeProject })
 const mailpitUrl = `http://127.0.0.1:${process.env.DIRECTUS_E2E_MAILPIT_PORT ?? '18025'}`
+const magicLinksSecret = 'development-magic-links-secret'
 
 interface MailpitSearchResult {
 	messages: { ID: string }[]
@@ -83,6 +84,29 @@ const requestToken = async (email: string): Promise<string> => {
 		}),
 	)
 	return readTokenFromMailpit(email)
+}
+
+const createMagicLink = async (
+	userId: string,
+	token: string,
+	expiresAt = new Date(Date.now() + 60_000),
+	redeemedAt?: string,
+): Promise<string> => {
+	const response = await client.request<{ id: string }>(
+		customEndpoint({
+			path: '/items/magic_links',
+			method: 'POST',
+			body: JSON.stringify({
+				user: userId,
+				token_hash: createHmac('sha256', magicLinksSecret).update(token).digest('hex'),
+				expires_at: expiresAt.toISOString(),
+				issued_at: new Date().toISOString(),
+				redeemed_at: redeemedAt,
+				email_status: 'sent',
+			}),
+		}),
+	)
+	return response.id
 }
 
 const decodeBase32 = (value: string): Buffer => {
@@ -146,7 +170,8 @@ describe('magic-links redeem endpoint', () => {
 					}),
 				),
 			).resolves.toMatchObject({
-				data: { access_token: expect.any(String), refresh_token: expect.any(String) },
+				access_token: expect.any(String),
+				refresh_token: expect.any(String),
 			})
 			await expect(
 				client.request(
@@ -265,21 +290,7 @@ describe('magic-links redeem endpoint', () => {
 			expect(enableResponse.status).toBe(204)
 			const tfaSecret = generated.data.secret
 			const token = `magic-links-tfa-token-${Date.now()}`
-			await client.request(
-				customEndpoint({
-					path: '/items/magic_links',
-					method: 'POST',
-					body: JSON.stringify({
-						user: user.id,
-						token_hash: createHmac('sha256', 'development-magic-links-secret')
-							.update(token)
-							.digest('hex'),
-						expires_at: new Date(Date.now() + 60_000).toISOString(),
-						issued_at: new Date().toISOString(),
-						email_status: 'sent',
-					}),
-				}),
-			)
+			await createMagicLink(user.id, token)
 
 			const firstResponse = await fetch(`${baseUrl}/auth/magic-links/redeem`, {
 				method: 'POST',
@@ -288,6 +299,16 @@ describe('magic-links redeem endpoint', () => {
 			})
 			expect(firstResponse.status).toBe(401)
 			expect(await firstResponse.json()).toEqual({
+				errors: [{ message: 'Invalid user OTP.', extensions: { code: 'INVALID_OTP' } }],
+			})
+
+			const invalidOtpResponse = await fetch(`${baseUrl}/auth/magic-links/redeem`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ token, otp: '000000', mode: 'json' }),
+			})
+			expect(invalidOtpResponse.status).toBe(401)
+			expect(await invalidOtpResponse.json()).toEqual({
 				errors: [{ message: 'Invalid user OTP.', extensions: { code: 'INVALID_OTP' } }],
 			})
 
@@ -300,12 +321,70 @@ describe('magic-links redeem endpoint', () => {
 					}),
 				),
 			).resolves.toMatchObject({
-				data: { access_token: expect.any(String), refresh_token: expect.any(String) },
+				access_token: expect.any(String),
+				refresh_token: expect.any(String),
 			})
 		} finally {
 			if (userId) await client.request(deleteUser(userId))
 			if (roleId) await client.request(deleteRole(roleId))
 			if (policyId) await client.request(deletePolicy(policyId))
+		}
+	})
+
+	it('rejects expired and inactive links generically', async () => {
+		const users: string[] = []
+		const links: string[] = []
+		try {
+			const cases = [
+				{
+					label: 'expired',
+					expiresAt: new Date(Date.now() - 60_000),
+					status: 'active',
+				},
+				{
+					label: 'inactive',
+					expiresAt: new Date(Date.now() + 60_000),
+					status: 'suspended',
+				},
+			] as const
+
+			for (const testCase of cases) {
+				const email = `magic-links-${testCase.label}-${Date.now()}@example.com`
+				const user = await client.request(
+					createUser({
+						email,
+						password: `unused-${Date.now()}`,
+						status: testCase.status,
+					}),
+				)
+				users.push(user.id)
+
+				const token = `magic-links-${testCase.label}-token-${Date.now()}`
+				links.push(await createMagicLink(user.id, token, testCase.expiresAt))
+				const response = await fetch(`${baseUrl}/auth/magic-links/redeem`, {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ token, mode: 'json' }),
+				})
+
+				expect(response.status).toBe(401)
+				expect(await response.json()).toEqual({
+					errors: [
+						{
+							message: 'Invalid user credentials.',
+							extensions: { code: 'INVALID_CREDENTIALS' },
+						},
+					],
+				})
+			}
+		} finally {
+			for (const linkId of links)
+				await client
+					.request(
+						customEndpoint({ path: `/items/magic_links/${linkId}`, method: 'DELETE' }),
+					)
+					.catch(() => undefined)
+			for (const userId of users) await client.request(deleteUser(userId))
 		}
 	})
 })

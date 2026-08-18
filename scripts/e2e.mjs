@@ -7,7 +7,9 @@
  */
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { join } from 'node:path'
+import { cp, mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 /** @typedef {import('node:child_process').ChildProcessWithoutNullStreams} ChildProcess */
 /** @typedef {import('node:child_process').SpawnOptions} SpawnOptions */
@@ -126,11 +128,33 @@ export function generateEnvironmentSecrets() {
 
 const environmentSecrets = generateEnvironmentSecrets()
 const password = environmentSecrets.ADMIN_PASSWORD
-const playgroundDirectory =
-	process.env.DIRECTUS_E2E_PLAYGROUND_DIR ??
-	(process.env.DIRECTUS_E2E_EXTENSIONS_DIR
-		? join(process.env.DIRECTUS_E2E_EXTENSIONS_DIR, 'directus-e2e-playground')
-		: undefined)
+const sourceExtensionsDirectory = resolve(process.env.DIRECTUS_E2E_EXTENSIONS_DIR ?? 'extensions')
+const playgroundSourceDirectory = resolve(
+	process.env.DIRECTUS_E2E_PLAYGROUND_DIR ?? 'tests/directus-e2e-playground',
+)
+let extensionsDirectory
+let stagedExtensionsDirectory
+
+/**
+ * Creates the single extension tree mounted by E2E Compose.
+ *
+ * The Directus image has a read-only root filesystem. Mounting the playground as a
+ * second nested bind mount therefore fails when Docker tries to create its target
+ * directory. Staging it into the primary extension tree keeps the playground out
+ * of development Compose while requiring only one Directus extension mount.
+ *
+ * @returns A promise completed after the staging tree is ready.
+ */
+async function prepareExtensionsDirectory() {
+	stagedExtensionsDirectory = await mkdtemp(join(tmpdir(), 'directus-e2e-extensions-'))
+	await cp(sourceExtensionsDirectory, stagedExtensionsDirectory, { recursive: true })
+	await cp(
+		playgroundSourceDirectory,
+		join(stagedExtensionsDirectory, 'directus-e2e-playground'),
+		{ recursive: true },
+	)
+	extensionsDirectory = stagedExtensionsDirectory
+}
 
 /**
  * Runs Docker Compose for the isolated E2E project.
@@ -152,7 +176,7 @@ async function compose(args, { logCommand = true, ...options } = {}) {
 			...process.env,
 			...environmentSecrets,
 			DIRECTUS_E2E_PORT: port,
-			...(playgroundDirectory ? { DIRECTUS_E2E_PLAYGROUND_DIR: playgroundDirectory } : {}),
+			DIRECTUS_E2E_EXTENSIONS_DIR: extensionsDirectory,
 		},
 		timeoutMs: e2eOperationTimeoutMs,
 		...options,
@@ -332,6 +356,11 @@ async function cleanup() {
 		timeoutMs: e2eOperationTimeoutMs,
 	})
 	log('E2E cleanup completed')
+	if (stagedExtensionsDirectory) {
+		await rm(stagedExtensionsDirectory, { recursive: true, force: true })
+		stagedExtensionsDirectory = undefined
+		extensionsDirectory = undefined
+	}
 }
 
 /**
@@ -341,6 +370,7 @@ async function cleanup() {
 export async function main() {
 	registerSignalHandlers()
 	try {
+		await prepareExtensionsDirectory()
 		log(`Starting E2E run for project ${composeProject}`)
 		log(`Compose files: ${composeFiles.join(', ')}`)
 		log(`Directus endpoint: ${baseUrl}`)

@@ -251,8 +251,6 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 				.forUpdate()
 				.first<RedeemableMagicLink>()
 
-			console.log({ link })
-
 			if (link?.user_status !== 'active' || link?.user_provider !== DEFAULT_AUTH_PROVIDER) {
 				throw new InvalidCredentialsError()
 			}

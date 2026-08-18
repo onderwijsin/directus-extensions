@@ -65,16 +65,34 @@ For an eligible user, the link record is created in a transaction with `email_st
 request metadata. Mail delivery then changes the status to `sent` or `error`; delivery failure does
 not change the generic public response.
 
-### Authenticate and consume links in one transaction
+### Bootstrap Directus sessions and consume links in one transaction
 
 Redemption hashes the submitted token and selects an eligible, unexpired, unredeemed link with a row
-lock. The row lock serializes concurrent redemption attempts for the same link. Directus's
-`AuthenticationService` performs the actual login, including any configured TFA/OTP checks.
+lock. The row lock serializes concurrent redemption attempts for the same link. The associated
+Directus user is loaded by ID, including status, provider, and `tfa_secret`; the user's email is not
+used as the authenticated principal. The user must be active and use Directus's default provider.
 
-The link is marked redeemed only after authentication succeeds, and that update occurs in the same
-transaction as the lookup and login. Authentication failures, missing or invalid OTP, expired links,
-invalid users, and failed redemption updates roll back the transaction and leave the link available
-for a valid retry where appropriate. A link can therefore produce at most one successful redemption.
+If `tfa_secret` is present, redemption requires an OTP and verifies it with Directus's `TFAService`
+using the current transaction and schema. Missing or invalid OTPs throw Directus's
+`InvalidOtpError`, allowing clients to show OTP UI. Because this error is thrown inside the
+transaction, no bootstrap session is created and the magic link remains reusable.
+
+Once link and TFA validation succeed, the extension generates a cryptographically secure,
+short-lived bootstrap token and inserts a temporary `directus_sessions` row associated with the
+Directus user ID. Request metadata such as IP address, user agent, and origin is copied where
+available. This row is an implementation bridge, not the consumer-facing session and not a second
+authentication system.
+
+The extension then invokes `AuthenticationService.refresh(bootstrapToken, { session })`, forwarding
+whether the requested mode is stateful. Directus owns the resulting access token, refresh-token
+rotation, JWT claims, permissions, expiration, cookies, and stateful session behavior. The extension
+does not call password-based `AuthenticationService.login()` and does not reimplement session
+issuance.
+
+Only after refresh succeeds does the extension atomically set `redeemed_at`, defensively requiring
+the link to remain unredeemed. The lookup, TFA verification, bootstrap insert, refresh, and
+redemption update share one transaction. Any failure rolls back the bootstrap row and leaves the
+magic link available for a valid retry; a successful transaction can consume a link only once.
 
 ### Mirror Directus session modes
 
@@ -110,6 +128,12 @@ must remain private; public clients interact only through the two endpoint route
   enumeration.
 - Implement authentication independently: rejected because it would duplicate Directus provider,
   TFA, token, and session behavior.
+- Authenticate through `AuthenticationService.login()`: rejected because the default provider
+  requires the user's password and is the wrong abstraction for possession of a valid magic-link
+  token.
+- Expose a public `createSessionForUser()` abstraction: unavailable in Directus; the short-lived
+  bootstrap session plus `AuthenticationService.refresh()` preserves Directus's normal session
+  pipeline without duplicating it in the extension.
 - Mark a link redeemed before authentication: rejected because failed OTP or authentication would
   consume a usable link and weaken retry behavior.
 - Allow arbitrary redirect URLs: rejected because it enables link exfiltration through attacker-

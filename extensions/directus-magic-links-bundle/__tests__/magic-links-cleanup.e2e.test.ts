@@ -18,23 +18,35 @@ if (!Array.isArray(composeFiles) || composeFiles.some((file) => typeof file !== 
 
 const client = createDirectusE2EClient({ baseUrl, token, composeFiles, composeProject })
 
-interface ItemResponse {
-	data: { id: string }
-}
-
 const createMagicLink = async (body: Record<string, unknown>): Promise<string> => {
-	const response = await client.request<ItemResponse>(
+	const response = await client.request<{ id: string }>(
 		customEndpoint({
 			path: '/items/magic_links',
 			method: 'POST',
 			body: JSON.stringify(body),
 		}),
 	)
-	return response.data.id
+	return response.id
 }
 
 const deleteMagicLink = async (id: string): Promise<void> => {
 	await client.request(customEndpoint({ path: `/items/magic_links/${id}`, method: 'DELETE' }))
+}
+
+const readMagicLink = async (id: string): Promise<unknown> =>
+	client.request(customEndpoint({ path: `/items/magic_links/${id}`, method: 'GET' }))
+
+const waitForMagicLinkDeletion = async (id: string): Promise<void> => {
+	const deadline = Date.now() + 10_000
+	while (Date.now() < deadline) {
+		try {
+			await readMagicLink(id)
+		} catch {
+			return
+		}
+		await new Promise((resolve) => setTimeout(resolve, 250))
+	}
+	throw new Error(`Magic link ${id} was not deleted by scheduled cleanup`)
 }
 
 describe('magic-links scheduled cleanup', () => {
@@ -46,7 +58,7 @@ describe('magic-links scheduled cleanup', () => {
 				status: 'active',
 			}),
 		)
-		const old = new Date(Date.now() - 60_000).toISOString()
+		const old = '2000-01-01T00:00:00.000Z'
 		const future = new Date(Date.now() + 86_400_000).toISOString()
 		const linkIds: string[] = []
 
@@ -79,12 +91,8 @@ describe('magic-links scheduled cleanup', () => {
 			})
 			linkIds.push(freshId)
 
-			await expect(
-				client.waitForLog(/Magic-link cleanup completed.*deleted.*2/u, 60_000),
-			).resolves.toBeDefined()
-
-			await expect(deleteMagicLink(expiredId)).rejects.toThrow()
-			await expect(deleteMagicLink(redeemedId)).rejects.toThrow()
+			await waitForMagicLinkDeletion(expiredId)
+			await waitForMagicLinkDeletion(redeemedId)
 			await expect(deleteMagicLink(freshId)).resolves.toBeUndefined()
 		} finally {
 			for (const linkId of linkIds) {

@@ -52,11 +52,12 @@ override the inline Compose defaults. Keep real credentials in ignored local fil
 secret manager; checked-in defaults are for local development and E2E isolation only.
 
 The E2E runner does not require `.env`. It generates fresh, run-scoped credentials for the database,
-cache, Directus, Garage, and Meilisearch, passes them to every Compose invocation, and removes the
-associated containers and volumes afterward. CI provides `DIRECTUS_E2E_EXTENSIONS_DIR` and passes
-the `DIRECTUS_LICENSE_KEY` GitHub secret to Directus as `LICENSE_KEY` when testing the packed
-consumer. CI also pins `PUBLIC_URL` to `http://localhost:18055`, so license activation uses the same
-absolute URL on every run.
+cache, Directus, Garage, and Meilisearch, stages the configured extension directory together with
+the private E2E playground into a disposable tree, passes the staged tree to Compose, and removes it
+along with the associated containers and volumes afterward. CI provides
+`DIRECTUS_E2E_EXTENSIONS_DIR` and passes the `DIRECTUS_LICENSE_KEY` GitHub secret to Directus as
+`LICENSE_KEY` when testing the packed consumer. CI also pins `PUBLIC_URL` to
+`http://localhost:18055`, so license activation uses the same absolute URL on every run.
 
 The Sentry bundle is explicitly disabled by default in both local Compose and E2E Compose with
 `SENTRY_ENABLED=false`. This is an accepted repository decision:

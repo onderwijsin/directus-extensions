@@ -117,8 +117,10 @@ The shared runner does not create application collections or access-control fixt
 | Garage S3   |       `13900` |
 | Meilisearch |       `17700` |
 
-The E2E stack mounts the regular extension directory read-only and adds the private playground
-extension from `tests/directus-e2e-playground`. It sets:
+The E2E runner stages the regular extension directory together with the private playground from
+`tests/directus-e2e-playground` into a disposable extension tree, then mounts that tree read-only.
+This keeps the playground outside the development Compose extension mount while avoiding nested bind
+mounts, which Directus's read-only image cannot create reliably. It sets:
 
 ```yaml
 EXTENSIONS_MUST_LOAD: 'true'

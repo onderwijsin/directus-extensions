@@ -61,7 +61,9 @@ async function expectEvent(event: string) {
 }
 
 async function expectUtilityResults() {
-	const output = await client.waitForLog(/directus-e2e-playground: utilities /u)
+	const output = await client.waitForLog(
+		/directus-e2e-playground: utilities .*"collection":"posts"/u,
+	)
 	const marker = 'directus-e2e-playground: utilities '
 	const utilityLine = output.split('\n').find((line) => line.includes(marker))
 	if (!utilityLine) throw new Error('Expected the utility result log line')

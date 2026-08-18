@@ -63,18 +63,64 @@ The request accepts:
 and accepts `json`, `cookie`, or `session`. The token is single-use and checked for expiry, active
 user status, and the default local provider.
 
-Successful redemption returns Directus's normal authentication result. Store refresh credentials
-according to the normal Directus client guidance. In `json` mode both tokens are returned; in
-`cookie` mode the refresh token is set as an HttpOnly cookie while the access token is returned; in
-`session` mode the stateful session token is set as an HttpOnly cookie and the access token is not
-returned. Configure fetch with credentials when using cookies. Do not send the token to analytics,
-error reporting, application logs, or third-party URLs.
+Successful redemption returns the same `data` shape as the Directus login endpoint. Store refresh
+credentials according to the normal Directus client guidance.
+
+`json` mode returns both tokens:
+
+```json
+{
+  "data": {
+    "access_token": "...",
+    "refresh_token": "...",
+    "expires": 900000
+  }
+}
+```
+
+`cookie` mode sets the refresh token as an HttpOnly cookie and returns the access token:
+
+```json
+{
+  "data": {
+    "access_token": "...",
+    "expires": 900000
+  }
+}
+```
+
+`session` mode sets the stateful session token as an HttpOnly cookie and returns no token in the
+body:
+
+```json
+{
+  "data": {
+    "expires": 900000
+  }
+}
+```
+
+Configure fetch with credentials when using cookies. Do not send the token to analytics, error
+reporting, application logs, or third-party URLs.
 
 ## TFA and errors
 
-The flow does not bypass TFA. If Directus reports its standard OTP error, keep the token, prompt for
-the OTP, and retry the same redeem request with `otp`. A failed OTP attempt does not redeem the
-link.
+The flow does not bypass TFA. When TFA is enabled, a missing or incorrect OTP returns HTTP `401`
+with Directus's standard error shape:
+
+```json
+{
+  "errors": [
+    {
+      "message": "Invalid user OTP.",
+      "extensions": { "code": "INVALID_OTP" }
+    }
+  ]
+}
+```
+
+On `INVALID_OTP`, keep the token, prompt for the OTP, and retry the same redeem request with `otp`.
+A failed OTP attempt does not redeem the link.
 
 Invalid, expired, already redeemed, inactive, and unsupported-provider tokens return Directus's
 standard invalid-credentials error. Branch on Directus's actual standardized error code and status

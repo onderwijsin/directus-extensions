@@ -12,7 +12,20 @@ export default defineHook(({ action }, context) => {
 	if (context) {
 		const { database, getSchema, logger, services } = context
 		const schemaDefinition: DirectusSchemaDefinition = {
-			collections: [{ collection: 'e2e_schema_management', schema: {} }],
+			collections: [
+				{
+					collection: 'e2e_schema_management',
+					schema: { name: 'e2e_schema_management' },
+					fields: [
+						{
+							collection: 'e2e_schema_management',
+							field: 'id',
+							type: 'uuid',
+							schema: { is_primary_key: true } as never,
+						},
+					],
+				},
+			],
 			fields: [
 				{
 					collection: 'e2e_schema_management',
@@ -114,7 +127,8 @@ export default defineHook(({ action }, context) => {
 
 	action('items.create', (meta: unknown) => {
 		logItemEvent('created')(meta)
-		void runUtilitySmokeTest(meta)
+		const record = isRecord(meta) ? meta : {}
+		if (record.collection === 'posts') void runUtilitySmokeTest(meta)
 	})
 	action('items.update', logItemEvent('updated'))
 	action('items.delete', logItemEvent('deleted'))
