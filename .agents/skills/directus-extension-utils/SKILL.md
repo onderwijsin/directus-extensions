@@ -84,10 +84,11 @@ so Redis connection ownership stays inside the utility.
 
 ### Locks
 
-`tryAcquire` returns an owner-bound lease or `null` on contention. Always retain the lease and
-release it in `finally`; call `renew` while long-running work continues. A `false` renewal or
-release means the owner no longer owns the generation. Never release by name alone and never allow
-an old owner to remove a replacement generation.
+`tryAcquire` returns an owner-bound lease or `null` on contention. Use `isLocked` for a read-only
+lock-state check; it does not acquire, renew, release, or repair a lock. Always retain an acquired
+lease and release it in `finally`; call `renew` while long-running work continues. A `false` renewal
+or release means the owner no longer owns the generation. Never release by name alone and never
+allow an old owner to remove a replacement generation.
 
 `createMemoryLockProvider` coordinates one provider instance in one process. Directus KV/Cache
 locks coordinate clients sharing their configured backend. The filesystem adapter coordinates only
@@ -110,7 +111,9 @@ the consumer. Always pass `database`, `getSchema`, and the complete `ApiExtensio
 object from the hook context.
 
 Use `registerSchemaChangeOnStart` to centralize global and extension-specific disabled checks and
-startup error logging. Schema definitions are trusted extension-owned data; do not add runtime Zod
+startup error logging. Use `getSchemaChangeStatus` when another code path needs to inspect the same
+schema-change lock without modifying it; pass the same `extensionId` and provider configuration as
+the ensure operation. Schema definitions are trusted extension-owned data; do not add runtime Zod
 schemas merely to validate bundled JSON files. Existing compatible resources are preserved,
 incompatible structural resources are logged loudly and left unchanged; UI metadata is not
 authoritative.
@@ -124,7 +127,6 @@ The schema-change configuration surface is:
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | global | `MEMORY` | Provider: `MEMORY`, `REDIS`, or `FS`. |
 | `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | global | — | Required for `REDIS`. |
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | global | — | Required for `FS`. |
-| `useLockedSchemaChange` | call | — | Enable or disable locking for one ensure. |
 | `lockProviderConfig` | call | — | Validated config used to construct a provider. |
 | `lockProvider` | call | — | Explicit provider, owned and disposed by the consumer. |
 | `abortOnError` | call | `true` | Rethrow unexpected service failures when true. |
@@ -143,10 +145,7 @@ registerSchemaChangeOnStart(
     services: context.services,
     logger,
     definition: ordersDefinition,
-    options: {
-      useLockedSchemaChange: options.DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE,
-      lockProviderConfig: options,
-    },
+    options: { lockProviderConfig: options },
   }),
   {
     name: 'Orders',

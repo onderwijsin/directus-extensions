@@ -8,7 +8,7 @@ when a new API is added; this file is a maintainer reference, not a replacement 
 
 ## Attempts
 
-~~~ts
+```ts
 type AttemptResult<T> =
   | { data: T; error: null }
   | { data: null; error: unknown }
@@ -25,7 +25,7 @@ attemptWithRetry<T>(
   operation: () => T | Promise<T>,
   options?: AttemptRetryOptions,
 ): Promise<AttemptResult<T>>
-~~~
+```
 
 attemptWithRetry rejects invalid attempts values (positive safe integer required) and invalid
 delayMs values (finite and non-negative). It returns the final failure as data after the attempt
@@ -33,7 +33,7 @@ budget is exhausted.
 
 ## Runtime guards
 
-~~~ts
+```ts
 isDefined<T>(value: T): value is Exclude<T, undefined>
 isRecord(value: unknown): value is Record<string, unknown>
 isArray(value: unknown): value is unknown[]
@@ -50,7 +50,7 @@ hasKey<Key extends PropertyKey>(
   value: Record<string, unknown>,
   key: Key,
 ): value is Record<Key, unknown>
-~~~
+```
 
 These are predicates, not coercion, parsing, diagnostics, or structured validation. isRecord accepts
 non-null non-array objects. isNonEmptyString accepts whitespace; use isNonBlankString when
@@ -64,7 +64,7 @@ provided by `@directus/memory` and support local and Redis-backed stores. `Kv` a
 
 ## Server-only locks
 
-~~~ts
+```ts
 interface LockAcquireOptions {
   leaseMs?: number // default 30_000; finite and positive
 }
@@ -76,6 +76,7 @@ interface LockLease {
 }
 interface LockProvider {
   tryAcquire(name: string, options?: LockAcquireOptions): Promise<LockLease | null>
+  isLocked(name: string): Promise<boolean>
 }
 interface LockProviderOptions {
   defaultLeaseMs?: number
@@ -95,7 +96,7 @@ interface RedisLockProvider extends LockProvider {
   dispose(): Promise<void>
 }
 createRedisLockProvider(options: RedisLockProviderOptions): RedisLockProvider
-~~~
+```
 
 Lock names are trimmed and must not be empty. All providers use `defaultLeaseMs` when `tryAcquire`
 does not receive `leaseMs`. The memory provider is process-local. Lease renewal and release are
@@ -103,7 +104,7 @@ owner-bound and idempotent; they return false for an expired, released, or repla
 
 ## Server-only auto-task coordination
 
-~~~ts
+```ts
 interface AutoTaskMarker {
   generation: number
   updatedAt: number
@@ -122,24 +123,24 @@ interface RedisMarkerStoreOptions {
 createRedisMarkerStore(options: RedisMarkerStoreOptions): AutoTaskMarkerStore & {
   dispose(): Promise<void>
 }
-~~~
+```
 
 The Directus marker adapter uses `Kv.increment` and `Kv.usingLock` to update generations safely.
 Marker timestamps must be finite.
 
 ## Shared constants
 
-~~~ts
+```ts
 const deploymentEnvs: readonly ['development', 'staging', 'production']
 type DEPLOYMENT_ENV = 'development' | 'staging' | 'production'
-~~~
+```
 
 Import these values from `/constants`. Use `deploymentEnvs` in Zod environment schemas and
 `DEPLOYMENT_ENV` for TypeScript annotations.
 
 ## Server-only extension setup
 
-~~~ts
+```ts
 interface ExtensionSetup {
   start(): void
   end(): void
@@ -156,7 +157,7 @@ validateExtensionOptions<S extends ZodType>(
   schema: S,
   logger: Logger,
 ): z.output<S>
-~~~
+```
 
 `extensionSetup` logs lifecycle messages and treats missing or true `<EXTENSION_NAME>_ENABLED`
 values as enabled. The string `"false"` and boolean `false` disable the extension.
@@ -165,7 +166,7 @@ Exiting.` when parsing fails.
 
 ## Server-only schema management
 
-~~~ts
+```ts
 const schemaLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
 
 const schemaChangeSchema = z.object({
@@ -181,18 +182,18 @@ type SchemaChangeOptions = z.output<typeof schemaChangeSchema>
 
 const DIRECTUS_EXTENSION_SCHEMA_LOCK = 'directus-extension-schema'
 getSchemaLockName(name: string): string
-~~~
+```
 
 `schemaChangeSchema` validates the global enablement and provider settings. Extend it with
 `.extend(...)` so its conditional Redis and filesystem requirements remain active:
 
-~~~ts
+```ts
 const envSchema = schemaChangeSchema.extend({
   ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 })
-~~~
+```
 
-~~~ts
+```ts
 interface SchemaChangeLockProvider {
   provider: LockProvider
   dispose(): Promise<void>
@@ -201,13 +202,13 @@ interface SchemaChangeLockProvider {
 createSchemaChangeLockProvider(
   options: SchemaChangeOptions,
 ): SchemaChangeLockProvider
-~~~
+```
 
 The factory selects the memory, Redis, or filesystem provider from
 `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`. It owns and disposes Redis providers that it creates. An
 explicit `options.lockProvider` passed to `ensureDirectusSchema` remains owned by the consumer.
 
-~~~ts
+```ts
 interface DirectusSchemaDefinition {
   collections: CollectionDefinition[]
   fields: FieldDefinition[]
@@ -215,7 +216,6 @@ interface DirectusSchemaDefinition {
 }
 
 interface EnsureDirectusSchemaOptions {
-  useLockedSchemaChange?: boolean
   abortOnError?: boolean // default true
   lockProvider?: LockProvider
   lockProviderConfig?: SchemaChangeOptions
@@ -243,7 +243,25 @@ interface EnsureDirectusSchemaResult {
 ensureDirectusSchema(
   input: EnsureDirectusSchemaInput,
 ): Promise<EnsureDirectusSchemaResult>
-~~~
+
+type SchemaChangeStatusOptions = Pick<
+  EnsureDirectusSchemaOptions,
+  'lockProvider' | 'lockProviderConfig'
+>
+
+interface SchemaChangeStatusInput {
+  extensionId: string
+  options?: SchemaChangeStatusOptions
+}
+
+interface SchemaChangeStatus {
+  isLocked: boolean
+}
+
+getSchemaChangeStatus(
+  input: SchemaChangeStatusInput,
+): Promise<SchemaChangeStatus>
+```
 
 Collection definitions must include a non-blank `schema.name` and a primary-key field in the
 collection's nested `fields` array. The primary-key field must not be repeated in the top-level
@@ -257,7 +275,13 @@ authoritative and is not overwritten. Each ensure emits an info-level plan and s
 and lock lifecycle details use debug-level logging. Unexpected service failures are logged and
 re-thrown by default; set `abortOnError: false` to continue.
 
-~~~ts
+`getSchemaChangeStatus` checks the same schema-change lock read-only. It never acquires, renews,
+releases, or repairs a lock. Use the same `extensionId` and provider configuration as the ensure
+operation; a process-local memory provider can only observe locks held by the same provider
+instance. Providers created from `lockProviderConfig` are disposed after the status query, while
+an explicitly supplied `lockProvider` remains owned by the consumer.
+
+```ts
 type ActionRegistrar = (
   event: 'server.start',
   handler: () => void,
@@ -275,7 +299,7 @@ registerSchemaChangeOnStart(
   callback: () => Promise<EnsureDirectusSchemaResult>,
   options: RegisterSchemaChangeOnStartOptions,
 ): void
-~~~
+```
 
 The startup helper performs the global and extension-specific disabled checks, invokes the callback
 on `server.start`, and logs asynchronous setup failures without rejecting action registration.
@@ -296,7 +320,7 @@ identity, field type, and relation endpoints. It never overwrites UI metadata, a
 incompatible existing resource after logging an error. Use `abortOnError: false` only for a deliberate
 best-effort setup; it applies to unexpected service failures, not to incompatible resources.
 
-~~~ts
+```ts
 interface TaskHandlerStorage {
   lockProvider: LockProvider
   markerStore: AutoTaskMarkerStore
@@ -308,9 +332,9 @@ interface MemoryTaskHandlerStorageOptions {
   tokenFactory?: () => string
 }
 createMemoryTaskHandlerStorage(options?: MemoryTaskHandlerStorageOptions): TaskHandlerStorage
-~~~
+```
 
-~~~ts
+```ts
 interface AutoTaskScheduler {
   setTimeout(callback: () => void, delayMs: number): ReturnType<typeof setTimeout>
   clearTimeout(handle: ReturnType<typeof setTimeout>): void
@@ -336,7 +360,7 @@ interface AutoTaskHandler {
   dispose(): void
 }
 createAutoTaskHandler(options: AutoTaskHandlerOptions): AutoTaskHandler
-~~~
+```
 
 The handler schedules the latest marker generation, retries on lock contention, renews the task
 lease, and aborts the task when renewal fails. `markerLeaseMs` limits how long a pending generation
@@ -356,7 +380,7 @@ filesystem storage currently implement disposal as a no-op.
 
 ## Server-only filesystem adapters
 
-~~~ts
+```ts
 interface FsLockProviderOptions {
   directory: string
   defaultLeaseMs?: number
@@ -387,7 +411,7 @@ interface RedisTaskHandlerStorageOptions {
   isContentionError?: (error: unknown) => boolean
 }
 createRedisTaskHandlerStorage(options: RedisTaskHandlerStorageOptions): TaskHandlerStorage
-~~~
+```
 
 When supplied, `lockTimeoutMs` must be finite and positive. Redis task storage uses it for both
 marker-operation locking and the default execution-lock configuration; the handler still passes its
@@ -406,7 +430,7 @@ connection and should be disposed during server shutdown.
 
 ## MIME classification
 
-~~~ts
+```ts
 type MimeTypeCategory = 'audio' | 'video' | 'image' | 'document' | 'unknown'
 type FileType = MimeTypeCategory
 const DEFAULT_DOCUMENT_MIME_TYPES: readonly string[]
@@ -425,19 +449,19 @@ classifyMimeType(
   options?: MimeTypeClassificationOptions,
 ): MimeTypeCategory
 const getFileType: typeof classifyMimeType
-~~~
+```
 
 Values are trimmed and compared case-insensitively. Text types are documents. Unknown values return
 unknown; custom document MIME types extend the default registry.
 
 ## Server-only logging
 
-~~~ts
+```ts
 type Logger = import('pino').Logger
 type LoggerLike = Pick<Logger, 'info' | 'warn' | 'error'> &
   Partial<Pick<Logger, 'debug' | 'trace'>>
 createLogger(logger?: LoggerLike): LoggerLike
-~~~
+```
 
 When a logger is supplied, it is returned unchanged. Without one, the fallback forwards each method
 to the corresponding console method. info, warn, and error are required; debug and trace are optional.
@@ -447,35 +471,35 @@ to the corresponding console method. info, warn, and error are required; debug a
 The explicit `/sentry` entrypoint also exports the minimal browser contract used by extensions whose
 Sentry client is provided by an embedded loader:
 
-~~~ts
+```ts
 interface SentryBrowser {
   captureException(error: unknown): string | undefined
 }
-~~~
+```
 
 ## Object helpers
 
-~~~ts
+```ts
 toEntries<T extends object>(value: T): [keyof T, T[keyof T]][]
 fromEntries<K extends PropertyKey, V>(
   entries: Iterable<readonly [K, V]>,
 ): Record<K, V>
 keys<T extends object>(value: T): (keyof T)[]
-~~~
+```
 
 toEntries and keys use own enumerable string keys. fromEntries follows standard last-entry-wins
 behavior for duplicate keys.
 
 ## UUIDs and types
 
-~~~ts
+```ts
 const UUID_NAMESPACE_URL: string
 uuid(): string
 uuid(input: string, namespace?: string): string
 uuidv4(): string
 
 type PartialNested<T>
-~~~
+```
 
 uuid() returns UUID v7. When given an input, uuid() returns a deterministic UUID v5 and defaults to
 UUID_NAMESPACE_URL. uuidv4() returns UUID v4. PartialNested recursively makes object properties
