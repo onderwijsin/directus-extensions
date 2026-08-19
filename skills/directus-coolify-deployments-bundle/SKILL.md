@@ -81,26 +81,20 @@ separate `directus_permissions` rows. Directus generates integer permission IDs;
 
 ## Endpoint behavior
 
-All endpoint routes require an authenticated Directus session. Configured project IDs are resolved
-server-side to Coolify resource UUIDs; callers cannot submit arbitrary Coolify UUIDs.
+All endpoint routes require an authenticated Directus session and pass the same-origin check.
+Missing browser origin metadata is allowed for authenticated non-browser clients. The routes are
+currently scaffolds and return `501 Not Implemented` while the domain-modelled route contract is
+being finalized.
 
-The deploy mutation also checks browser `Origin` or `Referer` metadata against the Directus origin.
-Missing browser origin metadata is allowed for authenticated non-browser clients. Treat this as CSRF
-defense in depth: configure a dedicated Directus permission for deployment mutations and do not rely
-on same-origin checking as authorization.
+| Method | Route                                                         | Behavior                                                 |
+| ------ | ------------------------------------------------------------- | -------------------------------------------------------- |
+| `GET`  | `/coolify-deployments/projects`                               | Scaffold route; currently returns `501 Not Implemented`. |
+| `GET`  | `/coolify-deployments/projects/:id/deployments`               | Scaffold route; currently returns `501 Not Implemented`. |
+| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Scaffold route; currently returns `501 Not Implemented`. |
+| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Scaffold route; currently returns `501 Not Implemented`. |
 
-| Method | Route                                                         | Behavior                                                                   |
-| ------ | ------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `GET`  | `/coolify-deployments/projects`                               | Returns configured project IDs, names, and production URLs.                |
-| `GET`  | `/coolify-deployments/projects/:id/deployments`               | Lists application deployments; accepts `skip` and `take` query parameters. |
-| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Returns one normalized deployment.                                         |
-| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Triggers a deployment with `{ "force": true }` by default.                 |
-
-The client calls Coolify's `/api/v1` deployment endpoints with a server-side bearer token. Coolify
-responses are validated with Zod and normalized to the extension model. Provider failures are
-forwarded through Directus's error middleware as a generic `502` Directus error while details are
-logged by Directus. Authentication and same-origin failures are forwarded as Directus
-`403 Forbidden` errors.
+Authentication and same-origin failures are forwarded as Directus `403 Forbidden` errors. Schema
+readiness failures are also forwarded through Directus's error middleware.
 
 ## Security and ownership model
 

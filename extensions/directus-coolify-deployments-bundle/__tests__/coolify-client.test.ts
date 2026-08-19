@@ -40,11 +40,20 @@ const configuredApplications: DirectusCoolifyApplication[] = [
 	},
 ]
 
+const readMany = vi.fn((_keys: unknown[], _query?: unknown) =>
+	Promise.resolve(configuredApplications),
+)
+const itemsServiceOptions = vi.fn()
+
 const context = {
 	services: {
 		ItemsService: class {
-			public readMany() {
-				return Promise.resolve(configuredApplications)
+			public constructor(collection: string, serviceOptions: unknown) {
+				itemsServiceOptions(collection, serviceOptions)
+			}
+
+			public readMany(keys: unknown[], query?: unknown) {
+				return readMany(keys, query)
 			}
 		},
 	},
@@ -60,6 +69,8 @@ describe('Coolify deployment client', () => {
 		mocks.ofetch.mockReset()
 		mocks.ofetch.mockReturnValue(mocks.request)
 		mocks.request.mockReset()
+		readMany.mockClear()
+		itemsServiceOptions.mockClear()
 	})
 
 	it('models project, environment, and application endpoints separately', async () => {
@@ -130,6 +141,30 @@ describe('Coolify deployment client', () => {
 		expect(mocks.request.mock.calls[4]?.[1]).toMatchObject({ query: { tag: 'frontend' } })
 	})
 
+	it('reads the configured application collection with bypass accountability', async () => {
+		const client = createClient()
+
+		await expect(client.listConfiguredApplication()).resolves.toEqual(configuredApplications)
+		expect(readMany).toHaveBeenCalledWith([], { limit: -1 })
+		expect(itemsServiceOptions).toHaveBeenCalledWith(
+			'coolify_applications',
+			expect.objectContaining({ accountability: null }),
+		)
+		expect(context.getSchema).toHaveBeenCalled()
+	})
+
+	it('reuses the configured application cache', async () => {
+		const client = createCoolifyDeploymentClient(options, {
+			...context,
+			cacheEnabled: true,
+		})
+
+		await client.listConfiguredApplication()
+		await client.listConfiguredApplication()
+
+		expect(readMany).toHaveBeenCalledOnce()
+	})
+
 	it('models deployment history, running deployments, details, and cancellation', async () => {
 		const deployment = {
 			application_id: 'application-1',
@@ -196,6 +231,50 @@ describe('Coolify deployment client', () => {
 			status: 403,
 		})
 		expect(mocks.request).toHaveBeenCalledOnce()
+	})
+
+	it('filters applications, environments, and running deployments', async () => {
+		mocks.request
+			.mockImplementationOnce(() =>
+				jsonResponse([
+					{ id: 1, uuid: 'environment-1', name: 'Allowed', project_id: 1 },
+					{ id: 2, uuid: 'environment-2', name: 'Forbidden', project_id: 1 },
+				]),
+			)
+			.mockImplementationOnce(() =>
+				jsonResponse([
+					{ id: 1, uuid: 'application-1', name: 'Allowed' },
+					{ id: 2, uuid: 'application-2', name: 'Forbidden' },
+				]),
+			)
+			.mockImplementationOnce(() =>
+				jsonResponse([
+					{
+						application_id: 'application-1',
+						deployment_uuid: 'allowed',
+						status: 'running',
+					},
+					{
+						application_id: 'application-2',
+						deployment_uuid: 'forbidden',
+						status: 'running',
+					},
+				]),
+			)
+		const client = createClient()
+
+		await expect(client.listEnvironments('project-1')).resolves.toHaveLength(1)
+		await expect(client.listApplications()).resolves.toHaveLength(1)
+		await expect(client.listRunningDeployments()).resolves.toMatchObject([
+			{ applicationId: 'application-1' },
+		])
+	})
+
+	it('preserves upstream request failures', async () => {
+		const upstreamError = new Error('Coolify unavailable')
+		mocks.request.mockRejectedValueOnce(upstreamError)
+
+		await expect(createClient().listProjects()).rejects.toBe(upstreamError)
 	})
 
 	it('fetches application deployments in pages until the final short page', async () => {

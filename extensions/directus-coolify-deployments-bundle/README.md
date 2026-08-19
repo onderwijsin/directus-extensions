@@ -93,23 +93,20 @@ resources; `Can trigger Coolify deployments` intentionally has no nested permiss
 
 ## Endpoint
 
-All routes require an authenticated Directus session. The endpoint resolves the `:id` route
-parameter against `COOLIFY_PROJECTS`; arbitrary Coolify application UUIDs are rejected. The deploy
-mutation also rejects browser requests whose `Origin` or `Referer` does not match the Directus
-origin. Requests without browser origin metadata remain supported for authenticated Flow and
-command-line clients; this check is defense in depth, not a replacement for Directus permissions.
+All routes require an authenticated Directus session and pass the same-origin check. Requests
+without browser origin metadata remain supported for authenticated Flow and command-line clients.
+The routes are currently scaffolds and return `501 Not Implemented` while the domain-modelled route
+contract is being finalized.
 
-| Method | Route                                                         | Description                                                                                           |
-| ------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `GET`  | `/coolify-deployments/projects`                               | List configured projects without Coolify UUIDs.                                                       |
-| `GET`  | `/coolify-deployments/projects/:id/deployments`               | List application deployments. Supports `skip` (default `0`) and `take` (default `10`, maximum `100`). |
-| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Read one deployment by Coolify deployment UUID.                                                       |
-| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Trigger a deployment. Body is `{ "force": true }`; force defaults to `true`.                          |
+| Method | Route                                                         | Description                                              |
+| ------ | ------------------------------------------------------------- | -------------------------------------------------------- |
+| `GET`  | `/coolify-deployments/projects`                               | Scaffold route; currently returns `501 Not Implemented`. |
+| `GET`  | `/coolify-deployments/projects/:id/deployments`               | Scaffold route; currently returns `501 Not Implemented`. |
+| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Scaffold route; currently returns `501 Not Implemented`. |
+| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Scaffold route; currently returns `501 Not Implemented`. |
 
-Responses use the extension-owned normalized model with `status`, `rawStatus`, commit metadata,
-deployment URL, timestamps, duration, and the stable configured project ID. Authentication,
-validation, schema-lock, and Coolify failures are forwarded through Directus's error middleware;
-Coolify failures are logged server-side and exposed as a generic `502` Directus error.
+Authentication, same-origin, and schema-lock failures are forwarded through Directus's error
+middleware.
 
 For production use, grant the deploy route only to a dedicated Directus permission or role, use a
 least-privilege Coolify token, keep the Coolify URL fixed in server configuration, and add rate

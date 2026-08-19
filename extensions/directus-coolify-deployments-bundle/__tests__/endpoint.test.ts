@@ -3,11 +3,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-	client: {
-		listApplicationDeployments: vi.fn(),
-		getDeployment: vi.fn(),
-		deploy: vi.fn(),
-	},
 	rejectWhileSchemaLocked: vi.fn((_next: (error?: unknown) => void) => Promise.resolve(false)),
 	setup: { start: vi.fn(), end: vi.fn(), isEnabled: vi.fn(() => true) },
 	validateExtensionOptions: vi.fn(() => ({
@@ -30,10 +25,6 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 	rejectWhileSchemaLocked: mocks.rejectWhileSchemaLocked,
 	validateExtensionOptions: mocks.validateExtensionOptions,
 }))
-vi.mock('../src/shared/coolify-client', () => ({
-	createCoolifyDeploymentClient: () => mocks.client,
-}))
-
 import endpoint from '../src/coolify-deployments-endpoint'
 
 const runEndpoint = (router: ReturnType<typeof createRouter>) => {
@@ -82,7 +73,11 @@ describe('Coolify deployment endpoint orchestration', () => {
 
 		const unauthenticatedResponse = createResponse()
 		const next = vi.fn()
-		middleware({ accountability: null }, unauthenticatedResponse, next)
+		middleware(
+			{ accountability: null, get: () => undefined, protocol: 'https' },
+			unauthenticatedResponse,
+			next,
+		)
 		expect(next).toHaveBeenCalledWith(expect.any(Error))
 
 		const authenticatedResponse = createResponse()
@@ -97,6 +92,8 @@ describe('Coolify deployment endpoint orchestration', () => {
 					app: true,
 					ip: null,
 				},
+				get: () => undefined,
+				protocol: 'https',
 			},
 			authenticatedResponse,
 			authenticatedNext,
@@ -127,6 +124,8 @@ describe('Coolify deployment endpoint orchestration', () => {
 					app: true,
 					ip: null,
 				},
+				get: () => undefined,
+				protocol: 'https',
 			},
 			response,
 			next,
@@ -134,14 +133,30 @@ describe('Coolify deployment endpoint orchestration', () => {
 		await vi.waitFor(() => expect(next).toHaveBeenCalledWith(expect.any(Error)))
 	})
 
-	it('registers route handlers without per-route schema wrappers', () => {
+	it('rejects cross-origin requests in the shared middleware', () => {
 		const router = createRouter()
 		runEndpoint(router)
-		const listProjectsHandler = router.get.mock.calls[0]?.[1]
-		if (typeof listProjectsHandler !== 'function') throw new Error('Expected route handler')
-
 		const response = createResponse()
-		listProjectsHandler({}, response)
-		expect(response.json).toHaveBeenCalledWith([])
+		const next = vi.fn()
+		const middleware = router.use.mock.calls[0]?.[0]
+		if (typeof middleware !== 'function') throw new Error('Expected middleware')
+		middleware(
+			{
+				accountability: {
+					role: 'role-id',
+					roles: ['role-id'],
+					user: 'user-id',
+					admin: false,
+					app: true,
+					ip: null,
+				},
+				get: (header: string) =>
+					header === 'origin' ? 'https://evil.example.com' : undefined,
+				protocol: 'https',
+			},
+			response,
+			next,
+		)
+		expect(next).toHaveBeenCalledWith(expect.any(Error))
 	})
 })

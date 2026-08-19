@@ -61,8 +61,8 @@ services:
       MAGIC_LINKS_ENABLED: 'true'
       MAGIC_LINKS_COLLECTION: custom_links
       COOLIFY_DEPLOYMENTS_ENABLED: 'true'
-      COOLIFY_URL: ${COOLIFY_URL:-https://coolify.example.com}
-      COOLIFY_TOKEN: ${COOLIFY_TOKEN:-e2e-unused-token}
+      COOLIFY_URL: 'https://app.coolify.io'
+      COOLIFY_TOKEN: 'e2e-unused-token'
       USE_MAGIC_LINK_CLEANUP: 'true'
       MAGIC_LINK_CLEANUP_WINDOW: 1ms
       MAGIC_LINK_CLEANUP_CRON: '* * * * * *'

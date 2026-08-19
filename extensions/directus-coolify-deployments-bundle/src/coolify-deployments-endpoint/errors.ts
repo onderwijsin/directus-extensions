@@ -38,6 +38,12 @@ export const InvalidDeploymentRequestError = createError(
 	400,
 )
 
+export const NotImplemented = createError(
+	'COOLIFY_NOT_IMPLEMENTED',
+	'Coolify deployment routes are not implemented yet',
+	501,
+)
+
 /**
  * Forward a schema-lock error when this endpoint's schema is being changed.
  * @param options - Startup status options for this extension.
