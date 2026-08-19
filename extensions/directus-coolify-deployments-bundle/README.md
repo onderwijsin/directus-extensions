@@ -7,12 +7,12 @@ rather than Coolify directly.
 
 ## Purpose and bundle entries
 
-| Entry                          | Type           | Status        | Purpose                                                                              |
-| ------------------------------ | -------------- | ------------- | ------------------------------------------------------------------------------------ |
-| `coolify-deployments-endpoint` | Endpoint       | Complete      | Authenticated application and deployment API.                                        |
-| `coolify-deployments-module`   | Studio module  | Complete      | Application, history, detail, polling, trigger, and cancellation views.              |
-| `coolify-deployments-hook`     | Hook           | Complete      | Ensures the local collection, seeds policies, and enriches new records from Coolify. |
-| `coolify-deploy-operation`     | Flow operation | Scaffold only | Declares `project` and `force`, but does not trigger deployments yet.                |
+| Entry                          | Type           | Status   | Purpose                                                                              |
+| ------------------------------ | -------------- | -------- | ------------------------------------------------------------------------------------ |
+| `coolify-deployments-endpoint` | Endpoint       | Complete | Authenticated application and deployment API.                                        |
+| `coolify-deployments-module`   | Studio module  | Complete | Application, history, detail, polling, trigger, and cancellation views.              |
+| `coolify-deployments-hook`     | Hook           | Complete | Ensures the local collection, seeds policies, and enriches new records from Coolify. |
+| `coolify-deploy-operation`     | Flow operation | Complete | Selects an enabled, deploy-enabled application and triggers its Coolify deployment.  |
 
 The package does not install Coolify, create a token, provide build logs, persist deployment
 history, or schedule deployments.
@@ -336,9 +336,11 @@ authenticated Directus endpoint and never exposes the Coolify token.
 
 ## Flow operation
 
-`Coolify Deploy` declares `project` (string) and `force` (boolean), but its API handler currently
-throws a not-implemented error. Do not use it in production. The package does not provide a
-scheduler, retry engine, or condition engine.
+`Coolify Deploy` has one `Application` option. The async selector loads items from the configured
+applications collection where `enabled = true` and `deploy_enabled = true`. At execution time the
+operation reads the selected item again, rechecks both flags, and triggers a Coolify deployment for
+its `application_uuid`. Disabled or no-longer-deployable applications fail the flow. The package
+does not provide a scheduler, retry engine, or condition engine.
 
 ## Troubleshooting
 

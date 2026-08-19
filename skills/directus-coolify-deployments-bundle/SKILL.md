@@ -12,8 +12,8 @@ This bundle mediates between Directus and one Coolify instance. It allow-lists a
 Directus collection, displays their current state in Studio, and exposes authenticated routes for
 reading, triggering, and cancelling deployments. Coolify credentials stay on the server.
 
-The Flow operation is a scaffold only: it shows `project` and `force`, but its API handler still
-throws a not-implemented error.
+The Flow operation selects an enabled, deploy-enabled application asynchronously and triggers its
+Coolify deployment. Credentials stay on the server.
 
 ## Prerequisites and installation
 
@@ -301,8 +301,14 @@ assign policies, refresh existing records, create Coolify resources, or persist 
 
 ### Flow operation: `coolify-deploy-operation`
 
-`Coolify Deploy` declares `project` (string) and `force` (boolean), but execution throws
-`Coolify deployment triggering is not implemented yet`. Do not use it in production flows.
+`Coolify Deploy` exposes one `Application` option. Its async selector reads from the configured
+applications collection and only offers records with both `enabled = true` and
+`deploy_enabled = true`. The operation re-reads the selected record when the flow runs, checks both
+flags again, and calls Coolify's deployment API with that record's `application_uuid`.
+
+The operation returns Coolify's deployment trigger result on the resolve path. It throws a forbidden
+error when the selected record is missing or either flag is false, so connect a reject path when the
+flow should handle a stale or disabled selection explicitly.
 
 ## Security and operations
 
