@@ -43,5 +43,14 @@ describe('Coolify policies schema', () => {
 				.flatMap((policy) => policy.permissions)
 				.every((permission) => !('id' in permission)),
 		).toBe(true)
+		expect(
+			coolifyPolicies.policies
+				.flatMap((policy) => policy.permissions)
+				.every((permission) => permission.collection === 'coolify_applications'),
+		).toBe(true)
+		const triggerPolicy = coolifyPolicies.policies.find(
+			(policy) => policy.name === 'Can trigger Coolify deployments',
+		)
+		expect(triggerPolicy?.permissions).toEqual([])
 	})
 })

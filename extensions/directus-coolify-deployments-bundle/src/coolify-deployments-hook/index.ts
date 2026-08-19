@@ -12,8 +12,15 @@ import {
 
 import coolifyApplicationsSchema from '../../schema/coolify_applications.json'
 import coolifyPolicies from '../../schema/coolify_policies.json'
-import { EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
+import {
+	DEFAULT_MANAGE_APPLICATIONS_POLICY_ID,
+	DEFAULT_READ_DEPLOYMENTS_POLICY_ID,
+	DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID,
+	EXTENSION_ID,
+	EXTENSION_NAME,
+} from '../shared/constants'
 import { envSchema } from './env.schema'
+import { resolveCoolifyPolicyId } from './policy-ids'
 
 /**
  * Registers schema management for the configured Coolify applications collection.
@@ -59,19 +66,31 @@ export default defineHook((hook, context) => {
 	startup.data(async ({ lockProvider }) => {
 		const policyDefinitions = validatePolicyDefinition(coolifyPolicies)
 		const policyIds = [
-			options.COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID,
-			options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID,
-			options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID,
+			{
+				default: DEFAULT_MANAGE_APPLICATIONS_POLICY_ID,
+				resolved: options.COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID,
+			},
+			{
+				default: DEFAULT_READ_DEPLOYMENTS_POLICY_ID,
+				resolved: options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID,
+			},
+			{
+				default: DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID,
+				resolved: options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID,
+			},
 		]
 
-		for (const [index, policy] of policyDefinitions.policies.entries()) {
+		for (const policy of policyDefinitions.policies) {
 			await ensureDirectusPolicy({
 				id: EXTENSION_ID,
 				database: context.database,
 				getSchema: context.getSchema,
 				logger,
 				services: context.services,
-				definition: { ...policy, id: policyIds[index] ?? policy.id },
+				definition: {
+					...policy,
+					id: resolveCoolifyPolicyId(policy.id, policyIds),
+				},
 				options: {
 					abortOnError: options.COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR,
 					lockProvider,

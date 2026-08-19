@@ -26,8 +26,7 @@
 			"app_access": true,
 			"admin_access": false,
 			"permissions": [
-				{ "collection": "coolify_applications", "action": "read", "fields": ["*"] },
-				{ "collection": "coolify_deployments", "action": "read", "fields": ["*"] }
+				{ "collection": "coolify_applications", "action": "read", "fields": ["*"] }
 			]
 		},
 		{
@@ -39,11 +38,7 @@
 			"ip_access": null,
 			"app_access": true,
 			"admin_access": false,
-			"permissions": [
-				{ "collection": "coolify_applications", "action": "read", "fields": ["*"] },
-				{ "collection": "coolify_deployments", "action": "read", "fields": ["*"] },
-				{ "collection": "coolify_deployments", "action": "create", "fields": ["*"] }
-			]
+			"permissions": []
 		}
 	]
 }

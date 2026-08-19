@@ -38,9 +38,17 @@ interface E2EPolicy {
 	name: string
 }
 
+interface E2EPermission {
+	id: number
+	policy: string
+	collection: string
+	action: string
+}
+
 interface DirectusE2ESchema {
 	posts: E2EPost[]
 	directus_policies: E2EPolicy[]
+	directus_permissions: E2EPermission[]
 }
 
 export type DirectusE2ESdkClient = DirectusClient<DirectusE2ESchema> &

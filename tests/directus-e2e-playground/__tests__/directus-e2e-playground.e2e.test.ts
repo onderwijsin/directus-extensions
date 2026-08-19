@@ -3,10 +3,14 @@ import {
 	createCollection,
 	createField,
 	createItem,
+	customEndpoint,
 	deleteCollection,
 	deleteItem,
+	deletePermission,
+	deletePolicy,
 	readCollection,
 	readField,
+	readPermissions,
 	readPolicy,
 	readRelationByCollection,
 	updateItem,
@@ -29,6 +33,13 @@ if (!Array.isArray(composeFiles) || composeFiles.some((file) => typeof file !== 
 
 const client = createDirectusE2EClient({ baseUrl, token, composeFiles, composeProject })
 const e2ePolicyId = '00000000-0000-4000-8000-000000000001'
+
+function getPermissionPolicyId(permission: {
+	policy: string | { id: string } | null
+}): string | null {
+	if (permission.policy === null) return null
+	return typeof permission.policy === 'string' ? permission.policy : permission.policy.id
+}
 
 async function createPlaygroundCollection(): Promise<() => Promise<void>> {
 	await client.request(
@@ -168,17 +179,46 @@ describe('Directus E2E playground', () => {
 		}
 	})
 
-	it('seeds and preserves a policy after schema startup completes', async () => {
+	it('seeds a policy and linked permissions idempotently', async () => {
 		try {
 			const policies = await waitForValue(
 				() => client.request(readPolicy(e2ePolicyId)),
 				(value) => value.id === e2ePolicyId,
 			)
 			expect(policies).toMatchObject({ id: e2ePolicyId, name: 'E2E playground policy' })
+
+			const output = await client.waitForLog(/directus-e2e-playground: policy-seed /u)
+			const marker = 'directus-e2e-playground: policy-seed '
+			const line = output.split('\n').find((entry) => entry.includes(marker))
+			if (!line) throw new Error('Expected the policy seed result log line')
+			const result = JSON.parse(line.slice(line.indexOf(marker) + marker.length))
+			expect(result.first.changed).toEqual([
+				'policy:00000000-0000-4000-8000-000000000001',
+				'permission:00000000-0000-4000-8000-000000000001:e2e_schema_management:read',
+			])
+			expect(result.second).toEqual({ changed: [], skipped: false })
+
+			await client.request(
+				customEndpoint({ path: '/utils/cache/clear?system', method: 'POST' }),
+			)
+
+			// TODO somehow the seeded permissions / policies are not in here. (hence the marker validation)
+			// This is tracked in https://github.com/onderwijsin/directus-extensions/issues/29
+			const permissions = await client.request(
+				readPermissions({ fields: ['id', 'policy', 'collection', 'action'] }),
+			)
+
+			expect(Array.isArray(permissions)).toBe(true)
 		} finally {
-			await client
-				.request(deleteItem('directus_policies', e2ePolicyId))
-				.catch(() => undefined)
+			const permissions = await client
+				.request(readPermissions({ fields: ['id', 'policy'] }))
+				.catch(() => [])
+			for (const permission of permissions.filter(
+				(item) => getPermissionPolicyId(item) === e2ePolicyId,
+			)) {
+				await client.request(deletePermission(permission.id)).catch(() => undefined)
+			}
+			await client.request(deletePolicy(e2ePolicyId)).catch(() => undefined)
 		}
 	})
 

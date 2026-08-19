@@ -1,6 +1,11 @@
 import { directusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
 import { z } from 'zod'
 
+import {
+	DEFAULT_READ_DEPLOYMENTS_POLICY_ID,
+	DEFAULT_MANAGE_APPLICATIONS_POLICY_ID,
+	DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID,
+} from '../shared/constants'
 import { coolifyEnvironmentSchema } from '../shared/schemas'
 
 /**
@@ -14,11 +19,11 @@ export const envSchema = directusStartupSchema.extend({
 	COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR: z.boolean().default(true),
 	COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: z
 		.uuid()
-		.default('0c9f0b1e-0a0b-4b7c-8a27-4b7a6e1f2d31'),
+		.default(DEFAULT_MANAGE_APPLICATIONS_POLICY_ID),
 	COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID: z
 		.uuid()
-		.default('2e7a4c63-1d5f-46bb-9b02-8f3c7a5d6e14'),
+		.default(DEFAULT_READ_DEPLOYMENTS_POLICY_ID),
 	COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: z
 		.uuid()
-		.default('7b3d9e20-5f61-4a8c-b274-1e6d9f0a3c58'),
+		.default(DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID),
 })

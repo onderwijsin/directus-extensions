@@ -83,7 +83,9 @@ When data seeding is enabled, startup also creates three policies:
 `Can trigger Coolify deployments`. Policy UUIDs can be overridden with the three policy ID variables
 above. Their nested permission definitions are also seeded into `directus_permissions`. Directus
 generates integer permission IDs; the bundle ensures permissions by `policy + collection + action`
-and does not require stable permission IDs.
+and does not require stable permission IDs. Only the local `coolify_applications` collection is
+represented by nested permissions. The deployment policies are feature gates for remote Coolify
+resources; `Can trigger Coolify deployments` intentionally has no nested permissions.
 
 ## Endpoint
 

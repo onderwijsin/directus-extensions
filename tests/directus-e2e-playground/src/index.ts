@@ -6,6 +6,7 @@ import {
 	createDirectusStartupCoordinator,
 	getDirectusStartupStatus,
 	validateSchemaDefinition,
+	type DirectusPolicyDefinition,
 	type DirectusSchemaDefinition,
 } from '@onderwijsin/directus-extension-utils/server'
 
@@ -14,7 +15,7 @@ import { runUtilitySmokeTest } from './smoke'
 export default defineHook(({ action }, context) => {
 	if (context) {
 		const { database, getSchema, logger, services } = context
-		const policyDefinition = {
+		const policyDefinition: DirectusPolicyDefinition = {
 			id: '00000000-0000-4000-8000-000000000001',
 			name: 'E2E playground policy',
 			icon: 'policy',
@@ -23,7 +24,16 @@ export default defineHook(({ action }, context) => {
 			ip_access: null,
 			app_access: false,
 			admin_access: false,
-			permissions: [],
+			permissions: [
+				{
+					collection: 'e2e_schema_management',
+					action: 'read',
+					permissions: null,
+					validation: null,
+					presets: null,
+					fields: ['*'],
+				},
+			],
 		}
 		const schemaDefinition: DirectusSchemaDefinition = {
 			collections: [
@@ -141,6 +151,7 @@ export default defineHook(({ action }, context) => {
 				first,
 				second,
 			})
+			console.log(`directus-e2e-playground: policy-seed ${JSON.stringify({ first, second })}`)
 		})
 	}
 
