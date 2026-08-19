@@ -33,8 +33,14 @@ interface E2EPost {
 	title: string
 }
 
+interface E2EPolicy {
+	id: string
+	name: string
+}
+
 interface DirectusE2ESchema {
 	posts: E2EPost[]
+	directus_policies: E2EPolicy[]
 }
 
 export type DirectusE2ESdkClient = DirectusClient<DirectusE2ESchema> &
