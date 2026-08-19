@@ -37,7 +37,7 @@ const readMagicLink = async (id: string): Promise<unknown> =>
 	client.request(customEndpoint({ path: `/items/custom_links/${id}`, method: 'GET' }))
 
 const waitForMagicLinkDeletion = async (id: string): Promise<void> => {
-	const deadline = Date.now() + 10_000
+	const deadline = Date.now() + 5_000
 	while (Date.now() < deadline) {
 		try {
 			await readMagicLink(id)
@@ -91,6 +91,7 @@ describe('magic-links scheduled cleanup', () => {
 			})
 			linkIds.push(freshId)
 
+			await client.waitForLog(/Magic-link cleanup completed[\s\S]*deleted: [2-9]\d*/u)
 			await waitForMagicLinkDeletion(expiredId)
 			await waitForMagicLinkDeletion(redeemedId)
 			await expect(deleteMagicLink(freshId)).resolves.toBeUndefined()

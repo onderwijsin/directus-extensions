@@ -82,11 +82,10 @@ onUnmounted(() => {
 			</template>
 			<template v-else-if="applications.length === 0">
 				<v-info icon="rocket_launch" title="No Coolify applications configured" center>
-					<p>Add your first Coolify application to start deploying from Directus.</p>
-					<v-button
-						v-if="canCreateApplications"
-						to="/admin/content/coolify_applications/create"
-					>
+					<p style="margin-block-end: 1.375rem">
+						Add your first Coolify application to start deploying from Directus.
+					</p>
+					<v-button v-if="canCreateApplications" to="/content/coolify_applications/+">
 						<v-icon name="add" /> Add your first application
 					</v-button>
 					<p v-else>Ask your administrator to add your first Coolify application.</p>
