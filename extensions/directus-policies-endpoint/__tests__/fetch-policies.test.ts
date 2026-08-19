@@ -33,15 +33,20 @@ const publicPolicy = (id: string) => {
 	return result
 }
 
-const createServices = (rows: unknown[]) => {
+const createServices = (rows: unknown[], roleRows: unknown[] = []) => {
 	const readByQuery = vi.fn().mockResolvedValue(rows)
+	const readRolesByQuery = vi.fn().mockResolvedValue(roleRows)
 	const AccessService = vi.fn(function AccessService() {
 		return { readByQuery }
 	})
+	const ItemsService = vi.fn(function ItemsService() {
+		return { readByQuery: readRolesByQuery }
+	})
 
 	return {
-		services: { AccessService } as unknown as ApiExtensionContext['services'],
+		services: { AccessService, ItemsService } as unknown as ApiExtensionContext['services'],
 		readByQuery,
+		readRolesByQuery,
 	}
 }
 
@@ -111,5 +116,21 @@ describe('fetchPolicies', () => {
 		await fetchPolicies(cachedAccountability, services, schema, cache)
 
 		expect(readByQuery).toHaveBeenCalledOnce()
+	})
+
+	it('expands nested roles before resolving policies', async () => {
+		const { services, readRolesByQuery } = createServices(
+			[{ policy: policy('nested-policy'), role: 'role-child' }],
+			[{ id: 'role-child', parent: 'role-root' }],
+		)
+
+		await expect(
+			fetchPolicies(accountability({ roles: ['role-root'] }), services, schema, null),
+		).resolves.toEqual([publicPolicy('nested-policy')])
+		expect(readRolesByQuery).toHaveBeenCalledWith({
+			filter: { parent: { _in: ['role-root'] } },
+			fields: ['id', 'parent'],
+			limit: -1,
+		})
 	})
 })

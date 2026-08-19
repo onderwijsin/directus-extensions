@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createDirectusE2EClient, customEndpoint } from '../../../packages/test-utils/src'
-import { DEFAULT_READ_DEPLOYMENTS_POLICY_ID } from '../src/shared/constants'
+import { DEFAULT_MANAGE_APPLICATIONS_POLICY_ID } from '../src/shared/constants'
 
 const baseUrl = process.env.DIRECTUS_E2E_URL
 const token = process.env.DIRECTUS_E2E_TOKEN
@@ -33,13 +33,13 @@ const requestStatus = async (request: () => Promise<unknown>): Promise<number> =
 
 describe('Coolify deployment endpoint middleware', () => {
 	it('rejects unauthenticated requests', async () => {
-		const response = await fetch(`${baseUrl}/coolify-deployments/projects`)
+		const response = await fetch(`${baseUrl}/coolify-deployments/applications`)
 
 		expect(response.status).toBe(403)
 	})
 
 	it('rejects authenticated cross-origin requests', async () => {
-		const response = await fetch(`${baseUrl}/coolify-deployments/projects`, {
+		const response = await fetch(`${baseUrl}/coolify-deployments/applications`, {
 			headers: {
 				Authorization: `Bearer ${token}`,
 				Origin: 'https://evil.example.com',
@@ -50,13 +50,11 @@ describe('Coolify deployment endpoint middleware', () => {
 	})
 
 	it('allows authenticated same-origin requests to reach the route', async () => {
-		const response = await fetch(`${baseUrl}/coolify-deployments/projects`, {
+		const response = await fetch(`${baseUrl}/coolify-deployments/applications`, {
 			headers: { Authorization: `Bearer ${token}` },
 		})
 
-		// The route is intentionally a placeholder; this proves middleware passed
-		// without making any request to a Coolify instance.
-		expect(response.status).toBe(501)
+		expect(response.status).toBe(200)
 	})
 
 	it('rejects an authenticated user without the route policy', async () => {
@@ -71,7 +69,7 @@ describe('Coolify deployment endpoint middleware', () => {
 				requestStatus(() =>
 					userClient.request(
 						customEndpoint({
-							path: '/coolify-deployments/projects/one/deployments',
+							path: '/coolify-deployments/applications',
 							method: 'GET',
 						}),
 					),
@@ -84,21 +82,20 @@ describe('Coolify deployment endpoint middleware', () => {
 					path: '/access',
 					method: 'POST',
 					body: JSON.stringify([
-						{ user: user.id, policy: DEFAULT_READ_DEPLOYMENTS_POLICY_ID },
+						{ user: user.id, policy: DEFAULT_MANAGE_APPLICATIONS_POLICY_ID },
 					]),
 				}),
 			)
-			const authorizedStatus = await client.withUserContext(user.id, (userClient) =>
-				requestStatus(() =>
+			await expect(
+				client.withUserContext(user.id, (userClient) =>
 					userClient.request(
 						customEndpoint({
-							path: '/coolify-deployments/projects/one/deployments',
+							path: '/coolify-deployments/applications',
 							method: 'GET',
 						}),
 					),
 				),
-			)
-			expect(authorizedStatus).toBe(501)
+			).resolves.toEqual([])
 		} finally {
 			await user.dispose()
 		}

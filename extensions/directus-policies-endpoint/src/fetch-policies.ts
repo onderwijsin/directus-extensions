@@ -29,6 +29,55 @@ export interface PolicyAccessRow {
 	role: string | null
 }
 
+interface RoleParentRecord {
+	id: string
+	parent: string | null
+}
+
+/**
+ * Resolves the descendant roles nested below the user's effective roles.
+ *
+ * Directus keeps only the user's assigned role in request accountability. Nested roles are
+ * therefore expanded explicitly so this endpoint matches Directus's aggregate policy behavior.
+ *
+ * @param roleIds - Roles directly present in the request accountability.
+ * @param services - Directus API services.
+ * @param schema - Current Directus schema.
+ * @returns Direct roles followed by their nested descendants.
+ */
+async function resolveEffectiveRoleIds(
+	roleIds: string[],
+	services: ApiExtensionContext['services'],
+	schema: SchemaOverview,
+): Promise<string[]> {
+	const roles = new services.ItemsService<RoleParentRecord>('directus_roles', {
+		accountability: null,
+		schema,
+	})
+	const effectiveRoleIds = new Set(roleIds)
+	let parents = [...effectiveRoleIds]
+
+	while (parents.length > 0) {
+		const descendants = await roles.readByQuery({
+			filter: { parent: { _in: parents } },
+			fields: ['id', 'parent'],
+			limit: -1,
+		})
+		const nextParents: string[] = []
+
+		for (const role of descendants) {
+			if (!effectiveRoleIds.has(role.id)) {
+				effectiveRoleIds.add(role.id)
+				nextParents.push(role.id)
+			}
+		}
+
+		parents = nextParents
+	}
+
+	return [...effectiveRoleIds]
+}
+
 /**
  * Removes the internal IP allow list before returning a policy to the consumer.
  *
@@ -72,17 +121,19 @@ export async function fetchPolicies(
 	schema: SchemaOverview,
 	cache: Cache | null,
 ): Promise<PolicyRecord[]> {
+	const effectiveRoleIds = await resolveEffectiveRoleIds(accountability.roles, services, schema)
+	const effectiveAccountability = { ...accountability, roles: effectiveRoleIds }
 	const cacheKey = `policies-endpoint:${JSON.stringify({
-		roles: accountability.roles,
-		user: accountability.user,
-		ip: accountability.ip,
+		roles: effectiveRoleIds,
+		user: effectiveAccountability.user,
+		ip: effectiveAccountability.ip,
 	})}`
 	const cached = await cache?.get<PolicyRecord[]>(cacheKey)
 	if (cached) return cached
 
 	const accessService = new services.AccessService({ accountability, schema })
 	const accessRows = (await accessService.readByQuery({
-		filter: policyAccessFilter(accountability),
+		filter: policyAccessFilter(effectiveAccountability),
 		fields: [...POLICY_FIELDS.map((field) => `policy.${field}`), 'policy.ip_access', 'role'],
 		limit: -1,
 	})) as PolicyAccessRow[]
