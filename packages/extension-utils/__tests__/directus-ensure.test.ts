@@ -4,7 +4,10 @@ import type { LoggerLike } from '../src/server/logger'
 import { describe, expect, it, vi } from 'vitest'
 
 import { directusStartupSchema } from '../src/server/directus-ensure/config'
-import { withCollectionIdentity } from '../src/server/directus-ensure/data-processors/collections'
+import {
+	validateSchemaDefinition,
+	withCollectionIdentity,
+} from '../src/server/directus-ensure/data-processors/collections'
 import { getDirectusStartupStatus } from '../src/server/directus-ensure/operations/core'
 import { ensureDirectusPolicy } from '../src/server/directus-ensure/operations/policies'
 import {
@@ -46,6 +49,26 @@ describe('withCollectionIdentity', () => {
 		expect(result.collections[0]?.schema?.name).toBe('configured')
 		expect(result.fields[0]?.collection).toBe('configured')
 		expect(result.relations[0]?.collection).toBe('configured')
+	})
+})
+
+describe('validateSchemaDefinition', () => {
+	it('validates portable schema data and preserves loose metadata', () => {
+		const definition = validateSchemaDefinition({
+			collections: [
+				{
+					collection: 'validated_collection',
+					schema: { name: 'validated_collection' },
+					fields: [{ field: 'id', type: 'uuid', schema: { is_primary_key: true } }],
+					custom_collection_key: 'preserved',
+				},
+			],
+			fields: [],
+			relations: [],
+		})
+
+		expect(definition.collections[0]).toMatchObject({ custom_collection_key: 'preserved' })
+		expect(() => validateSchemaDefinition({ collections: [], fields: [] })).toThrow()
 	})
 })
 
@@ -638,6 +661,37 @@ describe('ensureDirectusPolicy', () => {
 		).resolves.toEqual({ changed: ['policy:policy-id'], skipped: false })
 		expect(created).toEqual([definition])
 	})
+
+	it('skips without acquiring a lock when data seeds are disabled globally', async () => {
+		const fixture = createFixture(emptySchema())
+		const definition: Policy = {
+			id: 'disabled-policy',
+			name: 'Disabled policy',
+			icon: 'policy',
+			description: null,
+			enforce_tfa: false,
+			ip_access: null,
+			app_access: false,
+			admin_access: false,
+		}
+
+		await expect(
+			ensureDirectusPolicy({
+				id: 'disabled-policy-test',
+				database: fixture.database,
+				getSchema: fixture.getSchema,
+				logger: createLogger(),
+				services: fixture.services,
+				definition,
+				options: {
+					lockProviderConfig: {
+						...directusStartupSchema.parse({}),
+						DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: false,
+					},
+				},
+			}),
+		).resolves.toEqual({ changed: [], skipped: true })
+	})
 })
 
 describe('getDirectusStartupStatus', () => {
@@ -683,5 +737,28 @@ describe('createDirectusStartupCoordinator', () => {
 
 		action.mock.calls[0]?.[1]?.()
 		await vi.waitFor(() => expect(order).toEqual(['schema-1', 'schema-2', 'data']))
+	})
+
+	it('skips data callbacks when data seeds are disabled globally', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const order: string[] = []
+		const startup = createDirectusStartupCoordinator(action, createLogger(), {
+			id: 'data-disabled-test',
+			name: 'Data disabled test',
+			disabled: false,
+			disabledGlobally: false,
+			dataDisabledGlobally: true,
+		})
+		startup.schema(() => {
+			order.push('schema')
+			return Promise.resolve()
+		})
+		startup.data(() => {
+			order.push('data')
+			return Promise.resolve()
+		})
+
+		action.mock.calls[0]?.[1]?.()
+		await vi.waitFor(() => expect(order).toEqual(['schema']))
 	})
 })

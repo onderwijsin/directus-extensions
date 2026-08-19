@@ -86,7 +86,7 @@ only the common helper surface.
 | Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                | `/server`         |
 | Logging        | `createLogger`                                                                                                                                                                    | `/server`         |
 | Setup          | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                  | `/server`         |
-| Schema/data    | `directusStartupSchema`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `withCollectionIdentity`                                                     | `/server`         |
+| Schema/data    | `directusStartupSchema`, `validateSchemaDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `withCollectionIdentity`                         | `/server`         |
 | Constants      | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                | `/constants`      |
 | Sentry         | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                  | `/sentry`         |
 
