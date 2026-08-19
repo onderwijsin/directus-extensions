@@ -1,28 +1,31 @@
 <script setup lang="ts">
-import type { NormalizedDeployment } from '../shared/coolify-client/schemas'
+import type { DeploymentSummary } from './types'
 
-import { onMounted, shallowRef } from 'vue'
+import { onMounted, onUnmounted, shallowRef, computed } from 'vue'
 
+import DeploymentStatus from './components/DeploymentStatus.vue'
+import LoadingSkeleton from './components/LoadingSkeleton.vue'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
 
-const props = defineProps<{ projectId: string; deploymentId: string }>()
+const props = defineProps<{ applicationId: string; deploymentId: string }>()
 const api = useCoolifyDeploymentsApi()
-const deployment = shallowRef<NormalizedDeployment | null>(null)
-const loading = shallowRef(false)
+const deployment = shallowRef<DeploymentSummary | null>(null)
+const loading = shallowRef(true)
 const error = shallowRef<string | null>(null)
-
-const projectPath = `/admin/coolify-deployments/projects/${encodeURIComponent(props.projectId)}`
+let poller: ReturnType<typeof setInterval> | undefined
+const active = computed(
+	() => deployment.value && ['queued', 'building'].includes(deployment.value.status),
+)
+const applicationPath = `/admin/coolify-deployments/applications/${encodeURIComponent(props.applicationId)}`
 
 /**
- * Load the selected deployment from the authenticated endpoint.
- * @returns Nothing.
+ *
  */
-const loadDeployment = async () => {
-	loading.value = true
-	error.value = null
-
+/** @returns Nothing. */
+const load = async () => {
 	try {
-		deployment.value = await api.getDeployment(props.projectId, props.deploymentId)
+		deployment.value = await api.getDeployment(props.applicationId, props.deploymentId)
+		error.value = null
 	} catch (caughtError) {
 		error.value =
 			caughtError instanceof Error ? caughtError.message : 'Unable to load deployment'
@@ -30,34 +33,132 @@ const loadDeployment = async () => {
 		loading.value = false
 	}
 }
-
+/**
+ *
+ */
+/** @returns Nothing. */
+const cancel = async () => {
+	loading.value = true
+	try {
+		await api.cancelDeployment(props.applicationId, props.deploymentId)
+		await load()
+	} catch (caughtError) {
+		error.value =
+			caughtError instanceof Error ? caughtError.message : 'Unable to cancel deployment'
+	} finally {
+		loading.value = false
+	}
+}
 onMounted(() => {
-	void loadDeployment()
+	void load()
+	poller = setInterval(() => {
+		if (active.value) void load()
+	}, 3000)
+})
+onUnmounted(() => {
+	if (poller) clearInterval(poller)
 })
 </script>
 
 <template>
 	<private-view :title="`Deployment · ${props.deploymentId}`">
-		<div class="deployment-view">
-			<v-button :to="projectPath">Back to project</v-button>
+		<template #actions
+			><v-button v-if="active" danger :loading="loading" @click="cancel"
+				><v-icon name="cancel" /> Cancel deployment</v-button
+			></template
+		>
+		<div class="page">
+			<v-button secondary :to="applicationPath"
+				><v-icon name="arrow_back" /> Back to application</v-button
+			>
 			<v-notice v-if="error" type="warning">{{ error }}</v-notice>
-			<v-notice v-else-if="loading" type="info">Loading deployment…</v-notice>
-			<pre>{{ JSON.stringify(deployment, null, 2) }}</pre>
+			<div v-if="loading" class="loading-layout">
+				<LoadingSkeleton :lines="1" />
+				<div class="metadata">
+					<LoadingSkeleton v-for="item in 6" :key="item" :lines="2" />
+				</div>
+			</div>
+			<div v-if="deployment" class="header">
+				<DeploymentStatus :status="deployment.status" /><span class="mono">{{
+					deployment.id
+				}}</span>
+			</div>
+			<div v-if="deployment" class="metadata">
+				<div
+					v-for="item in [
+						{ label: 'Created', value: deployment.createdAt },
+						{ label: 'Started', value: deployment.startedAt },
+						{ label: 'Finished', value: deployment.finishedAt },
+						{
+							label: 'Duration',
+							value: deployment.duration ? `${deployment.duration}s` : null,
+						},
+						{ label: 'Branch', value: deployment.branch },
+						{ label: 'Commit', value: deployment.commitSha },
+						{ label: 'Triggered by', value: deployment.triggeredBy },
+					]"
+					:key="item.label"
+				>
+					<span>{{ item.label }}</span
+					><strong>{{ item.value ?? '—' }}</strong>
+				</div>
+			</div>
+			<div v-if="deployment?.commitMessage" class="message">
+				<span>Commit message</span>
+				<p>{{ deployment.commitMessage }}</p>
+			</div>
+			<a
+				v-if="deployment?.coolifyUrl"
+				:href="deployment.coolifyUrl"
+				target="_blank"
+				rel="noopener"
+				>Open in Coolify <v-icon name="launch" small
+			/></a>
 		</div>
 	</private-view>
 </template>
 
 <style scoped>
-.deployment-view {
+.page {
 	display: grid;
-	gap: 16px;
+	gap: 24px;
 	padding: 24px;
 }
-
-pre {
-	max-width: 100%;
-	overflow: auto;
+.loading-layout {
+	display: grid;
+	gap: 16px;
+}
+.header {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+.mono {
+	font-family: var(--family-monospace);
+}
+.metadata {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+	gap: 12px;
+}
+.metadata > div,
+.message {
+	display: grid;
+	gap: 6px;
 	padding: 16px;
-	background: var(--background-normal);
+	border: 1px solid var(--border-normal);
+	border-radius: 8px;
+}
+.metadata span,
+.message span {
+	color: var(--foreground-subdued);
+	font-size: 12px;
+	text-transform: uppercase;
+}
+.message p {
+	margin: 0;
+}
+.page > a {
+	color: var(--primary);
 }
 </style>

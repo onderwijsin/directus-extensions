@@ -77,7 +77,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 
 		expect(router.use).toHaveBeenCalledOnce()
 		expect(router.get).toHaveBeenCalledTimes(3)
-		expect(router.post).toHaveBeenCalledOnce()
+		expect(router.post).toHaveBeenCalledTimes(2)
 
 		const middleware = router.use.mock.calls[0]?.[0]
 		if (typeof middleware !== 'function') throw new Error('Expected middleware')

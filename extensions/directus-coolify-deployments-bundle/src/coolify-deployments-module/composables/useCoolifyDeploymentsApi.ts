@@ -1,7 +1,4 @@
-import type {
-	NormalizedDeployment,
-	PublicCoolifyProject,
-} from '../../shared/coolify-client/schemas'
+import type { ApplicationSummary, DeploymentSummary } from '../types'
 
 import { useApi } from '@directus/extensions-sdk'
 
@@ -11,41 +8,91 @@ import { useApi } from '@directus/extensions-sdk'
  */
 export function useCoolifyDeploymentsApi() {
 	const api = useApi()
-
+	const base = '/coolify-deployments/applications'
 	/**
-	 * Fetch configured projects.
-	 * @returns Configured public projects.
+	 * Encode a route parameter.
+	 * @param value - Route parameter.
+	 * @returns Encoded value.
 	 */
-	const listProjects = async (): Promise<PublicCoolifyProject[]> =>
-		(await api.get<PublicCoolifyProject[]>('/coolify-deployments/projects')).data
+	const encode = (value: string) => encodeURIComponent(value)
 
 	/**
-	 * Fetch deployment history for a project.
-	 * @param projectId - Stable configured project ID.
+	 * Fetch configured applications.
+	 * @returns Configured applications.
+	 */
+	const listApplications = async (): Promise<ApplicationSummary[]> =>
+		(await api.get<ApplicationSummary[]>(base)).data
+
+	/**
+	 * Check whether the current user can create configured applications.
+	 * @returns Whether application creation is available.
+	 */
+	const canCreateApplications = async (): Promise<boolean> => {
+		try {
+			const response = await api.get<{
+				data?: Record<string, { create?: { access?: string } }>
+			}>('/permissions/me')
+			const access = response.data.data?.coolify_applications?.create?.access
+			return access === 'full' || access === 'partial'
+		} catch {
+			return false
+		}
+	}
+
+	/**
+	 * Fetch deployment history for an application.
+	 * @param applicationId - Stable configured application ID.
 	 * @returns Normalized deployments.
 	 */
-	const listDeployments = async (projectId: string): Promise<NormalizedDeployment[]> =>
-		(
-			await api.get<NormalizedDeployment[]>(
-				`/coolify-deployments/projects/${encodeURIComponent(projectId)}/deployments`,
-			)
-		).data
+	const listDeployments = async (applicationId: string): Promise<DeploymentSummary[]> =>
+		(await api.get<DeploymentSummary[]>(`${base}/${encode(applicationId)}/deployments`)).data
 
 	/**
 	 * Fetch one deployment.
-	 * @param projectId - Stable configured project ID.
-	 * @param deploymentId - Deployment UUID.
+	 * @param applicationId - Stable configured application ID.
+	 * @param deploymentId - Deployment identifier.
 	 * @returns A normalized deployment.
 	 */
 	const getDeployment = async (
-		projectId: string,
+		applicationId: string,
 		deploymentId: string,
-	): Promise<NormalizedDeployment> =>
+	): Promise<DeploymentSummary> =>
 		(
-			await api.get<NormalizedDeployment>(
-				`/coolify-deployments/projects/${encodeURIComponent(projectId)}/deployments/${encodeURIComponent(deploymentId)}`,
+			await api.get<DeploymentSummary>(
+				`${base}/${encode(applicationId)}/deployments/${encode(deploymentId)}`,
 			)
 		).data
 
-	return { getDeployment, listDeployments, listProjects }
+	/**
+	 * Trigger a deployment for a configured application.
+	 * @param applicationId - Stable configured application ID.
+	 * @returns Created deployment identifier.
+	 */
+	const deploy = async (applicationId: string): Promise<string> =>
+		(
+			await api.post<{ id: string }>(`${base}/${encode(applicationId)}/deployments`, {
+				force: true,
+			})
+		).data.id
+
+	/**
+	 * Cancel an active deployment.
+	 * @param applicationId - Stable configured application ID.
+	 * @param deploymentId - Deployment identifier.
+	 * @returns Nothing.
+	 */
+	const cancelDeployment = async (applicationId: string, deploymentId: string): Promise<void> => {
+		await api.post(
+			`${base}/${encode(applicationId)}/deployments/${encode(deploymentId)}/cancel`,
+		)
+	}
+
+	return {
+		cancelDeployment,
+		canCreateApplications,
+		deploy,
+		getDeployment,
+		listApplications,
+		listDeployments,
+	}
 }

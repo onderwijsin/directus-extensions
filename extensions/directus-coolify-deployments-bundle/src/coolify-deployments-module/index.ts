@@ -14,12 +14,12 @@ export default defineModule({
 			component: ModuleComponent,
 		},
 		{
-			path: 'projects/:projectId',
+			path: 'applications/:applicationId',
 			component: ProjectView,
 			props: true,
 		},
 		{
-			path: 'projects/:projectId/deployments/:deploymentId',
+			path: 'applications/:applicationId/deployments/:deploymentId',
 			component: DeploymentView,
 			props: true,
 		},

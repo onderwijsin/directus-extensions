@@ -8,8 +8,8 @@ description: Configure and operate the Coolify deployments bundle in a trusted D
 `@onderwijsin/directus-coolify-deployments-bundle` is a Directus bundle for triggering and
 inspecting frontend deployments in Coolify from Studio and Flows.
 
-The endpoint, server-side Coolify client, minimal Studio diagnostic views, and schema-management
-hook are implemented. The Flow operation remains scaffold-only.
+The endpoint, server-side Coolify client, native-style Studio module, and schema-management hook are
+implemented. The Flow operation remains scaffold-only.
 
 ## Installation
 
@@ -63,9 +63,9 @@ submit arbitrary Coolify application or resource UUIDs.
 - schema-managed collection: `coolify_applications`; and
 - Flow operation: `Coolify Deploy`, with `project` and `force` options.
 
-The endpoint is usable by authenticated clients. The module provides diagnostic project,
-deployment-history, and deployment-detail views; the Flow operation still returns scaffold-only “not
-implemented yet” behavior.
+The endpoint is usable by authenticated clients. The module provides dashboard, application,
+deployment-history, and deployment-detail views with active-deployment polling and cancellation; the
+Flow operation still returns scaffold-only “not implemented yet” behavior.
 
 The `coolify-deployments-hook` entry creates the allow-listed applications collection at startup. It
 uses the shared schema-change lock; endpoint routes return `503` while the collection schema is
@@ -86,16 +86,16 @@ separate `directus_permissions` rows. Directus generates integer permission IDs;
 
 All endpoint routes require an authenticated Directus session, pass the same-origin check, and
 require the corresponding assigned policy below. Administrators bypass policy assignment checks.
-Missing browser origin metadata is allowed for authenticated non-browser clients. The routes are
-currently scaffolds and return `501 Not Implemented` after authorization while the domain-modelled
-route contract is being finalized.
+Missing browser origin metadata is allowed for authenticated non-browser clients. The routes resolve
+stable Directus application IDs and return normalized application/deployment data.
 
-| Method | Route                                                         | Behavior                                    |
-| ------ | ------------------------------------------------------------- | ------------------------------------------- |
-| `GET`  | `/coolify-deployments/projects`                               | Manage-applications policy; scaffold route. |
-| `GET`  | `/coolify-deployments/projects/:id/deployments`               | Read-deployments policy; scaffold route.    |
-| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Read-deployments policy; scaffold route.    |
-| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Trigger-deployments policy; scaffold route. |
+| Method | Route                                                                    | Behavior                      |
+| ------ | ------------------------------------------------------------------------ | ----------------------------- |
+| `GET`  | `/coolify-deployments/applications`                                      | List configured applications. |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | List deployments.             |
+| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read one deployment.          |
+| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger a deployment.         |
+| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Cancel a deployment.          |
 
 Authentication and same-origin failures are forwarded as Directus `403 Forbidden` errors. Schema
 readiness failures are also forwarded through Directus's error middleware.
@@ -111,12 +111,12 @@ extension helper.
 The implementation keeps Coolify credentials server-side, authenticates endpoint requests with the
 active Directus session, and validates normalized responses before returning them. Configure a
 dedicated Directus capability for triggering a deployment. The package resolves stable project IDs
-to configured Coolify resource UUIDs.
+to configured Coolify application UUIDs.
 
 Directus Flows, rather than this package, will own scheduled and conditional automation. The bundle
 will not add a scheduler or condition engine.
 
 ## Boundaries
 
-The bundle does not provide status polling, logs, cancellation, retry, persistence, per-project
-permissions, or Coolify configuration management.
+The bundle does not provide logs, retry, persistence, per-application permissions, or Coolify
+configuration management.

@@ -53,7 +53,7 @@
 		"add": "directus-extension add",
 		"validate": "directus-extension validate",
 		"test:unit": "vitest run --config ../../vitest.config.ts",
-		"typecheck": "tsgo --noEmit"
+		"typecheck": "vue-tsc --noEmit"
 	},
 	"dependencies": {
 		"@directus/errors": "catalog:",
@@ -71,7 +71,9 @@
 		"@workspace/test-utils": "workspace:*",
 		"@workspace/typescript-config": "workspace:*",
 		"vitest": "catalog:",
-		"vue": "catalog:"
+		"vue": "catalog:",
+		"vue-router": "catalog:",
+		"vue-tsc": "catalog:"
 	},
 	"icon": "rocket_launch",
 	"engines": {

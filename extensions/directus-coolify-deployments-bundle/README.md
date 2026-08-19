@@ -3,19 +3,20 @@
 Trusted Directus extension bundle for authenticated Studio users and Flows to trigger and inspect
 frontend deployments in Coolify.
 
-The server endpoint, Coolify API client, minimal Studio diagnostic UI, and schema-management hook
-are implemented. The Flow operation remains scaffold-only until its operation wiring is completed.
+The server endpoint, Coolify API client, native-style Studio module, and schema-management hook are
+implemented. The Flow operation remains scaffold-only until its operation wiring is completed.
 
 ## Surface
 
-- `Coolify deployments` Studio module for project overview and deployment history;
+- `Coolify deployments` Studio module for application overview, deployment history, polling, and
+  cancellation;
 - authenticated application-specific endpoint under `/coolify-deployments`;
 - `Coolify Deploy` Flow operation with `project` and `force` inputs; and
 - `coolify_applications` configuration collection managed by the startup hook; and
 - a server-only Coolify adapter with normalized deployment models.
 
-The Studio will not communicate with Coolify directly. Coolify credentials and configured project
-UUIDs will remain server-side.
+The Studio will not communicate with Coolify directly. Coolify credentials and configured
+application UUIDs will remain server-side.
 
 The bundle currently integrates with a single Coolify instance, configured through one
 `COOLIFY_URL`. The associated `COOLIFY_TOKEN` must have read and deploy access for every Coolify
@@ -28,9 +29,9 @@ are not currently supported.
 pnpm add @onderwijsin/directus-coolify-deployments-bundle
 ```
 
-The bundle is non-sandboxed and requires a trusted Directus runtime. The module currently exposes
-project, deployment-history, and deployment-detail views with raw JSON diagnostics for integration
-testing. The Flow operation still displays scaffold-only messaging.
+The bundle is non-sandboxed and requires a trusted Directus runtime. The module exposes dashboard,
+application history, and deployment-detail views. The Flow operation still displays scaffold-only
+messaging.
 
 ## Configuration
 
@@ -97,16 +98,16 @@ resources; `Can trigger Coolify deployments` intentionally has no nested permiss
 
 All routes require an authenticated Directus session, pass the same-origin check, and require the
 policy shown below. Administrators bypass the policy assignment check. Requests without browser
-origin metadata remain supported for authenticated Flow and command-line clients. The routes are
-currently scaffolds and return `501 Not Implemented` after authorization while the domain-modelled
-route contract is being finalized.
+origin metadata remain supported for authenticated Flow and command-line clients. The routes resolve
+stable Directus application IDs and return normalized application/deployment data.
 
-| Method | Route                                                         | Description                                          |
-| ------ | ------------------------------------------------------------- | ---------------------------------------------------- |
-| `GET`  | `/coolify-deployments/projects`                               | Requires manage-applications policy; scaffold route. |
-| `GET`  | `/coolify-deployments/projects/:id/deployments`               | Requires read-deployments policy; scaffold route.    |
-| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Requires read-deployments policy; scaffold route.    |
-| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Requires trigger-deployments policy; scaffold route. |
+| Method | Route                                                                    | Description                   |
+| ------ | ------------------------------------------------------------------------ | ----------------------------- |
+| `GET`  | `/coolify-deployments/applications`                                      | List configured applications. |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | List deployments.             |
+| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read one deployment.          |
+| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger a deployment.         |
+| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Cancel a deployment.          |
 
 Authentication, same-origin, and schema-lock failures are forwarded through Directus's error
 middleware.
@@ -124,5 +125,5 @@ limiting and audit logging at the deployment boundary.
 ## Boundaries
 
 The package does not install or configure Coolify, create Directus policies, persist deployment
-records, implement scheduling, show build logs, or provide cancellation. Directus Flows will own
-scheduled and conditional automation once the Flow operation is implemented.
+records, implement scheduling, or show build logs. Directus Flows will own scheduled and conditional
+automation once the Flow operation is implemented.

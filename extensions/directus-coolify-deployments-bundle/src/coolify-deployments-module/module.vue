@@ -1,89 +1,147 @@
 <script setup lang="ts">
-import type { PublicCoolifyProject } from '../shared/coolify-client/schemas'
+import type { ApplicationSummary, DeploymentSummary } from './types'
 
-import { onMounted, shallowRef } from 'vue'
+import { onMounted, onUnmounted, shallowRef } from 'vue'
 
+import ApplicationList from './components/ApplicationList.vue'
+import DeploymentList from './components/DeploymentList.vue'
+import LoadingSkeleton from './components/LoadingSkeleton.vue'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
 
 const api = useCoolifyDeploymentsApi()
-const projects = shallowRef<PublicCoolifyProject[]>([])
-const loading = shallowRef(false)
+const applications = shallowRef<ApplicationSummary[]>([])
+const current = shallowRef<DeploymentSummary[]>([])
+const recent = shallowRef<DeploymentSummary[]>([])
+const canCreateApplications = shallowRef(false)
+const loading = shallowRef(true)
 const error = shallowRef<string | null>(null)
+let poller: ReturnType<typeof setInterval> | undefined
 
 /**
- * Build the Studio route for a configured project.
- * @param projectId - Stable configured project ID.
- * @returns The project route.
+ *
  */
-const projectPath = (projectId: string) =>
-	`/admin/coolify-deployments/projects/${encodeURIComponent(projectId)}`
+/**
+ * Build a Studio route.
+ * @param applicationId - Stable application identifier.
+ * @param deploymentId - Optional deployment identifier.
+ * @returns Studio route.
+ */
+const path = (applicationId: string, deploymentId?: string) =>
+	`/admin/coolify-deployments/applications/${encodeURIComponent(applicationId)}${deploymentId ? `/deployments/${encodeURIComponent(deploymentId)}` : ''}`
 
 /**
- * Load configured projects from the authenticated endpoint.
- * @returns Nothing.
+ *
  */
-const loadProjects = async () => {
-	loading.value = true
-	error.value = null
-
+/** @returns Nothing. */
+const load = async () => {
 	try {
-		projects.value = await api.listProjects()
+		canCreateApplications.value = await api.canCreateApplications()
+		applications.value = await api.listApplications()
+		const deployments = await Promise.all(
+			applications.value.map((application) => api.listDeployments(application.id)),
+		)
+		const allDeployments = deployments.flat()
+		current.value = allDeployments.filter((deployment) =>
+			['queued', 'building'].includes(deployment.status),
+		)
+		recent.value = [...allDeployments]
+			.sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''))
+			.slice(0, 10)
+		error.value = null
 	} catch (caughtError) {
-		error.value = caughtError instanceof Error ? caughtError.message : 'Unable to load projects'
+		error.value =
+			caughtError instanceof Error ? caughtError.message : 'Unable to load deployments'
 	} finally {
 		loading.value = false
 	}
 }
 
 onMounted(() => {
-	void loadProjects()
+	void load()
+	poller = setInterval(() => void load(), 3000)
+})
+onUnmounted(() => {
+	if (poller) clearInterval(poller)
 })
 </script>
 
 <template>
 	<private-view title="Deployments">
-		<div class="deployment-view">
+		<template #actions
+			><v-button icon rounded secondary :loading="loading" @click="load"
+				><v-icon name="refresh" /></v-button
+		></template>
+		<div class="module-page">
 			<v-notice v-if="error" type="warning">{{ error }}</v-notice>
-			<v-notice v-else-if="loading" type="info">Loading configured projects…</v-notice>
-			<div v-else class="projects">
-				<div v-for="project in projects" :key="project.id" class="project-row">
-					<div>
-						<strong>{{ project.name }}</strong>
-						<div>{{ project.productionUrl ?? 'No production URL configured' }}</div>
-					</div>
-					<v-button :to="projectPath(project.id)">View deployments</v-button>
+			<template v-if="loading">
+				<div class="skeleton-stats">
+					<LoadingSkeleton v-for="item in 4" :key="item" :lines="1" />
 				</div>
-			</div>
-			<pre>{{ JSON.stringify(projects, null, 2) }}</pre>
+				<LoadingSkeleton :lines="4" />
+				<LoadingSkeleton :lines="4" />
+			</template>
+			<template v-else-if="applications.length === 0">
+				<v-info icon="rocket_launch" title="No Coolify applications configured" center>
+					<p>Add your first Coolify application to start deploying from Directus.</p>
+					<v-button
+						v-if="canCreateApplications"
+						to="/admin/content/coolify_applications/create"
+					>
+						<v-icon name="add" /> Add your first application
+					</v-button>
+					<p v-else>Ask your administrator to add your first Coolify application.</p>
+				</v-info>
+			</template>
+			<template v-else>
+				<section>
+					<h2>Current deployments</h2>
+					<DeploymentList
+						:deployments="current"
+						:application-path="
+							(deployment) => path(deployment.applicationId, deployment.id)
+						"
+					/>
+				</section>
+				<section>
+					<h2>Recent deployments</h2>
+					<DeploymentList
+						:deployments="recent"
+						:application-path="
+							(deployment) => path(deployment.applicationId, deployment.id)
+						"
+					/>
+				</section>
+				<section>
+					<h2>Applications</h2>
+					<ApplicationList :applications="applications" :application-path="path" />
+				</section>
+			</template>
 		</div>
 	</private-view>
 </template>
 
 <style scoped>
-.deployment-view {
+.module-page {
+	display: grid;
+	gap: 32px;
 	padding: 24px;
 }
-
-.project-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 16px;
-	padding: 16px;
-	border: 1px solid var(--border-normal);
-	border-radius: 6px;
+.skeleton-stats {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 12px;
 }
-
-.projects {
+section {
 	display: grid;
 	gap: 12px;
-	margin-bottom: 24px;
 }
-
-pre {
-	max-width: 100%;
-	overflow: auto;
-	padding: 16px;
-	background: var(--background-normal);
+h2 {
+	margin: 0;
+	font-size: 18px;
+}
+@media (max-width: 700px) {
+	.skeleton-stats {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
 }
 </style>
