@@ -677,7 +677,7 @@ describe('ensureDirectusPolicy', () => {
 			})
 		}
 		const createdPermissions: Partial<Policy>[] = []
-		class ItemsService {
+		class PermissionsService {
 			public readByQuery = vi.fn(() => Promise.resolve([]))
 			public createOne = vi.fn((permission: Partial<Policy>) => {
 				createdPermissions.push(permission)
@@ -687,7 +687,7 @@ describe('ensureDirectusPolicy', () => {
 		const services = {
 			...fixture.services,
 			PoliciesService,
-			ItemsService,
+			PermissionsService,
 		} as unknown as Services
 		const definition: DirectusPolicyDefinition = {
 			id: 'policy-id',
@@ -748,14 +748,14 @@ describe('ensureDirectusPolicy', () => {
 			public readByQuery = vi.fn(() => Promise.resolve([]))
 			public createOne = vi.fn()
 		}
-		class ItemsService {
+		class PermissionsService {
 			public readByQuery = vi.fn(() => Promise.resolve([]))
 			public createOne = createPermission
 		}
 		const services = {
 			...fixture.services,
 			PoliciesService,
-			ItemsService,
+			PermissionsService,
 		} as unknown as Services
 		const definition: DirectusPolicyDefinition = {
 			id: 'policy-id',
