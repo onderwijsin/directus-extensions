@@ -9,8 +9,8 @@ including policies assigned directly to the user and policies assigned to nested
 pnpm add @onderwijsin/directus-policies-endpoint
 ```
 
-Install the package in a trusted Directus 12.2.0-or-newer runtime and restart Directus so the
-endpoint extension is loaded.
+Install the package in a Directus 12.2.0-or-newer runtime and restart Directus so the endpoint
+extension is loaded.
 
 ## Endpoint
 
@@ -28,8 +28,8 @@ Authorization: Bearer <token>
 Anonymous requests receive Directus's standard `403 Forbidden` response. The requester's
 accountability's user, roles, and IP are used to resolve assignments. The endpoint uses elevated
 service accountability to read the system access records required for this response; this is an
-intentional part of its trusted, non-sandboxed runtime contract. Results are cached in local memory
-for up to five seconds per user/role/IP combination.
+intentional server-side implementation detail. Results are cached in local memory for up to five
+seconds per user/role/IP combination.
 
 ## Configuration
 
@@ -45,5 +45,9 @@ for up to five seconds per user/role/IP combination.
 ## Boundaries
 
 The extension reads Directus's built-in access, policy, user, and role data; it does not create
-roles or policies and does not change permissions. It is non-sandboxed and requires a trusted
-Directus installation.
+roles or policies and does not change permissions.
+
+This extension is non-sandboxed, so it does not carry the trust required for Directus Marketplace
+distribution. Install it as an npm package in the Directus runtime. It reads existing Directus
+access, policy, user, and role data with elevated server-side accountability, but creates or changes
+no collections, fields, relations, roles, policies, permissions, or persistent data.

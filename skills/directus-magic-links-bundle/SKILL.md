@@ -183,9 +183,16 @@ testing delivery. Never add the raw token to logs or operational telemetry.
   retention process removes them.
 - Rotating `MAGIC_LINKS_TOKEN_SECRET` or the Directus `SECRET` fallback invalidates existing links.
 - The bundle does not replace or modify Data Studio login.
-- The bundle requires a trusted, non-sandboxed Directus runtime.
 - Keep the `magic_links` collection private; configure CORS and CSRF protections for the selected
   cookie or session mode.
+
+## Boundaries
+
+This extension is non-sandboxed, so it does not carry the trust required for Directus Marketplace
+distribution. Install it as an npm package in the Directus runtime. Its startup hook creates or
+reconciles the configured magic-links collection, fields, and relation; it does not create roles or
+policies and does not modify Data Studio authentication. The endpoint writes magic-link records and
+sends email through Directus's configured mail transport.
 
 See
 [`Magic-link architecture and security boundaries`](../../docs/decisions/magic-links-architecture-and-security-boundaries.md)

@@ -12,8 +12,7 @@ container orchestration health probes.
 pnpm add @onderwijsin/directus-enhanced-server-health-endpoint
 ```
 
-Install it in a trusted Directus `12.2.0` or newer runtime and restart Directus so the endpoint is
-loaded. The extension is non-sandboxed because it calls Directus's internal `ServerService`.
+Install it in a Directus `12.2.0` or newer runtime and restart Directus so the endpoint is loaded.
 
 ## Endpoint
 
@@ -75,9 +74,12 @@ response, the endpoint returns Directus's standard internal-server-error respons
 
 This package does not install Directus, configure databases or third-party services, expose the
 underlying check details, or provide a readiness guarantee for dependencies not reported by
-Directus. It does not create collections, roles, policies, or permissions. Because it uses an
-internal server service and administrator accountability, it requires a trusted, non-sandboxed
-Directus installation.
+Directus. It does not create collections, roles, policies, or permissions.
+
+This extension is non-sandboxed, so it does not carry the trust required for Directus Marketplace
+distribution. Install it as an npm package in the Directus runtime. It reads Directus's internal
+health service with administrator accountability, but creates or changes no collections, fields,
+relations, roles, policies, permissions, or persistent data.
 
 ## License
 

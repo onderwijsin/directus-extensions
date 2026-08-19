@@ -14,9 +14,9 @@ user's effective policies, including policies inherited through nested roles.
 pnpm add @onderwijsin/directus-policies-endpoint
 ```
 
-Load the extension in a trusted Directus 12.2.0-or-newer runtime. It uses the built-in `users`,
-`roles`, and `policies` system collections and does not create or modify any of them. The caller
-must authenticate normally; anonymous access is rejected with HTTP 403.
+Load the extension in a Directus 12.2.0-or-newer runtime. It uses the built-in `users`, `roles`, and
+`policies` system collections and does not create or modify any of them. The caller must
+authenticate normally; anonymous access is rejected with HTTP 403.
 
 ## API
 
@@ -66,4 +66,11 @@ user, effective roles, and IP address.
 
 The endpoint uses elevated service accountability to read the system access records needed to answer
 the request. It does not change the caller's permissions or provision policies, roles, permissions,
-authentication, or infrastructure. Install it only in a trusted, non-sandboxed Directus runtime.
+authentication, or infrastructure.
+
+## Boundaries
+
+This extension is non-sandboxed, so it does not carry the trust required for Directus Marketplace
+distribution. Install it as an npm package in the Directus runtime. It reads existing Directus
+access, policy, user, and role data, but creates or changes no collections, fields, relations,
+roles, policies, permissions, or persistent data.

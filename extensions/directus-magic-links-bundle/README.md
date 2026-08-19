@@ -13,9 +13,9 @@ Install the bundle into a Directus project:
 pnpm add @onderwijsin/directus-magic-links-bundle
 ```
 
-The bundle requires a trusted Directus runtime, a configured Directus
-[email transport](https://directus.com/docs/configuration/email), and at least one HTTPS redirect
-URL in `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`.
+The bundle requires a configured Directus
+[email transport](https://directus.com/docs/configuration/email) and at least one HTTPS redirect URL
+in `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`.
 
 ## Configuration
 
@@ -198,10 +198,12 @@ The schema data is also available at:
 import schema from '@onderwijsin/directus-magic-links-bundle/schema'
 ```
 
-## Runtime boundaries
+## Boundaries
 
-The bundle requires a trusted, non-sandboxed Directus runtime and a configured Directus email
-transport. It does not modify the Directus Data Studio authentication flow. The endpoint accepts
+This extension is non-sandboxed, so it does not carry the trust required for Directus Marketplace
+distribution. Install it as an npm package in the Directus runtime. Its startup hook creates or
+reconciles the configured magic-links collection, fields, and relation; it creates no roles or
+policies and does not modify the Directus Data Studio authentication flow. The endpoint accepts
 public request and redeem calls, but the configured magic-links collection must remain private and
 must not be exposed through public CRUD permissions.
 

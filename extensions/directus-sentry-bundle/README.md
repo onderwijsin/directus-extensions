@@ -1,7 +1,7 @@
 # @onderwijsin/directus-sentry-bundle
 
-Sentry integration bundle for trusted Directus deployments. It provides a server hook that embeds
-the browser loader and registers the Express error handler.
+Sentry integration bundle for Directus deployments. It provides a server hook that embeds the
+browser loader and registers the Express error handler.
 
 The bundle is disabled by default. Set `SENTRY_ENABLED=true` only after the Directus runtime has
 been prepared with the Sentry Node dependencies and instrumentation described below.
@@ -14,10 +14,9 @@ Install the bundle into a Directus project using the published package:
 pnpm add @onderwijsin/directus-sentry-bundle
 ```
 
-The bundle is non-sandboxed and must run in a trusted Directus installation. Installing the bundle
-alone is not sufficient when Sentry is enabled: the Directus runtime must provide the optional peer
-dependency `@sentry/node`. The optional peer dependency `@sentry/profiling-node` is only needed when
-the consumer's instrumentation enables profiling.
+Installing the bundle alone is not sufficient when Sentry is enabled: the Directus runtime must
+provide the optional peer dependency `@sentry/node`. The optional peer dependency
+`@sentry/profiling-node` is only needed when the consumer's instrumentation enables profiling.
 
 ## Runtime prerequisites
 
@@ -86,9 +85,12 @@ The loader script must match Sentry's hosted format:
 
 Whitespace and newlines between the tag attributes are accepted.
 
-## Compatibility and boundaries
+## Boundaries
 
-- Requires a trusted, non-sandboxed Directus runtime.
+- This extension is non-sandboxed, so it does not carry the trust required for Directus Marketplace
+  distribution. Install it as an npm package in the Directus runtime.
 - Requires a Directus runtime image capable of loading the Sentry Node dependencies.
+- The hooks add Sentry error handling and browser-loader behavior, but create or change no
+  collections, fields, relations, roles, policies, permissions, or persistent Directus data.
 - Sentry organization, project, DSN, sampling, and deployment-image configuration remain consumer
   responsibilities.
