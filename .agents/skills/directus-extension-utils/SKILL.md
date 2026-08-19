@@ -62,9 +62,13 @@ Import common browser-safe helpers from the root or `/shared`. Always use `/serv
 `createAutoTaskHandler`, task-storage factories, marker stores, `createLogger`,
 `extensionSetup`, `validateExtensionOptions`, `directusStartupSchema`,
 `validateSchemaDefinition`, `ensureDirectusSchema`,
-`ensureDirectusPolicy`, and `createDirectusStartupCoordinator`. Never import
+`ensureDirectusPolicy`, `createDirectusStartupCoordinator`, and `asyncHandler`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
 of Node-only imports.
+
+Use the server accountability helpers at Directus API boundaries when narrowing request
+accountability: `isAccountability`, `hasAuthenticatedUser`, `assertRequestWithAccountability`, and
+`getAccountabilityFromRequest`.
 
 Use `/constants` for `deploymentEnvs` and `DEPLOYMENT_ENV` when defining or validating a shared
 deployment-environment option. Keep extension environment schemas in the entrypoint's sibling
@@ -200,6 +204,71 @@ store instance plus the shared filesystem lock.
 `attempt` and `attemptSync` return `{ data, error: null }` on success or `{ data: null, error }` on
 failure. `attemptWithRetry` counts total executions, not retries after the first attempt. Validate
 that the operation is safe to repeat before enabling retries.
+
+### Async Express handlers
+
+Use `asyncHandler` when registering asynchronous Directus endpoint routes or middleware. Directus
+exposes an Express 4 router, so rejected promises must be forwarded to `next(error)` explicitly.
+`asyncHandler` accepts an `AsyncRequestHandler` and returns a synchronous Express `RequestHandler`:
+
+```ts
+import { asyncHandler } from '@onderwijsin/directus-extension-utils/server'
+
+router.post(
+	'/route',
+	asyncHandler(async (request, response) => {
+		const result = await doSomething(request)
+		response.json(result)
+	}),
+)
+```
+
+Use the same adapter for asynchronous middleware and call `next()` after its check completes:
+
+```ts
+router.use(
+	asyncHandler(async (_request, _response, next) => {
+		await checkAccess()
+		next()
+	}),
+)
+```
+
+Keep synchronous handlers synchronous, and keep `attempt` for operations whose failures should be
+returned as data rather than sent through Express error handling.
+
+### Accountability helpers
+
+Use `isAccountability` to structurally narrow an unknown value to a Directus `Accountability`.
+It checks the fields needed by the utility and is not a complete schema validator. Use
+`hasAuthenticatedUser` when the request must contain a non-null user:
+
+```ts
+import {
+	hasAuthenticatedUser,
+	isAccountability,
+} from '@onderwijsin/directus-extension-utils/server'
+
+if (!isAccountability(value)) throw new ForbiddenError()
+if (!hasAuthenticatedUser(request.accountability)) throw new ForbiddenError()
+```
+
+Use `assertRequestWithAccountability` when subsequent code should receive a narrowed request type:
+
+```ts
+import { assertRequestWithAccountability } from '@onderwijsin/directus-extension-utils/server'
+
+if (!assertRequestWithAccountability(request)) {
+	next(new ForbiddenError())
+	return
+}
+
+request.accountability.user
+```
+
+Use `getAccountabilityFromRequest` when malformed or absent request data should become `null`
+without changing the inferred request type. These helpers perform structural narrowing only; use
+Zod for complete external accountability validation.
 
 ### Extension setup
 

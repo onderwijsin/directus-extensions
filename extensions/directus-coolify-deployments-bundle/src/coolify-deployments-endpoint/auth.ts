@@ -2,7 +2,7 @@ import type { Accountability, ApiExtensionContext, Filter, SchemaOverview } from
 import type { NextFunction } from 'express'
 
 import { ForbiddenError } from '@directus/errors'
-import { hasKey, isRecord, isString } from '@onderwijsin/directus-extension-utils'
+import { hasKey, isArray, isRecord, isString } from '@onderwijsin/directus-extension-utils'
 
 interface AccessRecord {
 	policy?: unknown
@@ -54,7 +54,7 @@ export async function isAssignedPolicy(
 	services: ApiExtensionContext['services'],
 	schema: SchemaOverview,
 ): Promise<boolean> {
-	const policyIds = Array.isArray(data) ? data : [data]
+	const policyIds = isArray(data) ? data : [data]
 	if (policyIds.length === 0) return true
 
 	const roleFilter: Filter =
@@ -88,25 +88,26 @@ export async function isAssignedPolicy(
  * @param next - Express continuation receiving an authorization error or no argument.
  * @returns Nothing.
  */
-export function requirePolicies(
+export async function requirePolicies(
 	accountability: Accountability,
 	data: string | string[],
 	services: ApiExtensionContext['services'],
 	schema: SchemaOverview,
 	next: NextFunction,
-): void {
+): Promise<void> {
 	if (
 		accountability.admin ||
-		('admin_access' in accountability && accountability.admin_access === true)
+		(hasKey(accountability, 'admin_access') && accountability.admin_access === true)
 	) {
 		next()
 		return
 	}
 
-	void isAssignedPolicy(accountability, data, services, schema)
-		.then((assigned) => {
-			if (assigned) next()
-			else next(new ForbiddenError())
-		})
-		.catch((error: unknown) => next(error))
+	try {
+		const assigned = await isAssignedPolicy(accountability, data, services, schema)
+		if (assigned) next()
+		else next(new ForbiddenError())
+	} catch (error: unknown) {
+		next(error)
+	}
 }

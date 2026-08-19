@@ -1,27 +1,11 @@
+import type { Accountability } from '@directus/types'
+
 /**
  * Environments in which Directus can be deployed
  */
 export const deploymentEnvs = ['development', 'staging', 'production'] as const
 
 export type DEPLOYMENT_ENV = (typeof deploymentEnvs)[number]
-
-export interface Accountability {
-	role: string | null
-	roles: string[]
-	user: string | null
-	admin: boolean
-	app: boolean
-	ip: string | null
-	share?: string
-	userAgent?: string
-	origin?: string
-	session?: string
-	oauth?: {
-		client: string
-		scopes: string[]
-		aud: string[]
-	}
-}
 
 /**
  * Creates an accountability object with admin permissions.

@@ -84,6 +84,7 @@
 	},
 	"devDependencies": {
 		"@directus/types": "catalog:",
+		"@types/express": "catalog:",
 		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",
 		"tsdown": "catalog:",

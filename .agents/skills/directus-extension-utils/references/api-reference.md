@@ -31,6 +31,46 @@ attemptWithRetry rejects invalid attempts values (positive safe integer required
 delayMs values (finite and non-negative). It returns the final failure as data after the attempt
 budget is exhausted.
 
+## Async Express handlers
+
+```ts
+type AsyncRequestHandler = (
+  request: Request,
+  response: Response,
+  next: NextFunction,
+) => Promise<void>
+
+asyncHandler(handler: AsyncRequestHandler): RequestHandler
+```
+
+`asyncHandler` is exported from `@onderwijsin/directus-extension-utils/server`. It invokes an
+asynchronous Express 4 handler and forwards a rejected promise to `next(error)`, while returning a
+normal synchronous `RequestHandler` to the router. Middleware remains responsible for calling
+`next()` after its asynchronous work completes.
+
+## Accountability helpers
+
+```ts
+isAccountability(value: unknown): value is Accountability
+hasAuthenticatedUser(value: unknown): value is Accountability & { user: string }
+assertRequestWithAccountability(
+  request: Request,
+): request is Request & { accountability: Accountability }
+getAccountabilityFromRequest(request: Request): Accountability | null
+```
+
+These server-only helpers structurally narrow Directus accountability data at API boundaries:
+
+- `isAccountability` checks the minimum accountability fields exposed by the utility.
+- `hasAuthenticatedUser` additionally requires a string `user` value.
+- `assertRequestWithAccountability` narrows the request object when the accountability property is
+  required.
+- `getAccountabilityFromRequest` returns a validated accountability or `null` without changing the
+  request's inferred type.
+
+They are type guards and boundary helpers, not complete schema validators. Use Zod when complete
+external validation and diagnostics are required.
+
 ## Runtime guards
 
 ```ts

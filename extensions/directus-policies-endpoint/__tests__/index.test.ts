@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { collectPolicies, getAccountability, nestedRoleFields, parseDepth } from '../src/helpers'
+import { collectPolicies, nestedRoleFields, parseDepth } from '../src/helpers'
 
 const policy = (id: string) => ({
 	id,
@@ -38,22 +38,5 @@ describe('users policies endpoint helpers', () => {
 		expect(parseDepth({ depth: ['2'] })).toBe(2)
 		expect(parseDepth({ depth: '-1' })).toBeUndefined()
 		expect(parseDepth({})).toBeUndefined()
-	})
-
-	it('narrows valid accountability and rejects malformed values', () => {
-		expect(
-			getAccountability({
-				accountability: {
-					role: 'role-id',
-					roles: ['role-id'],
-					user: 'user-id',
-					admin: false,
-					app: true,
-					ip: null,
-				},
-			}),
-		).toMatchObject({ user: 'user-id' })
-		expect(getAccountability({ accountability: null })).toBeNull()
-		expect(getAccountability({ accountability: { user: 'user-id' } })).toBeNull()
 	})
 })

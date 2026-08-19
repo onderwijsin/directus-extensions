@@ -9,6 +9,8 @@ visible.
 
 | Need                                                                | Use                                                                               |
 | ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Adapt an async Express 4 handler or middleware                      | [`asyncHandler`](#async-express-handlers)                                         |
+| Narrow Directus request accountability                              | [`isAccountability`](#accountability-helpers) and related server helpers          |
 | Narrow an unknown value                                             | [Guards](guards.md)                                                               |
 | Return an error instead of throwing                                 | [`attempt`](#attempts-and-retries) or [`attemptWithRetry`](#attempts-and-retries) |
 | Store derived data                                                  | Directus `createCache`                                                            |
@@ -76,19 +78,21 @@ only the common helper surface.
 
 ## Utility reference
 
-| Group          | Public utilities                                                                                                                                                                                                                            | Import from       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| Guards         | `isDefined`, `isRecord`, `isArray`, `isString`, `isNonEmptyString`, `isNonBlankString`, `isNumber`, `isFiniteNumber`, `isInteger`, `isBoolean`, `isFunction`, `hasKeys`, `hasKey`                                                           | Root or `/shared` |
-| Attempts       | `attempt`, `attemptSync`, `attemptWithRetry`                                                                                                                                                                                                | Root or `/shared` |
-| Object helpers | `keys`, `toEntries`, `fromEntries`                                                                                                                                                                                                          | Root or `/shared` |
-| MIME and IDs   | `classifyMimeType`, `isAudioMimeType`, `isVideoMimeType`, `isImageMimeType`, `isDocumentMimeType`, `uuid`, `uuidv4`                                                                                                                         | Root or `/shared` |
-| Locks          | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                                                                               | `/server`         |
-| Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                                                          | `/server`         |
-| Logging        | `createLogger`                                                                                                                                                                                                                              | `/server`         |
-| Setup          | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                            | `/server`         |
-| Schema/data    | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `rejectWhileSchemaLocked`, `withCollectionIdentity` | `/server`         |
-| Constants      | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                                                                          | `/constants`      |
-| Sentry         | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                                                                            | `/sentry`         |
+| Group            | Public utilities                                                                                                                                                                                                                            | Import from       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Guards           | `isDefined`, `isRecord`, `isArray`, `isString`, `isNonEmptyString`, `isNonBlankString`, `isNumber`, `isFiniteNumber`, `isInteger`, `isBoolean`, `isFunction`, `hasKeys`, `hasKey`                                                           | Root or `/shared` |
+| Attempts         | `attempt`, `attemptSync`, `attemptWithRetry`                                                                                                                                                                                                | Root or `/shared` |
+| Express adapters | `asyncHandler`                                                                                                                                                                                                                              | `/server`         |
+| Accountability   | `isAccountability`, `hasAuthenticatedUser`, `assertRequestWithAccountability`, `getAccountabilityFromRequest`                                                                                                                               | `/server`         |
+| Object helpers   | `keys`, `toEntries`, `fromEntries`                                                                                                                                                                                                          | Root or `/shared` |
+| MIME and IDs     | `classifyMimeType`, `isAudioMimeType`, `isVideoMimeType`, `isImageMimeType`, `isDocumentMimeType`, `uuid`, `uuidv4`                                                                                                                         | Root or `/shared` |
+| Locks            | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                                                                               | `/server`         |
+| Auto-tasks       | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                                                          | `/server`         |
+| Logging          | `createLogger`                                                                                                                                                                                                                              | `/server`         |
+| Setup            | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                            | `/server`         |
+| Schema/data      | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `rejectWhileSchemaLocked`, `withCollectionIdentity` | `/server`         |
+| Constants        | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                                                                          | `/constants`      |
+| Sentry           | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                                                                            | `/sentry`         |
 
 ### Extension setup
 
@@ -302,6 +306,74 @@ export function getWebhookName(value: unknown): string | undefined {
 ```
 
 Other useful guards include `isDefined`, `isFiniteNumber`, `isNonBlankString`, and `hasKeys`.
+
+## Async Express handlers
+
+Use `asyncHandler` for asynchronous Express 4 route handlers and middleware. It returns a normal
+Express `RequestHandler`, invokes the asynchronous callback, and forwards rejected promises to
+Express through `next(error)`. This keeps Directus endpoint registration compatible with
+`typescript/no-misused-promises`:
+
+```ts
+import { asyncHandler } from '@onderwijsin/directus-extension-utils/server'
+
+router.post(
+  '/route',
+  asyncHandler(async (request, response) => {
+    const result = await doSomething(request)
+    response.json(result)
+  }),
+)
+```
+
+For middleware, call `next()` explicitly after the asynchronous work completes:
+
+```ts
+router.use(
+  asyncHandler(async (_request, _response, next) => {
+    await checkAccess()
+    next()
+  }),
+)
+```
+
+Keep `attempt` for operations where failures should be returned as data rather than forwarded to
+Express.
+
+## Accountability helpers
+
+Use the server accountability helpers at Directus API boundaries when request data is typed as
+`unknown` or when the request's inferred type should be narrowed:
+
+```ts
+import {
+  assertRequestWithAccountability,
+  hasAuthenticatedUser,
+  getAccountabilityFromRequest,
+  isAccountability,
+} from '@onderwijsin/directus-extension-utils/server'
+
+if (!assertRequestWithAccountability(request)) {
+  next(new ForbiddenError())
+  return
+}
+
+request.accountability.user
+
+const value: unknown = request.accountability
+if (!isAccountability(value) || !hasAuthenticatedUser(value)) {
+  throw new ForbiddenError()
+}
+
+const accountability = getAccountabilityFromRequest(request)
+```
+
+`isAccountability` performs structural narrowing using the accountability fields required by the
+utility. `hasAuthenticatedUser` additionally requires a string `user`.
+`assertRequestWithAccountability` narrows the request property in place, while
+`getAccountabilityFromRequest` returns an accountability or `null` without changing the request
+type. These are type guards, not complete schema validators; use Zod when complete external
+validation is required.
 
 ## Attempts and retries
 

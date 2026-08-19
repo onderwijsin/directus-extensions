@@ -6,8 +6,8 @@ setups, but is intended to run inside Directus—not as a framework-agnostic uti
 The public surface includes:
 
 - runtime guards, attempt/retry helpers, object helpers, MIME classification, and UUIDs;
-- server-only locks, debounced auto-task handlers, task storage, logging, and extension setup
-  helpers; and
+- server-only async Express adapters, locks, debounced auto-task handlers, task storage, logging,
+  and extension setup helpers; and
 - reusable Directus extension types.
 
 ## Install
@@ -28,10 +28,35 @@ Use `/server` for server-only utilities:
 
 ```ts
 import {
+  asyncHandler,
   createAutoTaskHandler,
   createRedisTaskHandlerStorage,
   createRedisLockProvider,
 } from '@onderwijsin/directus-extension-utils/server'
+```
+
+Wrap asynchronous endpoint handlers and middleware with `asyncHandler` so rejected promises reach
+Directus's Express 4 error handling:
+
+```ts
+router.post(
+  '/route',
+  asyncHandler(async (request, response) => {
+    const result = await doSomething(request)
+    response.json(result)
+  }),
+)
+```
+
+Middleware can call `next()` explicitly after asynchronous work:
+
+```ts
+router.use(
+  asyncHandler(async (_request, _response, next) => {
+    await checkAccess()
+    next()
+  }),
+)
 ```
 
 Use `/sentry` when an extension explicitly needs the Sentry helpers. This separate entry point keeps

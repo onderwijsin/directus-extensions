@@ -1,11 +1,13 @@
 import { ForbiddenError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
-import { attempt, isDefined } from '@onderwijsin/directus-extension-utils'
-import { extensionSetup } from '@onderwijsin/directus-extension-utils/server'
+import {
+	extensionSetup,
+	asyncHandler,
+	getAccountabilityFromRequest,
+} from '@onderwijsin/directus-extension-utils/server'
 
 import {
 	collectPolicies,
-	getAccountability,
 	nestedRoleFields,
 	parseDepth,
 	POLICY_FIELDS,
@@ -35,9 +37,10 @@ export default defineEndpoint({
 
 		if (!setup.isEnabled()) return
 
-		router.get('/policies', (request, response, next) => {
-			void attempt(async () => {
-				const accountability = getAccountability(request)
+		router.get(
+			'/policies',
+			asyncHandler(async (request, response) => {
+				const accountability = getAccountabilityFromRequest(request)
 				if (!accountability?.user) throw new ForbiddenError()
 				const serviceAccountability = { ...accountability, admin: true }
 
@@ -76,10 +79,8 @@ export default defineEndpoint({
 				}
 
 				response.json([...policies.values()])
-			}).then((result) => {
-				if (isDefined(result.error) && result.error !== null) next(result.error)
-			})
-		})
+			}),
+		)
 
 		setup.end()
 	},

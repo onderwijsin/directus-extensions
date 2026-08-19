@@ -1,18 +1,20 @@
-import type { NextFunction, Request } from 'express'
+import type { NextFunction } from 'express'
 
 import { ForbiddenError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
 import {
+	asyncHandler,
 	extensionSetup,
 	hasKey,
 	validateExtensionOptions,
+	hasAuthenticatedUser,
+	assertRequestWithAccountability,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
 import { requirePolicies } from './auth'
 import { envSchema } from './env.schema'
 import { NotImplemented, rejectWhileSchemaLocked } from './errors'
-import { hasAuthenticatedUser } from './helpers'
 import { isSameOriginRequest } from './same-origin'
 
 export default defineEndpoint({
@@ -37,28 +39,24 @@ export default defineEndpoint({
 		const schemaLockOptions = {
 			lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 		}
+
 		/**
 		 * Creates route middleware for one or more effective Directus policies.
 		 * @param policies - Policy IDs required by the route.
 		 * @returns Express middleware that forwards authorization failures.
 		 */
-		const authorizeRoute =
-			(policies: string | string[]) =>
-			(request: Request, _response: unknown, next: NextFunction) => {
-				const accountability = hasKey(request, 'accountability')
-					? request.accountability
-					: null
-				if (!hasAuthenticatedUser(accountability)) {
+		const authorizeRoute = (policies: string | string[]) =>
+			asyncHandler(async (request, _response, next) => {
+				const hasAccountability = assertRequestWithAccountability(request)
+
+				if (!hasAccountability) {
 					next(new ForbiddenError())
 					return
 				}
 
-				void getSchema()
-					.then((schema) =>
-						requirePolicies(accountability, policies, services, schema, next),
-					)
-					.catch((error: unknown) => next(error))
-			}
+				const schema = await getSchema()
+				await requirePolicies(request.accountability, policies, services, schema, next)
+			})
 
 		/**
 		 * Apply authentication, origin, and schema readiness checks to every route.
@@ -67,25 +65,24 @@ export default defineEndpoint({
 		 * @param next - Express middleware continuation.
 		 * @returns Nothing.
 		 */
-		router.use((request, _response, next: NextFunction) => {
-			const accountability = hasKey(request, 'accountability')
-				? request.accountability
-				: undefined
-			if (accountability === null || !hasAuthenticatedUser(accountability)) {
-				next(new ForbiddenError())
-				return
-			}
-			if (!isSameOriginRequest(request)) {
-				next(new ForbiddenError())
-				return
-			}
+		router.use(
+			asyncHandler(async (request, _response, next) => {
+				const accountability = hasKey(request, 'accountability')
+					? request.accountability
+					: undefined
+				if (accountability === null || !hasAuthenticatedUser(accountability)) {
+					next(new ForbiddenError())
+					return
+				}
+				if (!isSameOriginRequest(request)) {
+					next(new ForbiddenError())
+					return
+				}
 
-			void rejectWhileSchemaLocked(schemaLockOptions, next)
-				.then((locked) => {
-					if (!locked) next()
-				})
-				.catch((error: unknown) => next(error))
-		})
+				const locked = await rejectWhileSchemaLocked(schemaLockOptions, next)
+				if (!locked) next()
+			}),
+		)
 
 		router.get(
 			'/projects',

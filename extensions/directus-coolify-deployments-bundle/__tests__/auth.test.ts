@@ -104,27 +104,33 @@ describe('requirePolicies', () => {
 		])
 		const next = vi.fn()
 
-		requirePolicies(accountability(), ['first-policy', 'second-policy'], services, schema, next)
+		await requirePolicies(
+			accountability(),
+			['first-policy', 'second-policy'],
+			services,
+			schema,
+			next,
+		)
 
 		await vi.waitFor(() => expect(next).toHaveBeenCalledWith())
 	})
 
-	it('bypasses administrators without querying access assignments', () => {
+	it('bypasses administrators without querying access assignments', async () => {
 		const { services, readByQuery } = createServices([])
 		const next = vi.fn()
 
-		requirePolicies(accountability({ admin: true }), 'any-policy', services, schema, next)
+		await requirePolicies(accountability({ admin: true }), 'any-policy', services, schema, next)
 
 		expect(next).toHaveBeenCalledWith()
 		expect(readByQuery).not.toHaveBeenCalled()
 	})
 
-	it('supports admin_access as an administrator bypass', () => {
+	it('supports admin_access as an administrator bypass', async () => {
 		const { services } = createServices([])
 		const next = vi.fn()
 
 		expect(
-			requirePolicies(
+			await requirePolicies(
 				Object.assign(accountability(), { admin_access: true }),
 				'any-policy',
 				services,
@@ -139,7 +145,7 @@ describe('requirePolicies', () => {
 		const { services } = createServices([])
 		const next = vi.fn()
 
-		requirePolicies(accountability(), 'missing-policy', services, schema, next)
+		await requirePolicies(accountability(), 'missing-policy', services, schema, next)
 
 		await vi.waitFor(() => expect(next).toHaveBeenCalledWith(expect.any(Error)))
 	})

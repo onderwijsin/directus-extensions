@@ -4,7 +4,7 @@ export default defineConfig({
 	clean: true,
 	dts: true,
 	deps: {
-		neverBundle: ['@directus/types'],
+		neverBundle: ['@directus/types', 'express'],
 	},
 	entry: [
 		'src/index.ts',

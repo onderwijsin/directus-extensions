@@ -1,8 +1,7 @@
-import type { Accountability, AbstractService, Policy, Role, User } from '@directus/types'
+import type { AbstractService, Policy, Role, User } from '@directus/types'
 
 import {
 	hasKey,
-	isBoolean,
 	isFiniteNumber,
 	isInteger,
 	isRecord,
@@ -41,42 +40,6 @@ export type UserRecord = Omit<Partial<User>, 'policies' | 'role'> & {
 	policies: PolicyValue[]
 	role: RoleRecord | null
 } & Record<string, unknown>
-
-/**
- * Narrows a request's runtime accountability to Directus's accountability shape.
- *
- * @param value - The value exposed by the Directus request object.
- * @returns Whether the value is a valid accountability object.
- */
-function isAccountability(value: unknown): value is Accountability {
-	if (!isRecord(value)) return false
-
-	return (
-		hasKey(value, 'role') &&
-		(isString(value.role) || value.role === null) &&
-		hasKey(value, 'roles') &&
-		Array.isArray(value.roles) &&
-		hasKey(value, 'user') &&
-		(isString(value.user) || value.user === null) &&
-		hasKey(value, 'admin') &&
-		isBoolean(value.admin) &&
-		hasKey(value, 'app') &&
-		isBoolean(value.app) &&
-		hasKey(value, 'ip') &&
-		(isString(value.ip) || value.ip === null)
-	)
-}
-
-/**
- * Reads accountability without changing the inferred Express request type.
- *
- * @param request - The inferred Directus endpoint request.
- * @returns The request accountability, or null when it is absent or malformed.
- */
-export function getAccountability(request: object): Accountability | null {
-	const accountability = Reflect.get(request, 'accountability')
-	return isAccountability(accountability) ? accountability : null
-}
 
 /**
  * Parses the optional bounded role depth from an endpoint query.

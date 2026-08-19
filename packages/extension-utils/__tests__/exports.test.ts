@@ -11,6 +11,8 @@ describe('runtime-aware exports', () => {
 		expect(Object.keys(server).sort()).toEqual(
 			[
 				...Object.keys(shared),
+				'assertRequestWithAccountability',
+				'asyncHandler',
 				'createRedisMarkerStore',
 				'createRedisLockProvider',
 				'createFsMarkerStore',
@@ -42,6 +44,9 @@ describe('runtime-aware exports', () => {
 				'resolveDirectusLockProvider',
 				'extensionSetup',
 				'validateExtensionOptions',
+				'getAccountabilityFromRequest',
+				'hasAuthenticatedUser',
+				'isAccountability',
 			].sort(),
 		)
 		expect(app.isRecord).toBe(shared.isRecord)

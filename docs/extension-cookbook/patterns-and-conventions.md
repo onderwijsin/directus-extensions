@@ -44,6 +44,58 @@ that is skipped, and any additional switches required to enable test-only surfac
 environment schema in the entrypoint's sibling `src/env.schema.ts` and validate it after the setup
 switch has allowed registration to continue.
 
+## Async endpoint route handlers
+
+Directus exposes an Express 4 router. Register asynchronous routes and middleware through the
+server-only `asyncHandler` adapter so rejected promises reach Directus's existing error handling:
+
+```ts
+import { asyncHandler } from '@onderwijsin/directus-extension-utils/server'
+
+router.post(
+  '/route',
+  asyncHandler(async (request, response) => {
+    const result = await doSomething(request)
+    response.json(result)
+  }),
+)
+```
+
+For asynchronous middleware, call `next()` explicitly after the check succeeds:
+
+```ts
+router.use(
+  asyncHandler(async (_request, _response, next) => {
+    await checkAccess()
+    next()
+  }),
+)
+```
+
+Keep synchronous handlers unwrapped. Use `attempt` when the caller should handle a failure as data;
+use `asyncHandler` when a rejected promise should be forwarded to Express with `next(error)`.
+
+## Accountability at API boundaries
+
+Narrow Directus request accountability before using it for authorization or service accountability.
+Use `assertRequestWithAccountability` when the handler needs a narrowed request type:
+
+```ts
+import { assertRequestWithAccountability } from '@onderwijsin/directus-extension-utils/server'
+
+if (!assertRequestWithAccountability(request)) {
+  next(new ForbiddenError())
+  return
+}
+
+const userId = request.accountability.user
+```
+
+Use `hasAuthenticatedUser` when only an authenticated accountability is required, and use
+`getAccountabilityFromRequest` when absent or malformed data should become `null` without changing
+the inferred request type. Use `isAccountability` for general structural narrowing. These helpers do
+not replace complete boundary validation with Zod.
+
 ## Cache and KV
 
 Cache and KV are Directus runtime concerns. Use `@directus/memory` directly; extension utilities do
