@@ -43,6 +43,8 @@ services:
         condition: service_healthy
       database:
         condition: service_healthy
+      garage-init:
+        condition: service_completed_successfully
       mailpit:
         condition: service_started
       meilisearch:
@@ -55,15 +57,12 @@ services:
       SECRET: ${DIRECTUS_SECRET:-directus-extensions-e2e-secret}
       # Temporarily disable license activation while CI activation behavior is investigated.
       LICENSE_KEY: ''
-      EXTENSIONS_MUST_LOAD: 'true'
       EXTENSIONS_AUTO_RELOAD: 'false'
       MAGIC_LINKS_ENABLED: 'true'
       MAGIC_LINKS_COLLECTION: custom_links
       COOLIFY_DEPLOYMENTS_ENABLED: 'true'
       COOLIFY_URL: ${COOLIFY_URL:-https://coolify.example.com}
       COOLIFY_TOKEN: ${COOLIFY_TOKEN:-e2e-unused-token}
-      STORAGE_LOCATIONS: bucket
-      STORAGE_BUCKET_DRIVER: s3
       USE_MAGIC_LINK_CLEANUP: 'true'
       MAGIC_LINK_CLEANUP_WINDOW: 1ms
       MAGIC_LINK_CLEANUP_CRON: '* * * * * *'
