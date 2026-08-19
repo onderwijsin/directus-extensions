@@ -13,7 +13,10 @@ import type { CoolifyDeploymentClient } from './types'
 import type { DirectusCoolifyApplication } from './types'
 
 import { ForbiddenError } from '@directus/errors'
+import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
 import { ofetch } from 'ofetch'
+
+import { LIST_APPLICATION_CACHE_DURATION_MS } from '../constants'
 
 export type {
 	CoolifyDeploymentClient,
@@ -23,7 +26,6 @@ export type {
 
 import type { CoolifyClientContext } from './types'
 
-import { initializeCache } from './cache'
 import {
 	getAllowedApplications as resolveAllowedApplications,
 	getAllowedEnvirnoments as resolveAllowedEnvirnoments,
@@ -59,7 +61,9 @@ export function createCoolifyDeploymentClient(
 	context?: CoolifyClientContext,
 ): CoolifyDeploymentClient {
 	const baseUrl = options.COOLIFY_URL.replace(/\/$/u, '')
-	const cache = context ? initializeCache(context) : null
+	const cache = context
+		? initializeCache(context, { ttl: LIST_APPLICATION_CACHE_DURATION_MS })
+		: null
 
 	/** @returns Allow-listed applications from Directus. */
 	const listConfiguredApplication = async (): Promise<DirectusCoolifyApplication[]> => {

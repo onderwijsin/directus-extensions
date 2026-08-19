@@ -45,6 +45,7 @@ describe('runtime-aware exports', () => {
 				'extensionSetup',
 				'validateExtensionOptions',
 				'getAccountabilityFromRequest',
+				'initializeCache',
 				'hasAuthenticatedUser',
 				'isAccountability',
 			].sort(),

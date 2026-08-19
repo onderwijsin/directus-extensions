@@ -1,6 +1,7 @@
 export * from '../shared/index'
 export * from './auto-task'
 export * from './async-handler'
+export * from './cache'
 export * from './lock'
 export * from './directus-ensure'
 export * from './setup'

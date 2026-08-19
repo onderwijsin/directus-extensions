@@ -1,8 +1,8 @@
 import type { Accountability, ApiExtensionContext, SchemaOverview } from '@directus/types'
 
+import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { initializePolicyCache } from '../src/cache'
 import { fetchPolicies, policyAccessFilter } from '../src/fetch-policies'
 
 const schema = {} as SchemaOverview
@@ -79,8 +79,8 @@ describe('fetchPolicies', () => {
 			fetchPolicies(accountability({ ip: '127.0.0.1' }), services, schema, null),
 		).resolves.toEqual([
 			publicPolicy('parent-policy'),
-			publicPolicy('child-policy'),
 			publicPolicy('shared-policy'),
+			publicPolicy('child-policy'),
 			publicPolicy('user-policy'),
 		])
 		expect(readByQuery).toHaveBeenCalledWith({
@@ -105,7 +105,7 @@ describe('fetchPolicies', () => {
 	it('caches equivalent accountability lookups', async () => {
 		const { services, readByQuery } = createServices([{ policy: policy('cached'), role: null }])
 		const cachedAccountability = accountability({ user: 'cached-user' })
-		const cache = initializePolicyCache({ CACHE_ENABLED: true, CACHE_STORE: 'memory' })
+		const cache = initializeCache({ CACHE_ENABLED: true, CACHE_STORE: 'memory' }, { ttl: 5000 })
 
 		await fetchPolicies(cachedAccountability, services, schema, cache)
 		await fetchPolicies(cachedAccountability, services, schema, cache)

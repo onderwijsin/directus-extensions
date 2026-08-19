@@ -1,3 +1,4 @@
+import type { CacheEnv } from '@onderwijsin/directus-extension-utils/server'
 import type {
 	CoolifyApplication,
 	CoolifyApplicationFilter,
@@ -35,12 +36,9 @@ export type {
 	CoolifyDeploymentsOptions,
 } from './schemas'
 
-export interface CoolifyClientContext {
+export interface CoolifyClientContext extends CacheEnv {
 	services: ApiExtensionContext['services']
 	getSchema: ApiExtensionContext['getSchema']
-	cacheEnabled: boolean
-	cacheStore: 'redis' | 'memory'
-	redis?: string
 }
 
 export interface CoolifyDeploymentClient {

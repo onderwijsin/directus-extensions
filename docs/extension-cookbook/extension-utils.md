@@ -13,7 +13,7 @@ visible.
 | Narrow Directus request accountability                              | [`isAccountability`](#accountability-helpers) and related server helpers          |
 | Narrow an unknown value                                             | [Guards](guards.md)                                                               |
 | Return an error instead of throwing                                 | [`attempt`](#attempts-and-retries) or [`attemptWithRetry`](#attempts-and-retries) |
-| Store derived data                                                  | Directus `createCache`                                                            |
+| Store derived data                                                  | [`initializeCache`](#cache)                                                       |
 | Store coordination state                                            | Directus `createKv`                                                               |
 | Coordinate one [owner](extension-utils-glossary.md#owner) at a time | A lock provider                                                                   |
 | Debounce and coordinate work                                        | [`createAutoTaskHandler`](#auto-task-handlers)                                    |
@@ -90,6 +90,7 @@ only the common helper surface.
 | Auto-tasks       | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                                                          | `/server`         |
 | Logging          | `createLogger`                                                                                                                                                                                                                              | `/server`         |
 | Setup            | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                            | `/server`         |
+| Cache            | `initializeCache`                                                                                                                                                                                                                           | `/server`         |
 | Schema/data      | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `rejectWhileSchemaLocked`, `withCollectionIdentity` | `/server`         |
 | Constants        | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                                                                          | `/constants`      |
 | Sentry           | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                                                                            | `/sentry`         |
@@ -124,6 +125,23 @@ export default defineHook(({ init, embed }, { env, logger }) => {
 The setup helper does not register routes or events. The caller owns Directus registration and
 resource cleanup. Invalid Zod configuration is logged and throws
 `Invalid extension options ☝. Exiting.`.
+
+### Cache
+
+Use `initializeCache` for disposable extension data that should follow the configured local or Redis
+backend:
+
+```ts
+import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
+
+const cache = initializeCache(env, { ttl: 60_000 })
+const cached = await cache?.get('orders:summary')
+```
+
+The validated environment must contain `CACHE_ENABLED`, `CACHE_STORE` (`memory` or `redis`), and
+`REDIS` when Redis is selected. Disabled caching returns `null`; Redis uses the shared
+`directus:extensions` namespace. Callers should prefix keys with their extension name, and TTLs must
+be finite positive numbers.
 
 ### Schema changes
 

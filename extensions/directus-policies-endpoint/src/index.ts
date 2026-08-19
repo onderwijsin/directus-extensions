@@ -4,14 +4,15 @@ import {
 	extensionSetup,
 	asyncHandler,
 	getAccountabilityFromRequest,
+	initializeCache,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { initializePolicyCache } from './cache'
 import { envSchema } from './env.schema'
 import { fetchPolicies } from './fetch-policies'
 
 const EXTENSION_NAME = 'policies_endpoint'
+const POLICY_CACHE_TTL_MS = 5_000
 
 export default defineEndpoint({
 	id: 'users/me',
@@ -31,7 +32,7 @@ export default defineEndpoint({
 
 		if (!setup.isEnabled()) return
 		const options = validateExtensionOptions(env, envSchema, logger)
-		const cache = initializePolicyCache(options)
+		const cache = initializeCache(options, { ttl: POLICY_CACHE_TTL_MS })
 
 		router.get(
 			'/policies',

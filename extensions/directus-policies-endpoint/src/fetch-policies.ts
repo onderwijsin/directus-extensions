@@ -72,11 +72,11 @@ export async function fetchPolicies(
 	schema: SchemaOverview,
 	cache: Cache | null,
 ): Promise<PolicyRecord[]> {
-	const cacheKey = JSON.stringify({
+	const cacheKey = `policies-endpoint:${JSON.stringify({
 		roles: accountability.roles,
 		user: accountability.user,
 		ip: accountability.ip,
-	})
+	})}`
 	const cached = await cache?.get<PolicyRecord[]>(cacheKey)
 	if (cached) return cached
 

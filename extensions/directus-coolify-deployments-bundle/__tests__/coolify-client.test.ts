@@ -58,8 +58,8 @@ const context = {
 		},
 	},
 	getSchema: vi.fn(() => Promise.resolve({})),
-	cacheEnabled: false,
-	cacheStore: 'memory',
+	CACHE_ENABLED: false,
+	CACHE_STORE: 'memory',
 } as unknown as CoolifyClientContext
 
 const createClient = () => createCoolifyDeploymentClient(options, context)
@@ -159,7 +159,7 @@ describe('Coolify deployment client', () => {
 	it('reuses the configured application cache', async () => {
 		const client = createCoolifyDeploymentClient(options, {
 			...context,
-			cacheEnabled: true,
+			CACHE_ENABLED: true,
 		})
 
 		await client.listConfiguredApplication()

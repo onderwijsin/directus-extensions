@@ -30,10 +30,24 @@ Use `/server` for server-only utilities:
 import {
   asyncHandler,
   createAutoTaskHandler,
+  initializeCache,
   createRedisTaskHandlerStorage,
   createRedisLockProvider,
 } from '@onderwijsin/directus-extension-utils/server'
 ```
+
+Create a local or Redis-backed cache from validated Directus environment values:
+
+```ts
+import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
+
+const cache = initializeCache(env, { ttl: 60_000 })
+const cached = await cache?.get('orders:summary')
+```
+
+`env` must provide `CACHE_ENABLED`, `CACHE_STORE` (`memory` or `redis`), and `REDIS` when Redis is
+selected. Disabled caching returns `null`; Redis caches use the shared `directus:extensions`
+namespace. TTL values must be finite and positive.
 
 Wrap asynchronous endpoint handlers and middleware with `asyncHandler` so rejected promises reach
 Directus's Express 4 error handling:
