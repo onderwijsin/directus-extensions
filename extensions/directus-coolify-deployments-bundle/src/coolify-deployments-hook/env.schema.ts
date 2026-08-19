@@ -6,7 +6,7 @@ import {
 	DEFAULT_MANAGE_APPLICATIONS_POLICY_ID,
 	DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID,
 } from '../shared/constants'
-import { coolifyEnvironmentSchema } from '../shared/schemas'
+import { coolifyEnvironmentSchema } from '../shared/coolify-client/schemas'
 
 /**
  * Validates environment values used by the Directus startup hook.

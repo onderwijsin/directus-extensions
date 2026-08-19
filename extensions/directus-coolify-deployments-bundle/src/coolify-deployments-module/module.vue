@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PublicCoolifyProject } from '../shared/types'
+import type { PublicCoolifyProject } from '../shared/coolify-client/schemas'
 
 import { onMounted, shallowRef } from 'vue'
 

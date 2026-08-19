@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { NormalizedDeployment } from '../shared/types'
+import type { NormalizedDeployment } from '../shared/coolify-client/schemas'
 
 import { onMounted, shallowRef } from 'vue'
 

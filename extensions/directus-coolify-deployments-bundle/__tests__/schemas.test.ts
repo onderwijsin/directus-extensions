@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { envSchema, normalizedDeploymentSchema } from '../src/shared/schemas'
+import { envSchema as endpointEnvSchema } from '../src/coolify-deployments-endpoint/env.schema'
+import {
+	coolifyDeploymentRequestSchema,
+	envSchema,
+	normalizedDeploymentSchema,
+} from '../src/shared/coolify-client/schemas'
 
 describe('Coolify deployments schemas', () => {
 	it('provides the documented environment defaults', () => {
@@ -44,7 +49,7 @@ describe('Coolify deployments schemas', () => {
 		expect(
 			normalizedDeploymentSchema.parse({
 				id: 'deployment-1',
-				projectId: 'onderwijsloket',
+				applicationId: 'onderwijsloket',
 				status: 'queued',
 				rawStatus: 'queued',
 				commitSha: null,
@@ -64,6 +69,31 @@ describe('Coolify deployments schemas', () => {
 				COOLIFY_TOKEN: 'token',
 				COOLIFY_PROJECTS: [{ id: 'frontend', name: 'Frontend' }],
 			}),
+		).toThrow()
+	})
+
+	it('requires Redis configuration for the Redis cache store', () => {
+		const base = { COOLIFY_URL: 'https://coolify.example.com', COOLIFY_TOKEN: 'token' }
+		expect(endpointEnvSchema.safeParse({ ...base, CACHE_STORE: 'memory' }).success).toBe(true)
+		expect(endpointEnvSchema.safeParse({ ...base, CACHE_STORE: 'redis' }).success).toBe(false)
+		expect(
+			endpointEnvSchema.safeParse({
+				...base,
+				CACHE_STORE: 'redis',
+				REDIS: 'redis://localhost',
+			}).success,
+		).toBe(true)
+	})
+
+	it('restricts deployment requests to one application UUID', () => {
+		expect(() =>
+			coolifyDeploymentRequestSchema.parse({ uuid: 'application-1,application-2' }),
+		).toThrow()
+		expect(() =>
+			coolifyDeploymentRequestSchema.parse({ uuid: 'application-1', tag: 'production' }),
+		).toThrow()
+		expect(() =>
+			coolifyDeploymentRequestSchema.parse({ uuid: 'application-1', pr: 42 }),
 		).toThrow()
 	})
 })

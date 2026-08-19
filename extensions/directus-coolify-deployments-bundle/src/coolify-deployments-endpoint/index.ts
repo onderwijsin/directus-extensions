@@ -1,4 +1,5 @@
 import type { NextFunction, Response } from 'express'
+import type { CoolifyDeployment } from '../shared/coolify-client/schemas'
 
 import { ForbiddenError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
@@ -28,17 +29,26 @@ export default defineEndpoint({
 	 * @param router - Directus's endpoint router.
 	 * @param context - Directus endpoint context.
 	 * @param context.env - Directus environment values.
+	 * @param context.services - Directus service constructors.
+	 * @param context.getSchema - Directus schema resolver.
 	 * @param context.logger - Directus extension logger.
 	 * @returns Nothing.
 	 */
-	handler: (router, { env, logger }) => {
+	handler: (router, { env, logger, services, getSchema }) => {
 		const setup = extensionSetup(EXTENSION_NAME, env, logger)
 		setup.start()
 
 		if (!setup.isEnabled()) return
 
 		const options = validateExtensionOptions(env, envSchema, logger)
-		const client = createCoolifyDeploymentClient(options)
+		const client = createCoolifyDeploymentClient(options, {
+			services,
+			getSchema,
+			cacheEnabled: options.CACHE_ENABLED,
+			cacheStore: options.CACHE_STORE,
+			redis: options.REDIS,
+		})
+		const configuredApplications = options.COOLIFY_PROJECTS
 		const schemaLockOptions = {
 			lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 		}
@@ -86,12 +96,67 @@ export default defineEndpoint({
 				})
 		}
 
+		/**
+		 * Adapt a provider deployment for the current endpoint response contract.
+		 * @param applicationId - Stable configured application ID.
+		 * @param deployment - Parsed Coolify deployment.
+		 * @returns Normalized deployment response.
+		 */
+		const toNormalizedDeployment = (applicationId: string, deployment: CoolifyDeployment) => {
+			const status = deployment.status.toLowerCase()
+			const normalizedStatus = status.includes('queue')
+				? 'queued'
+				: status.includes('run') ||
+					  status.includes('progress') ||
+					  status.includes('in_progress')
+					? 'running'
+					: status.includes('success') ||
+						  status.includes('finish') ||
+						  status.includes('completed')
+						? 'success'
+						: status.includes('cancel')
+							? 'cancelled'
+							: status.includes('fail') || status.includes('error')
+								? 'failed'
+								: 'unknown'
+			const startedAt = deployment.createdAt
+			const finishedAt = ['queued', 'running'].includes(normalizedStatus)
+				? null
+				: deployment.updatedAt
+			const duration =
+				startedAt !== null && finishedAt !== null
+					? Date.parse(finishedAt) - Date.parse(startedAt)
+					: null
+
+			return {
+				id: deployment.deploymentUuid,
+				applicationId,
+				status: normalizedStatus,
+				rawStatus: deployment.status,
+				commitSha: deployment.commit,
+				commitMessage: deployment.commitMessage,
+				deploymentUrl: deployment.deploymentUrl,
+				startedAt,
+				finishedAt,
+				duration:
+					duration !== null && Number.isFinite(duration) && duration >= 0
+						? duration
+						: null,
+			}
+		}
+
 		router.get('/projects', (_request, response) => {
-			response.json(client.listConfiguredProjects())
+			response.json(
+				configuredApplications.map(({ id, name, productionUrl }) => ({
+					id,
+					name,
+					productionUrl,
+				})),
+			)
 		})
 
 		router.get('/projects/:id/deployments', (request, response, next) => {
-			const project = client.resolveConfiguredApplication(request.params.id)
+			const project = configuredApplications.find(({ id }) => id === request.params.id)
 			if (!project) {
 				next(new UnknownCoolifyProjectError())
 				return
@@ -104,19 +169,33 @@ export default defineEndpoint({
 			}
 
 			handleProviderRequest(response, next, () =>
-				client.listDeployments(project, pagination.data),
+				client
+					.listApplicationDeployments(project.applicationUuid)
+					.then((deployments) =>
+						deployments
+							.slice(
+								pagination.data.skip,
+								pagination.data.skip + pagination.data.take,
+							)
+							.map((deployment) => toNormalizedDeployment(project.id, deployment)),
+					),
 			)
 		})
 
 		router.get('/projects/:id/deployments/:deploymentId', (request, response, next) => {
-			const project = client.resolveConfiguredApplication(request.params.id)
+			const project = configuredApplications.find(({ id }) => id === request.params.id)
 			if (!project) {
 				next(new UnknownCoolifyProjectError())
 				return
 			}
 
 			handleProviderRequest(response, next, () =>
-				client.getNormalizedDeployment(project, request.params.deploymentId),
+				client.getDeployment(request.params.deploymentId).then((deployment) => {
+					if (deployment.applicationId !== project.applicationUuid) {
+						throw new UnknownCoolifyProjectError()
+					}
+					return toNormalizedDeployment(project.id, deployment)
+				}),
 			)
 		})
 
@@ -126,7 +205,7 @@ export default defineEndpoint({
 				return
 			}
 
-			const project = client.resolveConfiguredApplication(request.params.id)
+			const project = configuredApplications.find(({ id }) => id === request.params.id)
 			if (!project) {
 				next(new UnknownCoolifyProjectError())
 				return
@@ -139,7 +218,23 @@ export default defineEndpoint({
 			}
 
 			handleProviderRequest(response, next, () =>
-				client.deployConfiguredApplication(project, payload.data.force),
+				client
+					.deploy({ uuid: project.applicationUuid, force: payload.data.force })
+					.then(([result]) => {
+						if (!result) throw new CoolifyUpstreamError()
+						return {
+							id: result.deploymentUuid,
+							applicationId: project.id,
+							status: 'unknown',
+							rawStatus: result.message,
+							commitSha: null,
+							commitMessage: null,
+							deploymentUrl: null,
+							startedAt: null,
+							finishedAt: null,
+							duration: null,
+						}
+					}),
 			)
 		})
 

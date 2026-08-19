@@ -35,6 +35,9 @@ application or project. Per-application Coolify API tokens are not currently sup
 | `COOLIFY_URL`                                       | yes when enabled | —                      | Base URL of the Coolify instance.                                  |
 | `COOLIFY_TOKEN`                                     | yes when enabled | —                      | Server-only least-privilege Coolify API token.                     |
 | `COOLIFY_PROJECTS`                                  | no               | `[]`                   | JSON/Directus array of configured frontend project definitions.    |
+| `CACHE_ENABLED`                                     | no               | `true`                 | Enables caching of configured application records.                 |
+| `CACHE_STORE`                                       | no               | `memory`               | Cache backend: `memory` or `redis`.                                |
+| `REDIS`                                             | when Redis cache | —                      | Redis connection string required when `CACHE_STORE` is `redis`.    |
 | `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | no               | stable UUID            | UUID of the policy that manages local Coolify application records. |
 | `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | no               | stable UUID            | UUID of the policy that reads Coolify deployment resources.        |
 | `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID` | no               | stable UUID            | UUID of the policy that triggers Coolify deployments.              |
@@ -66,8 +69,9 @@ implemented yet” behavior.
 
 The `coolify-deployments-hook` entry creates the allow-listed applications collection at startup. It
 uses the shared schema-change lock; endpoint routes return `503` while the collection schema is
-being ensured. This phase only manages the collection schema; endpoint reads still use the legacy
-`COOLIFY_PROJECTS` configuration until the next phase wires them to `coolify_applications`.
+being ensured. The server-side client reads configured applications with administrative
+accountability and caches them for 60 seconds. Select `memory` for a process-local cache or `redis`
+with a valid `REDIS` connection string for a shared cache.
 
 When global data seeding is enabled, the startup coordinator also creates the three Coolify policy
 records. Their UUIDs are configurable through the policy ID variables. The bundled permission
@@ -93,8 +97,10 @@ on same-origin checking as authorization.
 | `POST` | `/coolify-deployments/projects/:id/deploy`                    | Triggers a deployment with `{ "force": true }` by default.                 |
 
 The client calls Coolify's `/api/v1` deployment endpoints with a server-side bearer token. Coolify
-responses are validated with Zod and normalized to the extension model. Provider failures return a
-generic `502` response while details are logged by Directus.
+responses are validated with Zod and normalized to the extension model. Provider failures are
+forwarded through Directus's error middleware as a generic `502` Directus error while details are
+logged by Directus. Authentication and same-origin failures are forwarded as Directus
+`403 Forbidden` errors.
 
 ## Security and ownership model
 

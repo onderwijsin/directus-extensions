@@ -43,6 +43,9 @@ The package reserves these Directus environment variables:
 | `COOLIFY_URL`                                       | Base URL of the Coolify instance.                                                                 |
 | `COOLIFY_TOKEN`                                     | Server-only Coolify API token.                                                                    |
 | `COOLIFY_PROJECTS`                                  | Configured frontend projects with stable IDs, names, production URLs, and Coolify resource UUIDs. |
+| `CACHE_ENABLED`                                     | Enables caching of configured application records; defaults to `true`.                            |
+| `CACHE_STORE`                                       | Cache backend: `memory` or `redis`; defaults to `memory`.                                         |
+| `REDIS`                                             | Redis connection string; required when `CACHE_STORE` is `redis`.                                  |
 | `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | UUID for the local application-management policy; has a stable default.                           |
 | `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | UUID for the deployment-read policy; has a stable default.                                        |
 | `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID` | UUID for the deployment-trigger policy; has a stable default.                                     |
@@ -71,8 +74,9 @@ startup. It contains the allow-listed application UUID, display metadata, option
 environment metadata, and deployment enablement flags. Schema setup uses the shared schema-change
 lock, and endpoint routes return `503` while this bundle's schema is being changed.
 
-This phase only manages the collection schema. The existing endpoint configuration still uses
-`COOLIFY_PROJECTS`; wiring endpoint reads to `coolify_applications` is the next phase.
+The server-side client reads configured applications from `coolify_applications` with administrative
+accountability and caches the records for 60 seconds. `COOLIFY_PROJECTS` remains for legacy startup
+configuration while the domain routes are being refactored.
 
 Schema changes can be controlled with `COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED` and
 `COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR`, in addition to the global schema-change and lock
@@ -103,8 +107,9 @@ command-line clients; this check is defense in depth, not a replacement for Dire
 | `POST` | `/coolify-deployments/projects/:id/deploy`                    | Trigger a deployment. Body is `{ "force": true }`; force defaults to `true`.                          |
 
 Responses use the extension-owned normalized model with `status`, `rawStatus`, commit metadata,
-deployment URL, timestamps, duration, and the stable configured project ID. Coolify failures are
-logged server-side and returned as a generic `502` response.
+deployment URL, timestamps, duration, and the stable configured project ID. Authentication,
+validation, schema-lock, and Coolify failures are forwarded through Directus's error middleware;
+Coolify failures are logged server-side and exposed as a generic `502` Directus error.
 
 For production use, grant the deploy route only to a dedicated Directus permission or role, use a
 least-privilege Coolify token, keep the Coolify URL fixed in server configuration, and add rate

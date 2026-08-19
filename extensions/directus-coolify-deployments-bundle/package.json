@@ -56,12 +56,17 @@
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
+		"@directus/errors": "catalog:",
+		"@directus/memory": "catalog:",
+		"ioredis": "catalog:",
+		"ofetch": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",
 		"@directus/types": "catalog:",
 		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"@types/express": "catalog:",
 		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",
 		"vitest": "catalog:",

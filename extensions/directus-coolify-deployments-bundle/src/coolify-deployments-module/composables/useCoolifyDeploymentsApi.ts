@@ -1,4 +1,7 @@
-import type { NormalizedDeployment, PublicCoolifyProject } from '../../shared/types'
+import type {
+	NormalizedDeployment,
+	PublicCoolifyProject,
+} from '../../shared/coolify-client/schemas'
 
 import { useApi } from '@directus/extensions-sdk'
 

@@ -156,7 +156,8 @@ several runtime paths.
 Implemented today:
 
 - A non-sandboxed `@onderwijsin/directus-coolify-deployments-bundle` package.
-- A server-side functional-style Coolify HTTP client using the `/api/v1` API and bearer token.
+- A server-side Coolify HTTP client using the `/api/v1` API and bearer token, with separate project,
+  environment, application, and deployment operations.
 - Zod validation for environment values, request payloads, pagination, and normalized provider
   responses.
 - Authenticated endpoint routes for configured project entries:
@@ -185,8 +186,10 @@ Known v2 gaps in the current code:
 - Applications and environments are not represented as distinct client models.
 - The application-deployments response is currently parsed as deployment history and needs a
   separate, documented response model.
-- Project/environment/application discovery routes are not implemented.
-- Deploy currently accepts only UUID plus `force`; tag and PR deployment inputs are not exposed.
+- Project/environment/application discovery routes are not implemented; the provider client methods
+  are available for the upcoming route refactor.
+- The provider client supports deploy by UUID, tag, force, and pull request, plus deployment
+  cancellation; route and Flow inputs are not yet exposed.
 - The Flow operation does not yet call the endpoint/client.
 - Deployment persistence, polling, logs, cancellation, retries, scheduling, and per-application
   permissions are out of scope for the current phase.
