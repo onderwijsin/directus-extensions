@@ -4,7 +4,7 @@ import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
 	extensionSetup,
 	validateExtensionOptions,
-	getDirectusStartupStatus,
+	rejectWhileSchemaLocked,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { EXTENSION_ID, EXTENSION_NAME } from '../magic-links-hook/constants'
@@ -14,7 +14,6 @@ import {
 	parseRequestPayload,
 	redeemMagicLink,
 	requestMagicLink,
-	SchemaLockedError,
 } from './handlers'
 import { createMagicLinkLimiter } from './rate-limiter'
 import { sendAuthenticationResponse } from './session'
@@ -47,23 +46,19 @@ export default defineEndpoint({
 			lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 		}
 
-		/**
-		 * Forward a schema-lock error when this endpoint's schema is being changed.
-		 * @param next - Express next callback.
-		 * @returns Whether the request was rejected.
-		 */
-		const rejectWhileSchemaLocked = async (
-			next: (error?: unknown) => void,
-		): Promise<boolean> => {
-			const { isLocked } = await getDirectusStartupStatus({
-				id: EXTENSION_ID,
-				options: schemaLockOptions,
-			})
-			if (!isLocked) return false
-
-			next(new SchemaLockedError())
-			return true
-		}
+		router.use((_request, _response, next) => {
+			void rejectWhileSchemaLocked(
+				{
+					id: EXTENSION_ID,
+					options: schemaLockOptions,
+				},
+				next,
+			)
+				.then((rejected) => {
+					if (!rejected) next()
+				})
+				.catch((error: unknown) => next(error))
+		})
 
 		let limiter: ReturnType<typeof createMagicLinkLimiter> | undefined
 		/**
@@ -76,7 +71,6 @@ export default defineEndpoint({
 
 		router.post('/request', (request, response, next) => {
 			void attempt(async () => {
-				if (await rejectWhileSchemaLocked(next)) return
 				const payload = parseRequestPayload(
 					request.body,
 					options.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
@@ -99,8 +93,6 @@ export default defineEndpoint({
 
 		router.post('/redeem', (request, response, next) => {
 			void attempt(async () => {
-				if (await rejectWhileSchemaLocked(next)) return
-
 				const payload = parseRedeemPayload(request.body)
 				const result = await redeemMagicLink({
 					database,

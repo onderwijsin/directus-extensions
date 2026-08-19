@@ -4,12 +4,7 @@ import type { MagicLinksEnv } from './env.schema'
 
 import { randomBytes } from 'node:crypto'
 
-import {
-	createError,
-	InvalidCredentialsError,
-	InvalidOtpError,
-	InvalidPayloadError,
-} from '@directus/errors'
+import { InvalidCredentialsError, InvalidOtpError, InvalidPayloadError } from '@directus/errors'
 import { attempt, uuid } from '@onderwijsin/directus-extension-utils'
 
 import { runAsMagicLinkRefresh } from '../shared/magic-link-refresh-context'
@@ -85,12 +80,6 @@ const throwAttemptError = (error: unknown): never => {
 }
 
 const BOOTSTRAP_SESSION_TTL_MS = 5 * 60 * 1000
-
-export const SchemaLockedError = createError(
-	'ONGOING_SCHEMA_CHANGES',
-	'There are schema changes in progress for the requested resource',
-	503,
-)
 
 /**
  * Parses the request body and validates its redirect target.

@@ -74,6 +74,7 @@
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
+		"@directus/errors": "catalog:",
 		"@directus/memory": "catalog:",
 		"@sentry/node": "catalog:",
 		"ioredis": "catalog:",

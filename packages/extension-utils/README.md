@@ -197,6 +197,21 @@ if (status.isLocked) {
 }
 ```
 
+Use `rejectWhileSchemaLocked` as endpoint middleware when requests must wait for startup schema
+changes to finish. Pass custom error constructors when an endpoint needs its own public error code:
+
+```ts
+import { rejectWhileSchemaLocked } from '@onderwijsin/directus-extension-utils/server'
+
+router.use((_request, _response, next) => {
+  void rejectWhileSchemaLocked({ id: 'orders', options: schemaLockOptions }, next).then(
+    (rejected) => {
+      if (!rejected) next()
+    },
+  )
+})
+```
+
 The status query must use the same provider configuration and extension identifier as the startup
 coordinator. It is read-only and disposes only providers created from configuration. Use Redis or a
 shared filesystem provider for separate processes.

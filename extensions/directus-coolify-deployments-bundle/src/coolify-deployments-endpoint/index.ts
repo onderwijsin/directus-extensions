@@ -1,14 +1,24 @@
+import type { NextFunction, Response } from 'express'
+
+import { ForbiddenError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
 import {
-	getDirectusStartupStatus,
 	extensionSetup,
+	hasKey,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
-import { deployRequestSchema, deploymentPaginationSchema } from '../shared/schemas'
+import { deployRequestSchema, deploymentPaginationSchema } from '../shared/coolify-client/schemas'
 import { envSchema } from './env.schema'
+import {
+	CoolifyUpstreamError,
+	InvalidDeploymentRequestError,
+	rejectWhileSchemaLocked,
+	UnknownCoolifyProjectError,
+} from './errors'
+import { hasAuthenticatedUser } from './helpers'
 import { isSameOriginRequest } from './same-origin'
 
 export default defineEndpoint({
@@ -22,16 +32,6 @@ export default defineEndpoint({
 	 * @returns Nothing.
 	 */
 	handler: (router, { env, logger }) => {
-		interface RequestWithAccountability {
-			get: (header: string) => string | undefined
-			protocol: string
-			accountability?: { user?: string | null } | null
-		}
-		interface Response {
-			json: (body: unknown) => void
-			status: (code: number) => Response
-		}
-
 		const setup = extensionSetup(EXTENSION_NAME, env, logger)
 		setup.start()
 
@@ -44,149 +44,103 @@ export default defineEndpoint({
 		}
 
 		/**
-		 * Reject requests while this bundle's schema is being changed.
-		 * @param response - Directus response.
-		 * @returns Whether the request was rejected.
-		 */
-		const rejectWhileSchemaLocked = async (response: Response): Promise<boolean> => {
-			const { isLocked } = await getDirectusStartupStatus({
-				id: EXTENSION_ID,
-				options: schemaLockOptions,
-			})
-			if (!isLocked) return false
-
-			response.status(503).json({ error: 'Schema changes are in progress' })
-			return true
-		}
-
-		/**
-		 * Return whether the request belongs to an authenticated Directus user.
+		 * Apply authentication and schema readiness checks to every route.
 		 * @param request - Directus request.
-		 * @returns Whether the request has a user accountability.
-		 */
-		const isAuthenticated = (request: RequestWithAccountability) =>
-			request.accountability?.user != null
-
-		/**
-		 * Return a consistent authentication error response.
 		 * @param response - Directus response.
+		 * @param next - Express middleware continuation.
 		 * @returns Nothing.
 		 */
-		const respondUnauthenticated = (response: Response) => {
-			response.status(403).json({ error: 'Authentication is required' })
-		}
+		router.use((request, _response, next: NextFunction) => {
+			const accountability = hasKey(request, 'accountability')
+				? request.accountability
+				: undefined
+			if (accountability === null || !hasAuthenticatedUser(accountability)) {
+				next(new ForbiddenError())
+				return
+			}
 
-		/**
-		 * Return a safe provider error response and log diagnostic details server-side.
-		 * @param response - Directus response.
-		 * @param error - Provider or validation error.
-		 * @returns Nothing.
-		 */
-		const respondProviderError = (response: Response, error: unknown) => {
-			logger.error(error)
-			response.status(502).json({ error: 'Coolify request failed' })
-		}
-
-		/**
-		 * Run a route handler after checking the schema lock without returning a promise to Express.
-		 * @param response - Directus response.
-		 * @param handler - Route logic to run when the schema is available.
-		 * @returns Nothing.
-		 */
-		const runAfterSchemaCheck = (response: Response, handler: () => void): void => {
-			void rejectWhileSchemaLocked(response)
+			void rejectWhileSchemaLocked(schemaLockOptions, next)
 				.then((locked) => {
-					if (!locked) handler()
+					if (!locked) next()
 				})
-				.catch((error: unknown) => respondProviderError(response, error))
+				.catch((error: unknown) => next(error))
+		})
+
+		/**
+		 * Resolve a provider operation and serialize its result or safe error.
+		 * @param response - Directus response.
+		 * @param next - Express error handler continuation.
+		 * @param operation - Provider operation to execute.
+		 * @returns Nothing.
+		 */
+		const handleProviderRequest = (
+			response: Response,
+			next: NextFunction,
+			operation: () => Promise<unknown>,
+		) => {
+			void operation()
+				.then((result) => response.json(result))
+				.catch((error: unknown) => {
+					logger.error(error)
+					next(new CoolifyUpstreamError())
+				})
 		}
 
-		router.get('/projects', (request, response) => {
-			runAfterSchemaCheck(response, () => {
-				if (!isAuthenticated(request)) {
-					respondUnauthenticated(response)
-					return
-				}
-
-				response.json(client.listProjects())
-			})
+		router.get('/projects', (_request, response) => {
+			response.json(client.listConfiguredProjects())
 		})
 
-		router.get('/projects/:id/deployments', (request, response) => {
-			runAfterSchemaCheck(response, () => {
-				if (!isAuthenticated(request)) {
-					respondUnauthenticated(response)
-					return
-				}
+		router.get('/projects/:id/deployments', (request, response, next) => {
+			const project = client.resolveConfiguredApplication(request.params.id)
+			if (!project) {
+				next(new UnknownCoolifyProjectError())
+				return
+			}
 
-				const project = client.resolveProject(request.params.id)
-				if (!project) {
-					response.status(404).json({ error: 'Unknown Coolify project' })
-					return
-				}
+			const pagination = deploymentPaginationSchema.safeParse(request.query)
+			if (!pagination.success) {
+				next(new InvalidDeploymentRequestError())
+				return
+			}
 
-				const pagination = deploymentPaginationSchema.safeParse(request.query)
-				if (!pagination.success) {
-					response.status(400).json({ error: 'Invalid deployment pagination' })
-					return
-				}
-
-				void client
-					.listDeployments(project, pagination.data)
-					.then((deployments) => response.json(deployments))
-					.catch((error: unknown) => respondProviderError(response, error))
-			})
+			handleProviderRequest(response, next, () =>
+				client.listDeployments(project, pagination.data),
+			)
 		})
 
-		router.get('/projects/:id/deployments/:deploymentId', (request, response) => {
-			runAfterSchemaCheck(response, () => {
-				if (!isAuthenticated(request)) {
-					respondUnauthenticated(response)
-					return
-				}
+		router.get('/projects/:id/deployments/:deploymentId', (request, response, next) => {
+			const project = client.resolveConfiguredApplication(request.params.id)
+			if (!project) {
+				next(new UnknownCoolifyProjectError())
+				return
+			}
 
-				const project = client.resolveProject(request.params.id)
-				if (!project) {
-					response.status(404).json({ error: 'Unknown Coolify project' })
-					return
-				}
-
-				void client
-					.getDeployment(project, request.params.deploymentId)
-					.then((deployment) => response.json(deployment))
-					.catch((error: unknown) => respondProviderError(response, error))
-			})
+			handleProviderRequest(response, next, () =>
+				client.getNormalizedDeployment(project, request.params.deploymentId),
+			)
 		})
 
-		router.post('/projects/:id/deploy', (request, response) => {
-			runAfterSchemaCheck(response, () => {
-				if (!isSameOriginRequest(request)) {
-					response.status(403).json({ error: 'Same-origin request required' })
-					return
-				}
+		router.post('/projects/:id/deploy', (request, response, next) => {
+			if (!isSameOriginRequest(request)) {
+				next(new ForbiddenError())
+				return
+			}
 
-				if (!isAuthenticated(request)) {
-					respondUnauthenticated(response)
-					return
-				}
+			const project = client.resolveConfiguredApplication(request.params.id)
+			if (!project) {
+				next(new UnknownCoolifyProjectError())
+				return
+			}
 
-				const project = client.resolveProject(request.params.id)
-				if (!project) {
-					response.status(404).json({ error: 'Unknown Coolify project' })
-					return
-				}
+			const payload = deployRequestSchema.safeParse(request.body ?? {})
+			if (!payload.success) {
+				next(new InvalidDeploymentRequestError())
+				return
+			}
 
-				const payload = deployRequestSchema.safeParse(request.body ?? {})
-				if (!payload.success) {
-					response.status(400).json({ error: 'Invalid deployment payload' })
-					return
-				}
-
-				void client
-					.deploy(project, payload.data.force)
-					.then((deployment) => response.json(deployment))
-					.catch((error: unknown) => respondProviderError(response, error))
-			})
+			handleProviderRequest(response, next, () =>
+				client.deployConfiguredApplication(project, payload.data.force),
+			)
 		})
 
 		setup.end()
