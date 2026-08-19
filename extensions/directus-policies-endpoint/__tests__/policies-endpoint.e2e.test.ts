@@ -164,16 +164,6 @@ describe('users policies endpoint', () => {
 					}),
 				]),
 			)
-
-			const depthZero = await credentialClient.request<PolicyResponse[]>(
-				customEndpoint({ path: '/users/me/policies', method: 'GET', params: { depth: 0 } }),
-			)
-			expect(depthZero.map((policy) => policy.id)).toEqual([directPolicy.id])
-
-			const depthOne = await credentialClient.request<PolicyResponse[]>(
-				customEndpoint({ path: '/users/me/policies', method: 'GET', params: { depth: 1 } }),
-			)
-			expect(depthOne.map((policy) => policy.id)).toEqual([directPolicy.id, childPolicy.id])
 		} finally {
 			if (userId) await client.request(deleteUser(userId))
 			if (grandchildRoleId) await client.request(deleteRole(grandchildRoleId))

@@ -39,34 +39,29 @@ Each response item contains:
 }
 ```
 
-Policies attached directly to the user and to every reachable role are included once, keyed by
-policy ID. The default behavior recursively follows child roles. Use `depth` when the application
-needs a bounded traversal:
-
-| Query     | Included role policies                     |
-| --------- | ------------------------------------------ |
-| omitted   | All nested roles, recursively              |
-| `depth=0` | The user's role only                       |
-| `depth=1` | The user's role and its direct child roles |
+Policies assigned directly to the user, to the accountability's effective roles, and to the public
+role are resolved using Directus access-row semantics. Policies are filtered by `ip_access`, ordered
+by role priority, and included once per policy ID.
 
 ```http
-GET /users/me/policies?depth=1
+GET /users/me/policies
 Authorization: Bearer <token>
 ```
 
-The bounded form requests the required nested relationships in one Directus service call. A
-non-negative integer is the supported depth format; an omitted or malformed value uses recursive
-resolution.
+The resolver caches results in local memory for up to five seconds, keyed by the accountability's
+user, effective roles, and IP address.
 
 ## Configuration
 
-| Variable                    | Default | Description                              |
-| --------------------------- | ------- | ---------------------------------------- |
-| `POLICIES_ENDPOINT_ENABLED` | `true`  | Set to `false` to disable the extension. |
+| Variable                    | Default  | Description                              |
+| --------------------------- | -------- | ---------------------------------------- |
+| `POLICIES_ENDPOINT_ENABLED` | `true`   | Set to `false` to disable the extension. |
+| `CACHE_ENABLED`             | `true`   | Enable effective-policy caching.         |
+| `CACHE_STORE`               | `memory` | Cache backend: `memory` or `redis`.      |
+| `REDIS`                     | —        | Redis connection URL when using Redis.   |
 
 ## Security and operations
 
-The endpoint uses the current request's Directus accountability when reading system collections. It
-never uses administrator accountability or changes the caller's permissions. Install it only in a
-trusted, non-sandboxed Directus runtime. The extension does not provision policies, roles,
-permissions, authentication, or infrastructure.
+The endpoint uses elevated service accountability to read the system access records needed to answer
+the request. It does not change the caller's permissions or provision policies, roles, permissions,
+authentication, or infrastructure. Install it only in a trusted, non-sandboxed Directus runtime.

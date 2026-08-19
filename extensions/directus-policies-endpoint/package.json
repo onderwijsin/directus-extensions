@@ -47,6 +47,9 @@
 	},
 	"dependencies": {
 		"@directus/errors": "catalog:",
+		"@directus/memory": "catalog:",
+		"@directus/utils": "catalog:",
+		"ioredis": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

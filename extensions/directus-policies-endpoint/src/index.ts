@@ -4,18 +4,12 @@ import {
 	extensionSetup,
 	asyncHandler,
 	getAccountabilityFromRequest,
+	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import {
-	collectPolicies,
-	nestedRoleFields,
-	parseDepth,
-	POLICY_FIELDS,
-	resolvePolicies,
-	type RoleRecord,
-	type UserRecord,
-	walkRole,
-} from './helpers'
+import { initializePolicyCache } from './cache'
+import { envSchema } from './env.schema'
+import { fetchPolicies } from './fetch-policies'
 
 const EXTENSION_NAME = 'policies_endpoint'
 
@@ -36,6 +30,8 @@ export default defineEndpoint({
 		setup.start()
 
 		if (!setup.isEnabled()) return
+		const options = validateExtensionOptions(env, envSchema, logger)
+		const cache = initializePolicyCache(options)
 
 		router.get(
 			'/policies',
@@ -45,45 +41,11 @@ export default defineEndpoint({
 				const serviceAccountability = { ...accountability, admin: true }
 
 				const schema = await getSchema()
-				const users = new services.ItemsService<UserRecord>('directus_users', {
-					schema,
-					accountability: serviceAccountability,
-				})
 
-				const depth = parseDepth(request.query)
-				const user = await users.readOne(accountability.user, {
-					fields: [
-						...POLICY_FIELDS.map((field) => `policies.policy.${field}`),
-						'role.id',
-						...(depth === undefined
-							? []
-							: nestedRoleFields(depth).map((field) => `role.${field}`)),
-					],
-				})
-
-				if (depth !== undefined) {
-					response.json(collectPolicies(user))
-					return
-				}
-
-				const roles = new services.ItemsService<RoleRecord>('directus_roles', {
-					schema,
-					accountability: serviceAccountability,
-				})
-				const policies = new Map(
-					resolvePolicies(user.policies).map((policy) => [policy.id, policy]),
-				)
-
-				if (user.role?.id) {
-					await walkRole(roles, user.role.id, policies, new Set<string>())
-				}
-
-				response.json([...policies.values()])
+				response.json(await fetchPolicies(serviceAccountability, services, schema, cache))
 			}),
 		)
 
 		setup.end()
 	},
 })
-
-export { collectPolicies, nestedRoleFields, parseDepth, walkRole }

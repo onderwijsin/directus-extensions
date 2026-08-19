@@ -16,30 +16,32 @@ endpoint extension is loaded.
 
 `GET /users/me/policies`
 
-The endpoint requires an authenticated request. It returns an array of policies containing only
-`id`, `name`, `icon`, `description`, `enforce_tfa`, `admin_access`, and `app_access`. Policies are
-deduplicated by ID.
-
-By default, nested roles are traversed recursively. To limit traversal to a known depth, provide a
-non-negative `depth` query parameter. `depth=0` includes the user's role policies only, while
-`depth=1` includes that role's immediate child roles as well:
+The endpoint requires an authenticated request. It returns an array of effective policies containing
+only `id`, `name`, `icon`, `description`, `enforce_tfa`, `admin_access`, and `app_access`. Policies
+are deduplicated by ID and filtered by each policy's `ip_access` allow list.
 
 ```http
-GET /users/me/policies?depth=1
+GET /users/me/policies
 Authorization: Bearer <token>
 ```
 
 Anonymous requests receive Directus's standard `403 Forbidden` response. The requester's
-accountability is passed to Directus services, so the endpoint does not elevate privileges.
+accountability's user, roles, and IP are used to resolve assignments. The endpoint uses elevated
+service accountability to read the system access records required for this response; this is an
+intentional part of its trusted, non-sandboxed runtime contract. Results are cached in local memory
+for up to five seconds per user/role/IP combination.
 
 ## Configuration
 
-| Variable                    | Default | Description                              |
-| --------------------------- | ------- | ---------------------------------------- |
-| `POLICIES_ENDPOINT_ENABLED` | `true`  | Set to `false` to disable the extension. |
+| Variable                    | Default  | Description                              |
+| --------------------------- | -------- | ---------------------------------------- |
+| `POLICIES_ENDPOINT_ENABLED` | `true`   | Set to `false` to disable the extension. |
+| `CACHE_ENABLED`             | `true`   | Enable effective-policy caching.         |
+| `CACHE_STORE`               | `memory` | Cache backend: `memory` or `redis`.      |
+| `REDIS`                     | —        | Redis connection URL when using Redis.   |
 
 ## Boundaries
 
-The extension reads Directus's built-in `users`, `roles`, and `policies` relationships; it does not
-create roles or policies and does not change permissions. It is non-sandboxed and requires a trusted
+The extension reads Directus's built-in access, policy, user, and role data; it does not create
+roles or policies and does not change permissions. It is non-sandboxed and requires a trusted
 Directus installation.
