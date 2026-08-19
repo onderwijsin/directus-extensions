@@ -18,6 +18,8 @@ export interface CreateDirectusStartupCoordinatorOptions {
 	lockProvider?: LockProvider
 	lockProviderConfig?: DirectusStartupOptions
 	lockLeaseMs?: number
+	/** Whether the coordinator renews its lease while startup callbacks run. Defaults to true. */
+	autoRenew?: boolean
 }
 
 /** Context passed to startup callbacks so ensures reuse the held startup lock. */
@@ -41,13 +43,43 @@ const createHeldLockProvider = (lockName: string, lease: LockLease): LockProvide
 	 * @param requestedName - Requested lock name.
 	 * @returns The held lease when names match.
 	 */
-	tryAcquire: (requestedName) => Promise.resolve(requestedName === lockName ? lease : null),
+	tryAcquire: (requestedName) =>
+		Promise.resolve(
+			requestedName === lockName
+				? {
+						...lease,
+						/**
+						 * Returns false because the coordinator owns the underlying lease.
+						 * @returns A resolved false value.
+						 */
+						release: () => Promise.resolve(false),
+					}
+				: null,
+		),
 	/**
 	 * @param requestedName - Requested lock name.
 	 * @returns Whether this is the held lock.
 	 */
 	isLocked: (requestedName) => Promise.resolve(requestedName === lockName),
 })
+
+const DEFAULT_LOCK_LEASE_MS = 30_000
+/**
+ * Resolves a renewal interval at one third of the configured lease duration.
+ * @param leaseMs - Configured lease duration.
+ * @returns Renewal interval in milliseconds.
+ */
+const resolveRenewalIntervalMs = (leaseMs: number | undefined): number =>
+	Math.max(1, Math.floor((leaseMs ?? DEFAULT_LOCK_LEASE_MS) / 3))
+/**
+ * Normalizes a renewal failure into an error suitable for startup reporting.
+ * @param error - Renewal failure or undefined when the lease returned false.
+ * @returns An error describing the lost lease.
+ */
+const createLeaseLostError = (error: unknown): Error =>
+	error instanceof Error
+		? error
+		: new Error('Directus startup lock renewal failed', { cause: error })
 
 /**
  * Creates a startup coordinator with one ordered, shared startup lock.
@@ -92,16 +124,40 @@ export function createDirectusStartupCoordinator(
 			const provider = configuredProvider.provider
 			const lockName = getDirectusStartupLockName(options.id)
 			let lease: LockLease | null = null
+			let renewalTimer: ReturnType<typeof setInterval> | undefined
+			let renewalError: unknown
+			let leaseLost = false
 			const startupResult = await attempt(async () => {
 				lease = await provider.tryAcquire(lockName, {
 					...(options.lockLeaseMs === undefined ? {} : { leaseMs: options.lockLeaseMs }),
 				})
 				if (!lease) return
+				const activeLease = lease
+
+				if (options.autoRenew ?? true) {
+					renewalTimer = setInterval(() => {
+						void activeLease
+							.renew()
+							.then((renewed) => {
+								if (!renewed) leaseLost = true
+							})
+							.catch((error: unknown) => {
+								leaseLost = true
+								renewalError = error
+							})
+					}, resolveRenewalIntervalMs(options.lockLeaseMs))
+				}
 
 				const context = { lockProvider: createHeldLockProvider(lockName, lease) }
-				for (const callback of schemaCallbacks) await callback(context)
+				for (const callback of schemaCallbacks) {
+					await callback(context)
+					if (leaseLost) throw createLeaseLostError(renewalError)
+				}
 				if (!options.dataDisabledGlobally) {
-					for (const callback of dataCallbacks) await callback(context)
+					for (const callback of dataCallbacks) {
+						await callback(context)
+						if (leaseLost) throw createLeaseLostError(renewalError)
+					}
 				}
 			})
 			if (startupResult.error !== null) {
@@ -116,6 +172,7 @@ export function createDirectusStartupCoordinator(
 			}
 
 			if (lease) {
+				if (renewalTimer) clearInterval(renewalTimer)
 				const releaseResult = await attempt(() => lease?.release())
 				if (releaseResult.error !== null) {
 					logger.error({

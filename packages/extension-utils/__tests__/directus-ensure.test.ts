@@ -740,6 +740,57 @@ describe('ensureDirectusPolicy', () => {
 		])
 	})
 
+	it('does not add permissions to an incompatible existing policy', async () => {
+		const fixture = createFixture(emptySchema())
+		const createPermission = vi.fn(() => Promise.resolve(1))
+		class PoliciesService {
+			public readOne = vi.fn(() => Promise.resolve({ id: 'policy-id', name: 'Other policy' }))
+			public readByQuery = vi.fn(() => Promise.resolve([]))
+			public createOne = vi.fn()
+		}
+		class ItemsService {
+			public readByQuery = vi.fn(() => Promise.resolve([]))
+			public createOne = createPermission
+		}
+		const services = {
+			...fixture.services,
+			PoliciesService,
+			ItemsService,
+		} as unknown as Services
+		const definition: DirectusPolicyDefinition = {
+			id: 'policy-id',
+			name: 'Expected policy',
+			icon: 'policy',
+			description: null,
+			enforce_tfa: false,
+			ip_access: null,
+			app_access: false,
+			admin_access: false,
+			permissions: [
+				{
+					collection: 'posts',
+					action: 'read',
+					permissions: null,
+					validation: null,
+					presets: null,
+					fields: ['*'],
+				},
+			],
+		}
+
+		await expect(
+			ensureDirectusPolicy({
+				id: 'policy-conflict-test',
+				database: fixture.database,
+				getSchema: fixture.getSchema,
+				logger: createLogger(),
+				services,
+				definition,
+			}),
+		).resolves.toEqual({ changed: [], skipped: false })
+		expect(createPermission).not.toHaveBeenCalled()
+	})
+
 	it('skips without acquiring a lock when data seeds are disabled globally', async () => {
 		const fixture = createFixture(emptySchema())
 		const definition: DirectusPolicyDefinition = {
@@ -839,5 +890,62 @@ describe('createDirectusStartupCoordinator', () => {
 
 		action.mock.calls[0]?.[1]?.()
 		await vi.waitFor(() => expect(order).toEqual(['schema']))
+	})
+
+	it('does not release the coordinator lease through nested callbacks', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const release = vi.fn(() => Promise.resolve(true))
+		const lease = {
+			name: 'directus-extension-startup:nested-lock-test',
+			token: 'token',
+			renew: vi.fn(() => Promise.resolve(true)),
+			release,
+		}
+		const lockProvider = {
+			tryAcquire: vi.fn(() => Promise.resolve(lease)),
+			isLocked: vi.fn(() => Promise.resolve(true)),
+		}
+		const startup = createDirectusStartupCoordinator(action, createLogger(), {
+			id: 'nested-lock-test',
+			name: 'Nested lock test',
+			disabled: false,
+			disabledGlobally: false,
+			lockProvider,
+			autoRenew: false,
+		})
+
+		startup.schema(async ({ lockProvider: heldProvider }) => {
+			const nestedLease = await heldProvider.tryAcquire(lease.name)
+			expect(await nestedLease?.release()).toBe(false)
+		})
+		action.mock.calls[0]?.[1]?.()
+		await vi.waitFor(() => expect(release).toHaveBeenCalledOnce())
+	})
+
+	it('renews the coordinator lease while callbacks run', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const renew = vi.fn(() => Promise.resolve(true))
+		const lease = {
+			name: 'directus-extension-startup:renew-test',
+			token: 'token',
+			renew,
+			release: vi.fn(() => Promise.resolve(true)),
+		}
+		const lockProvider = {
+			tryAcquire: vi.fn(() => Promise.resolve(lease)),
+			isLocked: vi.fn(() => Promise.resolve(true)),
+		}
+		const startup = createDirectusStartupCoordinator(action, createLogger(), {
+			id: 'renew-test',
+			name: 'Renew test',
+			disabled: false,
+			disabledGlobally: false,
+			lockProvider,
+			lockLeaseMs: 9,
+		})
+
+		startup.schema(() => new Promise((resolve) => setTimeout(resolve, 20)))
+		action.mock.calls[0]?.[1]?.()
+		await vi.waitFor(() => expect(renew).toHaveBeenCalled())
 	})
 })

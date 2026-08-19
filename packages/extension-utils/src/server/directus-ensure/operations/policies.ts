@@ -1,4 +1,4 @@
-import type { ApiExtensionContext, Permission, SchemaOverview } from '@directus/types'
+import type { ApiExtensionContext, SchemaOverview } from '@directus/types'
 
 import { attempt } from '../../../shared/attempt'
 import { isNonBlankString } from '../../../shared/guards'
@@ -101,6 +101,7 @@ export async function ensureDirectusPolicy(
 						actualId: existing.id,
 						actualName: existing.name,
 					})
+					return
 				}
 			} else {
 				await policyService.createOne(processPolicyDefinition(definition).policy)
@@ -108,8 +109,7 @@ export async function ensureDirectusPolicy(
 				logger.debug?.({ msg: '🛠️ Created Directus policy', policy: definition.id })
 			}
 
-			const permissionService: ItemsService = new services.ItemsService<Permission>(
-				'directus_permissions',
+			const permissionService: ItemsService = new services.PermissionsService(
 				serviceOptions(input.database, schema),
 			)
 			for (const permission of processPolicyDefinition(definition, policyId).permissions) {

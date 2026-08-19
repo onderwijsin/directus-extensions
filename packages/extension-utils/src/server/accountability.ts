@@ -5,6 +5,7 @@ import {
 	hasKey,
 	isArray,
 	isBoolean,
+	isNonBlankString,
 	isRecord,
 	isString,
 } from '@onderwijsin/directus-extension-utils'
@@ -39,7 +40,7 @@ export function isAccountability(value: unknown): value is Accountability {
  */
 export function hasAuthenticatedUser(value: unknown): value is Accountability & { user: string } {
 	if (!isAccountability(value)) return false
-	return isString(value.user)
+	return isNonBlankString(value.user)
 }
 
 /**

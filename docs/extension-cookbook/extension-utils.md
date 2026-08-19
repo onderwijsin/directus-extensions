@@ -267,29 +267,35 @@ startup.schema(async ({ lockProvider }) => {
 })
 ```
 
+The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
+for callbacks guaranteed to finish within the lease duration. Nested ensures receive a borrowed
+provider and cannot release the coordinator-owned lease. If renewal is lost, later callbacks are
+skipped and the startup failure is logged.
+
 The package README and
 [maintainer API reference](../../.agents/skills/directus-extension-utils/references/api-reference.md)
 contain the complete signatures. This article focuses on choosing a group and using it safely.
 
 The shared configuration and per-operation controls are:
 
-| Option                                                         | Scope     | Default          | Notes                                                              |
-| -------------------------------------------------------------- | --------- | ---------------- | ------------------------------------------------------------------ |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | global    | `true`           | Disables every extension's schema setup when false.                |
-| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`                        | global    | `true`           | Disables policy and future data seeds when false.                  |
-| `SYNCHRONIZATION_STORE`                                        | Directus  | `memory`         | Global fallback for synchronization-related extension stores.      |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | global    | unset            | Choose `memory`, `redis`, or `fs`; otherwise uses synchronization. |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | global    | —                | Optional override; otherwise uses resolved Redis settings.         |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | global    | —                | Required when the provider is `fs`.                                |
-| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | global    | unset            | Selects the limiter store; otherwise uses synchronization.         |
-| `REDIS_ENABLED`                                                | Directus  | `false`          | Enables component-based Redis configuration.                       |
-| `REDIS`                                                        | Directus  | —                | Complete URL; takes precedence over component values.              |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Directus  | —                | Required together for component-based Redis.                       |
-| `REDIS`                                                        | Directus  | —                | Required by extension limiters when the store is `redis`.          |
-| `lockProviderConfig`                                           | operation | —                | Validated environment options for automatic provider creation.     |
-| `lockProvider`                                                 | operation | —                | Explicit consumer-owned provider; takes precedence over config.    |
-| `abortOnError`                                                 | operation | `true`           | Keep false to log and continue after a service failure.            |
-| `lockLeaseMs`                                                  | operation | provider default | Per-acquisition lease override.                                    |
+| Option                                                         | Scope       | Default          | Notes                                                              |
+| -------------------------------------------------------------- | ----------- | ---------------- | ------------------------------------------------------------------ |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | global      | `true`           | Disables every extension's schema setup when false.                |
+| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`                        | global      | `true`           | Disables policy and future data seeds when false.                  |
+| `SYNCHRONIZATION_STORE`                                        | Directus    | `memory`         | Global fallback for synchronization-related extension stores.      |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | global      | unset            | Choose `memory`, `redis`, or `fs`; otherwise uses synchronization. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | global      | —                | Optional override; otherwise uses resolved Redis settings.         |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | global      | —                | Required when the provider is `fs`.                                |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | global      | unset            | Selects the limiter store; otherwise uses synchronization.         |
+| `REDIS_ENABLED`                                                | Directus    | `false`          | Enables component-based Redis configuration.                       |
+| `REDIS`                                                        | Directus    | —                | Complete URL; takes precedence over component values.              |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Directus    | —                | Required together for component-based Redis.                       |
+| `REDIS`                                                        | Directus    | —                | Required by extension limiters when the store is `redis`.          |
+| `lockProviderConfig`                                           | operation   | —                | Validated environment options for automatic provider creation.     |
+| `lockProvider`                                                 | operation   | —                | Explicit consumer-owned provider; takes precedence over config.    |
+| `autoRenew`                                                    | coordinator | `true`           | Renews the startup lease while callbacks run.                      |
+| `abortOnError`                                                 | operation   | `true`           | Keep false to log and continue after a service failure.            |
+| `lockLeaseMs`                                                  | operation   | provider default | Per-acquisition lease override.                                    |
 
 The operation always acquires the configured lock. The result reports created resources by stable
 identifiers in `changed`; `skipped` is true when the lock was held by another process. Existing
@@ -398,7 +404,7 @@ const accountability = getAccountabilityFromRequest(request)
 ```
 
 `isAccountability` performs structural narrowing using the accountability fields required by the
-utility. `hasAuthenticatedUser` additionally requires a string `user`.
+utility. `hasAuthenticatedUser` additionally requires a non-blank string `user`.
 `assertRequestWithAccountability` narrows the request property in place, while
 `getAccountabilityFromRequest` returns an accountability or `null` without changing the request
 type. These are type guards, not complete schema validators; use Zod when complete external

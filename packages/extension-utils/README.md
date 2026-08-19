@@ -204,22 +204,23 @@ details, and throws when the configuration is invalid.
 
 Schema configuration and operation options:
 
-| Option                                                         | Scope     | Default          | Purpose                                                                              |
-| -------------------------------------------------------------- | --------- | ---------------- | ------------------------------------------------------------------------------------ |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | global    | `true`           | Master switch for schema setup.                                                      |
-| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`                        | global    | `true`           | Enables policy and future data seeds.                                                |
-| `SYNCHRONIZATION_STORE`                                        | Directus  | `memory`         | Global fallback for synchronization-related extension stores.                        |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | global    | unset            | Selects `memory`, `redis`, or `fs`; otherwise falls back to `SYNCHRONIZATION_STORE`. |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | global    | —                | Optional override; otherwise uses resolved Redis settings.                           |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | global    | —                | Required for the filesystem provider.                                                |
-| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | global    | unset            | Selects the limiter store; otherwise falls back to `SYNCHRONIZATION_STORE`.          |
-| `REDIS_ENABLED`                                                | Directus  | `false`          | Enables component-based Redis configuration.                                         |
-| `REDIS`                                                        | Directus  | —                | Complete Redis URL; takes precedence over components.                                |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Directus  | —                | Required together when constructing a Redis URL.                                     |
-| `lockProviderConfig`                                           | operation | —                | Uses validated environment config to create a provider.                              |
-| `lockProvider`                                                 | operation | —                | Supplies a consumer-owned provider directly.                                         |
-| `abortOnError`                                                 | operation | `true`           | Rethrows service failures after logging them.                                        |
-| `lockLeaseMs`                                                  | operation | provider default | Overrides one lock acquisition lease.                                                |
+| Option                                                         | Scope       | Default          | Purpose                                                                              |
+| -------------------------------------------------------------- | ----------- | ---------------- | ------------------------------------------------------------------------------------ |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | global      | `true`           | Master switch for schema setup.                                                      |
+| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`                        | global      | `true`           | Enables policy and future data seeds.                                                |
+| `SYNCHRONIZATION_STORE`                                        | Directus    | `memory`         | Global fallback for synchronization-related extension stores.                        |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | global      | unset            | Selects `memory`, `redis`, or `fs`; otherwise falls back to `SYNCHRONIZATION_STORE`. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | global      | —                | Optional override; otherwise uses resolved Redis settings.                           |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | global      | —                | Required for the filesystem provider.                                                |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | global      | unset            | Selects the limiter store; otherwise falls back to `SYNCHRONIZATION_STORE`.          |
+| `REDIS_ENABLED`                                                | Directus    | `false`          | Enables component-based Redis configuration.                                         |
+| `REDIS`                                                        | Directus    | —                | Complete Redis URL; takes precedence over components.                                |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Directus    | —                | Required together when constructing a Redis URL.                                     |
+| `lockProviderConfig`                                           | operation   | —                | Uses validated environment config to create a provider.                              |
+| `lockProvider`                                                 | operation   | —                | Supplies a consumer-owned provider directly.                                         |
+| `autoRenew`                                                    | coordinator | `true`           | Renews the startup lease while callbacks run.                                        |
+| `abortOnError`                                                 | operation   | `true`           | Rethrows service failures after logging them.                                        |
+| `lockLeaseMs`                                                  | operation   | provider default | Overrides one lock acquisition lease.                                                |
 
 `ensureDirectusSchema` always coordinates the operation with a lock and returns
 `{ changed, skipped }`. It creates missing resources, skips compatible resources, and logs
@@ -295,6 +296,11 @@ startup.schema(async ({ lockProvider }) => {
   })
 })
 ```
+
+The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
+when every callback is guaranteed to finish within the configured lease. Nested schema and data
+ensures receive a borrowed provider and cannot release the coordinator-owned lease. If renewal is
+lost, the coordinator stops before running the next callback and logs the failure.
 
 All lock providers use the same `tryAcquire`/`isLocked`/lease contract and `defaultLeaseMs` option.
 Choose the memory provider for one process, the filesystem provider for processes sharing a

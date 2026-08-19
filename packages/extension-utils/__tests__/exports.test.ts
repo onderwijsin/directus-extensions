@@ -54,6 +54,7 @@ describe('runtime-aware exports', () => {
 				'resolveCacheStorage',
 				'resolveRedisConnectionString',
 				'redisConfigSchema',
+				'redisUrlSchema',
 				'synchronizationConfigSchema',
 				'synchronizationStoreSchema',
 				'isEmailConfigured',

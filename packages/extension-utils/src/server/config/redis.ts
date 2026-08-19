@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 const nonBlankStringSchema = z.string().trim().min(1)
 
-const redisUrlSchema = nonBlankStringSchema.refine((value) => {
+export const redisUrlSchema = nonBlankStringSchema.refine((value) => {
 	try {
 		const url = new URL(value)
 		return url.protocol === 'redis:' || url.protocol === 'rediss:'

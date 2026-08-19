@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { resolveRedisConnectionString } from '../config/redis'
+import { redisUrlSchema, resolveRedisConnectionString } from '../config/redis'
 import { synchronizationConfigSchema } from '../config/synchronization'
 
 /** Supported providers for Directus startup coordination. */
@@ -20,7 +20,7 @@ export const directusStartupSchema = z
 		DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 		DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: z.boolean().default(true),
 		DIRECTUS_EXTENSIONS_LOCK_PROVIDER: startupLockProviderSchema.optional(),
-		DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: z.string().trim().min(1).optional(),
+		DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: redisUrlSchema.optional(),
 		DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: z.string().trim().min(1).optional(),
 		DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: extensionRateLimiterStoreSchema.optional(),
 		...synchronizationConfigSchema.shape,

@@ -31,6 +31,7 @@ describe('accountability helpers', () => {
 	it('recognizes accountabilities with an authenticated user', () => {
 		expect(hasAuthenticatedUser(accountability)).toBe(true)
 		expect(hasAuthenticatedUser({ ...accountability, user: null })).toBe(false)
+		expect(hasAuthenticatedUser({ ...accountability, user: '' })).toBe(false)
 		expect(hasAuthenticatedUser({ ...accountability, user: 42 })).toBe(false)
 	})
 

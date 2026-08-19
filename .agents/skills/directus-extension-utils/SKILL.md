@@ -136,6 +136,7 @@ The Directus startup configuration surface is:
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | global | — | Required for `fs`. |
 | `lockProviderConfig` | call | — | Validated config used to construct a provider. |
 | `lockProvider` | call | — | Explicit provider, owned and disposed by the consumer. |
+| `autoRenew` | coordinator | `true` | Renews the startup lease while callbacks run; disable only for short callbacks. |
 | `abortOnError` | call | `true` | Rethrow unexpected service failures when true. |
 | `lockLeaseMs` | call | provider default | Override the acquisition lease. |
 
@@ -243,7 +244,7 @@ returned as data rather than sent through Express error handling.
 
 Use `isAccountability` to structurally narrow an unknown value to a Directus `Accountability`.
 It checks the fields needed by the utility and is not a complete schema validator. Use
-`hasAuthenticatedUser` when the request must contain a non-null user:
+`hasAuthenticatedUser` when the request must contain a non-blank user identifier:
 
 ```ts
 import {

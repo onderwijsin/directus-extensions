@@ -46,6 +46,12 @@ describe('directusStartupSchema', () => {
 				REDIS: 'redis://localhost:6379',
 			}).success,
 		).toBe(true)
+		expect(
+			directusStartupSchema.safeParse({
+				DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'redis',
+				DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: 'http://localhost:6379',
+			}).success,
+		).toBe(false)
 	})
 
 	it('requires the Directus Redis connection for the distributed rate limiter', () => {
