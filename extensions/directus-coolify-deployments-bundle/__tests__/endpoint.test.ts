@@ -14,6 +14,14 @@ const mocks = vi.hoisted(() => ({
 		COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: 'trigger-policy',
 		COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS: 3000,
 	})),
+	client: {
+		listConfiguredApplication: vi.fn().mockResolvedValue([]),
+		getApplication: vi.fn(),
+		listApplicationDeployments: vi.fn().mockResolvedValue([]),
+		getDeployment: vi.fn(),
+		deploy: vi.fn(),
+		cancelDeployment: vi.fn(),
+	},
 }))
 
 vi.mock('@directus/extensions-sdk', () => ({
@@ -28,6 +36,9 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 	extensionSetup: () => mocks.setup,
 	rejectWhileSchemaLocked: mocks.rejectWhileSchemaLocked,
 	validateExtensionOptions: mocks.validateExtensionOptions,
+}))
+vi.mock('../src/shared/coolify-client', () => ({
+	createCoolifyDeploymentClient: () => mocks.client,
 }))
 import endpoint from '../src/coolify-deployments-endpoint'
 
@@ -171,6 +182,101 @@ describe('Coolify deployment endpoint orchestration', () => {
 			response,
 			next,
 		)
+		expect(next).toHaveBeenCalledWith(expect.any(Error))
+	})
+
+	it('sets the polling header and serves the provider-independent permission route', async () => {
+		const router = createRouter()
+		runEndpoint(router)
+		const middleware = router.use.mock.calls[0]?.[0]
+		if (typeof middleware !== 'function') throw new Error('Expected middleware')
+		const response = createResponse()
+		const middlewareNext = vi.fn()
+		middleware(
+			{
+				accountability: {
+					role: 'role-id',
+					roles: ['role-id'],
+					user: 'user-id',
+					admin: true,
+					app: true,
+					ip: null,
+				},
+				get: () => undefined,
+				protocol: 'https',
+			},
+			response,
+			middlewareNext,
+		)
+		await vi.waitFor(() => expect(middlewareNext).toHaveBeenCalledOnce())
+		expect(response.setHeader).toHaveBeenCalledWith(
+			'X-Coolify-Deployments-Poll-Interval',
+			'3000',
+		)
+
+		const permissionRoute = router.get.mock.calls[0]?.[2]
+		if (typeof permissionRoute !== 'function') throw new Error('Expected permission route')
+		permissionRoute({}, response, vi.fn())
+		expect(response.json).toHaveBeenCalledWith({ canTrigger: true })
+	})
+
+	it('normalizes configured applications and maps provider failures to an upstream error', async () => {
+		mocks.client.listConfiguredApplication.mockResolvedValueOnce([
+			{
+				id: 'frontend',
+				name: 'Frontend',
+				application_uuid: 'application-1',
+				project_uuid: null,
+				project_name: 'Project',
+				environment_uuid: null,
+				environment_name: 'Production',
+				production_url: null,
+				enabled: true,
+				deploy_enabled: true,
+			},
+		])
+		mocks.client.getApplication.mockResolvedValueOnce({
+			uuid: 'application-1',
+			name: 'Provider frontend',
+			fqdn: 'https://frontend.test',
+			status: 'running',
+			environmentId: null,
+			gitBranch: 'main',
+			gitCommitSha: 'abc',
+			gitRepository: null,
+			buildPack: null,
+			serverName: null,
+		})
+		const router = createRouter()
+		runEndpoint(router)
+		const route = router.get.mock.calls[1]?.[2]
+		if (typeof route !== 'function') throw new Error('Expected applications route')
+		const response = createResponse()
+		route({}, response, vi.fn())
+		await vi.waitFor(() => expect(response.json).toHaveBeenCalled())
+		expect(response.json).toHaveBeenCalledWith([
+			expect.objectContaining({ id: 'frontend', state: 'running' }),
+		])
+
+		mocks.client.getApplication.mockRejectedValueOnce(new Error('Coolify unavailable'))
+		mocks.client.listConfiguredApplication.mockResolvedValueOnce([
+			{
+				id: 'frontend',
+				name: 'Frontend',
+				application_uuid: 'application-1',
+				project_uuid: null,
+				project_name: 'Project',
+				environment_uuid: null,
+				environment_name: 'Production',
+				production_url: null,
+				enabled: true,
+				deploy_enabled: true,
+			},
+		])
+		const failed = createResponse()
+		const next = vi.fn()
+		route({}, failed, next)
+		await vi.waitFor(() => expect(next).toHaveBeenCalled())
 		expect(next).toHaveBeenCalledWith(expect.any(Error))
 	})
 })

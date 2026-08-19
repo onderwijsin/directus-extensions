@@ -2,8 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import { envSchema as endpointEnvSchema } from '../src/coolify-deployments-endpoint/env.schema'
 import {
+	configuredCoolifyApplicationSchema,
 	coolifyDeploymentRequestSchema,
 	coolifyDeploymentsResponseSchema,
+	coolifyApplicationSchema,
+	coolifyEnvironmentResponseSchema,
+	coolifyDeploymentTriggerResponseSchema,
+	coolifyDeploymentCancellationSchema,
+	deploymentPaginationSchema,
+	deployRequestSchema,
 	envSchema,
 	normalizedDeploymentSchema,
 } from '../src/shared/coolify-client/schemas'
@@ -141,5 +148,73 @@ describe('Coolify deployments schemas', () => {
 		expect(() =>
 			coolifyDeploymentRequestSchema.parse({ uuid: 'application-1', pr: 42 }),
 		).toThrow()
+	})
+
+	it('resolves the legacy resourceUuid configuration alias', () => {
+		expect(
+			configuredCoolifyApplicationSchema.parse({
+				id: 'frontend',
+				name: 'Frontend',
+				resourceUuid: 'resource-1',
+			}),
+		).toEqual({
+			id: 'frontend',
+			name: 'Frontend',
+			productionUrl: null,
+			applicationUuid: 'resource-1',
+		})
+	})
+
+	it('rejects unsafe collection names and blank filters', () => {
+		expect(() =>
+			envSchema.parse({
+				COOLIFY_URL: 'https://coolify.test',
+				COOLIFY_TOKEN: 'token',
+				COOLIFY_APPLICATIONS_COLLECTION: 'directus_users',
+			}),
+		).toThrow()
+		expect(() =>
+			envSchema.parse({
+				COOLIFY_URL: 'https://coolify.test',
+				COOLIFY_TOKEN: 'token',
+				COOLIFY_APPLICATIONS_COLLECTION: 'bad-name',
+			}),
+		).toThrow()
+	})
+
+	it('normalizes optional provider fields to stable nulls', () => {
+		expect(coolifyApplicationSchema.parse({ uuid: 'app-1', name: 'App' })).toEqual({
+			uuid: 'app-1',
+			name: 'App',
+			fqdn: null,
+			status: null,
+			environmentId: null,
+			gitBranch: null,
+			gitCommitSha: null,
+			gitRepository: null,
+			buildPack: null,
+			serverName: null,
+		})
+		expect(coolifyEnvironmentResponseSchema.parse({ id: 1, name: 'production' })).toMatchObject(
+			{ uuid: null, projectId: null, description: null },
+		)
+	})
+
+	it('rejects malformed trigger, cancellation, and pagination payloads', () => {
+		expect(() =>
+			coolifyDeploymentTriggerResponseSchema.parse({ deployments: [{ message: 'queued' }] }),
+		).toThrow()
+		expect(() =>
+			coolifyDeploymentCancellationSchema.parse({
+				message: 'cancelled',
+				deployment_uuid: 'd',
+			}),
+		).toThrow()
+		expect(deploymentPaginationSchema.parse({ skip: '5', take: '100' })).toEqual({
+			skip: 5,
+			take: 100,
+		})
+		expect(() => deploymentPaginationSchema.parse({ take: 101 })).toThrow()
+		expect(deployRequestSchema.parse({})).toEqual({ force: true })
 	})
 })

@@ -391,4 +391,72 @@ describe('Coolify deployment client', () => {
 		})
 		expect(mocks.request).toHaveBeenCalledOnce()
 	})
+
+	it('requires Directus context for configured application reads', async () => {
+		const client = createCoolifyDeploymentClient(options)
+		await expect(client.listConfiguredApplication()).rejects.toThrow(
+			'Directus context is required to list configured applications',
+		)
+		await expect(client.getConfiguredApplication('application')).rejects.toThrow(
+			'Directus context is required to get configured application',
+		)
+	})
+
+	it('encodes identifiers before sending provider requests', async () => {
+		const configured = configuredApplications[0]
+		if (!configured) throw new Error('Expected configured application fixture')
+		readByQuery.mockResolvedValue([
+			{
+				...configured,
+				application_uuid: 'application/1',
+				project_uuid: 'project/1',
+				environment_uuid: 'environment/1',
+			},
+		])
+		mocks.request
+			.mockResolvedValueOnce({
+				id: 1,
+				uuid: 'environment/1',
+				name: 'production',
+				project_id: 1,
+			})
+			.mockResolvedValueOnce({ uuid: 'application/1', name: 'Application' })
+		const client = createClient()
+
+		await client.getEnvironment('project/1', 'environment/1')
+		await client.getApplication('application/1')
+		expect(mocks.request.mock.calls.map(([input]) => input)).toEqual([
+			'/projects/project%2F1/environments/environment%2F1',
+			'/applications/application%2F1',
+		])
+	})
+
+	it('rejects malformed provider responses before exposing them', async () => {
+		mocks.request.mockResolvedValueOnce([{ uuid: 'project-1' }])
+		await expect(createClient().listProjects()).rejects.toThrow()
+	})
+
+	it('rejects an unallow-listed environment returned by name lookup', async () => {
+		mocks.request.mockResolvedValueOnce({
+			id: 1,
+			uuid: 'environment-2',
+			name: 'staging',
+			project_id: 1,
+		})
+		await expect(createClient().getEnvironment('project-1', 'staging')).rejects.toMatchObject({
+			status: 403,
+		})
+	})
+
+	it('rejects an unallow-listed deployment after reading its provider owner', async () => {
+		mocks.request.mockResolvedValueOnce({
+			application_id: 'application-2',
+			deployment_uuid: 'deployment-1',
+			status: 'running',
+		})
+		await expect(createClient().getDeployment('deployment-1')).rejects.toMatchObject({
+			status: 403,
+		})
+		expect(mocks.request).toHaveBeenCalledOnce()
+	})
 })

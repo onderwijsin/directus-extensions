@@ -50,11 +50,15 @@ describe('Coolify deployment endpoint middleware', () => {
 	})
 
 	it('allows authenticated same-origin requests to reach the route', async () => {
-		const response = await fetch(`${baseUrl}/coolify-deployments/applications`, {
+		// This route is intentionally provider-independent. Every test that exercises
+		// a Coolify API operation uses mocked ofetch responses in the unit suite; the
+		// E2E stack must never depend on a live Coolify instance.
+		const response = await fetch(`${baseUrl}/coolify-deployments/permissions`, {
 			headers: { Authorization: `Bearer ${token}` },
 		})
 
 		expect(response.status).toBe(200)
+		expect(await response.json()).toEqual({ canTrigger: true })
 	})
 
 	it('rejects an authenticated user without the route policy', async () => {
