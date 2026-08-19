@@ -25,6 +25,8 @@ describe('runtime-aware exports', () => {
 				'DIRECTUS_EXTENSION_STARTUP_LOCK',
 				'ensureDirectusSchema',
 				'ensureDirectusPolicy',
+				'processPolicyDefinition',
+				'validatePolicyDefinition',
 				'validateSchemaDefinition',
 				'getDirectusStartupStatus',
 				'createStartupLockProvider',

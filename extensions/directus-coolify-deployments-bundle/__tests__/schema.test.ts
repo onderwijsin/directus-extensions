@@ -5,6 +5,7 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import coolifyApplicationsSchema from '../schema/coolify_applications.json'
+import coolifyPolicies from '../schema/coolify_policies.json'
 
 describe('Coolify applications schema', () => {
 	it('uses the configured collection for every schema resource', () => {
@@ -24,5 +25,23 @@ describe('Coolify applications schema', () => {
 		)
 		expect(schema.fields.every((field) => field.collection === 'deployment_targets')).toBe(true)
 		expect(schema.relations).toEqual([])
+	})
+})
+
+describe('Coolify policies schema', () => {
+	it('defines three policies without permission IDs', () => {
+		expect(coolifyPolicies.policies).toHaveLength(3)
+		expect(new Set(coolifyPolicies.policies.map((policy) => policy.name))).toEqual(
+			new Set([
+				'Can manage Coolify applications',
+				'Can read Coolify deployments',
+				'Can trigger Coolify deployments',
+			]),
+		)
+		expect(
+			coolifyPolicies.policies
+				.flatMap((policy) => policy.permissions)
+				.every((permission) => !('id' in permission)),
+		).toBe(true)
 	})
 })

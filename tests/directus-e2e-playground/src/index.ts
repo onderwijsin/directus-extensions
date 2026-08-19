@@ -23,6 +23,7 @@ export default defineHook(({ action }, context) => {
 			ip_access: null,
 			app_access: false,
 			admin_access: false,
+			permissions: [],
 		}
 		const schemaDefinition: DirectusSchemaDefinition = {
 			collections: [

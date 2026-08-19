@@ -1,6 +1,7 @@
-import type { ApiExtensionContext, Policy, Relation, SchemaOverview } from '@directus/types'
+import type { ApiExtensionContext, Relation, SchemaOverview } from '@directus/types'
 import type { LockProvider } from '../../lock'
 import type { LoggerLike } from '../../logger'
+import type { DirectusPolicyDefinition } from '../data-processors/policies'
 
 import { createMemoryLockProvider } from '../../lock'
 import { getDirectusStartupLockName, type DirectusStartupOptions } from '../config'
@@ -65,7 +66,7 @@ export interface EnsureDirectusSchemaInput extends BaseEnsureInput {
 
 /** Input accepted by ensureDirectusPolicy. */
 export interface EnsureDirectusPolicyInput extends BaseEnsureInput {
-	definition: Policy
+	definition: DirectusPolicyDefinition
 }
 
 /** Result of one ensure operation. */

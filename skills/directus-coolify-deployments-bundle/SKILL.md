@@ -26,15 +26,18 @@ application or project. Per-application Coolify API tokens are not currently sup
 
 ## Configuration
 
-| Variable                                     | Required         | Default                | Description                                                     |
-| -------------------------------------------- | ---------------- | ---------------------- | --------------------------------------------------------------- |
-| `COOLIFY_DEPLOYMENTS_ENABLED`                | no               | `true`                 | Enables the bundle entries.                                     |
-| `COOLIFY_APPLICATIONS_COLLECTION`            | no               | `coolify_applications` | Allow-listed applications collection.                           |
-| `COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED` | no               | `true`                 | Enables this bundle's schema changes.                           |
-| `COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR`  | no               | `true`                 | Aborts schema setup after an unexpected error.                  |
-| `COOLIFY_URL`                                | yes when enabled | —                      | Base URL of the Coolify instance.                               |
-| `COOLIFY_TOKEN`                              | yes when enabled | —                      | Server-only least-privilege Coolify API token.                  |
-| `COOLIFY_PROJECTS`                           | no               | `[]`                   | JSON/Directus array of configured frontend project definitions. |
+| Variable                                            | Required         | Default                | Description                                                        |
+| --------------------------------------------------- | ---------------- | ---------------------- | ------------------------------------------------------------------ |
+| `COOLIFY_DEPLOYMENTS_ENABLED`                       | no               | `true`                 | Enables the bundle entries.                                        |
+| `COOLIFY_APPLICATIONS_COLLECTION`                   | no               | `coolify_applications` | Allow-listed applications collection.                              |
+| `COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED`        | no               | `true`                 | Enables this bundle's schema changes.                              |
+| `COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR`         | no               | `true`                 | Aborts schema setup after an unexpected error.                     |
+| `COOLIFY_URL`                                       | yes when enabled | —                      | Base URL of the Coolify instance.                                  |
+| `COOLIFY_TOKEN`                                     | yes when enabled | —                      | Server-only least-privilege Coolify API token.                     |
+| `COOLIFY_PROJECTS`                                  | no               | `[]`                   | JSON/Directus array of configured frontend project definitions.    |
+| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | no               | stable UUID            | UUID of the policy that manages local Coolify application records. |
+| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | no               | stable UUID            | UUID of the policy that reads Coolify deployment resources.        |
+| `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID` | no               | stable UUID            | UUID of the policy that triggers Coolify deployments.              |
 
 Each project definition has this shape:
 
@@ -65,6 +68,12 @@ The `coolify-deployments-hook` entry creates the allow-listed applications colle
 uses the shared schema-change lock; endpoint routes return `503` while the collection schema is
 being ensured. This phase only manages the collection schema; endpoint reads still use the legacy
 `COOLIFY_PROJECTS` configuration until the next phase wires them to `coolify_applications`.
+
+When global data seeding is enabled, the startup coordinator also creates the three Coolify policy
+records. Their UUIDs are configurable through the policy ID variables. The bundled permission
+definitions describe local CRUD access and remote GET/POST feature flags, and are persisted as
+separate `directus_permissions` rows. Directus generates integer permission IDs; the bundle uses
+`policy + collection + action` as the idempotency key and preserves matching existing rows.
 
 ## Endpoint behavior
 

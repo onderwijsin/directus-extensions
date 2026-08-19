@@ -1,0 +1,49 @@
+{
+	"policies": [
+		{
+			"id": "0c9f0b1e-0a0b-4b7c-8a27-4b7a6e1f2d31",
+			"name": "Can manage Coolify applications",
+			"icon": "rocket_launch",
+			"description": "Can create, read, update, and delete the local Coolify application configuration.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{ "collection": "coolify_applications", "action": "create", "fields": ["*"] },
+				{ "collection": "coolify_applications", "action": "read", "fields": ["*"] },
+				{ "collection": "coolify_applications", "action": "update", "fields": ["*"] },
+				{ "collection": "coolify_applications", "action": "delete", "fields": ["*"] }
+			]
+		},
+		{
+			"id": "2e7a4c63-1d5f-46bb-9b02-8f3c7a5d6e14",
+			"name": "Can read Coolify deployments",
+			"icon": "visibility",
+			"description": "Can read configured Coolify applications and use GET deployment routes.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{ "collection": "coolify_applications", "action": "read", "fields": ["*"] },
+				{ "collection": "coolify_deployments", "action": "read", "fields": ["*"] }
+			]
+		},
+		{
+			"id": "7b3d9e20-5f61-4a8c-b274-1e6d9f0a3c58",
+			"name": "Can trigger Coolify deployments",
+			"icon": "play_arrow",
+			"description": "Can read Coolify deployments and use POST routes to trigger configured deployments.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{ "collection": "coolify_applications", "action": "read", "fields": ["*"] },
+				{ "collection": "coolify_deployments", "action": "read", "fields": ["*"] },
+				{ "collection": "coolify_deployments", "action": "create", "fields": ["*"] }
+			]
+		}
+	]
+}

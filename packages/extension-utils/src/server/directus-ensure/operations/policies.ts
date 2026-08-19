@@ -1,8 +1,9 @@
-import type { ApiExtensionContext, SchemaOverview } from '@directus/types'
+import type { ApiExtensionContext, Permission, SchemaOverview } from '@directus/types'
 
 import { attempt } from '../../../shared/attempt'
 import { isNonBlankString } from '../../../shared/guards'
 import { getDirectusStartupLockName } from '../config'
+import { processPolicyDefinition } from '../data-processors/policies'
 import {
 	resolveDirectusLockProvider,
 	type EnsureDirectusPolicyInput,
@@ -11,6 +12,7 @@ import {
 
 type Services = ApiExtensionContext['services']
 type PoliciesService = InstanceType<Services['PoliciesService']>
+type ItemsService = InstanceType<Services['ItemsService']>
 type ServiceOptions = ConstructorParameters<Services['CollectionsService']>[0]
 
 /**
@@ -43,7 +45,7 @@ export async function ensureDirectusPolicy(
 	logger.info({
 		msg: '🚀 Starting Directus data seed',
 		id,
-		resources: { policies: 1 },
+		resources: { policies: 1, permissions: definition.permissions.length },
 		locking: true,
 	})
 	if (options.lockProviderConfig?.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED === false) {
@@ -74,11 +76,9 @@ export async function ensureDirectusPolicy(
 
 		// Resolve by UUID first, then by name, so an existing policy is never duplicated.
 		const result = await attempt(async () => {
+			const schema = await input.getSchema({ database: input.database, bypassCache: true })
 			const policyService: PoliciesService = new services.PoliciesService(
-				serviceOptions(
-					input.database,
-					await input.getSchema({ database: input.database, bypassCache: true }),
-				),
+				serviceOptions(input.database, schema),
 			)
 			const existingById = await attempt(() => policyService.readOne(definition.id))
 			const existing =
@@ -91,6 +91,7 @@ export async function ensureDirectusPolicy(
 							})
 						)[0]
 
+			const policyId = existing?.id ?? definition.id
 			if (existing) {
 				if (existing.id !== definition.id || existing.name !== definition.name) {
 					logger.error({
@@ -101,12 +102,29 @@ export async function ensureDirectusPolicy(
 						actualName: existing.name,
 					})
 				}
-				return
+			} else {
+				await policyService.createOne(processPolicyDefinition(definition).policy)
+				changed.push('policy:' + definition.id)
+				logger.debug?.({ msg: '🛠️ Created Directus policy', policy: definition.id })
 			}
 
-			await policyService.createOne(definition)
-			changed.push('policy:' + definition.id)
-			logger.debug?.({ msg: '🛠️ Created Directus policy', policy: definition.id })
+			const permissionService: ItemsService = new services.ItemsService<Permission>(
+				'directus_permissions',
+				serviceOptions(input.database, schema),
+			)
+			for (const permission of processPolicyDefinition(definition, policyId).permissions) {
+				const existingPermissions = await permissionService.readByQuery({
+					filter: {
+						policy: { _eq: policyId },
+						collection: { _eq: permission.collection },
+						action: { _eq: permission.action },
+					},
+					limit: 1,
+				})
+				if (existingPermissions[0]) continue
+				await permissionService.createOne(permission)
+				changed.push(`permission:${policyId}:${permission.collection}:${permission.action}`)
+			}
 		})
 		if (result.error !== null) {
 			// Preserve the same abort-on-error contract as schema ensures.

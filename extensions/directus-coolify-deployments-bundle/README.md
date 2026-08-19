@@ -36,13 +36,16 @@ testing. The Flow operation still displays scaffold-only messaging.
 
 The package reserves these Directus environment variables:
 
-| Variable                          | Description                                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `COOLIFY_DEPLOYMENTS_ENABLED`     | Enables the bundle; defaults to `true`.                                                           |
-| `COOLIFY_APPLICATIONS_COLLECTION` | Collection for allow-listed Coolify applications; defaults to `coolify_applications`.             |
-| `COOLIFY_URL`                     | Base URL of the Coolify instance.                                                                 |
-| `COOLIFY_TOKEN`                   | Server-only Coolify API token.                                                                    |
-| `COOLIFY_PROJECTS`                | Configured frontend projects with stable IDs, names, production URLs, and Coolify resource UUIDs. |
+| Variable                                            | Description                                                                                       |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `COOLIFY_DEPLOYMENTS_ENABLED`                       | Enables the bundle; defaults to `true`.                                                           |
+| `COOLIFY_APPLICATIONS_COLLECTION`                   | Collection for allow-listed Coolify applications; defaults to `coolify_applications`.             |
+| `COOLIFY_URL`                                       | Base URL of the Coolify instance.                                                                 |
+| `COOLIFY_TOKEN`                                     | Server-only Coolify API token.                                                                    |
+| `COOLIFY_PROJECTS`                                  | Configured frontend projects with stable IDs, names, production URLs, and Coolify resource UUIDs. |
+| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | UUID for the local application-management policy; has a stable default.                           |
+| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | UUID for the deployment-read policy; has a stable default.                                        |
+| `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID` | UUID for the deployment-trigger policy; has a stable default.                                     |
 
 Example shape for `COOLIFY_PROJECTS`:
 
@@ -74,6 +77,13 @@ This phase only manages the collection schema. The existing endpoint configurati
 Schema changes can be controlled with `COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED` and
 `COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR`, in addition to the global schema-change and lock
 settings documented by `@onderwijsin/directus-extension-utils`.
+
+When data seeding is enabled, startup also creates three policies:
+`Can manage Coolify applications`, `Can read Coolify deployments`, and
+`Can trigger Coolify deployments`. Policy UUIDs can be overridden with the three policy ID variables
+above. Their nested permission definitions are also seeded into `directus_permissions`. Directus
+generates integer permission IDs; the bundle ensures permissions by `policy + collection + action`
+and does not require stable permission IDs.
 
 ## Endpoint
 

@@ -8,6 +8,11 @@ import {
 	validateSchemaDefinition,
 	withCollectionIdentity,
 } from '../src/server/directus-ensure/data-processors/collections'
+import {
+	processPolicyDefinition,
+	type DirectusPolicyDefinition,
+	validatePolicyDefinition,
+} from '../src/server/directus-ensure/data-processors/policies'
 import { getDirectusStartupStatus } from '../src/server/directus-ensure/operations/core'
 import { ensureDirectusPolicy } from '../src/server/directus-ensure/operations/policies'
 import {
@@ -69,6 +74,38 @@ describe('validateSchemaDefinition', () => {
 
 		expect(definition.collections[0]).toMatchObject({ custom_collection_key: 'preserved' })
 		expect(() => validateSchemaDefinition({ collections: [], fields: [] })).toThrow()
+	})
+})
+
+describe('policy data processors', () => {
+	it('validates nested permissions and processes them into linked rows', () => {
+		const definition = validatePolicyDefinition({
+			policies: [
+				{
+					id: 'policy-id',
+					name: 'Policy',
+					icon: 'policy',
+					description: null,
+					enforce_tfa: false,
+					ip_access: null,
+					app_access: true,
+					admin_access: false,
+					permissions: [{ collection: 'posts', action: 'read', fields: ['*'] }],
+				},
+			],
+		}).policies[0]
+		if (!definition) throw new Error('Expected a policy definition')
+
+		const processed = processPolicyDefinition(definition, 'configured-policy-id')
+		expect(processed.policy).not.toHaveProperty('permissions')
+		expect(processed.permissions).toEqual([
+			expect.objectContaining({
+				policy: 'configured-policy-id',
+				collection: 'posts',
+				action: 'read',
+				fields: ['*'],
+			}),
+		])
 	})
 })
 
@@ -637,8 +674,20 @@ describe('ensureDirectusPolicy', () => {
 				return Promise.resolve(policy.id ?? '')
 			})
 		}
-		const services = { ...fixture.services, PoliciesService } as unknown as Services
-		const definition: Policy = {
+		const createdPermissions: Partial<Policy>[] = []
+		class ItemsService {
+			public readByQuery = vi.fn(() => Promise.resolve([]))
+			public createOne = vi.fn((permission: Partial<Policy>) => {
+				createdPermissions.push(permission)
+				return Promise.resolve(1)
+			})
+		}
+		const services = {
+			...fixture.services,
+			PoliciesService,
+			ItemsService,
+		} as unknown as Services
+		const definition: DirectusPolicyDefinition = {
 			id: 'policy-id',
 			name: 'Policy name',
 			icon: 'policy',
@@ -647,6 +696,16 @@ describe('ensureDirectusPolicy', () => {
 			ip_access: null,
 			app_access: false,
 			admin_access: false,
+			permissions: [
+				{
+					collection: 'posts',
+					action: 'read',
+					permissions: null,
+					validation: null,
+					presets: null,
+					fields: ['*'],
+				},
+			],
 		}
 
 		await expect(
@@ -658,13 +717,30 @@ describe('ensureDirectusPolicy', () => {
 				services,
 				definition,
 			}),
-		).resolves.toEqual({ changed: ['policy:policy-id'], skipped: false })
-		expect(created).toEqual([definition])
+		).resolves.toEqual({
+			changed: ['policy:policy-id', 'permission:policy-id:posts:read'],
+			skipped: false,
+		})
+		expect(created).toEqual([
+			{
+				id: 'policy-id',
+				name: 'Policy name',
+				icon: 'policy',
+				description: null,
+				enforce_tfa: false,
+				ip_access: null,
+				app_access: false,
+				admin_access: false,
+			},
+		])
+		expect(createdPermissions).toEqual([
+			expect.objectContaining({ policy: 'policy-id', collection: 'posts', action: 'read' }),
+		])
 	})
 
 	it('skips without acquiring a lock when data seeds are disabled globally', async () => {
 		const fixture = createFixture(emptySchema())
-		const definition: Policy = {
+		const definition: DirectusPolicyDefinition = {
 			id: 'disabled-policy',
 			name: 'Disabled policy',
 			icon: 'policy',
@@ -673,6 +749,7 @@ describe('ensureDirectusPolicy', () => {
 			ip_access: null,
 			app_access: false,
 			admin_access: false,
+			permissions: [],
 		}
 
 		await expect(

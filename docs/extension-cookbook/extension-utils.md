@@ -76,19 +76,19 @@ only the common helper surface.
 
 ## Utility reference
 
-| Group          | Public utilities                                                                                                                                                                  | Import from       |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| Guards         | `isDefined`, `isRecord`, `isArray`, `isString`, `isNonEmptyString`, `isNonBlankString`, `isNumber`, `isFiniteNumber`, `isInteger`, `isBoolean`, `isFunction`, `hasKeys`, `hasKey` | Root or `/shared` |
-| Attempts       | `attempt`, `attemptSync`, `attemptWithRetry`                                                                                                                                      | Root or `/shared` |
-| Object helpers | `keys`, `toEntries`, `fromEntries`                                                                                                                                                | Root or `/shared` |
-| MIME and IDs   | `classifyMimeType`, `isAudioMimeType`, `isVideoMimeType`, `isImageMimeType`, `isDocumentMimeType`, `uuid`, `uuidv4`                                                               | Root or `/shared` |
-| Locks          | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                     | `/server`         |
-| Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                | `/server`         |
-| Logging        | `createLogger`                                                                                                                                                                    | `/server`         |
-| Setup          | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                  | `/server`         |
-| Schema/data    | `directusStartupSchema`, `validateSchemaDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `withCollectionIdentity`                         | `/server`         |
-| Constants      | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                | `/constants`      |
-| Sentry         | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                  | `/sentry`         |
+| Group          | Public utilities                                                                                                                                                                                                 | Import from       |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Guards         | `isDefined`, `isRecord`, `isArray`, `isString`, `isNonEmptyString`, `isNonBlankString`, `isNumber`, `isFiniteNumber`, `isInteger`, `isBoolean`, `isFunction`, `hasKeys`, `hasKey`                                | Root or `/shared` |
+| Attempts       | `attempt`, `attemptSync`, `attemptWithRetry`                                                                                                                                                                     | Root or `/shared` |
+| Object helpers | `keys`, `toEntries`, `fromEntries`                                                                                                                                                                               | Root or `/shared` |
+| MIME and IDs   | `classifyMimeType`, `isAudioMimeType`, `isVideoMimeType`, `isImageMimeType`, `isDocumentMimeType`, `uuid`, `uuidv4`                                                                                              | Root or `/shared` |
+| Locks          | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                                                    | `/server`         |
+| Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                               | `/server`         |
+| Logging        | `createLogger`                                                                                                                                                                                                   | `/server`         |
+| Setup          | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                 | `/server`         |
+| Schema/data    | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `withCollectionIdentity` | `/server`         |
+| Constants      | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                                               | `/constants`      |
+| Sentry         | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                                                 | `/sentry`         |
 
 ### Extension setup
 
@@ -209,6 +209,11 @@ await ensureDirectusSchema({
 
 For a normal hook, use the startup coordinator. It guarantees schema callbacks complete before data
 callbacks and gives nested ensures the held lock provider:
+
+Policy definitions may contain nested permission definitions. Directus stores permissions as
+separate `directus_permissions` rows with generated integer IDs. `ensureDirectusPolicy` does not
+require or accept stable permission IDs; it ensures rows by the natural key
+`policy + collection + action` and preserves matching existing rows.
 
 ```ts
 const startup = createDirectusStartupCoordinator(action, logger, {
