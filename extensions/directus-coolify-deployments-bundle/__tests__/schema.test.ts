@@ -8,6 +8,16 @@ import coolifyApplicationsSchema from '../schema/coolify_applications.json'
 import coolifyPolicies from '../schema/coolify_policies.json'
 
 describe('Coolify applications schema', () => {
+	it('requires every field and disallows null values', () => {
+		const schema = validateSchemaDefinition(coolifyApplicationsSchema)
+		const collection = schema.collections[0]
+		if (!collection?.fields) throw new Error('Expected Coolify applications collection fields')
+
+		const fields = [...collection.fields, ...schema.fields]
+		expect(fields.every((field) => field.schema?.is_nullable === false)).toBe(true)
+		expect(fields.every((field) => field.meta?.required === true)).toBe(true)
+	})
+
 	it('uses the configured collection for every schema resource', () => {
 		const schema = withCollectionIdentity(
 			'deployment_targets',

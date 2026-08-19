@@ -73,6 +73,9 @@ being ensured. The server-side client reads configured applications with adminis
 accountability and caches them for 60 seconds. Select `memory` for a process-local cache or `redis`
 with a valid `REDIS` connection string for a shared cache.
 
+The managed `coolify_applications` collection requires every field, including project and
+environment metadata and the production URL; none of its fields accept `null`.
+
 When global data seeding is enabled, the startup coordinator also creates the three Coolify policy
 records. Their UUIDs are configurable through the policy ID variables. The bundled permission
 definitions describe local CRUD access and remote GET/POST feature flags, and are persisted as
@@ -81,20 +84,27 @@ separate `directus_permissions` rows. Directus generates integer permission IDs;
 
 ## Endpoint behavior
 
-All endpoint routes require an authenticated Directus session and pass the same-origin check.
+All endpoint routes require an authenticated Directus session, pass the same-origin check, and
+require the corresponding assigned policy below. Administrators bypass policy assignment checks.
 Missing browser origin metadata is allowed for authenticated non-browser clients. The routes are
-currently scaffolds and return `501 Not Implemented` while the domain-modelled route contract is
-being finalized.
+currently scaffolds and return `501 Not Implemented` after authorization while the domain-modelled
+route contract is being finalized.
 
-| Method | Route                                                         | Behavior                                                 |
-| ------ | ------------------------------------------------------------- | -------------------------------------------------------- |
-| `GET`  | `/coolify-deployments/projects`                               | Scaffold route; currently returns `501 Not Implemented`. |
-| `GET`  | `/coolify-deployments/projects/:id/deployments`               | Scaffold route; currently returns `501 Not Implemented`. |
-| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Scaffold route; currently returns `501 Not Implemented`. |
-| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Scaffold route; currently returns `501 Not Implemented`. |
+| Method | Route                                                         | Behavior                                    |
+| ------ | ------------------------------------------------------------- | ------------------------------------------- |
+| `GET`  | `/coolify-deployments/projects`                               | Manage-applications policy; scaffold route. |
+| `GET`  | `/coolify-deployments/projects/:id/deployments`               | Read-deployments policy; scaffold route.    |
+| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Read-deployments policy; scaffold route.    |
+| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Trigger-deployments policy; scaffold route. |
 
 Authentication and same-origin failures are forwarded as Directus `403 Forbidden` errors. Schema
 readiness failures are also forwarded through Directus's error middleware.
+
+Policy assignments are resolved from `directus_access` for the current user and Directus's resolved
+effective roles. Public assignments are included when no effective roles exist. The helper mirrors
+Directus's assignment resolution but does not evaluate `policy.ip_access` against the request IP;
+IP-based filtering is intentionally out of scope for this iteration and remains a TODO in the
+extension helper.
 
 ## Security and ownership model
 

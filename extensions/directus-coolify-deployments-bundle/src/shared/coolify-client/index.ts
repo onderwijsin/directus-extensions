@@ -76,7 +76,7 @@ export function createCoolifyDeploymentClient(
 				schema: await context.getSchema(),
 				accountability: null,
 			},
-		).readMany([], { limit: -1 })
+		).readMany([], { limit: -1, filter: { enabled: { _eq: true } } })
 
 		await cache?.set(CONFIGURED_APPLICATIONS_CACHE_KEY, applications)
 		return applications
@@ -111,6 +111,19 @@ export function createCoolifyDeploymentClient(
 		allowedValues: () => Promise<string[]>,
 	): Promise<void> => {
 		if (!(await allowedValues()).includes(value)) throw new ForbiddenError()
+	}
+
+	/**
+	 * Ensure an enabled application may be used for deployment mutations.
+	 * @param applicationUuid - Coolify application UUID.
+	 * @returns Nothing when deployment mutations are enabled.
+	 */
+	const assertDeploymentAllowed = async (applicationUuid: string): Promise<void> => {
+		const application = (await listConfiguredApplication()).find(
+			({ application_uuid: configuredApplicationUuid }) =>
+				configuredApplicationUuid === applicationUuid,
+		)
+		if (!application?.deploy_enabled) throw new ForbiddenError()
 	}
 
 	/**
@@ -274,6 +287,7 @@ export function createCoolifyDeploymentClient(
 	): Promise<CoolifyDeploymentTriggerResult[]> => {
 		const parsedInput = coolifyDeploymentRequestSchema.parse(input)
 		await assertAllowed(parsedInput.uuid, getAllowedApplications)
+		await assertDeploymentAllowed(parsedInput.uuid)
 		return coolifyDeploymentTriggerResponseSchema.parse(
 			await request('/deploy', { query: parsedInput }),
 		)
@@ -286,8 +300,8 @@ export function createCoolifyDeploymentClient(
 	const cancelDeployment = async (
 		deploymentUuid: string,
 	): Promise<CoolifyDeploymentCancellationResult> => {
-		// Call getDeployment to assert whether cancel is allowed
-		await getDeployment(deploymentUuid)
+		const deployment = await getDeployment(deploymentUuid)
+		await assertDeploymentAllowed(deployment.applicationId)
 		return coolifyDeploymentCancellationSchema.parse(
 			await request(`/deployments/${encodeURIComponent(deploymentUuid)}/cancel`, {
 				method: 'POST',

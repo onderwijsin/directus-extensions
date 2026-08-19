@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
 		COOLIFY_URL: 'https://coolify.example.com',
 		COOLIFY_TOKEN: 'token',
 		COOLIFY_PROJECTS: [],
+		COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: 'manage-policy',
+		COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID: 'read-policy',
+		COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: 'trigger-policy',
 	})),
 }))
 
@@ -30,7 +33,15 @@ import endpoint from '../src/coolify-deployments-endpoint'
 const runEndpoint = (router: ReturnType<typeof createRouter>) => {
 	const handler = Reflect.get(endpoint, 'handler')
 	if (typeof handler !== 'function') throw new Error('Expected endpoint handler')
-	Reflect.apply(handler, undefined, [router, { env: {}, logger: { error: vi.fn() } }])
+	Reflect.apply(handler, undefined, [
+		router,
+		{
+			env: {},
+			logger: { error: vi.fn() },
+			services: { AccessService: vi.fn() },
+			getSchema: vi.fn().mockResolvedValue({}),
+		},
+	])
 }
 
 interface ResponseMock {

@@ -70,9 +70,11 @@ route.
 ## Schema management
 
 The `coolify-deployments-hook` entry creates the configured applications collection at Directus
-startup. It contains the allow-listed application UUID, display metadata, optional project and
+startup. It contains the allow-listed application UUID, display metadata, required project and
 environment metadata, and deployment enablement flags. Schema setup uses the shared schema-change
 lock, and endpoint routes return `503` while this bundle's schema is being changed.
+
+Every field in the managed collection is required and non-nullable, including the production URL.
 
 The server-side client reads configured applications from `coolify_applications` with administrative
 accountability and caches the records for 60 seconds. `COOLIFY_PROJECTS` remains for legacy startup
@@ -93,20 +95,27 @@ resources; `Can trigger Coolify deployments` intentionally has no nested permiss
 
 ## Endpoint
 
-All routes require an authenticated Directus session and pass the same-origin check. Requests
-without browser origin metadata remain supported for authenticated Flow and command-line clients.
-The routes are currently scaffolds and return `501 Not Implemented` while the domain-modelled route
-contract is being finalized.
+All routes require an authenticated Directus session, pass the same-origin check, and require the
+policy shown below. Administrators bypass the policy assignment check. Requests without browser
+origin metadata remain supported for authenticated Flow and command-line clients. The routes are
+currently scaffolds and return `501 Not Implemented` after authorization while the domain-modelled
+route contract is being finalized.
 
-| Method | Route                                                         | Description                                              |
-| ------ | ------------------------------------------------------------- | -------------------------------------------------------- |
-| `GET`  | `/coolify-deployments/projects`                               | Scaffold route; currently returns `501 Not Implemented`. |
-| `GET`  | `/coolify-deployments/projects/:id/deployments`               | Scaffold route; currently returns `501 Not Implemented`. |
-| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Scaffold route; currently returns `501 Not Implemented`. |
-| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Scaffold route; currently returns `501 Not Implemented`. |
+| Method | Route                                                         | Description                                          |
+| ------ | ------------------------------------------------------------- | ---------------------------------------------------- |
+| `GET`  | `/coolify-deployments/projects`                               | Requires manage-applications policy; scaffold route. |
+| `GET`  | `/coolify-deployments/projects/:id/deployments`               | Requires read-deployments policy; scaffold route.    |
+| `GET`  | `/coolify-deployments/projects/:id/deployments/:deploymentId` | Requires read-deployments policy; scaffold route.    |
+| `POST` | `/coolify-deployments/projects/:id/deploy`                    | Requires trigger-deployments policy; scaffold route. |
 
 Authentication, same-origin, and schema-lock failures are forwarded through Directus's error
 middleware.
+
+The endpoint resolves policy assignments from `directus_access` for the requesting user and
+Directus's already-resolved effective role list, including public assignments when no effective
+roles are present. This mirrors Directus policy assignment resolution but intentionally does not
+evaluate `policy.ip_access` against the request IP. IP-based filtering is out of scope for this
+iteration and is marked as a TODO in the helper.
 
 For production use, grant the deploy route only to a dedicated Directus permission or role, use a
 least-privilege Coolify token, keep the Coolify URL fixed in server configuration, and add rate

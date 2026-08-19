@@ -214,6 +214,9 @@ importers:
       '@types/node':
         specifier: catalog:node24
         version: 24.13.3
+      '@workspace/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config

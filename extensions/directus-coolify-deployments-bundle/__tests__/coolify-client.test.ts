@@ -145,7 +145,10 @@ describe('Coolify deployment client', () => {
 		const client = createClient()
 
 		await expect(client.listConfiguredApplication()).resolves.toEqual(configuredApplications)
-		expect(readMany).toHaveBeenCalledWith([], { limit: -1 })
+		expect(readMany).toHaveBeenCalledWith([], {
+			limit: -1,
+			filter: { enabled: { _eq: true } },
+		})
 		expect(itemsServiceOptions).toHaveBeenCalledWith(
 			'coolify_applications',
 			expect.objectContaining({ accountability: null }),
@@ -326,5 +329,41 @@ describe('Coolify deployment client', () => {
 		expect(mocks.request).toHaveBeenCalledWith('/deploy', {
 			query: { uuid: 'application-1', force: true },
 		})
+	})
+
+	it('rejects deployment mutations when deploy_enabled is false', async () => {
+		readMany.mockResolvedValue(
+			configuredApplications.map((application) => ({
+				...application,
+				deploy_enabled: false,
+			})),
+		)
+		const client = createClient()
+
+		await expect(client.deploy({ uuid: 'application-1' })).rejects.toMatchObject({
+			status: 403,
+		})
+		expect(mocks.request).not.toHaveBeenCalled()
+	})
+
+	it('rejects cancellation when the configured application cannot be deployed', async () => {
+		readMany.mockResolvedValue(
+			configuredApplications.map((application) => ({
+				...application,
+				deploy_enabled: false,
+			})),
+		)
+		mocks.request.mockResolvedValueOnce(
+			jsonResponse({
+				application_id: 'application-1',
+				deployment_uuid: 'deployment-1',
+				status: 'running',
+			}),
+		)
+
+		await expect(createClient().cancelDeployment('deployment-1')).rejects.toMatchObject({
+			status: 403,
+		})
+		expect(mocks.request).toHaveBeenCalledOnce()
 	})
 })
