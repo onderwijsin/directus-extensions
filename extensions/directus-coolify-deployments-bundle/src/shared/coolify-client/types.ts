@@ -43,6 +43,10 @@ export interface CoolifyClientContext extends CacheEnv {
 	logger?: ApiExtensionContext['logger']
 }
 
+export interface GetApplicationOptions {
+	bypassAllowList?: boolean
+}
+
 export interface CoolifyDeploymentClient {
 	listConfiguredApplication: () => Promise<DirectusCoolifyApplication[]>
 	getConfiguredApplication: (id: string) => Promise<DirectusCoolifyApplication>
@@ -57,7 +61,10 @@ export interface CoolifyDeploymentClient {
 		environmentUuidOrName: string,
 	) => Promise<CoolifyEnvironment>
 	listApplications: (filter?: CoolifyApplicationFilter) => Promise<CoolifyApplication[]>
-	getApplication: (applicationUuid: string) => Promise<CoolifyApplication>
+	getApplication: (
+		applicationUuid: string,
+		options?: GetApplicationOptions,
+	) => Promise<CoolifyApplication>
 	listApplicationDeployments: (applicationUuid: string) => Promise<CoolifyDeployment[]>
 	listRunningDeployments: () => Promise<CoolifyDeployment[]>
 	getDeployment: (deploymentUuid: string) => Promise<CoolifyDeployment>

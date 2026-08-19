@@ -18,6 +18,38 @@ describe('Coolify applications schema', () => {
 		expect(fields.every((field) => field.meta?.required === true)).toBe(true)
 	})
 
+	it('places the editable UUID first and labels every field', () => {
+		const schema = validateSchemaDefinition(coolifyApplicationsSchema)
+		const collection = schema.collections[0]
+		if (!collection?.fields) throw new Error('Expected Coolify applications collection fields')
+
+		const fields = [...collection.fields, ...schema.fields]
+		expect(fields.map((field) => field.field)).toEqual([
+			'id',
+			'application_uuid',
+			'name',
+			'project_uuid',
+			'project_name',
+			'environment_uuid',
+			'environment_name',
+			'production_url',
+			'enabled',
+			'deploy_enabled',
+		])
+		expect(fields.slice(2).every((field) => field.meta?.readonly === true)).toBe(true)
+		const sourceCollection = coolifyApplicationsSchema.collections[0]
+		if (!sourceCollection?.fields)
+			throw new Error('Expected Coolify applications collection fields')
+		const sourceFields = [...sourceCollection.fields, ...coolifyApplicationsSchema.fields]
+		expect(
+			sourceFields.every(
+				(field) =>
+					field.meta?.translations?.[0]?.translation &&
+					typeof field.meta.note === 'string',
+			),
+		).toBe(true)
+	})
+
 	it('uses the configured collection for every schema resource', () => {
 		const schema = withCollectionIdentity(
 			'deployment_targets',

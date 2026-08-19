@@ -78,7 +78,15 @@ accountability and caches them for 60 seconds. Select `memory` for a process-loc
 with a valid complete `REDIS` URL or component-based Redis configuration for a shared cache.
 
 The managed `coolify_applications` collection requires every field, including project and
-environment metadata and the production URL; none of its fields accept `null`.
+environment metadata and the production URL; none of its fields accept `null`. All fields are
+read-only in Studio except `application_uuid`, which is the first visible field after the hidden
+primary key.
+
+To add an application, create a record with only its Coolify application UUID. The bundle's create
+filter fetches the application from Coolify and populates its name, project UUID and name,
+environment UUID and name, and production URL. The local `enabled` and `deploy_enabled` flags are
+initialized to `true`. If Coolify cannot be reached or returns incomplete data, creation fails and
+no partial record is saved.
 
 When global data seeding is enabled, the startup coordinator also creates the three Coolify policy
 records. Their UUIDs are configurable through the policy ID variables. The bundled permission

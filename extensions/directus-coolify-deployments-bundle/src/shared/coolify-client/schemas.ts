@@ -77,6 +77,25 @@ export const coolifyEnvironmentResponseSchema = z
 	}))
 export const coolifyEnvironmentsResponseSchema = z.array(coolifyEnvironmentResponseSchema)
 
+const coolifyApplicationEnvironmentSchema = z
+	.object({
+		uuid: z.string().trim().min(1).nullable().optional(),
+		name: z.string().nullable().optional(),
+		project_uuid: z.string().trim().min(1).nullable().optional(),
+		project_name: z.string().nullable().optional(),
+		project: z
+			.object({
+				uuid: z.string().trim().min(1).nullable().optional(),
+				name: z.string().nullable().optional(),
+			})
+			.loose()
+			.nullable()
+			.optional(),
+	})
+	.loose()
+	.nullable()
+	.optional()
+
 export const coolifyApplicationSchema = z
 	.object({
 		uuid: z.string().trim().min(1),
@@ -84,6 +103,11 @@ export const coolifyApplicationSchema = z
 		fqdn: z.string().nullable().optional(),
 		status: z.string().nullable().optional(),
 		environment_id: z.number().int().nullable().optional(),
+		environment_uuid: z.string().trim().min(1).nullable().optional(),
+		environment_name: z.string().nullable().optional(),
+		project_uuid: z.string().trim().min(1).nullable().optional(),
+		project_name: z.string().nullable().optional(),
+		environment: coolifyApplicationEnvironmentSchema,
 		git_branch: z.string().nullable().optional(),
 		git_commit_sha: z.string().nullable().optional(),
 		git_repository: z.string().nullable().optional(),
@@ -107,6 +131,18 @@ export const coolifyApplicationSchema = z
 		fqdn: application.fqdn ?? null,
 		status: application.status ?? null,
 		environmentId: application.environment_id ?? null,
+		environmentUuid: application.environment_uuid ?? application.environment?.uuid ?? null,
+		environmentName: application.environment_name ?? application.environment?.name ?? null,
+		projectUuid:
+			application.project_uuid ??
+			application.environment?.project_uuid ??
+			application.environment?.project?.uuid ??
+			null,
+		projectName:
+			application.project_name ??
+			application.environment?.project_name ??
+			application.environment?.project?.name ??
+			null,
 		gitBranch: application.git_branch ?? null,
 		gitCommitSha: application.git_commit_sha ?? null,
 		gitRepository: application.git_repository ?? null,

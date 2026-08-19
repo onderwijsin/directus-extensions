@@ -19,6 +19,8 @@ import {
 	EXTENSION_ID,
 	EXTENSION_NAME,
 } from '../shared/constants'
+import { createCoolifyDeploymentClient } from '../shared/coolify-client'
+import { registerApplicationEnrichmentHook } from './application-enrichment'
 import { envSchema } from './env.schema'
 import { resolveCoolifyPolicyId } from './policy-ids'
 
@@ -29,7 +31,7 @@ import { resolveCoolifyPolicyId } from './policy-ids'
  * @returns Nothing.
  */
 export default defineHook((hook, context) => {
-	const { action } = hook
+	const { action, filter } = hook
 	const { env, logger } = context
 	const setup = extensionSetup(EXTENSION_NAME, env, logger)
 	setup.start()
@@ -37,6 +39,12 @@ export default defineHook((hook, context) => {
 	if (!setup.isEnabled()) return
 
 	const options = validateExtensionOptions(env, envSchema, logger)
+	const client = createCoolifyDeploymentClient(options, {
+		...options,
+		services: context.services,
+		getSchema: context.getSchema,
+		logger,
+	})
 
 	const startup = createDirectusStartupCoordinator(action, logger, {
 		id: EXTENSION_ID,
@@ -98,6 +106,13 @@ export default defineHook((hook, context) => {
 			})
 		}
 	})
+
+	registerApplicationEnrichmentHook(
+		filter,
+		options.COOLIFY_APPLICATIONS_COLLECTION,
+		client,
+		logger,
+	)
 
 	setup.end()
 })

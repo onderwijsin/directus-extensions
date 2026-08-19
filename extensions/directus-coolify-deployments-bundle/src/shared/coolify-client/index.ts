@@ -22,9 +22,10 @@ export type {
 	CoolifyDeploymentClient,
 	DirectusCoolifyApplication,
 	CoolifyClientContext,
+	GetApplicationOptions,
 } from './types'
 
-import type { CoolifyClientContext } from './types'
+import type { CoolifyClientContext, GetApplicationOptions } from './types'
 
 import {
 	getAllowedApplications as resolveAllowedApplications,
@@ -270,10 +271,15 @@ export function createCoolifyDeploymentClient(
 
 	/**
 	 * @param applicationUuid - Coolify application UUID.
+	 * @param options - Optional application lookup options.
+	 * @param options.bypassAllowList - Whether to fetch an application before it is locally configured.
 	 * @returns The requested application.
 	 */
-	const getApplication = async (applicationUuid: string): Promise<CoolifyApplication> => {
-		await assertAllowed(applicationUuid, getAllowedApplications)
+	const getApplication = async (
+		applicationUuid: string,
+		{ bypassAllowList = false }: GetApplicationOptions = {},
+	): Promise<CoolifyApplication> => {
+		if (!bypassAllowList) await assertAllowed(applicationUuid, getAllowedApplications)
 		return coolifyApplicationSchema.parse(
 			await request(`/applications/${encodeURIComponent(applicationUuid)}`),
 		)

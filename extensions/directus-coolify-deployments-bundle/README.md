@@ -81,6 +81,12 @@ lock, and endpoint routes return `503` while this bundle's schema is being chang
 
 Every field in the managed collection is required and non-nullable, including the production URL.
 
+When creating an application in Directus Studio, enter only the `application_uuid`. The create
+filter loads the application from Coolify and fills the name, project, environment, and production
+URL fields. All fields except `application_uuid` are read-only in Studio. `enabled` and
+`deploy_enabled` are initialized to `true` and remain controlled by the extension's local schema. If
+Coolify cannot be reached or returns incomplete application data, the Directus item is not created.
+
 The server-side client reads configured applications from `coolify_applications` with administrative
 accountability and caches the records for 60 seconds. `COOLIFY_PROJECTS` remains for legacy startup
 configuration while the domain routes are being refactored.

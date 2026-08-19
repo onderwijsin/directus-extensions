@@ -129,6 +129,10 @@ describe('Coolify deployment client', () => {
 				fqdn: null,
 				status: null,
 				environmentId: 2,
+				environmentUuid: null,
+				environmentName: null,
+				projectUuid: null,
+				projectName: null,
 				gitBranch: 'main',
 				gitCommitSha: 'abc123',
 				gitRepository: null,
@@ -168,6 +172,20 @@ describe('Coolify deployment client', () => {
 			expect.objectContaining({ accountability: null }),
 		)
 		expect(context.getSchema).toHaveBeenCalled()
+	})
+
+	it('can bypass the local allow-list for create-time provider lookups', async () => {
+		mocks.request.mockImplementationOnce(() =>
+			jsonResponse({ uuid: 'unconfigured-application', name: 'New application' }),
+		)
+		const client = createClient()
+
+		await expect(
+			client.getApplication('unconfigured-application', { bypassAllowList: true }),
+		).resolves.toMatchObject({
+			uuid: 'unconfigured-application',
+		})
+		expect(readByQuery).not.toHaveBeenCalled()
 	})
 
 	it('reuses the configured application cache', async () => {

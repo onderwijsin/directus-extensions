@@ -21,6 +21,8 @@
 						"hidden": true,
 						"readonly": true,
 						"required": true,
+						"translations": [{ "language": "en-US", "translation": "ID" }],
+						"note": "Internal Directus identifier for this application configuration.",
 						"special": ["uuid"],
 						"interface": "input",
 						"display": "raw"
@@ -29,26 +31,11 @@
 			],
 			"meta": {
 				"icon": "rocket_launch",
-				"note": "Allow-listed Coolify applications available to Deployments."
+				"note": "Allow-listed Coolify applications available to the deployment integration. Enter only an application UUID when creating a record; application details are loaded from Coolify automatically."
 			}
 		}
 	],
 	"fields": [
-		{
-			"collection": "coolify_applications",
-			"field": "name",
-			"type": "string",
-			"schema": {
-				"data_type": "varchar",
-				"max_length": 255,
-				"is_nullable": false
-			},
-			"meta": {
-				"interface": "input",
-				"display": "raw",
-				"required": true
-			}
-		},
 		{
 			"collection": "coolify_applications",
 			"field": "application_uuid",
@@ -64,7 +51,28 @@
 				"interface": "input",
 				"display": "raw",
 				"required": true,
-				"note": "Coolify application UUID."
+				"translations": [
+					{ "language": "en-US", "translation": "Coolify application UUID" }
+				],
+				"note": "The UUID of the application in Coolify. The remaining application details are loaded automatically."
+			}
+		},
+		{
+			"collection": "coolify_applications",
+			"field": "name",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "input",
+				"display": "raw",
+				"required": true,
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Application name" }],
+				"note": "Name of the application as reported by Coolify."
 			}
 		},
 		{
@@ -81,7 +89,9 @@
 				"interface": "input",
 				"display": "raw",
 				"required": true,
-				"note": "Coolify project UUID used for display and future environment scoping."
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Coolify project UUID" }],
+				"note": "UUID of the Coolify project containing this application."
 			}
 		},
 		{
@@ -96,7 +106,10 @@
 			"meta": {
 				"interface": "input",
 				"display": "raw",
-				"required": true
+				"required": true,
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Coolify project name" }],
+				"note": "Name of the Coolify project containing this application."
 			}
 		},
 		{
@@ -113,7 +126,11 @@
 				"interface": "input",
 				"display": "raw",
 				"required": true,
-				"note": "Coolify environment UUID for future environment-aware deployment selection."
+				"readonly": true,
+				"translations": [
+					{ "language": "en-US", "translation": "Coolify environment UUID" }
+				],
+				"note": "UUID of the Coolify environment containing this application."
 			}
 		},
 		{
@@ -128,7 +145,12 @@
 			"meta": {
 				"interface": "input",
 				"display": "raw",
-				"required": true
+				"required": true,
+				"readonly": true,
+				"translations": [
+					{ "language": "en-US", "translation": "Coolify environment name" }
+				],
+				"note": "Name of the Coolify environment containing this application."
 			}
 		},
 		{
@@ -143,7 +165,10 @@
 			"meta": {
 				"interface": "input",
 				"display": "formatted-value",
-				"required": true
+				"required": true,
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Production URL" }],
+				"note": "Public production URL reported by Coolify for this application."
 			}
 		},
 		{
@@ -159,7 +184,10 @@
 				"interface": "boolean",
 				"display": "boolean",
 				"required": true,
-				"default_value": true
+				"default_value": true,
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Application enabled" }],
+				"note": "Whether this application is available to the deployment integration."
 			}
 		},
 		{
@@ -176,7 +204,9 @@
 				"display": "boolean",
 				"required": true,
 				"default_value": true,
-				"note": "Whether this application may be deployed through the bundle."
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Deployments enabled" }],
+				"note": "Whether deployments may be triggered for this application."
 			}
 		}
 	],
