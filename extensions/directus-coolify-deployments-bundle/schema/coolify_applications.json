@@ -20,7 +20,6 @@
 						"field": "id",
 						"hidden": true,
 						"readonly": true,
-						"required": true,
 						"translations": [{ "language": "en-US", "translation": "ID" }],
 						"note": "Internal Directus identifier for this application configuration.",
 						"special": ["uuid"],
@@ -69,7 +68,6 @@
 			"meta": {
 				"interface": "input",
 				"display": "raw",
-				"required": true,
 				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Application name" }],
 				"note": "Name of the application as reported by Coolify."
@@ -88,7 +86,6 @@
 			"meta": {
 				"interface": "input",
 				"display": "raw",
-				"required": true,
 				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Coolify project UUID" }],
 				"note": "UUID of the Coolify project containing this application."
@@ -106,7 +103,6 @@
 			"meta": {
 				"interface": "input",
 				"display": "raw",
-				"required": true,
 				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Coolify project name" }],
 				"note": "Name of the Coolify project containing this application."
@@ -125,7 +121,6 @@
 			"meta": {
 				"interface": "input",
 				"display": "raw",
-				"required": true,
 				"readonly": true,
 				"translations": [
 					{ "language": "en-US", "translation": "Coolify environment UUID" }
@@ -145,7 +140,6 @@
 			"meta": {
 				"interface": "input",
 				"display": "raw",
-				"required": true,
 				"readonly": true,
 				"translations": [
 					{ "language": "en-US", "translation": "Coolify environment name" }
@@ -165,7 +159,6 @@
 			"meta": {
 				"interface": "input",
 				"display": "formatted-value",
-				"required": true,
 				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Production URL" }],
 				"note": "Public production URL reported by Coolify for this application."
@@ -185,7 +178,6 @@
 				"display": "boolean",
 				"required": true,
 				"default_value": true,
-				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Application enabled" }],
 				"note": "Whether this application is available to the deployment integration."
 			}
@@ -204,7 +196,6 @@
 				"display": "boolean",
 				"required": true,
 				"default_value": true,
-				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Deployments enabled" }],
 				"note": "Whether deployments may be triggered for this application."
 			}

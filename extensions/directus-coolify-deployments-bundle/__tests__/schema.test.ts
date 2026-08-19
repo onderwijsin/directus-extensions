@@ -8,14 +8,18 @@ import coolifyApplicationsSchema from '../schema/coolify_applications.json'
 import coolifyPolicies from '../schema/coolify_policies.json'
 
 describe('Coolify applications schema', () => {
-	it('requires every field and disallows null values', () => {
+	it('keeps every field non-nullable while allowing generated metadata to be omitted', () => {
 		const schema = validateSchemaDefinition(coolifyApplicationsSchema)
 		const collection = schema.collections[0]
 		if (!collection?.fields) throw new Error('Expected Coolify applications collection fields')
 
 		const fields = [...collection.fields, ...schema.fields]
 		expect(fields.every((field) => field.schema?.is_nullable === false)).toBe(true)
-		expect(fields.every((field) => field.meta?.required === true)).toBe(true)
+		expect(fields.filter((field) => field.meta?.required).map((field) => field.field)).toEqual([
+			'application_uuid',
+			'enabled',
+			'deploy_enabled',
+		])
 	})
 
 	it('places the editable UUID first and labels every field', () => {
@@ -36,7 +40,15 @@ describe('Coolify applications schema', () => {
 			'enabled',
 			'deploy_enabled',
 		])
-		expect(fields.slice(2).every((field) => field.meta?.readonly === true)).toBe(true)
+		expect(fields.filter((field) => field.meta?.readonly).map((field) => field.field)).toEqual([
+			'id',
+			'name',
+			'project_uuid',
+			'project_name',
+			'environment_uuid',
+			'environment_name',
+			'production_url',
+		])
 		const sourceCollection = coolifyApplicationsSchema.collections[0]
 		if (!sourceCollection?.fields)
 			throw new Error('Expected Coolify applications collection fields')

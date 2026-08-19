@@ -157,6 +157,19 @@ describe('Coolify application create hook', () => {
 		)
 	})
 
+	it('keeps only the first URL when Coolify returns multiple production URLs', async () => {
+		mocks.getApplication.mockResolvedValueOnce({
+			...application,
+			fqdn: 'https://hello.frontend01.kaas.onderwijs.dev,https://www.hello.frontend01.kaas.onderwijs.dev',
+		})
+		const filter = mocks.filter.mock.calls[0]?.[1]
+		if (typeof filter !== 'function') throw new Error('Expected application create filter')
+
+		await expect(filter({ application_uuid: 'application-1' })).resolves.toMatchObject({
+			production_url: 'https://hello.frontend01.kaas.onderwijs.dev',
+		})
+	})
+
 	it('rejects failed Coolify requests with a Directus payload error', async () => {
 		mocks.getApplication.mockRejectedValueOnce(new Error('Coolify unavailable'))
 		const filter = mocks.filter.mock.calls[0]?.[1]

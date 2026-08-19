@@ -54,7 +54,7 @@ const mapApplication = (application: CoolifyApplication, applicationUuid: string
 	const projectName = requireValue('projectName', application.projectName)
 	const environmentUuid = requireValue('environmentUuid', application.environmentUuid)
 	const environmentName = requireValue('environmentName', application.environmentName)
-	const productionUrl = requireValue('fqdn', application.fqdn)
+	const productionUrl = requireValue('fqdn', application.fqdn?.split(',')[0] ?? null)
 
 	return {
 		application_uuid: application.uuid,
