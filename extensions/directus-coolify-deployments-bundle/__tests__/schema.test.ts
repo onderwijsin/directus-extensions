@@ -1,10 +1,14 @@
+import { replaceCollectionNameInSchema } from '@onderwijsin/directus-extension-utils/server'
 import { describe, expect, it } from 'vitest'
 
-import { createCoolifyApplicationsSchema } from '../src/coolify-deployments-hook/schema'
+import coolifyApplicationsSchema from '../schema/coolify_applications.json'
 
 describe('Coolify applications schema', () => {
 	it('uses the configured collection for every schema resource', () => {
-		const schema = createCoolifyApplicationsSchema('deployment_targets')
+		const schema = replaceCollectionNameInSchema(
+			'deployment_targets',
+			coolifyApplicationsSchema,
+		)
 		const collection = schema.collections[0]
 		if (!collection) throw new Error('Expected the Coolify applications collection schema')
 		const collectionFields = collection.fields

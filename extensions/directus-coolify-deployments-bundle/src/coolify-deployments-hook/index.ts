@@ -3,12 +3,13 @@ import {
 	ensureDirectusSchema,
 	extensionSetup,
 	registerSchemaChangeOnStart,
+	replaceCollectionNameInSchema,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import coolifyApplicationsSchema from '../../schema/coolify_applications.json'
 import { EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
 import { envSchema } from './env.schema'
-import { createCoolifyApplicationsSchema } from './schema'
 
 /**
  * Registers schema management for the configured Coolify applications collection.
@@ -35,8 +36,9 @@ export default defineHook((hook, context) => {
 				database: context.database,
 				getSchema: context.getSchema,
 				logger,
-				definition: createCoolifyApplicationsSchema(
+				definition: replaceCollectionNameInSchema(
 					options.COOLIFY_APPLICATIONS_COLLECTION,
+					coolifyApplicationsSchema,
 				),
 				services: context.services,
 				options: {

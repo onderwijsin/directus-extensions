@@ -3,14 +3,15 @@ import {
 	ensureDirectusSchema,
 	extensionSetup,
 	registerSchemaChangeOnStart,
+	replaceCollectionNameInSchema,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import magicLinksSchema from '../../schema/directus_magic_links.json'
 import { registerMagicLinkJwt } from './auth-jwt'
 import { registerMagicLinkCleanup } from './cleanup'
 import { EXTENSION_ID, EXTENSION_NAME } from './constants'
 import { envSchema } from './env.schema'
-import { createMagicLinksSchema } from './schema'
 
 /**
  * Registers lifecycle and scheduled-maintenance hooks for magic links.
@@ -38,7 +39,10 @@ export default defineHook((hook, context) => {
 				database: context.database,
 				getSchema: context.getSchema,
 				logger,
-				definition: createMagicLinksSchema(options.MAGIC_LINKS_COLLECTION),
+				definition: replaceCollectionNameInSchema(
+					options.MAGIC_LINKS_COLLECTION,
+					magicLinksSchema,
+				),
 				services: context.services,
 				options: {
 					abortOnError: options.MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR,
