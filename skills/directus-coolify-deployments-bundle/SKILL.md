@@ -36,7 +36,8 @@ application or project. Per-application Coolify API tokens are not currently sup
 | `COOLIFY_TOKEN`                                                | yes when enabled | —                      | Server-only least-privilege Coolify API token.                     |
 | `COOLIFY_PROJECTS`                                             | no               | `[]`                   | JSON/Directus array of configured frontend project definitions.    |
 | `CACHE_ENABLED`                                                | no               | `true`                 | Enables caching of configured application records.                 |
-| `CACHE_STORE`                                                  | no               | `memory`               | Cache backend: `memory` or `redis`.                                |
+| `SYNCHRONIZATION_STORE`                                        | no               | `memory`               | Directus synchronization backend; unrelated to cache selection.    |
+| `CACHE_STORE`                                                  | no               | unset                  | Cache backend; defaults to `memory`.                               |
 | `REDIS_ENABLED`                                                | when Redis cache | `false`                | Enables component-based Redis configuration.                       |
 | `REDIS`                                                        | when Redis cache | —                      | Complete URL; takes precedence over component values.              |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | when Redis cache | —                      | Required together for component-based Redis.                       |

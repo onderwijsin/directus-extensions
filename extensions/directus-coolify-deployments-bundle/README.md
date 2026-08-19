@@ -45,7 +45,8 @@ The package reserves these Directus environment variables:
 | `COOLIFY_TOKEN`                                                | Server-only Coolify API token.                                                                    |
 | `COOLIFY_PROJECTS`                                             | Configured frontend projects with stable IDs, names, production URLs, and Coolify resource UUIDs. |
 | `CACHE_ENABLED`                                                | Enables caching of configured application records; defaults to `true`.                            |
-| `CACHE_STORE`                                                  | Cache backend: `memory` or `redis`; defaults to `memory`.                                         |
+| `SYNCHRONIZATION_STORE`                                        | Directus synchronization backend; unrelated to cache selection.                                   |
+| `CACHE_STORE`                                                  | Cache backend: `memory` or `redis`; defaults to `memory` when unset.                              |
 | `REDIS_ENABLED`                                                | Enables component-based Redis configuration; defaults to `false`.                                 |
 | `REDIS`                                                        | Complete Redis URL; takes precedence over component values.                                       |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Required together for component-based Redis.                                                      |

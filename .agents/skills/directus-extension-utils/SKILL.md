@@ -105,7 +105,8 @@ All lock providers expose the same `defaultLeaseMs` and `tokenFactory` options w
 
 Use `directusStartupSchema` when an extension can create or update Directus collections, fields, or
 relations. It validates the global enablement flags and selects a lock provider with
-`DIRECTUS_EXTENSIONS_LOCK_PROVIDER=MEMORY|REDIS|FS`. Redis requires
+`DIRECTUS_EXTENSIONS_LOCK_PROVIDER=memory|redis|fs`. When unset, the provider follows
+`SYNCHRONIZATION_STORE`. Redis requires
 `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; filesystem locking requires
 `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
 
@@ -129,9 +130,10 @@ The Directus startup configuration surface is:
 | --- | --- | --- | --- |
 | `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global | `true` | Master enablement switch. |
 | `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED` | global | `true` | Enables policy and future data seeds. |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | global | `MEMORY` | Provider: `MEMORY`, `REDIS`, or `FS`. |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | global | — | Required for `REDIS`. |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | global | — | Required for `FS`. |
+| `SYNCHRONIZATION_STORE` | Directus | `memory` | Global fallback for synchronization-related extension stores. |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | global | absent | Provider: `memory`, `redis`, or `fs`; otherwise follows synchronization. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | global | — | Optional Redis URL override. |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | global | — | Required for `fs`. |
 | `lockProviderConfig` | call | — | Validated config used to construct a provider. |
 | `lockProvider` | call | — | Explicit provider, owned and disposed by the consumer. |
 | `abortOnError` | call | `true` | Rethrow unexpected service failures when true. |

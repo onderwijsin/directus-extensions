@@ -7,8 +7,9 @@ describe('createStartupLockProvider', () => {
 		const resource = createStartupLockProvider({
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
 			DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: true,
-			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
+			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'memory',
 			DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'memory',
+			SYNCHRONIZATION_STORE: 'memory',
 			REDIS_ENABLED: false,
 		})
 		const lease = await resource.provider.tryAcquire('test')

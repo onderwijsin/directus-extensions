@@ -2,6 +2,7 @@ import type { Cache } from '@directus/memory'
 
 import { createCache } from '@directus/memory'
 import Redis from 'ioredis'
+import { z } from 'zod'
 
 import { isFiniteNumber } from '../shared'
 import {
@@ -14,16 +15,7 @@ import {
 const CACHE_NAMESPACE = 'directus:extensions'
 
 /** Environment values used to select and configure an extension cache backend. */
-export interface CacheEnv {
-	CACHE_ENABLED: boolean
-	CACHE_STORE: 'redis' | 'memory'
-	REDIS_ENABLED?: boolean
-	REDIS?: string
-	REDIS_HOST?: string
-	REDIS_PORT?: number
-	REDIS_USERNAME?: string
-	REDIS_PASSWORD?: string
-}
+export type CacheEnv = z.input<typeof cacheConfigSchema>
 
 /** Options shared by all extension cache instances. */
 export interface CacheOptions {

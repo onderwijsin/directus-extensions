@@ -7,10 +7,9 @@ import {
 } from '../src/server/config/cache'
 
 describe('cache configuration', () => {
-	it('provides Directus cache and Redis defaults', () => {
+	it('provides Directus cache defaults', () => {
 		expect(cacheConfigSchema.parse({})).toEqual({
 			CACHE_ENABLED: false,
-			CACHE_STORE: 'memory',
 			REDIS_ENABLED: false,
 		})
 	})
@@ -73,10 +72,24 @@ describe('cache configuration', () => {
 		).toBe('redis')
 	})
 
+	it('defaults to memory when no local cache store is configured', () => {
+		expect(resolveCacheStorage(cacheConfigSchema.parse({ CACHE_ENABLED: true }))).toBe('memory')
+		expect(
+			resolveCacheStorage(
+				cacheConfigSchema.parse({
+					CACHE_ENABLED: true,
+					CACHE_STORE: 'memory',
+				}),
+			),
+		).toBe('memory')
+	})
+
 	it('rejects an unresolved Redis cache store', () => {
 		expect(
-			cacheConfigSchema.safeParse({ CACHE_ENABLED: true, CACHE_STORE: 'redis' }).success,
-		).toBe(false)
+			cacheConfigSchema.safeParse({
+				CACHE_ENABLED: true,
+			}).success,
+		).toBe(true)
 		expect(
 			cacheConfigSchema.safeParse({
 				CACHE_ENABLED: true,

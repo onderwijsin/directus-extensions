@@ -1,8 +1,9 @@
 import type { LockProvider } from '../lock'
 import type { DirectusStartupOptions } from './config'
 
-import { resolveRedisConnectionString } from '../config/cache'
+import { resolveRedisConnectionString } from '../config/redis'
 import { createFsLockProvider, createMemoryLockProvider, createRedisLockProvider } from '../lock'
+import { resolveStartupLockProvider } from './config'
 
 const DEFAULT_STARTUP_MEMORY_PROVIDER_ID = 'directus-startup'
 
@@ -20,10 +21,11 @@ export interface DirectusStartupLockProvider {
 export function createStartupLockProvider(
 	options: DirectusStartupOptions,
 ): DirectusStartupLockProvider {
-	switch (options.DIRECTUS_EXTENSIONS_LOCK_PROVIDER) {
-		case 'REDIS': {
+	switch (resolveStartupLockProvider(options)) {
+		case 'redis': {
 			const redisUrl =
-				options.DIRECTUS_EXTENSIONS_LOCK_REDIS_URL ?? resolveRedisConnectionString(options)
+				options.DIRECTUS_EXTENSIONS_LOCK_REDIS_URL ??
+				resolveRedisConnectionString(options, options.SYNCHRONIZATION_STORE)
 			if (!redisUrl) {
 				throw new Error(
 					'Redis lock provider requires DIRECTUS_EXTENSIONS_LOCK_REDIS_URL or resolved Redis configuration',
@@ -41,7 +43,7 @@ export function createStartupLockProvider(
 				dispose: () => provider.dispose(),
 			}
 		}
-		case 'FS':
+		case 'fs':
 			if (!options.DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY) {
 				throw new Error(
 					'Filesystem lock provider requires DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY',
@@ -57,7 +59,7 @@ export function createStartupLockProvider(
 				 */
 				dispose: () => Promise.resolve(),
 			}
-		case 'MEMORY':
+		case 'memory':
 		default:
 			return {
 				provider: createMemoryLockProvider({

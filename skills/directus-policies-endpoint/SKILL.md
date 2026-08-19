@@ -53,14 +53,14 @@ user, effective roles, and IP address.
 
 ## Configuration
 
-| Variable                                                       | Default  | Description                                           |
-| -------------------------------------------------------------- | -------- | ----------------------------------------------------- |
-| `POLICIES_ENDPOINT_ENABLED`                                    | `true`   | Set to `false` to disable the extension.              |
-| `CACHE_ENABLED`                                                | `true`   | Enable effective-policy caching.                      |
-| `CACHE_STORE`                                                  | `memory` | Cache backend: `memory` or `redis`.                   |
-| `REDIS_ENABLED`                                                | `false`  | Enables component-based Redis configuration.          |
-| `REDIS`                                                        | —        | Complete Redis URL; takes precedence over components. |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | —        | Required together for component-based Redis.          |
+| Variable                                                       | Default | Description                                           |
+| -------------------------------------------------------------- | ------- | ----------------------------------------------------- |
+| `POLICIES_ENDPOINT_ENABLED`                                    | `true`  | Set to `false` to disable the extension.              |
+| `CACHE_ENABLED`                                                | `true`  | Enable effective-policy caching.                      |
+| `CACHE_STORE`                                                  | unset   | Cache backend; defaults to `memory`.                  |
+| `REDIS_ENABLED`                                                | `false` | Enables component-based Redis configuration.          |
+| `REDIS`                                                        | —       | Complete Redis URL; takes precedence over components. |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | —       | Required together for component-based Redis.          |
 
 ## Security and operations
 

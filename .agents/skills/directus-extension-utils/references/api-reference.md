@@ -115,7 +115,7 @@ isEmailConfigured(options: unknown): boolean
 ```
 
 `REDIS` takes precedence over `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, and `REDIS_PASSWORD`.
-Component-based resolution requires `REDIS_ENABLED=true` and all four values, and credentials are
+Component-based resolution requires `REDIS_ENABLED=true` (or `SYNCHRONIZATION_STORE=redis`) and all four values, and credentials are
 percent-encoded. Cache storage keeps the public `memory` value; `initializeCache` maps it to the
 memory package's local backend internally. The base email schema is optional and supplies Directus
 defaults; the required schema validates the selected `sendmail`, `smtp`, `mailgun`, or `ses`
@@ -238,12 +238,12 @@ Replaces the first collection identity throughout typed collection, field, and r
 The schema must contain at least one collection.
 
 ```ts
-const startupLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
+const startupLockProviderSchema = z.enum(['memory', 'redis', 'fs'])
 
 const directusStartupSchema = z.object({
   DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
   DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: z.boolean().default(true),
-  DIRECTUS_EXTENSIONS_LOCK_PROVIDER: startupLockProviderSchema.default('MEMORY'),
+  DIRECTUS_EXTENSIONS_LOCK_PROVIDER: startupLockProviderSchema.optional(),
   DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: z.string().trim().min(1).optional(),
   DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: z.string().trim().min(1).optional(),
 })
@@ -422,9 +422,10 @@ Schema-change configuration summary:
 | Key | Default | Validation/behavior |
 | --- | --- | --- |
 | `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | `true` | Global master switch. |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | `MEMORY` | Enum: `MEMORY`, `REDIS`, `FS`. |
+| `SYNCHRONIZATION_STORE` | `memory` | Global fallback for synchronization-related extension stores. |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | absent | Enum: `memory`, `redis`, `fs`; otherwise follows synchronization. |
 | `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | absent | Optional override; otherwise uses resolved Redis settings. |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | absent | Required for `FS`. |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | absent | Required for `fs`. |
 
 `ensureDirectusSchema` returns stable resource identifiers in `changed` and reports lock contention as
 `skipped: true`. It only creates missing resources. Compatibility checks are structural: collection

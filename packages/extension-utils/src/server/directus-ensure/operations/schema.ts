@@ -217,7 +217,9 @@ export async function ensureDirectusSchema(
 	const startedAt = Date.now()
 	const lockProviderName = options.lockProvider
 		? 'custom'
-		: (options.lockProviderConfig?.DIRECTUS_EXTENSIONS_LOCK_PROVIDER ?? 'MEMORY')
+		: (options.lockProviderConfig?.DIRECTUS_EXTENSIONS_LOCK_PROVIDER ??
+			options.lockProviderConfig?.SYNCHRONIZATION_STORE ??
+			'memory')
 	const nestedFieldCount = definition.collections.reduce(
 		(count, collection) => count + (collection.fields?.length ?? 0),
 		0,
