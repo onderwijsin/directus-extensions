@@ -44,6 +44,7 @@ import {
 	coolifyProjectsResponseSchema,
 	coolifyApplicationFilterSchema,
 	coolifyDeploymentRequestSchema,
+	coolifyDeploymentsListSchema,
 } from './schemas'
 
 const API_PREFIX = '/api/v1'
@@ -72,6 +73,7 @@ export function createCoolifyDeploymentClient(
 		const cached = await cache?.get<DirectusCoolifyApplication[]>(
 			CONFIGURED_APPLICATIONS_CACHE_KEY,
 		)
+
 		if (cached) return cached
 
 		const applications = await new context.services.ItemsService<DirectusCoolifyApplication>(
@@ -80,7 +82,7 @@ export function createCoolifyDeploymentClient(
 				schema: await context.getSchema(),
 				accountability: null,
 			},
-		).readMany([], { limit: -1, filter: { enabled: { _eq: true } } })
+		).readByQuery({ limit: -1, filter: { enabled: { _eq: true } } })
 
 		await cache?.set(CONFIGURED_APPLICATIONS_CACHE_KEY, applications)
 		return applications
@@ -98,12 +100,37 @@ export function createCoolifyDeploymentClient(
 	/**
 	 * Create a ofetch client with bearer header
 	 */
-	const request = ofetch.create({
+	const providerRequest = ofetch.create({
 		baseURL: `${baseUrl}${API_PREFIX}`,
 		headers: {
 			Authorization: `Bearer ${options.COOLIFY_TOKEN}`,
 		},
 	})
+	let requestNumber = 0
+
+	/**
+	 * Request Coolify and log each raw response with paired markers.
+	 * @param path - Coolify API path.
+	 * @param requestOptions - Optional request options.
+	 * @returns The unparsed provider response.
+	 */
+	const request = async (
+		path: string,
+		requestOptions?: Parameters<typeof providerRequest>[1],
+	): Promise<unknown> => {
+		const callId = `coolify-${++requestNumber}`
+		const label = `${callId} ${path}`
+		context?.logger?.info({ msg: `START ${label}` })
+
+		try {
+			const response = await providerRequest(path, requestOptions)
+			context?.logger?.info({ msg: `END ${label}`, response })
+			return response
+		} catch (error: unknown) {
+			context?.logger?.info({ msg: `END ${label} ERROR`, error })
+			throw error
+		}
+	}
 
 	/**
 	 * @param value - UUID to authorize.
@@ -236,7 +263,9 @@ export function createCoolifyDeploymentClient(
 		path: string,
 		query?: { skip: number; take: number },
 	): Promise<CoolifyDeployment[]> => {
-		return coolifyDeploymentsResponseSchema.parse(await request(path, { query }))
+		const response = await request(path, { query })
+		if (path === '/deployments') return coolifyDeploymentsListSchema.parse(response)
+		return coolifyDeploymentsResponseSchema.parse(response).deployments
 	}
 
 	/**
@@ -265,8 +294,8 @@ export function createCoolifyDeploymentClient(
 	const listRunningDeployments = async (): Promise<CoolifyDeployment[]> => {
 		const allowedApplications = await getAllowedApplications()
 		const deployments = await parseDeployments('/deployments')
-		return deployments.filter(({ applicationId }) =>
-			allowedApplications.includes(applicationId),
+		return deployments.filter(({ applicationId, applicationUuid }) =>
+			allowedApplications.includes(applicationUuid ?? applicationId),
 		)
 	}
 
@@ -278,7 +307,10 @@ export function createCoolifyDeploymentClient(
 		const deployment = coolifyDeploymentSchema.parse(
 			await request(`/deployments/${encodeURIComponent(deploymentUuid)}`),
 		)
-		await assertAllowed(deployment.applicationId, getAllowedApplications)
+		await assertAllowed(
+			deployment.applicationUuid ?? deployment.applicationId,
+			getAllowedApplications,
+		)
 		return deployment
 	}
 
@@ -293,7 +325,7 @@ export function createCoolifyDeploymentClient(
 		await assertAllowed(parsedInput.uuid, getAllowedApplications)
 		await assertDeploymentAllowed(parsedInput.uuid)
 		return coolifyDeploymentTriggerResponseSchema.parse(
-			await request('/deploy', { query: parsedInput }),
+			await request('/deploy', { query: parsedInput, method: 'POST' }),
 		)
 	}
 
@@ -305,7 +337,7 @@ export function createCoolifyDeploymentClient(
 		deploymentUuid: string,
 	): Promise<CoolifyDeploymentCancellationResult> => {
 		const deployment = await getDeployment(deploymentUuid)
-		await assertDeploymentAllowed(deployment.applicationId)
+		await assertDeploymentAllowed(deployment.applicationUuid ?? deployment.applicationId)
 		return coolifyDeploymentCancellationSchema.parse(
 			await request(`/deployments/${encodeURIComponent(deploymentUuid)}/cancel`, {
 				method: 'POST',

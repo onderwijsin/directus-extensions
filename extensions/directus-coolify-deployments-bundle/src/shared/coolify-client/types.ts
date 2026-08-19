@@ -1,3 +1,4 @@
+import type { ApiExtensionContext } from '@directus/types'
 import type { CacheEnv } from '@onderwijsin/directus-extension-utils/server'
 import type {
 	CoolifyApplication,
@@ -39,6 +40,7 @@ export type {
 export interface CoolifyClientContext extends CacheEnv {
 	services: ApiExtensionContext['services']
 	getSchema: ApiExtensionContext['getSchema']
+	logger?: ApiExtensionContext['logger']
 }
 
 export interface CoolifyDeploymentClient {
@@ -61,4 +63,3 @@ export interface CoolifyDeploymentClient {
 	deploy: (input: CoolifyDeploymentRequest) => Promise<CoolifyDeploymentTriggerResult[]>
 	cancelDeployment: (deploymentUuid: string) => Promise<CoolifyDeploymentCancellationResult>
 }
-import type { ApiExtensionContext } from '@directus/types'

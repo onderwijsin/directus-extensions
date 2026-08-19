@@ -3,11 +3,31 @@ import { describe, expect, it } from 'vitest'
 import { envSchema as endpointEnvSchema } from '../src/coolify-deployments-endpoint/env.schema'
 import {
 	coolifyDeploymentRequestSchema,
+	coolifyDeploymentsResponseSchema,
 	envSchema,
 	normalizedDeploymentSchema,
 } from '../src/shared/coolify-client/schemas'
 
 describe('Coolify deployments schemas', () => {
+	it('provides the default Studio polling interval', () => {
+		expect(
+			endpointEnvSchema.parse({
+				COOLIFY_URL: 'https://coolify.example.com',
+				COOLIFY_TOKEN: 'token',
+			}).COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS,
+		).toBe(3000)
+	})
+
+	it('accepts a custom Studio polling interval', () => {
+		expect(
+			endpointEnvSchema.parse({
+				COOLIFY_URL: 'https://coolify.example.com',
+				COOLIFY_TOKEN: 'token',
+				COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS: '5000',
+			}).COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS,
+		).toBe(5000)
+	})
+
 	it('provides the documented environment defaults', () => {
 		expect(
 			envSchema.parse({ COOLIFY_URL: 'https://coolify.example.com', COOLIFY_TOKEN: 'token' }),
@@ -60,6 +80,21 @@ describe('Coolify deployments schemas', () => {
 				duration: null,
 			}),
 		).toMatchObject({ status: 'queued' })
+	})
+
+	it('parses Coolify deployment history responses', () => {
+		expect(
+			coolifyDeploymentsResponseSchema.parse({
+				count: 1,
+				deployments: [
+					{
+						application_id: 'application-1',
+						deployment_uuid: 'deployment-1',
+						status: 'finished',
+					},
+				],
+			}).deployments,
+		).toMatchObject([{ deploymentUuid: 'deployment-1' }])
 	})
 
 	it('rejects arbitrary project definitions without a resource UUID', () => {

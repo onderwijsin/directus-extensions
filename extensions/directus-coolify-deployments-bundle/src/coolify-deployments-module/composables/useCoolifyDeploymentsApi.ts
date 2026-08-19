@@ -1,6 +1,26 @@
 import type { ApplicationSummary, DeploymentSummary } from '../types'
 
+import { shallowRef } from 'vue'
+
 import { useApi } from '@directus/extensions-sdk'
+import { attempt } from '@onderwijsin/directus-extension-utils'
+
+import {
+	DEFAULT_DEPLOYMENT_POLL_INTERVAL_MS,
+	DEPLOYMENT_POLL_INTERVAL_HEADER,
+} from '../../shared/constants'
+
+const pollingIntervalMs = shallowRef(DEFAULT_DEPLOYMENT_POLL_INTERVAL_MS)
+
+/**
+ * Update the Studio polling interval from the endpoint response header.
+ * @param headers - Response headers returned by Directus.
+ * @returns Nothing.
+ */
+const updatePollingInterval = (headers: Record<string, unknown>) => {
+	const value = Number(headers[DEPLOYMENT_POLL_INTERVAL_HEADER.toLowerCase()])
+	if (Number.isInteger(value) && value >= 250) pollingIntervalMs.value = value
+}
 
 /**
  * Provide the authenticated Studio client for the Coolify deployment endpoint.
@@ -21,22 +41,26 @@ export function useCoolifyDeploymentsApi() {
 	 * @returns Configured applications.
 	 */
 	const listApplications = async (): Promise<ApplicationSummary[]> =>
-		(await api.get<ApplicationSummary[]>(base)).data
+		(
+			await api.get<ApplicationSummary[]>(base).then((response) => {
+				updatePollingInterval(response.headers)
+				return response
+			})
+		).data
 
 	/**
 	 * Check whether the current user can create configured applications.
 	 * @returns Whether application creation is available.
 	 */
 	const canCreateApplications = async (): Promise<boolean> => {
-		try {
-			const response = await api.get<{
+		const { data } = await attempt(() =>
+			api.get<{
 				data?: Record<string, { create?: { access?: string } }>
-			}>('/permissions/me')
-			const access = response.data.data?.coolify_applications?.create?.access
-			return access === 'full' || access === 'partial'
-		} catch {
-			return false
-		}
+			}>('/permissions/me'),
+		)
+
+		const access = data?.data.data?.coolify_applications?.create?.access
+		return access === 'full' || access === 'partial'
 	}
 
 	/**
@@ -45,7 +69,14 @@ export function useCoolifyDeploymentsApi() {
 	 * @returns Normalized deployments.
 	 */
 	const listDeployments = async (applicationId: string): Promise<DeploymentSummary[]> =>
-		(await api.get<DeploymentSummary[]>(`${base}/${encode(applicationId)}/deployments`)).data
+		(
+			await api
+				.get<DeploymentSummary[]>(`${base}/${encode(applicationId)}/deployments`)
+				.then((response) => {
+					updatePollingInterval(response.headers)
+					return response
+				})
+		).data
 
 	/**
 	 * Fetch one deployment.
@@ -58,9 +89,14 @@ export function useCoolifyDeploymentsApi() {
 		deploymentId: string,
 	): Promise<DeploymentSummary> =>
 		(
-			await api.get<DeploymentSummary>(
-				`${base}/${encode(applicationId)}/deployments/${encode(deploymentId)}`,
-			)
+			await api
+				.get<DeploymentSummary>(
+					`${base}/${encode(applicationId)}/deployments/${encode(deploymentId)}`,
+				)
+				.then((response) => {
+					updatePollingInterval(response.headers)
+					return response
+				})
 		).data
 
 	/**
@@ -87,6 +123,12 @@ export function useCoolifyDeploymentsApi() {
 		)
 	}
 
+	/**
+	 * Read the current Studio polling interval.
+	 * @returns Polling interval in milliseconds.
+	 */
+	const getPollingInterval = () => pollingIntervalMs.value
+
 	return {
 		cancelDeployment,
 		canCreateApplications,
@@ -94,5 +136,6 @@ export function useCoolifyDeploymentsApi() {
 		getDeployment,
 		listApplications,
 		listDeployments,
+		getPollingInterval,
 	}
 }

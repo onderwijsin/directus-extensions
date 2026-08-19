@@ -44,6 +44,7 @@ application or project. Per-application Coolify API tokens are not currently sup
 | `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID`            | no               | stable UUID            | UUID of the policy that manages local Coolify application records. |
 | `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`               | no               | stable UUID            | UUID of the policy that reads Coolify deployment resources.        |
 | `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID`            | no               | stable UUID            | UUID of the policy that triggers Coolify deployments.              |
+| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS`                         | no               | `3000`                 | Studio polling interval in milliseconds; minimum `250`.            |
 
 Each project definition has this shape:
 

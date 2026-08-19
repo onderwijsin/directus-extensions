@@ -53,7 +53,6 @@ export const envSchema = coolifyEnvironmentSchema
 
 export const coolifyProjectSchema = z
 	.object({
-		id: z.number().int(),
 		uuid: z.string().trim().min(1),
 		name: z.string(),
 		description: z.string().nullable().optional(),
@@ -80,27 +79,49 @@ export const coolifyEnvironmentsResponseSchema = z.array(coolifyEnvironmentRespo
 
 export const coolifyApplicationSchema = z
 	.object({
-		id: z.number().int(),
 		uuid: z.string().trim().min(1),
 		name: z.string(),
 		fqdn: z.string().nullable().optional(),
 		status: z.string().nullable().optional(),
 		environment_id: z.number().int().nullable().optional(),
+		git_branch: z.string().nullable().optional(),
+		git_commit_sha: z.string().nullable().optional(),
+		git_repository: z.string().nullable().optional(),
+		build_pack: z.string().nullable().optional(),
+		destination: z
+			.object({
+				server: z
+					.object({ name: z.string().nullable().optional() })
+					.loose()
+					.nullable()
+					.optional(),
+			})
+			.loose()
+			.nullable()
+			.optional(),
 	})
 	.loose()
 	.transform((application) => ({
-		id: application.id,
 		uuid: application.uuid,
 		name: application.name,
 		fqdn: application.fqdn ?? null,
 		status: application.status ?? null,
 		environmentId: application.environment_id ?? null,
+		gitBranch: application.git_branch ?? null,
+		gitCommitSha: application.git_commit_sha ?? null,
+		gitRepository: application.git_repository ?? null,
+		buildPack: application.build_pack ?? null,
+		serverName: application.destination?.server?.name ?? null,
 	}))
 export const coolifyApplicationsResponseSchema = z.array(coolifyApplicationSchema)
 
 export const coolifyDeploymentSchema = z
 	.object({
 		id: z.number().int().nullable().optional(),
+		application: z
+			.object({ uuid: z.string().trim().min(1) })
+			.nullable()
+			.optional(),
 		application_id: z.string().trim().min(1),
 		deployment_uuid: z.string().trim().min(1),
 		pull_request_id: z.number().int().nullable().optional(),
@@ -109,6 +130,7 @@ export const coolifyDeploymentSchema = z
 		status: z.string().trim().min(1),
 		created_at: z.string().nullable().optional(),
 		updated_at: z.string().nullable().optional(),
+		finished_at: z.string().nullable().optional(),
 		deployment_url: z.string().nullable().optional(),
 		commit_message: z.string().nullable().optional(),
 	})
@@ -116,6 +138,7 @@ export const coolifyDeploymentSchema = z
 	.transform((deployment) => ({
 		id: deployment.id ?? null,
 		applicationId: deployment.application_id,
+		applicationUuid: deployment.application?.uuid ?? null,
 		deploymentUuid: deployment.deployment_uuid,
 		pullRequestId: deployment.pull_request_id ?? null,
 		forceRebuild: deployment.force_rebuild ?? null,
@@ -123,11 +146,17 @@ export const coolifyDeploymentSchema = z
 		status: deployment.status,
 		createdAt: deployment.created_at ?? null,
 		updatedAt: deployment.updated_at ?? null,
+		finishedAt: deployment.finished_at ?? null,
 		deploymentUrl: deployment.deployment_url ?? null,
 		commitMessage: deployment.commit_message ?? null,
 	}))
 
-export const coolifyDeploymentsResponseSchema = z.array(coolifyDeploymentSchema)
+export const coolifyDeploymentsResponseSchema = z.object({
+	count: z.number().int().nonnegative(),
+	deployments: z.array(coolifyDeploymentSchema),
+})
+
+export const coolifyDeploymentsListSchema = z.array(coolifyDeploymentSchema)
 
 export const coolifyDeploymentTriggerResponseSchema = z
 	.object({

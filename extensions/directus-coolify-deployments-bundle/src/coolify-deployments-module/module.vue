@@ -3,9 +3,11 @@ import type { ApplicationSummary, DeploymentSummary } from './types'
 
 import { onMounted, onUnmounted, shallowRef } from 'vue'
 
+import ActiveDeploymentList from './components/ActiveDeploymentList.vue'
 import ApplicationList from './components/ApplicationList.vue'
 import DeploymentList from './components/DeploymentList.vue'
 import LoadingSkeleton from './components/LoadingSkeleton.vue'
+import NoDeploymentsInProgress from './components/NoDeploymentsInProgress.vue'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
 
 const api = useCoolifyDeploymentsApi()
@@ -27,7 +29,7 @@ let poller: ReturnType<typeof setInterval> | undefined
  * @returns Studio route.
  */
 const path = (applicationId: string, deploymentId?: string) =>
-	`/admin/coolify-deployments/applications/${encodeURIComponent(applicationId)}${deploymentId ? `/deployments/${encodeURIComponent(deploymentId)}` : ''}`
+	`/coolify-deployments/applications/${encodeURIComponent(applicationId)}${deploymentId ? `/deployments/${encodeURIComponent(deploymentId)}` : ''}`
 
 /**
  *
@@ -41,10 +43,18 @@ const load = async () => {
 			applications.value.map((application) => api.listDeployments(application.id)),
 		)
 		const allDeployments = deployments.flat()
-		current.value = allDeployments.filter((deployment) =>
+		const applicationById = new Map(
+			applications.value.map((application) => [application.id, application]),
+		)
+		const enrichedDeployments = allDeployments.map((deployment) => ({
+			...deployment,
+			applicationName: applicationById.get(deployment.applicationId)?.name ?? null,
+			environmentName: applicationById.get(deployment.applicationId)?.environmentName ?? null,
+		}))
+		current.value = enrichedDeployments.filter((deployment) =>
 			['queued', 'building'].includes(deployment.status),
 		)
-		recent.value = [...allDeployments]
+		recent.value = [...enrichedDeployments]
 			.sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''))
 			.slice(0, 10)
 		error.value = null
@@ -57,8 +67,10 @@ const load = async () => {
 }
 
 onMounted(() => {
-	void load()
-	poller = setInterval(() => void load(), 3000)
+	void (async () => {
+		await load()
+		poller = setInterval(() => void load(), api.getPollingInterval())
+	})()
 })
 onUnmounted(() => {
 	if (poller) clearInterval(poller)
@@ -94,7 +106,9 @@ onUnmounted(() => {
 			<template v-else>
 				<section>
 					<h2>Current deployments</h2>
-					<DeploymentList
+					<NoDeploymentsInProgress v-if="current.length === 0" />
+					<ActiveDeploymentList
+						v-else
 						:deployments="current"
 						:application-path="
 							(deployment) => path(deployment.applicationId, deployment.id)
@@ -105,6 +119,8 @@ onUnmounted(() => {
 					<h2>Recent deployments</h2>
 					<DeploymentList
 						:deployments="recent"
+						empty-title="No recent deployments"
+						empty-copy="Deployment history will appear here when an application is deployed."
 						:application-path="
 							(deployment) => path(deployment.applicationId, deployment.id)
 						"
@@ -123,7 +139,7 @@ onUnmounted(() => {
 .module-page {
 	display: grid;
 	gap: 32px;
-	padding: 24px;
+	padding: var(--content-padding);
 }
 .skeleton-stats {
 	display: grid;

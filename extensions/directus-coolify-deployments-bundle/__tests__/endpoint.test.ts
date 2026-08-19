@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 		COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: 'manage-policy',
 		COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID: 'read-policy',
 		COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: 'trigger-policy',
+		COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS: 3000,
 	})),
 }))
 
@@ -46,12 +47,14 @@ const runEndpoint = (router: ReturnType<typeof createRouter>) => {
 
 interface ResponseMock {
 	status: ReturnType<typeof vi.fn>
+	setHeader: ReturnType<typeof vi.fn>
 	json: ReturnType<typeof vi.fn>
 }
 
 const createResponse = (): ResponseMock => {
 	const response: ResponseMock = {
 		status: vi.fn(),
+		setHeader: vi.fn(),
 		json: vi.fn(),
 	}
 	response.status.mockReturnValue(response)

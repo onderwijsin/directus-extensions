@@ -12,7 +12,7 @@ import {
 	assertRequestWithAccountability,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
+import { DEPLOYMENT_POLL_INTERVAL_HEADER, EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
 import { requirePolicies } from './auth'
 import { envSchema } from './env.schema'
@@ -38,9 +38,24 @@ export default defineEndpoint({
 		if (!setup.isEnabled()) return
 
 		const options = validateExtensionOptions(env, envSchema, logger)
-		const client = createCoolifyDeploymentClient(options, { ...options, services, getSchema })
+		const client = createCoolifyDeploymentClient(options, {
+			...options,
+			services,
+			getSchema,
+			logger,
+		})
 		const schemaLockOptions = {
 			lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
+		}
+
+		/**
+		 * Resolve a Coolify deployment path against the configured Coolify host.
+		 * @param value - Absolute URL or provider-relative path.
+		 * @returns Absolute Coolify URL, or null when no path was provided.
+		 */
+		const absoluteCoolifyUrl = (value: string | null) => {
+			if (!value) return null
+			return new URL(value, options.COOLIFY_URL).toString()
 		}
 
 		/**
@@ -69,7 +84,7 @@ export default defineEndpoint({
 		 * @returns Nothing.
 		 */
 		router.use(
-			asyncHandler(async (request, _response, next) => {
+			asyncHandler(async (request, response, next) => {
 				const accountability = hasKey(request, 'accountability')
 					? request.accountability
 					: undefined
@@ -82,6 +97,10 @@ export default defineEndpoint({
 					return
 				}
 
+				response.setHeader(
+					DEPLOYMENT_POLL_INTERVAL_HEADER,
+					String(options.COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS),
+				)
 				const locked = await rejectWhileSchemaLocked(schemaLockOptions, next)
 				if (!locked) next()
 			}),
@@ -93,6 +112,8 @@ export default defineEndpoint({
 		 * @returns Normalized deployment data.
 		 */
 		const normalizeDeployment = (deployment: CoolifyDeployment) => ({
+			applicationName: null,
+			environmentName: null,
 			id: deployment.deploymentUuid,
 			applicationId: deployment.applicationId,
 			status: /queued|pending/iu.test(deployment.status)
@@ -111,11 +132,21 @@ export default defineEndpoint({
 			commitMessage: deployment.commitMessage,
 			createdAt: deployment.createdAt,
 			startedAt: deployment.createdAt,
-			finishedAt: null,
-			duration: null,
+			finishedAt: deployment.finishedAt,
+			duration:
+				deployment.createdAt && deployment.finishedAt
+					? Math.max(
+							0,
+							Math.round(
+								(new Date(deployment.finishedAt).getTime() -
+									new Date(deployment.createdAt).getTime()) /
+									1000,
+							),
+						)
+					: null,
 			branch: null,
-			url: deployment.deploymentUrl,
-			coolifyUrl: deployment.deploymentUrl,
+			url: absoluteCoolifyUrl(deployment.deploymentUrl),
+			coolifyUrl: absoluteCoolifyUrl(deployment.deploymentUrl),
 			triggeredBy: null,
 		})
 
@@ -163,6 +194,13 @@ export default defineEndpoint({
 							name: item.name || provider.name,
 							url: item.production_url ?? provider.fqdn,
 							projectName: item.project_name,
+							environmentName: item.environment_name,
+							state: provider.status,
+							gitBranch: provider.gitBranch,
+							gitCommitSha: provider.gitCommitSha,
+							gitRepository: provider.gitRepository,
+							buildPack: provider.buildPack,
+							serverName: provider.serverName,
 							latestDeployment: latest ? normalizeDeployment(latest) : null,
 						}
 					}),
@@ -183,6 +221,8 @@ export default defineEndpoint({
 					deployments.map((deployment) => ({
 						...normalizeDeployment(deployment),
 						applicationId: application.id,
+						applicationName: application.name,
+						environmentName: application.environment_name,
 					})),
 				)
 			}),
@@ -192,12 +232,14 @@ export default defineEndpoint({
 			'/applications/:id/deployments/:deploymentId',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID),
 			handle(async (request, response) => {
-				await getConfiguredApplication(request.params.id ?? '')
-				response.json(
-					normalizeDeployment(
+				const application = await getConfiguredApplication(request.params.id ?? '')
+				response.json({
+					...normalizeDeployment(
 						await client.getDeployment(request.params.deploymentId ?? ''),
 					),
-				)
+					applicationName: application.name,
+					environmentName: application.environment_name,
+				})
 			}),
 		)
 

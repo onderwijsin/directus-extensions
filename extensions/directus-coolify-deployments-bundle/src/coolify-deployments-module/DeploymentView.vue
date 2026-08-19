@@ -16,7 +16,30 @@ let poller: ReturnType<typeof setInterval> | undefined
 const active = computed(
 	() => deployment.value && ['queued', 'building'].includes(deployment.value.status),
 )
-const applicationPath = `/admin/coolify-deployments/applications/${encodeURIComponent(props.applicationId)}`
+const applicationPath = `/coolify-deployments/applications/${encodeURIComponent(props.applicationId)}`
+
+/**
+ * Format an ISO timestamp for the current locale.
+ * @param value - ISO timestamp.
+ * @returns Localized date and time, or an em dash.
+ */
+const formatDate = (value: string | null) =>
+	value
+		? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+				new Date(value),
+			)
+		: '—'
+
+/**
+ * Format a deployment duration.
+ * @param value - Duration in seconds.
+ * @returns Compact duration label.
+ */
+const formatDuration = (value: number | null) => {
+	if (value === null) return '—'
+	if (value > 60) return `${Math.round(value / 60)}m`
+	return `${value}s`
+}
 
 /**
  *
@@ -50,10 +73,12 @@ const cancel = async () => {
 	}
 }
 onMounted(() => {
-	void load()
-	poller = setInterval(() => {
-		if (active.value) void load()
-	}, 3000)
+	void (async () => {
+		await load()
+		poller = setInterval(() => {
+			if (active.value) void load()
+		}, api.getPollingInterval())
+	})()
 })
 onUnmounted(() => {
 	if (poller) clearInterval(poller)
@@ -62,15 +87,37 @@ onUnmounted(() => {
 
 <template>
 	<private-view :title="`Deployment · ${props.deploymentId}`">
-		<template #actions
-			><v-button v-if="active" danger :loading="loading" @click="cancel"
-				><v-icon name="cancel" /> Cancel deployment</v-button
-			></template
-		>
-		<div class="page">
-			<v-button secondary :to="applicationPath"
-				><v-icon name="arrow_back" /> Back to application</v-button
+		<template #title-outer:prepend>
+			<v-button
+				icon
+				:primary="false"
+				:small="true"
+				:normal="false"
+				tooltip="Back"
+				:to="applicationPath"
+				class="ghost back-button header-button"
+				aria-label="Back to application"
 			>
+				<v-icon name="arrow_back" />
+			</v-button>
+		</template>
+		<template #actions>
+			<div class="header-actions">
+				<v-button
+					icon
+					rounded
+					secondary
+					:loading="loading"
+					aria-label="Refresh deployment"
+					@click="load"
+					><v-icon name="refresh"
+				/></v-button>
+				<v-button v-if="active" danger :loading="loading" @click="cancel"
+					><v-icon name="cancel" /> Cancel deployment</v-button
+				>
+			</div>
+		</template>
+		<div class="page">
 			<v-notice v-if="error" type="warning">{{ error }}</v-notice>
 			<div v-if="loading" class="loading-layout">
 				<LoadingSkeleton :lines="1" />
@@ -78,87 +125,139 @@ onUnmounted(() => {
 					<LoadingSkeleton v-for="item in 6" :key="item" :lines="2" />
 				</div>
 			</div>
-			<div v-if="deployment" class="header">
-				<DeploymentStatus :status="deployment.status" /><span class="mono">{{
-					deployment.id
-				}}</span>
-			</div>
-			<div v-if="deployment" class="metadata">
-				<div
-					v-for="item in [
-						{ label: 'Created', value: deployment.createdAt },
-						{ label: 'Started', value: deployment.startedAt },
-						{ label: 'Finished', value: deployment.finishedAt },
-						{
-							label: 'Duration',
-							value: deployment.duration ? `${deployment.duration}s` : null,
-						},
-						{ label: 'Branch', value: deployment.branch },
-						{ label: 'Commit', value: deployment.commitSha },
-						{ label: 'Triggered by', value: deployment.triggeredBy },
-					]"
-					:key="item.label"
-				>
-					<span>{{ item.label }}</span
-					><strong>{{ item.value ?? '—' }}</strong>
+			<div v-if="deployment" class="deployment-details">
+				<div class="deployment-header">
+					<h2>Deployment Details</h2>
+					<div class="deployment-actions">
+						<DeploymentStatus :status="deployment.status" />
+						<v-button
+							v-if="deployment.coolifyUrl"
+							:href="deployment.coolifyUrl"
+							target="_blank"
+							rel="noopener"
+							small
+							>Open in Coolify <v-icon name="launch" style="margin-left: 4px" small
+						/></v-button>
+					</div>
+				</div>
+				<div class="metadata-card">
+					<table class="metadata-table">
+						<tbody>
+							<tr>
+								<td><v-icon name="web" small /> Application</td>
+								<td>{{ deployment.applicationName ?? '—' }}</td>
+							</tr>
+							<tr>
+								<td><v-icon name="fingerprint" small /> Deployment ID</td>
+								<td class="mono">{{ deployment.id }}</td>
+							</tr>
+							<tr>
+								<td><v-icon name="play_arrow" small /> Started</td>
+								<td>{{ formatDate(deployment.startedAt) }}</td>
+							</tr>
+							<tr>
+								<td><v-icon name="schedule" small /> Created</td>
+								<td>{{ formatDate(deployment.createdAt) }}</td>
+							</tr>
+							<tr>
+								<td><v-icon name="check_circle" small /> Finished</td>
+								<td>{{ formatDate(deployment.finishedAt) }}</td>
+							</tr>
+							<tr>
+								<td><v-icon name="timer" small /> Duration</td>
+								<td>{{ formatDuration(deployment.duration) }}</td>
+							</tr>
+							<tr>
+								<td><v-icon name="account_tree" small /> Branch</td>
+								<td>{{ deployment.branch ?? '—' }}</td>
+							</tr>
+							<tr>
+								<td><v-icon name="commit" small /> Commit</td>
+								<td class="mono">{{ deployment.commitSha ?? '—' }}</td>
+							</tr>
+							<tr>
+								<td><v-icon name="person" small /> Triggered by</td>
+								<td>{{ deployment.triggeredBy ?? '—' }}</td>
+							</tr>
+							<tr v-if="deployment.commitMessage">
+								<td><v-icon name="notes" small /> Commit message</td>
+								<td>{{ deployment.commitMessage }}</td>
+							</tr>
+						</tbody>
+					</table>
 				</div>
 			</div>
-			<div v-if="deployment?.commitMessage" class="message">
-				<span>Commit message</span>
-				<p>{{ deployment.commitMessage }}</p>
-			</div>
-			<a
-				v-if="deployment?.coolifyUrl"
-				:href="deployment.coolifyUrl"
-				target="_blank"
-				rel="noopener"
-				>Open in Coolify <v-icon name="launch" small
-			/></a>
 		</div>
 	</private-view>
 </template>
 
 <style scoped>
+.header-actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
 .page {
 	display: grid;
 	gap: 24px;
-	padding: 24px;
+	padding: var(--content-padding);
 }
 .loading-layout {
 	display: grid;
 	gap: 16px;
 }
-.header {
+.deployment-details {
 	display: flex;
-	align-items: center;
-	gap: 16px;
+	flex-direction: column;
+	gap: 24px;
 }
 .mono {
 	font-family: var(--family-monospace);
 }
-.metadata {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+.deployment-header,
+.deployment-actions {
+	display: flex;
+	align-items: center;
+}
+.deployment-header {
+	justify-content: space-between;
+	gap: 16px;
+}
+.deployment-header h2 {
+	margin: 0;
+	font-size: 18px;
+}
+.deployment-actions {
 	gap: 12px;
 }
-.metadata > div,
-.message {
-	display: grid;
-	gap: 6px;
-	padding: 16px;
+.metadata-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+.metadata-card {
+	padding: 8px 20px;
 	border: 1px solid var(--border-normal);
 	border-radius: 8px;
+	background: var(--background-subdued);
 }
-.metadata span,
-.message span {
+.metadata-table td {
+	padding: 12px 0;
+	border-bottom: 1px solid var(--border-normal);
+	vertical-align: top;
+}
+.metadata-table tr:last-child td {
+	border-bottom: 0;
+}
+.metadata-table td:first-child {
+	display: flex;
+	align-items: center;
+	width: 220px;
+	gap: 0.35rem;
 	color: var(--foreground-subdued);
 	font-size: 12px;
 	text-transform: uppercase;
 }
-.message p {
-	margin: 0;
-}
-.page > a {
-	color: var(--primary);
+.metadata-table td:last-child {
+	word-break: break-word;
 }
 </style>

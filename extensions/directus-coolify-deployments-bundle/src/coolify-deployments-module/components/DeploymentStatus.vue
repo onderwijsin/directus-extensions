@@ -14,14 +14,15 @@ const labels: Record<Status, string> = {
 
 <template>
 	<v-chip :class="['status', `status-${status}`]">
-		<v-icon v-if="status === 'building'" name="sync" class="status-icon spinning" />
-		<v-icon v-else-if="status === 'ready'" name="check_circle" class="status-icon" />
+		<v-icon v-if="status === 'building'" name="sync" small class="status-icon spinning" />
+		<v-icon v-else-if="status === 'ready'" name="check_circle" small class="status-icon" />
 		<v-icon
 			v-else-if="status === 'error' || status === 'canceled'"
 			name="error"
+			small
 			class="status-icon"
 		/>
-		<v-icon v-else name="schedule" class="status-icon" />
+		<v-icon v-else name="schedule" small class="status-icon" />
 		{{ labels[status] }}
 	</v-chip>
 </template>
@@ -29,6 +30,9 @@ const labels: Record<Status, string> = {
 <style scoped>
 .status {
 	--status-color: var(--foreground-subdued);
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	color: var(--status-color);
 }
 
@@ -46,6 +50,11 @@ const labels: Record<Status, string> = {
 }
 .status-icon {
 	color: var(--status-color);
+}
+.status :deep(.chip-content) {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
 }
 .spinning {
 	animation: spin 1.2s linear infinite;

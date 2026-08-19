@@ -53,6 +53,7 @@ The package reserves these Directus environment variables:
 | `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID`            | UUID for the local application-management policy; has a stable default.                           |
 | `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`               | UUID for the deployment-read policy; has a stable default.                                        |
 | `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID`            | UUID for the deployment-trigger policy; has a stable default.                                     |
+| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS`                         | Studio polling interval in milliseconds; defaults to `3000` and must be at least `250`.           |
 
 Example shape for `COOLIFY_PROJECTS`:
 

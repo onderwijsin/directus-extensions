@@ -40,9 +40,7 @@ const configuredApplications: DirectusCoolifyApplication[] = [
 	},
 ]
 
-const readMany = vi.fn((_keys: unknown[], _query?: unknown) =>
-	Promise.resolve(configuredApplications),
-)
+const readByQuery = vi.fn((_query?: unknown) => Promise.resolve(configuredApplications))
 const itemsServiceOptions = vi.fn()
 
 const context = {
@@ -52,8 +50,8 @@ const context = {
 				itemsServiceOptions(collection, serviceOptions)
 			}
 
-			public readMany(keys: unknown[], query?: unknown) {
-				return readMany(keys, query)
+			public readByQuery(query?: unknown) {
+				return readByQuery(query)
 			}
 		},
 	},
@@ -69,7 +67,7 @@ describe('Coolify deployment client', () => {
 		mocks.ofetch.mockReset()
 		mocks.ofetch.mockReturnValue(mocks.request)
 		mocks.request.mockReset()
-		readMany.mockClear()
+		readByQuery.mockClear()
 		itemsServiceOptions.mockClear()
 	})
 
@@ -94,16 +92,28 @@ describe('Coolify deployment client', () => {
 			)
 			.mockImplementationOnce(() =>
 				jsonResponse([
-					{ id: 3, uuid: 'application-1', name: 'Frontend', environment_id: 2 },
+					{
+						uuid: 'application-1',
+						name: 'Frontend',
+						environment_id: 2,
+						git_branch: 'main',
+						git_commit_sha: 'abc123',
+					},
 				]),
 			)
 			.mockImplementationOnce(() =>
-				jsonResponse({ id: 3, uuid: 'application-1', name: 'Frontend', environment_id: 2 }),
+				jsonResponse({
+					uuid: 'application-1',
+					name: 'Frontend',
+					environment_id: 2,
+					git_branch: 'main',
+					git_commit_sha: 'abc123',
+				}),
 			)
 		const client = createClient()
 
 		await expect(client.listProjects()).resolves.toEqual([
-			{ id: 1, uuid: 'project-1', name: 'Frontend', description: null },
+			{ uuid: 'project-1', name: 'Frontend', description: null },
 		])
 		await expect(client.getProject('project-1')).resolves.toMatchObject({ uuid: 'project-1' })
 		await expect(client.listEnvironments('project-1')).resolves.toEqual([
@@ -114,12 +124,16 @@ describe('Coolify deployment client', () => {
 		})
 		await expect(client.listApplications({ tag: 'frontend' })).resolves.toEqual([
 			{
-				id: 3,
 				uuid: 'application-1',
 				name: 'Frontend',
 				fqdn: null,
 				status: null,
 				environmentId: 2,
+				gitBranch: 'main',
+				gitCommitSha: 'abc123',
+				gitRepository: null,
+				buildPack: null,
+				serverName: null,
 			},
 		])
 		await expect(client.getApplication('application-1')).resolves.toMatchObject({
@@ -145,7 +159,7 @@ describe('Coolify deployment client', () => {
 		const client = createClient()
 
 		await expect(client.listConfiguredApplication()).resolves.toEqual(configuredApplications)
-		expect(readMany).toHaveBeenCalledWith([], {
+		expect(readByQuery).toHaveBeenCalledWith({
 			limit: -1,
 			filter: { enabled: { _eq: true } },
 		})
@@ -165,12 +179,13 @@ describe('Coolify deployment client', () => {
 		await client.listConfiguredApplication()
 		await client.listConfiguredApplication()
 
-		expect(readMany).toHaveBeenCalledOnce()
+		expect(readByQuery).toHaveBeenCalledOnce()
 	})
 
 	it('models deployment history, running deployments, details, and cancellation', async () => {
 		const deployment = {
-			application_id: 'application-1',
+			application: { uuid: 'application-1' },
+			application_id: '18',
 			commit: 'abc123',
 			commit_message: 'Update content',
 			created_at: '2026-08-19T10:00:00Z',
@@ -180,7 +195,7 @@ describe('Coolify deployment client', () => {
 			updated_at: '2026-08-19T10:01:00Z',
 		}
 		mocks.request
-			.mockImplementationOnce(() => jsonResponse([deployment]))
+			.mockImplementationOnce(() => jsonResponse({ count: 1, deployments: [deployment] }))
 			.mockImplementationOnce(() => jsonResponse([deployment]))
 			.mockImplementationOnce(() => jsonResponse(deployment))
 			.mockImplementationOnce(() => jsonResponse(deployment))
@@ -194,7 +209,11 @@ describe('Coolify deployment client', () => {
 		const client = createClient()
 
 		await expect(client.listApplicationDeployments('application-1')).resolves.toMatchObject([
-			{ applicationId: 'application-1', deploymentUuid: 'deployment-1' },
+			{
+				applicationId: '18',
+				applicationUuid: 'application-1',
+				deploymentUuid: 'deployment-1',
+			},
 		])
 		await expect(client.listRunningDeployments()).resolves.toHaveLength(1)
 		await expect(client.getDeployment('deployment-1')).resolves.toMatchObject({
@@ -226,7 +245,7 @@ describe('Coolify deployment client', () => {
 		const client = createClient()
 
 		expect(await client.listProjects()).toEqual([
-			{ id: 1, uuid: 'project-1', name: 'Allowed', description: null },
+			{ uuid: 'project-1', name: 'Allowed', description: null },
 		])
 		await expect(client.getProject('project-2')).rejects.toMatchObject({ status: 403 })
 		await expect(client.getApplication('application-2')).rejects.toMatchObject({ status: 403 })
@@ -288,9 +307,14 @@ describe('Coolify deployment client', () => {
 		})
 		mocks.request
 			.mockImplementationOnce(() =>
-				jsonResponse(Array.from({ length: 100 }, (_, index) => createDeployment(index))),
+				jsonResponse({
+					count: 101,
+					deployments: Array.from({ length: 100 }, (_, index) => createDeployment(index)),
+				}),
 			)
-			.mockImplementationOnce(() => jsonResponse([createDeployment(100)]))
+			.mockImplementationOnce(() =>
+				jsonResponse({ count: 101, deployments: [createDeployment(100)] }),
+			)
 		const deployments = await createClient().listApplicationDeployments('application-1')
 
 		expect(deployments).toHaveLength(101)
@@ -327,12 +351,13 @@ describe('Coolify deployment client', () => {
 			},
 		])
 		expect(mocks.request).toHaveBeenCalledWith('/deploy', {
+			method: 'POST',
 			query: { uuid: 'application-1', force: true },
 		})
 	})
 
 	it('rejects deployment mutations when deploy_enabled is false', async () => {
-		readMany.mockResolvedValue(
+		readByQuery.mockResolvedValue(
 			configuredApplications.map((application) => ({
 				...application,
 				deploy_enabled: false,
@@ -347,7 +372,7 @@ describe('Coolify deployment client', () => {
 	})
 
 	it('rejects cancellation when the configured application cannot be deployed', async () => {
-		readMany.mockResolvedValue(
+		readByQuery.mockResolvedValue(
 			configuredApplications.map((application) => ({
 				...application,
 				deploy_enabled: false,

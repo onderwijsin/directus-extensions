@@ -3,14 +3,27 @@ import type { ApplicationSummary } from '../types'
 
 import { useRouter } from 'vue-router'
 
-import DeploymentStatus from './DeploymentStatus.vue'
+import ApplicationStateBadge from './ApplicationStateBadge.vue'
 
 defineProps<{ applications: ApplicationSummary[]; applicationPath: (id: string) => string }>()
 const router = useRouter()
+/**
+ * Format an ISO timestamp for the current locale.
+ * @param value - ISO timestamp.
+ * @returns Localized date and time, or an em dash.
+ */
+const formatDate = (value: string | null) =>
+	value
+		? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+				new Date(value),
+			)
+		: '—'
 </script>
 
 <template>
-	<div v-if="applications.length === 0" class="empty">No configured applications found</div>
+	<v-info v-if="applications.length === 0" icon="apps" title="No applications configured" center>
+		Add a Coolify application to start deploying from Directus.
+	</v-info>
 	<div v-else class="application-grid">
 		<div
 			v-for="application in applications"
@@ -18,7 +31,7 @@ const router = useRouter()
 			class="application-card clickable"
 			@click="router.push(applicationPath(application.id))"
 		>
-			<div class="application-heading">
+			<div class="application-heading" :title="application.name">
 				<v-icon name="web" /><strong>{{ application.name }}</strong>
 			</div>
 			<a
@@ -30,16 +43,15 @@ const router = useRouter()
 				>{{ application.url }}</a
 			>
 			<span v-else class="subdued">No application URL configured</span>
+			<div class="source-meta">
+				<span v-if="application.gitBranch"
+					><v-icon name="account_tree" small /> {{ application.gitBranch }}</span
+				>
+			</div>
 			<div class="application-footer">
-				<DeploymentStatus
-					v-if="application.latestDeployment"
-					:status="application.latestDeployment.status"
-				/>
-				<span v-else class="subdued">No deployments yet</span>
+				<ApplicationStateBadge :state="application.state" />
 				<span class="subdued">{{
-					application.latestDeployment?.createdAt
-						? new Date(application.latestDeployment.createdAt).toLocaleString()
-						: '—'
+					formatDate(application.latestDeployment?.createdAt ?? null)
 				}}</span>
 			</div>
 		</div>
@@ -59,12 +71,23 @@ const router = useRouter()
 	border: 1px solid var(--border-normal);
 	border-radius: 8px;
 	background: var(--background-subdued);
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease;
 }
 .application-heading {
 	display: flex;
 	align-items: center;
 	gap: 10px;
+	min-width: 0;
 	font-size: 16px;
+}
+.application-heading strong {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 15px;
+	white-space: nowrap;
 }
 .application-card a {
 	overflow: hidden;
@@ -78,10 +101,21 @@ const router = useRouter()
 	justify-content: space-between;
 	gap: 8px;
 }
+.source-meta {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: var(--foreground-subdued);
+	font-size: 13px;
+}
+.mono {
+	font-family: var(--family-monospace);
+}
 .clickable {
 	cursor: pointer;
 }
 .clickable:hover {
+	background: var(--background-highlight);
 	border-color: var(--primary);
 }
 .subdued,
