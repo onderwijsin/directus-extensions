@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { redisConfigSchema, resolveRedisConnectionString } from '../config/cache'
+
 /** Supported providers for Directus startup coordination. */
 export const startupLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
 
@@ -20,19 +22,25 @@ export const directusStartupSchema = z
 		DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: z.string().trim().min(1).optional(),
 		DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: z.string().trim().min(1).optional(),
 		DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: extensionRateLimiterStoreSchema.default('memory'),
-		REDIS: z.string().trim().min(1).optional(),
+		...redisConfigSchema.shape,
 	})
 	.superRefine((options, context) => {
+		let redisConnection: string | undefined
+		try {
+			redisConnection = resolveRedisConnectionString(options)
+		} catch {
+			redisConnection = undefined
+		}
 		if (
 			options.DIRECTUS_EXTENSIONS_LOCK_PROVIDER === 'REDIS' &&
 			!options.DIRECTUS_EXTENSIONS_LOCK_REDIS_URL &&
-			!options.REDIS
+			!redisConnection
 		) {
 			context.addIssue({
 				code: 'custom',
 				path: ['DIRECTUS_EXTENSIONS_LOCK_REDIS_URL'],
 				message:
-					'DIRECTUS_EXTENSIONS_LOCK_REDIS_URL or REDIS is required when DIRECTUS_EXTENSIONS_LOCK_PROVIDER is REDIS',
+					'DIRECTUS_EXTENSIONS_LOCK_REDIS_URL or resolved Redis configuration is required when DIRECTUS_EXTENSIONS_LOCK_PROVIDER is REDIS',
 			})
 		}
 		if (
@@ -45,11 +53,12 @@ export const directusStartupSchema = z
 				message: 'is required when DIRECTUS_EXTENSIONS_LOCK_PROVIDER is FS',
 			})
 		}
-		if (options.DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE === 'redis' && !options.REDIS) {
+		if (options.DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE === 'redis' && !redisConnection) {
 			context.addIssue({
 				code: 'custom',
 				path: ['REDIS'],
-				message: 'is required when DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE is redis',
+				message:
+					'Redis configuration is required when DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE is redis',
 			})
 		}
 	})

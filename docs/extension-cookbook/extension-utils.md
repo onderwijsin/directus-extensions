@@ -138,10 +138,16 @@ const cache = initializeCache(env, { ttl: 60_000 })
 const cached = await cache?.get('orders:summary')
 ```
 
-The validated environment must contain `CACHE_ENABLED`, `CACHE_STORE` (`memory` or `redis`), and
-`REDIS` when Redis is selected. Disabled caching returns `null`; Redis uses the shared
-`directus:extensions` namespace. Callers should prefix keys with their extension name, and TTLs must
-be finite positive numbers.
+Validate cache settings with `cacheConfigSchema`. `REDIS` takes precedence over the four component
+values; component configuration requires `REDIS_ENABLED=true` and all of `REDIS_HOST`, `REDIS_PORT`,
+`REDIS_USERNAME`, and `REDIS_PASSWORD`. `resolveRedisConnectionString` only resolves the URL and
+never creates a client. `resolveCacheStorage` returns the public `memory`, `redis`, or `null` value;
+`initializeCache` maps `memory` to `@directus/memory`'s local backend internally.
+
+The same `/server` subpath exports `emailConfigSchema`, `requiredEmailConfigSchema`, and
+`isEmailConfigured`. Use the base schema for optional email settings and the required schema at an
+extension startup boundary when the selected `sendmail`, `smtp`, `mailgun`, or `ses` transport must
+be usable.
 
 ### Schema changes
 
@@ -266,19 +272,22 @@ contain the complete signatures. This article focuses on choosing a group and us
 
 The shared configuration and per-operation controls are:
 
-| Option                                       | Scope     | Default          | Notes                                                           |
-| -------------------------------------------- | --------- | ---------------- | --------------------------------------------------------------- |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Disables every extension's schema setup when false.             |
-| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`      | global    | `true`           | Disables policy and future data seeds when false.               |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Choose `MEMORY`, `REDIS`, or `FS`.                              |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Optional override; falls back to Directus `REDIS`.              |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required when the provider is `FS`.                             |
-| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`     | global    | `memory`         | Selects the process-local or Redis extension limiter store.     |
-| `REDIS`                                      | Directus  | —                | Required by extension limiters when the store is `redis`.       |
-| `lockProviderConfig`                         | operation | —                | Validated environment options for automatic provider creation.  |
-| `lockProvider`                               | operation | —                | Explicit consumer-owned provider; takes precedence over config. |
-| `abortOnError`                               | operation | `true`           | Keep false to log and continue after a service failure.         |
-| `lockLeaseMs`                                | operation | provider default | Per-acquisition lease override.                                 |
+| Option                                                         | Scope     | Default          | Notes                                                           |
+| -------------------------------------------------------------- | --------- | ---------------- | --------------------------------------------------------------- |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | global    | `true`           | Disables every extension's schema setup when false.             |
+| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`                        | global    | `true`           | Disables policy and future data seeds when false.               |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | global    | `MEMORY`         | Choose `MEMORY`, `REDIS`, or `FS`.                              |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | global    | —                | Optional override; otherwise uses resolved Redis settings.      |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | global    | —                | Required when the provider is `FS`.                             |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | global    | `memory`         | Selects the process-local or Redis extension limiter store.     |
+| `REDIS_ENABLED`                                                | Directus  | `false`          | Enables component-based Redis configuration.                    |
+| `REDIS`                                                        | Directus  | —                | Complete URL; takes precedence over component values.           |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Directus  | —                | Required together for component-based Redis.                    |
+| `REDIS`                                                        | Directus  | —                | Required by extension limiters when the store is `redis`.       |
+| `lockProviderConfig`                                           | operation | —                | Validated environment options for automatic provider creation.  |
+| `lockProvider`                                                 | operation | —                | Explicit consumer-owned provider; takes precedence over config. |
+| `abortOnError`                                                 | operation | `true`           | Keep false to log and continue after a service failure.         |
+| `lockLeaseMs`                                                  | operation | provider default | Per-acquisition lease override.                                 |
 
 The operation always acquires the configured lock. The result reports created resources by stable
 identifiers in `changed`; `skipped` is true when the lock was held by another process. Existing

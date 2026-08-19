@@ -9,6 +9,7 @@ describe('directusStartupSchema', () => {
 			DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: true,
 			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
 			DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'memory',
+			REDIS_ENABLED: false,
 		})
 	})
 
@@ -55,5 +56,21 @@ describe('directusStartupSchema', () => {
 				REDIS: 'redis://localhost:6379',
 			}).success,
 		).toBe(true)
+	})
+
+	it('accepts component-based Redis configuration for startup coordination', () => {
+		const options = {
+			REDIS_ENABLED: true,
+			REDIS_HOST: 'cache.example',
+			REDIS_PORT: 6379,
+			REDIS_USERNAME: 'default',
+			REDIS_PASSWORD: 'secret',
+			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'REDIS' as const,
+			DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'redis' as const,
+		}
+		expect(directusStartupSchema.safeParse(options).success).toBe(true)
+		expect(
+			directusStartupSchema.safeParse({ ...options, REDIS_PASSWORD: undefined }).success,
+		).toBe(false)
 	})
 })

@@ -102,6 +102,25 @@ Use `createCache` for disposable derived data and `createKv` for coordination st
 provided by `@directus/memory` and support local and Redis-backed stores. `Kv` additionally exposes
 `increment`, `acquireLock`, and `usingLock`.
 
+## Server-only configuration
+
+```ts
+cacheConfigSchema
+redisConfigSchema
+emailConfigSchema
+requiredEmailConfigSchema
+resolveRedisConnectionString(options: RedisConfig): string | undefined
+resolveCacheStorage(options: CacheConfig): 'memory' | 'redis' | null
+isEmailConfigured(options: unknown): boolean
+```
+
+`REDIS` takes precedence over `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, and `REDIS_PASSWORD`.
+Component-based resolution requires `REDIS_ENABLED=true` and all four values, and credentials are
+percent-encoded. Cache storage keeps the public `memory` value; `initializeCache` maps it to the
+memory package's local backend internally. The base email schema is optional and supplies Directus
+defaults; the required schema validates the selected `sendmail`, `smtp`, `mailgun`, or `ses`
+transport.
+
 ## Server-only locks
 
 ```ts
@@ -404,7 +423,7 @@ Schema-change configuration summary:
 | --- | --- | --- |
 | `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | `true` | Global master switch. |
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | `MEMORY` | Enum: `MEMORY`, `REDIS`, `FS`. |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | absent | Required for `REDIS`; provider is disposed when factory-created. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | absent | Optional override; otherwise uses resolved Redis settings. |
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | absent | Required for `FS`. |
 
 `ensureDirectusSchema` returns stable resource identifiers in `changed` and reports lock contention as

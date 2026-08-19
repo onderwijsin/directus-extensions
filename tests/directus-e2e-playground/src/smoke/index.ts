@@ -1,5 +1,9 @@
 import { isRecord } from '@onderwijsin/directus-extension-utils'
-import { createLogger } from '@onderwijsin/directus-extension-utils/server'
+import {
+	cacheConfigSchema,
+	createLogger,
+	resolveRedisConnectionString,
+} from '@onderwijsin/directus-extension-utils/server'
 import Redis from 'ioredis'
 
 import { runAttemptSmokeTest } from './attempts'
@@ -16,17 +20,27 @@ import { runValueSmokeTest } from './values'
  * @returns A promise that resolves after all smoke groups complete.
  */
 export const runUtilitySmokeTest = async (meta: unknown): Promise<void> => {
-	if (!process.env.REDIS) return
+	const redisConfig = cacheConfigSchema.safeParse({
+		REDIS: process.env.REDIS,
+		REDIS_ENABLED: process.env.REDIS_ENABLED === 'true',
+		REDIS_HOST: process.env.REDIS_HOST,
+		REDIS_PORT: process.env.REDIS_PORT,
+		REDIS_USERNAME: process.env.REDIS_USERNAME,
+		REDIS_PASSWORD: process.env.REDIS_PASSWORD,
+	})
+	if (!redisConfig.success) return
+	const redisUrl = resolveRedisConnectionString(redisConfig.data)
+	if (!redisUrl) return
 	const record = isRecord(meta) ? meta : {}
 	const logger = createLogger()
-	const redis = new Redis(process.env.REDIS)
+	const redis = new Redis(redisUrl)
 	redis.on('error', (error: Error) => logger.error({ msg: 'Redis E2E client failed', error }))
 
 	try {
 		const attempts = await runAttemptSmokeTest()
 		const guards = runGuardSmokeTest(record)
 		const cache = await runCacheSmokeTest(redis)
-		const locks = await runLockSmokeTest(process.env.REDIS)
+		const locks = await runLockSmokeTest(redisUrl)
 		const markers = await runMarkerSmokeTest(redis)
 		const values = runValueSmokeTest(record, attempts.retry, attempts.async)
 		const runs = await runAutoTaskSmokeTest(markers.fileStorage, logger)

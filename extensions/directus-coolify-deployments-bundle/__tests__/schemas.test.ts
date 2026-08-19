@@ -83,6 +83,17 @@ describe('Coolify deployments schemas', () => {
 				REDIS: 'redis://localhost',
 			}).success,
 		).toBe(true)
+		expect(
+			endpointEnvSchema.safeParse({
+				...base,
+				CACHE_STORE: 'redis',
+				REDIS_ENABLED: true,
+				REDIS_HOST: 'cache',
+				REDIS_PORT: 6379,
+				REDIS_USERNAME: 'default',
+				REDIS_PASSWORD: 'secret',
+			}).success,
+		).toBe(true)
 	})
 
 	it('restricts deployment requests to one application UUID', () => {

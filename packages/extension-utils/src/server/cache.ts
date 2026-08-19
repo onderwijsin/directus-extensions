@@ -4,6 +4,12 @@ import { createCache } from '@directus/memory'
 import Redis from 'ioredis'
 
 import { isFiniteNumber } from '../shared'
+import {
+	cacheConfigSchema,
+	resolveCacheStorage,
+	resolveRedisConnectionString,
+	type RedisConfig,
+} from './config/cache'
 
 const CACHE_NAMESPACE = 'directus:extensions'
 
@@ -11,7 +17,12 @@ const CACHE_NAMESPACE = 'directus:extensions'
 export interface CacheEnv {
 	CACHE_ENABLED: boolean
 	CACHE_STORE: 'redis' | 'memory'
+	REDIS_ENABLED?: boolean
 	REDIS?: string
+	REDIS_HOST?: string
+	REDIS_PORT?: number
+	REDIS_USERNAME?: string
+	REDIS_PASSWORD?: string
 }
 
 /** Options shared by all extension cache instances. */
@@ -27,21 +38,25 @@ export interface CacheOptions {
  * @returns A configured cache, or null when caching is disabled.
  */
 export function initializeCache(env: CacheEnv, options: CacheOptions): Cache | null {
-	if (!env.CACHE_ENABLED) return null
 	if (!isFiniteNumber(options.ttl) || options.ttl <= 0) {
 		throw new TypeError('Cache ttl must be a finite positive number')
 	}
 
-	if (env.CACHE_STORE === 'redis') {
-		if (!env.REDIS) throw new Error('Redis cache requires REDIS')
+	const config = cacheConfigSchema.parse(env)
+	const storage = resolveCacheStorage(config)
+	if (storage === 'redis') {
+		const redisUrl = resolveRedisConnectionString(config)
+		if (!redisUrl) throw new Error('Redis cache requires REDIS or all Redis component values')
 
 		return createCache({
 			type: 'redis',
 			namespace: CACHE_NAMESPACE,
-			redis: new Redis(env.REDIS),
+			redis: new Redis(redisUrl),
 			ttl: options.ttl,
 		})
 	}
 
-	return createCache({ type: 'local', ttl: options.ttl })
+	return storage === 'memory' ? createCache({ type: 'local', ttl: options.ttl }) : null
 }
+
+export type { RedisConfig }

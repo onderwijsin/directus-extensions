@@ -26,21 +26,23 @@ application or project. Per-application Coolify API tokens are not currently sup
 
 ## Configuration
 
-| Variable                                            | Required         | Default                | Description                                                        |
-| --------------------------------------------------- | ---------------- | ---------------------- | ------------------------------------------------------------------ |
-| `COOLIFY_DEPLOYMENTS_ENABLED`                       | no               | `true`                 | Enables the bundle entries.                                        |
-| `COOLIFY_APPLICATIONS_COLLECTION`                   | no               | `coolify_applications` | Allow-listed applications collection.                              |
-| `COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED`        | no               | `true`                 | Enables this bundle's schema changes.                              |
-| `COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR`         | no               | `true`                 | Aborts schema setup after an unexpected error.                     |
-| `COOLIFY_URL`                                       | yes when enabled | —                      | Base URL of the Coolify instance.                                  |
-| `COOLIFY_TOKEN`                                     | yes when enabled | —                      | Server-only least-privilege Coolify API token.                     |
-| `COOLIFY_PROJECTS`                                  | no               | `[]`                   | JSON/Directus array of configured frontend project definitions.    |
-| `CACHE_ENABLED`                                     | no               | `true`                 | Enables caching of configured application records.                 |
-| `CACHE_STORE`                                       | no               | `memory`               | Cache backend: `memory` or `redis`.                                |
-| `REDIS`                                             | when Redis cache | —                      | Redis connection string required when `CACHE_STORE` is `redis`.    |
-| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | no               | stable UUID            | UUID of the policy that manages local Coolify application records. |
-| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | no               | stable UUID            | UUID of the policy that reads Coolify deployment resources.        |
-| `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID` | no               | stable UUID            | UUID of the policy that triggers Coolify deployments.              |
+| Variable                                                       | Required         | Default                | Description                                                        |
+| -------------------------------------------------------------- | ---------------- | ---------------------- | ------------------------------------------------------------------ |
+| `COOLIFY_DEPLOYMENTS_ENABLED`                                  | no               | `true`                 | Enables the bundle entries.                                        |
+| `COOLIFY_APPLICATIONS_COLLECTION`                              | no               | `coolify_applications` | Allow-listed applications collection.                              |
+| `COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED`                   | no               | `true`                 | Enables this bundle's schema changes.                              |
+| `COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR`                    | no               | `true`                 | Aborts schema setup after an unexpected error.                     |
+| `COOLIFY_URL`                                                  | yes when enabled | —                      | Base URL of the Coolify instance.                                  |
+| `COOLIFY_TOKEN`                                                | yes when enabled | —                      | Server-only least-privilege Coolify API token.                     |
+| `COOLIFY_PROJECTS`                                             | no               | `[]`                   | JSON/Directus array of configured frontend project definitions.    |
+| `CACHE_ENABLED`                                                | no               | `true`                 | Enables caching of configured application records.                 |
+| `CACHE_STORE`                                                  | no               | `memory`               | Cache backend: `memory` or `redis`.                                |
+| `REDIS_ENABLED`                                                | when Redis cache | `false`                | Enables component-based Redis configuration.                       |
+| `REDIS`                                                        | when Redis cache | —                      | Complete URL; takes precedence over component values.              |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | when Redis cache | —                      | Required together for component-based Redis.                       |
+| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID`            | no               | stable UUID            | UUID of the policy that manages local Coolify application records. |
+| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`               | no               | stable UUID            | UUID of the policy that reads Coolify deployment resources.        |
+| `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID`            | no               | stable UUID            | UUID of the policy that triggers Coolify deployments.              |
 
 Each project definition has this shape:
 
@@ -71,7 +73,7 @@ The `coolify-deployments-hook` entry creates the allow-listed applications colle
 uses the shared schema-change lock; endpoint routes return `503` while the collection schema is
 being ensured. The server-side client reads configured applications with administrative
 accountability and caches them for 60 seconds. Select `memory` for a process-local cache or `redis`
-with a valid `REDIS` connection string for a shared cache.
+with a valid complete `REDIS` URL or component-based Redis configuration for a shared cache.
 
 The managed `coolify_applications` collection requires every field, including project and
 environment metadata and the production URL; none of its fields accept `null`.

@@ -54,7 +54,7 @@ describe('initializeCache', () => {
 	it('requires a Redis URL for the Redis backend', () => {
 		expect(() =>
 			initializeCache({ CACHE_ENABLED: true, CACHE_STORE: 'redis' }, { ttl: 1000 }),
-		).toThrow('Redis cache requires REDIS')
+		).toThrow('Redis configuration is required when CACHE_STORE is redis')
 	})
 
 	it('rejects non-positive or non-finite TTL values', () => {

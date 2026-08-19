@@ -37,19 +37,21 @@ messaging.
 
 The package reserves these Directus environment variables:
 
-| Variable                                            | Description                                                                                       |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `COOLIFY_DEPLOYMENTS_ENABLED`                       | Enables the bundle; defaults to `true`.                                                           |
-| `COOLIFY_APPLICATIONS_COLLECTION`                   | Collection for allow-listed Coolify applications; defaults to `coolify_applications`.             |
-| `COOLIFY_URL`                                       | Base URL of the Coolify instance.                                                                 |
-| `COOLIFY_TOKEN`                                     | Server-only Coolify API token.                                                                    |
-| `COOLIFY_PROJECTS`                                  | Configured frontend projects with stable IDs, names, production URLs, and Coolify resource UUIDs. |
-| `CACHE_ENABLED`                                     | Enables caching of configured application records; defaults to `true`.                            |
-| `CACHE_STORE`                                       | Cache backend: `memory` or `redis`; defaults to `memory`.                                         |
-| `REDIS`                                             | Redis connection string; required when `CACHE_STORE` is `redis`.                                  |
-| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | UUID for the local application-management policy; has a stable default.                           |
-| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | UUID for the deployment-read policy; has a stable default.                                        |
-| `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID` | UUID for the deployment-trigger policy; has a stable default.                                     |
+| Variable                                                       | Description                                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `COOLIFY_DEPLOYMENTS_ENABLED`                                  | Enables the bundle; defaults to `true`.                                                           |
+| `COOLIFY_APPLICATIONS_COLLECTION`                              | Collection for allow-listed Coolify applications; defaults to `coolify_applications`.             |
+| `COOLIFY_URL`                                                  | Base URL of the Coolify instance.                                                                 |
+| `COOLIFY_TOKEN`                                                | Server-only Coolify API token.                                                                    |
+| `COOLIFY_PROJECTS`                                             | Configured frontend projects with stable IDs, names, production URLs, and Coolify resource UUIDs. |
+| `CACHE_ENABLED`                                                | Enables caching of configured application records; defaults to `true`.                            |
+| `CACHE_STORE`                                                  | Cache backend: `memory` or `redis`; defaults to `memory`.                                         |
+| `REDIS_ENABLED`                                                | Enables component-based Redis configuration; defaults to `false`.                                 |
+| `REDIS`                                                        | Complete Redis URL; takes precedence over component values.                                       |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Required together for component-based Redis.                                                      |
+| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID`            | UUID for the local application-management policy; has a stable default.                           |
+| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`               | UUID for the deployment-read policy; has a stable default.                                        |
+| `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID`            | UUID for the deployment-trigger policy; has a stable default.                                     |
 
 Example shape for `COOLIFY_PROJECTS`:
 
