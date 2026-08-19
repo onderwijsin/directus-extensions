@@ -88,6 +88,31 @@ export function createCoolifyDeploymentClient(
 		return applications
 	}
 
+	/**
+	 * Resolve a configured application by its stable Directus identifier.
+	 * @param id - Stable Directus application identifier.
+	 * @returns Configured application.
+	 */
+	const getConfiguredApplication = async (id: string) => {
+		if (!context) throw new Error('Directus context is required to get configured application')
+		const cached = await cache?.get<DirectusCoolifyApplication>(
+			`${CONFIGURED_APPLICATIONS_CACHE_KEY}:${id}`,
+		)
+
+		if (cached) return cached
+
+		const application = await new context.services.ItemsService<DirectusCoolifyApplication>(
+			options.COOLIFY_APPLICATIONS_COLLECTION,
+			{
+				schema: await context.getSchema(),
+				accountability: null,
+			},
+		).readOne(id)
+
+		await cache?.set(`${CONFIGURED_APPLICATIONS_CACHE_KEY}:${id}`, application)
+		return application
+	}
+
 	/** @returns Unique allowed Coolify application UUIDs. */
 	const getAllowedApplications = () => resolveAllowedApplications(listConfiguredApplication)
 
@@ -347,6 +372,7 @@ export function createCoolifyDeploymentClient(
 
 	return {
 		listConfiguredApplication,
+		getConfiguredApplication,
 		getAllowedApplications,
 		getAllowedEnvirnoments,
 		getAllowedProjects,

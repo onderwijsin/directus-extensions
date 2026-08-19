@@ -1,5 +1,4 @@
 import type { Request, Response } from 'express'
-import type { CoolifyDeployment } from '../shared/coolify-client/schemas'
 
 import { ForbiddenError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
@@ -10,6 +9,7 @@ import {
 	validateExtensionOptions,
 	hasAuthenticatedUser,
 	assertRequestWithAccountability,
+	attempt,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { DEPLOYMENT_POLL_INTERVAL_HEADER, EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
@@ -17,6 +17,7 @@ import { createCoolifyDeploymentClient } from '../shared/coolify-client'
 import { requirePolicies } from './auth'
 import { envSchema } from './env.schema'
 import { CoolifyUpstreamError, rejectWhileSchemaLocked } from './errors'
+import { normalizeDeployment } from './helpers'
 import { isSameOriginRequest } from './same-origin'
 
 export default defineEndpoint({
@@ -46,16 +47,6 @@ export default defineEndpoint({
 		})
 		const schemaLockOptions = {
 			lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
-		}
-
-		/**
-		 * Resolve a Coolify deployment path against the configured Coolify host.
-		 * @param value - Absolute URL or provider-relative path.
-		 * @returns Absolute Coolify URL, or null when no path was provided.
-		 */
-		const absoluteCoolifyUrl = (value: string | null) => {
-			if (!value) return null
-			return new URL(value, options.COOLIFY_URL).toString()
 		}
 
 		/**
@@ -107,50 +98,6 @@ export default defineEndpoint({
 		)
 
 		/**
-		 * Normalize provider deployment data for Studio consumers.
-		 * @param deployment - Provider deployment.
-		 * @returns Normalized deployment data.
-		 */
-		const normalizeDeployment = (deployment: CoolifyDeployment) => ({
-			applicationName: null,
-			environmentName: null,
-			id: deployment.deploymentUuid,
-			applicationId: deployment.applicationId,
-			status: /queued|pending/iu.test(deployment.status)
-				? 'queued'
-				: /running|building|in_progress/iu.test(deployment.status)
-					? 'building'
-					: /success|finished|ready/iu.test(deployment.status)
-						? 'ready'
-						: /cancel/iu.test(deployment.status)
-							? 'canceled'
-							: /fail|error/iu.test(deployment.status)
-								? 'error'
-								: 'queued',
-			rawStatus: deployment.status,
-			commitSha: deployment.commit,
-			commitMessage: deployment.commitMessage,
-			createdAt: deployment.createdAt,
-			startedAt: deployment.createdAt,
-			finishedAt: deployment.finishedAt,
-			duration:
-				deployment.createdAt && deployment.finishedAt
-					? Math.max(
-							0,
-							Math.round(
-								(new Date(deployment.finishedAt).getTime() -
-									new Date(deployment.createdAt).getTime()) /
-									1000,
-							),
-						)
-					: null,
-			branch: null,
-			url: absoluteCoolifyUrl(deployment.deploymentUrl),
-			coolifyUrl: absoluteCoolifyUrl(deployment.deploymentUrl),
-			triggeredBy: null,
-		})
-
-		/**
 		 * Resolve a configured application by its stable Directus identifier.
 		 * @param id - Stable Directus application identifier.
 		 * @returns Configured application.
@@ -170,13 +117,18 @@ export default defineEndpoint({
 		 */
 		const handle = (operation: (request: Request, response: Response) => Promise<void>) =>
 			asyncHandler(async (request, response, next) => {
-				try {
-					await operation(request, response)
-				} catch (error: unknown) {
+				const { error } = await attempt(() => operation(request, response))
+				if (error) {
 					logger.error(error)
 					next(error instanceof CoolifyUpstreamError ? error : new CoolifyUpstreamError())
 				}
 			})
+
+		router.get(
+			'/permissions',
+			authorizeRoute(options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID),
+			(_request, response) => response.json({ canTrigger: true }),
+		)
 
 		router.get(
 			'/applications',
@@ -201,7 +153,9 @@ export default defineEndpoint({
 							gitRepository: provider.gitRepository,
 							buildPack: provider.buildPack,
 							serverName: provider.serverName,
-							latestDeployment: latest ? normalizeDeployment(latest) : null,
+							latestDeployment: latest
+								? normalizeDeployment(latest, { COOLIFY_URL: options.COOLIFY_URL })
+								: null,
 						}
 					}),
 				)
@@ -219,7 +173,7 @@ export default defineEndpoint({
 				)
 				response.json(
 					deployments.map((deployment) => ({
-						...normalizeDeployment(deployment),
+						...normalizeDeployment(deployment, { COOLIFY_URL: options.COOLIFY_URL }),
 						applicationId: application.id,
 						applicationName: application.name,
 						environmentName: application.environment_name,
@@ -236,6 +190,7 @@ export default defineEndpoint({
 				response.json({
 					...normalizeDeployment(
 						await client.getDeployment(request.params.deploymentId ?? ''),
+						{ COOLIFY_URL: options.COOLIFY_URL },
 					),
 					applicationName: application.name,
 					environmentName: application.environment_name,

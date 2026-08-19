@@ -3,6 +3,7 @@ import type { DeploymentSummary } from '../types'
 
 import { useRouter } from 'vue-router'
 
+import { formatDate, formatDuration } from '../utils'
 import DeploymentStatus from './DeploymentStatus.vue'
 
 withDefaults(
@@ -18,27 +19,6 @@ withDefaults(
 	},
 )
 const router = useRouter()
-/**
- * Format an ISO timestamp for the current locale.
- * @param value - ISO timestamp.
- * @returns Localized date and time, or an em dash.
- */
-const formatDate = (value: string | null) =>
-	value
-		? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-				new Date(value),
-			)
-		: '—'
-/**
- * Format a deployment duration for compact display.
- * @param value - Duration in seconds.
- * @returns Duration label.
- */
-const formatDuration = (value: number | null) => {
-	if (value === null) return '—'
-	if (value > 60) return `${Math.round(value / 60)}m`
-	return `${value}s`
-}
 </script>
 
 <template>
@@ -159,12 +139,5 @@ small {
 }
 .mono {
 	font-family: var(--family-monospace);
-}
-.empty {
-	display: grid;
-	justify-items: center;
-	gap: 12px;
-	padding: 64px 24px;
-	color: var(--foreground-subdued);
 }
 </style>

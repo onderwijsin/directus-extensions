@@ -3,21 +3,11 @@ import type { ApplicationSummary } from '../types'
 
 import { useRouter } from 'vue-router'
 
+import { formatDate } from '../utils'
 import ApplicationStateBadge from './ApplicationStateBadge.vue'
 
 defineProps<{ applications: ApplicationSummary[]; applicationPath: (id: string) => string }>()
 const router = useRouter()
-/**
- * Format an ISO timestamp for the current locale.
- * @param value - ISO timestamp.
- * @returns Localized date and time, or an em dash.
- */
-const formatDate = (value: string | null) =>
-	value
-		? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-				new Date(value),
-			)
-		: '—'
 </script>
 
 <template>
@@ -108,9 +98,6 @@ const formatDate = (value: string | null) =>
 	color: var(--foreground-subdued);
 	font-size: 13px;
 }
-.mono {
-	font-family: var(--family-monospace);
-}
 .clickable {
 	cursor: pointer;
 }
@@ -118,12 +105,7 @@ const formatDate = (value: string | null) =>
 	background: var(--background-highlight);
 	border-color: var(--primary);
 }
-.subdued,
-.empty {
+.subdued {
 	color: var(--foreground-subdued);
-}
-.empty {
-	padding: 32px;
-	text-align: center;
 }
 </style>

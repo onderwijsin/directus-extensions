@@ -15,7 +15,7 @@ describe('Coolify deployments schemas', () => {
 				COOLIFY_URL: 'https://coolify.example.com',
 				COOLIFY_TOKEN: 'token',
 			}).COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS,
-		).toBe(3000)
+		).toBe(5000)
 	})
 
 	it('accepts a custom Studio polling interval', () => {

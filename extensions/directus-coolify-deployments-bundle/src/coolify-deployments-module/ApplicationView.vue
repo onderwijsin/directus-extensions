@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { ApplicationSummary, DeploymentSummary } from './types'
 
-import { computed, onMounted, shallowRef } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import ApplicationStateBadge from './components/ApplicationStateBadge.vue'
 import DeploymentList from './components/DeploymentList.vue'
 import LoadingSkeleton from './components/LoadingSkeleton.vue'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
+import { deploymentPath, deploymentSummaryPath, formatDate, repositoryUrl } from './utils'
 
 const props = defineProps<{ applicationId: string }>()
 const api = useCoolifyDeploymentsApi()
@@ -17,6 +18,7 @@ const deployments = shallowRef<DeploymentSummary[]>([])
 const loading = shallowRef(true)
 const error = shallowRef<string | null>(null)
 const showDeployConfirmation = shallowRef(false)
+const canTriggerDeployments = shallowRef(false)
 const page = shallowRef(1)
 const pageSize = 10
 const totalPages = computed(() => Math.max(1, Math.ceil(deployments.value.length / pageSize)))
@@ -24,54 +26,21 @@ const paginatedDeployments = computed(() =>
 	deployments.value.slice((page.value - 1) * pageSize, page.value * pageSize),
 )
 /**
- * Format an ISO timestamp for the current locale.
- * @param value - ISO timestamp.
- * @returns Localized date and time, or an em dash.
+ * Load the selected application and its deployment history.
+ * @returns Nothing.
  */
-const formatDate = (value: string | null) =>
-	value
-		? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-				new Date(value),
-			)
-		: '—'
-/**
- * Build a GitHub repository URL from a provider repository value.
- * @param repository - Repository path or URL.
- * @returns GitHub repository URL, or null.
- */
-const repositoryUrl = (repository: string | null) => {
-	if (!repository) return null
-	return repository.startsWith('http') ? repository : `https://github.com/${repository}`
-}
-/**
- *
- */
-/**
- * Build a deployment Studio route.
- * @param deployment - Deployment to open.
- * @returns Studio route.
- */
-const deploymentPath = (deployment: DeploymentSummary) =>
-	`/coolify-deployments/applications/${encodeURIComponent(props.applicationId)}/deployments/${encodeURIComponent(deployment.id)}`
-/**
- * Build a deployment route from an identifier.
- * @param deploymentId - Deployment identifier.
- * @returns Studio route.
- */
-const deploymentIdPath = (deploymentId: string) =>
-	`/coolify-deployments/applications/${encodeURIComponent(props.applicationId)}/deployments/${encodeURIComponent(deploymentId)}`
-
-/**
- *
- */
-/** @returns Nothing. */
 const load = async () => {
 	loading.value = true
+	error.value = null
+	application.value = null
+	deployments.value = []
+	canTriggerDeployments.value = false
+	page.value = 1
 	try {
+		canTriggerDeployments.value = await api.canTriggerDeployments()
 		const applications = await api.listApplications()
 		application.value = applications.find((item) => item.id === props.applicationId) ?? null
 		deployments.value = await api.listDeployments(props.applicationId)
-		page.value = 1
 		if (!application.value) error.value = 'Application not found'
 	} catch (caughtError) {
 		error.value =
@@ -82,15 +51,15 @@ const load = async () => {
 }
 
 /**
- *
+ * Start a deployment for the selected application.
+ * @returns Nothing.
  */
-/** @returns Nothing. */
 const deploy = async () => {
 	showDeployConfirmation.value = false
 	loading.value = true
 	try {
 		const deploymentId = await api.deploy(props.applicationId)
-		await router.push(deploymentIdPath(deploymentId))
+		await router.push(deploymentPath(props.applicationId, deploymentId))
 	} catch (caughtError) {
 		error.value =
 			caughtError instanceof Error ? caughtError.message : 'Unable to deploy application'
@@ -99,7 +68,11 @@ const deploy = async () => {
 	}
 }
 
-onMounted(() => void load())
+watch(
+	() => props.applicationId,
+	() => void load(),
+	{ immediate: true },
+)
 </script>
 
 <template>
@@ -130,7 +103,10 @@ onMounted(() => void load())
 					@click="load"
 					><v-icon name="refresh"
 				/></v-button>
-				<v-button :loading="loading" @click="showDeployConfirmation = true"
+				<v-button
+					v-if="canTriggerDeployments"
+					:loading="loading"
+					@click="showDeployConfirmation = true"
 					><v-icon name="rocket_launch" /> Deploy</v-button
 				>
 			</div>
@@ -227,7 +203,7 @@ onMounted(() => void load())
 				<h2>Deployment history</h2>
 				<DeploymentList
 					:deployments="paginatedDeployments"
-					:application-path="deploymentPath"
+					:application-path="deploymentSummaryPath"
 					empty-title="No deployments yet"
 					empty-copy="Deploy this application to create its first deployment."
 				/>

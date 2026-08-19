@@ -110,11 +110,6 @@ onUnmounted(() => {
 	gap: 0.35rem;
 	white-space: nowrap;
 }
-.mono {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
 @media (max-width: 700px) {
 	.active-deployment-grid {
 		grid-template-columns: minmax(0, 1fr);

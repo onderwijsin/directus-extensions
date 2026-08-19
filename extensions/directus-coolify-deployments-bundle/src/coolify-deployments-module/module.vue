@@ -9,6 +9,7 @@ import DeploymentList from './components/DeploymentList.vue'
 import LoadingSkeleton from './components/LoadingSkeleton.vue'
 import NoDeploymentsInProgress from './components/NoDeploymentsInProgress.vue'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
+import { deploymentPath, deploymentSummaryPath } from './utils'
 
 const api = useCoolifyDeploymentsApi()
 const applications = shallowRef<ApplicationSummary[]>([])
@@ -20,21 +21,9 @@ const error = shallowRef<string | null>(null)
 let poller: ReturnType<typeof setInterval> | undefined
 
 /**
- *
+ * Load applications and deployment summaries for the dashboard.
+ * @returns Nothing.
  */
-/**
- * Build a Studio route.
- * @param applicationId - Stable application identifier.
- * @param deploymentId - Optional deployment identifier.
- * @returns Studio route.
- */
-const path = (applicationId: string, deploymentId?: string) =>
-	`/coolify-deployments/applications/${encodeURIComponent(applicationId)}${deploymentId ? `/deployments/${encodeURIComponent(deploymentId)}` : ''}`
-
-/**
- *
- */
-/** @returns Nothing. */
 const load = async () => {
 	try {
 		canCreateApplications.value = await api.canCreateApplications()
@@ -110,9 +99,7 @@ onUnmounted(() => {
 					<ActiveDeploymentList
 						v-else
 						:deployments="current"
-						:application-path="
-							(deployment) => path(deployment.applicationId, deployment.id)
-						"
+						:application-path="deploymentSummaryPath"
 					/>
 				</section>
 				<section>
@@ -121,14 +108,15 @@ onUnmounted(() => {
 						:deployments="recent"
 						empty-title="No recent deployments"
 						empty-copy="Deployment history will appear here when an application is deployed."
-						:application-path="
-							(deployment) => path(deployment.applicationId, deployment.id)
-						"
+						:application-path="deploymentSummaryPath"
 					/>
 				</section>
 				<section>
 					<h2>Applications</h2>
-					<ApplicationList :applications="applications" :application-path="path" />
+					<ApplicationList
+						:applications="applications"
+						:application-path="deploymentPath"
+					/>
 				</section>
 			</template>
 		</div>

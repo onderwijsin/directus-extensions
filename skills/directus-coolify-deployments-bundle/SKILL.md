@@ -44,7 +44,7 @@ application or project. Per-application Coolify API tokens are not currently sup
 | `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID`            | no               | stable UUID            | UUID of the policy that manages local Coolify application records. |
 | `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`               | no               | stable UUID            | UUID of the policy that reads Coolify deployment resources.        |
 | `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID`            | no               | stable UUID            | UUID of the policy that triggers Coolify deployments.              |
-| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS`                         | no               | `3000`                 | Studio polling interval in milliseconds; minimum `250`.            |
+| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS`                         | no               | `5000`                 | Studio polling interval in milliseconds; minimum `250`.            |
 
 Each project definition has this shape:
 
@@ -93,13 +93,14 @@ require the corresponding assigned policy below. Administrators bypass policy as
 Missing browser origin metadata is allowed for authenticated non-browser clients. The routes resolve
 stable Directus application IDs and return normalized application/deployment data.
 
-| Method | Route                                                                    | Behavior                      |
-| ------ | ------------------------------------------------------------------------ | ----------------------------- |
-| `GET`  | `/coolify-deployments/applications`                                      | List configured applications. |
-| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | List deployments.             |
-| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read one deployment.          |
-| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger a deployment.         |
-| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Cancel a deployment.          |
+| Method | Route                                                                    | Behavior                         |
+| ------ | ------------------------------------------------------------------------ | -------------------------------- |
+| `GET`  | `/coolify-deployments/applications`                                      | List configured applications.    |
+| `GET`  | `/coolify-deployments/permissions`                                       | Check deployment trigger access. |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | List deployments.                |
+| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read one deployment.             |
+| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger a deployment.            |
+| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Cancel a deployment.             |
 
 Authentication and same-origin failures are forwarded as Directus `403 Forbidden` errors. Schema
 readiness failures are also forwarded through Directus's error middleware.

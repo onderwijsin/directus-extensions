@@ -64,6 +64,15 @@ export function useCoolifyDeploymentsApi() {
 	}
 
 	/**
+	 * Check whether the current user can trigger deployments.
+	 * @returns Whether deployment actions are available.
+	 */
+	const canTriggerDeployments = async (): Promise<boolean> => {
+		const { data } = await attempt(() => api.get<{ canTrigger: boolean }>('/permissions'))
+		return data?.data.canTrigger === true
+	}
+
+	/**
 	 * Fetch deployment history for an application.
 	 * @param applicationId - Stable configured application ID.
 	 * @returns Normalized deployments.
@@ -132,6 +141,7 @@ export function useCoolifyDeploymentsApi() {
 	return {
 		cancelDeployment,
 		canCreateApplications,
+		canTriggerDeployments,
 		deploy,
 		getDeployment,
 		listApplications,

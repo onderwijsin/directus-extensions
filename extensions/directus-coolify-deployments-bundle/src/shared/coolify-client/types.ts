@@ -45,6 +45,7 @@ export interface CoolifyClientContext extends CacheEnv {
 
 export interface CoolifyDeploymentClient {
 	listConfiguredApplication: () => Promise<DirectusCoolifyApplication[]>
+	getConfiguredApplication: (id: string) => Promise<DirectusCoolifyApplication>
 	getAllowedApplications: () => Promise<string[]>
 	getAllowedProjects: () => Promise<string[]>
 	getAllowedEnvirnoments: () => Promise<string[]>

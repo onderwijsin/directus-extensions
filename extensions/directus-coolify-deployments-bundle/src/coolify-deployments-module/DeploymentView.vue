@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { DeploymentSummary } from './types'
 
-import { onMounted, onUnmounted, shallowRef, computed } from 'vue'
+import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 
 import DeploymentStatus from './components/DeploymentStatus.vue'
 import LoadingSkeleton from './components/LoadingSkeleton.vue'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
+import { deploymentPath, formatDate, formatDuration } from './utils'
 
 const props = defineProps<{ applicationId: string; deploymentId: string }>()
 const api = useCoolifyDeploymentsApi()
@@ -16,36 +17,14 @@ let poller: ReturnType<typeof setInterval> | undefined
 const active = computed(
 	() => deployment.value && ['queued', 'building'].includes(deployment.value.status),
 )
-const applicationPath = `/coolify-deployments/applications/${encodeURIComponent(props.applicationId)}`
-
 /**
- * Format an ISO timestamp for the current locale.
- * @param value - ISO timestamp.
- * @returns Localized date and time, or an em dash.
+ * Load the selected deployment details.
+ * @returns Nothing.
  */
-const formatDate = (value: string | null) =>
-	value
-		? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-				new Date(value),
-			)
-		: '—'
-
-/**
- * Format a deployment duration.
- * @param value - Duration in seconds.
- * @returns Compact duration label.
- */
-const formatDuration = (value: number | null) => {
-	if (value === null) return '—'
-	if (value > 60) return `${Math.round(value / 60)}m`
-	return `${value}s`
-}
-
-/**
- *
- */
-/** @returns Nothing. */
 const load = async () => {
+	loading.value = true
+	deployment.value = null
+	error.value = null
 	try {
 		deployment.value = await api.getDeployment(props.applicationId, props.deploymentId)
 		error.value = null
@@ -57,9 +36,9 @@ const load = async () => {
 	}
 }
 /**
- *
+ * Cancel the selected active deployment.
+ * @returns Nothing.
  */
-/** @returns Nothing. */
 const cancel = async () => {
 	loading.value = true
 	try {
@@ -72,13 +51,15 @@ const cancel = async () => {
 		loading.value = false
 	}
 }
+watch(
+	() => [props.applicationId, props.deploymentId],
+	() => void load(),
+	{ immediate: true },
+)
 onMounted(() => {
-	void (async () => {
-		await load()
-		poller = setInterval(() => {
-			if (active.value) void load()
-		}, api.getPollingInterval())
-	})()
+	poller = setInterval(() => {
+		if (active.value) void load()
+	}, api.getPollingInterval())
 })
 onUnmounted(() => {
 	if (poller) clearInterval(poller)
@@ -94,7 +75,7 @@ onUnmounted(() => {
 				:small="true"
 				:normal="false"
 				tooltip="Back"
-				:to="applicationPath"
+				:to="deploymentPath(props.applicationId)"
 				class="ghost back-button header-button"
 				aria-label="Back to application"
 			>

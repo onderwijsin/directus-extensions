@@ -53,7 +53,7 @@ The package reserves these Directus environment variables:
 | `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID`            | UUID for the local application-management policy; has a stable default.                           |
 | `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`               | UUID for the deployment-read policy; has a stable default.                                        |
 | `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID`            | UUID for the deployment-trigger policy; has a stable default.                                     |
-| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS`                         | Studio polling interval in milliseconds; defaults to `3000` and must be at least `250`.           |
+| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS`                         | Studio polling interval in milliseconds; defaults to `5000` and must be at least `250`.           |
 
 Example shape for `COOLIFY_PROJECTS`:
 
@@ -105,13 +105,14 @@ policy shown below. Administrators bypass the policy assignment check. Requests 
 origin metadata remain supported for authenticated Flow and command-line clients. The routes resolve
 stable Directus application IDs and return normalized application/deployment data.
 
-| Method | Route                                                                    | Description                   |
-| ------ | ------------------------------------------------------------------------ | ----------------------------- |
-| `GET`  | `/coolify-deployments/applications`                                      | List configured applications. |
-| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | List deployments.             |
-| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read one deployment.          |
-| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger a deployment.         |
-| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Cancel a deployment.          |
+| Method | Route                                                                    | Description                      |
+| ------ | ------------------------------------------------------------------------ | -------------------------------- |
+| `GET`  | `/coolify-deployments/applications`                                      | List configured applications.    |
+| `GET`  | `/coolify-deployments/permissions`                                       | Check deployment trigger access. |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | List deployments.                |
+| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read one deployment.             |
+| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger a deployment.            |
+| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Cancel a deployment.             |
 
 Authentication, same-origin, and schema-lock failures are forwarded through Directus's error
 middleware.
