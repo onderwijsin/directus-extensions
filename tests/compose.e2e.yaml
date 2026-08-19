@@ -53,30 +53,17 @@ services:
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:${DIRECTUS_E2E_PORT:-18055}}
       SECRET: ${DIRECTUS_SECRET:-directus-extensions-e2e-secret}
-      ADMIN_EMAIL: admin@example.com
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-p4ssw0rd!}
       # Temporarily disable license activation while CI activation behavior is investigated.
       LICENSE_KEY: ''
       EXTENSIONS_MUST_LOAD: 'true'
       EXTENSIONS_AUTO_RELOAD: 'false'
-      EMAIL_TRANSPORT: smtp
-      EMAIL_TEMPLATES_PATH: /directus/templates
-      EMAIL_FROM: noreply@localhost
-      EMAIL_SMTP_HOST: mailpit
-      EMAIL_SMTP_PORT: 1025
       MAGIC_LINKS_ENABLED: 'true'
       MAGIC_LINKS_COLLECTION: custom_links
+      COOLIFY_DEPLOYMENTS_ENABLED: 'true'
+      COOLIFY_URL: ${COOLIFY_URL:-https://coolify.example.com}
+      COOLIFY_TOKEN: ${COOLIFY_TOKEN:-e2e-unused-token}
       STORAGE_LOCATIONS: bucket
       STORAGE_BUCKET_DRIVER: s3
-      STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}
-      STORAGE_BUCKET_SECRET: ${GARAGE_SECRET_ACCESS_KEY:-directus-development-secret}
-      STORAGE_BUCKET_ENDPOINT: http://garage:3900
-      STORAGE_BUCKET_BUCKET: directus
-      STORAGE_BUCKET_REGION: garage
-      STORAGE_BUCKET_FORCE_PATH_STYLE: 'true'
-      MEILISEARCH_HOST_URL: http://meilisearch:7700
-      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
-      SENTRY_ENABLED: ${SENTRY_ENABLED:-false}
       USE_MAGIC_LINK_CLEANUP: 'true'
       MAGIC_LINK_CLEANUP_WINDOW: 1ms
       MAGIC_LINK_CLEANUP_CRON: '* * * * * *'

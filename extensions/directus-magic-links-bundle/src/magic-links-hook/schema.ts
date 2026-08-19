@@ -1,7 +1,9 @@
-import type { DirectusSchemaDefinition } from '@onderwijsin/directus-extension-utils/server'
+import {
+	replaceCollectionNameInSchema,
+	type DirectusSchemaDefinition,
+} from '@onderwijsin/directus-extension-utils/server'
 
 import magicLinksSchema from '../../schema/directus_magic_links.json'
-import { EXTENSION_NAME } from './constants'
 
 /**
  * Creates the magic-links schema definition for the configured collection.
@@ -10,11 +12,5 @@ import { EXTENSION_NAME } from './constants'
  * @returns Schema definition with every magic-links collection reference transformed.
  */
 export const createMagicLinksSchema = (collection: string): DirectusSchemaDefinition => {
-	const serializedSchema = JSON.stringify(magicLinksSchema)
-	const collectionReference = JSON.stringify(EXTENSION_NAME)
-	const configuredReference = JSON.stringify(collection)
-
-	return JSON.parse(
-		serializedSchema.replaceAll(collectionReference, configuredReference),
-	) as DirectusSchemaDefinition
+	return replaceCollectionNameInSchema(collection, magicLinksSchema)
 }

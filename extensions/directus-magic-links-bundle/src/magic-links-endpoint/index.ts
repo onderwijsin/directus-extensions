@@ -43,6 +43,28 @@ export default defineEndpoint({
 
 		const options = validateExtensionOptions(env, envSchema, logger)
 		const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? options.SECRET
+		const schemaLockOptions = {
+			lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
+		}
+
+		/**
+		 * Forward a schema-lock error when this endpoint's schema is being changed.
+		 * @param next - Express next callback.
+		 * @returns Whether the request was rejected.
+		 */
+		const rejectWhileSchemaLocked = async (
+			next: (error?: unknown) => void,
+		): Promise<boolean> => {
+			const { isLocked } = await getSchemaChangeStatus({
+				extensionId: EXTENSION_ID,
+				options: schemaLockOptions,
+			})
+			if (!isLocked) return false
+
+			next(new SchemaLockedError())
+			return true
+		}
+
 		let limiter: ReturnType<typeof createMagicLinkLimiter> | undefined
 		/**
 		 * Lazily creates the limiter so runtime settings changes are observed before the first redemption.
@@ -54,16 +76,7 @@ export default defineEndpoint({
 
 		router.post('/request', (request, response, next) => {
 			void attempt(async () => {
-				const { isLocked } = await getSchemaChangeStatus({
-					extensionId: EXTENSION_ID,
-					options: {
-						lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
-					},
-				})
-				if (isLocked) {
-					next(new SchemaLockedError())
-					return
-				}
+				if (await rejectWhileSchemaLocked(next)) return
 				const payload = parseRequestPayload(
 					request.body,
 					options.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
@@ -86,16 +99,7 @@ export default defineEndpoint({
 
 		router.post('/redeem', (request, response, next) => {
 			void attempt(async () => {
-				const { isLocked } = await getSchemaChangeStatus({
-					extensionId: EXTENSION_ID,
-					options: {
-						lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
-					},
-				})
-				if (isLocked) {
-					next(new SchemaLockedError())
-					return
-				}
+				if (await rejectWhileSchemaLocked(next)) return
 
 				const payload = parseRedeemPayload(request.body)
 				const result = await redeemMagicLink({

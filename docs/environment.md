@@ -51,6 +51,12 @@ The copied root `.env` remains ignored by git. Values exported in the shell or d
 override the inline Compose defaults. Keep real credentials in ignored local files or an external
 secret manager; checked-in defaults are for local development and E2E isolation only.
 
+The Coolify deployments bundle is enabled in local Compose and E2E Compose. Local Compose requires
+one `COOLIFY_URL` and a `COOLIFY_TOKEN` with read and deploy access to every integrated Coolify
+application. The collection and schema-change settings are optional and documented in the bundle
+README. E2E Compose supplies harmless defaults and makes `COOLIFY_URL` and `COOLIFY_TOKEN`
+configurable through the environment.
+
 The E2E runner does not require `.env`. It generates fresh, run-scoped credentials for the database,
 cache, Directus, Garage, and Meilisearch, stages the configured extension directory together with
 the private E2E playground into a disposable tree, passes the staged tree to Compose, and removes it

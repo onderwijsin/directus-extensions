@@ -169,6 +169,17 @@ Exiting.` when parsing fails.
 ## Server-only schema management
 
 ```ts
+replaceCollectionNameInSchema(
+  name: string,
+  schema: DirectusSchemaDefinition,
+): DirectusSchemaDefinition
+```
+
+Replaces the placeholder collection name from the first collection definition throughout a
+portable schema definition. The schema must contain at least one collection. This helper performs
+name substitution; it does not validate the complete JSON schema document.
+
+```ts
 const schemaLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
 
 const schemaChangeSchema = z.object({

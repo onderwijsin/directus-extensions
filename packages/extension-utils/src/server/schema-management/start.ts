@@ -1,5 +1,11 @@
 import type { LoggerLike } from '../logger'
-import type { EnsureDirectusSchemaResult } from './ensure'
+import type { DirectusSchemaDefinition, EnsureDirectusSchemaResult } from './ensure'
+
+interface SchemaWithCollections {
+	collections: { collection?: string | null }[]
+}
+
+import { isNonBlankString, isString } from '../../shared'
 
 /** Minimal action registration contract used by server extensions. */
 export type ActionRegistrar = (event: 'server.start', handler: () => void) => void
@@ -9,6 +15,28 @@ export interface RegisterSchemaChangeOnStartOptions {
 	name: string
 	disabled: boolean
 	disabledGlobally: boolean
+}
+
+/**
+ * Replace the placeholder collection name throughout a portable schema definition.
+ * @param name - Collection name to use in the returned definition.
+ * @param schema - Portable schema definition containing one placeholder collection.
+ * @returns A schema definition with collection references replaced.
+ */
+export function replaceCollectionNameInSchema(
+	name: string,
+	schema: SchemaWithCollections,
+): DirectusSchemaDefinition {
+	const sourceName = schema.collections[0]?.collection
+	if (!isString(sourceName) || !isNonBlankString(sourceName)) {
+		throw new Error('Schema definition must contain a collection name')
+	}
+
+	const sourceReference = JSON.stringify(sourceName)
+	const targetReference = JSON.stringify(name)
+	return JSON.parse(
+		JSON.stringify(schema).replaceAll(sourceReference, targetReference),
+	) as DirectusSchemaDefinition
 }
 
 /**

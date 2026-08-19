@@ -86,7 +86,7 @@ only the common helper surface.
 | Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                | `/server`         |
 | Logging        | `createLogger`                                                                                                                                                                    | `/server`         |
 | Setup          | `extensionSetup`, `validateExtensionOptions`, `registerSchemaChangeOnStart`                                                                                                       | `/server`         |
-| Schema changes | `schemaChangeSchema`, `ensureDirectusSchema`, `getSchemaChangeStatus`                                                                                                             | `/server`         |
+| Schema changes | `schemaChangeSchema`, `ensureDirectusSchema`, `getSchemaChangeStatus`, `replaceCollectionNameInSchema`                                                                            | `/server`         |
 | Constants      | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                | `/constants`      |
 | Sentry         | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                  | `/sentry`         |
 
@@ -145,6 +145,14 @@ field in its nested `fields` array. Keep that primary-key field out of the top-l
     }
   ]
 }
+```
+
+When a bundled schema supports a configurable collection name, use the shared replacement helper:
+
+```ts
+import { replaceCollectionNameInSchema } from '@onderwijsin/directus-extension-utils/server'
+
+const configuredSchema = replaceCollectionNameInSchema('custom_orders', bundledSchema)
 ```
 
 The collection guard preserves malformed definitions instead of allowing Directus to create an

@@ -13,6 +13,7 @@ private fixtures support repository validation.
 | [`@onderwijsin/directus-enhanced-server-health-endpoint`](extensions/directus-enhanced-server-health-endpoint/README.md) | Configurable health endpoint based on Directus server checks.         |
 | [`@onderwijsin/directus-policies-endpoint`](extensions/directus-policies-endpoint/README.md)                             | Authenticated endpoint for resolving a user's effective policies.     |
 | [`@onderwijsin/directus-magic-links-bundle`](extensions/directus-magic-links-bundle/README.md)                           | Passwordless magic-link authentication for Directus frontend clients. |
+| [`@onderwijsin/directus-coolify-deployments-bundle`](extensions/directus-coolify-deployments-bundle/README.md)           | Trigger and inspect frontend deployments through Coolify.             |
 | [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.           |
 
 The repository also contains supporting workspace packages and private infrastructure for shared

@@ -130,16 +130,17 @@ const envSchema = schemaChangeSchema.extend({
 Directus `REDIS` connection when the Redis store is selected.
 
 Use `ensureDirectusSchema` from the same `/server` subpath to apply portable collection, field, and
-relation definitions. Every collection definition must include a non-blank `schema.name` and its
-primary-key field in the collection's nested `fields` array; do not repeat that primary-key field in
-the top-level `fields` array. This prevents Directus from creating an implicit integer primary key
-before the extension's intended field is applied. Pass the Directus hook context's `database`,
-`getSchema`, and `services`, and provide a logger plus an extension identifier. Existing compatible
-resources are preserved; incompatible structural resources are logged loudly and left unchanged
-rather than being silently modified. The validated environment options select the provider
-automatically. Set `options.lockProvider` to override that selection programmatically. Redis
-providers created from environment options are disposed after the ensure operation; explicitly
-supplied providers remain owned by the consumer.
+relation definitions. Use `replaceCollectionNameInSchema(name, schema)` when a bundled portable
+schema supports a configurable collection name. Every collection definition must include a non-blank
+`schema.name` and its primary-key field in the collection's nested `fields` array; do not repeat
+that primary-key field in the top-level `fields` array. This prevents Directus from creating an
+implicit integer primary key before the extension's intended field is applied. Pass the Directus
+hook context's `database`, `getSchema`, and `services`, and provide a logger plus an extension
+identifier. Existing compatible resources are preserved; incompatible structural resources are
+logged loudly and left unchanged rather than being silently modified. The validated environment
+options select the provider automatically. Set `options.lockProvider` to override that selection
+programmatically. Redis providers created from environment options are disposed after the ensure
+operation; explicitly supplied providers remain owned by the consumer.
 
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
 `validateExtensionOptions` parses a complete extension environment with Zod, logs validation

@@ -10,7 +10,10 @@ import {
 	type DirectusSchemaDefinition,
 } from '../src/server/schema-management/ensure'
 import { createSchemaChangeLockProvider } from '../src/server/schema-management/provider'
-import { registerSchemaChangeOnStart } from '../src/server/schema-management/start'
+import {
+	registerSchemaChangeOnStart,
+	replaceCollectionNameInSchema,
+} from '../src/server/schema-management/start'
 
 type Services = ApiExtensionContext['services']
 type ActionRegistrar = (event: 'server.start', handler: () => void) => void
@@ -24,6 +27,28 @@ const createLogger = () => {
 	}
 	return logger
 }
+
+describe('replaceCollectionNameInSchema', () => {
+	it('replaces collection references in a portable definition', () => {
+		const schema: DirectusSchemaDefinition = {
+			collections: [
+				{
+					collection: 'placeholder',
+					schema: { name: 'placeholder' },
+					fields: [{ collection: 'placeholder', field: 'id', type: 'uuid' }],
+				},
+			],
+			fields: [{ collection: 'placeholder', field: 'name', type: 'string' }],
+			relations: [{ collection: 'placeholder', field: 'owner' }],
+		}
+
+		const result = replaceCollectionNameInSchema('configured', schema)
+		expect(result.collections[0]?.collection).toBe('configured')
+		expect(result.collections[0]?.schema?.name).toBe('configured')
+		expect(result.fields[0]?.collection).toBe('configured')
+		expect(result.relations[0]?.collection).toBe('configured')
+	})
+})
 
 const createFixture = (schema: SchemaOverview) => {
 	const collections = new Map<string, Record<string, unknown>>()
