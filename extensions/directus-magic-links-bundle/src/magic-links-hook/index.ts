@@ -1,9 +1,10 @@
 import { defineHook } from '@directus/extensions-sdk'
 import {
 	ensureDirectusSchema,
+	validateSchemaDefinition,
+	createDirectusStartupCoordinator,
 	extensionSetup,
-	registerSchemaChangeOnStart,
-	replaceCollectionNameInSchema,
+	withCollectionIdentity,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
@@ -30,31 +31,31 @@ export default defineHook((hook, context) => {
 
 	const options = validateExtensionOptions(env, envSchema, logger)
 
-	registerSchemaChangeOnStart(
-		action,
-		logger,
-		() =>
-			ensureDirectusSchema({
-				extensionId: EXTENSION_ID,
-				database: context.database,
-				getSchema: context.getSchema,
-				logger,
-				definition: replaceCollectionNameInSchema(
-					options.MAGIC_LINKS_COLLECTION,
-					magicLinksSchema,
-				),
-				services: context.services,
-				options: {
-					abortOnError: options.MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR,
-					lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
-				},
-			}),
-		{
-			name: 'Magic links',
-			disabled: !options.MAGIC_LINKS_SCHEMA_CHANGES_ENABLED,
-			disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
-		},
-	)
+	const startup = createDirectusStartupCoordinator(action, logger, {
+		id: EXTENSION_ID,
+		name: 'Magic links',
+		disabled: !options.MAGIC_LINKS_SCHEMA_CHANGES_ENABLED,
+		disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
+		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
+	})
+	startup.schema(async ({ lockProvider }) => {
+		await ensureDirectusSchema({
+			id: EXTENSION_ID,
+			database: context.database,
+			getSchema: context.getSchema,
+			logger,
+			definition: withCollectionIdentity(
+				options.MAGIC_LINKS_COLLECTION,
+				validateSchemaDefinition(magicLinksSchema),
+			),
+			services: context.services,
+			options: {
+				abortOnError: options.MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR,
+				lockProvider,
+			},
+		})
+	})
 
 	registerMagicLinkCleanup(schedule, {
 		database: context.database,

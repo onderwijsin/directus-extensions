@@ -1,6 +1,6 @@
 import { defineEndpoint } from '@directus/extensions-sdk'
 import {
-	getSchemaChangeStatus,
+	getDirectusStartupStatus,
 	extensionSetup,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
@@ -49,8 +49,8 @@ export default defineEndpoint({
 		 * @returns Whether the request was rejected.
 		 */
 		const rejectWhileSchemaLocked = async (response: Response): Promise<boolean> => {
-			const { isLocked } = await getSchemaChangeStatus({
-				extensionId: EXTENSION_ID,
+			const { isLocked } = await getDirectusStartupStatus({
+				id: EXTENSION_ID,
 				options: schemaLockOptions,
 			})
 			if (!isLocked) return false

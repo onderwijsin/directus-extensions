@@ -1,24 +1,24 @@
 import type { LockProvider } from '../lock'
-import type { SchemaChangeOptions } from './config'
+import type { DirectusStartupOptions } from './config'
 
 import { createFsLockProvider, createMemoryLockProvider, createRedisLockProvider } from '../lock'
 
-const DEFAULT_SCHEMA_CHANGE_MEMORY_PROVIDER_ID = 'schema-change'
+const DEFAULT_STARTUP_MEMORY_PROVIDER_ID = 'directus-startup'
 
 /** A lock provider together with cleanup for resources created by the factory. */
-export interface SchemaChangeLockProvider {
+export interface DirectusStartupLockProvider {
 	provider: LockProvider
 	dispose: () => Promise<void>
 }
 
 /**
- * Creates the configured schema-change lock provider.
- * @param options - Validated global schema-change environment options.
+ * Creates the configured Directus startup lock provider.
+ * @param options - Validated shared startup environment options.
  * @returns The provider and its owned-resource cleanup function.
  */
-export function createSchemaChangeLockProvider(
-	options: SchemaChangeOptions,
-): SchemaChangeLockProvider {
+export function createStartupLockProvider(
+	options: DirectusStartupOptions,
+): DirectusStartupLockProvider {
 	switch (options.DIRECTUS_EXTENSIONS_LOCK_PROVIDER) {
 		case 'REDIS': {
 			const redisUrl = options.DIRECTUS_EXTENSIONS_LOCK_REDIS_URL ?? options.REDIS
@@ -31,9 +31,7 @@ export function createSchemaChangeLockProvider(
 				redisUrl,
 			})
 			return {
-				provider /**
-				 *
-				 */,
+				provider,
 				/**
 				 * Releases no external resources for the filesystem provider.
 				 * @returns A resolved promise.
@@ -61,8 +59,7 @@ export function createSchemaChangeLockProvider(
 		default:
 			return {
 				provider: createMemoryLockProvider({
-					providerId:
-						options.DIRECTUS_EXTENSION_ID ?? DEFAULT_SCHEMA_CHANGE_MEMORY_PROVIDER_ID,
+					providerId: options.DIRECTUS_EXTENSION_ID ?? DEFAULT_STARTUP_MEMORY_PROVIDER_ID,
 				}),
 				/**
 				 * Releases no external resources for the memory provider.

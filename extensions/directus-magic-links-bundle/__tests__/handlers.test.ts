@@ -26,6 +26,7 @@ type QueryFake = ReturnType<typeof vi.fn> & {
 
 const options: MagicLinksEnv = {
 	DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+	DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: true,
 	DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'FS',
 	DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'memory',
 	SECRET: 'directus-secret',

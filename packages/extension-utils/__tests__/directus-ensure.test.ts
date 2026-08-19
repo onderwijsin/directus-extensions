@@ -1,19 +1,18 @@
-import type { ApiExtensionContext, SchemaOverview } from '@directus/types'
+import type { ApiExtensionContext, Policy, SchemaOverview } from '@directus/types'
 import type { LoggerLike } from '../src/server/logger'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { schemaChangeSchema } from '../src/server/schema-management/config'
+import { directusStartupSchema } from '../src/server/directus-ensure/config'
+import { withCollectionIdentity } from '../src/server/directus-ensure/data-processors/collections'
+import { getDirectusStartupStatus } from '../src/server/directus-ensure/operations/core'
+import { ensureDirectusPolicy } from '../src/server/directus-ensure/operations/policies'
 import {
 	ensureDirectusSchema,
-	getSchemaChangeStatus,
 	type DirectusSchemaDefinition,
-} from '../src/server/schema-management/ensure'
-import { createSchemaChangeLockProvider } from '../src/server/schema-management/provider'
-import {
-	registerSchemaChangeOnStart,
-	replaceCollectionNameInSchema,
-} from '../src/server/schema-management/start'
+} from '../src/server/directus-ensure/operations/schema'
+import { createStartupLockProvider } from '../src/server/directus-ensure/provider'
+import { createDirectusStartupCoordinator } from '../src/server/directus-ensure/startup'
 
 type Services = ApiExtensionContext['services']
 type ActionRegistrar = (event: 'server.start', handler: () => void) => void
@@ -28,7 +27,7 @@ const createLogger = () => {
 	return logger
 }
 
-describe('replaceCollectionNameInSchema', () => {
+describe('withCollectionIdentity', () => {
 	it('replaces collection references in a portable definition', () => {
 		const schema: DirectusSchemaDefinition = {
 			collections: [
@@ -42,7 +41,7 @@ describe('replaceCollectionNameInSchema', () => {
 			relations: [{ collection: 'placeholder', field: 'owner' }],
 		}
 
-		const result = replaceCollectionNameInSchema('configured', schema)
+		const result = withCollectionIdentity('configured', schema)
 		expect(result.collections[0]?.collection).toBe('configured')
 		expect(result.collections[0]?.schema?.name).toBe('configured')
 		expect(result.fields[0]?.collection).toBe('configured')
@@ -113,7 +112,7 @@ const definition: DirectusSchemaDefinition = {
 					collection: 'magic_links',
 					field: 'id',
 					type: 'uuid',
-					schema: { is_primary_key: true } as never,
+					schema: { is_primary_key: true },
 				},
 			],
 		},
@@ -141,9 +140,9 @@ const emptySchema = (): SchemaOverview => ({
 
 describe('ensureDirectusSchema', () => {
 	it('shares the configured memory schema lock across provider instances', async () => {
-		const options = schemaChangeSchema.parse({})
-		const first = createSchemaChangeLockProvider(options)
-		const second = createSchemaChangeLockProvider(options)
+		const options = directusStartupSchema.parse({})
+		const first = createStartupLockProvider(options)
+		const second = createStartupLockProvider(options)
 
 		const lease = await first.provider.tryAcquire('directus-extension-schema:magic-links', {
 			leaseMs: 50,
@@ -159,7 +158,7 @@ describe('ensureDirectusSchema', () => {
 		const logger = createLogger()
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'test',
+			id: 'test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger,
@@ -181,7 +180,10 @@ describe('ensureDirectusSchema', () => {
 			bypassCache: true,
 		})
 		expect(fixture.collectionCreate).toHaveBeenCalledWith(definition.collections[0])
-		expect(fixture.fieldCreate).toHaveBeenCalledWith('magic_links', definition.fields[0])
+		expect(fixture.fieldCreate).toHaveBeenCalledWith('magic_links', {
+			field: definition.fields[0]?.field,
+			type: definition.fields[0]?.type,
+		})
 		expect(fixture.relationCreate).toHaveBeenCalledWith(definition.relations[0])
 		expect(logger.info).toHaveBeenCalledTimes(2)
 		expect(logger.debug).toHaveBeenCalled()
@@ -192,7 +194,7 @@ describe('ensureDirectusSchema', () => {
 		const logger = createLogger()
 
 		await ensureDirectusSchema({
-			extensionId: 'nested-fields-test',
+			id: 'nested-fields-test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger,
@@ -234,7 +236,7 @@ describe('ensureDirectusSchema', () => {
 							collection: 'rich_schema',
 							field: 'id',
 							type: 'uuid',
-							schema: { is_primary_key: true } as never,
+							schema: { is_primary_key: true },
 						},
 					],
 				},
@@ -250,7 +252,7 @@ describe('ensureDirectusSchema', () => {
 						width: 'half',
 						note: 'masked by the consumer UI',
 					} as never,
-					schema: { is_nullable: false } as never,
+					schema: { is_nullable: false },
 				},
 			],
 			relations: [
@@ -265,7 +267,7 @@ describe('ensureDirectusSchema', () => {
 		}
 
 		await ensureDirectusSchema({
-			extensionId: 'rich-test',
+			id: 'rich-test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger: createLogger(),
@@ -275,7 +277,12 @@ describe('ensureDirectusSchema', () => {
 		})
 
 		expect(fixture.collectionCreate).toHaveBeenCalledWith(richDefinition.collections[0])
-		expect(fixture.fieldCreate).toHaveBeenCalledWith('rich_schema', richDefinition.fields[0])
+		expect(fixture.fieldCreate).toHaveBeenCalledWith('rich_schema', {
+			field: richDefinition.fields[0]?.field,
+			type: richDefinition.fields[0]?.type,
+			meta: richDefinition.fields[0]?.meta,
+			schema: richDefinition.fields[0]?.schema,
+		})
 		expect(fixture.relationCreate).toHaveBeenCalledWith(richDefinition.relations[0])
 	})
 
@@ -284,7 +291,7 @@ describe('ensureDirectusSchema', () => {
 
 		await expect(
 			ensureDirectusSchema({
-				extensionId: 'empty-test',
+				id: 'empty-test',
 				database: fixture.database,
 				getSchema: fixture.getSchema,
 				logger: createLogger(),
@@ -309,7 +316,7 @@ describe('ensureDirectusSchema', () => {
 
 		await expect(
 			ensureDirectusSchema({
-				extensionId: 'malformed-collection-test',
+				id: 'malformed-collection-test',
 				database: fixture.database,
 				getSchema: fixture.getSchema,
 				logger,
@@ -339,7 +346,7 @@ describe('ensureDirectusSchema', () => {
 		fixture.collections.set('magic_links', { collection: 'magic_links' })
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'test',
+			id: 'test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger: createLogger(),
@@ -374,7 +381,7 @@ describe('ensureDirectusSchema', () => {
 		})
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'metadata-test',
+			id: 'metadata-test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger: createLogger(),
@@ -402,7 +409,7 @@ describe('ensureDirectusSchema', () => {
 		const logger = createLogger()
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'test',
+			id: 'test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger,
@@ -427,7 +434,7 @@ describe('ensureDirectusSchema', () => {
 		} as unknown as DirectusSchemaDefinition
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'malformed-test',
+			id: 'malformed-test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger,
@@ -449,7 +456,7 @@ describe('ensureDirectusSchema', () => {
 
 		await expect(
 			ensureDirectusSchema({
-				extensionId: 'failure-test',
+				id: 'failure-test',
 				database: fixture.database,
 				getSchema: fixture.getSchema,
 				logger,
@@ -476,7 +483,7 @@ describe('ensureDirectusSchema', () => {
 		const logger = createLogger()
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'best-effort-test',
+			id: 'best-effort-test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger,
@@ -500,7 +507,7 @@ describe('ensureDirectusSchema', () => {
 		}
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'test',
+			id: 'test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger: createLogger(),
@@ -527,7 +534,7 @@ describe('ensureDirectusSchema', () => {
 		}
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'lease-test',
+			id: 'lease-test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger: createLogger(),
@@ -538,7 +545,7 @@ describe('ensureDirectusSchema', () => {
 
 		expect(result).toEqual({ changed: [], skipped: false })
 		expect(lockProvider.tryAcquire).toHaveBeenCalledWith(
-			'directus-extension-schema:lease-test',
+			'directus-extension-startup:lease-test',
 			{
 				leaseMs: 1234,
 			},
@@ -551,7 +558,7 @@ describe('ensureDirectusSchema', () => {
 		const logger = createLogger()
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'configured-lock-test',
+			id: 'configured-lock-test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger,
@@ -560,6 +567,7 @@ describe('ensureDirectusSchema', () => {
 			options: {
 				lockProviderConfig: {
 					DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+					DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: true,
 					DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
 					DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'memory',
 				},
@@ -578,7 +586,7 @@ describe('ensureDirectusSchema', () => {
 		const logger = createLogger()
 
 		const result = await ensureDirectusSchema({
-			extensionId: 'test',
+			id: 'test',
 			database: fixture.database,
 			getSchema: fixture.getSchema,
 			logger,
@@ -594,62 +602,86 @@ describe('ensureDirectusSchema', () => {
 	})
 })
 
-describe('getSchemaChangeStatus', () => {
-	it('checks a schema lock without attempting to acquire it', async () => {
+describe('ensureDirectusPolicy', () => {
+	it('creates a missing policy with its durable identity', async () => {
+		const fixture = createFixture(emptySchema())
+		const created: Partial<Policy>[] = []
+		class PoliciesService {
+			public readOne = vi.fn(() => Promise.reject(new Error('missing')))
+			public readByQuery = vi.fn(() => Promise.resolve([]))
+			public createOne = vi.fn((policy: Partial<Policy>) => {
+				created.push(policy)
+				return Promise.resolve(policy.id ?? '')
+			})
+		}
+		const services = { ...fixture.services, PoliciesService } as unknown as Services
+		const definition: Policy = {
+			id: 'policy-id',
+			name: 'Policy name',
+			icon: 'policy',
+			description: null,
+			enforce_tfa: false,
+			ip_access: null,
+			app_access: false,
+			admin_access: false,
+		}
+
+		await expect(
+			ensureDirectusPolicy({
+				id: 'policy-test',
+				database: fixture.database,
+				getSchema: fixture.getSchema,
+				logger: createLogger(),
+				services,
+				definition,
+			}),
+		).resolves.toEqual({ changed: ['policy:policy-id'], skipped: false })
+		expect(created).toEqual([definition])
+	})
+})
+
+describe('getDirectusStartupStatus', () => {
+	it('checks the startup lock without attempting to acquire it', async () => {
 		const isLocked = vi.fn(() => Promise.resolve(true))
 		const tryAcquire = vi.fn()
 		const lockProvider = { isLocked, tryAcquire }
 
 		await expect(
-			getSchemaChangeStatus({
-				extensionId: 'status-test',
+			getDirectusStartupStatus({
+				id: 'status-test',
 				options: { lockProvider },
 			}),
 		).resolves.toEqual({ isLocked: true })
-		expect(isLocked).toHaveBeenCalledWith('directus-extension-schema:status-test')
+		expect(isLocked).toHaveBeenCalledWith('directus-extension-startup:status-test')
 		expect(tryAcquire).not.toHaveBeenCalled()
 	})
 })
 
-describe('registerSchemaChangeOnStart', () => {
-	it.each([
-		['globally disabled', { disabledGlobally: true, disabled: false }],
-		['extension disabled', { disabledGlobally: false, disabled: true }],
-	])('does not invoke the callback when %s', async (_name, options) => {
+describe('createDirectusStartupCoordinator', () => {
+	it('runs schema callbacks before data callbacks in registration order', async () => {
 		const action = vi.fn<ActionRegistrar>()
-		const callback = vi.fn(() => Promise.resolve({ changed: [], skipped: false }))
 		const logger = createLogger()
-		registerSchemaChangeOnStart(action, logger, callback, {
-			name: 'Test',
-			...options,
-		})
-
-		expect(action).toHaveBeenCalledOnce()
-		const handler = action.mock.calls[0]?.[1]
-		if (!handler) throw new Error('Expected startup handler')
-		handler()
-		await Promise.resolve()
-		expect(callback).not.toHaveBeenCalled()
-		expect(logger.info).toHaveBeenCalledOnce()
-	})
-
-	it('invokes enabled callbacks and logs rejected callbacks', async () => {
-		const action = vi.fn<ActionRegistrar>()
-		const callback = vi.fn(() => Promise.reject(new Error('startup failure')))
-		const logger = createLogger()
-		registerSchemaChangeOnStart(action, logger, callback, {
+		const order: string[] = []
+		const startup = createDirectusStartupCoordinator(action, logger, {
+			id: 'startup-test',
 			name: 'Test',
 			disabled: false,
 			disabledGlobally: false,
 		})
+		startup.data(() => {
+			order.push('data')
+			return Promise.resolve()
+		})
+		startup.schema(() => {
+			order.push('schema-1')
+			return Promise.resolve()
+		})
+		startup.schema(() => {
+			order.push('schema-2')
+			return Promise.resolve()
+		})
 
-		const handler = action.mock.calls[0]?.[1]
-		if (!handler) throw new Error('Expected startup handler')
-		handler()
-		await vi.waitFor(() => expect(callback).toHaveBeenCalledOnce())
-		await vi.waitFor(() => expect(logger.error).toHaveBeenCalledOnce())
-		expect(logger.error).toHaveBeenCalledWith(
-			expect.objectContaining({ msg: 'Test schema setup failed' }),
-		)
+		action.mock.calls[0]?.[1]?.()
+		await vi.waitFor(() => expect(order).toEqual(['schema-1', 'schema-2', 'data']))
 	})
 })

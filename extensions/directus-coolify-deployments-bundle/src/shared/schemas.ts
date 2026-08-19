@@ -53,7 +53,7 @@ const coolifyDeploymentSchema = z
 		deployment_url: z.string().nullable().optional(),
 		commit_message: z.string().nullable().optional(),
 	})
-	.passthrough()
+	.loose()
 
 export const coolifyDeploymentsResponseSchema = z.array(coolifyDeploymentSchema)
 

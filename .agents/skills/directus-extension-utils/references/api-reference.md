@@ -169,52 +169,51 @@ Exiting.` when parsing fails.
 ## Server-only schema management
 
 ```ts
-replaceCollectionNameInSchema(
+withCollectionIdentity(
   name: string,
   schema: DirectusSchemaDefinition,
 ): DirectusSchemaDefinition
 ```
 
-Replaces the placeholder collection name from the first collection definition throughout a
-portable schema definition. The schema must contain at least one collection. This helper performs
-name substitution; it does not validate the complete JSON schema document.
+Replaces the first collection identity throughout typed collection, field, and relation references.
+The schema must contain at least one collection.
 
 ```ts
-const schemaLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
+const startupLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
 
-const schemaChangeSchema = z.object({
+const directusStartupSchema = z.object({
   DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
-  DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE: z.boolean().default(true),
-  DIRECTUS_EXTENSIONS_LOCK_PROVIDER: schemaLockProviderSchema.default('MEMORY'),
+  DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: z.boolean().default(true),
+  DIRECTUS_EXTENSIONS_LOCK_PROVIDER: startupLockProviderSchema.default('MEMORY'),
   DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: z.string().trim().min(1).optional(),
   DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: z.string().trim().min(1).optional(),
 })
   // REDIS requires LOCK_REDIS_URL; FS requires LOCK_FS_DIRECTORY.
 
-type SchemaChangeOptions = z.output<typeof schemaChangeSchema>
+type DirectusStartupOptions = z.output<typeof directusStartupSchema>
 
-const DIRECTUS_EXTENSION_SCHEMA_LOCK = 'directus-extension-schema'
-getSchemaLockName(name: string): string
+const DIRECTUS_EXTENSION_STARTUP_LOCK = 'directus-extension-startup'
+getDirectusStartupLockName(name: string): string
 ```
 
-`schemaChangeSchema` validates the global enablement and provider settings. Extend it with
+`directusStartupSchema` validates the global enablement and provider settings. Extend it with
 `.extend(...)` so its conditional Redis and filesystem requirements remain active:
 
 ```ts
-const envSchema = schemaChangeSchema.extend({
+const envSchema = directusStartupSchema.extend({
   ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 })
 ```
 
 ```ts
-interface SchemaChangeLockProvider {
+interface DirectusStartupLockProvider {
   provider: LockProvider
   dispose(): Promise<void>
 }
 
-createSchemaChangeLockProvider(
-  options: SchemaChangeOptions,
-): SchemaChangeLockProvider
+createStartupLockProvider(
+  options: DirectusStartupOptions,
+): DirectusStartupLockProvider
 ```
 
 The factory selects the memory, Redis, or filesystem provider from
@@ -223,20 +222,27 @@ explicit `options.lockProvider` passed to `ensureDirectusSchema` remains owned b
 
 ```ts
 interface DirectusSchemaDefinition {
-  collections: CollectionDefinition[]
-  fields: FieldDefinition[]
+  collections: RawCollection[]
+  fields: RawField[]
   relations: Partial<Relation>[]
 }
+
+`validateSchemaDefinition` validates bundled JSON at the boundary and returns a typed
+`DirectusSchemaDefinition`:
+
+```ts
+const definition = validateSchemaDefinition(bundledSchema)
+```
 
 interface EnsureDirectusSchemaOptions {
   abortOnError?: boolean // default true
   lockProvider?: LockProvider
-  lockProviderConfig?: SchemaChangeOptions
+  lockProviderConfig?: DirectusStartupOptions
   lockLeaseMs?: number
 }
 
 interface EnsureDirectusSchemaInput {
-  extensionId: string
+  id: string
   database: ApiExtensionContext['database']
   getSchema: (options?: {
     database?: ApiExtensionContext['database']
@@ -257,23 +263,43 @@ ensureDirectusSchema(
   input: EnsureDirectusSchemaInput,
 ): Promise<EnsureDirectusSchemaResult>
 
-type SchemaChangeStatusOptions = Pick<
-  EnsureDirectusSchemaOptions,
+interface BaseEnsureInput {
+  id: string
+  database: ApiExtensionContext['database']
+  getSchema: (options?: {
+    database?: ApiExtensionContext['database']
+    bypassCache?: boolean
+  }) => Promise<SchemaOverview>
+  logger: LoggerLike
+  services: ApiExtensionContext['services']
+  options?: BaseEnsureOptions
+}
+
+interface EnsureDirectusPolicyInput extends BaseEnsureInput {
+  definition: Policy
+}
+
+ensureDirectusPolicy(
+  input: EnsureDirectusPolicyInput,
+): Promise<EnsureDirectusSchemaResult>
+
+type DirectusStartupStatusOptions = Pick<
+  BaseEnsureOptions,
   'lockProvider' | 'lockProviderConfig'
 >
 
-interface SchemaChangeStatusInput {
-  extensionId: string
-  options?: SchemaChangeStatusOptions
+interface DirectusStartupStatusInput {
+  id: string
+  options?: DirectusStartupStatusOptions
 }
 
-interface SchemaChangeStatus {
+interface DirectusStartupStatus {
   isLocked: boolean
 }
 
-getSchemaChangeStatus(
-  input: SchemaChangeStatusInput,
-): Promise<SchemaChangeStatus>
+getDirectusStartupStatus(
+  input: DirectusStartupStatusInput,
+): Promise<DirectusStartupStatus>
 ```
 
 Collection definitions must include a non-blank `schema.name` and a primary-key field in the
@@ -288,9 +314,9 @@ authoritative and is not overwritten. Each ensure emits an info-level plan and s
 and lock lifecycle details use debug-level logging. Unexpected service failures are logged and
 re-thrown by default; set `abortOnError: false` to continue.
 
-`getSchemaChangeStatus` checks the same schema-change lock read-only. It never acquires, renews,
-releases, or repairs a lock. Use the same `extensionId` and provider configuration as the ensure
-operation. Memory providers with the same `providerId` can observe one another within the process.
+`getDirectusStartupStatus` checks the shared startup lock read-only. It never acquires, renews,
+releases, or repairs a lock. Use the same `id` and provider configuration as the startup
+coordinator. Memory providers with the same `providerId` can observe one another within the process.
 Providers created from `lockProviderConfig` are disposed after the status query, while
 an explicitly supplied `lockProvider` remains owned by the consumer.
 
@@ -300,29 +326,43 @@ type ActionRegistrar = (
   handler: () => void,
 ) => void
 
-interface RegisterSchemaChangeOnStartOptions {
+interface CreateDirectusStartupCoordinatorOptions {
+  id: string
   name: string
   disabled: boolean
   disabledGlobally: boolean
+  dataDisabledGlobally?: boolean
+  lockProvider?: LockProvider
+  lockProviderConfig?: DirectusStartupOptions
+  lockLeaseMs?: number
 }
 
-registerSchemaChangeOnStart(
+interface DirectusStartupContext {
+  lockProvider: LockProvider
+}
+
+interface DirectusStartupCoordinator {
+  schema(callback: (context: DirectusStartupContext) => Promise<void>): void
+  data(callback: (context: DirectusStartupContext) => Promise<void>): void
+}
+
+createDirectusStartupCoordinator(
   action: ActionRegistrar,
   logger: LoggerLike,
-  callback: () => Promise<EnsureDirectusSchemaResult>,
-  options: RegisterSchemaChangeOnStartOptions,
-): void
+  options: CreateDirectusStartupCoordinatorOptions,
+): DirectusStartupCoordinator
 ```
 
-The startup helper performs the global and extension-specific disabled checks, invokes the callback
-on `server.start`, and logs asynchronous setup failures without rejecting action registration.
+The startup coordinator performs the global and extension-specific disabled checks, invokes one
+ordered `server.start` plan, runs all schema callbacks before data callbacks, and logs asynchronous
+setup failures without rejecting action registration. The context's held provider must be passed to
+nested ensure calls.
 
 Schema-change configuration summary:
 
 | Key | Default | Validation/behavior |
 | --- | --- | --- |
 | `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | `true` | Global master switch. |
-| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | `true` | Global locking default. |
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | `MEMORY` | Enum: `MEMORY`, `REDIS`, `FS`. |
 | `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | absent | Required for `REDIS`; provider is disposed when factory-created. |
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | absent | Required for `FS`. |

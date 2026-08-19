@@ -4,7 +4,7 @@ import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
 	extensionSetup,
 	validateExtensionOptions,
-	getSchemaChangeStatus,
+	getDirectusStartupStatus,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { EXTENSION_ID, EXTENSION_NAME } from '../magic-links-hook/constants'
@@ -55,8 +55,8 @@ export default defineEndpoint({
 		const rejectWhileSchemaLocked = async (
 			next: (error?: unknown) => void,
 		): Promise<boolean> => {
-			const { isLocked } = await getSchemaChangeStatus({
-				extensionId: EXTENSION_ID,
+			const { isLocked } = await getDirectusStartupStatus({
+				id: EXTENSION_ID,
 				options: schemaLockOptions,
 			})
 			if (!isLocked) return false

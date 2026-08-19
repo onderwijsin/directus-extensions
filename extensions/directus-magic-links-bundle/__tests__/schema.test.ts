@@ -1,11 +1,17 @@
-import { replaceCollectionNameInSchema } from '@onderwijsin/directus-extension-utils/server'
+import {
+	withCollectionIdentity,
+	validateSchemaDefinition,
+} from '@onderwijsin/directus-extension-utils/server'
 import { describe, expect, it } from 'vitest'
 
 import magicLinksSchema from '../schema/directus_magic_links.json'
 
 describe('magic-links schema', () => {
 	it('uses the configured collection for collections, fields, and relations', () => {
-		const schema = replaceCollectionNameInSchema('custom_links', magicLinksSchema)
+		const schema = withCollectionIdentity(
+			'custom_links',
+			validateSchemaDefinition(magicLinksSchema),
+		)
 		const collection = schema.collections[0]
 		if (!collection) throw new Error('Expected the magic-links collection schema')
 		const collectionFields = collection.fields

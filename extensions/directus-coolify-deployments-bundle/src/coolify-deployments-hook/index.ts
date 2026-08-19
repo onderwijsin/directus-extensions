@@ -1,9 +1,10 @@
 import { defineHook } from '@directus/extensions-sdk'
 import {
 	ensureDirectusSchema,
+	validateSchemaDefinition,
+	createDirectusStartupCoordinator,
 	extensionSetup,
-	registerSchemaChangeOnStart,
-	replaceCollectionNameInSchema,
+	withCollectionIdentity,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
@@ -27,31 +28,31 @@ export default defineHook((hook, context) => {
 
 	const options = validateExtensionOptions(env, envSchema, logger)
 
-	registerSchemaChangeOnStart(
-		action,
-		logger,
-		() =>
-			ensureDirectusSchema({
-				extensionId: EXTENSION_ID,
-				database: context.database,
-				getSchema: context.getSchema,
-				logger,
-				definition: replaceCollectionNameInSchema(
-					options.COOLIFY_APPLICATIONS_COLLECTION,
-					coolifyApplicationsSchema,
-				),
-				services: context.services,
-				options: {
-					abortOnError: options.COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR,
-					lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
-				},
-			}),
-		{
-			name: 'Coolify deployments',
-			disabled: !options.COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED,
-			disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
-		},
-	)
+	const startup = createDirectusStartupCoordinator(action, logger, {
+		id: EXTENSION_ID,
+		name: 'Coolify deployments',
+		disabled: !options.COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED,
+		disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
+		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
+	})
+	startup.schema(async ({ lockProvider }) => {
+		await ensureDirectusSchema({
+			id: EXTENSION_ID,
+			database: context.database,
+			getSchema: context.getSchema,
+			logger,
+			definition: withCollectionIdentity(
+				options.COOLIFY_APPLICATIONS_COLLECTION,
+				validateSchemaDefinition(coolifyApplicationsSchema),
+			),
+			services: context.services,
+			options: {
+				abortOnError: options.COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR,
+				lockProvider,
+			},
+		})
+	})
 
 	setup.end()
 })

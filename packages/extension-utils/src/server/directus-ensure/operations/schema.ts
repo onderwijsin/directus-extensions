@@ -1,110 +1,35 @@
-import type { ApiCollection, ApiExtensionContext, Relation, SchemaOverview } from '@directus/types'
-import type { LockProvider } from '../lock'
-import type { LoggerLike } from '../logger'
+import type {
+	ApiCollection,
+	Field,
+	RawCollection,
+	RawField,
+	Relation,
+	SchemaOverview,
+} from '@directus/types'
 
-import { attempt } from '../../shared/attempt'
-import { isNonBlankString } from '../../shared/guards'
-import { createMemoryLockProvider } from '../lock'
-import { getSchemaLockName, type SchemaChangeOptions } from './config'
-import { createSchemaChangeLockProvider } from './provider'
+import { attempt } from '../../../shared/attempt'
+import { isNonBlankString } from '../../../shared/guards'
+import { getDirectusStartupLockName } from '../config'
+import {
+	resolveDirectusLockProvider,
+	type EnsureDirectusSchemaInput,
+	type EnsureDirectusSchemaOptions,
+	type EnsureDirectusSchemaResult,
+} from './core'
 
-/** Portable Directus schema data shipped by an extension. */
-export interface DirectusSchemaDefinition {
-	collections: CollectionDefinition[]
-	fields: FieldDefinition[]
-	relations: RelationDefinition[]
-}
-
-type Database = ApiExtensionContext['database']
-type Services = ApiExtensionContext['services']
+type Database = EnsureDirectusSchemaInput['database']
+type Services = EnsureDirectusSchemaInput['services']
 type CollectionsService = InstanceType<Services['CollectionsService']>
 type FieldsService = InstanceType<Services['FieldsService']>
 type RelationsService = InstanceType<Services['RelationsService']>
 type ServiceOptions = ConstructorParameters<Services['CollectionsService']>[0]
-type CollectionDefinition = Parameters<CollectionsService['createOne']>[0] & {
-	fields?: FieldDefinition[]
-}
-type FieldDefinition = Parameters<FieldsService['createField']>[1]
 type RelationDefinition = Partial<Relation>
-
-/** Options for one schema ensure operation. */
-export interface EnsureDirectusSchemaOptions {
-	/** Whether unexpected schema service failures should be rethrown. */
-	abortOnError?: boolean
-	/** Lock provider selected by the consumer. */
-	lockProvider?: LockProvider
-	/** Validated environment configuration used when no provider is supplied directly. */
-	lockProviderConfig?: SchemaChangeOptions
-	/** Lock lease duration in milliseconds. */
-	lockLeaseMs?: number
-}
-
-/** Options needed to resolve the provider for schema coordination. */
-export type SchemaChangeStatusOptions = Pick<
-	EnsureDirectusSchemaOptions,
-	'lockProvider' | 'lockProviderConfig'
->
-
-/** Input for a read-only schema-change lock status query. */
-export interface SchemaChangeStatusInput {
-	extensionId: string
-	options?: SchemaChangeStatusOptions
-}
-
-/** Current lock state for one extension schema operation. */
-export interface SchemaChangeStatus {
-	isLocked: boolean
-}
-
-/** Arguments accepted by ensureDirectusSchema. */
-export interface EnsureDirectusSchemaInput {
-	extensionId: string
-	database: Database
-	getSchema: (options?: { database?: Database; bypassCache?: boolean }) => Promise<SchemaOverview>
-	logger: LoggerLike
-	definition: DirectusSchemaDefinition
-	services: Services
-	options?: EnsureDirectusSchemaOptions
-}
-
-/** Result of one schema ensure operation. */
-export interface EnsureDirectusSchemaResult {
-	changed: string[]
-	skipped: boolean
-}
-
-const fallbackLockProvider = createMemoryLockProvider()
-
-/**
- * Releases no resources for a provider owned by the caller or fallback provider.
- * @returns A resolved promise.
- */
-const disposeNoop = (): Promise<void> => Promise.resolve()
-
-/**
- * Resolves the configured schema lock provider and its owned-resource cleanup.
- * @param options - Provider options supplied by the consumer.
- * @returns The provider and its owned-resource cleanup function.
- */
-const resolveSchemaChangeLockProvider = (
-	options: SchemaChangeStatusOptions,
-): { provider: LockProvider; dispose: () => Promise<void> } =>
-	options.lockProvider
-		? {
-				provider: options.lockProvider,
-				dispose: disposeNoop,
-			}
-		: options.lockProviderConfig
-			? createSchemaChangeLockProvider(options.lockProviderConfig)
-			: {
-					provider: fallbackLockProvider,
-					dispose: disposeNoop,
-				}
+type FieldMutation = Pick<Field, 'field' | 'type'> & Partial<Omit<Field, 'field' | 'type'>>
 
 /**
  * Builds constructor options for a Directus schema service.
  * @param database - Directus database connection.
- * @param schema - Current Directus schema overview.
+ * @param schema - Current schema overview.
  * @returns Service constructor options.
  */
 const serviceOptions = (database: Database, schema: SchemaOverview): ServiceOptions => ({
@@ -121,21 +46,21 @@ const serviceOptions = (database: Database, schema: SchemaOverview): ServiceOpti
  */
 const getCollection = async (
 	service: CollectionsService,
-	collection: CollectionDefinition,
+	collection: RawCollection,
 ): Promise<ApiCollection | null> => {
 	const result = await attempt(() => service.readOne(collection.collection))
 	return result.error === null ? result.data : null
 }
 
 /**
- * Logs an incompatible existing resource without modifying it.
- * @param logger - Logger used for the loud compatibility warning.
+ * Logs an incompatible existing schema resource without modifying it.
+ * @param logger - Logger used for the compatibility warning.
  * @param resource - Resource kind and identifier.
  * @param details - Compatibility details.
- * @returns Nothing.
+ * @returns Null to indicate that no resource was created.
  */
 const logIncompatible = (
-	logger: LoggerLike,
+	logger: EnsureDirectusSchemaInput['logger'],
 	resource: string,
 	details: Record<string, unknown>,
 ): null => {
@@ -151,13 +76,13 @@ const logIncompatible = (
  * Creates a collection when it does not already exist.
  * @param service - Directus collections service.
  * @param collection - Collection definition.
- * @param logger - Logger used for operational change details.
- * @returns Change identifier or null when already present or incompatible.
+ * @param logger - Logger used for operational details.
+ * @returns Change identifier or null.
  */
 const ensureCollection = async (
 	service: CollectionsService,
-	collection: CollectionDefinition,
-	logger: LoggerLike,
+	collection: RawCollection,
+	logger: EnsureDirectusSchemaInput['logger'],
 ): Promise<string | null> => {
 	if (
 		!isNonBlankString(collection.schema?.name) ||
@@ -167,7 +92,6 @@ const ensureCollection = async (
 			reason: 'collection schema name and primary key field are required',
 		})
 	}
-
 	const existing = await getCollection(service, collection)
 	if (existing) {
 		logger.debug?.({
@@ -176,7 +100,6 @@ const ensureCollection = async (
 		})
 		return null
 	}
-
 	await service.createOne(collection)
 	logger.debug?.({ msg: '🛠️ Created Directus collection', collection: collection.collection })
 	return 'collection:' + collection.collection
@@ -186,15 +109,15 @@ const ensureCollection = async (
  * Creates a field when it does not already exist.
  * @param service - Directus fields service.
  * @param field - Field definition.
- * @param schema - Current Directus schema overview.
- * @param logger - Logger used for operational change details.
- * @returns Change identifier or null when already present or incompatible.
+ * @param schema - Current schema overview.
+ * @param logger - Logger used for operational details.
+ * @returns Change identifier or null.
  */
 const ensureField = async (
 	service: FieldsService,
-	field: FieldDefinition,
+	field: RawField,
 	schema: SchemaOverview,
-	logger: LoggerLike,
+	logger: EnsureDirectusSchemaInput['logger'],
 ): Promise<string | null> => {
 	if (!field.collection) {
 		return logIncompatible(logger, 'field', {
@@ -203,7 +126,6 @@ const ensureField = async (
 			reason: 'field collection is required',
 		})
 	}
-
 	const existing = schema.collections[field.collection]?.fields[field.field]
 	if (existing) {
 		if (existing.type === field.type) {
@@ -220,8 +142,8 @@ const ensureField = async (
 			actualType: existing.type,
 		})
 	}
-
-	await service.createField(field.collection, field)
+	const { collection, ...payload } = field
+	await service.createField(collection, payload as FieldMutation)
 	logger.debug?.({
 		msg: '🛠️ Created Directus field',
 		collection: field.collection,
@@ -234,15 +156,15 @@ const ensureField = async (
  * Creates a relation when it does not already exist.
  * @param service - Directus relations service.
  * @param relation - Relation definition.
- * @param schema - Current Directus schema overview.
- * @param logger - Logger used for operational change details.
- * @returns Change identifier or null when already present or incompatible.
+ * @param schema - Current schema overview.
+ * @param logger - Logger used for operational details.
+ * @returns Change identifier or null.
  */
 const ensureRelation = async (
 	service: RelationsService,
 	relation: RelationDefinition,
 	schema: SchemaOverview,
-	logger: LoggerLike,
+	logger: EnsureDirectusSchemaInput['logger'],
 ): Promise<string | null> => {
 	if (!relation.collection || !relation.field || !relation.related_collection) {
 		return logIncompatible(logger, 'relation', {
@@ -252,7 +174,6 @@ const ensureRelation = async (
 			reason: 'relation endpoints are required',
 		})
 	}
-
 	const existing = schema.relations.find(
 		(candidate) =>
 			candidate.collection === relation.collection && candidate.field === relation.field,
@@ -272,7 +193,6 @@ const ensureRelation = async (
 			actualRelatedCollection: existing.related_collection,
 		})
 	}
-
 	await service.createOne(relation)
 	logger.debug?.({
 		msg: '🛠️ Created Directus relation',
@@ -284,20 +204,15 @@ const ensureRelation = async (
 }
 
 /**
- * Ensures that an extension's portable Directus schema exists and is compatible.
- *
- * Compatibility intentionally covers only structural invariants: collection existence, field
- * identity/type, and relation endpoints. UI metadata such as labels, icons, visibility, and
- * interfaces is not authoritative and is never overwritten.
- *
+ * Ensures an extension's portable Directus schema exists and is compatible.
  * @param input - Schema definition, Directus services, and operation options.
  * @returns The resources created by the operation.
  */
 export async function ensureDirectusSchema(
 	input: EnsureDirectusSchemaInput,
 ): Promise<EnsureDirectusSchemaResult> {
-	const { extensionId, database, getSchema, logger, definition, services } = input
-	const options = input.options ?? {}
+	const { id, database, getSchema, logger, definition, services } = input
+	const options: EnsureDirectusSchemaOptions = input.options ?? {}
 	const changed: string[] = []
 	const startedAt = Date.now()
 	const lockProviderName = options.lockProvider
@@ -312,7 +227,7 @@ export async function ensureDirectusSchema(
 
 	logger.info({
 		msg: '🚀 Starting Directus schema ensure',
-		extensionId,
+		extensionId: id,
 		resources: {
 			collections: definition.collections.length,
 			fields: definition.fields.length + nestedFieldCount,
@@ -322,24 +237,25 @@ export async function ensureDirectusSchema(
 		lockProvider: lockProviderName,
 	})
 
-	const configuredProvider = resolveSchemaChangeLockProvider(options)
+	const configuredProvider = resolveDirectusLockProvider(options)
 	const lockProvider = configuredProvider.provider
 	let lease = null
 
 	try {
+		// Acquire one startup lease before touching collections, fields, or relations.
 		if (!options.lockProvider && !options.lockProviderConfig) {
 			logger.warn({
 				msg: 'Using a process-local schema lock; configure a shared provider for replicas',
-				extensionId,
+				extensionId: id,
 			})
 		}
-		lease = await lockProvider.tryAcquire(getSchemaLockName(extensionId), {
+		lease = await lockProvider.tryAcquire(getDirectusStartupLockName(id), {
 			...(options.lockLeaseMs === undefined ? {} : { leaseMs: options.lockLeaseMs }),
 		})
 		if (!lease) {
 			logger.info({
 				msg: '⏭️ Directus schema ensure skipped; another operation holds the lock',
-				extensionId,
+				extensionId: id,
 				lockProvider: lockProviderName,
 				changed,
 				changedCount: changed.length,
@@ -350,17 +266,17 @@ export async function ensureDirectusSchema(
 		}
 		logger.debug?.({
 			msg: '🔐 Acquired schema ensure lock',
-			extensionId,
+			extensionId: id,
 			lockProvider: lockProviderName,
 		})
 
+		// Refresh the schema between phases so each service sees the previous phase's changes.
 		const result = await attempt(async () => {
 			currentPhase = 'schema read'
 			let schema = await getSchema({ database, bypassCache: true })
 			const collectionService = new services.CollectionsService(
 				serviceOptions(database, schema),
 			)
-
 			for (const collection of definition.collections) {
 				currentPhase = 'collection'
 				currentResource = collection.collection
@@ -384,33 +300,25 @@ export async function ensureDirectusSchema(
 				if (created) changed.push(created)
 			}
 		})
-
 		if (result.error !== null) {
+			// Best-effort mode records the failure and continues; aborting mode rethrows it.
 			logger.error({
 				msg: '❌ Directus schema ensure failed',
-				extensionId,
+				extensionId: id,
 				phase: currentPhase,
 				resource: currentResource,
 				cause: result.error instanceof Error ? result.error.message : result.error,
 			})
 			if (options.abortOnError ?? true) {
-				const error =
-					result.error instanceof Error
-						? result.error
-						: new Error(JSON.stringify(result.error) ?? 'Unknown schema ensure failure')
-				throw error
+				throw result.error instanceof Error
+					? result.error
+					: new Error(JSON.stringify(result.error) ?? 'Unknown schema ensure failure')
 			}
-			logger.warn({
-				msg: '⚠️ Continuing after schema ensure failure',
-				extensionId,
-				phase: currentPhase,
-				resource: currentResource,
-			})
+			logger.warn({ msg: '⚠️ Continuing after schema ensure failure', extensionId: id })
 		}
-
 		logger.info({
 			msg: '✅ Directus schema ensure completed',
-			extensionId,
+			extensionId: id,
 			changed,
 			changedCount: changed.length,
 			durationMs: Date.now() - startedAt,
@@ -419,32 +327,15 @@ export async function ensureDirectusSchema(
 	} finally {
 		if (lease) {
 			await lease.release()
-			logger.debug?.({ msg: '🔓 Released schema ensure lock', extensionId })
+			logger.debug?.({ msg: '🔓 Released schema ensure lock', extensionId: id })
 		}
 		if (!options.lockProvider) await configuredProvider.dispose()
 	}
 }
 
-/**
- * Checks whether an extension's schema ensure lock is currently held.
- *
- * This operation is read-only: it never acquires, renews, releases, or repairs a lock.
- * @param input - Extension identifier and provider options.
- * @returns Whether the schema ensure lock is currently held.
- */
-export async function getSchemaChangeStatus(
-	input: SchemaChangeStatusInput,
-): Promise<SchemaChangeStatus> {
-	const options = input.options ?? {}
-	const configuredProvider = resolveSchemaChangeLockProvider(options)
-
-	try {
-		return {
-			isLocked: await configuredProvider.provider.isLocked(
-				getSchemaLockName(input.extensionId),
-			),
-		}
-	} finally {
-		if (!options.lockProvider) await configuredProvider.dispose()
-	}
-}
+export type {
+	DirectusSchemaDefinition,
+	EnsureDirectusSchemaInput,
+	EnsureDirectusSchemaOptions,
+	EnsureDirectusSchemaResult,
+} from './core'

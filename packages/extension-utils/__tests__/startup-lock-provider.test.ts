@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { createSchemaChangeLockProvider } from '../src/server/schema-management/provider'
+import { createStartupLockProvider } from '../src/server/directus-ensure/provider'
 
-describe('createSchemaChangeLockProvider', () => {
+describe('createStartupLockProvider', () => {
 	it('creates the configured memory provider', async () => {
-		const resource = createSchemaChangeLockProvider({
+		const resource = createStartupLockProvider({
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+			DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: true,
 			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
 			DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'memory',
 		})

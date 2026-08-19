@@ -1,21 +1,22 @@
 import { z } from 'zod'
 
-/** Supported providers for global schema-change coordination. */
-export const schemaLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
+/** Supported providers for Directus startup coordination. */
+export const startupLockProviderSchema = z.enum(['MEMORY', 'REDIS', 'FS'])
 
 /** Supported stores for extension-owned rate limiters. */
 export const extensionRateLimiterStoreSchema = z.enum(['memory', 'redis'])
 
 /**
- * Validates global schema change configuration.
+ * Validates shared Directus startup configuration.
  *
- * @returns Validated schema for global schema change permissions.
+ * @returns Validated configuration for startup coordination and rate limiting.
  */
-export const schemaChangeSchema = z
+export const directusStartupSchema = z
 	.object({
 		DIRECTUS_EXTENSION_ID: z.string().optional(),
 		DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
-		DIRECTUS_EXTENSIONS_LOCK_PROVIDER: schemaLockProviderSchema.default('MEMORY'),
+		DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: z.boolean().default(true),
+		DIRECTUS_EXTENSIONS_LOCK_PROVIDER: startupLockProviderSchema.default('MEMORY'),
 		DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: z.string().trim().min(1).optional(),
 		DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: z.string().trim().min(1).optional(),
 		DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: extensionRateLimiterStoreSchema.default('memory'),
@@ -53,16 +54,16 @@ export const schemaChangeSchema = z
 		}
 	})
 
-export type SchemaChangeOptions = z.output<typeof schemaChangeSchema>
+export type DirectusStartupOptions = z.output<typeof directusStartupSchema>
 
-/** Shared lock namespace for extension schema operations. */
-export const DIRECTUS_EXTENSION_SCHEMA_LOCK = 'directus-extension-schema'
+/** Shared lock namespace for extension startup operations. */
+export const DIRECTUS_EXTENSION_STARTUP_LOCK = 'directus-extension-startup'
 
 /**
- * Builds the lock name for one extension's schema operation.
+ * Builds the lock name for one extension's startup operations.
  * @param name - Extension identifier.
- * @returns The namespaced schema lock name.
+ * @returns The namespaced startup lock name.
  */
-export function getSchemaLockName(name: string): string {
-	return DIRECTUS_EXTENSION_SCHEMA_LOCK + ':' + name
+export function getDirectusStartupLockName(name: string): string {
+	return DIRECTUS_EXTENSION_STARTUP_LOCK + ':' + name
 }

@@ -85,8 +85,8 @@ only the common helper surface.
 | Locks          | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                     | `/server`         |
 | Auto-tasks     | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                | `/server`         |
 | Logging        | `createLogger`                                                                                                                                                                    | `/server`         |
-| Setup          | `extensionSetup`, `validateExtensionOptions`, `registerSchemaChangeOnStart`                                                                                                       | `/server`         |
-| Schema changes | `schemaChangeSchema`, `ensureDirectusSchema`, `getSchemaChangeStatus`, `replaceCollectionNameInSchema`                                                                            | `/server`         |
+| Setup          | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                  | `/server`         |
+| Schema/data    | `directusStartupSchema`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `withCollectionIdentity`                                                     | `/server`         |
 | Constants      | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                | `/constants`      |
 | Sentry         | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                  | `/sentry`         |
 
@@ -123,11 +123,12 @@ resource cleanup. Invalid Zod configuration is logged and throws
 
 ### Schema changes
 
-Use `schemaChangeSchema` for global enablement and locking flags, then call `ensureDirectusSchema`
-with the hook context's `database`, `getSchema`, `services`, and a trusted portable definition.
-Existing compatible resources are preserved; incompatible structural resources are logged and left
-unchanged. Register the operation with `registerSchemaChangeOnStart` to apply the global and
-extension-specific disabled checks consistently.
+Use `directusStartupSchema` for global enablement and locking flags, then call
+`ensureDirectusSchema` with the hook context's `database`, `getSchema`, `services`, and a trusted
+portable definition. Existing compatible resources are preserved; incompatible structural resources
+are logged and left unchanged. Register the operation with `createDirectusStartupCoordinator` to
+apply the global and extension-specific disabled checks consistently and to run schema work before
+data seeds.
 
 Each collection definition must include a non-blank `schema.name` and the collection's primary-key
 field in its nested `fields` array. Keep that primary-key field out of the top-level `fields` array:
@@ -147,12 +148,12 @@ field in its nested `fields` array. Keep that primary-key field out of the top-l
 }
 ```
 
-When a bundled schema supports a configurable collection name, use the shared replacement helper:
+When a bundled schema supports a configurable collection name, use the shared identity helper:
 
 ```ts
-import { replaceCollectionNameInSchema } from '@onderwijsin/directus-extension-utils/server'
+import { withCollectionIdentity } from '@onderwijsin/directus-extension-utils/server'
 
-const configuredSchema = replaceCollectionNameInSchema('custom_orders', bundledSchema)
+const configuredSchema = withCollectionIdentity('custom_orders', bundledSchema)
 ```
 
 The collection guard preserves malformed definitions instead of allowing Directus to create an
@@ -162,10 +163,10 @@ rest of the ensure operation.
 Compose the shared schema-change environment into an extension schema:
 
 ```ts
-import { schemaChangeSchema } from '@onderwijsin/directus-extension-utils/server'
+import { directusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
 import { z } from 'zod'
 
-export const envSchema = schemaChangeSchema.extend({
+export const envSchema = directusStartupSchema.extend({
   ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 })
 ```
@@ -196,7 +197,7 @@ const lockProvider = createRedisLockProvider({
 })
 
 await ensureDirectusSchema({
-  extensionId: 'orders',
+  id: 'orders',
   database: context.database,
   getSchema: context.getSchema,
   services: context.services,
@@ -206,31 +207,30 @@ await ensureDirectusSchema({
 })
 ```
 
-For a normal hook, use the startup helper so failures are logged without rejecting Directus hook
-registration:
+For a normal hook, use the startup coordinator. It guarantees schema callbacks complete before data
+callbacks and gives nested ensures the held lock provider:
 
 ```ts
-registerSchemaChangeOnStart(
-  action,
-  logger,
-  () =>
-    ensureDirectusSchema({
-      extensionId: 'orders',
-      database: context.database,
-      getSchema: context.getSchema,
-      services: context.services,
-      logger,
-      definition: ordersDefinition,
-      options: {
-        lockProviderConfig: options,
-      },
-    }),
-  {
-    name: 'Orders',
-    disabled: !options.ORDERS_SCHEMA_CHANGES_ENABLED,
-    disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
-  },
-)
+const startup = createDirectusStartupCoordinator(action, logger, {
+  id: 'orders',
+  name: 'Orders',
+  disabled: !options.ORDERS_SCHEMA_CHANGES_ENABLED,
+  disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
+  dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+  lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: 'orders' },
+})
+
+startup.schema(async ({ lockProvider }) => {
+  await ensureDirectusSchema({
+    id: 'orders',
+    database: context.database,
+    getSchema: context.getSchema,
+    services: context.services,
+    logger,
+    definition: ordersDefinition,
+    options: { lockProvider },
+  })
+})
 ```
 
 The package README and
@@ -242,6 +242,7 @@ The shared configuration and per-operation controls are:
 | Option                                       | Scope     | Default          | Notes                                                           |
 | -------------------------------------------- | --------- | ---------------- | --------------------------------------------------------------- |
 | `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Disables every extension's schema setup when false.             |
+| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`      | global    | `true`           | Disables policy and future data seeds when false.               |
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Choose `MEMORY`, `REDIS`, or `FS`.                              |
 | `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Optional override; falls back to Directus `REDIS`.              |
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required when the provider is `FS`.                             |
@@ -265,17 +266,17 @@ the definition JSON itself.
 To inspect schema setup from another code path, use the read-only status query:
 
 ```ts
-import { getSchemaChangeStatus } from '@onderwijsin/directus-extension-utils/server'
+import { getDirectusStartupStatus } from '@onderwijsin/directus-extension-utils/server'
 
-const { isLocked } = await getSchemaChangeStatus({
-  extensionId: 'orders',
+const { isLocked } = await getDirectusStartupStatus({
+  id: 'orders',
   options: { lockProviderConfig: options },
 })
 ```
 
-`getSchemaChangeStatus` never acquires or changes a lock. It must resolve the same provider and use
-the same extension identifier as `ensureDirectusSchema`; memory providers require the same provider
-instance, while Redis or a genuinely shared filesystem can be queried from another process.
+`getDirectusStartupStatus` never acquires or changes a lock. It must resolve the same provider and
+use the same extension identifier as the startup coordinator. Redis or a genuinely shared filesystem
+can be queried from another process.
 
 For test or migration extensions, make cleanup explicit and idempotent. Delete temporary collections
 in a `finally` block after the ensure has completed, and let the outer Compose runner remove the

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { schemaChangeSchema } from '../src/server/schema-management/config'
+import { directusStartupSchema } from '../src/server/directus-ensure/config'
 
-describe('schemaChangeSchema', () => {
+describe('directusStartupSchema', () => {
 	it('provides the documented defaults', () => {
-		expect(schemaChangeSchema.parse({})).toEqual({
+		expect(directusStartupSchema.parse({})).toEqual({
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+			DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: true,
 			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'MEMORY',
 			DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'memory',
 		})
@@ -13,7 +14,7 @@ describe('schemaChangeSchema', () => {
 
 	it('accepts explicit global schema settings', () => {
 		expect(
-			schemaChangeSchema.safeParse({
+			directusStartupSchema.safeParse({
 				DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: false,
 			}).success,
 		).toBe(true)
@@ -21,22 +22,22 @@ describe('schemaChangeSchema', () => {
 
 	it('requires backend configuration for distributed providers', () => {
 		expect(
-			schemaChangeSchema.safeParse({ DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'REDIS' }).success,
+			directusStartupSchema.safeParse({ DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'REDIS' }).success,
 		).toBe(false)
 		expect(
-			schemaChangeSchema.safeParse({
+			directusStartupSchema.safeParse({
 				DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'REDIS',
 				DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: 'redis://localhost:6379',
 			}).success,
 		).toBe(true)
 		expect(
-			schemaChangeSchema.safeParse({
+			directusStartupSchema.safeParse({
 				DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'FS',
 				DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: '/tmp/directus-locks',
 			}).success,
 		).toBe(true)
 		expect(
-			schemaChangeSchema.safeParse({
+			directusStartupSchema.safeParse({
 				DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'REDIS',
 				REDIS: 'redis://localhost:6379',
 			}).success,
@@ -45,11 +46,11 @@ describe('schemaChangeSchema', () => {
 
 	it('requires the Directus Redis connection for the distributed rate limiter', () => {
 		expect(
-			schemaChangeSchema.safeParse({ DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'redis' })
+			directusStartupSchema.safeParse({ DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'redis' })
 				.success,
 		).toBe(false)
 		expect(
-			schemaChangeSchema.safeParse({
+			directusStartupSchema.safeParse({
 				DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: 'redis',
 				REDIS: 'redis://localhost:6379',
 			}).success,

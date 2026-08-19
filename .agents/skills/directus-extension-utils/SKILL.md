@@ -60,8 +60,9 @@ The package has one shared Directus-extension implementation and five public imp
 Import common browser-safe helpers from the root or `/shared`. Always use `/server` for
 `createMemoryLockProvider`, `createRedisLockProvider`, `createFsLockProvider`,
 `createAutoTaskHandler`, task-storage factories, marker stores, `createLogger`,
-`extensionSetup`, `validateExtensionOptions`, `schemaChangeSchema`, `ensureDirectusSchema`, and
-`registerSchemaChangeOnStart`. Never import
+`extensionSetup`, `validateExtensionOptions`, `directusStartupSchema`,
+`validateSchemaDefinition`, `ensureDirectusSchema`,
+`ensureDirectusPolicy`, and `createDirectusStartupCoordinator`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
 of Node-only imports.
 
@@ -98,7 +99,7 @@ All lock providers expose the same `defaultLeaseMs` and `tokenFactory` options w
 
 ### Schema changes
 
-Use `schemaChangeSchema` when an extension can create or update Directus collections, fields, or
+Use `directusStartupSchema` when an extension can create or update Directus collections, fields, or
 relations. It validates the global enablement flags and selects a lock provider with
 `DIRECTUS_EXTENSIONS_LOCK_PROVIDER=MEMORY|REDIS|FS`. Redis requires
 `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; filesystem locking requires
@@ -110,20 +111,20 @@ configuration. An explicitly supplied `options.lockProvider` takes precedence an
 the consumer. Always pass `database`, `getSchema`, and the complete `ApiExtensionContext['services']`
 object from the hook context.
 
-Use `registerSchemaChangeOnStart` to centralize global and extension-specific disabled checks and
-startup error logging. Use `getSchemaChangeStatus` when another code path needs to inspect the same
-schema-change lock without modifying it; pass the same `extensionId` and provider configuration as
-the ensure operation. Schema definitions are trusted extension-owned data; do not add runtime Zod
-schemas merely to validate bundled JSON files. Existing compatible resources are preserved,
-incompatible structural resources are logged loudly and left unchanged; UI metadata is not
-authoritative.
+Use `createDirectusStartupCoordinator` to centralize global and extension-specific disabled checks,
+startup error logging, locking, and deterministic schema-before-data sequencing. Use
+`getDirectusStartupStatus` when another code path needs to inspect the shared startup lock without
+modifying it; pass the same `id` and provider configuration as the coordinator. Schema definitions
+are trusted extension-owned data; do not add runtime Zod schemas merely to validate bundled JSON
+files. Existing compatible resources are preserved, incompatible structural resources are logged
+loudly and left unchanged; UI metadata is not authoritative.
 
-The schema-change configuration surface is:
+The Directus startup configuration surface is:
 
 | Setting | Scope | Default | Meaning |
 | --- | --- | --- | --- |
 | `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global | `true` | Master enablement switch. |
-| `DIRECTUS_EXTENSIONS_USE_LOCKED_SCHEMA_CHANGE` | global | `true` | Global default for lock coordination. |
+| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED` | global | `true` | Enables policy and future data seeds. |
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` | global | `MEMORY` | Provider: `MEMORY`, `REDIS`, or `FS`. |
 | `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` | global | — | Required for `REDIS`. |
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | global | — | Required for `FS`. |
@@ -135,24 +136,28 @@ The schema-change configuration surface is:
 Recommended registration pattern:
 
 ```ts
-registerSchemaChangeOnStart(
+const startup = createDirectusStartupCoordinator(
   action,
   logger,
-  () => ensureDirectusSchema({
-    extensionId: 'orders',
-    database: context.database,
-    getSchema: context.getSchema,
-    services: context.services,
-    logger,
-    definition: ordersDefinition,
-    options: { lockProviderConfig: options },
-  }),
   {
+    id: 'orders',
     name: 'Orders',
     disabled: !options.ORDERS_SCHEMA_CHANGES_ENABLED,
     disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
   },
 )
+
+startup.schema(async ({ lockProvider }) => {
+  await ensureDirectusSchema({
+    id: 'orders',
+    database: context.database,
+    getSchema: context.getSchema,
+    services: context.services,
+    logger,
+    definition: ordersDefinition,
+    options: { lockProvider },
+  })
+})
 ```
 
 Collection definitions passed to `ensureDirectusSchema` must include a non-blank `schema.name` and

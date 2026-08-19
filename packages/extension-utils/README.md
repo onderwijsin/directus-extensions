@@ -114,15 +114,15 @@ For extensions that modify Directus schema, compose the entrypoint environment s
 shared server-side schema-change settings:
 
 ```ts
-import { schemaChangeSchema } from '@onderwijsin/directus-extension-utils/server'
+import { directusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
 import { z } from 'zod'
 
-const envSchema = schemaChangeSchema.extend({
+const envSchema = directusStartupSchema.extend({
   MY_EXTENSION_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 })
 ```
 
-`schemaChangeSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to
+`directusStartupSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to
 `true`, and supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`MEMORY`, `REDIS`, or `FS`). `REDIS` uses
 `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` when set, otherwise the standard Directus `REDIS` connection;
 `FS` requires `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. It also exposes the shared
@@ -130,8 +130,8 @@ const envSchema = schemaChangeSchema.extend({
 Directus `REDIS` connection when the Redis store is selected.
 
 Use `ensureDirectusSchema` from the same `/server` subpath to apply portable collection, field, and
-relation definitions. Use `replaceCollectionNameInSchema(name, schema)` when a bundled portable
-schema supports a configurable collection name. Every collection definition must include a non-blank
+relation definitions. Use `withCollectionIdentity(name, schema)` when a bundled portable schema
+supports a configurable collection name. Every collection definition must include a non-blank
 `schema.name` and its primary-key field in the collection's nested `fields` array; do not repeat
 that primary-key field in the top-level `fields` array. This prevents Directus from creating an
 implicit integer primary key before the extension's intended field is applied. Pass the Directus
@@ -142,6 +142,9 @@ options select the provider automatically. Set `options.lockProvider` to overrid
 programmatically. Redis providers created from environment options are disposed after the ensure
 operation; explicitly supplied providers remain owned by the consumer.
 
+Use `validateSchemaDefinition(...)` for bundled schema JSON before passing it to
+`ensureDirectusSchema`; no type cast is required.
+
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
 `validateExtensionOptions` parses a complete extension environment with Zod, logs validation
 details, and throws when the configuration is invalid.
@@ -151,6 +154,7 @@ Schema configuration and operation options:
 | Option                                       | Scope     | Default          | Purpose                                                     |
 | -------------------------------------------- | --------- | ---------------- | ----------------------------------------------------------- |
 | `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Master switch for schema setup.                             |
+| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`      | global    | `true`           | Enables policy and future data seeds.                       |
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Selects `MEMORY`, `REDIS`, or `FS`.                         |
 | `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Optional override; falls back to Directus `REDIS`.          |
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required for the filesystem provider.                       |
@@ -170,27 +174,55 @@ left under the site's control. It logs an info-level pre-operation plan and post
 per-resource and lock lifecycle details use debug-level logging. Bundled extension definitions are
 trusted data and do not need a second runtime Zod schema.
 
-Use `getSchemaChangeStatus` to check the same lock from another code path without acquiring,
-renewing, releasing, or repairing it:
+Use `getDirectusStartupStatus` to check the shared startup lock from another code path without
+acquiring, renewing, releasing, or repairing it:
 
 ```ts
-import { getSchemaChangeStatus } from '@onderwijsin/directus-extension-utils/server'
+import { getDirectusStartupStatus } from '@onderwijsin/directus-extension-utils/server'
 
-const status = await getSchemaChangeStatus({
-  extensionId: 'orders',
+const status = await getDirectusStartupStatus({
+  id: 'orders',
   options: { lockProviderConfig: options },
 })
 
 if (status.isLocked) {
-  // The schema ensure operation is still in progress.
+  // Schema and data startup work is still in progress.
 }
 ```
 
-The status query must use the same provider configuration and extension identifier as the ensure
-operation. Memory providers with the same `providerId` share state within one process; the schema
-management factory uses the stable `schema-change` provider ID so independently created ensure and
-status providers can observe one another. Use Redis or a shared filesystem provider for separate
-processes.
+The status query must use the same provider configuration and extension identifier as the startup
+coordinator. It is read-only and disposes only providers created from configuration. Use Redis or a
+shared filesystem provider for separate processes.
+
+Use `ensureDirectusPolicy` for future data seeds. It creates a policy with its configured UUID and
+name, preserves compatible policies, and logs UUID/name conflicts without modifying existing
+policies. Permissions, role assignments, and user assignments are separate future seeds.
+
+Register startup work through `createDirectusStartupCoordinator`. It holds one lock and always runs
+schema callbacks before data callbacks:
+
+```ts
+const startup = createDirectusStartupCoordinator(action, logger, {
+  id: 'orders',
+  name: 'Orders',
+  disabled: false,
+  disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
+  dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+  lockProviderConfig: options,
+})
+
+startup.schema(async ({ lockProvider }) => {
+  await ensureDirectusSchema({
+    id: 'orders',
+    database,
+    getSchema,
+    logger,
+    services,
+    definition: ordersDefinition,
+    options: { lockProvider },
+  })
+})
+```
 
 All lock providers use the same `tryAcquire`/`isLocked`/lease contract and `defaultLeaseMs` option.
 Choose the memory provider for one process, the filesystem provider for processes sharing a
