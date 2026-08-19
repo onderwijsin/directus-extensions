@@ -191,17 +191,15 @@ describe('magic-links redeem endpoint', () => {
 	})
 
 	it('redeems a delivered token, supports cookie and session modes, and enforces single use', async () => {
-		const users: string[] = []
+		const jsonEmail = `magic-links-redeem-json-${Date.now()}@example.com`
+		const jsonUser = await client.request(
+			createUser({
+				email: jsonEmail,
+				password: `unused-${Date.now()}`,
+				status: 'active',
+			}),
+		)
 		try {
-			const jsonEmail = `magic-links-redeem-json-${Date.now()}@example.com`
-			const jsonUser = await client.request(
-				createUser({
-					email: jsonEmail,
-					password: `unused-${Date.now()}`,
-					status: 'active',
-				}),
-			)
-			users.push(jsonUser.id)
 			const jsonToken = await requestToken(jsonEmail)
 
 			await expect(
@@ -225,13 +223,16 @@ describe('magic-links redeem endpoint', () => {
 					}),
 				),
 			).rejects.toThrow()
+		} finally {
+			await client.request(deleteUser(jsonUser.id))
+		}
 
-			for (const mode of ['cookie', 'session'] as const) {
-				const email = `magic-links-redeem-${mode}-${Date.now()}@example.com`
-				const user = await client.request(
-					createUser({ email, password: `unused-${Date.now()}`, status: 'active' }),
-				)
-				users.push(user.id)
+		for (const mode of ['cookie', 'session'] as const) {
+			const email = `magic-links-redeem-${mode}-${Date.now()}@example.com`
+			const user = await client.request(
+				createUser({ email, password: `unused-${Date.now()}`, status: 'active' }),
+			)
+			try {
 				const response = await fetch(`${baseUrl}/auth/magic-links/redeem`, {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
@@ -241,9 +242,9 @@ describe('magic-links redeem endpoint', () => {
 				expect(response.headers.get('set-cookie')).toContain(
 					mode === 'cookie' ? 'directus_refresh_token=' : 'directus_session_token=',
 				)
+			} finally {
+				await client.request(deleteUser(user.id))
 			}
-		} finally {
-			for (const userId of users) await client.request(deleteUser(userId))
 		}
 	})
 

@@ -2,6 +2,20 @@
 
 Test the contract a Directus consumer depends on. Keep tests beside the package they exercise.
 
+## Directus Core plan limits
+
+The E2E stack runs on the Directus Core plan. Tests must stay within these project limits:
+
+- 3 user seats total, including the root administrator. At most 2 ephemeral users may exist at the
+  same time;
+- 25 collections;
+- 5 flows; and
+- no granular RBAC, including row-level or field-level security per policy.
+
+Create ephemeral users only for the scenario that needs them and dispose of them in a `finally`
+block. Do not write a scenario that requires more than 2 non-root users to exist concurrently; split
+it into sequential cases or reuse one user where the behavior permits it.
+
 ## Test layout
 
 ```text
