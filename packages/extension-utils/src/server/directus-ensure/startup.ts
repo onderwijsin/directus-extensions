@@ -10,13 +10,21 @@ export type ActionRegistrar = (event: 'server.start', handler: () => void) => vo
 
 /** Options controlling startup coordination registration. */
 export interface CreateDirectusStartupCoordinatorOptions {
+	/** Stable extension identifier used to derive the shared startup lock name. */
 	id: string
+	/** Human-readable extension name used in lifecycle log messages. */
 	name: string
+	/** Disables this extension's startup callbacks. */
 	disabled: boolean
+	/** Disables all startup callbacks through the global schema-change switch. */
 	disabledGlobally: boolean
+	/** Disables data callbacks while still allowing schema callbacks to run. */
 	dataDisabledGlobally?: boolean
+	/** Consumer-owned lock provider used instead of environment-based provider creation. */
 	lockProvider?: LockProvider
+	/** Validated environment configuration used to create the lock provider. */
 	lockProviderConfig?: DirectusStartupOptions
+	/** Lease duration passed to the initial lock acquisition. */
 	lockLeaseMs?: number
 	/** Whether the coordinator renews its lease while startup callbacks run. Defaults to true. */
 	autoRenew?: boolean
@@ -99,6 +107,7 @@ export function createDirectusStartupCoordinator(
 
 	action('server.start', () => {
 		void (async () => {
+			// Apply global and extension-level switches before resolving providers or acquiring locks.
 			if (options.disabledGlobally) {
 				logger.info(options.name + ' Directus startup is disabled globally')
 				return
@@ -111,6 +120,7 @@ export function createDirectusStartupCoordinator(
 				logger.info(options.name + ' Directus data seeds are disabled globally')
 			}
 
+			// Provider construction is isolated so invalid configuration is logged as startup failure.
 			const providerResult = await attempt(() => resolveDirectusLockProvider(lockOptions))
 			if (providerResult.error !== null) {
 				logger.error({
@@ -128,12 +138,14 @@ export function createDirectusStartupCoordinator(
 			let renewalError: unknown
 			let leaseLost = false
 			const startupResult = await attempt(async () => {
+				// Acquire one shared lease for every registered schema and data callback.
 				lease = await provider.tryAcquire(lockName, {
 					...(options.lockLeaseMs === undefined ? {} : { leaseMs: options.lockLeaseMs }),
 				})
 				if (!lease) return
 				const activeLease = lease
 
+				// Keep the shared lease alive while callbacks perform potentially slow Directus writes.
 				if (options.autoRenew ?? true) {
 					renewalTimer = setInterval(() => {
 						void activeLease
@@ -148,12 +160,15 @@ export function createDirectusStartupCoordinator(
 					}, resolveRenewalIntervalMs(options.lockLeaseMs))
 				}
 
+				// Nested ensure operations receive a borrowed provider and cannot release this lease.
 				const context = { lockProvider: createHeldLockProvider(lockName, lease) }
+				// Schema work always precedes data work, preserving the startup dependency order.
 				for (const callback of schemaCallbacks) {
 					await callback(context)
 					if (leaseLost) throw createLeaseLostError(renewalError)
 				}
 				if (!options.dataDisabledGlobally) {
+					// Data callbacks are skipped entirely when global data seeding is disabled.
 					for (const callback of dataCallbacks) {
 						await callback(context)
 						if (leaseLost) throw createLeaseLostError(renewalError)
@@ -171,6 +186,7 @@ export function createDirectusStartupCoordinator(
 				})
 			}
 
+			// Stop renewal before releasing the lease or disposing a provider created from config.
 			if (lease) {
 				if (renewalTimer) clearInterval(renewalTimer)
 				const releaseResult = await attempt(() => lease?.release())
