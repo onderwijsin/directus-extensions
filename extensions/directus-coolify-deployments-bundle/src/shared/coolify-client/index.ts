@@ -83,16 +83,19 @@ export function createCoolifyDeploymentClient(
 
 		if (cached) return cached
 
-		const applications = await new context.services.ItemsService<DirectusCoolifyApplication>(
-			options.COOLIFY_APPLICATIONS_COLLECTION,
-			{
-				schema: await context.getSchema(),
-				accountability: null,
-			},
-		).readByQuery({ limit: -1, filter: { enabled: { _eq: true } } })
+		const applications = await new context.services.ItemsService<
+			DirectusCoolifyApplication & { id: string }
+		>(options.COOLIFY_APPLICATIONS_COLLECTION, {
+			schema: await context.getSchema(),
+			accountability: null,
+		}).readByQuery({ limit: -1, filter: { enabled: { _eq: true } } })
+		const normalizedApplications = applications.map(({ id, ...application }) => ({
+			...application,
+			directusApplicationId: id,
+		}))
 
-		await cache?.set(CONFIGURED_APPLICATIONS_CACHE_KEY, applications)
-		return applications
+		await cache?.set(CONFIGURED_APPLICATIONS_CACHE_KEY, normalizedApplications)
+		return normalizedApplications
 	}
 
 	/**
@@ -116,7 +119,7 @@ export function createCoolifyDeploymentClient(
 		if (cached) return cached
 
 		const application = (await listConfiguredApplication({ bypassCache })).find(
-			(candidate) => candidate.id === id,
+			(candidate) => candidate.directusApplicationId === id,
 		)
 		if (!application) throw new ForbiddenError()
 
@@ -330,10 +333,7 @@ export function createCoolifyDeploymentClient(
 		const deployment = coolifyDeploymentSchema.parse(
 			await request(`/deployments/${encodeURIComponent(deploymentUuid)}`),
 		)
-		await assertAllowed(
-			deployment.applicationUuid ?? deployment.applicationId,
-			getAllowedApplications,
-		)
+		await assertAllowed(deployment.coolifyApplicationId, getAllowedApplications)
 		return deployment
 	}
 
@@ -341,8 +341,8 @@ export function createCoolifyDeploymentClient(
 	const listRunningDeployments = async (): Promise<CoolifyDeployment[]> => {
 		const allowedApplications = await getAllowedApplications()
 		const deployments = await parseDeployments('/deployments')
-		return deployments.filter(({ applicationId, applicationUuid }) =>
-			allowedApplications.includes(applicationUuid ?? applicationId),
+		return deployments.filter(({ coolifyApplicationId }) =>
+			allowedApplications.includes(coolifyApplicationId),
 		)
 	}
 
@@ -369,7 +369,7 @@ export function createCoolifyDeploymentClient(
 		deploymentUuid: string,
 	): Promise<CoolifyDeploymentCancellationResult> => {
 		const deployment = await getDeployment(deploymentUuid)
-		await assertDeploymentAllowed(deployment.applicationUuid ?? deployment.applicationId)
+		await assertDeploymentAllowed(deployment.coolifyApplicationId)
 		return coolifyDeploymentCancellationSchema.parse(
 			await request(`/deployments/${encodeURIComponent(deploymentUuid)}/cancel`, {
 				method: 'POST',

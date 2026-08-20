@@ -23,14 +23,14 @@ export const safeHttpUrl = (value: string | null, baseUrl?: string): string | nu
 /**
  * Ensure a deployment belongs to the application named by a route.
  * @param deployment - Provider deployment.
- * @param applicationUuid - Expected Coolify application UUID.
+ * @param coolifyApplicationId - Expected Coolify application identifier.
  * @returns Nothing.
  */
 export const assertDeploymentBelongsToApplication = (
 	deployment: CoolifyDeployment,
-	applicationUuid: string,
+	coolifyApplicationId: string,
 ): void => {
-	if ((deployment.applicationUuid ?? deployment.applicationId) !== applicationUuid) {
+	if (deployment.coolifyApplicationId !== coolifyApplicationId) {
 		throw new CoolifyDeploymentApplicationMismatchError()
 	}
 }
@@ -58,7 +58,7 @@ export const normalizeDeployment = (
 	applicationName: null,
 	environmentName: null,
 	id: deployment.deploymentUuid,
-	applicationId: deployment.applicationId,
+	coolifyApplicationId: deployment.coolifyApplicationId,
 	status: /queued|pending/iu.test(deployment.status)
 		? 'queued'
 		: /running|building|in_progress/iu.test(deployment.status)

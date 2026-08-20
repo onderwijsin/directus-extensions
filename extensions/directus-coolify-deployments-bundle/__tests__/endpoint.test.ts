@@ -229,7 +229,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 	it('normalizes configured applications and maps provider failures to an upstream error', async () => {
 		mocks.client.listConfiguredApplication.mockResolvedValueOnce([
 			{
-				id: 'frontend',
+				directusApplicationId: 'frontend',
 				name: 'Frontend',
 				application_uuid: 'application-1',
 				project_uuid: null,
@@ -261,13 +261,13 @@ describe('Coolify deployment endpoint orchestration', () => {
 		route({}, response, vi.fn())
 		await vi.waitFor(() => expect(response.json).toHaveBeenCalled())
 		expect(response.json).toHaveBeenCalledWith([
-			expect.objectContaining({ id: 'frontend', state: 'running' }),
+			expect.objectContaining({ directusApplicationId: 'frontend', state: 'running' }),
 		])
 
 		mocks.client.getApplication.mockRejectedValueOnce(new Error('Coolify unavailable'))
 		mocks.client.listConfiguredApplication.mockResolvedValueOnce([
 			{
-				id: 'frontend',
+				directusApplicationId: 'frontend',
 				name: 'Frontend',
 				application_uuid: 'application-1',
 				project_uuid: null,
@@ -288,7 +288,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 
 	it('serves deployment detail, trigger, and cancellation routes', async () => {
 		mocks.client.getConfiguredApplication.mockResolvedValue({
-			id: 'frontend',
+			directusApplicationId: 'frontend',
 			name: 'Frontend',
 			application_uuid: 'application-1',
 			project_uuid: 'project-1',
@@ -300,8 +300,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 			deploy_enabled: true,
 		})
 		mocks.client.getDeployment.mockResolvedValue({
-			applicationId: 'application-1',
-			applicationUuid: 'application-1',
+			coolifyApplicationId: 'application-1',
 			deploymentUuid: 'deployment-1',
 			status: 'finished',
 		})
@@ -315,7 +314,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 		})
 		mocks.client.listConfiguredApplication.mockResolvedValue([
 			{
-				id: 'frontend',
+				directusApplicationId: 'frontend',
 				name: 'Frontend',
 				application_uuid: 'application-1',
 				project_uuid: 'project-1',
@@ -337,7 +336,12 @@ describe('Coolify deployment endpoint orchestration', () => {
 		await detailRoute(request, detailResponse, vi.fn())
 		await vi.waitFor(() =>
 			expect(detailResponse.json).toHaveBeenCalledWith(
-				expect.objectContaining({ id: 'deployment-1', applicationName: 'Frontend' }),
+				expect.objectContaining({
+					id: 'deployment-1',
+					directusApplicationId: 'frontend',
+					coolifyApplicationId: 'application-1',
+					applicationName: 'Frontend',
+				}),
 			),
 		)
 
@@ -363,7 +367,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 
 	it('normalizes an empty deployment trigger result as an upstream failure', async () => {
 		mocks.client.getConfiguredApplication.mockResolvedValue({
-			id: 'frontend',
+			directusApplicationId: 'frontend',
 			name: 'Frontend',
 			application_uuid: 'application-1',
 			project_uuid: null,
@@ -376,7 +380,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 		})
 		mocks.client.listConfiguredApplication.mockResolvedValue([
 			{
-				id: 'frontend',
+				directusApplicationId: 'frontend',
 				name: 'Frontend',
 				application_uuid: 'application-1',
 				project_uuid: null,

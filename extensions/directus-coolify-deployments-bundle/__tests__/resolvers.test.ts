@@ -10,7 +10,7 @@ import {
 
 const applications: DirectusCoolifyApplication[] = [
 	{
-		id: 'one',
+		directusApplicationId: 'one',
 		name: 'One',
 		application_uuid: 'application-1',
 		project_uuid: 'project-1',
@@ -22,7 +22,7 @@ const applications: DirectusCoolifyApplication[] = [
 		deploy_enabled: true,
 	},
 	{
-		id: 'two',
+		directusApplicationId: 'two',
 		name: 'Two',
 		application_uuid: 'application-1',
 		project_uuid: 'project-1',

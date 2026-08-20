@@ -8,7 +8,7 @@ import LoadingSkeleton from './components/LoadingSkeleton.vue'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
 import { deploymentPath, formatDate, formatDuration } from './utils'
 
-const props = defineProps<{ applicationId: string; deploymentId: string }>()
+const props = defineProps<{ directusApplicationId: string; deploymentId: string }>()
 const api = useCoolifyDeploymentsApi()
 const deployment = shallowRef<DeploymentSummary | null>(null)
 const loading = shallowRef(true)
@@ -26,7 +26,7 @@ const load = async () => {
 	deployment.value = null
 	error.value = null
 	try {
-		deployment.value = await api.getDeployment(props.applicationId, props.deploymentId)
+		deployment.value = await api.getDeployment(props.directusApplicationId, props.deploymentId)
 		error.value = null
 	} catch (caughtError) {
 		error.value =
@@ -42,7 +42,7 @@ const load = async () => {
 const cancel = async () => {
 	loading.value = true
 	try {
-		await api.cancelDeployment(props.applicationId, props.deploymentId)
+		await api.cancelDeployment(props.directusApplicationId, props.deploymentId)
 		await load()
 	} catch (caughtError) {
 		error.value =
@@ -52,7 +52,7 @@ const cancel = async () => {
 	}
 }
 watch(
-	() => [props.applicationId, props.deploymentId],
+	() => [props.directusApplicationId, props.deploymentId],
 	() => void load(),
 	{ immediate: true },
 )
@@ -75,7 +75,7 @@ onUnmounted(() => {
 				:small="true"
 				:normal="false"
 				tooltip="Back"
-				:to="deploymentPath(props.applicationId)"
+				:to="deploymentPath(props.directusApplicationId)"
 				class="ghost back-button header-button"
 				aria-label="Back to application"
 			>

@@ -18,7 +18,8 @@ describe('Coolify module utilities', () => {
 		)
 		expect(
 			deploymentSummaryPath({
-				applicationId: 'app/one',
+				directusApplicationId: 'app/one',
+				coolifyApplicationId: 'coolify-app-one',
 				id: 'deployment two',
 				status: 'queued',
 				rawStatus: 'queued',

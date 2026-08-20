@@ -32,16 +32,22 @@ const load = async () => {
 		applications.value = await api.listApplications()
 		canCreateApplications.value = await api.canCreateApplications()
 		const deployments = await Promise.all(
-			applications.value.map((application) => api.listDeployments(application.id)),
+			applications.value.map((application) =>
+				api.listDeployments(application.directusApplicationId),
+			),
 		)
 		const allDeployments = deployments.flat()
 		const applicationById = new Map(
-			applications.value.map((application) => [application.id, application]),
+			applications.value.map((application) => [
+				application.directusApplicationId,
+				application,
+			]),
 		)
 		const enrichedDeployments = allDeployments.map((deployment) => ({
 			...deployment,
-			applicationName: applicationById.get(deployment.applicationId)?.name ?? null,
-			environmentName: applicationById.get(deployment.applicationId)?.environmentName ?? null,
+			applicationName: applicationById.get(deployment.directusApplicationId)?.name ?? null,
+			environmentName:
+				applicationById.get(deployment.directusApplicationId)?.environmentName ?? null,
 		}))
 		current.value = enrichedDeployments.filter((deployment) =>
 			['queued', 'building'].includes(deployment.status),

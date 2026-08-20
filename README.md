@@ -6,6 +6,10 @@ This repository is a collection of Directus extensions and shared packages maint
 in_. Public extensions are opinionated building blocks for use in internal _Onderwijs in_ projects;
 private fixtures support repository validation.
 
+All publishable extensions in this repository are distributed as npm packages and installed in the
+Directus runtime image. Directus Marketplace availability is not assumed; extensions that use the
+trusted, non-sandboxed runtime require a trusted self-hosted installation.
+
 ## 📦 What's in the box?
 
 | Package                                                                                                                  | Description                                                           |

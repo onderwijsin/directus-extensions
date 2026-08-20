@@ -12,7 +12,7 @@ import type {
 } from './schemas'
 
 export interface DirectusCoolifyApplication {
-	id: string
+	directusApplicationId: string
 	name: string
 	application_uuid: string
 	project_uuid: string | null

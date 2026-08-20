@@ -9,8 +9,7 @@ import {
 } from '../src/coolify-deployments-endpoint/helpers'
 
 const deployment = (status: string, overrides: Partial<CoolifyDeployment> = {}) => ({
-	applicationId: 'application-1',
-	applicationUuid: 'application-1',
+	coolifyApplicationId: 'application-1',
 	commit: null,
 	commitMessage: null,
 	createdAt: '2026-08-20T10:00:00Z',

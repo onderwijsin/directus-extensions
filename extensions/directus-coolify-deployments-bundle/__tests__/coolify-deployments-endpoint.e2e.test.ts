@@ -133,7 +133,10 @@ describe('Coolify deployment endpoint middleware', () => {
 			)
 			expect(applications).toEqual(
 				expect.arrayContaining([
-					expect.objectContaining({ id: itemId, name: 'E2E Coolify application' }),
+					expect.objectContaining({
+						directusApplicationId: itemId,
+						name: 'E2E Coolify application',
+					}),
 				]),
 			)
 
@@ -152,7 +155,13 @@ describe('Coolify deployment endpoint middleware', () => {
 					method: 'GET',
 				}),
 			)
-			expect(detail).toEqual(expect.objectContaining({ id: 'e2e-deployment-1' }))
+			expect(detail).toEqual(
+				expect.objectContaining({
+					id: 'e2e-deployment-1',
+					directusApplicationId: itemId,
+					coolifyApplicationId: 'e2e-coolify-application',
+				}),
+			)
 
 			const cancellation = await client.request(
 				customEndpoint({
@@ -307,16 +316,16 @@ describe('Coolify deployment endpoint middleware', () => {
 		const user = await client.createEphemeralUser({
 			role: { name: 'Coolify deployment policy role' },
 		})
-		let applicationId: string | number | undefined
+		let directusApplicationId: string | number | undefined
 
 		try {
-			applicationId = await createApplication(routeApplicationUuid)
+			directusApplicationId = await createApplication(routeApplicationUuid)
 			await client.withUserContext(user.id, async (userClient) => {
 				expect(
 					await requestStatus(() =>
 						userClient.request(
 							customEndpoint({
-								path: `/coolify-deployments/applications/${encodeURIComponent(String(applicationId))}/deployments`,
+								path: `/coolify-deployments/applications/${encodeURIComponent(String(directusApplicationId))}/deployments`,
 								method: 'GET',
 							}),
 						),
@@ -328,7 +337,7 @@ describe('Coolify deployment endpoint middleware', () => {
 				expect(
 					await userClient.request(
 						customEndpoint({
-							path: `/coolify-deployments/applications/${encodeURIComponent(String(applicationId))}/deployments`,
+							path: `/coolify-deployments/applications/${encodeURIComponent(String(directusApplicationId))}/deployments`,
 							method: 'GET',
 						}),
 					),
@@ -357,7 +366,7 @@ describe('Coolify deployment endpoint middleware', () => {
 
 				const deployment = await userClient.request(
 					customEndpoint({
-						path: `/coolify-deployments/applications/${encodeURIComponent(String(applicationId))}/deployments`,
+						path: `/coolify-deployments/applications/${encodeURIComponent(String(directusApplicationId))}/deployments`,
 						method: 'POST',
 						body: '{}',
 					}),
@@ -366,14 +375,14 @@ describe('Coolify deployment endpoint middleware', () => {
 				expect(
 					await userClient.request(
 						customEndpoint({
-							path: `/coolify-deployments/applications/${encodeURIComponent(String(applicationId))}/deployments/e2e-deployment-1/cancel`,
+							path: `/coolify-deployments/applications/${encodeURIComponent(String(directusApplicationId))}/deployments/e2e-deployment-1/cancel`,
 							method: 'POST',
 						}),
 					),
 				).toEqual(expect.objectContaining({ deploymentUuid: 'e2e-deployment-1' }))
 			})
 		} finally {
-			if (applicationId !== undefined) await deleteApplication(applicationId)
+			if (directusApplicationId !== undefined) await deleteApplication(directusApplicationId)
 			await user.dispose()
 		}
 	})

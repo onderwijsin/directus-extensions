@@ -4,12 +4,12 @@ const MODULE_PATH = '/coolify-deployments'
 
 /**
  * Build a route to an application or deployment.
- * @param applicationId - Stable application identifier.
+ * @param directusApplicationId - Stable Directus application primary key.
  * @param deploymentId - Optional deployment identifier.
  * @returns A Directus Studio route.
  */
-export const deploymentPath = (applicationId: string, deploymentId?: string) =>
-	`${MODULE_PATH}/applications/${encodeURIComponent(applicationId)}${deploymentId ? `/deployments/${encodeURIComponent(deploymentId)}` : ''}`
+export const deploymentPath = (directusApplicationId: string, deploymentId?: string) =>
+	`${MODULE_PATH}/applications/${encodeURIComponent(directusApplicationId)}${deploymentId ? `/deployments/${encodeURIComponent(deploymentId)}` : ''}`
 
 /**
  * Build a route from a deployment value.
@@ -17,7 +17,7 @@ export const deploymentPath = (applicationId: string, deploymentId?: string) =>
  * @returns A Directus Studio route.
  */
 export const deploymentSummaryPath = (deployment: DeploymentSummary) =>
-	deploymentPath(deployment.applicationId, deployment.id)
+	deploymentPath(deployment.directusApplicationId, deployment.id)
 
 /**
  * Format an ISO timestamp for the current locale.

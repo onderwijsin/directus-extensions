@@ -14,7 +14,7 @@ describe('useCoolifyDeploymentsApi', () => {
 	it('calls the expected encoded routes and forwards deployment options', async () => {
 		mocks.api.get
 			.mockResolvedValueOnce({
-				data: [{ id: 'app/1' }],
+				data: [{ directusApplicationId: 'app/1' }],
 				headers: { 'x-coolify-deployments-poll-interval': '249' },
 			})
 			.mockResolvedValueOnce({ data: [{ id: 'deployment 1' }], headers: {} })
@@ -22,7 +22,7 @@ describe('useCoolifyDeploymentsApi', () => {
 		mocks.api.post.mockResolvedValueOnce({ data: { id: 'created' } }).mockResolvedValueOnce({})
 		const api = useCoolifyDeploymentsApi()
 
-		await expect(api.listApplications()).resolves.toEqual([{ id: 'app/1' }])
+		await expect(api.listApplications()).resolves.toEqual([{ directusApplicationId: 'app/1' }])
 		await expect(api.listDeployments('app/1')).resolves.toEqual([{ id: 'deployment 1' }])
 		await expect(api.getDeployment('app/1', 'deployment 1')).resolves.toEqual({
 			id: 'deployment 1',

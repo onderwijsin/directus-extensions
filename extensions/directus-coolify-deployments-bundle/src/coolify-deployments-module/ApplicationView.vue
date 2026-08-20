@@ -10,7 +10,7 @@ import LoadingSkeleton from './components/LoadingSkeleton.vue'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
 import { deploymentPath, deploymentSummaryPath, formatDate, repositoryUrl } from './utils'
 
-const props = defineProps<{ applicationId: string }>()
+const props = defineProps<{ directusApplicationId: string }>()
 const api = useCoolifyDeploymentsApi()
 const router = useRouter()
 const application = shallowRef<ApplicationSummary | null>(null)
@@ -39,8 +39,11 @@ const load = async () => {
 	try {
 		canTriggerDeployments.value = await api.canTriggerDeployments()
 		const applications = await api.listApplications()
-		application.value = applications.find((item) => item.id === props.applicationId) ?? null
-		deployments.value = await api.listDeployments(props.applicationId)
+		application.value =
+			applications.find(
+				(item) => item.directusApplicationId === props.directusApplicationId,
+			) ?? null
+		deployments.value = await api.listDeployments(props.directusApplicationId)
 		if (!application.value) error.value = 'Application not found'
 	} catch (caughtError) {
 		error.value =
@@ -58,8 +61,8 @@ const deploy = async () => {
 	showDeployConfirmation.value = false
 	loading.value = true
 	try {
-		const deploymentId = await api.deploy(props.applicationId)
-		await router.push(deploymentPath(props.applicationId, deploymentId))
+		const deploymentId = await api.deploy(props.directusApplicationId)
+		await router.push(deploymentPath(props.directusApplicationId, deploymentId))
 	} catch (caughtError) {
 		error.value =
 			caughtError instanceof Error ? caughtError.message : 'Unable to deploy application'
@@ -69,7 +72,7 @@ const deploy = async () => {
 }
 
 watch(
-	() => props.applicationId,
+	() => props.directusApplicationId,
 	() => void load(),
 	{ immediate: true },
 )

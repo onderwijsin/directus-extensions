@@ -2,7 +2,8 @@ export type DeploymentStatus = 'queued' | 'building' | 'ready' | 'error' | 'canc
 
 export interface DeploymentSummary {
 	id: string
-	applicationId: string
+	directusApplicationId: string
+	coolifyApplicationId: string
 	status: DeploymentStatus
 	rawStatus: string
 	createdAt: string | null
@@ -20,7 +21,7 @@ export interface DeploymentSummary {
 }
 
 export interface ApplicationSummary {
-	id: string
+	directusApplicationId: string
 	name: string
 	url: string | null
 	projectName: string | null

@@ -143,7 +143,7 @@ export default defineEndpoint({
 							item.application_uuid,
 						)
 						return {
-							id: item.id,
+							directusApplicationId: item.directusApplicationId,
 							name: item.name || provider.name,
 							url: safeHttpUrl(item.production_url ?? provider.fqdn),
 							projectName: item.project_name,
@@ -155,7 +155,12 @@ export default defineEndpoint({
 							buildPack: provider.buildPack,
 							serverName: provider.serverName,
 							latestDeployment: latest
-								? normalizeDeployment(latest, { COOLIFY_URL: options.COOLIFY_URL })
+								? {
+										...normalizeDeployment(latest, {
+											COOLIFY_URL: options.COOLIFY_URL,
+										}),
+										directusApplicationId: item.directusApplicationId,
+									}
 								: null,
 						}
 					}),
@@ -177,7 +182,7 @@ export default defineEndpoint({
 				response.json(
 					deployments.map((deployment) => ({
 						...normalizeDeployment(deployment, { COOLIFY_URL: options.COOLIFY_URL }),
-						applicationId: application.id,
+						directusApplicationId: application.directusApplicationId,
 						applicationName: application.name,
 						environmentName: application.environment_name,
 					})),
@@ -196,6 +201,7 @@ export default defineEndpoint({
 				assertDeploymentBelongsToApplication(deployment, application.application_uuid)
 				response.json({
 					...normalizeDeployment(deployment, { COOLIFY_URL: options.COOLIFY_URL }),
+					directusApplicationId: application.directusApplicationId,
 					applicationName: application.name,
 					environmentName: application.environment_name,
 				})

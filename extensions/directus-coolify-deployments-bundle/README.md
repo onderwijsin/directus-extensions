@@ -32,6 +32,9 @@ pnpm add @onderwijsin/directus-coolify-deployments-bundle
 Install it in the Directus runtime image and restart Directus after installation. The bundle is
 discovered automatically; consumers do not register each entry manually.
 
+This bundle is distributed through npm for trusted Directus runtime installations. It is
+non-sandboxed and is not eligible for installation from the Directus Marketplace.
+
 ```dockerfile
 FROM directus/directus:12.2.0
 
@@ -213,7 +216,7 @@ curl "$DIRECTUS_URL/coolify-deployments/applications" \
 ```json
 [
   {
-    "id": "directus-item-uuid",
+    "directusApplicationId": "directus-item-uuid",
     "name": "Frontend",
     "url": "https://frontend.example.com",
     "projectName": "Website",
@@ -241,7 +244,8 @@ Deployment objects have this shape:
 ```json
 {
   "id": "deployment-uuid",
-  "applicationId": "coolify-application-uuid",
+  "directusApplicationId": "directus-item-uuid",
+  "coolifyApplicationId": "coolify-application-uuid",
   "applicationName": "Frontend",
   "environmentName": "production",
   "status": "ready",
@@ -323,9 +327,9 @@ The `Deployments` module provides:
 - trigger controls when `/permissions` allows them; and
 - cancellation controls for active deployments.
 
-Its routes are `/coolify-deployments`, `/coolify-deployments/applications/:applicationId`, and
-`/coolify-deployments/applications/:applicationId/deployments/:deploymentId`. It uses the
-authenticated Directus endpoint and never exposes the Coolify token.
+Its routes are `/coolify-deployments`, `/coolify-deployments/applications/:directusApplicationId`,
+and `/coolify-deployments/applications/:directusApplicationId/deployments/:deploymentId`. It uses
+the authenticated Directus endpoint and never exposes the Coolify token.
 
 ## Flow operation
 

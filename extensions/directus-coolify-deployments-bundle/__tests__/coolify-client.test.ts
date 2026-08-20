@@ -24,7 +24,7 @@ const jsonResponse = (body: unknown) => Promise.resolve(body)
 
 const configuredApplications: DirectusCoolifyApplication[] = [
 	{
-		id: 'configured-application',
+		directusApplicationId: 'configured-application',
 		name: 'Configured application',
 		application_uuid: 'application-1',
 		project_uuid: 'project-1',
@@ -37,7 +37,14 @@ const configuredApplications: DirectusCoolifyApplication[] = [
 	},
 ]
 
-const readByQuery = vi.fn((_query?: unknown) => Promise.resolve(configuredApplications))
+const readByQuery = vi.fn((_query?: unknown) =>
+	Promise.resolve(
+		configuredApplications.map(({ directusApplicationId, ...application }) => ({
+			...application,
+			id: directusApplicationId,
+		})),
+	),
+)
 const itemsServiceOptions = vi.fn()
 
 const context = {
@@ -238,8 +245,7 @@ describe('Coolify deployment client', () => {
 
 		await expect(client.listApplicationDeployments('application-1')).resolves.toMatchObject([
 			{
-				applicationId: '18',
-				applicationUuid: 'application-1',
+				coolifyApplicationId: 'application-1',
 				deploymentUuid: 'deployment-1',
 			},
 		])
@@ -338,7 +344,7 @@ describe('Coolify deployment client', () => {
 		await expect(client.listEnvironments('project-1')).resolves.toHaveLength(1)
 		await expect(client.listApplications()).resolves.toHaveLength(1)
 		await expect(client.listRunningDeployments()).resolves.toMatchObject([
-			{ applicationId: 'application-1' },
+			{ coolifyApplicationId: 'application-1' },
 		])
 	})
 
@@ -408,8 +414,9 @@ describe('Coolify deployment client', () => {
 
 	it('rejects deployment mutations when deploy_enabled is false', async () => {
 		readByQuery.mockResolvedValue(
-			configuredApplications.map((application) => ({
+			configuredApplications.map(({ directusApplicationId, ...application }) => ({
 				...application,
+				id: directusApplicationId,
 				deploy_enabled: false,
 			})),
 		)
@@ -423,8 +430,9 @@ describe('Coolify deployment client', () => {
 
 	it('rejects cancellation when the configured application cannot be deployed', async () => {
 		readByQuery.mockResolvedValue(
-			configuredApplications.map((application) => ({
+			configuredApplications.map(({ directusApplicationId, ...application }) => ({
 				...application,
+				id: directusApplicationId,
 				deploy_enabled: false,
 			})),
 		)
@@ -458,6 +466,7 @@ describe('Coolify deployment client', () => {
 		readByQuery.mockResolvedValue([
 			{
 				...configured,
+				id: configured.directusApplicationId,
 				application_uuid: 'application/1',
 				project_uuid: 'project/1',
 				environment_uuid: 'environment/1',

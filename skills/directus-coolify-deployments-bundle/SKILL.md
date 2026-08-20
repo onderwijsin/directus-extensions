@@ -41,6 +41,9 @@ USER node
 The bundle is discovered automatically. It does not install Coolify, provision tokens, or create
 consumer deployment infrastructure.
 
+This bundle is installed from npm into a trusted Directus runtime. It is non-sandboxed and is not
+eligible for installation from the Directus Marketplace.
+
 ## Configuration reference
 
 ### Core settings
@@ -195,7 +198,7 @@ Application summary:
 
 ```json
 {
-  "id": "directus-item-uuid",
+  "directusApplicationId": "directus-item-uuid",
   "name": "Frontend",
   "url": "https://frontend.example.com",
   "projectName": "Website",
@@ -215,7 +218,8 @@ Deployment list/detail objects:
 ```json
 {
   "id": "deployment-uuid",
-  "applicationId": "coolify-application-uuid",
+  "directusApplicationId": "directus-item-uuid",
+  "coolifyApplicationId": "coolify-application-uuid",
   "applicationName": "Frontend",
   "environmentName": "production",
   "status": "ready",
@@ -274,8 +278,8 @@ deployment polling, trigger controls, and cancellation controls. Routes are:
 
 ```text
 /coolify-deployments
-/coolify-deployments/applications/:applicationId
-/coolify-deployments/applications/:applicationId/deployments/:deploymentId
+/coolify-deployments/applications/:directusApplicationId
+/coolify-deployments/applications/:directusApplicationId/deployments/:deploymentId
 ```
 
 It calls the Directus endpoint with the authenticated Studio session, reads the polling interval

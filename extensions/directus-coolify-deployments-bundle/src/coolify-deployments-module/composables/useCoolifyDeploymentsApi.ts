@@ -93,49 +93,54 @@ export function useCoolifyDeploymentsApi() {
 
 	/**
 	 * Fetch deployment history for an application.
-	 * @param applicationId - Stable configured application ID.
+	 * @param directusApplicationId - Stable Directus application primary key.
 	 * @returns Normalized deployments.
 	 */
-	const listDeployments = async (applicationId: string): Promise<DeploymentSummary[]> =>
-		request(() => api.get<DeploymentSummary[]>(`${base}/${encode(applicationId)}/deployments`))
+	const listDeployments = async (directusApplicationId: string): Promise<DeploymentSummary[]> =>
+		request(() =>
+			api.get<DeploymentSummary[]>(`${base}/${encode(directusApplicationId)}/deployments`),
+		)
 
 	/**
 	 * Fetch one deployment.
-	 * @param applicationId - Stable configured application ID.
+	 * @param directusApplicationId - Stable Directus application primary key.
 	 * @param deploymentId - Deployment identifier.
 	 * @returns A normalized deployment.
 	 */
 	const getDeployment = async (
-		applicationId: string,
+		directusApplicationId: string,
 		deploymentId: string,
 	): Promise<DeploymentSummary> =>
 		request(() =>
 			api.get<DeploymentSummary>(
-				`${base}/${encode(applicationId)}/deployments/${encode(deploymentId)}`,
+				`${base}/${encode(directusApplicationId)}/deployments/${encode(deploymentId)}`,
 			),
 		)
 
 	/**
 	 * Trigger a deployment for a configured application.
-	 * @param applicationId - Stable configured application ID.
+	 * @param directusApplicationId - Stable Directus application primary key.
 	 * @returns Created deployment identifier.
 	 */
-	const deploy = async (applicationId: string): Promise<string> =>
+	const deploy = async (directusApplicationId: string): Promise<string> =>
 		(
-			await api.post<{ id: string }>(`${base}/${encode(applicationId)}/deployments`, {
+			await api.post<{ id: string }>(`${base}/${encode(directusApplicationId)}/deployments`, {
 				force: true,
 			})
 		).data.id
 
 	/**
 	 * Cancel an active deployment.
-	 * @param applicationId - Stable configured application ID.
+	 * @param directusApplicationId - Stable Directus application primary key.
 	 * @param deploymentId - Deployment identifier.
 	 * @returns Nothing.
 	 */
-	const cancelDeployment = async (applicationId: string, deploymentId: string): Promise<void> => {
+	const cancelDeployment = async (
+		directusApplicationId: string,
+		deploymentId: string,
+	): Promise<void> => {
 		await api.post(
-			`${base}/${encode(applicationId)}/deployments/${encode(deploymentId)}/cancel`,
+			`${base}/${encode(directusApplicationId)}/deployments/${encode(deploymentId)}/cancel`,
 		)
 	}
 

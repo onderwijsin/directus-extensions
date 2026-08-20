@@ -17,9 +17,9 @@ const router = useRouter()
 	<div v-else class="application-grid">
 		<div
 			v-for="application in applications"
-			:key="application.id"
+			:key="application.directusApplicationId"
 			class="application-card clickable"
-			@click="router.push(applicationPath(application.id))"
+			@click="router.push(applicationPath(application.directusApplicationId))"
 		>
 			<div class="application-heading" :title="application.name">
 				<v-icon name="web" /><strong>{{ application.name }}</strong>

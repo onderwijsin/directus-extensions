@@ -139,8 +139,7 @@ export const coolifyDeploymentSchema = z
 	.loose()
 	.transform((deployment) => ({
 		id: deployment.id ?? null,
-		applicationId: deployment.application_id,
-		applicationUuid: deployment.application?.uuid ?? null,
+		coolifyApplicationId: deployment.application?.uuid ?? deployment.application_id,
 		deploymentUuid: deployment.deployment_uuid,
 		pullRequestId: deployment.pull_request_id ?? null,
 		forceRebuild: deployment.force_rebuild ?? null,
