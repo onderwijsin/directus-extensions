@@ -87,7 +87,49 @@ const mapApplication = (application: CoolifyApplication, applicationUuid: string
 }
 
 /**
- * Register the create filter that enriches local applications from Coolify.
+ * Enrich a Directus application payload from Coolify.
+ * @param payload - Directus application payload containing an application UUID.
+ * @param client - Coolify client used to fetch provider details.
+ * @param logger - Directus extension logger.
+ * @returns Enriched Directus application payload.
+ */
+const enrichApplicationPayload = async (
+	payload: Record<string, unknown>,
+	client: Pick<CoolifyDeploymentClient, 'getApplication'>,
+	logger: ApiExtensionContext['logger'],
+): Promise<Record<string, unknown>> => {
+	const applicationUuid =
+		hasKey(payload, 'application_uuid') && isString(payload.application_uuid)
+			? payload.application_uuid.trim()
+			: ''
+	if (applicationUuid.length === 0) {
+		throw new InvalidPayloadError({ reason: 'Coolify application UUID is required' })
+	}
+
+	const result = await attempt(() =>
+		client.getApplication(applicationUuid, { bypassAllowList: true }),
+	)
+	if (result.error !== null) {
+		logger.error({
+			msg: 'Unable to load Coolify application during Directus write',
+			applicationUuid,
+			error: result.error,
+		})
+		throw new InvalidPayloadError({
+			reason: 'Unable to load application details from Coolify',
+		})
+	}
+	if (result.data === null) {
+		throw new InvalidPayloadError({
+			reason: 'Unable to load application details from Coolify',
+		})
+	}
+
+	return { ...payload, ...mapApplication(result.data, applicationUuid) }
+}
+
+/**
+ * Register filters that enrich local applications from Coolify.
  * @param filter - Directus filter registration function.
  * @param collection - Configured local applications collection.
  * @param client - Coolify client used to fetch provider details.
@@ -107,49 +149,32 @@ export const registerApplicationEnrichmentHook = (
 			})
 		}
 
-		const applicationUuid =
-			hasKey(payload, 'application_uuid') && isString(payload.application_uuid)
-				? payload.application_uuid.trim()
-				: ''
-		if (applicationUuid.length === 0) {
-			throw new InvalidPayloadError({ reason: 'Coolify application UUID is required' })
-		}
-
-		const result = await attempt(() =>
-			client.getApplication(applicationUuid, { bypassAllowList: true }),
-		)
-		if (result.error !== null) {
-			logger.error({
-				msg: 'Unable to load Coolify application during Directus create',
-				applicationUuid,
-				error: result.error,
-			})
-			throw new InvalidPayloadError({
-				reason: 'Unable to load application details from Coolify',
-			})
-		}
-		if (result.data === null) {
-			throw new InvalidPayloadError({
-				reason: 'Unable to load application details from Coolify',
-			})
-		}
-
-		return { ...payload, ...mapApplication(result.data, applicationUuid) }
+		return enrichApplicationPayload(payload, client, logger)
 	})
 
-	filter(`${collection}.items.update`, (payload) => {
+	filter(`${collection}.items.update`, async (payload) => {
 		const payloads = isArray(payload) ? payload : [payload]
-		for (const item of payloads) {
-			if (!isRecord(item)) continue
+		const enrichedPayloads = await Promise.all(
+			payloads.map(async (item) => {
+				if (!isRecord(item)) return item
 
-			const changedProviderField = providerManagedFields.find((field) => hasKey(item, field))
-			if (changedProviderField) {
-				throw new InvalidPayloadError({
-					reason: `${changedProviderField} is managed by Coolify and cannot be updated`,
-				})
-			}
-		}
+				if (hasKey(item, 'application_uuid')) {
+					return enrichApplicationPayload(item, client, logger)
+				}
 
-		return payload
+				const changedProviderField = providerManagedFields.find((field) =>
+					hasKey(item, field),
+				)
+				if (changedProviderField) {
+					throw new InvalidPayloadError({
+						reason: `${changedProviderField} is managed by Coolify and cannot be updated`,
+					})
+				}
+
+				return item
+			}),
+		)
+
+		return isArray(payload) ? enrichedPayloads : enrichedPayloads[0]
 	})
 }
