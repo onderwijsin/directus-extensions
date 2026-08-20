@@ -1,6 +1,15 @@
 name: directus-extensions-e2e
 
 services:
+  coolify-mock:
+    image: node:24.10.0-alpine
+    restart: 'no'
+    command: ['node', '/opt/coolify-mock/server.mjs']
+    volumes:
+      - ../tests/coolify-mock/server.mjs:/opt/coolify-mock/server.mjs:ro
+    networks:
+      - backend
+
   database:
     restart: 'no'
     volumes:
@@ -49,6 +58,8 @@ services:
         condition: service_started
       meilisearch:
         condition: service_healthy
+      coolify-mock:
+        condition: service_started
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
       - '${DIRECTUS_E2E_EMAIL_TEMPLATES_DIR:-../extensions/directus-magic-links-bundle/templates}:/directus/templates:ro'
@@ -61,7 +72,7 @@ services:
       MAGIC_LINKS_ENABLED: 'true'
       MAGIC_LINKS_COLLECTION: custom_links
       COOLIFY_DEPLOYMENTS_ENABLED: 'true'
-      COOLIFY_URL: 'https://app.coolify.io'
+      COOLIFY_URL: 'http://coolify-mock:3000'
       COOLIFY_TOKEN: 'e2e-unused-token'
       USE_MAGIC_LINK_CLEANUP: 'true'
       MAGIC_LINK_CLEANUP_WINDOW: 1ms

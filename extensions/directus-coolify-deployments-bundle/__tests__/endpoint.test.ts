@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 	})),
 	client: {
 		listConfiguredApplication: vi.fn().mockResolvedValue([]),
+		getConfiguredApplication: vi.fn(),
 		getApplication: vi.fn(),
 		listApplicationDeployments: vi.fn().mockResolvedValue([]),
 		getDeployment: vi.fn(),
@@ -282,5 +283,118 @@ describe('Coolify deployment endpoint orchestration', () => {
 		route({}, failed, next)
 		await vi.waitFor(() => expect(next).toHaveBeenCalled())
 		expect(next).toHaveBeenCalledWith(expect.any(Error))
+	})
+
+	it('serves deployment detail, trigger, and cancellation routes', async () => {
+		mocks.client.getConfiguredApplication.mockResolvedValue({
+			id: 'frontend',
+			name: 'Frontend',
+			application_uuid: 'application-1',
+			project_uuid: 'project-1',
+			project_name: 'Project',
+			environment_uuid: 'environment-1',
+			environment_name: 'Production',
+			production_url: null,
+			enabled: true,
+			deploy_enabled: true,
+		})
+		mocks.client.getDeployment.mockResolvedValue({
+			applicationId: 'application-1',
+			applicationUuid: 'application-1',
+			deploymentUuid: 'deployment-1',
+			status: 'finished',
+		})
+		mocks.client.deploy.mockResolvedValue([
+			{ deploymentUuid: 'deployment-2', message: 'queued' },
+		])
+		mocks.client.cancelDeployment.mockResolvedValue({
+			deploymentUuid: 'deployment-1',
+			message: 'cancelled',
+			status: 'cancelled-by-user',
+		})
+		mocks.client.listConfiguredApplication.mockResolvedValue([
+			{
+				id: 'frontend',
+				name: 'Frontend',
+				application_uuid: 'application-1',
+				project_uuid: 'project-1',
+				project_name: 'Project',
+				environment_uuid: 'environment-1',
+				environment_name: 'Production',
+				production_url: null,
+				enabled: true,
+				deploy_enabled: true,
+			},
+		])
+		const router = createRouter()
+		runEndpoint(router)
+		const request = { params: { id: 'frontend', deploymentId: 'deployment-1' } }
+
+		const detailResponse = createResponse()
+		const detailRoute = router.get.mock.calls[3]?.[2]
+		if (typeof detailRoute !== 'function') throw new Error('Expected detail route')
+		await detailRoute(request, detailResponse, vi.fn())
+		await vi.waitFor(() =>
+			expect(detailResponse.json).toHaveBeenCalledWith(
+				expect.objectContaining({ id: 'deployment-1', applicationName: 'Frontend' }),
+			),
+		)
+
+		const deployResponse = createResponse()
+		const deployRoute = router.post.mock.calls[0]?.[2]
+		if (typeof deployRoute !== 'function') throw new Error('Expected deploy route')
+		await deployRoute(request, deployResponse, vi.fn())
+		await vi.waitFor(() => expect(deployResponse.json).toHaveBeenCalled())
+		expect(mocks.client.deploy).toHaveBeenCalledWith({ uuid: 'application-1', force: true })
+		expect(deployResponse.status).toHaveBeenCalledWith(201)
+		expect(deployResponse.json).toHaveBeenCalledWith({ id: 'deployment-2' })
+
+		const cancelResponse = createResponse()
+		const cancelRoute = router.post.mock.calls[1]?.[2]
+		if (typeof cancelRoute !== 'function') throw new Error('Expected cancel route')
+		await cancelRoute(request, cancelResponse, vi.fn())
+		await vi.waitFor(() => expect(cancelResponse.json).toHaveBeenCalled())
+		expect(mocks.client.cancelDeployment).toHaveBeenCalledWith('deployment-1')
+		expect(cancelResponse.json).toHaveBeenCalledWith(
+			expect.objectContaining({ deploymentUuid: 'deployment-1' }),
+		)
+	})
+
+	it('normalizes an empty deployment trigger result as an upstream failure', async () => {
+		mocks.client.getConfiguredApplication.mockResolvedValue({
+			id: 'frontend',
+			name: 'Frontend',
+			application_uuid: 'application-1',
+			project_uuid: null,
+			project_name: null,
+			environment_uuid: null,
+			environment_name: null,
+			production_url: null,
+			enabled: true,
+			deploy_enabled: true,
+		})
+		mocks.client.listConfiguredApplication.mockResolvedValue([
+			{
+				id: 'frontend',
+				name: 'Frontend',
+				application_uuid: 'application-1',
+				project_uuid: null,
+				project_name: null,
+				environment_uuid: null,
+				environment_name: null,
+				production_url: null,
+				enabled: true,
+				deploy_enabled: true,
+			},
+		])
+		mocks.client.deploy.mockResolvedValue([])
+		const router = createRouter()
+		runEndpoint(router)
+		const response = createResponse()
+		const next = vi.fn()
+		const deployRoute = router.post.mock.calls[0]?.[2]
+		if (typeof deployRoute !== 'function') throw new Error('Expected deploy route')
+		await deployRoute({ params: { id: 'frontend' } }, response, next)
+		await vi.waitFor(() => expect(next).toHaveBeenCalledWith(expect.any(Error)))
 	})
 })

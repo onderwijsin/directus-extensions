@@ -82,17 +82,21 @@ Configured application records are cached for 60 seconds for reads. Deployment a
 authorization bypasses this cache so changes to `enabled` and `deploy_enabled` take effect
 immediately. Redis is intentionally shared across horizontally scaled Directus processes.
 
-| Variable                | Default  | Description                                                               |
-| ----------------------- | -------- | ------------------------------------------------------------------------- |
-| `CACHE_ENABLED`         | `true`   | Enables the configured-application cache.                                 |
-| `CACHE_STORE`           | `memory` | `memory` is process-local; `redis` is shared.                             |
-| `REDIS_ENABLED`         | `false`  | Enables component-based Redis configuration.                              |
-| `REDIS`                 | —        | Complete `redis://` or `rediss://` URL; takes precedence over components. |
-| `REDIS_HOST`            | —        | Redis hostname when using components.                                     |
-| `REDIS_PORT`            | —        | Redis port, `1`–`65535`, when using components.                           |
-| `REDIS_USERNAME`        | —        | Redis username when using components.                                     |
-| `REDIS_PASSWORD`        | —        | Redis password when using components.                                     |
-| `SYNCHRONIZATION_STORE` | `memory` | Global synchronization backend; separate from `CACHE_STORE`.              |
+| Variable                                 | Default  | Description                                                                |
+| ---------------------------------------- | -------- | -------------------------------------------------------------------------- |
+| `CACHE_ENABLED`                          | `true`   | Enables the configured-application cache.                                  |
+| `CACHE_STORE`                            | `memory` | `memory` is process-local; `redis` is shared.                              |
+| `REDIS_ENABLED`                          | `false`  | Enables component-based Redis configuration.                               |
+| `REDIS`                                  | —        | Complete `redis://` or `rediss://` URL; takes precedence over components.  |
+| `REDIS_HOST`                             | —        | Redis hostname when using components.                                      |
+| `REDIS_PORT`                             | —        | Redis port, `1`–`65535`, when using components.                            |
+| `REDIS_USERNAME`                         | —        | Redis username when using components.                                      |
+| `REDIS_PASSWORD`                         | —        | Redis password when using components.                                      |
+| `SYNCHRONIZATION_STORE`                  | `memory` | Global synchronization backend; separate from `CACHE_STORE`.               |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`      | —        | Optional startup lock provider: `memory`, `redis`, or `fs`.                |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`     | —        | Required for a Redis lock provider unless another Redis URL is configured. |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`  | —        | Required for an `fs` lock provider.                                        |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` | —        | Optional shared rate-limiter store: `memory` or `redis`.                   |
 
 Use either a URL:
 
@@ -330,6 +334,16 @@ executions also require the trigger policy; administrators bypass that check. Sy
 executions without accountability are trusted automation. Disabled or no-longer-deployable
 applications fail the flow. The package does not provide a scheduler, retry engine, or condition
 engine.
+
+Example:
+
+```text
+Operation: Coolify Deploy
+Application: 6f4c2e9a-2ef4-4b4a-8e6a-application-item-id
+```
+
+Use the Directus item ID, not `application_uuid`. Connect the operation's reject path when a stale
+or disabled selection should be handled explicitly.
 
 ## Troubleshooting
 

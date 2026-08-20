@@ -97,7 +97,7 @@ immediately. Redis is intentionally shared across horizontally scaled Directus p
 | `SYNCHRONIZATION_STORE`                  | `memory`               | Global synchronization fallback, separate from `CACHE_STORE`.               |
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`      | unset                  | Optional `memory`, `redis`, or `fs` startup lock provider.                  |
 | `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`     | unset                  | Required if the effective lock provider is Redis without another Redis URL. |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`  | unset                  | Required if the lock provider is `fs`.                                      |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`  | unset                  | Required if the effective lock provider is `fs`.                            |
 | `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` | unset                  | Optional `memory` or `redis` shared utility setting.                        |
 
 Use a URL:

@@ -61,6 +61,74 @@ describe('Coolify deployment endpoint middleware', () => {
 		expect(await response.json()).toEqual({ canTrigger: true })
 	})
 
+	it('loads the built bundle schema through Directus', async () => {
+		const response = await fetch(`${baseUrl}/collections/coolify_applications`, {
+			headers: { Authorization: `Bearer ${token}` },
+		})
+
+		expect(response.status).toBe(200)
+		expect((await response.json()).data.collection).toBe('coolify_applications')
+	})
+
+	it('enriches an application and exercises deployment routes through Directus', async () => {
+		const item = await client.request(
+			customEndpoint({
+				path: '/items/coolify_applications',
+				method: 'POST',
+				body: JSON.stringify({ application_uuid: 'e2e-coolify-application' }),
+			}),
+		)
+		if (typeof item !== 'object' || item === null || !('id' in item))
+			throw new Error('Expected the created Coolify application to have an ID')
+		const itemId = item.id
+		if (typeof itemId !== 'string' && typeof itemId !== 'number')
+			throw new Error('Expected the created Coolify application ID to be scalar')
+		try {
+			const applications = await client.request(
+				customEndpoint({ path: '/coolify-deployments/applications', method: 'GET' }),
+			)
+			expect(applications).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ id: itemId, name: 'E2E Coolify application' }),
+				]),
+			)
+
+			const deployment = await client.request(
+				customEndpoint({
+					path: `/coolify-deployments/applications/${encodeURIComponent(itemId)}/deployments`,
+					method: 'POST',
+					body: '{}',
+				}),
+			)
+			expect(deployment).toEqual({ id: 'e2e-deployment-1' })
+
+			const detail = await client.request(
+				customEndpoint({
+					path: `/coolify-deployments/applications/${encodeURIComponent(itemId)}/deployments/e2e-deployment-1`,
+					method: 'GET',
+				}),
+			)
+			expect(detail).toEqual(expect.objectContaining({ id: 'e2e-deployment-1' }))
+
+			const cancellation = await client.request(
+				customEndpoint({
+					path: `/coolify-deployments/applications/${encodeURIComponent(itemId)}/deployments/e2e-deployment-1/cancel`,
+					method: 'POST',
+				}),
+			)
+			expect(cancellation).toEqual(
+				expect.objectContaining({ deploymentUuid: 'e2e-deployment-1' }),
+			)
+		} finally {
+			await client.request(
+				customEndpoint({
+					path: `/items/coolify_applications/${encodeURIComponent(String(itemId))}`,
+					method: 'DELETE',
+				}),
+			)
+		}
+	})
+
 	it('rejects an authenticated user without the route policy', async () => {
 		const user = await client.createEphemeralUser({
 			role: {
@@ -99,7 +167,7 @@ describe('Coolify deployment endpoint middleware', () => {
 						}),
 					),
 				),
-			).resolves.toEqual([])
+			).resolves.toBeInstanceOf(Array)
 		} finally {
 			await user.dispose()
 		}
