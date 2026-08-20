@@ -28,6 +28,13 @@ const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
 const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
+const consumerDirectory = resolve(
+	process.env.DIRECTUS_E2E_CONSUMER_DIR ?? 'tests/directus-configuration-poc',
+)
+const configurationDirectory = join(consumerDirectory, 'configuration')
+const nodeModulesDirectory = process.env.DIRECTUS_E2E_CONSUMER_DIR
+	? join(consumerDirectory, 'node_modules')
+	: resolve('node_modules')
 
 /**
  * Determines whether an HTTP response indicates that a service is ready.
@@ -122,6 +129,7 @@ export function generateEnvironmentSecrets() {
 		GARAGE_ADMIN_TOKEN: randomSecret(),
 		GARAGE_METRICS_TOKEN: randomSecret(),
 		MEILISEARCH_MASTER_KEY: randomSecret(),
+		POC_SECRET: randomSecret(),
 		SENTRY_ENABLED: 'false',
 	}
 }
@@ -221,6 +229,8 @@ async function compose(args, { logCommand = true, ...options } = {}) {
 			...environmentSecrets,
 			DIRECTUS_E2E_PORT: port,
 			DIRECTUS_E2E_EXTENSIONS_DIR: extensionsDirectory,
+			DIRECTUS_E2E_CONFIGURATION_DIR: configurationDirectory,
+			DIRECTUS_E2E_NODE_MODULES_DIR: nodeModulesDirectory,
 		},
 		timeoutMs: e2eOperationTimeoutMs,
 		...options,
@@ -367,6 +377,7 @@ async function runTests(token) {
 			DIRECTUS_E2E_TOKEN: token,
 			DIRECTUS_E2E_COMPOSE_FILES: JSON.stringify(composeFiles),
 			DIRECTUS_E2E_COMPOSE_PROJECT: composeProject,
+			POC_SECRET: environmentSecrets.POC_SECRET,
 		},
 		timeoutMs: e2eOperationTimeoutMs,
 	})

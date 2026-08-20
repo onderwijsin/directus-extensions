@@ -290,9 +290,15 @@ export async function validateExtension(packageName, packageDirectory, manifest)
  * @param {string} packageName - Package name.
  * @param {PackageManifest} manifest - Package manifest.
  * @param {string} outputDirectory - Temporary package output directory.
+ * @param {boolean} allowPrivate - Whether a private E2E package is allowed.
  * @returns {void} Nothing.
  */
-export function validatePackedPackage(packageName, manifest, outputDirectory) {
+export function validatePackedPackage(
+	packageName,
+	manifest,
+	outputDirectory,
+	allowPrivate = false,
+) {
 	let packOutput
 	try {
 		// Pack from the workspace root so the archive is built using the same filter as release CI.
@@ -332,7 +338,8 @@ export function validatePackedPackage(packageName, manifest, outputDirectory) {
 		if (packageJson.name !== manifest.name || packageJson.version !== manifest.version) {
 			report(packageName, 'packed package metadata does not match the workspace manifest')
 		}
-		if (packageJson.private === true) report(packageName, 'packed package must not be private')
+		if (packageJson.private === true && !allowPrivate)
+			report(packageName, 'packed package must not be private')
 
 		const files = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' })
 		const entries = files.split('\n').filter(Boolean)
@@ -396,9 +403,10 @@ export async function main() {
 				if (packageRoot === 'extensions') {
 					await validateExtension(packageName, packageDirectory, manifest)
 				}
-				if (manifest.private === true) continue
+				const isPrivateE2E = manifest.private === true && manifest['directus:e2e'] === true
+				if (manifest.private === true && !isPrivateE2E) continue
 				await validateMetadata(packageName, packageDirectory, manifest)
-				validatePackedPackage(packageName, manifest, outputDirectory)
+				validatePackedPackage(packageName, manifest, outputDirectory, isPrivateE2E)
 			}
 		}
 	} finally {

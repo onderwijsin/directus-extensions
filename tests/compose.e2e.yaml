@@ -62,6 +62,8 @@ services:
         condition: service_started
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
+      - '${DIRECTUS_E2E_CONFIGURATION_DIR:-../tests/directus-configuration-poc/configuration}:/directus/configuration:ro'
+      - '${DIRECTUS_E2E_NODE_MODULES_DIR:-../node_modules}:/directus/configuration/node_modules:ro'
       - '${DIRECTUS_E2E_EMAIL_TEMPLATES_DIR:-../extensions/directus-magic-links-bundle/templates}:/directus/templates:ro'
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:${DIRECTUS_E2E_PORT:-18055}}
@@ -69,6 +71,8 @@ services:
       # Temporarily disable license activation while CI activation behavior is investigated.
       LICENSE_KEY: ''
       EXTENSIONS_AUTO_RELOAD: 'false'
+      CONFIGURATION_PATH: /directus/configuration/config.ts
+      POC_SECRET: ${POC_SECRET:-local-poc-secret}
       MAGIC_LINKS_ENABLED: 'true'
       MAGIC_LINKS_COLLECTION: custom_links
       COOLIFY_DEPLOYMENTS_ENABLED: 'true'

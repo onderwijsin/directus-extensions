@@ -1,0 +1,79 @@
+{
+	"name": "@onderwijsin/directus-configuration-poc",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Proof of concept for loading trusted TypeScript configuration in Directus",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-hook"
+	],
+	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
+	"bugs": {
+		"url": "https://github.com/onderwijsin/directus-extensions/issues"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijsin.nl",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijsin.nl",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
+		"directory": "extensions/directus-configuration-poc"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"exports": {
+		".": "./dist/index.js",
+		"./config": {
+			"types": "./dist/config.d.ts",
+			"import": "./dist/config.mjs"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "directus-extension build && tsdown --config tsdown.config.ts && tsgo --ignoreConfig --declaration --emitDeclarationOnly --noEmit false --outDir dist --module preserve --target es2022 --strict src/config.ts",
+		"dev": "directus-extension build --watch",
+		"typecheck": "tsgo --noEmit"
+	},
+	"dependencies": {
+		"jiti": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "catalog:",
+		"@directus/types": "catalog:",
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"@types/node": "catalog:node24",
+		"@workspace/test-utils": "workspace:*",
+		"@workspace/typescript-config": "workspace:*",
+		"tsdown": "catalog:"
+	},
+	"icon": "extension",
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"directus:e2e": true,
+	"directus:extension": {
+		"type": "hook",
+		"path": "dist/index.js",
+		"source": "src/index.ts",
+		"host": "^12.2.0"
+	}
+}

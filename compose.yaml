@@ -29,7 +29,12 @@ services:
     volumes:
       - ./.data/uploads:/directus/uploads
       - ./extensions:/directus/extensions
+      - ./configuration:/directus/configuration
+      - ./extensions/directus-configuration-poc:/directus/configuration/node_modules/@onderwijsin/directus-configuration-poc:ro
       - ./extensions/directus-magic-links-bundle/templates:/directus/templates:ro
+    environment:
+      CONFIGURATION_PATH: /directus/configuration/config.ts
+      POC_SECRET: ${POC_SECRET:-local-poc-secret}
 
   mailpit:
     ports:

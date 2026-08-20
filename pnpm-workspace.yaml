@@ -34,6 +34,7 @@ catalog:
   tsdown: 0.22.14
   uuid: 14.0.1 # note: do not upgrade ioredis because of Directus, keep it at 5.8.2!
   ioredis: 5.8.2
+  jiti: 2.6.1
   # note: do not upgrade pino because of Directus, keep it at 9.7.0!
   pino: 9.7.0
   '@sentry/node': 10.69.0

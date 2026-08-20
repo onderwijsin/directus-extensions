@@ -69,6 +69,11 @@ export async function prepareE2EConsumer({
 		join(consumerDirectory, 'pnpm-workspace.yaml'),
 		`overrides:\n  '@onderwijsin/directus-extension-utils': ${dependencies['@onderwijsin/directus-extension-utils']}\n`,
 	)
+	await mkdir(join(consumerDirectory, 'configuration', 'node_modules'), { recursive: true })
+	await writeFile(
+		join(consumerDirectory, 'configuration', 'config.ts'),
+		`import { defineConfig } from '@onderwijsin/directus-configuration-poc/config'\n\nconst secret = process.env.POC_SECRET\nif (!secret) throw new Error('POC_SECRET is missing')\n\nexport default defineConfig({ value: secret })\n`,
+	)
 
 	// Install the archives so the consumer validates published package contents, not workspace links.
 	execute('corepack', ['pnpm', 'install', '--ignore-scripts'], {
@@ -93,10 +98,19 @@ export async function prepareE2EConsumer({
 		const extensionDirectory = join(consumerDirectory, 'extensions', packageDirectoryName)
 
 		// Directus loads each extension from the consumer-local package metadata and dist output.
-		await mkdir(extensionDirectory, { recursive: true })
+		await mkdir(join(extensionDirectory, 'node_modules'), { recursive: true })
 		await cp(join(installedExtension, 'dist'), join(extensionDirectory, 'dist'), {
 			recursive: true,
 		})
+		if (manifest.name === '@onderwijsin/directus-configuration-poc') {
+			for (const dependency of ['jiti']) {
+				await cp(
+					join(consumerDirectory, 'node_modules', '.pnpm', 'node_modules', dependency),
+					join(extensionDirectory, 'node_modules', dependency),
+					{ recursive: true, dereference: true },
+				)
+			}
+		}
 		await cp(join(installedExtension, 'package.json'), join(extensionDirectory, 'package.json'))
 		preparedDirectories.push(extensionDirectory)
 		console.log(`Prepared packed Directus extension ${manifest.name} at ${extensionDirectory}`)

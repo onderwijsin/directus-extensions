@@ -28,6 +28,7 @@ describe('E2E consumer preparation script', () => {
 		await mkdir(artifactDirectory, { recursive: true })
 		await writeFile(archivePath, 'archive')
 		await mkdir(join(installedPackage, 'dist'), { recursive: true })
+		await mkdir(join(installedPackage, 'node_modules'), { recursive: true })
 		await writeFile(join(installedPackage, 'dist', 'index.js'), 'export default {}')
 		await writeFile(
 			join(installedPackage, 'package.json'),
@@ -58,5 +59,8 @@ describe('E2E consumer preparation script', () => {
 		expect(await readFile(join(prepared[0], 'dist', 'index.js'), 'utf8')).toBe(
 			'export default {}',
 		)
+		expect(
+			await readFile(join(consumerDirectory, 'configuration', 'config.ts'), 'utf8'),
+		).toContain('@onderwijsin/directus-configuration-poc/config')
 	})
 })

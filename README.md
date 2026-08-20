@@ -19,6 +19,7 @@ trusted, non-sandboxed runtime require a trusted self-hosted installation.
 | [`@onderwijsin/directus-magic-links-bundle`](extensions/directus-magic-links-bundle/README.md)                           | Passwordless magic-link authentication for Directus frontend clients. |
 | [`@onderwijsin/directus-coolify-deployments-bundle`](extensions/directus-coolify-deployments-bundle/README.md)           | Trigger and inspect frontend deployments through Coolify.             |
 | [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.           |
+| [`@onderwijsin/directus-configuration-poc`](extensions/directus-configuration-poc/README.md)                             | Proof of concept for trusted TypeScript configuration loading.        |
 
 The repository also contains supporting workspace packages and private infrastructure for shared
 TypeScript configuration and test execution.
@@ -69,6 +70,11 @@ are available at:
 - Directus: <http://localhost:8055>
 - Mailpit: <http://localhost:8025>
 - Meilisearch: <http://localhost:7700>
+
+The configuration POC is enabled in the local stack with `/directus/configuration/config.ts`. The
+local extension package is mounted into the configuration directory's `node_modules` so the public
+config subpath resolves. Set `POC_SECRET` in `.env` to experiment with `process.env` access; the POC
+logs only a successful load message.
 
 Local data is stored under `.data/` and is ignored by git. Copy `.env.example` to `.env` when local
 overrides are needed. The default credentials and secrets are for local development only.

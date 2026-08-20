@@ -93,6 +93,7 @@ jobs:
       - name: Run Directus E2E tests
         env:
           DIRECTUS_E2E_EXTENSIONS_DIR: ${{ runner.temp }}/e2e-consumer/extensions
+          DIRECTUS_E2E_CONSUMER_DIR: ${{ runner.temp }}/e2e-consumer
           LICENSE_KEY: ${{ secrets.DIRECTUS_LICENSE_KEY }}
           PUBLIC_URL: http://localhost:18055
         run: node scripts/e2e.mjs

@@ -1,0 +1,12 @@
+{
+	"extends": "../packages/typescript-config/base.json",
+	"compilerOptions": {
+		"types": ["node"],
+		"paths": {
+			"@onderwijsin/directus-configuration-poc/config": [
+				"../extensions/directus-configuration-poc/src/config.ts"
+			]
+		}
+	},
+	"include": ["config.ts"]
+}
