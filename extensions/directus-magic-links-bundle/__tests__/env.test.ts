@@ -38,11 +38,11 @@ describe('magic-links environment schemas', () => {
 		expect(result.success).toBe(true)
 	})
 
-	it('requires SMTP transport prerequisites and matching credentials', () => {
+	it('requires selected transport prerequisites and matching SMTP credentials', () => {
 		expect(
 			endpointEnvSchema.safeParse({ ...validEnvironment, EMAIL_TRANSPORT: 'sendmail' })
 				.success,
-		).toBe(false)
+		).toBe(true)
 		expect(
 			endpointEnvSchema.safeParse({ ...validEnvironment, EMAIL_SMTP_USER: 'user' }).success,
 		).toBe(false)

@@ -155,12 +155,24 @@ The CI E2E job uses the same packed-artifact path. See [`testing.md`](testing.md
 ### Typechecking with the TypeScript native preview
 
 The workspace uses `@typescript/native-preview` for package typechecking. Each package that is
-included in the recursive typecheck exposes this script:
+included in the recursive typecheck exposes a `typecheck` script. Backend and non-Vue packages use
+the native-preview checker:
 
 ```json
 {
   "scripts": {
     "typecheck": "tsgo --noEmit"
+  }
+}
+```
+
+Front-end Directus extensions—meaning any Directus extension that contains `.vue` files—must use
+`vue-tsc` instead of `tsgo`, so that Vue single-file components are typechecked correctly:
+
+```json
+{
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
   }
 }
 ```

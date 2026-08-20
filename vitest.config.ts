@@ -87,6 +87,10 @@ export default defineConfig({
 				test: {
 					name: 'e2e',
 					environment: 'node',
+					// The E2E project runs against a Directus Core license with only two
+					// non-root user seats. Prevent user fixtures in separate files from
+					// exhausting the license concurrently.
+					fileParallelism: false,
 					testTimeout: 60_000,
 					hookTimeout: 60_000,
 					include: e2eEnvironmentInitialized

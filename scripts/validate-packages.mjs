@@ -230,7 +230,7 @@ export async function validateExtension(packageName, packageDirectory, manifest)
 					continue
 				}
 				const entry = /** @type {Record<string, unknown>} */ (entryValue)
-				for (const field of ['name', 'type', 'source']) {
+				for (const field of ['name', 'type']) {
 					if (typeof entry[field] !== 'string' || entry[field].length === 0) {
 						report(
 							packageName,
@@ -240,6 +240,24 @@ export async function validateExtension(packageName, packageDirectory, manifest)
 				}
 				if (typeof entry.source === 'string') {
 					await requirePath(packageName, packageDirectory, entry.source)
+				} else if (
+					entry.source &&
+					typeof entry.source === 'object' &&
+					!Array.isArray(entry.source)
+				) {
+					const source = /** @type {Record<string, unknown>} */ (entry.source)
+					for (const field of ['app', 'api']) {
+						if (typeof source[field] !== 'string' || source[field].length === 0) {
+							report(
+								packageName,
+								`directus:extension.entries[${index}].source.${field} is required`,
+							)
+						} else {
+							await requirePath(packageName, packageDirectory, source[field])
+						}
+					}
+				} else {
+					report(packageName, `directus:extension.entries[${index}].source is required`)
 				}
 			}
 		}

@@ -1,11 +1,8 @@
 import { InternalServerError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
+import { attempt, createSystemAdminAccountability } from '@onderwijsin/directus-extension-utils'
 import {
-	attempt,
-	createSystemAdminAccountability,
-	isDefined,
-} from '@onderwijsin/directus-extension-utils'
-import {
+	asyncHandler,
 	extensionSetup,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
@@ -37,8 +34,9 @@ export default defineEndpoint({
 
 		const options = validateExtensionOptions(env, envSchema, logger)
 
-		router.get('/enhanced', (_, response, next) => {
-			void attempt(async () => {
+		router.get(
+			'/enhanced',
+			asyncHandler(async (_, response, next) => {
 				response.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private')
 				response.setHeader('Pragma', 'no-cache')
 				response.setHeader('Expires', '0')
@@ -72,10 +70,8 @@ export default defineEndpoint({
 				response.setHeader('Content-Type', 'application/json')
 				if (status === 'error') response.status(503)
 				response.json({ status })
-			}).then((result) => {
-				if (isDefined(result.error) && result.error !== null) next(result.error)
-			})
-		})
+			}),
+		)
 
 		setup.end()
 	},

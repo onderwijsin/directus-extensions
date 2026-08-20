@@ -8,6 +8,7 @@ catalog:
   '@directus/errors': 2.5.0
   '@directus/memory': 4.0.2
   '@directus/types': 16.1.0
+  '@directus/utils': 13.5.2
   # Upgrading would require node ">=24.15.0" while we are on ">=24.10.0"
   eslint-plugin-jsdoc: 62.4.0
   '@changesets/changelog-git': 1.0.0
@@ -39,7 +40,10 @@ catalog:
   '@sentry/profiling-node': 10.69.0
   # note: do not upgrade vue because of Directus, keep it at 3.5.24!
   vue: 3.5.24
+  vue-tsc: 3.3.10
+  vue-router: 4.6.3
   zod: 4.4.3
+  ofetch: 1.5.1
 catalogs:
   node24:
     '@types/node': 24.13.3

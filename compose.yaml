@@ -30,22 +30,6 @@ services:
       - ./.data/uploads:/directus/uploads
       - ./extensions:/directus/extensions
       - ./extensions/directus-magic-links-bundle/templates:/directus/templates:ro
-    environment:
-      STORAGE_LOCATIONS: bucket
-      STORAGE_BUCKET_DRIVER: s3
-      STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}
-      STORAGE_BUCKET_SECRET: ${GARAGE_SECRET_ACCESS_KEY:-directus-development-secret}
-      STORAGE_BUCKET_ENDPOINT: http://garage:3900
-      STORAGE_BUCKET_BUCKET: ${STORAGE_BUCKET:-directus}
-      STORAGE_BUCKET_REGION: ${STORAGE_REGION:-garage}
-      STORAGE_BUCKET_FORCE_PATH_STYLE: 'true'
-      EMAIL_TRANSPORT: smtp
-      EMAIL_TEMPLATES_PATH: /directus/templates
-      EMAIL_FROM: ${EMAIL_FROM:-noreply@localhost}
-      EMAIL_SMTP_HOST: mailpit
-      EMAIL_SMTP_PORT: 1025
-      MEILISEARCH_HOST_URL: http://meilisearch:7700
-      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
 
   mailpit:
     ports:

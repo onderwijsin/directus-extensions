@@ -1,6 +1,6 @@
 ---
 name: directus-sentry-bundle
-description: Configure and deploy the Sentry bundle in a trusted Directus runtime.
+description: Configure and deploy the Sentry bundle in Directus.
 ---
 
 # Directus Sentry bundle
@@ -13,10 +13,10 @@ description: Configure and deploy the Sentry bundle in a trusted Directus runtim
 - an optional endpoint that intentionally throws a server error; and
 - an optional Data Studio module with a button that intentionally throws a browser error.
 
-The bundle is non-sandboxed and must run in a trusted Directus installation. It is disabled by
-default. Treat `SENTRY_ENABLED=true` as a deployment change, not as a package-installation step.
+The bundle is disabled by default. Treat `SENTRY_ENABLED=true` as a deployment change, not as a
+package-installation step.
 
-## Runtime boundary
+## Runtime setup
 
 Installing the bundle into Directus is not sufficient for server-side Sentry. The Directus runtime
 must also contain the Node SDK packages, and Directus itself must load a consumer-owned
@@ -121,7 +121,7 @@ as an empty string according to the consumer's environment-management convention
 
 | Variable                | Default       | Used by               | Description                                                                                               |
 | ----------------------- | ------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |
-| `SENTRY_ENABLED`        | `false`       | Hook                  | Master switch for the bundle. Set to `true` only in a prepared trusted runtime.                           |
+| `SENTRY_ENABLED`        | `false`       | Hook                  | Master switch for the bundle. Set to `true` after the runtime prerequisites are installed.                |
 | `SENTRY_DSN`            | unset         | Hook, instrumentation | Sentry DSN for Node error reporting. The hook skips the Express handler when it is absent.                |
 | `SENTRY_LOADER_SCRIPT`  | unset         | Hook                  | Exact Sentry hosted loader `<script>` tag used for browser reporting.                                     |
 | `SENTRY_RELEASE_PREFIX` | `dev`         | Hook                  | Prefix for the browser release when `SENTRY_RELEASE` is not set.                                          |
@@ -249,10 +249,13 @@ startup, and inspect the Data Studio browser console for loader or CSP errors.
 Set `SENTRY_ENABLED=false` in consumer Compose files and deployment manifests that should not report
 events.
 
-## Security and compatibility
+## Boundaries
 
-- Run the bundle only in a trusted, non-sandboxed Directus runtime.
+- This extension is non-sandboxed, so it does not carry the trust required for Directus Marketplace
+  distribution. Install it as an npm package in the Directus runtime.
 - Keep DSNs and deployment credentials in secret management where appropriate.
 - Pin Directus and Sentry versions in consumer images and validate upgrades together.
+- The hooks add Sentry error handling and browser-loader behavior, but create or change no
+  collections, fields, relations, roles, policies, permissions, or persistent Directus data.
 - The bundle does not own Sentry organization, project, sampling, release, Docker, or
   instrumentation configuration.

@@ -7,7 +7,7 @@ It registers the `items.create`, `items.update`, and `items.delete` action event
 contains the event, collection, and item key when Directus provides one. Logs are not persisted.
 
 The Redis smoke checks use the same `@directus/memory` cache and key-value patterns as Directus,
-backed by the Redis service configured through `REDIS`.
+backed by the Redis service resolved from Directus's complete URL or component configuration.
 
 The utility smoke checks live in `src/smoke/`, grouped by concern: attempts, guards, values, cache,
 locks, markers, and auto-tasks. The hook entrypoint only registers Directus events and coordinates

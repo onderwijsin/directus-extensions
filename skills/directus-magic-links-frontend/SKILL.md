@@ -145,3 +145,10 @@ for the installed version; do not invent or expect a magic-links-specific `MFA_R
 - Keep the request response generic in user-facing copy so account existence is not disclosed.
 - Configure CORS for the frontend origin and apply CSRF protections when using cookies or sessions.
 - Rate-limit request attempts at the edge or API gateway.
+
+## Boundaries
+
+This skill documents a frontend integration; it does not install or configure the Directus
+extension, email transport, collections, roles, policies, permissions, or infrastructure. The
+frontend flow creates no Directus schema and persists no magic-link records itself; those records
+and their lifecycle are owned by the server extension.

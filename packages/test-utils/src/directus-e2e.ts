@@ -11,6 +11,7 @@ import {
 	deleteRole,
 	deleteUser,
 	readUser,
+	authentication,
 	rest,
 	staticToken,
 	customEndpoint,
@@ -33,8 +34,22 @@ interface E2EPost {
 	title: string
 }
 
+interface E2EPolicy {
+	id: string
+	name: string
+}
+
+interface E2EPermission {
+	id: number
+	policy: string
+	collection: string
+	action: string
+}
+
 interface DirectusE2ESchema {
 	posts: E2EPost[]
+	directus_policies: E2EPolicy[]
+	directus_permissions: E2EPermission[]
 }
 
 export type DirectusE2ESdkClient = DirectusClient<DirectusE2ESchema> &
@@ -113,6 +128,13 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		createDirectus<DirectusE2ESchema>(options.baseUrl).with(rest()).with(staticToken(token))
 
 	const rootClient = createClient(options.token)
+	const ephemeralCredentials = new Map<string, { email: string; password: string }>()
+	/**
+	 * Creates an SDK client configured for JSON login authentication.
+	 * @returns An SDK client configured with REST and JSON authentication.
+	 */
+	const createAuthenticatedClient = () =>
+		createDirectus<DirectusE2ESchema>(options.baseUrl).with(rest()).with(authentication('json'))
 
 	/**
 	 * Runs a callback with a fresh SDK client authenticated as a specific user.
@@ -125,6 +147,12 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		callback: (client: DirectusE2ESdkClient) => Promise<T>,
 	): Promise<T> => {
 		const user = await rootClient.request(readUser(userId, { fields: ['token'] }))
+		const credentials = ephemeralCredentials.get(userId)
+		if (credentials) {
+			const client = createAuthenticatedClient()
+			await client.login(credentials)
+			return callback(client)
+		}
 		if (!user.token) throw new Error(`Directus user ${userId} does not have a static token`)
 
 		return callback(createClient(user.token))
@@ -178,6 +206,7 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 		const roleIds: string[] = []
 		const token = randomBytes(32).toString('hex')
 		const email = `e2e-${randomUUID()}@example.com`
+		const password = randomBytes(24).toString('hex')
 		let userId: string | undefined
 
 		try {
@@ -212,13 +241,14 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 			const user = await rootClient.request(
 				createUser({
 					email,
-					password: randomBytes(24).toString('hex'),
+					password,
 					status: 'active',
 					token,
 					role: roleId ?? null,
 				}),
 			)
 			userId = user.id
+			ephemeralCredentials.set(user.id, { email, password })
 
 			for (const policyId of directPolicyIds)
 				await assignPolicy({ user: user.id, policy: policyId })
@@ -233,6 +263,7 @@ export function createDirectusE2EClient(options: DirectusE2EClientOptions): Dire
 				dispose: async () => {
 					if (disposed) return
 					disposed = true
+					ephemeralCredentials.delete(user.id)
 					await rootClient.request(deleteUser(user.id))
 					for (const roleIdToDelete of roleIds)
 						await rootClient.request(deleteRole(roleIdToDelete))

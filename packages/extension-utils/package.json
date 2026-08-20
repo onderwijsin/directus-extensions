@@ -74,7 +74,9 @@
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
+		"@directus/errors": "catalog:",
 		"@directus/memory": "catalog:",
+		"@directus/utils": "catalog:",
 		"@sentry/node": "catalog:",
 		"ioredis": "catalog:",
 		"pino": "catalog:",
@@ -83,6 +85,7 @@
 	},
 	"devDependencies": {
 		"@directus/types": "catalog:",
+		"@types/express": "catalog:",
 		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",
 		"tsdown": "catalog:",

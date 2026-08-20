@@ -2,7 +2,11 @@ import { defineHook } from '@directus/extensions-sdk'
 import { isRecord, isString } from '@onderwijsin/directus-extension-utils'
 import {
 	ensureDirectusSchema,
-	registerSchemaChangeOnStart,
+	ensureDirectusPolicy,
+	createDirectusStartupCoordinator,
+	getDirectusStartupStatus,
+	validateSchemaDefinition,
+	type DirectusPolicyDefinition,
 	type DirectusSchemaDefinition,
 } from '@onderwijsin/directus-extension-utils/server'
 
@@ -11,6 +15,26 @@ import { runUtilitySmokeTest } from './smoke'
 export default defineHook(({ action }, context) => {
 	if (context) {
 		const { database, getSchema, logger, services } = context
+		const policyDefinition: DirectusPolicyDefinition = {
+			id: '00000000-0000-4000-8000-000000000001',
+			name: 'E2E playground policy',
+			icon: 'policy',
+			description: null,
+			enforce_tfa: false,
+			ip_access: null,
+			app_access: false,
+			admin_access: false,
+			permissions: [
+				{
+					collection: 'e2e_schema_management',
+					action: 'read',
+					permissions: null,
+					validation: null,
+					presets: null,
+					fields: ['*'],
+				},
+			],
+		}
 		const schemaDefinition: DirectusSchemaDefinition = {
 			collections: [
 				{
@@ -21,7 +45,7 @@ export default defineHook(({ action }, context) => {
 							collection: 'e2e_schema_management',
 							field: 'id',
 							type: 'uuid',
-							schema: { is_primary_key: true } as never,
+							schema: { is_primary_key: true },
 						},
 					],
 				},
@@ -47,60 +71,88 @@ export default defineHook(({ action }, context) => {
 			],
 		}
 
-		registerSchemaChangeOnStart(
-			action,
-			logger,
-			async () => {
-				const first = await ensureDirectusSchema({
-					extensionId: 'e2e-playground',
-					database,
-					getSchema,
-					logger,
-					definition: schemaDefinition,
-					services,
-					options: {},
-				})
-				const second = await ensureDirectusSchema({
-					extensionId: 'e2e-playground',
-					database,
-					getSchema,
-					logger,
-					definition: schemaDefinition,
-					services,
-					options: {},
-				})
-				const incompatible = await ensureDirectusSchema({
-					extensionId: 'e2e-playground-incompatible',
-					database,
-					getSchema,
-					logger,
-					definition: {
-						...schemaDefinition,
-						fields: [
-							{
-								collection: 'e2e_schema_management',
-								field: 'title',
-								type: 'integer',
-							},
-						],
-					},
-					services,
-					options: { abortOnError: false },
-				})
-				logger.info({
-					msg: '🧪 E2E schema-management scenarios completed',
-					first,
-					second,
-					incompatible,
-				})
-				return incompatible
-			},
-			{
-				name: 'E2E playground',
-				disabled: false,
-				disabledGlobally: false,
-			},
-		)
+		const startup = createDirectusStartupCoordinator(action, logger, {
+			id: 'e2e-playground',
+			name: 'E2E playground',
+			disabled: false,
+			disabledGlobally: false,
+			dataDisabledGlobally: false,
+		})
+		startup.schema(async ({ lockProvider }) => {
+			const statusWhileHeld = await getDirectusStartupStatus({
+				id: 'e2e-playground',
+				options: { lockProvider },
+			})
+			const first = await ensureDirectusSchema({
+				id: 'e2e-playground',
+				database,
+				getSchema,
+				logger,
+				definition: validateSchemaDefinition(schemaDefinition),
+				services,
+				options: { lockProvider },
+			})
+			const second = await ensureDirectusSchema({
+				id: 'e2e-playground',
+				database,
+				getSchema,
+				logger,
+				definition: validateSchemaDefinition(schemaDefinition),
+				services,
+				options: { lockProvider },
+			})
+			const incompatible = await ensureDirectusSchema({
+				id: 'e2e-playground-incompatible',
+				database,
+				getSchema,
+				logger,
+				definition: {
+					...schemaDefinition,
+					fields: [
+						{
+							collection: 'e2e_schema_management',
+							field: 'title',
+							type: 'integer',
+						},
+					],
+				},
+				services,
+				options: { abortOnError: false },
+			})
+			logger.info({
+				msg: '🧪 E2E Directus startup scenarios completed',
+				first,
+				second,
+				incompatible,
+				statusWhileHeld,
+			})
+		})
+		startup.data(async ({ lockProvider }) => {
+			const first = await ensureDirectusPolicy({
+				id: 'e2e-playground',
+				database,
+				getSchema,
+				logger,
+				services,
+				definition: policyDefinition,
+				options: { lockProvider },
+			})
+			const second = await ensureDirectusPolicy({
+				id: 'e2e-playground',
+				database,
+				getSchema,
+				logger,
+				services,
+				definition: policyDefinition,
+				options: { lockProvider },
+			})
+			logger.info({
+				msg: '🧪 E2E Directus data seed scenarios completed',
+				first,
+				second,
+			})
+			console.log(`directus-e2e-playground: policy-seed ${JSON.stringify({ first, second })}`)
+		})
 	}
 
 	/**

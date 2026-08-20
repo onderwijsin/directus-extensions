@@ -1,0 +1,115 @@
+{
+	"name": "@onderwijsin/directus-coolify-deployments-bundle",
+	"version": "0.1.0",
+	"description": "Trigger and inspect Coolify frontend deployments from Directus Studio and Flows",
+	"keywords": [
+		"coolify",
+		"deployments",
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle"
+	],
+	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
+	"bugs": {
+		"url": "https://github.com/onderwijsin/directus-extensions/issues"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijsin.nl",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijsin.nl",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
+		"directory": "extensions/directus-coolify-deployments-bundle"
+	},
+	"files": [
+		"dist",
+		"schema",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"main": "./dist/api.js",
+	"exports": {
+		".": "./dist/api.js",
+		"./schema": "./schema/coolify_applications.json"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"add": "directus-extension add",
+		"validate": "directus-extension validate",
+		"test:unit": "vitest run --config ../../vitest.config.ts",
+		"typecheck": "vue-tsc --noEmit"
+	},
+	"dependencies": {
+		"@directus/errors": "catalog:",
+		"@directus/memory": "catalog:",
+		"ioredis": "catalog:",
+		"ofetch": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "catalog:",
+		"@directus/types": "catalog:",
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"@types/express": "catalog:",
+		"@types/node": "catalog:node24",
+		"@workspace/test-utils": "workspace:*",
+		"@workspace/typescript-config": "workspace:*",
+		"vitest": "catalog:",
+		"vue": "catalog:",
+		"vue-router": "catalog:",
+		"vue-tsc": "catalog:"
+	},
+	"icon": "rocket_launch",
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"name": "coolify-deployments-endpoint",
+				"type": "endpoint",
+				"source": "src/coolify-deployments-endpoint/index.ts"
+			},
+			{
+				"name": "coolify-deployments-module",
+				"type": "module",
+				"source": "src/coolify-deployments-module/index.ts"
+			},
+			{
+				"name": "coolify-deployments-hook",
+				"type": "hook",
+				"source": "src/coolify-deployments-hook/index.ts"
+			},
+			{
+				"name": "coolify-deploy-operation",
+				"type": "operation",
+				"source": {
+					"app": "src/coolify-deploy-operation/index.ts",
+					"api": "src/coolify-deploy-operation/api.ts"
+				}
+			}
+		],
+		"host": "^12.2.0"
+	}
+}

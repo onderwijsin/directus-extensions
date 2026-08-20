@@ -1,6 +1,15 @@
 name: directus-extensions-e2e
 
 services:
+  coolify-mock:
+    image: node:24.10.0-alpine
+    restart: 'no'
+    command: ['node', '/opt/coolify-mock/server.mjs']
+    volumes:
+      - ../tests/coolify-mock/server.mjs:/opt/coolify-mock/server.mjs:ro
+    networks:
+      - backend
+
   database:
     restart: 'no'
     volumes:
@@ -43,40 +52,28 @@ services:
         condition: service_healthy
       database:
         condition: service_healthy
+      garage-init:
+        condition: service_completed_successfully
       mailpit:
         condition: service_started
       meilisearch:
         condition: service_healthy
+      coolify-mock:
+        condition: service_started
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
       - '${DIRECTUS_E2E_EMAIL_TEMPLATES_DIR:-../extensions/directus-magic-links-bundle/templates}:/directus/templates:ro'
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:${DIRECTUS_E2E_PORT:-18055}}
       SECRET: ${DIRECTUS_SECRET:-directus-extensions-e2e-secret}
-      ADMIN_EMAIL: admin@example.com
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-p4ssw0rd!}
       # Temporarily disable license activation while CI activation behavior is investigated.
       LICENSE_KEY: ''
-      EXTENSIONS_MUST_LOAD: 'true'
       EXTENSIONS_AUTO_RELOAD: 'false'
-      EMAIL_TRANSPORT: smtp
-      EMAIL_TEMPLATES_PATH: /directus/templates
-      EMAIL_FROM: noreply@localhost
-      EMAIL_SMTP_HOST: mailpit
-      EMAIL_SMTP_PORT: 1025
       MAGIC_LINKS_ENABLED: 'true'
       MAGIC_LINKS_COLLECTION: custom_links
-      STORAGE_LOCATIONS: bucket
-      STORAGE_BUCKET_DRIVER: s3
-      STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}
-      STORAGE_BUCKET_SECRET: ${GARAGE_SECRET_ACCESS_KEY:-directus-development-secret}
-      STORAGE_BUCKET_ENDPOINT: http://garage:3900
-      STORAGE_BUCKET_BUCKET: directus
-      STORAGE_BUCKET_REGION: garage
-      STORAGE_BUCKET_FORCE_PATH_STYLE: 'true'
-      MEILISEARCH_HOST_URL: http://meilisearch:7700
-      MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
-      SENTRY_ENABLED: ${SENTRY_ENABLED:-false}
+      COOLIFY_DEPLOYMENTS_ENABLED: 'true'
+      COOLIFY_URL: 'http://coolify-mock:3000'
+      COOLIFY_TOKEN: 'e2e-unused-token'
       USE_MAGIC_LINK_CLEANUP: 'true'
       MAGIC_LINK_CLEANUP_WINDOW: 1ms
       MAGIC_LINK_CLEANUP_CRON: '* * * * * *'

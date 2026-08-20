@@ -1,0 +1,205 @@
+{
+	"collections": [
+		{
+			"collection": "coolify_applications",
+			"schema": {
+				"name": "coolify_applications"
+			},
+			"fields": [
+				{
+					"collection": "coolify_applications",
+					"field": "id",
+					"type": "uuid",
+					"schema": {
+						"data_type": "uuid",
+						"is_primary_key": true,
+						"is_nullable": false,
+						"has_auto_increment": false
+					},
+					"meta": {
+						"field": "id",
+						"hidden": true,
+						"readonly": true,
+						"translations": [{ "language": "en-US", "translation": "ID" }],
+						"note": "Internal Directus identifier for this application configuration.",
+						"special": ["uuid"],
+						"interface": "input",
+						"display": "raw"
+					}
+				}
+			],
+			"meta": {
+				"icon": "rocket_launch",
+				"note": "Allow-listed Coolify applications available to the deployment integration. Enter only an application UUID when creating a record; application details are loaded from Coolify automatically."
+			}
+		}
+	],
+	"fields": [
+		{
+			"collection": "coolify_applications",
+			"field": "application_uuid",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false,
+				"is_unique": true,
+				"is_indexed": true
+			},
+			"meta": {
+				"interface": "input",
+				"display": "raw",
+				"required": true,
+				"translations": [
+					{ "language": "en-US", "translation": "Coolify application UUID" }
+				],
+				"note": "The UUID of the application in Coolify. The remaining application details are loaded automatically."
+			}
+		},
+		{
+			"collection": "coolify_applications",
+			"field": "name",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "input",
+				"display": "raw",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Application name" }],
+				"note": "Name of the application as reported by Coolify."
+			}
+		},
+		{
+			"collection": "coolify_applications",
+			"field": "project_uuid",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false,
+				"is_indexed": true
+			},
+			"meta": {
+				"interface": "input",
+				"display": "raw",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Coolify project UUID" }],
+				"note": "UUID of the Coolify project containing this application."
+			}
+		},
+		{
+			"collection": "coolify_applications",
+			"field": "project_name",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "input",
+				"display": "raw",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Coolify project name" }],
+				"note": "Name of the Coolify project containing this application."
+			}
+		},
+		{
+			"collection": "coolify_applications",
+			"field": "environment_uuid",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false,
+				"is_indexed": true
+			},
+			"meta": {
+				"interface": "input",
+				"display": "raw",
+				"readonly": true,
+				"translations": [
+					{ "language": "en-US", "translation": "Coolify environment UUID" }
+				],
+				"note": "UUID of the Coolify environment containing this application."
+			}
+		},
+		{
+			"collection": "coolify_applications",
+			"field": "environment_name",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "input",
+				"display": "raw",
+				"readonly": true,
+				"translations": [
+					{ "language": "en-US", "translation": "Coolify environment name" }
+				],
+				"note": "Name of the Coolify environment containing this application."
+			}
+		},
+		{
+			"collection": "coolify_applications",
+			"field": "production_url",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 2048,
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "input",
+				"display": "formatted-value",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Production URL" }],
+				"note": "Public production URL reported by Coolify for this application."
+			}
+		},
+		{
+			"collection": "coolify_applications",
+			"field": "enabled",
+			"type": "boolean",
+			"schema": {
+				"data_type": "boolean",
+				"is_nullable": false,
+				"default_value": true
+			},
+			"meta": {
+				"interface": "boolean",
+				"display": "boolean",
+				"required": true,
+				"default_value": true,
+				"translations": [{ "language": "en-US", "translation": "Application enabled" }],
+				"note": "Whether this application is available to the deployment integration."
+			}
+		},
+		{
+			"collection": "coolify_applications",
+			"field": "deploy_enabled",
+			"type": "boolean",
+			"schema": {
+				"data_type": "boolean",
+				"is_nullable": false,
+				"default_value": true
+			},
+			"meta": {
+				"interface": "boolean",
+				"display": "boolean",
+				"required": true,
+				"default_value": true,
+				"translations": [{ "language": "en-US", "translation": "Deployments enabled" }],
+				"note": "Whether deployments may be triggered for this application."
+			}
+		}
+	],
+	"relations": []
+}

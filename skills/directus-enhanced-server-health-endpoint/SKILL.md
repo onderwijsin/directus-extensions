@@ -17,8 +17,7 @@ pnpm add @onderwijsin/directus-enhanced-server-health-endpoint
 ```
 
 Use Directus `12.2.0` or newer, build the package when installing from source, and restart Directus
-after adding it to the extensions directory. The package is a non-sandboxed endpoint extension and
-must run in a trusted Directus installation. It invokes Directus's internal `ServerService` with
+after adding it to the extensions directory. It invokes Directus's internal `ServerService` with
 administrator accountability; it does not use the caller's permissions.
 
 ## API reference
@@ -104,9 +103,13 @@ HEALTHCHECK_EXCLUDE_CHECKS=[]
 - The extension returns only the aggregate result. Use Directus's native `/server/health` response
   for diagnostic detail.
 
-## What this skill does not provide
+## Boundaries
 
 The package does not provision Directus, databases, Redis, object storage, email, monitoring
 systems, load balancers, permissions, or infrastructure. It does not add query parameters,
 application exports, collections, or custom health checks. It reports only what Directus's internal
-server health service provides and requires a trusted, non-sandboxed runtime.
+server health service provides.
+
+This extension is non-sandboxed, so it does not carry the trust required for Directus Marketplace
+distribution. Install it as an npm package in the Directus runtime. It creates or changes no
+collections, fields, relations, roles, policies, permissions, or persistent data.

@@ -3,6 +3,10 @@ import type { ApiExtensionContext } from '@directus/types'
 import type { MagicLinksEnv } from './env.schema'
 
 import { createLimiter } from '@directus/memory'
+import {
+	resolveExtensionRateLimiterStore,
+	resolveRedisConnectionString,
+} from '@onderwijsin/directus-extension-utils/server'
 import Redis from 'ioredis'
 
 import { parseDuration } from './helpers'
@@ -46,14 +50,16 @@ export async function createMagicLinkLimiter(
 	)
 	const points = settings.auth_login_attempts
 
-	if (input.options.DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE === 'redis') {
-		if (!input.options.REDIS) {
-			throw new Error('Redis rate limiter requires REDIS')
-		}
+	if (resolveExtensionRateLimiterStore(input.options) === 'redis') {
+		const redisUrl = resolveRedisConnectionString(
+			input.options,
+			input.options.SYNCHRONIZATION_STORE,
+		)
+		if (!redisUrl) throw new Error('Redis rate limiter requires Redis configuration')
 		return createLimiter({
 			type: 'redis',
 			namespace: REDIS_NAMESPACE,
-			redis: new Redis(input.options.REDIS),
+			redis: new Redis(redisUrl),
 			duration,
 			points,
 		})

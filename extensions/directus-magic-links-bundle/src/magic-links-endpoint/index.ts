@@ -1,10 +1,10 @@
 import { InvalidCredentialsError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
-import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
+	asyncHandler,
 	extensionSetup,
 	validateExtensionOptions,
-	getSchemaChangeStatus,
+	rejectWhileSchemaLocked,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { EXTENSION_ID, EXTENSION_NAME } from '../magic-links-hook/constants'
@@ -14,7 +14,6 @@ import {
 	parseRequestPayload,
 	redeemMagicLink,
 	requestMagicLink,
-	SchemaLockedError,
 } from './handlers'
 import { createMagicLinkLimiter } from './rate-limiter'
 import { sendAuthenticationResponse } from './session'
@@ -43,6 +42,23 @@ export default defineEndpoint({
 
 		const options = validateExtensionOptions(env, envSchema, logger)
 		const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? options.SECRET
+		const schemaLockOptions = {
+			lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
+		}
+
+		router.use(
+			asyncHandler(async (_request, _response, next) => {
+				const rejected = await rejectWhileSchemaLocked(
+					{
+						id: EXTENSION_ID,
+						options: schemaLockOptions,
+					},
+					next,
+				)
+				if (!rejected) next()
+			}),
+		)
+
 		let limiter: ReturnType<typeof createMagicLinkLimiter> | undefined
 		/**
 		 * Lazily creates the limiter so runtime settings changes are observed before the first redemption.
@@ -52,18 +68,9 @@ export default defineEndpoint({
 		const getLimiter = () =>
 			(limiter ??= createMagicLinkLimiter({ database, getSchema, options, services }))
 
-		router.post('/request', (request, response, next) => {
-			void attempt(async () => {
-				const { isLocked } = await getSchemaChangeStatus({
-					extensionId: EXTENSION_ID,
-					options: {
-						lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
-					},
-				})
-				if (isLocked) {
-					next(new SchemaLockedError())
-					return
-				}
+		router.post(
+			'/request',
+			asyncHandler(async (request, response) => {
 				const payload = parseRequestPayload(
 					request.body,
 					options.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
@@ -79,24 +86,12 @@ export default defineEndpoint({
 					userAgent: request.get('user-agent') ?? null,
 				})
 				response.status(202).json(result)
-			}).then(({ error }) => {
-				if (error) next(error)
-			})
-		})
+			}),
+		)
 
-		router.post('/redeem', (request, response, next) => {
-			void attempt(async () => {
-				const { isLocked } = await getSchemaChangeStatus({
-					extensionId: EXTENSION_ID,
-					options: {
-						lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
-					},
-				})
-				if (isLocked) {
-					next(new SchemaLockedError())
-					return
-				}
-
+		router.post(
+			'/redeem',
+			asyncHandler(async (request, response) => {
 				const payload = parseRedeemPayload(request.body)
 				const result = await redeemMagicLink({
 					database,
@@ -112,10 +107,8 @@ export default defineEndpoint({
 				})
 				if (!result) throw new InvalidCredentialsError()
 				sendAuthenticationResponse(response, env, payload, result)
-			}).then(({ error }) => {
-				if (error) next(error)
-			})
-		})
+			}),
+		)
 
 		setup.end()
 	},

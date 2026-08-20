@@ -6,8 +6,8 @@ setups, but is intended to run inside Directus—not as a framework-agnostic uti
 The public surface includes:
 
 - runtime guards, attempt/retry helpers, object helpers, MIME classification, and UUIDs;
-- server-only locks, debounced auto-task handlers, task storage, logging, and extension setup
-  helpers; and
+- server-only async Express adapters, locks, debounced auto-task handlers, task storage, logging,
+  and extension setup helpers; and
 - reusable Directus extension types.
 
 ## Install
@@ -28,10 +28,83 @@ Use `/server` for server-only utilities:
 
 ```ts
 import {
+  asyncHandler,
   createAutoTaskHandler,
+  initializeCache,
   createRedisTaskHandlerStorage,
   createRedisLockProvider,
 } from '@onderwijsin/directus-extension-utils/server'
+```
+
+Use the server policy utilities when an extension must resolve Directus policy assignments,
+including nested roles and `ip_access` filtering. The first accountability controls whose policy
+assignments are resolved; by default it also controls CRUD filtering while reading `directus_access`
+and `directus_policies`:
+
+```ts
+import { fetchPolicies, hasPolicies } from '@onderwijsin/directus-extension-utils/server'
+
+const policies = await fetchPolicies(accountability, services, schema, cache)
+const allowed = await hasPolicies(accountability, policyId, services, schema)
+```
+
+Pass a final `null` read accountability only for a trusted server-side consumer that must resolve
+assignments without CRUD filtering. This bypass reads policy metadata with system accountability and
+must not be used before returning policies to a client unless exposing all matching policy metadata
+is intentional:
+
+```ts
+const policies = await fetchPolicies(accountability, services, schema, cache, null)
+const allowed = await hasPolicies(accountability, policyId, services, schema, null, null)
+```
+
+The policies endpoint uses the default user-scoped mode. Its callers therefore need read access to
+the relevant `directus_access` and `directus_policies` records, directly or through a role.
+
+Policy caching is opt-in. Pass a consumer-owned cache when a bounded TTL and invalidation strategy
+are appropriate for the deployment.
+
+Create a local or Redis-backed cache from validated Directus environment values:
+
+```ts
+import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
+
+const cache = initializeCache(env, { ttl: 60_000 })
+const cached = await cache?.get('orders:summary')
+```
+
+`cacheConfigSchema` validates Directus cache and Redis settings. `REDIS` takes precedence over
+`REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, and `REDIS_PASSWORD`; component configuration requires
+`REDIS_ENABLED=true` and all four values. Disabled caching returns `null`; an unset `CACHE_STORE`
+uses `memory`, even though `initializeCache` maps memory to the library's local backend. TTL values
+must be finite and positive.
+
+The server entrypoint also exports `emailConfigSchema`, `requiredEmailConfigSchema`, and
+`isEmailConfigured`. The base email schema supplies Directus defaults without requiring a transport;
+the required schema validates prerequisites for `sendmail`, `smtp`, `mailgun`, and `ses`.
+
+Wrap asynchronous endpoint handlers and middleware with `asyncHandler` so rejected promises reach
+Directus's Express 4 error handling:
+
+```ts
+router.post(
+  '/route',
+  asyncHandler(async (request, response) => {
+    const result = await doSomething(request)
+    response.json(result)
+  }),
+)
+```
+
+Middleware can call `next()` explicitly after asynchronous work:
+
+```ts
+router.use(
+  asyncHandler(async (_request, _response, next) => {
+    await checkAccess()
+    next()
+  }),
+)
 ```
 
 Use `/sentry` when an extension explicitly needs the Sentry helpers. This separate entry point keeps
@@ -114,32 +187,44 @@ For extensions that modify Directus schema, compose the entrypoint environment s
 shared server-side schema-change settings:
 
 ```ts
-import { schemaChangeSchema } from '@onderwijsin/directus-extension-utils/server'
+import { directusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
 import { z } from 'zod'
 
-const envSchema = schemaChangeSchema.extend({
+const envSchema = directusStartupSchema.extend({
   MY_EXTENSION_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 })
 ```
 
-`schemaChangeSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to
-`true`, and supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`MEMORY`, `REDIS`, or `FS`). `REDIS` uses
-`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` when set, otherwise the standard Directus `REDIS` connection;
-`FS` requires `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. It also exposes the shared
-`DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` setting (`memory` by default, or `redis`) and validates the
-Directus `REDIS` connection when the Redis store is selected.
+`directusStartupSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to
+`true`, and supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`memory`, `redis`, or `fs`). When unset,
+the lock provider falls back to `SYNCHRONIZATION_STORE`. `redis` uses
+`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` when set, otherwise the resolved Directus Redis configuration;
+`fs` requires `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. It also exposes the shared
+`DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` setting. When unset, it falls back to
+`SYNCHRONIZATION_STORE`.
 
 Use `ensureDirectusSchema` from the same `/server` subpath to apply portable collection, field, and
-relation definitions. Every collection definition must include a non-blank `schema.name` and its
-primary-key field in the collection's nested `fields` array; do not repeat that primary-key field in
-the top-level `fields` array. This prevents Directus from creating an implicit integer primary key
-before the extension's intended field is applied. Pass the Directus hook context's `database`,
-`getSchema`, and `services`, and provide a logger plus an extension identifier. Existing compatible
-resources are preserved; incompatible structural resources are logged loudly and left unchanged
-rather than being silently modified. The validated environment options select the provider
-automatically. Set `options.lockProvider` to override that selection programmatically. Redis
-providers created from environment options are disposed after the ensure operation; explicitly
-supplied providers remain owned by the consumer.
+relation definitions. Use `withCollectionIdentity(name, schema)` when a bundled portable schema
+supports a configurable collection name. Every collection definition must include a non-blank
+`schema.name` and its primary-key field in the collection's nested `fields` array; do not repeat
+that primary-key field in the top-level `fields` array. This prevents Directus from creating an
+implicit integer primary key before the extension's intended field is applied. Pass the Directus
+hook context's `database`, `getSchema`, and `services`, and provide a logger plus an extension
+identifier. Existing compatible resources are preserved; incompatible structural resources are
+logged loudly and left unchanged rather than being silently modified. The validated environment
+options select the provider automatically. Set `options.lockProvider` to override that selection
+programmatically. Redis providers created from environment options are disposed after the ensure
+operation; explicitly supplied providers remain owned by the consumer.
+
+Use `validateSchemaDefinition(...)` for bundled schema JSON before passing it to
+`ensureDirectusSchema`; no type cast is required.
+
+Use `validatePolicyDefinition(...)` for bundled policy JSON with nested `permissions`, then pass the
+validated definition to `ensureDirectusPolicy`. The policy ensure operation processes the nested
+permissions into `directus_permissions` rows linked to the policy; permission IDs are generated by
+Directus as integers and must not be included in bundled definitions. Idempotency is based on the
+natural key `policy + collection + action`; matching existing rows are preserved and are not
+updated.
 
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
 `validateExtensionOptions` parses a complete extension environment with Zod, logs validation
@@ -147,18 +232,23 @@ details, and throws when the configuration is invalid.
 
 Schema configuration and operation options:
 
-| Option                                       | Scope     | Default          | Purpose                                                     |
-| -------------------------------------------- | --------- | ---------------- | ----------------------------------------------------------- |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` | global    | `true`           | Master switch for schema setup.                             |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | global    | `MEMORY`         | Selects `MEMORY`, `REDIS`, or `FS`.                         |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | global    | —                | Optional override; falls back to Directus `REDIS`.          |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | global    | —                | Required for the filesystem provider.                       |
-| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`     | global    | `memory`         | Selects the process-local or Redis extension limiter store. |
-| `REDIS`                                      | Directus  | —                | Required by extension limiters when the store is `redis`.   |
-| `lockProviderConfig`                         | operation | —                | Uses validated environment config to create a provider.     |
-| `lockProvider`                               | operation | —                | Supplies a consumer-owned provider directly.                |
-| `abortOnError`                               | operation | `true`           | Rethrows service failures after logging them.               |
-| `lockLeaseMs`                                | operation | provider default | Overrides one lock acquisition lease.                       |
+| Option                                                         | Scope       | Default          | Purpose                                                                              |
+| -------------------------------------------------------------- | ----------- | ---------------- | ------------------------------------------------------------------------------------ |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | global      | `true`           | Master switch for schema setup.                                                      |
+| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`                        | global      | `true`           | Enables policy and future data seeds.                                                |
+| `SYNCHRONIZATION_STORE`                                        | Directus    | `memory`         | Global fallback for synchronization-related extension stores.                        |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | global      | unset            | Selects `memory`, `redis`, or `fs`; otherwise falls back to `SYNCHRONIZATION_STORE`. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | global      | —                | Optional override; otherwise uses resolved Redis settings.                           |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | global      | —                | Required for the filesystem provider.                                                |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | global      | unset            | Selects the limiter store; otherwise falls back to `SYNCHRONIZATION_STORE`.          |
+| `REDIS_ENABLED`                                                | Directus    | `false`          | Enables component-based Redis configuration.                                         |
+| `REDIS`                                                        | Directus    | —                | Complete Redis URL; takes precedence over components.                                |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Directus    | —                | Required together when constructing a Redis URL.                                     |
+| `lockProviderConfig`                                           | operation   | —                | Uses validated environment config to create a provider.                              |
+| `lockProvider`                                                 | operation   | —                | Supplies a consumer-owned provider directly.                                         |
+| `autoRenew`                                                    | coordinator | `true`           | Renews the startup lease while callbacks run.                                        |
+| `abortOnError`                                                 | operation   | `true`           | Rethrows service failures after logging them.                                        |
+| `lockLeaseMs`                                                  | operation   | provider default | Overrides one lock acquisition lease.                                                |
 
 `ensureDirectusSchema` always coordinates the operation with a lock and returns
 `{ changed, skipped }`. It creates missing resources, skips compatible resources, and logs
@@ -169,27 +259,76 @@ left under the site's control. It logs an info-level pre-operation plan and post
 per-resource and lock lifecycle details use debug-level logging. Bundled extension definitions are
 trusted data and do not need a second runtime Zod schema.
 
-Use `getSchemaChangeStatus` to check the same lock from another code path without acquiring,
-renewing, releasing, or repairing it:
+Use `getDirectusStartupStatus` to check the shared startup lock from another code path without
+acquiring, renewing, releasing, or repairing it:
 
 ```ts
-import { getSchemaChangeStatus } from '@onderwijsin/directus-extension-utils/server'
+import { getDirectusStartupStatus } from '@onderwijsin/directus-extension-utils/server'
 
-const status = await getSchemaChangeStatus({
-  extensionId: 'orders',
+const status = await getDirectusStartupStatus({
+  id: 'orders',
   options: { lockProviderConfig: options },
 })
 
 if (status.isLocked) {
-  // The schema ensure operation is still in progress.
+  // Schema and data startup work is still in progress.
 }
 ```
 
-The status query must use the same provider configuration and extension identifier as the ensure
-operation. Memory providers with the same `providerId` share state within one process; the schema
-management factory uses the stable `schema-change` provider ID so independently created ensure and
-status providers can observe one another. Use Redis or a shared filesystem provider for separate
-processes.
+Use `rejectWhileSchemaLocked` as endpoint middleware when requests must wait for startup schema
+changes to finish. Pass custom error constructors when an endpoint needs its own public error code:
+
+```ts
+import { rejectWhileSchemaLocked } from '@onderwijsin/directus-extension-utils/server'
+
+router.use((_request, _response, next) => {
+  void rejectWhileSchemaLocked({ id: 'orders', options: schemaLockOptions }, next).then(
+    (rejected) => {
+      if (!rejected) next()
+    },
+  )
+})
+```
+
+The status query must use the same provider configuration and extension identifier as the startup
+coordinator. It is read-only and disposes only providers created from configuration. Use Redis or a
+shared filesystem provider for separate processes.
+
+Use `ensureDirectusPolicy` for policy data seeds. It creates a policy with its configured UUID and
+name, preserves compatible policies, and idempotently creates its nested permission rows. It logs
+UUID/name conflicts without modifying existing policies. Role assignments and user assignments are
+separate future seeds.
+
+Register startup work through `createDirectusStartupCoordinator`. It holds one lock and always runs
+schema callbacks before data callbacks:
+
+```ts
+const startup = createDirectusStartupCoordinator(action, logger, {
+  id: 'orders',
+  name: 'Orders',
+  disabled: false,
+  disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
+  dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+  lockProviderConfig: options,
+})
+
+startup.schema(async ({ lockProvider }) => {
+  await ensureDirectusSchema({
+    id: 'orders',
+    database,
+    getSchema,
+    logger,
+    services,
+    definition: ordersDefinition,
+    options: { lockProvider },
+  })
+})
+```
+
+The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
+when every callback is guaranteed to finish within the configured lease. Nested schema and data
+ensures receive a borrowed provider and cannot release the coordinator-owned lease. If renewal is
+lost, the coordinator stops before running the next callback and logs the failure.
 
 All lock providers use the same `tryAcquire`/`isLocked`/lease contract and `defaultLeaseMs` option.
 Choose the memory provider for one process, the filesystem provider for processes sharing a

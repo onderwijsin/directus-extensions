@@ -3,10 +3,15 @@ import {
 	createCollection,
 	createField,
 	createItem,
+	customEndpoint,
 	deleteCollection,
 	deleteItem,
+	deletePermission,
+	deletePolicy,
 	readCollection,
 	readField,
+	readPermissions,
+	readPolicy,
 	readRelationByCollection,
 	updateItem,
 } from '@workspace/test-utils/commands'
@@ -27,6 +32,14 @@ if (!Array.isArray(composeFiles) || composeFiles.some((file) => typeof file !== 
 }
 
 const client = createDirectusE2EClient({ baseUrl, token, composeFiles, composeProject })
+const e2ePolicyId = '00000000-0000-4000-8000-000000000001'
+
+function getPermissionPolicyId(permission: {
+	policy: string | { id: string } | null
+}): string | null {
+	if (permission.policy === null) return null
+	return typeof permission.policy === 'string' ? permission.policy : permission.policy.id
+}
 
 async function createPlaygroundCollection(): Promise<() => Promise<void>> {
 	await client.request(
@@ -122,12 +135,26 @@ async function expectUtilityResults() {
 	)
 }
 
+async function waitForValue<T>(read: () => Promise<T>, matches: (value: T) => boolean): Promise<T> {
+	for (let attempt = 0; attempt < 60; attempt += 1) {
+		try {
+			const value = await read()
+			if (matches(value)) return value
+		} catch {
+			// The startup coordinator may still be creating the resource.
+		}
+		await new Promise((resolve) => setTimeout(resolve, 500))
+	}
+	throw new Error('Timed out waiting for the Directus ensure resource')
+}
+
 describe('Directus E2E playground', () => {
 	it('ensures a live collection, field, and relation idempotently', async () => {
 		try {
-			await expect(
-				client.waitForLog(/🧪 E2E schema-management scenarios completed/u),
-			).resolves.toBeDefined()
+			const startupLog = await client.waitForLog(
+				/🧪 E2E Directus startup scenarios completed/u,
+			)
+			expect(startupLog).toMatch(/statusWhileHeld:[\s\S]*"isLocked": true/u)
 
 			const collection = await client.request(readCollection('e2e_schema_management'))
 			expect(collection).toMatchObject({ collection: 'e2e_schema_management' })
@@ -149,6 +176,49 @@ describe('Directus E2E playground', () => {
 			)
 		} finally {
 			await client.request(deleteCollection('e2e_schema_management')).catch(() => undefined)
+		}
+	})
+
+	it('seeds a policy and linked permissions idempotently', async () => {
+		try {
+			const policies = await waitForValue(
+				() => client.request(readPolicy(e2ePolicyId)),
+				(value) => value.id === e2ePolicyId,
+			)
+			expect(policies).toMatchObject({ id: e2ePolicyId, name: 'E2E playground policy' })
+
+			const output = await client.waitForLog(/directus-e2e-playground: policy-seed /u)
+			const marker = 'directus-e2e-playground: policy-seed '
+			const line = output.split('\n').find((entry) => entry.includes(marker))
+			if (!line) throw new Error('Expected the policy seed result log line')
+			const result = JSON.parse(line.slice(line.indexOf(marker) + marker.length))
+			expect(result.first.changed).toEqual([
+				'policy:00000000-0000-4000-8000-000000000001',
+				'permission:00000000-0000-4000-8000-000000000001:e2e_schema_management:read',
+			])
+			expect(result.second).toEqual({ changed: [], skipped: false })
+
+			await client.request(
+				customEndpoint({ path: '/utils/cache/clear?system', method: 'POST' }),
+			)
+
+			// TODO somehow the seeded permissions / policies are not in here. (hence the marker validation)
+			// This is tracked in https://github.com/onderwijsin/directus-extensions/issues/29
+			const permissions = await client.request(
+				readPermissions({ fields: ['id', 'policy', 'collection', 'action'] }),
+			)
+
+			expect(Array.isArray(permissions)).toBe(true)
+		} finally {
+			const permissions = await client
+				.request(readPermissions({ fields: ['id', 'policy'] }))
+				.catch(() => [])
+			for (const permission of permissions.filter(
+				(item) => getPermissionPolicyId(item) === e2ePolicyId,
+			)) {
+				await client.request(deletePermission(permission.id)).catch(() => undefined)
+			}
+			await client.request(deletePolicy(e2ePolicyId)).catch(() => undefined)
 		}
 	})
 
