@@ -18,9 +18,6 @@ import { envSchema } from '../src/shared/coolify-client/schemas'
 const options = envSchema.parse({
 	COOLIFY_URL: 'https://coolify.example.com/',
 	COOLIFY_TOKEN: 'token',
-	COOLIFY_PROJECTS: [
-		{ id: 'frontend', name: 'Frontend', productionUrl: null, resourceUuid: 'application-uuid' },
-	],
 })
 
 const jsonResponse = (body: unknown) => Promise.resolve(body)
@@ -198,6 +195,18 @@ describe('Coolify deployment client', () => {
 		await client.listConfiguredApplication()
 
 		expect(readByQuery).toHaveBeenCalledOnce()
+	})
+
+	it('bypasses the configured application cache when requested', async () => {
+		const client = createCoolifyDeploymentClient(options, {
+			...context,
+			CACHE_ENABLED: true,
+		})
+
+		await client.listConfiguredApplication()
+		await client.listConfiguredApplication({ bypassCache: true })
+
+		expect(readByQuery).toHaveBeenCalledTimes(2)
 	})
 
 	it('models deployment history, running deployments, details, and cancellation', async () => {

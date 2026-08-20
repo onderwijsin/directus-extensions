@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 	validateExtensionOptions: vi.fn(() => ({
 		COOLIFY_URL: 'https://coolify.example.com',
 		COOLIFY_TOKEN: 'token',
-		COOLIFY_PROJECTS: [],
+		COOLIFY_APPLICATIONS_COLLECTION: 'deployment_targets',
 		COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: 'manage-policy',
 		COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID: 'read-policy',
 		COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: 'trigger-policy',
@@ -212,6 +212,10 @@ describe('Coolify deployment endpoint orchestration', () => {
 		expect(response.setHeader).toHaveBeenCalledWith(
 			'X-Coolify-Deployments-Poll-Interval',
 			'3000',
+		)
+		expect(response.setHeader).toHaveBeenCalledWith(
+			'X-Coolify-Deployments-Applications-Collection',
+			'deployment_targets',
 		)
 
 		const permissionRoute = router.get.mock.calls[0]?.[2]

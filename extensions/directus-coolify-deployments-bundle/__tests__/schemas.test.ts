@@ -2,17 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import { envSchema as endpointEnvSchema } from '../src/coolify-deployments-endpoint/env.schema'
 import {
-	configuredCoolifyApplicationSchema,
 	coolifyDeploymentRequestSchema,
 	coolifyDeploymentsResponseSchema,
 	coolifyApplicationSchema,
 	coolifyEnvironmentResponseSchema,
 	coolifyDeploymentTriggerResponseSchema,
 	coolifyDeploymentCancellationSchema,
-	deploymentPaginationSchema,
-	deployRequestSchema,
 	envSchema,
-	normalizedDeploymentSchema,
 } from '../src/shared/coolify-client/schemas'
 
 describe('Coolify deployments schemas', () => {
@@ -43,7 +39,6 @@ describe('Coolify deployments schemas', () => {
 			COOLIFY_APPLICATIONS_COLLECTION: 'coolify_applications',
 			COOLIFY_URL: 'https://coolify.example.com',
 			COOLIFY_TOKEN: 'token',
-			COOLIFY_PROJECTS: [],
 		})
 	})
 
@@ -55,38 +50,6 @@ describe('Coolify deployments schemas', () => {
 				COOLIFY_TOKEN: 'token',
 			}).COOLIFY_APPLICATIONS_COLLECTION,
 		).toBe('deployment_targets')
-	})
-
-	it('accepts configured projects and normalized deployments', () => {
-		expect(
-			envSchema.parse({
-				COOLIFY_URL: 'https://coolify.example.com/',
-				COOLIFY_TOKEN: 'token',
-				COOLIFY_PROJECTS: [
-					{
-						id: 'onderwijsloket',
-						name: 'Onderwijsloket',
-						productionUrl: 'https://app.example.com',
-						resourceUuid: 'resource-uuid',
-					},
-				],
-			}),
-		).toMatchObject({ COOLIFY_PROJECTS: [{ id: 'onderwijsloket' }] })
-
-		expect(
-			normalizedDeploymentSchema.parse({
-				id: 'deployment-1',
-				applicationId: 'onderwijsloket',
-				status: 'queued',
-				rawStatus: 'queued',
-				commitSha: null,
-				commitMessage: null,
-				deploymentUrl: null,
-				startedAt: null,
-				finishedAt: null,
-				duration: null,
-			}),
-		).toMatchObject({ status: 'queued' })
 	})
 
 	it('parses Coolify deployment history responses', () => {
@@ -102,16 +65,6 @@ describe('Coolify deployments schemas', () => {
 				],
 			}).deployments,
 		).toMatchObject([{ deploymentUuid: 'deployment-1' }])
-	})
-
-	it('rejects arbitrary project definitions without a resource UUID', () => {
-		expect(() =>
-			envSchema.parse({
-				COOLIFY_URL: 'https://coolify.example.com',
-				COOLIFY_TOKEN: 'token',
-				COOLIFY_PROJECTS: [{ id: 'frontend', name: 'Frontend' }],
-			}),
-		).toThrow()
 	})
 
 	it('requires Redis configuration for the Redis cache store', () => {
@@ -148,21 +101,6 @@ describe('Coolify deployments schemas', () => {
 		expect(() =>
 			coolifyDeploymentRequestSchema.parse({ uuid: 'application-1', pr: 42 }),
 		).toThrow()
-	})
-
-	it('resolves the legacy resourceUuid configuration alias', () => {
-		expect(
-			configuredCoolifyApplicationSchema.parse({
-				id: 'frontend',
-				name: 'Frontend',
-				resourceUuid: 'resource-1',
-			}),
-		).toEqual({
-			id: 'frontend',
-			name: 'Frontend',
-			productionUrl: null,
-			applicationUuid: 'resource-1',
-		})
 	})
 
 	it('rejects unsafe collection names and blank filters', () => {
@@ -214,11 +152,5 @@ describe('Coolify deployments schemas', () => {
 				deployment_uuid: 'd',
 			}),
 		).toThrow()
-		expect(deploymentPaginationSchema.parse({ skip: '5', take: '100' })).toEqual({
-			skip: 5,
-			take: 100,
-		})
-		expect(() => deploymentPaginationSchema.parse({ take: 101 })).toThrow()
-		expect(deployRequestSchema.parse({})).toEqual({ force: true })
 	})
 })

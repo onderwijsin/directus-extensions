@@ -1,14 +1,5 @@
 import { z } from 'zod'
 
-export const deploymentStatuses = [
-	'queued',
-	'running',
-	'success',
-	'failed',
-	'cancelled',
-	'unknown',
-] as const
-
 const collectionNameSchema = z
 	.string()
 	.trim()
@@ -17,36 +8,11 @@ const collectionNameSchema = z
 		message: 'Collection names may not start with directus_',
 	})
 
-const configuredCoolifyApplicationInputSchema = z
-	.object({
-		id: z.string().trim().min(1),
-		name: z.string().trim().min(1),
-		productionUrl: z.url().nullable().default(null),
-		applicationUuid: z.string().trim().min(1).optional(),
-		resourceUuid: z.string().trim().min(1).optional(),
-	})
-	.refine(
-		({ applicationUuid, resourceUuid }) =>
-			applicationUuid !== undefined || resourceUuid !== undefined,
-		{
-			message: 'Either applicationUuid or resourceUuid is required',
-		},
-	)
-
-export const configuredCoolifyApplicationSchema = configuredCoolifyApplicationInputSchema.transform(
-	({ resourceUuid, applicationUuid, ...application }) => {
-		const resolvedApplicationUuid = applicationUuid ?? resourceUuid
-		if (resolvedApplicationUuid === undefined) throw new Error('Application UUID is required')
-		return { ...application, applicationUuid: resolvedApplicationUuid }
-	},
-)
-
 export const coolifyEnvironmentSchema = z.object({
 	COOLIFY_DEPLOYMENTS_ENABLED: z.boolean().default(true),
 	COOLIFY_APPLICATIONS_COLLECTION: collectionNameSchema.default('coolify_applications'),
 	COOLIFY_URL: z.url(),
 	COOLIFY_TOKEN: z.string().trim().min(1),
-	COOLIFY_PROJECTS: z.array(configuredCoolifyApplicationSchema).default([]),
 })
 
 export const envSchema = coolifyEnvironmentSchema
@@ -237,39 +203,6 @@ export const coolifyDeploymentRequestSchema = z
 		path: ['uuid'],
 	})
 
-export const deploymentPaginationSchema = z.object({
-	skip: z.coerce.number().int().nonnegative().default(0),
-	take: z.coerce.number().int().positive().max(100).default(10),
-})
-
-export const deployRequestSchema = z.object({ force: z.boolean().default(true) })
-
-export const normalizedDeploymentSchema = z.object({
-	id: z.string(),
-	applicationId: z.string(),
-	status: z.enum(deploymentStatuses),
-	rawStatus: z.string(),
-	commitSha: z.string().nullable(),
-	commitMessage: z.string().nullable(),
-	deploymentUrl: z.url().nullable(),
-	startedAt: z.iso.datetime().nullable(),
-	finishedAt: z.iso.datetime().nullable(),
-	duration: z.number().int().nonnegative().nullable(),
-})
-
-export const publicCoolifyProjectSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	productionUrl: z.url().nullable(),
-})
-
-export const configuredApplicationReferenceSchema = z.object({
-	id: z.string().trim().min(1),
-	applicationUuid: z.string().trim().min(1),
-})
-
-export const deploymentPaginationInputSchema = deploymentPaginationSchema
-
 export type CoolifyDeploymentsOptions = z.infer<typeof coolifyEnvironmentSchema>
 export type CoolifyProject = z.infer<typeof coolifyProjectSchema>
 export type CoolifyEnvironment = z.infer<typeof coolifyEnvironmentResponseSchema>
@@ -283,8 +216,3 @@ export type CoolifyDeploymentCancellationResult = z.infer<
 	typeof coolifyDeploymentCancellationSchema
 >
 export type CoolifyApplicationFilter = z.infer<typeof coolifyApplicationFilterSchema>
-export type ConfiguredCoolifyApplication = z.infer<typeof configuredCoolifyApplicationSchema>
-export type ConfiguredApplicationReference = z.infer<typeof configuredApplicationReferenceSchema>
-export type DeploymentPagination = z.infer<typeof deploymentPaginationSchema>
-export type NormalizedDeployment = z.infer<typeof normalizedDeploymentSchema>
-export type PublicCoolifyProject = z.infer<typeof publicCoolifyProjectSchema>

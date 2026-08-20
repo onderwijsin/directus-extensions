@@ -21,8 +21,11 @@ const createServices = (rows: unknown[]) => {
 	const AccessService = vi.fn(function AccessService() {
 		return { readByQuery }
 	})
+	const ItemsService = vi.fn(function ItemsService() {
+		return { readByQuery: vi.fn().mockResolvedValue([]) }
+	})
 	return {
-		services: { AccessService } as unknown as ApiExtensionContext['services'],
+		services: { AccessService, ItemsService } as unknown as ApiExtensionContext['services'],
 		readByQuery,
 		AccessService,
 	}
@@ -58,7 +61,17 @@ describe('isAssignedPolicy', () => {
 					{ role: { _in: ['role-id', 'parent-role-id'] } },
 				],
 			},
-			fields: ['policy.id'],
+			fields: [
+				'policy.id',
+				'policy.name',
+				'policy.icon',
+				'policy.description',
+				'policy.enforce_tfa',
+				'policy.admin_access',
+				'policy.app_access',
+				'policy.ip_access',
+				'role',
+			],
 			limit: -1,
 		})
 	})
@@ -81,7 +94,17 @@ describe('isAssignedPolicy', () => {
 					{ _and: [{ role: { _null: true } }, { user: { _null: true } }] },
 				],
 			},
-			fields: ['policy.id'],
+			fields: [
+				'policy.id',
+				'policy.name',
+				'policy.icon',
+				'policy.description',
+				'policy.enforce_tfa',
+				'policy.admin_access',
+				'policy.app_access',
+				'policy.ip_access',
+				'role',
+			],
 			limit: -1,
 		})
 	})

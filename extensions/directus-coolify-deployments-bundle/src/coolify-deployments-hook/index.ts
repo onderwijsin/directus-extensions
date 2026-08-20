@@ -89,6 +89,10 @@ export default defineHook((hook, context) => {
 		]
 
 		for (const policy of policyDefinitions.policies) {
+			const permissions = policy.permissions.map((permission) => ({
+				...permission,
+				collection: options.COOLIFY_APPLICATIONS_COLLECTION,
+			}))
 			await ensureDirectusPolicy({
 				id: EXTENSION_ID,
 				database: context.database,
@@ -97,6 +101,7 @@ export default defineHook((hook, context) => {
 				services: context.services,
 				definition: {
 					...policy,
+					permissions,
 					id: resolveCoolifyPolicyId(policy.id, policyIds),
 				},
 				options: {

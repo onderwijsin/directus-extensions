@@ -1,9 +1,13 @@
 import type { Accountability, ApiExtensionContext, SchemaOverview } from '@directus/types'
 
-import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { fetchPolicies, policyAccessFilter } from '../src/fetch-policies'
+import {
+	filterPoliciesByIp,
+	fetchPolicies,
+	hasPolicies,
+	policyAccessFilter,
+} from '../src/server/policies'
 
 const schema = {} as SchemaOverview
 
@@ -67,6 +71,24 @@ describe('policyAccessFilter', () => {
 	})
 })
 
+describe('filterPoliciesByIp', () => {
+	it('keeps unrestricted policies and rejects restricted policies without an IP', () => {
+		const rows = [
+			{ policy: policy('open'), role: null },
+			{ policy: policy('restricted', ['127.0.0.1']), role: null },
+		]
+		expect(filterPoliciesByIp(rows, null)).toEqual([rows[0]])
+	})
+
+	it('keeps policies whose CIDR allow list contains the client IP', () => {
+		const rows = [
+			{ policy: policy('network', ['192.168.1.0/22']), role: null },
+			{ policy: policy('localhost', ['127.0.0.1']), role: null },
+		]
+		expect(filterPoliciesByIp(rows, '192.168.1.25')).toEqual([rows[0]])
+	})
+})
+
 describe('fetchPolicies', () => {
 	beforeEach(() => vi.clearAllMocks())
 
@@ -81,41 +103,27 @@ describe('fetchPolicies', () => {
 		])
 
 		await expect(
-			fetchPolicies(accountability({ ip: '127.0.0.1' }), services, schema, null),
+			fetchPolicies(accountability({ ip: '127.0.0.1' }), services, schema),
 		).resolves.toEqual([
 			publicPolicy('parent-policy'),
 			publicPolicy('shared-policy'),
 			publicPolicy('child-policy'),
 			publicPolicy('user-policy'),
 		])
-		expect(readByQuery).toHaveBeenCalledWith({
-			filter: {
-				_or: [{ user: { _eq: 'user-id' } }, { role: { _in: ['role-a', 'role-b'] } }],
-			},
-			fields: [
-				'policy.id',
-				'policy.name',
-				'policy.icon',
-				'policy.description',
-				'policy.enforce_tfa',
-				'policy.admin_access',
-				'policy.app_access',
-				'policy.ip_access',
-				'role',
-			],
-			limit: -1,
+		expect(readByQuery).toHaveBeenCalledOnce()
+		expect(services.AccessService).toHaveBeenCalledWith({
+			accountability: accountability({ ip: '127.0.0.1' }),
+			schema,
 		})
 	})
 
-	it('caches equivalent accountability lookups', async () => {
-		const { services, readByQuery } = createServices([{ policy: policy('cached'), role: null }])
-		const cachedAccountability = accountability({ user: 'cached-user' })
-		const cache = initializeCache({ CACHE_ENABLED: true, CACHE_STORE: 'memory' }, { ttl: 5000 })
+	it('supports trusted server-side reads without CRUD filtering', async () => {
+		const { services } = createServices([{ policy: policy('server-policy'), role: null }])
 
-		await fetchPolicies(cachedAccountability, services, schema, cache)
-		await fetchPolicies(cachedAccountability, services, schema, cache)
-
-		expect(readByQuery).toHaveBeenCalledOnce()
+		await expect(
+			fetchPolicies(accountability(), services, schema, null, null),
+		).resolves.toEqual([publicPolicy('server-policy')])
+		expect(services.AccessService).toHaveBeenCalledWith({ accountability: null, schema })
 	})
 
 	it('expands nested roles before resolving policies', async () => {
@@ -125,12 +133,21 @@ describe('fetchPolicies', () => {
 		)
 
 		await expect(
-			fetchPolicies(accountability({ roles: ['role-root'] }), services, schema, null),
+			fetchPolicies(accountability({ roles: ['role-root'] }), services, schema),
 		).resolves.toEqual([publicPolicy('nested-policy')])
 		expect(readRolesByQuery).toHaveBeenCalledWith({
 			filter: { parent: { _in: ['role-root'] } },
 			fields: ['id', 'parent'],
 			limit: -1,
 		})
+	})
+
+	it('checks one or more effective policies', async () => {
+		const { services } = createServices([{ policy: policy('allowed'), role: null }])
+
+		await expect(hasPolicies(accountability(), 'allowed', services, schema)).resolves.toBe(true)
+		await expect(
+			hasPolicies(accountability(), ['allowed', 'missing'], services, schema),
+		).resolves.toBe(false)
 	})
 })

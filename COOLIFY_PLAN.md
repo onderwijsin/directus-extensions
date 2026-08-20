@@ -150,51 +150,9 @@ configuration.
 
 ## Current implementation state
 
-The bundle is scaffolded and partially functional, but still follows the pre-v2 terminology in
-several runtime paths.
-
-Implemented today:
-
-- A non-sandboxed `@onderwijsin/directus-coolify-deployments-bundle` package.
-- A server-side Coolify HTTP client using the `/api/v1` API and bearer token, with separate project,
-  environment, application, and deployment operations.
-- Zod validation for environment values, request payloads, pagination, and normalized provider
-  responses.
-- Authenticated endpoint routes for configured project entries:
-  - `GET /coolify-deployments/projects`
-  - `GET /coolify-deployments/projects/:id/deployments`
-  - `GET /coolify-deployments/projects/:id/deployments/:deploymentId`
-  - `POST /coolify-deployments/projects/:id/deploy`
-- Same-origin defense in depth for the deploy mutation, while allowing authenticated non-browser
-  clients without origin metadata.
-- A `coolify-deployments-hook` that creates or updates the configured `coolify_applications`
-  collection during startup.
-- Schema-change locking that returns `503` from endpoint routes while schema setup is in progress.
-- Shared schema replacement utility used by the Coolify and magic-links schema builders.
-- A minimal Studio module with project, deployment-history, and deployment-detail views rendering
-  raw JSON for integration testing.
-- A `Coolify Deploy` operation entry with typed options and scaffold-only API behavior.
-- Compose and E2E environment wiring for `COOLIFY_URL` and `COOLIFY_TOKEN`.
-- Unit coverage for the client, schemas, same-origin behavior, schema management, and exports.
-
-Known v2 gaps in the current code:
-
-- `CoolifyProject` is a local configuration type, not a faithful Coolify project model.
-- `resourceUuid` is currently used as an application UUID and must be renamed to `applicationUuid`.
-- `COOLIFY_PROJECTS` is still the endpoint source of truth; endpoint reads must move to
-  `coolify_applications`.
-- Applications and environments are not represented as distinct client models.
-- The application-deployments response is currently parsed as deployment history and needs a
-  separate, documented response model.
-- Project/environment/application discovery routes are not implemented; the provider client methods
-  are available for the upcoming route refactor.
-- The provider client supports deploy by UUID, tag, force, and pull request, plus deployment
-  cancellation; route and Flow inputs are not yet exposed.
-- The Flow operation does not yet call the endpoint/client.
-- Deployment persistence, polling, logs, cancellation, retries, scheduling, and per-application
-  permissions are out of scope for the current phase.
-- Bundled JSON schemas still need dedicated structural validation before schema application; this
-  follow-up is tracked in [issue #28](https://github.com/onderwijsin/directus-extensions/issues/28).
+The bundle uses `coolify_applications` as its Directus-owned allow-list and exposes authenticated
+application, deployment, Studio, hook, and Flow-operation surfaces. Provider UUIDs are resolved
+server-side. Legacy `COOLIFY_PROJECTS` configuration is no longer supported.
 
 ## Delivery phases
 

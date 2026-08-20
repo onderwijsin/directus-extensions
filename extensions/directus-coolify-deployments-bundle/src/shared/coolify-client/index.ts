@@ -5,9 +5,9 @@ import type {
 	CoolifyDeploymentCancellationResult,
 	CoolifyDeploymentRequest,
 	CoolifyDeploymentTriggerResult,
+	CoolifyDeploymentsOptions,
 	CoolifyEnvironment,
 	CoolifyProject,
-	CoolifyDeploymentsOptions,
 } from './schemas'
 import type { CoolifyDeploymentClient } from './types'
 import type { DirectusCoolifyApplication } from './types'
@@ -29,7 +29,7 @@ import type { CoolifyClientContext, GetApplicationOptions } from './types'
 
 import {
 	getAllowedApplications as resolveAllowedApplications,
-	getAllowedEnvirnoments as resolveAllowedEnvirnoments,
+	getAllowedEnvironments as resolveAllowedEnvironments,
 	getAllowedProjects as resolveAllowedProjects,
 } from './resolvers'
 import {
@@ -39,13 +39,13 @@ import {
 	coolifyDeploymentsResponseSchema,
 	coolifyDeploymentSchema,
 	coolifyDeploymentTriggerResponseSchema,
+	coolifyDeploymentRequestSchema,
+	coolifyDeploymentsListSchema,
 	coolifyEnvironmentResponseSchema,
 	coolifyEnvironmentsResponseSchema,
 	coolifyProjectSchema,
 	coolifyProjectsResponseSchema,
 	coolifyApplicationFilterSchema,
-	coolifyDeploymentRequestSchema,
-	coolifyDeploymentsListSchema,
 } from './schemas'
 
 const API_PREFIX = '/api/v1'
@@ -67,13 +67,19 @@ export function createCoolifyDeploymentClient(
 		? initializeCache(context, { ttl: LIST_APPLICATION_CACHE_DURATION_MS })
 		: null
 
-	/** @returns Allow-listed applications from Directus. */
-	const listConfiguredApplication = async (): Promise<DirectusCoolifyApplication[]> => {
+	/**
+	 * @param options - Cache behavior for this read.
+	 * @param options.bypassCache - Whether to read the current allow-list.
+	 * @returns Allow-listed applications from Directus.
+	 */
+	const listConfiguredApplication = async ({
+		bypassCache = false,
+	}: { bypassCache?: boolean } = {}): Promise<DirectusCoolifyApplication[]> => {
 		if (!context)
 			throw new Error('Directus context is required to list configured applications')
-		const cached = await cache?.get<DirectusCoolifyApplication[]>(
-			CONFIGURED_APPLICATIONS_CACHE_KEY,
-		)
+		const cached = bypassCache
+			? undefined
+			: await cache?.get<DirectusCoolifyApplication[]>(CONFIGURED_APPLICATIONS_CACHE_KEY)
 
 		if (cached) return cached
 
@@ -92,23 +98,27 @@ export function createCoolifyDeploymentClient(
 	/**
 	 * Resolve a configured application by its stable Directus identifier.
 	 * @param id - Stable Directus application identifier.
+	 * @param options - Cache behavior for this read.
+	 * @param options.bypassCache - Whether to read the current application.
 	 * @returns Configured application.
 	 */
-	const getConfiguredApplication = async (id: string) => {
+	const getConfiguredApplication = async (
+		id: string,
+		{ bypassCache = false }: { bypassCache?: boolean } = {},
+	) => {
 		if (!context) throw new Error('Directus context is required to get configured application')
-		const cached = await cache?.get<DirectusCoolifyApplication>(
-			`${CONFIGURED_APPLICATIONS_CACHE_KEY}:${id}`,
-		)
+		const cached = bypassCache
+			? undefined
+			: await cache?.get<DirectusCoolifyApplication>(
+					`${CONFIGURED_APPLICATIONS_CACHE_KEY}:${id}`,
+				)
 
 		if (cached) return cached
 
-		const application = await new context.services.ItemsService<DirectusCoolifyApplication>(
-			options.COOLIFY_APPLICATIONS_COLLECTION,
-			{
-				schema: await context.getSchema(),
-				accountability: null,
-			},
-		).readOne(id)
+		const application = (await listConfiguredApplication({ bypassCache })).find(
+			(candidate) => candidate.id === id,
+		)
+		if (!application) throw new ForbiddenError()
 
 		await cache?.set(`${CONFIGURED_APPLICATIONS_CACHE_KEY}:${id}`, application)
 		return application
@@ -116,12 +126,10 @@ export function createCoolifyDeploymentClient(
 
 	/** @returns Unique allowed Coolify application UUIDs. */
 	const getAllowedApplications = () => resolveAllowedApplications(listConfiguredApplication)
-
 	/** @returns Unique allowed Coolify project UUIDs. */
 	const getAllowedProjects = () => resolveAllowedProjects(listConfiguredApplication)
-
 	/** @returns Unique allowed Coolify environment UUIDs. */
-	const getAllowedEnvirnoments = () => resolveAllowedEnvirnoments(listConfiguredApplication)
+	const getAllowedEnvironments = () => resolveAllowedEnvironments(listConfiguredApplication)
 
 	/**
 	 * Create a ofetch client with bearer header
@@ -176,7 +184,7 @@ export function createCoolifyDeploymentClient(
 	 * @returns Nothing when deployment mutations are enabled.
 	 */
 	const assertDeploymentAllowed = async (applicationUuid: string): Promise<void> => {
-		const application = (await listConfiguredApplication()).find(
+		const application = (await listConfiguredApplication({ bypassCache: true })).find(
 			({ application_uuid: configuredApplicationUuid }) =>
 				configuredApplicationUuid === applicationUuid,
 		)
@@ -216,7 +224,7 @@ export function createCoolifyDeploymentClient(
 	 */
 	const listEnvironments = async (projectUuid: string): Promise<CoolifyEnvironment[]> => {
 		await assertAllowed(projectUuid, getAllowedProjects)
-		const allowedEnvironments = await getAllowedEnvirnoments()
+		const allowedEnvironments = await getAllowedEnvironments()
 		const environments = coolifyEnvironmentsResponseSchema.parse(
 			await request(`/projects/${encodeURIComponent(projectUuid)}/environments`),
 		)
@@ -235,24 +243,13 @@ export function createCoolifyDeploymentClient(
 		environmentUuidOrName: string,
 	): Promise<CoolifyEnvironment> => {
 		await assertAllowed(projectUuid, getAllowedProjects)
-		if (environmentUuidOrName.length > 0) {
-			const allowedEnvironments = await getAllowedEnvirnoments()
-			if (allowedEnvironments.includes(environmentUuidOrName)) {
-				return coolifyEnvironmentResponseSchema.parse(
-					await request(
-						`/projects/${encodeURIComponent(projectUuid)}/environments/${encodeURIComponent(environmentUuidOrName)}`,
-					),
-				)
-			}
-		}
-
 		const environment = coolifyEnvironmentResponseSchema.parse(
 			await request(
 				`/projects/${encodeURIComponent(projectUuid)}/environments/${encodeURIComponent(environmentUuidOrName)}`,
 			),
 		)
 		if (environment.uuid === null) throw new ForbiddenError()
-		await assertAllowed(environment.uuid, getAllowedEnvirnoments)
+		await assertAllowed(environment.uuid, getAllowedEnvironments)
 		return environment
 	}
 
@@ -321,15 +318,6 @@ export function createCoolifyDeploymentClient(
 		}
 	}
 
-	/** @returns Allow-listed deployments currently visible to the Coolify token. */
-	const listRunningDeployments = async (): Promise<CoolifyDeployment[]> => {
-		const allowedApplications = await getAllowedApplications()
-		const deployments = await parseDeployments('/deployments')
-		return deployments.filter(({ applicationId, applicationUuid }) =>
-			allowedApplications.includes(applicationUuid ?? applicationId),
-		)
-	}
-
 	/**
 	 * @param deploymentUuid - Coolify deployment UUID.
 	 * @returns The requested deployment.
@@ -343,6 +331,15 @@ export function createCoolifyDeploymentClient(
 			getAllowedApplications,
 		)
 		return deployment
+	}
+
+	/** @returns Allow-listed deployments currently visible to the Coolify token. */
+	const listRunningDeployments = async (): Promise<CoolifyDeployment[]> => {
+		const allowedApplications = await getAllowedApplications()
+		const deployments = await parseDeployments('/deployments')
+		return deployments.filter(({ applicationId, applicationUuid }) =>
+			allowedApplications.includes(applicationUuid ?? applicationId),
+		)
 	}
 
 	/**
@@ -380,8 +377,8 @@ export function createCoolifyDeploymentClient(
 		listConfiguredApplication,
 		getConfiguredApplication,
 		getAllowedApplications,
-		getAllowedEnvirnoments,
 		getAllowedProjects,
+		getAllowedEnvironments,
 		listProjects,
 		getProject,
 		listEnvironments,

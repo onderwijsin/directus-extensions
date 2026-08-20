@@ -327,9 +327,6 @@ importers:
       '@directus/memory':
         specifier: 'catalog:'
         version: 4.0.2(supports-color@7.2.0)(vue@3.5.24(typescript@5.9.3))
-      '@directus/utils':
-        specifier: 'catalog:'
-        version: 13.5.2(vue@3.5.24(typescript@5.9.3))
       ioredis:
         specifier: 'catalog:'
         version: 5.8.2(supports-color@7.2.0)
@@ -401,6 +398,9 @@ importers:
       '@directus/memory':
         specifier: 'catalog:'
         version: 4.0.2(supports-color@7.2.0)(vue@3.5.24(typescript@5.9.3))
+      '@directus/utils':
+        specifier: 'catalog:'
+        version: 13.5.2(vue@3.5.24(typescript@5.9.3))
       '@sentry/node':
         specifier: 'catalog:'
         version: 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.202.0(@opentelemetry/api@1.9.1))(supports-color@7.2.0)

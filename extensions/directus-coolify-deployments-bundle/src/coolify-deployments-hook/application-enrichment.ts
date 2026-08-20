@@ -12,6 +12,8 @@ import {
 } from '@onderwijsin/directus-extension-utils'
 import { attempt } from '@onderwijsin/directus-extension-utils/server'
 
+import { safeHttpUrl } from '../coolify-deployments-endpoint/helpers'
+
 type Filter = RegisterFunctions['filter']
 
 const requiredApplicationFields: Record<string, string> = {
@@ -54,7 +56,12 @@ const mapApplication = (application: CoolifyApplication, applicationUuid: string
 	const projectName = requireValue('projectName', application.projectName)
 	const environmentUuid = requireValue('environmentUuid', application.environmentUuid)
 	const environmentName = requireValue('environmentName', application.environmentName)
-	const productionUrl = requireValue('fqdn', application.fqdn?.split(',')[0] ?? null)
+	const productionUrl = safeHttpUrl(requireValue('fqdn', application.fqdn?.split(',')[0] ?? null))
+	if (!productionUrl) {
+		throw new InvalidPayloadError({
+			reason: 'Coolify application has an invalid production URL',
+		})
+	}
 
 	return {
 		application_uuid: application.uuid,

@@ -36,7 +36,7 @@ export async function getAllowedProjects(
  * @param listConfiguredApplication - Loader for allow-listed Directus applications.
  * @returns Unique allowed Coolify environment UUIDs.
  */
-export async function getAllowedEnvirnoments(
+export async function getAllowedEnvironments(
 	listConfiguredApplication: ListConfiguredApplication,
 ): Promise<string[]> {
 	const applications = await listConfiguredApplication()

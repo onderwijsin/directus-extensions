@@ -24,14 +24,8 @@ export default defineOperationApp({
 			type: 'string',
 			meta: {
 				width: 'full',
-				interface: 'select-dropdown-m2o',
-				options: {
-					collectionName: 'coolify_applications',
-					filter: {
-						enabled: { _eq: true },
-						deploy_enabled: { _eq: true },
-					},
-				},
+				interface: 'input',
+				note: 'Enter the Directus ID of an enabled, deploy-enabled application.',
 			},
 		},
 	],

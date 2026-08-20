@@ -36,6 +36,34 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 ```
 
+Use the server policy utilities when an extension must resolve Directus policy assignments,
+including nested roles and `ip_access` filtering. The first accountability controls whose policy
+assignments are resolved; by default it also controls CRUD filtering while reading `directus_access`
+and `directus_policies`:
+
+```ts
+import { fetchPolicies, hasPolicies } from '@onderwijsin/directus-extension-utils/server'
+
+const policies = await fetchPolicies(accountability, services, schema, cache)
+const allowed = await hasPolicies(accountability, policyId, services, schema)
+```
+
+Pass a final `null` read accountability only for a trusted server-side consumer that must resolve
+assignments without CRUD filtering. This bypass reads policy metadata with system accountability and
+must not be used before returning policies to a client unless exposing all matching policy metadata
+is intentional:
+
+```ts
+const policies = await fetchPolicies(accountability, services, schema, cache, null)
+const allowed = await hasPolicies(accountability, policyId, services, schema, null, null)
+```
+
+The policies endpoint uses the default user-scoped mode. Its callers therefore need read access to
+the relevant `directus_access` and `directus_policies` records, directly or through a role.
+
+Policy caching is opt-in. Pass a consumer-owned cache when a bounded TTL and invalidation strategy
+are appropriate for the deployment.
+
 Create a local or Redis-backed cache from validated Directus environment values:
 
 ```ts

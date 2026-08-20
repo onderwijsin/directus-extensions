@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ApplicationSummary, DeploymentSummary } from './types'
 
-import { onMounted, onUnmounted, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, shallowRef } from 'vue'
 
 import ActiveDeploymentList from './components/ActiveDeploymentList.vue'
 import ApplicationList from './components/ApplicationList.vue'
@@ -19,6 +19,9 @@ const canCreateApplications = shallowRef(false)
 const loading = shallowRef(true)
 const error = shallowRef<string | null>(null)
 let poller: ReturnType<typeof setInterval> | undefined
+const applicationCreatePath = computed(
+	() => `/content/${encodeURIComponent(api.getApplicationsCollection())}/+`,
+)
 
 /**
  * Load applications and deployment summaries for the dashboard.
@@ -26,8 +29,8 @@ let poller: ReturnType<typeof setInterval> | undefined
  */
 const load = async () => {
 	try {
-		canCreateApplications.value = await api.canCreateApplications()
 		applications.value = await api.listApplications()
+		canCreateApplications.value = await api.canCreateApplications()
 		const deployments = await Promise.all(
 			applications.value.map((application) => api.listDeployments(application.id)),
 		)
@@ -86,7 +89,7 @@ onUnmounted(() => {
 					<p style="margin-block-end: 1.375rem">
 						Add your first Coolify application to start deploying from Directus.
 					</p>
-					<v-button v-if="canCreateApplications" to="/content/coolify_applications/+">
+					<v-button v-if="canCreateApplications" :to="applicationCreatePath">
 						<v-icon name="add" /> Add your first application
 					</v-button>
 					<p v-else>Ask your administrator to add your first Coolify application.</p>

@@ -83,20 +83,14 @@ describe('Coolify deploy operation', () => {
 		},
 	)
 
-	it('exposes stable operation metadata and a filtered application selector', () => {
+	it('exposes an application ID input without hardcoding the configured collection', () => {
 		expect(operationApp).toMatchObject({ id: 'coolify-deploy', name: 'Coolify Deploy' })
 		expect(operationApp.options).toEqual([
 			expect.objectContaining({
 				field: 'application',
 				meta: expect.objectContaining({
-					interface: 'select-dropdown-m2o',
-					options: {
-						collectionName: 'coolify_applications',
-						filter: {
-							enabled: { _eq: true },
-							deploy_enabled: { _eq: true },
-						},
-					},
+					interface: 'input',
+					note: 'Enter the Directus ID of an enabled, deploy-enabled application.',
 				}),
 			}),
 		])

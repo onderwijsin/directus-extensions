@@ -25,8 +25,16 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 	ensureDirectusSchema: mocks.ensureSchema,
 	validatePolicyDefinition: () => ({
 		policies: [
-			{ id: '0c9f0b1e-0a0b-4b7c-8a27-4b7a6e1f2d31', name: 'Manage', permissions: [] },
-			{ id: '2e7a4c63-1d5f-46bb-9b02-8f3c7a5d6e14', name: 'Read', permissions: [] },
+			{
+				id: '0c9f0b1e-0a0b-4b7c-8a27-4b7a6e1f2d31',
+				name: 'Manage',
+				permissions: [{ collection: 'coolify_applications', action: 'read' }],
+			},
+			{
+				id: '2e7a4c63-1d5f-46bb-9b02-8f3c7a5d6e14',
+				name: 'Read',
+				permissions: [{ collection: 'coolify_applications', action: 'read' }],
+			},
 			{ id: '7b3d9e20-5f61-4a8c-b274-1e6d9f0a3c58', name: 'Trigger', permissions: [] },
 		],
 	}),
@@ -42,7 +50,6 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 		COOLIFY_APPLICATIONS_COLLECTION: 'deployment_targets',
 		COOLIFY_URL: 'https://coolify.example.com',
 		COOLIFY_TOKEN: 'token',
-		COOLIFY_PROJECTS: [],
 		COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: 'manage-custom',
 		COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID: 'read-custom',
 		COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: 'trigger-custom',
@@ -116,6 +123,12 @@ describe('Coolify application create hook', () => {
 			'manage-custom',
 			'read-custom',
 			'trigger-custom',
+		])
+		expect(
+			mocks.ensurePolicy.mock.calls.flatMap(([call]) => call.definition.permissions),
+		).toEqual([
+			{ collection: 'deployment_targets', action: 'read' },
+			{ collection: 'deployment_targets', action: 'read' },
 		])
 		expect(mocks.setup.end).toHaveBeenCalledOnce()
 	})

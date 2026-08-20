@@ -11,6 +11,7 @@ import {
 } from '../../shared/constants'
 
 const pollingIntervalMs = shallowRef(DEFAULT_DEPLOYMENT_POLL_INTERVAL_MS)
+const applicationsCollection = shallowRef('coolify_applications')
 
 /**
  * Update the Studio polling interval from the endpoint response header.
@@ -23,12 +24,35 @@ const updatePollingInterval = (headers: Record<string, unknown>) => {
 }
 
 /**
+ * Update the configured Directus collection from the endpoint response.
+ * @param headers - Response headers returned by Directus.
+ * @returns Nothing.
+ */
+const updateApplicationsCollection = (headers: Record<string, unknown>) => {
+	const value = headers['x-coolify-deployments-applications-collection']
+	if (typeof value === 'string' && value.length > 0) applicationsCollection.value = value
+}
+
+/**
  * Provide the authenticated Studio client for the Coolify deployment endpoint.
  * @returns API methods for the diagnostic module views.
  */
 export function useCoolifyDeploymentsApi() {
 	const api = useApi()
 	const base = '/coolify-deployments/applications'
+	/**
+	 * Execute an API request and update the shared polling interval from its response headers.
+	 * @param operation - API request operation.
+	 * @returns Response data.
+	 */
+	const request = async <T>(
+		operation: () => Promise<{ data: T; headers: Record<string, unknown> }>,
+	) => {
+		const response = await operation()
+		updatePollingInterval(response.headers)
+		updateApplicationsCollection(response.headers)
+		return response.data
+	}
 	/**
 	 * Encode a route parameter.
 	 * @param value - Route parameter.
@@ -41,12 +65,7 @@ export function useCoolifyDeploymentsApi() {
 	 * @returns Configured applications.
 	 */
 	const listApplications = async (): Promise<ApplicationSummary[]> =>
-		(
-			await api.get<ApplicationSummary[]>(base).then((response) => {
-				updatePollingInterval(response.headers)
-				return response
-			})
-		).data
+		request(() => api.get<ApplicationSummary[]>(base))
 
 	/**
 	 * Check whether the current user can create configured applications.
@@ -59,7 +78,7 @@ export function useCoolifyDeploymentsApi() {
 			}>('/permissions/me'),
 		)
 
-		const access = data?.data.data?.coolify_applications?.create?.access
+		const access = data?.data.data?.[applicationsCollection.value]?.create?.access
 		return access === 'full' || access === 'partial'
 	}
 
@@ -78,14 +97,7 @@ export function useCoolifyDeploymentsApi() {
 	 * @returns Normalized deployments.
 	 */
 	const listDeployments = async (applicationId: string): Promise<DeploymentSummary[]> =>
-		(
-			await api
-				.get<DeploymentSummary[]>(`${base}/${encode(applicationId)}/deployments`)
-				.then((response) => {
-					updatePollingInterval(response.headers)
-					return response
-				})
-		).data
+		request(() => api.get<DeploymentSummary[]>(`${base}/${encode(applicationId)}/deployments`))
 
 	/**
 	 * Fetch one deployment.
@@ -97,16 +109,11 @@ export function useCoolifyDeploymentsApi() {
 		applicationId: string,
 		deploymentId: string,
 	): Promise<DeploymentSummary> =>
-		(
-			await api
-				.get<DeploymentSummary>(
-					`${base}/${encode(applicationId)}/deployments/${encode(deploymentId)}`,
-				)
-				.then((response) => {
-					updatePollingInterval(response.headers)
-					return response
-				})
-		).data
+		request(() =>
+			api.get<DeploymentSummary>(
+				`${base}/${encode(applicationId)}/deployments/${encode(deploymentId)}`,
+			),
+		)
 
 	/**
 	 * Trigger a deployment for a configured application.
@@ -137,6 +144,11 @@ export function useCoolifyDeploymentsApi() {
 	 * @returns Polling interval in milliseconds.
 	 */
 	const getPollingInterval = () => pollingIntervalMs.value
+	/**
+	 * Read the configured Directus application collection.
+	 * @returns Configured collection name.
+	 */
+	const getApplicationsCollection = () => applicationsCollection.value
 
 	return {
 		cancelDeployment,
@@ -147,5 +159,6 @@ export function useCoolifyDeploymentsApi() {
 		listApplications,
 		listDeployments,
 		getPollingInterval,
+		getApplicationsCollection,
 	}
 }

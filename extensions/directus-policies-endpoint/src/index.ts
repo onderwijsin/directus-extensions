@@ -5,11 +5,11 @@ import {
 	asyncHandler,
 	getAccountabilityFromRequest,
 	initializeCache,
+	fetchPolicies,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { envSchema } from './env.schema'
-import { fetchPolicies } from './fetch-policies'
 
 const EXTENSION_NAME = 'policies_endpoint'
 const POLICY_CACHE_TTL_MS = 5_000
@@ -39,11 +39,20 @@ export default defineEndpoint({
 			asyncHandler(async (request, response) => {
 				const accountability = getAccountabilityFromRequest(request)
 				if (!accountability?.user) throw new ForbiddenError()
-				const serviceAccountability = { ...accountability, admin: true }
 
 				const schema = await getSchema()
 
-				response.json(await fetchPolicies(serviceAccountability, services, schema, cache))
+				response.json(
+					await fetchPolicies(
+						accountability,
+						services,
+						schema,
+						cache,
+						options.DIRECTUS_POLICIES_ENDPOINT_BYPASS_ACCOUNTABILITY
+							? null
+							: accountability,
+					),
+				)
 			}),
 		)
 

@@ -43,6 +43,10 @@ Policies assigned directly to the user, to the accountability's effective roles,
 role are resolved using Directus access-row semantics. Policies are filtered by `ip_access`, ordered
 by role priority, and included once per policy ID.
 
+By default, the endpoint reads access and policy metadata using the requesting accountability. The
+user therefore needs read access to the relevant `directus_access` and `directus_policies` records,
+directly or through a role. The endpoint does not use elevated accountability implicitly.
+
 ```http
 GET /users/me/policies
 Authorization: Bearer <token>
@@ -53,20 +57,23 @@ user, effective roles, and IP address.
 
 ## Configuration
 
-| Variable                                                       | Default | Description                                           |
-| -------------------------------------------------------------- | ------- | ----------------------------------------------------- |
-| `POLICIES_ENDPOINT_ENABLED`                                    | `true`  | Set to `false` to disable the extension.              |
-| `CACHE_ENABLED`                                                | `true`  | Enable effective-policy caching.                      |
-| `CACHE_STORE`                                                  | unset   | Cache backend; defaults to `memory`.                  |
-| `REDIS_ENABLED`                                                | `false` | Enables component-based Redis configuration.          |
-| `REDIS`                                                        | —       | Complete Redis URL; takes precedence over components. |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | —       | Required together for component-based Redis.          |
+| Variable                                                       | Default | Description                                                                                      |
+| -------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| `POLICIES_ENDPOINT_ENABLED`                                    | `true`  | Set to `false` to disable the extension.                                                         |
+| `DIRECTUS_POLICIES_ENDPOINT_BYPASS_ACCOUNTABILITY`             | `false` | Read all access and policy metadata with system accountability; use only in trusted deployments. |
+| `CACHE_ENABLED`                                                | `true`  | Enable effective-policy caching.                                                                 |
+| `CACHE_STORE`                                                  | unset   | Cache backend; defaults to `memory`.                                                             |
+| `REDIS_ENABLED`                                                | `false` | Enables component-based Redis configuration.                                                     |
+| `REDIS`                                                        | —       | Complete Redis URL; takes precedence over components.                                            |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | —       | Required together for component-based Redis.                                                     |
 
 ## Security and operations
 
-The endpoint uses elevated service accountability to read the system access records needed to answer
-the request. It does not change the caller's permissions or provision policies, roles, permissions,
-authentication, or infrastructure.
+Set `DIRECTUS_POLICIES_ENDPOINT_BYPASS_ACCOUNTABILITY=true` only when every authenticated caller may
+receive all matching policy metadata. This bypass applies to server-side reads in the extension and
+can expose policy data the caller would not normally have CRUD access to. The endpoint does not
+change the caller's permissions or provision policies, roles, permissions, authentication, or
+infrastructure.
 
 ## Boundaries
 

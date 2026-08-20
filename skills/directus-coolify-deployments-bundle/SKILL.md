@@ -12,8 +12,8 @@ This bundle mediates between Directus and one Coolify instance. It allow-lists a
 Directus collection, displays their current state in Studio, and exposes authenticated routes for
 reading, triggering, and cancelling deployments. Coolify credentials stay on the server.
 
-The Flow operation selects an enabled, deploy-enabled application asynchronously and triggers its
-Coolify deployment. Credentials stay on the server.
+The Flow operation accepts a Directus application item ID, rechecks that the record is enabled and
+deploy-enabled, and triggers its Coolify deployment. Credentials stay on the server.
 
 ## Prerequisites and installation
 
@@ -51,7 +51,6 @@ consumer deployment infrastructure.
 | `COOLIFY_APPLICATIONS_COLLECTION`      | `coolify_applications` | Valid collection identifier; cannot start with `directus_`.                         |
 | `COOLIFY_URL`                          | unset                  | Absolute URL for one Coolify instance. Do not append `/api/v1`; the bundle adds it. |
 | `COOLIFY_TOKEN`                        | unset                  | Non-empty server-only token sent as a bearer token.                                 |
-| `COOLIFY_PROJECTS`                     | `[]`                   | Legacy project definitions; current endpoint resolution uses the local collection.  |
 | `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS` | `5000`                 | Integer minimum `250`; also emitted as `X-Coolify-Deployments-Poll-Interval`.       |
 
 Example:
@@ -62,22 +61,6 @@ COOLIFY_URL=https://coolify.example.com
 COOLIFY_TOKEN=server-only-secret
 COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS=5000
 ```
-
-Legacy project entries accept `applicationUuid` or `resourceUuid`:
-
-```json
-[
-  {
-    "id": "frontend",
-    "name": "Frontend",
-    "productionUrl": "https://frontend.example.com",
-    "applicationUuid": "coolify-application-uuid"
-  }
-]
-```
-
-`applicationUuid` wins when both UUID keys are supplied. Treat `id` as a stable consumer identifier,
-but use the Directus collection item ID in the current HTTP routes.
 
 ### Schema and policies
 
@@ -97,7 +80,9 @@ nested collection permissions because it gates remote operations.
 
 ### Cache and Redis
 
-Configured application records are cached for 60 seconds.
+Configured application records are cached for 60 seconds for reads. Deployment and cancellation
+authorization bypasses this cache so changes to `enabled` and `deploy_enabled` take effect
+immediately. Redis is intentionally shared across horizontally scaled Directus processes.
 
 | Variable                                 | Default                | Valid values / effect                                                       |
 | ---------------------------------------- | ---------------------- | --------------------------------------------------------------------------- |
@@ -167,9 +152,10 @@ if (!result.ok) throw new Error(await result.text())
 ```
 
 The create filter fetches Coolify with an initial allow-list bypass, verifies the UUID, and requires
-name, project UUID/name, environment UUID/name, and production URL. If Coolify returns multiple
-comma-separated FQDNs, only the first URL is stored. An unavailable or incomplete provider response
-rejects the item without saving partial data. Existing records are not refreshed automatically.
+name, project UUID/name, environment UUID/name, and an HTTP(S) production URL. If Coolify returns
+multiple comma-separated FQDNs, only the first URL is stored. An unavailable, incomplete, or unsafe
+provider response rejects the item without saving partial data. Existing records are not refreshed
+automatically.
 
 ## Bundle entries
 
@@ -301,10 +287,10 @@ assign policies, refresh existing records, create Coolify resources, or persist 
 
 ### Flow operation: `coolify-deploy-operation`
 
-`Coolify Deploy` exposes one `Application` option. Its async selector reads from the configured
-applications collection and only offers records with both `enabled = true` and
-`deploy_enabled = true`. The operation re-reads the selected record when the flow runs, checks both
-flags again, and calls Coolify's deployment API with that record's `application_uuid`.
+`Coolify Deploy` exposes one `Application` text option. Enter the Directus item ID from the
+configured applications collection. The operation re-reads the selected record when the flow runs,
+checks both flags again, and calls Coolify's deployment API with that record's `application_uuid`.
+This supports custom application collection names.
 
 The operation returns Coolify's deployment trigger result on the resolve path. It throws a forbidden
 error when the selected record is missing or either flag is false, so connect a reject path when the

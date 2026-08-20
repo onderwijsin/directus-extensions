@@ -26,22 +26,10 @@ export const CoolifyUpstreamError = createError(
 	502,
 )
 
-export const UnknownCoolifyProjectError = createError(
-	'COOLIFY_PROJECT_NOT_FOUND',
-	'Unknown Coolify project',
-	404,
-)
-
-export const InvalidDeploymentRequestError = createError(
-	'COOLIFY_INVALID_DEPLOYMENT_REQUEST',
-	'Invalid deployment request',
-	400,
-)
-
-export const NotImplemented = createError(
-	'COOLIFY_NOT_IMPLEMENTED',
-	'Coolify deployment routes are not implemented yet',
-	501,
+export const CoolifyDeploymentApplicationMismatchError = createError(
+	'COOLIFY_DEPLOYMENT_APPLICATION_MISMATCH',
+	'The deployment does not belong to the requested application',
+	403,
 )
 
 /**

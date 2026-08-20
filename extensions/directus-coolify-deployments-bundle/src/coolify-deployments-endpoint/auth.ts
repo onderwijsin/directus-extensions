@@ -1,47 +1,11 @@
-import type { Accountability, ApiExtensionContext, Filter, SchemaOverview } from '@directus/types'
+import type { Accountability, ApiExtensionContext, SchemaOverview } from '@directus/types'
 import type { NextFunction } from 'express'
 
 import { ForbiddenError } from '@directus/errors'
-import { hasKey, isArray, isRecord, isString } from '@onderwijsin/directus-extension-utils'
-
-interface AccessRecord {
-	policy?: unknown
-}
+import { hasKey } from '@onderwijsin/directus-extension-utils'
+import { hasPolicies } from '@onderwijsin/directus-extension-utils/server'
 
 /**
- * Narrows an access row returned by Directus.
- * @param value - Unknown access row.
- * @returns Whether the value has an access-record shape.
- */
-const isAccessRecord = (value: unknown): value is AccessRecord => isRecord(value)
-
-/**
- * Extracts the related policy identifier from an access row.
- * @param value - Access row.
- * @returns Related policy identifier, when present.
- */
-const getPolicyId = (value: AccessRecord): string | undefined => {
-	if (isString(value.policy)) return value.policy
-	if (!isRecord(value.policy) || !hasKey(value.policy, 'id') || !isString(value.policy.id)) {
-		return undefined
-	}
-
-	return value.policy.id
-}
-
-/**
- * Checks whether every requested policy is assigned to the accountability's user or effective
- * roles.
- *
- * This mirrors Directus's policy-assignment resolution, including public policies for
- * accountabilities without effective roles. It intentionally does not evaluate `policy.ip_access`
- * against `accountability.ip` yet.
- *
- * TODO: Add IP-based policy filtering if this extension ever requires parity with Directus's full
- * `fetchPolicies` behavior.
- *
- * @see https://github.com/directus/directus/blob/06027c83fc09551e1db78c1ea6dc5f69a74ed38b/api/src/permissions/lib/fetch-policies.ts
- *
  * @param accountability - Directus accountability for the current request.
  * @param data - One or more policy IDs to require.
  * @param services - Directus API services.
@@ -54,28 +18,7 @@ export async function isAssignedPolicy(
 	services: ApiExtensionContext['services'],
 	schema: SchemaOverview,
 ): Promise<boolean> {
-	const policyIds = isArray(data) ? data : [data]
-	if (policyIds.length === 0) return true
-
-	const roleFilter: Filter =
-		accountability.roles.length === 0
-			? { _and: [{ role: { _null: true } }, { user: { _null: true } }] }
-			: { role: { _in: accountability.roles } }
-	const filter = accountability.user
-		? { _or: [{ user: { _eq: accountability.user } }, roleFilter] }
-		: roleFilter
-
-	const accessService = new services.AccessService({ accountability: null, schema })
-	const accessRows = await accessService.readByQuery({
-		filter,
-		fields: ['policy.id'],
-		limit: -1,
-	})
-	const effectivePolicyIds = new Set(
-		accessRows.filter(isAccessRecord).map(getPolicyId).filter(isString),
-	)
-
-	return policyIds.every((policyId) => effectivePolicyIds.has(policyId))
+	return hasPolicies(accountability, data, services, schema, null, null)
 }
 
 /**

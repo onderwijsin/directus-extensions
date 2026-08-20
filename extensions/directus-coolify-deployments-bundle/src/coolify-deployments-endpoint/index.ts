@@ -16,8 +16,12 @@ import { DEPLOYMENT_POLL_INTERVAL_HEADER, EXTENSION_ID, EXTENSION_NAME } from '.
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
 import { requirePolicies } from './auth'
 import { envSchema } from './env.schema'
-import { CoolifyUpstreamError, rejectWhileSchemaLocked } from './errors'
-import { normalizeDeployment } from './helpers'
+import {
+	CoolifyDeploymentApplicationMismatchError,
+	CoolifyUpstreamError,
+	rejectWhileSchemaLocked,
+} from './errors'
+import { assertDeploymentBelongsToApplication, normalizeDeployment, safeHttpUrl } from './helpers'
 import { isSameOriginRequest } from './same-origin'
 
 export default defineEndpoint({
@@ -92,23 +96,14 @@ export default defineEndpoint({
 					DEPLOYMENT_POLL_INTERVAL_HEADER,
 					String(options.COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS),
 				)
+				response.setHeader(
+					'X-Coolify-Deployments-Applications-Collection',
+					options.COOLIFY_APPLICATIONS_COLLECTION,
+				)
 				const locked = await rejectWhileSchemaLocked(schemaLockOptions, next)
 				if (!locked) next()
 			}),
 		)
-
-		/**
-		 * Resolve a configured application by its stable Directus identifier.
-		 * @param id - Stable Directus application identifier.
-		 * @returns Configured application.
-		 */
-		const getConfiguredApplication = async (id: string) => {
-			const application = (await client.listConfiguredApplication()).find(
-				(item) => item.id === id,
-			)
-			if (!application) throw new CoolifyUpstreamError()
-			return application
-		}
 
 		/**
 		 * Wrap provider operations and expose only safe upstream errors.
@@ -120,7 +115,13 @@ export default defineEndpoint({
 				const { error } = await attempt(() => operation(request, response))
 				if (error) {
 					logger.error(error)
-					next(error instanceof CoolifyUpstreamError ? error : new CoolifyUpstreamError())
+					next(
+						error instanceof CoolifyUpstreamError ||
+							error instanceof CoolifyDeploymentApplicationMismatchError ||
+							error instanceof ForbiddenError
+							? error
+							: new CoolifyUpstreamError(),
+					)
 				}
 			})
 
@@ -144,7 +145,7 @@ export default defineEndpoint({
 						return {
 							id: item.id,
 							name: item.name || provider.name,
-							url: item.production_url ?? provider.fqdn,
+							url: safeHttpUrl(item.production_url ?? provider.fqdn),
 							projectName: item.project_name,
 							environmentName: item.environment_name,
 							state: provider.status,
@@ -167,7 +168,7 @@ export default defineEndpoint({
 			'/applications/:id/deployments',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID),
 			handle(async (request, response) => {
-				const application = await getConfiguredApplication(request.params.id ?? '')
+				const application = await client.getConfiguredApplication(request.params.id ?? '')
 				const deployments = await client.listApplicationDeployments(
 					application.application_uuid,
 				)
@@ -186,12 +187,11 @@ export default defineEndpoint({
 			'/applications/:id/deployments/:deploymentId',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID),
 			handle(async (request, response) => {
-				const application = await getConfiguredApplication(request.params.id ?? '')
+				const application = await client.getConfiguredApplication(request.params.id ?? '')
+				const deployment = await client.getDeployment(request.params.deploymentId ?? '')
+				assertDeploymentBelongsToApplication(deployment, application.application_uuid)
 				response.json({
-					...normalizeDeployment(
-						await client.getDeployment(request.params.deploymentId ?? ''),
-						{ COOLIFY_URL: options.COOLIFY_URL },
-					),
+					...normalizeDeployment(deployment, { COOLIFY_URL: options.COOLIFY_URL }),
 					applicationName: application.name,
 					environmentName: application.environment_name,
 				})
@@ -202,7 +202,9 @@ export default defineEndpoint({
 			'/applications/:id/deployments',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID),
 			handle(async (request, response) => {
-				const application = await getConfiguredApplication(request.params.id ?? '')
+				const application = await client.getConfiguredApplication(request.params.id ?? '', {
+					bypassCache: true,
+				})
 				const result = await client.deploy({
 					uuid: application.application_uuid,
 					force: true,
@@ -217,7 +219,11 @@ export default defineEndpoint({
 			'/applications/:id/deployments/:deploymentId/cancel',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID),
 			handle(async (request, response) => {
-				await getConfiguredApplication(request.params.id ?? '')
+				const application = await client.getConfiguredApplication(request.params.id ?? '', {
+					bypassCache: true,
+				})
+				const deployment = await client.getDeployment(request.params.deploymentId ?? '')
+				assertDeploymentBelongsToApplication(deployment, application.application_uuid)
 				response.json(await client.cancelDeployment(request.params.deploymentId ?? ''))
 			}),
 		)

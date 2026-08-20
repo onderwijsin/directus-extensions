@@ -60,6 +60,11 @@ describe('runtime-aware exports', () => {
 				'isEmailConfigured',
 				'hasAuthenticatedUser',
 				'isAccountability',
+				'POLICY_FIELDS',
+				'fetchPolicies',
+				'filterPoliciesByIp',
+				'hasPolicies',
+				'policyAccessFilter',
 			].sort(),
 		)
 		expect(app.isRecord).toBe(shared.isRecord)

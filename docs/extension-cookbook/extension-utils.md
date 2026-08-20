@@ -126,6 +126,18 @@ The setup helper does not register routes or events. The caller owns Directus re
 resource cleanup. Invalid Zod configuration is logged and throws
 `Invalid extension options ☝. Exiting.`.
 
+### Policy resolution
+
+The server policy utilities resolve assignments for a supplied accountability, including nested
+roles and `ip_access` filtering. By default, that accountability is also used for CRUD filtering
+while reading `directus_access` and `directus_policies`. Consumers returning policies to a client
+must keep this default and ensure the user can read the relevant records directly or through a role.
+
+Trusted server-side consumers that need to resolve assignments without CRUD filtering may pass a
+final `null` read accountability to `fetchPolicies` or `hasPolicies`. This uses system
+accountability to read policy metadata and must not be used for client-facing responses unless
+exposing all matching metadata is intentional.
+
 ### Cache
 
 Use `initializeCache` for disposable extension data that should follow the configured local or Redis

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
 	getAllowedApplications,
-	getAllowedEnvirnoments,
+	getAllowedEnvironments,
 	getAllowedProjects,
 } from '../src/shared/coolify-client/resolvers'
 
@@ -48,7 +48,7 @@ describe('Coolify allow-list resolvers', () => {
 	})
 
 	it('returns unique non-null environment UUIDs', async () => {
-		expect(await getAllowedEnvirnoments(() => Promise.resolve(applications))).toEqual([
+		expect(await getAllowedEnvironments(() => Promise.resolve(applications))).toEqual([
 			'environment-1',
 		])
 	})

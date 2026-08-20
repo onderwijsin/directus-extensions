@@ -25,16 +25,15 @@ export interface DirectusCoolifyApplication {
 }
 
 export type {
-	ConfiguredCoolifyApplication,
 	CoolifyApplication,
 	CoolifyApplicationFilter,
 	CoolifyDeployment,
 	CoolifyDeploymentCancellationResult,
 	CoolifyDeploymentRequest,
 	CoolifyDeploymentTriggerResult,
+	CoolifyDeploymentsOptions,
 	CoolifyEnvironment,
 	CoolifyProject,
-	CoolifyDeploymentsOptions,
 } from './schemas'
 
 export interface CoolifyClientContext extends CacheEnv {
@@ -48,11 +47,16 @@ export interface GetApplicationOptions {
 }
 
 export interface CoolifyDeploymentClient {
-	listConfiguredApplication: () => Promise<DirectusCoolifyApplication[]>
-	getConfiguredApplication: (id: string) => Promise<DirectusCoolifyApplication>
+	listConfiguredApplication: (options?: {
+		bypassCache?: boolean
+	}) => Promise<DirectusCoolifyApplication[]>
+	getConfiguredApplication: (
+		id: string,
+		options?: { bypassCache?: boolean },
+	) => Promise<DirectusCoolifyApplication>
 	getAllowedApplications: () => Promise<string[]>
 	getAllowedProjects: () => Promise<string[]>
-	getAllowedEnvirnoments: () => Promise<string[]>
+	getAllowedEnvironments: () => Promise<string[]>
 	listProjects: () => Promise<CoolifyProject[]>
 	getProject: (projectUuid: string) => Promise<CoolifyProject>
 	listEnvironments: (projectUuid: string) => Promise<CoolifyEnvironment[]>

@@ -2,7 +2,11 @@ import type { CoolifyDeployment } from '../src/shared/coolify-client/schemas'
 
 import { describe, expect, it } from 'vitest'
 
-import { normalizeDeployment } from '../src/coolify-deployments-endpoint/helpers'
+import {
+	assertDeploymentBelongsToApplication,
+	normalizeDeployment,
+	safeHttpUrl,
+} from '../src/coolify-deployments-endpoint/helpers'
 
 const deployment = (status: string, overrides: Partial<CoolifyDeployment> = {}) => ({
 	applicationId: 'application-1',
@@ -22,6 +26,23 @@ const deployment = (status: string, overrides: Partial<CoolifyDeployment> = {}) 
 })
 
 describe('normalizeDeployment', () => {
+	it('allows only HTTP(S) provider URLs', () => {
+		expect(safeHttpUrl('https://frontend.example.com')).toBe('https://frontend.example.com')
+		expect(safeHttpUrl('/deployments/1', 'https://coolify.example.com')).toBe(
+			'https://coolify.example.com/deployments/1',
+		)
+		expect(safeHttpUrl('javascript:alert(1)')).toBeNull()
+	})
+
+	it('rejects deployments belonging to another application', () => {
+		expect(() =>
+			assertDeploymentBelongsToApplication(deployment('running'), 'application-1'),
+		).not.toThrow()
+		expect(() =>
+			assertDeploymentBelongsToApplication(deployment('running'), 'application-2'),
+		).toThrow()
+	})
+
 	it.each([
 		['queued', 'queued'],
 		['pending', 'queued'],

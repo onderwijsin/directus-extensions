@@ -7,12 +7,12 @@ rather than Coolify directly.
 
 ## Purpose and bundle entries
 
-| Entry                          | Type           | Status   | Purpose                                                                              |
-| ------------------------------ | -------------- | -------- | ------------------------------------------------------------------------------------ |
-| `coolify-deployments-endpoint` | Endpoint       | Complete | Authenticated application and deployment API.                                        |
-| `coolify-deployments-module`   | Studio module  | Complete | Application, history, detail, polling, trigger, and cancellation views.              |
-| `coolify-deployments-hook`     | Hook           | Complete | Ensures the local collection, seeds policies, and enriches new records from Coolify. |
-| `coolify-deploy-operation`     | Flow operation | Complete | Selects an enabled, deploy-enabled application and triggers its Coolify deployment.  |
+| Entry                          | Type           | Status   | Purpose                                                                                                         |
+| ------------------------------ | -------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `coolify-deployments-endpoint` | Endpoint       | Complete | Authenticated application and deployment API.                                                                   |
+| `coolify-deployments-module`   | Studio module  | Complete | Application, history, detail, polling, trigger, and cancellation views.                                         |
+| `coolify-deployments-hook`     | Hook           | Complete | Ensures the local collection, seeds policies, and enriches new records from Coolify.                            |
+| `coolify-deploy-operation`     | Flow operation | Complete | Accepts an application item ID, rechecks it is enabled and deploy-enabled, and triggers its Coolify deployment. |
 
 The package does not install Coolify, create a token, provide build logs, persist deployment
 history, or schedule deployments.
@@ -52,30 +52,13 @@ environment values before the bundle validates them.
 
 ### Bundle settings
 
-| Variable                               | Default                | Description                                                                                                             |
-| -------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `COOLIFY_DEPLOYMENTS_ENABLED`          | `true`                 | Master switch for all bundle entries.                                                                                   |
-| `COOLIFY_APPLICATIONS_COLLECTION`      | `coolify_applications` | Local allow-list collection. Must be a valid non-system collection name.                                                |
-| `COOLIFY_URL`                          | —                      | Absolute base URL of one Coolify instance, e.g. `https://coolify.example.com`.                                          |
-| `COOLIFY_TOKEN`                        | —                      | Server-only bearer token sent to Coolify.                                                                               |
-| `COOLIFY_PROJECTS`                     | `[]`                   | Legacy array accepted during the configuration refactor. Current routes resolve applications from the local collection. |
-| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS` | `5000`                 | Studio polling interval in milliseconds; minimum `250`.                                                                 |
-
-Legacy `COOLIFY_PROJECTS` shape:
-
-```json
-[
-  {
-    "id": "frontend",
-    "name": "Frontend",
-    "productionUrl": "https://frontend.example.com",
-    "applicationUuid": "coolify-application-uuid"
-  }
-]
-```
-
-`resourceUuid` is also accepted instead of `applicationUuid`. Do not use this option as the current
-application allow-list; use the managed Directus collection.
+| Variable                               | Default                | Description                                                                    |
+| -------------------------------------- | ---------------------- | ------------------------------------------------------------------------------ |
+| `COOLIFY_DEPLOYMENTS_ENABLED`          | `true`                 | Master switch for all bundle entries.                                          |
+| `COOLIFY_APPLICATIONS_COLLECTION`      | `coolify_applications` | Local allow-list collection. Must be a valid non-system collection name.       |
+| `COOLIFY_URL`                          | —                      | Absolute base URL of one Coolify instance, e.g. `https://coolify.example.com`. |
+| `COOLIFY_TOKEN`                        | —                      | Server-only bearer token sent to Coolify.                                      |
+| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS` | `5000`                 | Studio polling interval in milliseconds; minimum `250`.                        |
 
 ### Schema and policy settings
 
@@ -95,7 +78,9 @@ to roles or users. The trigger policy intentionally has no nested collection per
 
 ### Cache and Redis settings
 
-Configured application records are cached for 60 seconds.
+Configured application records are cached for 60 seconds for reads. Deployment and cancellation
+authorization bypasses this cache so changes to `enabled` and `deploy_enabled` take effect
+immediately. Redis is intentionally shared across horizontally scaled Directus processes.
 
 | Variable                | Default  | Description                                                               |
 | ----------------------- | -------- | ------------------------------------------------------------------------- |
@@ -135,9 +120,10 @@ deployment record store.
 
 ## Managed collection and allow-list
 
-The default collection is `coolify_applications`. Every field is non-null. The generated identifier
-and Coolify metadata are not required in Studio, while `application_uuid` and the enablement flags
-remain required:
+The default collection is `coolify_applications`; set `COOLIFY_APPLICATIONS_COLLECTION` to use a
+different valid collection name. The bundle derives seeded policy permissions and Studio navigation
+from that setting. Every field is non-null. The generated identifier and Coolify metadata are not
+required in Studio, while `application_uuid` and the enablement flags remain required:
 
 | Field                                   | Writable    | Description                                               |
 | --------------------------------------- | ----------- | --------------------------------------------------------- |
@@ -292,7 +278,7 @@ Response:
 ```
 
 The request body is currently ignored; the server always sends `force=true` to Coolify. The
-application must have `deploy_enabled=true`.
+application must have `enabled=true` and `deploy_enabled=true`.
 
 ```sh
 curl -X POST "$DIRECTUS_URL/coolify-deployments/applications/$DIRECTUS_APPLICATION_ID/deployments/$DEPLOYMENT_ID/cancel" \
@@ -336,11 +322,11 @@ authenticated Directus endpoint and never exposes the Coolify token.
 
 ## Flow operation
 
-`Coolify Deploy` has one `Application` option. The async selector loads items from the configured
-applications collection where `enabled = true` and `deploy_enabled = true`. At execution time the
-operation reads the selected item again, rechecks both flags, and triggers a Coolify deployment for
-its `application_uuid`. Disabled or no-longer-deployable applications fail the flow. The package
-does not provide a scheduler, retry engine, or condition engine.
+`Coolify Deploy` has one `Application` text option. Enter the Directus item ID from the configured
+applications collection. At execution time the operation reads the selected item again, rechecks
+both flags, and triggers a Coolify deployment for its `application_uuid`. Disabled or
+no-longer-deployable applications fail the flow. The package does not provide a scheduler, retry
+engine, or condition engine.
 
 ## Troubleshooting
 
