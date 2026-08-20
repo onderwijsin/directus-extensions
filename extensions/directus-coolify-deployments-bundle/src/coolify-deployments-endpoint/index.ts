@@ -139,9 +139,9 @@ export default defineEndpoint({
 				const applications = await Promise.all(
 					configured.map(async (item) => {
 						const provider = await client.getApplication(item.application_uuid)
-						const latest = (
-							await client.listApplicationDeployments(item.application_uuid)
-						)[0]
+						const latest = await client.getLatestApplicationDeployment(
+							item.application_uuid,
+						)
 						return {
 							id: item.id,
 							name: item.name || provider.name,
@@ -168,7 +168,9 @@ export default defineEndpoint({
 			'/applications/:id/deployments',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID),
 			handle(async (request, response) => {
-				const application = await client.getConfiguredApplication(request.params.id ?? '')
+				const application = await client.getConfiguredApplication(request.params.id ?? '', {
+					bypassCache: true,
+				})
 				const deployments = await client.listApplicationDeployments(
 					application.application_uuid,
 				)
@@ -187,7 +189,9 @@ export default defineEndpoint({
 			'/applications/:id/deployments/:deploymentId',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID),
 			handle(async (request, response) => {
-				const application = await client.getConfiguredApplication(request.params.id ?? '')
+				const application = await client.getConfiguredApplication(request.params.id ?? '', {
+					bypassCache: true,
+				})
 				const deployment = await client.getDeployment(request.params.deploymentId ?? '')
 				assertDeploymentBelongsToApplication(deployment, application.application_uuid)
 				response.json({

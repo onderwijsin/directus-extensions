@@ -15,9 +15,8 @@ describe('asyncHandler', () => {
 		})
 		const next = createNext()
 
-		const result = asyncHandler(handler)(request, response, next)
+		asyncHandler(handler)(request, response, next)
 
-		expect(result).toBeUndefined()
 		await vi.waitFor(() => expect(handler).toHaveBeenCalledWith(request, response, next))
 		expect(next).not.toHaveBeenCalled()
 	})

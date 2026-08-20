@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 		getConfiguredApplication: vi.fn(),
 		getApplication: vi.fn(),
 		listApplicationDeployments: vi.fn().mockResolvedValue([]),
+		getLatestApplicationDeployment: vi.fn().mockResolvedValue(null),
 		getDeployment: vi.fn(),
 		deploy: vi.fn(),
 		cancelDeployment: vi.fn(),

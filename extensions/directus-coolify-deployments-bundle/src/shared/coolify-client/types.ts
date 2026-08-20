@@ -70,6 +70,7 @@ export interface CoolifyDeploymentClient {
 		options?: GetApplicationOptions,
 	) => Promise<CoolifyApplication>
 	listApplicationDeployments: (applicationUuid: string) => Promise<CoolifyDeployment[]>
+	getLatestApplicationDeployment: (applicationUuid: string) => Promise<CoolifyDeployment | null>
 	listRunningDeployments: () => Promise<CoolifyDeployment[]>
 	getDeployment: (deploymentUuid: string) => Promise<CoolifyDeployment>
 	deploy: (input: CoolifyDeploymentRequest) => Promise<CoolifyDeploymentTriggerResult[]>

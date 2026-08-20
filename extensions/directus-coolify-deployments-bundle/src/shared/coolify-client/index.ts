@@ -16,7 +16,7 @@ import { ForbiddenError } from '@directus/errors'
 import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
 import { ofetch } from 'ofetch'
 
-import { LIST_APPLICATION_CACHE_DURATION_MS } from '../constants'
+import { COOLIFY_REQUEST_TIMEOUT_MS, LIST_APPLICATION_CACHE_DURATION_MS } from '../constants'
 
 export type {
 	CoolifyDeploymentClient,
@@ -132,18 +132,17 @@ export function createCoolifyDeploymentClient(
 	const getAllowedEnvironments = () => resolveAllowedEnvironments(listConfiguredApplication)
 
 	/**
-	 * Create a ofetch client with bearer header
+	 * Create an ofetch client with a bearer header.
 	 */
 	const providerRequest = ofetch.create({
 		baseURL: `${baseUrl}${API_PREFIX}`,
+		timeout: COOLIFY_REQUEST_TIMEOUT_MS,
 		headers: {
 			Authorization: `Bearer ${options.COOLIFY_TOKEN}`,
 		},
 	})
-	let requestNumber = 0
-
 	/**
-	 * Request Coolify and log each raw response with paired markers.
+	 * Request Coolify without logging successful provider response bodies.
 	 * @param path - Coolify API path.
 	 * @param requestOptions - Optional request options.
 	 * @returns The unparsed provider response.
@@ -152,18 +151,7 @@ export function createCoolifyDeploymentClient(
 		path: string,
 		requestOptions?: Parameters<typeof providerRequest>[1],
 	): Promise<unknown> => {
-		const callId = `coolify-${++requestNumber}`
-		const label = `${callId} ${path}`
-		context?.logger?.info({ msg: `START ${label}` })
-
-		try {
-			const response = await providerRequest(path, requestOptions)
-			context?.logger?.info({ msg: `END ${label}`, response })
-			return response
-		} catch (error: unknown) {
-			context?.logger?.info({ msg: `END ${label} ERROR`, error })
-			throw error
-		}
+		return providerRequest(path, requestOptions)
 	}
 
 	/**
@@ -319,6 +307,22 @@ export function createCoolifyDeploymentClient(
 	}
 
 	/**
+	 * Read the newest deployment for an allow-listed application.
+	 * @param applicationUuid - Coolify application UUID.
+	 * @returns The newest deployment, or null when none exist.
+	 */
+	const getLatestApplicationDeployment = async (
+		applicationUuid: string,
+	): Promise<CoolifyDeployment | null> => {
+		await assertAllowed(applicationUuid, getAllowedApplications)
+		const deployments = await parseDeployments(
+			`/deployments/applications/${encodeURIComponent(applicationUuid)}`,
+			{ skip: 0, take: 1 },
+		)
+		return deployments[0] ?? null
+	}
+
+	/**
 	 * @param deploymentUuid - Coolify deployment UUID.
 	 * @returns The requested deployment.
 	 */
@@ -386,6 +390,7 @@ export function createCoolifyDeploymentClient(
 		listApplications,
 		getApplication,
 		listApplicationDeployments,
+		getLatestApplicationDeployment,
 		listRunningDeployments,
 		getDeployment,
 		deploy,

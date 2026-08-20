@@ -2,11 +2,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-type ApplicationCreateFilter = (payload: Record<string, unknown>) => Promise<unknown>
+type ApplicationFilter = (payload: unknown) => unknown
 
 const mocks = vi.hoisted(() => ({
 	defineHook: vi.fn((callback: unknown) => callback),
-	filter: vi.fn<(event: string, callback: ApplicationCreateFilter) => void>(),
+	filter: vi.fn<(event: string, callback: ApplicationFilter) => void>(),
 	setup: { start: vi.fn(), end: vi.fn(), isEnabled: vi.fn(() => true) },
 	startup: { schema: vi.fn(), data: vi.fn() },
 	ensureSchema: vi.fn(),
@@ -192,6 +192,25 @@ describe('Coolify application create hook', () => {
 			'Unable to load application details from Coolify',
 		)
 		expect(mocks.logger.error).toHaveBeenCalledOnce()
+	})
+
+	it('rejects updates to provider-managed fields', () => {
+		const updateFilter = mocks.filter.mock.calls.find(
+			([event]) => event === 'deployment_targets.items.update',
+		)?.[1]
+		if (typeof updateFilter !== 'function')
+			throw new Error('Expected application update filter')
+
+		expect(() => updateFilter({ application_uuid: 'another-application' })).toThrow(
+			'application_uuid is managed by Coolify and cannot be updated',
+		)
+		expect(updateFilter({ enabled: false, deploy_enabled: true })).toEqual({
+			enabled: false,
+			deploy_enabled: true,
+		})
+		expect(() => updateFilter([{ production_url: 'https://attacker.test' }])).toThrow(
+			'production_url is managed by Coolify and cannot be updated',
+		)
 	})
 
 	it('does not register work when disabled', () => {

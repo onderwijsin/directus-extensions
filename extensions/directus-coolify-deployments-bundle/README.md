@@ -153,7 +153,9 @@ The create filter loads the application from Coolify and fills all other fields.
 matching UUID, name, project UUID/name, environment UUID/name, and production URL. When Coolify
 returns multiple comma-separated FQDNs, the first URL is stored. If Coolify is unavailable or
 returns incomplete data, creation fails and no partial item is saved. Existing records are not
-automatically refreshed when Coolify metadata changes.
+automatically refreshed when Coolify metadata changes. Updates to `application_uuid` and other
+Coolify-managed metadata fields are rejected; only `enabled` and `deploy_enabled` may be changed
+after creation.
 
 ## Policies and security
 
@@ -368,4 +370,5 @@ does not alter unrelated collections, roles, or existing deployment records.
 
 Consumers own Coolify infrastructure, token lifecycle, deployment image, secrets, policy
 assignments, scheduling, retries, rate limits, audits, and alerting. The bundle owns only the
-Directus-facing integration and normalized provider data.
+Directus-facing integration and normalized provider data. Requests to Coolify are bounded by a
+30-second timeout.

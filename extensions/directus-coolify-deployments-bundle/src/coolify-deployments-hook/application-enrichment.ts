@@ -25,6 +25,16 @@ const requiredApplicationFields: Record<string, string> = {
 	fqdn: 'production URL',
 } as const
 
+const providerManagedFields = [
+	'application_uuid',
+	'name',
+	'project_uuid',
+	'project_name',
+	'environment_uuid',
+	'environment_name',
+	'production_url',
+] as const
+
 /**
  * Convert a validated Coolify application response into a Directus collection item.
  * @param application - Normalized Coolify application response.
@@ -125,5 +135,21 @@ export const registerApplicationEnrichmentHook = (
 		}
 
 		return { ...payload, ...mapApplication(result.data, applicationUuid) }
+	})
+
+	filter(`${collection}.items.update`, (payload) => {
+		const payloads = isArray(payload) ? payload : [payload]
+		for (const item of payloads) {
+			if (!isRecord(item)) continue
+
+			const changedProviderField = providerManagedFields.find((field) => hasKey(item, field))
+			if (changedProviderField) {
+				throw new InvalidPayloadError({
+					reason: `${changedProviderField} is managed by Coolify and cannot be updated`,
+				})
+			}
+		}
+
+		return payload
 	})
 }

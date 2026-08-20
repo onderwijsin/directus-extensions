@@ -155,7 +155,8 @@ The create filter fetches Coolify with an initial allow-list bypass, verifies th
 name, project UUID/name, environment UUID/name, and an HTTP(S) production URL. If Coolify returns
 multiple comma-separated FQDNs, only the first URL is stored. An unavailable, incomplete, or unsafe
 provider response rejects the item without saving partial data. Existing records are not refreshed
-automatically.
+automatically. Updates to `application_uuid` and other Coolify-managed metadata fields are rejected;
+after creation, only `enabled` and `deploy_enabled` may be changed.
 
 ## Bundle entries
 
@@ -334,4 +335,4 @@ unrelated collections, roles, or deployment records.
 
 Consumers own Coolify infrastructure, token lifecycle, deployment image, secrets, assignments,
 scheduling, retries, rate limits, audit, and alerting. The bundle owns only the Directus-facing
-integration and normalized provider data.
+integration and normalized provider data. Requests to Coolify are bounded by a 30-second timeout.

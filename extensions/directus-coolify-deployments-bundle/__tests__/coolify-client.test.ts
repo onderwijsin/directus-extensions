@@ -143,6 +143,7 @@ describe('Coolify deployment client', () => {
 
 		expect(mocks.ofetch).toHaveBeenCalledWith({
 			baseURL: 'https://coolify.example.com/api/v1',
+			timeout: 30_000,
 			headers: { Authorization: 'Bearer token' },
 		})
 		expect(mocks.request.mock.calls.map(([input]) => input)).toEqual([
@@ -260,6 +261,28 @@ describe('Coolify deployment client', () => {
 			'/deployments/deployment-1/cancel',
 		])
 		expect(mocks.request.mock.calls[4]?.[1]).toMatchObject({ method: 'POST' })
+	})
+
+	it('reads only the latest application deployment', async () => {
+		mocks.request.mockResolvedValueOnce(
+			jsonResponse({
+				count: 42,
+				deployments: [
+					{
+						application_id: 'application-1',
+						deployment_uuid: 'latest-deployment',
+						status: 'running',
+					},
+				],
+			}),
+		)
+
+		await expect(
+			createClient().getLatestApplicationDeployment('application-1'),
+		).resolves.toMatchObject({ deploymentUuid: 'latest-deployment' })
+		expect(mocks.request).toHaveBeenCalledWith('/deployments/applications/application-1', {
+			query: { skip: 0, take: 1 },
+		})
 	})
 
 	it('filters list responses and rejects unallow-listed single-record operations', async () => {

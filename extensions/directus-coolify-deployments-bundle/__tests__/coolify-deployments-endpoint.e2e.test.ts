@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { createDirectusE2EClient, customEndpoint } from '../../../packages/test-utils/src'
-import { DEFAULT_MANAGE_APPLICATIONS_POLICY_ID } from '../src/shared/constants'
+import {
+	DEFAULT_MANAGE_APPLICATIONS_POLICY_ID,
+	DEFAULT_READ_DEPLOYMENTS_POLICY_ID,
+	DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID,
+} from '../src/shared/constants'
 
 const baseUrl = process.env.DIRECTUS_E2E_URL
 const token = process.env.DIRECTUS_E2E_TOKEN
@@ -17,6 +21,9 @@ const client = createDirectusE2EClient({
 	composeProject: process.env.DIRECTUS_E2E_COMPOSE_PROJECT ?? '',
 })
 
+const policyApplicationUuid = 'e2e-policy-coolify-application'
+const routeApplicationUuid = 'e2e-route-coolify-application'
+
 const requestStatus = async (request: () => Promise<unknown>): Promise<number> => {
 	try {
 		await request()
@@ -29,6 +36,43 @@ const requestStatus = async (request: () => Promise<unknown>): Promise<number> =
 	}
 
 	throw new Error('Expected the request to fail')
+}
+
+const assignPolicy = async (user: string, policy: string): Promise<void> => {
+	await client.request(
+		customEndpoint({
+			path: '/access',
+			method: 'POST',
+			body: JSON.stringify([{ user, policy }]),
+		}),
+	)
+}
+
+const createApplication = async (
+	applicationUuid = policyApplicationUuid,
+): Promise<string | number> => {
+	const item = await client.request(
+		customEndpoint({
+			path: '/items/coolify_applications',
+			method: 'POST',
+			body: JSON.stringify({ application_uuid: applicationUuid }),
+		}),
+	)
+	if (typeof item !== 'object' || item === null || !('id' in item))
+		throw new Error('Expected the created Coolify application to have an ID')
+	if (typeof item.id !== 'string' && typeof item.id !== 'number')
+		throw new Error('Expected the created Coolify application ID to be scalar')
+	await client.request(customEndpoint({ path: '/utils/cache/clear', method: 'POST', body: '{}' }))
+	return item.id
+}
+
+const deleteApplication = async (id: string | number): Promise<void> => {
+	await client.request(
+		customEndpoint({
+			path: `/items/coolify_applications/${encodeURIComponent(String(id))}`,
+			method: 'DELETE',
+		}),
+	)
 }
 
 describe('Coolify deployment endpoint middleware', () => {
@@ -169,6 +213,167 @@ describe('Coolify deployment endpoint middleware', () => {
 				),
 			).resolves.toBeInstanceOf(Array)
 		} finally {
+			await user.dispose()
+		}
+	})
+
+	it('enforces the seeded manage policy for collection CRUD', async () => {
+		const user = await client.createEphemeralUser({
+			role: { name: 'Coolify CRUD no-policy role' },
+		})
+		let rootApplicationId: string | number | undefined
+		let managedApplicationId: string | number | undefined
+
+		try {
+			rootApplicationId = await createApplication()
+			await client.withUserContext(user.id, async (userClient) => {
+				for (const request of [
+					() =>
+						userClient.request(
+							customEndpoint({
+								path: '/items/coolify_applications',
+								method: 'POST',
+								body: JSON.stringify({
+									application_uuid: policyApplicationUuid,
+								}),
+							}),
+						),
+					() =>
+						userClient.request(
+							customEndpoint({ path: '/items/coolify_applications', method: 'GET' }),
+						),
+					() =>
+						userClient.request(
+							customEndpoint({
+								path: `/items/coolify_applications/${encodeURIComponent(String(rootApplicationId))}`,
+								method: 'PATCH',
+								body: JSON.stringify({ enabled: false }),
+							}),
+						),
+					() =>
+						userClient.request(
+							customEndpoint({
+								path: `/items/coolify_applications/${encodeURIComponent(String(rootApplicationId))}`,
+								method: 'DELETE',
+							}),
+						),
+				]) {
+					expect(await requestStatus(request)).toBe(403)
+				}
+			})
+
+			await deleteApplication(rootApplicationId)
+			rootApplicationId = undefined
+			await assignPolicy(user.id, DEFAULT_MANAGE_APPLICATIONS_POLICY_ID)
+			await client.withUserContext(user.id, async (userClient) => {
+				const created = await userClient.request(
+					customEndpoint({
+						path: '/items/coolify_applications',
+						method: 'POST',
+						body: JSON.stringify({ application_uuid: policyApplicationUuid }),
+					}),
+				)
+				if (typeof created !== 'object' || created === null || !('id' in created))
+					throw new Error('Expected the managed Coolify application to have an ID')
+				if (typeof created.id !== 'string' && typeof created.id !== 'number')
+					throw new Error('Expected the managed Coolify application ID to be scalar')
+				managedApplicationId = created.id
+
+				expect(
+					await userClient.request(
+						customEndpoint({ path: '/items/coolify_applications', method: 'GET' }),
+					),
+				).toEqual(
+					expect.arrayContaining([expect.objectContaining({ id: managedApplicationId })]),
+				)
+				expect(
+					await userClient.request(
+						customEndpoint({
+							path: `/items/coolify_applications/${encodeURIComponent(String(managedApplicationId))}`,
+							method: 'PATCH',
+							body: JSON.stringify({ enabled: false }),
+						}),
+					),
+				).toEqual(expect.objectContaining({ enabled: false }))
+			})
+		} finally {
+			if (managedApplicationId !== undefined) await deleteApplication(managedApplicationId)
+			if (rootApplicationId !== undefined) await deleteApplication(rootApplicationId)
+			await user.dispose()
+		}
+	})
+
+	it('enforces seeded read and trigger policies for deployment routes', async () => {
+		const user = await client.createEphemeralUser({
+			role: { name: 'Coolify deployment policy role' },
+		})
+		let applicationId: string | number | undefined
+
+		try {
+			applicationId = await createApplication(routeApplicationUuid)
+			await client.withUserContext(user.id, async (userClient) => {
+				expect(
+					await requestStatus(() =>
+						userClient.request(
+							customEndpoint({
+								path: `/coolify-deployments/applications/${encodeURIComponent(String(applicationId))}/deployments`,
+								method: 'GET',
+							}),
+						),
+					),
+				).toBe(403)
+			})
+			await assignPolicy(user.id, DEFAULT_READ_DEPLOYMENTS_POLICY_ID)
+			await client.withUserContext(user.id, async (userClient) => {
+				expect(
+					await userClient.request(
+						customEndpoint({
+							path: `/coolify-deployments/applications/${encodeURIComponent(String(applicationId))}/deployments`,
+							method: 'GET',
+						}),
+					),
+				).toEqual([])
+			})
+
+			await client.withUserContext(user.id, async (userClient) => {
+				expect(
+					await requestStatus(() =>
+						userClient.request(
+							customEndpoint({
+								path: '/coolify-deployments/permissions',
+								method: 'GET',
+							}),
+						),
+					),
+				).toBe(403)
+			})
+			await assignPolicy(user.id, DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID)
+			await client.withUserContext(user.id, async (userClient) => {
+				expect(
+					await userClient.request(
+						customEndpoint({ path: '/coolify-deployments/permissions', method: 'GET' }),
+					),
+				).toEqual({ canTrigger: true })
+
+				const deployment = await userClient.request(
+					customEndpoint({
+						path: `/coolify-deployments/applications/${encodeURIComponent(String(applicationId))}/deployments`,
+						method: 'POST',
+						body: '{}',
+					}),
+				)
+				expect(deployment).toEqual({ id: 'e2e-deployment-1' })
+				expect(
+					await userClient.request(
+						customEndpoint({
+							path: `/coolify-deployments/applications/${encodeURIComponent(String(applicationId))}/deployments/e2e-deployment-1/cancel`,
+							method: 'POST',
+						}),
+					),
+				).toEqual(expect.objectContaining({ deploymentUuid: 'e2e-deployment-1' }))
+			})
+		} finally {
+			if (applicationId !== undefined) await deleteApplication(applicationId)
 			await user.dispose()
 		}
 	})
