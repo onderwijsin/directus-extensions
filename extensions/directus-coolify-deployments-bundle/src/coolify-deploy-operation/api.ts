@@ -2,12 +2,14 @@ import { ForbiddenError } from '@directus/errors'
 import { defineOperationApi } from '@directus/extensions-sdk'
 import {
 	extensionSetup,
+	hasKey,
+	hasPolicies,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { EXTENSION_NAME } from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
-import { envSchema } from '../shared/coolify-client/schemas'
+import { envSchema } from './env.schema'
 
 interface CoolifyDeployOptions {
 	application: string
@@ -23,13 +25,26 @@ export default defineOperationApi<CoolifyDeployOptions>({
 	 * @returns Coolify's deployment trigger result.
 	 */
 	handler: async ({ application }, context) => {
-		const { env, getSchema, logger, services } = context
+		const { accountability, env, getSchema, logger, services } = context
 		const setup = extensionSetup(EXTENSION_NAME, env, logger)
 		setup.start()
 
 		if (!setup.isEnabled()) return null
 
 		const options = validateExtensionOptions(env, envSchema, logger)
+		if (
+			accountability &&
+			accountability.admin !== true &&
+			(!hasKey(accountability, 'admin_access') || accountability.admin_access !== true) &&
+			!(await hasPolicies(
+				accountability,
+				options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID,
+				services,
+				await getSchema(),
+			))
+		) {
+			throw new ForbiddenError()
+		}
 		const configuredApplication = await new services.ItemsService(
 			options.COOLIFY_APPLICATIONS_COLLECTION,
 			{

@@ -164,8 +164,9 @@ policy assigned to their user or effective role:
 
 The endpoint checks authentication, same-origin requests, policy assignment, and the local
 allow-list. Missing browser origin metadata remains supported for authenticated CLI and Flow
-clients. The custom assignment helper does not evaluate `policy.ip_access`; enforce network rules at
-the deployment boundary when required.
+clients. Policy assignment honors Directus `policy.ip_access` restrictions. For proxy deployments,
+Express must resolve trusted proxy headers; the endpoint does not trust client-supplied
+`X-Forwarded-*` headers.
 
 ## API reference
 
@@ -324,9 +325,11 @@ authenticated Directus endpoint and never exposes the Coolify token.
 
 `Coolify Deploy` has one `Application` text option. Enter the Directus item ID from the configured
 applications collection. At execution time the operation reads the selected item again, rechecks
-both flags, and triggers a Coolify deployment for its `application_uuid`. Disabled or
-no-longer-deployable applications fail the flow. The package does not provide a scheduler, retry
-engine, or condition engine.
+both flags, and triggers a Coolify deployment for its `application_uuid`. User-associated Flow
+executions also require the trigger policy; administrators bypass that check. System-triggered
+executions without accountability are trusted automation. Disabled or no-longer-deployable
+applications fail the flow. The package does not provide a scheduler, retry engine, or condition
+engine.
 
 ## Troubleshooting
 

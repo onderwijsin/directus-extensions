@@ -290,7 +290,9 @@ assign policies, refresh existing records, create Coolify resources, or persist 
 `Coolify Deploy` exposes one `Application` text option. Enter the Directus item ID from the
 configured applications collection. The operation re-reads the selected record when the flow runs,
 checks both flags again, and calls Coolify's deployment API with that record's `application_uuid`.
-This supports custom application collection names.
+User-associated executions require the trigger policy; administrators bypass that check. System-
+triggered executions without accountability are trusted automation. This supports custom application
+collection names.
 
 The operation returns Coolify's deployment trigger result on the resolve path. It throws a forbidden
 error when the selected record is missing or either flag is false, so connect a reject path when the
@@ -299,9 +301,9 @@ flow should handle a stale or disabled selection explicitly.
 ## Security and operations
 
 Keep the token in secret management and use least privilege. Assign the trigger policy only to
-trusted deployers. Add rate limiting, audit logging, retries, and alerting at the consumer boundary
-when required. The custom policy assignment helper does not evaluate `policy.ip_access`; use network
-controls if IP restrictions are mandatory.
+trusted deployers. Policy assignment honors `policy.ip_access`. Configure Express to resolve trusted
+proxy headers; the endpoint does not trust client-supplied `X-Forwarded-*` headers. Add rate
+limiting, audit logging, retries, and alerting at the consumer boundary when required.
 
 The server client restricts provider reads to UUIDs found in enabled local records. It fetches
 deployment history in pages of 100 and does not copy it into Directus. The cache is only a 60-second

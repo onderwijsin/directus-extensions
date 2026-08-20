@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
 	app: vi.fn(),
 	api: vi.fn(),
 	setup: { start: vi.fn(), end: vi.fn(), isEnabled: vi.fn(() => true) },
+	hasPolicies: vi.fn().mockResolvedValue(true),
 	readOne: vi.fn(),
 	deploy: vi.fn(),
 }))
@@ -22,6 +23,7 @@ vi.mock('@directus/extensions-sdk', () => ({
 vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) => ({
 	...(await importOriginal()),
 	extensionSetup: () => mocks.setup,
+	hasPolicies: mocks.hasPolicies,
 }))
 vi.mock('../src/shared/coolify-client', () => ({
 	createCoolifyDeploymentClient: () => ({ deploy: mocks.deploy }),
@@ -34,6 +36,7 @@ describe('Coolify deploy operation', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		mocks.setup.isEnabled.mockReturnValue(true)
+		mocks.hasPolicies.mockResolvedValue(true)
 	})
 
 	const context = {
@@ -42,6 +45,7 @@ describe('Coolify deploy operation', () => {
 			COOLIFY_TOKEN: 'token',
 		},
 		logger: { info: vi.fn() },
+		accountability: null,
 		getSchema: vi.fn().mockResolvedValue({}),
 		services: {
 			ItemsService: class {
@@ -63,6 +67,18 @@ describe('Coolify deploy operation', () => {
 		).resolves.toEqual([{ message: 'queued' }])
 		expect(mocks.readOne).toHaveBeenCalledWith('directus-application-1')
 		expect(mocks.deploy).toHaveBeenCalledWith({ uuid: 'application-1' })
+	})
+
+	it('requires the trigger policy for user-associated executions', async () => {
+		mocks.hasPolicies.mockResolvedValue(false)
+
+		await expect(
+			operationApi.handler({ application: 'directus-application-1' }, {
+				...context,
+				accountability: { admin: false },
+			} as never),
+		).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 })
+		expect(mocks.readOne).not.toHaveBeenCalled()
 	})
 
 	it.each([

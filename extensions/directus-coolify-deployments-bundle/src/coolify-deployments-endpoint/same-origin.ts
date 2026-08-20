@@ -19,8 +19,10 @@ export const isSameOriginRequest = (request: OriginRequest): boolean => {
 
 	try {
 		const candidate = new URL(origin)
-		const protocol = request.get('x-forwarded-proto')?.split(',')[0]?.trim() ?? request.protocol
-		const host = request.get('x-forwarded-host')?.split(',')[0]?.trim() ?? request.get('host')
+		// Express must resolve trusted proxy headers before this boundary. Reading
+		// X-Forwarded-* directly would let an untrusted client manufacture the public origin.
+		const protocol = request.protocol
+		const host = request.get('host')
 
 		return host != null && candidate.protocol === `${protocol}:` && candidate.host === host
 	} catch {

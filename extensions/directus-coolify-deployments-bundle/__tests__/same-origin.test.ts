@@ -42,19 +42,30 @@ describe('isSameOriginRequest', () => {
 		)
 	})
 
-	it('uses forwarded origin metadata behind a trusted proxy', () => {
+	it('uses origin metadata resolved by Express behind a trusted proxy', () => {
 		expect(
 			isSameOriginRequest(
 				request(
 					{
 						origin: 'https://studio.example.test',
-						host: 'internal:8055',
-						'x-forwarded-host': 'studio.example.test',
-						'x-forwarded-proto': 'https',
+						host: 'studio.example.test',
 					},
-					'http',
+					'https',
 				),
 			),
 		).toBe(true)
+	})
+
+	it('does not trust client-supplied forwarded origin metadata', () => {
+		expect(
+			isSameOriginRequest(
+				request({
+					origin: 'https://attacker.example.test',
+					host: 'studio.example.test',
+					'x-forwarded-host': 'attacker.example.test',
+					'x-forwarded-proto': 'https',
+				}),
+			),
+		).toBe(false)
 	})
 })
