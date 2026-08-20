@@ -1,0 +1,54 @@
+{
+	"policies": [
+		{
+			"id": "1f1b6f8a-c0aa-4d9b-9c75-7d6ef3b8a101",
+			"name": "Can Manage Redirects",
+			"icon": "alt_route",
+			"description": "Can create, read, update, and delete redirect records.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{ "collection": "redirects", "action": "create", "fields": ["*"] },
+				{ "collection": "redirects", "action": "read", "fields": ["*"] },
+				{ "collection": "redirects", "action": "update", "fields": ["*"] },
+				{ "collection": "redirects", "action": "delete", "fields": ["*"] }
+			]
+		},
+		{
+			"id": "7a5c9e2f-38e1-4d76-9d38-0a4ce0a3b202",
+			"name": "Can Read Active Redirects",
+			"icon": "visibility",
+			"description": "Can read redirects active within their configured time window.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{
+					"collection": "redirects",
+					"action": "read",
+					"permissions": {
+						"_and": [
+							{ "is_active": { "_eq": true } },
+							{
+								"_or": [
+									{ "start_date": { "_null": true } },
+									{ "start_date": { "_lte": "$NOW" } }
+								]
+							},
+							{
+								"_or": [
+									{ "end_date": { "_null": true } },
+									{ "end_date": { "_gt": "$NOW" } }
+								]
+							}
+						]
+					},
+					"fields": ["*"]
+				}
+			]
+		}
+	]
+}

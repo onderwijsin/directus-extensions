@@ -1,0 +1,112 @@
+{
+	"collections": [
+		{
+			"collection": "redirects",
+			"schema": { "name": "redirects" },
+			"fields": [
+				{
+					"collection": "redirects",
+					"field": "id",
+					"type": "integer",
+					"schema": {
+						"data_type": "integer",
+						"is_primary_key": true,
+						"is_nullable": false,
+						"has_auto_increment": true
+					}
+				}
+			],
+			"meta": {
+				"hidden": false,
+				"icon": "alt_route"
+			}
+		}
+	],
+	"fields": [
+		{
+			"collection": "redirects",
+			"field": "origin",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": false },
+			"meta": { "interface": "input", "required": true }
+		},
+		{
+			"collection": "redirects",
+			"field": "destination",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": false },
+			"meta": { "interface": "input", "required": true }
+		},
+		{
+			"collection": "redirects",
+			"field": "type",
+			"type": "integer",
+			"schema": { "data_type": "integer", "default_value": 301, "is_nullable": false },
+			"meta": { "interface": "input" }
+		},
+		{
+			"collection": "redirects",
+			"field": "is_active",
+			"type": "boolean",
+			"schema": { "data_type": "boolean", "default_value": true, "is_nullable": false },
+			"meta": { "interface": "boolean" }
+		},
+		{
+			"collection": "redirects",
+			"field": "start_date",
+			"type": "timestamp",
+			"schema": { "data_type": "timestamp", "is_nullable": true },
+			"meta": { "interface": "datetime" }
+		},
+		{
+			"collection": "redirects",
+			"field": "end_date",
+			"type": "timestamp",
+			"schema": { "data_type": "timestamp", "is_nullable": true },
+			"meta": { "interface": "datetime" }
+		},
+		{
+			"collection": "redirects",
+			"field": "managed_by",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 32, "is_nullable": true },
+			"meta": { "interface": "input" }
+		},
+		{
+			"collection": "redirects",
+			"field": "source_collection",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
+			"meta": { "interface": "input" }
+		},
+		{
+			"collection": "redirects",
+			"field": "source_item",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
+			"meta": { "interface": "input" }
+		},
+		{
+			"collection": "redirects",
+			"field": "source_field",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
+			"meta": { "interface": "input" }
+		},
+		{
+			"collection": "redirects",
+			"field": "source_type",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 16, "is_nullable": true },
+			"meta": { "interface": "input" }
+		},
+		{
+			"collection": "redirects",
+			"field": "inactive_reason",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 16, "is_nullable": true },
+			"meta": { "interface": "input" }
+		}
+	],
+	"relations": []
+}

@@ -26,6 +26,7 @@ catalog:
   typescript: 5.9.3
   vitest: 4.1.10
   '@directus/extensions-sdk': 18.0.2
+  '@vueuse/core': 14.0.0
   '@directus/sdk': 24.0.0
   happy-dom: 20.11.2
   '@typescript/native-preview': 7.0.0-dev.20260707.2
