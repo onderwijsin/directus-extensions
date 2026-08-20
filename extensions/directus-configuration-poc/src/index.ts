@@ -34,7 +34,7 @@ function loadConfigurationSync(
 	configurationPath: string,
 	context: ApiExtensionContext,
 ): z.infer<typeof configurationSchema> {
-	const { data: loaded } = attemptSync(() => {
+	const { data: loaded, error: loadError } = attemptSync(() => {
 		const require = createRequire(import.meta.url)
 		const jitiModule = require('jiti') as {
 			createJiti: (id: string, userOptions?: JitiOptions) => Jiti
@@ -47,6 +47,12 @@ function loadConfigurationSync(
 		}
 		return configModule.default
 	})
+	if (loadError) {
+		throw new Error(
+			`directus-configuration-poc: failed to load configuration at ${configurationPath}`,
+			{ cause: loadError },
+		)
+	}
 
 	const { data, error, success } = configurationSchema.safeParse(loaded)
 
@@ -74,7 +80,7 @@ async function loadConfigurationAsync(
 	configurationPath: string,
 	context: ApiExtensionContext,
 ): Promise<z.infer<typeof configurationSchema>> {
-	const { data: loaded } = await attempt(async () => {
+	const { data: loaded, error: loadError } = await attempt(async () => {
 		const jiti = createJiti(import.meta.url)
 		const configModule = await jiti.import(configurationPath, { default: true })
 		if (!configModule || !isRecord(configModule)) {
@@ -82,6 +88,12 @@ async function loadConfigurationAsync(
 		}
 		return configModule
 	})
+	if (loadError) {
+		throw new Error(
+			`directus-configuration-poc: failed to load configuration at ${configurationPath}`,
+			{ cause: loadError },
+		)
+	}
 
 	const { data, error, success } = configurationSchema.safeParse(loaded)
 

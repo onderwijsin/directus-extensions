@@ -62,8 +62,10 @@ services:
         condition: service_started
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
+      - ../node_modules/.pnpm/jiti@2.6.1/node_modules/jiti:/directus/extensions/directus-configuration-poc/node_modules/jiti:ro
       - '${DIRECTUS_E2E_CONFIGURATION_DIR:-../tests/directus-configuration-poc/configuration}:/directus/configuration:ro'
       - '${DIRECTUS_E2E_NODE_MODULES_DIR:-../node_modules}:/directus/configuration/node_modules:ro'
+      - ../extensions/directus-configuration-poc:/directus/node_modules/@onderwijsin/directus-configuration-poc:ro
       - '${DIRECTUS_E2E_EMAIL_TEMPLATES_DIR:-../extensions/directus-magic-links-bundle/templates}:/directus/templates:ro'
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:${DIRECTUS_E2E_PORT:-18055}}
