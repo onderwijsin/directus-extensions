@@ -96,21 +96,15 @@ describe('Sluggernaut startup registration', () => {
 		)
 	})
 
-	it('registers invalidation for all schema-derived field dependencies', () => {
+	it('registers schema invalidation and item lifecycle dependencies', () => {
 		const action = registerHook()
-		expect(action.mock.calls.map(([event]) => event)).toEqual(
-			expect.arrayContaining([
-				'fields.create',
-				'fields.update',
-				'fields.delete',
-				'collections.create',
-				'collections.update',
-				'collections.delete',
-				'relations.create',
-				'relations.update',
-				'relations.delete',
-			]),
-		)
+		expect(action.mock.calls.map(([event]) => event)).toEqual([
+			'fields.create',
+			'fields.update',
+			'fields.delete',
+			'items.delete',
+			'items.update',
+		])
 	})
 
 	it('skips policy registration when the redirect collection is unavailable', async () => {
