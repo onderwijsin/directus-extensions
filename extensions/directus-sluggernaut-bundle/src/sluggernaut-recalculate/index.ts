@@ -1,5 +1,6 @@
 import { defineOperationApp } from '@directus/extensions-sdk'
 
+/** Values shown in the operation overview card. */
 interface RecalculateOverviewOptions {
 	collection?: string
 	fieldKeys?: string[]

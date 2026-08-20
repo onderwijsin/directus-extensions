@@ -1,3 +1,4 @@
+/** Registers the Sluggernaut link display in Directus Studio. */
 import { defineDisplay } from '@directus/extensions-sdk'
 
 import LinkDisplay from './display.vue'

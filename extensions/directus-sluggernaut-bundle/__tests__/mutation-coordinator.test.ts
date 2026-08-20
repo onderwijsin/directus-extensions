@@ -1,8 +1,8 @@
-import type { CollectionConfiguration } from '../src/shared/types'
+import type { CollectionConfiguration } from '../src/shared/configuration/types'
 
 import { describe, expect, it } from 'vitest'
 
-import { coordinateMutation } from '../src/sluggernaut-hook/mutation-coordinator'
+import { coordinateMutation } from '../src/sluggernaut-hook/mutation/coordinator'
 
 const configuration: CollectionConfiguration = {
 	slugs: [
@@ -102,6 +102,50 @@ describe('coordinateMutation', () => {
 		})
 
 		expect(result.payload.canonical_route).toBe('/news/changed-title')
+	})
+
+	it('clears a synchronized permalink when its derived slug becomes null', () => {
+		const synchronizedConfiguration: CollectionConfiguration = {
+			...configuration,
+			permalinks: [
+				{
+					...configuration.permalinks[0]!,
+					options: { ...configuration.permalinks[0]!.options, updateOnSlugChange: true },
+				},
+			],
+		}
+		const result = coordinateMutation({
+			kind: 'update',
+			payload: { title: null },
+			existingItem: {
+				title: 'Hello World',
+				public_slug: 'hello-world',
+				canonical_route: '/news/hello-world',
+			},
+			configuration: synchronizedConfiguration,
+		})
+
+		expect(result.payload).toMatchObject({ public_slug: null, canonical_route: null })
+	})
+
+	it('preserves slug normalization options when generating a permalink', () => {
+		const caseSensitiveConfiguration: CollectionConfiguration = {
+			...configuration,
+			slugs: [
+				{
+					...configuration.slugs[0]!,
+					options: { ...configuration.slugs[0]!.options, lowercase: false },
+				},
+			],
+		}
+		const result = coordinateMutation({
+			kind: 'create',
+			payload: { title: 'Ignored', public_slug: 'Custom-Slug' },
+			existingItem: {},
+			configuration: caseSensitiveConfiguration,
+		})
+
+		expect(result.payload.canonical_route).toBe('/news/Custom-Slug')
 	})
 
 	it('lets explicit slug and permalink values win', () => {

@@ -1,3 +1,6 @@
+/** Converts stored Sluggernaut values into safe display links. */
+import { normalizeHost, normalizePermalink } from '../shared/values/normalization'
+
 /**
  * Normalizes a display value into an absolute path.
  * @param value - Stored slug or permalink.
@@ -6,7 +9,12 @@
 export function displayPath(value: string | null | undefined): string | null {
 	if (value === null || value === undefined || value.trim() === '') return null
 	const trimmed = value.trim()
-	return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+	const candidate = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+	try {
+		return normalizePermalink(candidate)
+	} catch {
+		return null
+	}
 }
 
 /**
@@ -16,15 +24,8 @@ export function displayPath(value: string | null | undefined): string | null {
  */
 export function displayHost(host: string | null | undefined): string | null {
 	if (host === null || host === undefined || host.trim() === '') return null
-	try {
-		const url = new URL(host.trim())
-		if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-		if (url.pathname !== '/' || url.search !== '' || url.hash !== '') return null
-		if (url.username !== '' || url.password !== '') return null
-		return url.origin
-	} catch {
-		return null
-	}
+	const result = normalizeHost(host)
+	return result.error === null && result.host !== '' ? result.host : null
 }
 
 /**

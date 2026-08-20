@@ -23,6 +23,7 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 		SLUGGERNAUT_ENABLED: true,
 		SLUGGERNAUT_REDIRECTS_ENABLED: true,
 		SLUGGERNAUT_REDIRECTS_COLLECTION: 'custom_redirects',
+		SLUGGERNAUT_FIELDS_CACHE_TTL_MS: 60_000,
 		SLUGGERNAUT_SCHEMA_CHANGES_ENABLED: true,
 		SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR: true,
 		SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED: true,
@@ -35,9 +36,10 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 import hook from '../src/sluggernaut-hook'
 
 function registerHook() {
-	return hook(
+	const action = vi.fn()
+	hook(
 		{
-			action: vi.fn(),
+			action,
 			filter: vi.fn(),
 		} as never,
 		{
@@ -52,6 +54,7 @@ function registerHook() {
 			} as never,
 		} as never,
 	)
+	return action
 }
 
 describe('Sluggernaut startup registration', () => {
@@ -89,6 +92,23 @@ describe('Sluggernaut startup registration', () => {
 		expect(mocks.ensurePolicy.mock.calls[0]?.[0].definition.permissions).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ collection: 'custom_redirects', action: 'create' }),
+			]),
+		)
+	})
+
+	it('registers invalidation for all schema-derived field dependencies', () => {
+		const action = registerHook()
+		expect(action.mock.calls.map(([event]) => event)).toEqual(
+			expect.arrayContaining([
+				'fields.create',
+				'fields.update',
+				'fields.delete',
+				'collections.create',
+				'collections.update',
+				'collections.delete',
+				'relations.create',
+				'relations.update',
+				'relations.delete',
 			]),
 		)
 	})

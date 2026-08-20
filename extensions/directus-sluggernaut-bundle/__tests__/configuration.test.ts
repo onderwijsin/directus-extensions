@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { discoverCollectionConfiguration } from '../src/shared/ordering'
+import { discoverCollectionConfiguration } from '../src/shared/configuration/ordering'
 
 describe('Sluggernaut configuration discovery', () => {
 	it('sorts interfaces by Directus sort and field key', () => {
 		const configuration = discoverCollectionConfiguration([
+			{ field: 'title' },
+			{ field: 'name' },
+			{ field: 'fallback' },
 			{
 				field: 'z_slug',
 				meta: {
@@ -42,6 +45,7 @@ describe('Sluggernaut configuration discovery', () => {
 
 	it('rejects invalid permalink slug references without disabling slug derivation', () => {
 		const configuration = discoverCollectionConfiguration([
+			{ field: 'title' },
 			{
 				field: 'route',
 				meta: {
@@ -77,5 +81,20 @@ describe('Sluggernaut configuration discovery', () => {
 
 		expect(configuration.permalinks).toHaveLength(1)
 		expect(configuration.warnings).toHaveLength(0)
+	})
+
+	it('excludes slug interfaces with missing source fields', () => {
+		const configuration = discoverCollectionConfiguration([
+			{
+				field: 'slug',
+				meta: {
+					interface: 'sluggernaut-slug',
+					options: { sourceFields: ['deleted_title'] },
+				},
+			},
+		])
+
+		expect(configuration.slugs).toHaveLength(0)
+		expect(configuration.warnings[0]?.code).toBe('invalid-source-reference')
 	})
 })

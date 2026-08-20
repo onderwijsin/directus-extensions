@@ -23,4 +23,8 @@ describe('Sluggernaut link display helpers', () => {
 		)
 		expect(displayHref('hello', undefined)).toBeNull()
 	})
+
+	it('keeps null values copyable as an empty value', () => {
+		expect(displayPath(null)).toBeNull()
+	})
 })

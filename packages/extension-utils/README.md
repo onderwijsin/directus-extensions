@@ -31,6 +31,7 @@ import {
   asyncHandler,
   createAutoTaskHandler,
   initializeCache,
+  withCache,
   createRedisTaskHandlerStorage,
   createRedisLockProvider,
 } from '@onderwijsin/directus-extension-utils/server'
@@ -67,11 +68,44 @@ are appropriate for the deployment.
 Create a local or Redis-backed cache from validated Directus environment values:
 
 ```ts
-import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
+import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
 const cache = initializeCache(env, { ttl: 60_000 })
 const cached = await cache?.get('orders:summary')
+
+const readSummary = withCache({ cache, namespace: 'summary' }, async (collection: string) => {
+  return loadSummary(collection)
+})
+const summary = await readSummary('orders')
+await readSummary.clear('orders')
 ```
+
+`withCache` accepts a `Cache | null` and an optional namespace, then returns a typed asynchronous
+handler with this shape:
+
+```ts
+type CachedHandler<TArgs extends readonly unknown[], TResult> = ((
+  key: string,
+  ...args: TArgs
+) => Promise<TResult>) & {
+  clear(key: string): Promise<void>
+}
+```
+
+The logical `key` is used for cache lookup and is the first argument passed to the miss handler;
+additional arguments are forwarded unchanged. When `namespace: 'summary'` is supplied, the backend
+key is `summary:<key>` for reads, writes, and `clear(key)`. A namespace ending in `:` is not given a
+second separator. Without a namespace, keys pass through unchanged. A cache hit returns the cached
+value without invoking the handler; a miss invokes the handler and stores its result. A `null` cache
+disables reads, writes, and deletes while still invoking the handler.
+
+`clear(key)` deletes only the exact namespaced key and resolves after the delete completes. It does
+not invalidate other keys, flush the cache, or coordinate invalidation across processes by itself.
+Choose a Redis-backed cache and call `clear` from the relevant schema/data events when consumers
+need cross-process invalidation.
+
+The related public types are `CacheEnv` (the input environment shape), `CacheOptions` (`ttl`, a
+finite positive number), and `WithCacheOptions` (`cache` plus an optional namespace).
 
 `cacheConfigSchema` validates Directus cache and Redis settings. `REDIS` takes precedence over
 `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, and `REDIS_PASSWORD`; component configuration requires

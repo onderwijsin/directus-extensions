@@ -1,3 +1,4 @@
+/** Registers the Sluggernaut permalink interface in Directus Studio. */
 import { defineInterface } from '@directus/extensions-sdk'
 
 import PermalinkInterface from './interface.vue'
@@ -10,7 +11,11 @@ export default defineInterface({
 	component: PermalinkInterface,
 	types: ['string'],
 	group: 'standard',
-	options: [
+	/**
+	 * Defines the field configuration shown in Directus Studio.
+	 * @returns Sluggernaut interface option definitions.
+	 */
+	options: () => [
 		{
 			field: 'generateFromSlug',
 			name: 'Generate from slug',

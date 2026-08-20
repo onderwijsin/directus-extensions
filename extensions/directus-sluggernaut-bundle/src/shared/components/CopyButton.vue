@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** Copies a nullable field value when the browser exposes the Clipboard API. */
 import { useClipboard } from '@vueuse/core'
 
 withDefaults(

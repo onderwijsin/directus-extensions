@@ -90,7 +90,7 @@ only the common helper surface.
 | Auto-tasks       | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                                                          | `/server`         |
 | Logging          | `createLogger`                                                                                                                                                                                                                              | `/server`         |
 | Setup            | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                            | `/server`         |
-| Cache            | `initializeCache`                                                                                                                                                                                                                           | `/server`         |
+| Cache            | `initializeCache`, `withCache`                                                                                                                                                                                                              | `/server`         |
 | Schema/data      | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `rejectWhileSchemaLocked`, `withCollectionIdentity` | `/server`         |
 | Constants        | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                                                                          | `/constants`      |
 | Sentry           | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                                                                            | `/sentry`         |
@@ -144,11 +144,37 @@ Use `initializeCache` for disposable extension data that should follow the confi
 backend:
 
 ```ts
-import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
+import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
 const cache = initializeCache(env, { ttl: 60_000 })
-const cached = await cache?.get('orders:summary')
+const readSummary = withCache({ cache, namespace: 'summary' }, async (collection: string) => {
+  return loadSummary(collection)
+})
+const summary = await readSummary('orders')
+await readSummary.clear('orders')
 ```
+
+`withCache` returns a typed handler whose first argument is a logical string key:
+
+```ts
+type CachedHandler<TArgs extends readonly unknown[], TResult> = ((
+  key: string,
+  ...args: TArgs
+) => Promise<TResult>) & {
+  clear(key: string): Promise<void>
+}
+```
+
+The logical key is passed to the cache-miss handler, followed by any additional arguments. With
+`namespace: 'summary'`, reads, writes, and `clear(key)` use the backend key `summary:<key>`; a
+namespace already ending in `:` is not given a second separator. Without a namespace, keys are
+unchanged. A hit skips the handler; a miss runs it and stores its result. Passing `cache: null`
+disables caching while preserving the handler's behavior. `clear(key)` removes only the exact
+namespaced key and does not flush or coordinate invalidation across processes.
+
+The server export also exposes `CacheEnv`, `CacheOptions` (`ttl` must be finite and positive), and
+`WithCacheOptions` (`cache` plus an optional namespace). Use Redis and explicit event-driven
+invalidation when multiple Directus processes must share cache state.
 
 Validate cache settings with `cacheConfigSchema`. `REDIS` takes precedence over the four component
 values; component configuration requires `REDIS_ENABLED=true` (or `SYNCHRONIZATION_STORE=redis`) and

@@ -1,11 +1,24 @@
+/**
+ * @fileoverview Defines the canonical slug, path, prefix, and host normalization rules.
+ *
+ * Shared normalization rules for Sluggernaut slugs, paths, prefixes, and display hosts.
+ *
+ * These helpers define the canonical representation used by both the mutation coordinator and
+ * redirect planner. They reject absolute URLs and unsafe path syntax where the field contract
+ * requires a path, while keeping empty values representable as null.
+ */
+import { hasKey, isString } from '@onderwijsin/directus-extension-utils'
+
 const COMBINING_MARKS = /\p{M}/gu
 const NON_WORD_CHARACTERS = /[^\p{L}\p{N}]+/gu
 const REPEATED_SLASHES = /\/{2,}/gu
 
 export interface PathNormalizationOptions {
+	/** Whether a non-root path must end with a slash. */
 	trailingSlash?: boolean
 }
 
+/** Result of validating the optional host configured for the link display. */
 export interface HostNormalizationResult {
 	host: string
 	error: string | null
@@ -48,7 +61,7 @@ export function resolveFinalValue(
 	existingItem: Readonly<Record<string, unknown>>,
 	field: string,
 ): unknown {
-	return Object.hasOwn(payload, field) ? payload[field] : existingItem[field]
+	return hasKey(payload, field) ? payload[field] : existingItem[field]
 }
 
 /**
@@ -58,7 +71,7 @@ export function resolveFinalValue(
  */
 export function combineSourceValues(values: readonly unknown[]): string | null {
 	const nonEmptyValues = values.flatMap((value) => {
-		if (typeof value !== 'string') return []
+		if (!isString(value)) return []
 		const trimmed = value.trim()
 		return trimmed === '' ? [] : [trimmed]
 	})
@@ -88,7 +101,7 @@ export function deriveSlug(
  */
 export function normalizePermalink(value: string | null | undefined): string | null {
 	if (value === null || value === undefined) return null
-	if (typeof value !== 'string' || value.trim() === '') return null
+	if (!isString(value) || value.trim() === '') return null
 
 	const path = value.trim()
 	if (!path.startsWith('/') || path.startsWith('//')) {
@@ -110,6 +123,7 @@ export function normalizePermalink(value: string | null | undefined): string | n
 	}
 
 	const normalized = path.replace(REPEATED_SLASHES, '/')
+	// Dot segments are rejected after slash collapsing so equivalent unsafe paths cannot bypass validation.
 	if (normalized.split('/').some((segment) => segment === '.' || segment === '..')) {
 		throw new Error('A permalink must not contain dot path segments.')
 	}
@@ -145,10 +159,17 @@ export function applyTrailingSlash(value: string, trailingSlash: boolean): strin
  * Joins a prefix and slug into a permalink.
  * @param prefix - Optional path prefix.
  * @param slug - Slug value.
+ * @param locale - Locale used for transliteration.
+ * @param lowercase - Whether the normalized slug should be lowercase.
  * @returns A permalink path.
  */
-export function joinPrefixAndSlug(prefix: string | null | undefined, slug: string): string {
-	const normalizedSlug = normalizeSlug(slug)
+export function joinPrefixAndSlug(
+	prefix: string | null | undefined,
+	slug: string,
+	locale = 'en',
+	lowercase = true,
+): string {
+	const normalizedSlug = normalizeSlug(slug, locale, lowercase)
 	if (normalizedSlug === null) return normalizePrefix(prefix) ?? '/'
 	const normalizedPrefix = normalizePrefix(prefix)
 	return `${normalizedPrefix && normalizedPrefix !== '/' ? normalizedPrefix : ''}/${normalizedSlug}`

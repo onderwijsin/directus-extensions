@@ -121,6 +121,47 @@ memory package's local backend internally. The base email schema is optional and
 defaults; the required schema validates the selected `sendmail`, `smtp`, `mailgun`, or `ses`
 transport.
 
+## Server-only cache-aside helpers
+
+```ts
+type CacheEnv = z.input<typeof cacheConfigSchema>
+
+interface CacheOptions {
+  ttl: number // finite and positive
+}
+
+interface WithCacheOptions {
+  cache: Cache | null
+  namespace?: string
+}
+
+type CachedHandler<TArgs extends readonly unknown[], TResult> = ((
+	key: string,
+	...args: TArgs
+) => Promise<TResult>) & {
+  clear(key: string): Promise<void>
+}
+
+initializeCache(env: CacheEnv, options: CacheOptions): Cache | null
+withCache<TArgs extends readonly unknown[], TResult>(
+  options: WithCacheOptions,
+  handler: (key: string, ...args: TArgs) => Promise<TResult>,
+): CachedHandler<TArgs, TResult>
+```
+
+`initializeCache` validates the cache environment and maps the public `memory` storage to
+`@directus/memory`'s local backend. It returns `null` when caching is disabled. Redis initialization
+creates an `ioredis` client owned by the returned Directus cache; consumers should not create a
+second client for the same cache instance.
+
+`withCache` uses the first argument as a logical key. On a hit it returns the cached value and does
+not call the handler. On a miss it calls the handler with the logical key and any additional
+arguments, then stores the resolved value. `namespace` prefixes backend reads, writes, and exact-key
+deletes as `<namespace>:<key>`; a namespace ending in `:` is not double-suffixed. With no namespace,
+the key is unchanged. With `cache: null`, the handler always runs and no cache methods are called.
+`clear(key)` deletes only that exact logical key and has no cross-process invalidation semantics by
+itself.
+
 ## Server-only locks
 
 ```ts

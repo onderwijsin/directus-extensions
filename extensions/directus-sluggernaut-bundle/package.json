@@ -53,6 +53,8 @@
 		"typecheck": "vue-tsc --noEmit"
 	},
 	"dependencies": {
+		"@directus/errors": "catalog:",
+		"@directus/memory": "catalog:",
 		"@vueuse/core": "catalog:",
 		"zod": "catalog:"
 	},

@@ -5,7 +5,7 @@ import {
 	applyRedirectPlan,
 	readManagedRedirectsForItem,
 	readRelevantRedirects,
-} from '../src/sluggernaut-hook/redirect-service'
+} from '../src/sluggernaut-hook/redirects/service'
 
 describe('redirect service adapter', () => {
 	it('reads and parses only compatible redirect records', async () => {
@@ -60,6 +60,18 @@ describe('redirect service adapter', () => {
 		})
 
 		expect(store.createOne).toHaveBeenCalledOnce()
+		expect(store.createOne).toHaveBeenCalledWith({
+			origin: '/old',
+			destination: '/new',
+			type: 301,
+			is_active: true,
+			managed_by: 'sluggernaut',
+			source_collection: 'articles',
+			source_item: '1',
+			source_field: 'route',
+			source_type: 'permalink',
+			inactive_reason: null,
+		})
 		expect(store.updateOne).toHaveBeenNthCalledWith(1, 'chain', { destination: '/new' })
 		expect(store.updateOne).toHaveBeenNthCalledWith(2, 'loop', {
 			is_active: false,

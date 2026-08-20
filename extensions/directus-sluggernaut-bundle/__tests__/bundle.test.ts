@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { INTERFACE_IDS } from '../src/shared/constants'
-import { envSchema } from '../src/sluggernaut-hook/env.schema'
+import { INTERFACE_IDS } from '../src/shared/configuration/constants'
+import { envSchema } from '../src/sluggernaut-hook/configuration/env.schema'
 
 describe('Sluggernaut bundle scaffold', () => {
 	it('uses the V2 interface identifiers', () => {
@@ -16,6 +16,7 @@ describe('Sluggernaut bundle scaffold', () => {
 			SLUGGERNAUT_ENABLED: true,
 			SLUGGERNAUT_REDIRECTS_ENABLED: false,
 			SLUGGERNAUT_REDIRECTS_COLLECTION: 'redirects',
+			SLUGGERNAUT_FIELDS_CACHE_TTL_MS: 60_000,
 			SLUGGERNAUT_SCHEMA_CHANGES_ENABLED: false,
 			SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR: true,
 			SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED: false,

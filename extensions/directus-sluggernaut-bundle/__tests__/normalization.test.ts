@@ -11,7 +11,7 @@ import {
 	normalizePermalink,
 	normalizePrefix,
 	resolveFinalValue,
-} from '../src/shared/normalization'
+} from '../src/shared/values/normalization'
 
 describe('Sluggernaut normalization', () => {
 	it('derives a slug from multiple non-empty source values', () => {

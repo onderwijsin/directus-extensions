@@ -1,4 +1,4 @@
-import type { CollectionConfiguration } from '../src/shared/types'
+import type { CollectionConfiguration } from '../src/shared/configuration/types'
 
 import { describe, expect, it } from 'vitest'
 
@@ -8,7 +8,7 @@ import {
 	planCanonicalRedirect,
 	planLifecycleDeactivation,
 	selectRedirectSource,
-} from '../src/sluggernaut-hook/redirect-planner'
+} from '../src/sluggernaut-hook/redirects/planner'
 
 const configuration: CollectionConfiguration = {
 	slugs: [
@@ -111,6 +111,10 @@ describe('redirect planner', () => {
 					type: 301,
 					isActive: true,
 					managedBy: 'sluggernaut',
+					sourceCollection: 'articles',
+					sourceItem: '1',
+					sourceField: 'route',
+					sourceType: 'permalink',
 					inactiveReason: null,
 				},
 			],
@@ -134,6 +138,10 @@ describe('redirect planner', () => {
 					type: 301,
 					isActive: true,
 					managedBy: 'sluggernaut',
+					sourceCollection: 'articles',
+					sourceItem: '1',
+					sourceField: 'route',
+					sourceType: 'permalink',
 					inactiveReason: null,
 				},
 			],
@@ -141,6 +149,35 @@ describe('redirect planner', () => {
 
 		expect(plan.create).toBeNull()
 		expect(plan.rewrite).toEqual([{ id: 'managed', destination: '/b' }])
+	})
+
+	it('does not rewrite a managed redirect owned by another source item', () => {
+		const plan = planCanonicalRedirect({
+			oldCanonical: '/a',
+			newCanonical: '/b',
+			source: { type: 'permalink', field: 'route' },
+			sourceCollection: 'articles',
+			sourceItem: '2',
+			existingRedirects: [
+				{
+					id: 'managed-by-item-1',
+					origin: '/a',
+					destination: '/previous',
+					type: 301,
+					isActive: true,
+					managedBy: 'sluggernaut',
+					sourceCollection: 'articles',
+					sourceItem: '1',
+					sourceField: 'route',
+					sourceType: 'permalink',
+					inactiveReason: null,
+				},
+			],
+		})
+
+		expect(plan.create).toBeNull()
+		expect(plan.warnings).toHaveLength(1)
+		expect(plan.rewrite).toEqual([])
 	})
 
 	it('preserves unowned conflicts and prevents self-loop reversion', () => {
@@ -159,6 +196,10 @@ describe('redirect planner', () => {
 					type: 301,
 					isActive: true,
 					managedBy: 'sluggernaut',
+					sourceCollection: 'articles',
+					sourceItem: '1',
+					sourceField: 'route',
+					sourceType: 'permalink',
 					inactiveReason: null,
 				},
 			],

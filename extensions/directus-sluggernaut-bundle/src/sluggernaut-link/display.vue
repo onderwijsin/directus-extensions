@@ -1,23 +1,27 @@
 <script setup lang="ts">
+/** Data Studio display for a Sluggernaut slug or permalink. */
 import { computed } from 'vue'
 
-import CopyButton from '../shared/CopyButton.vue'
-import { displayHref, displayHost, displayPath } from './link'
+import CopyButton from '../shared/components/CopyButton.vue'
+import { displayHref, displayHost } from './link'
+import { linkDisplayOptionsSchema, type LinkDisplayOptions } from './options.schema'
 
 const props = defineProps<{
 	value?: string | null
-	options?: { host?: string | null }
+	options?: LinkDisplayOptions
 }>()
 
-const path = computed(() => displayPath(props.value))
-const href = computed(() => displayHref(props.value, props.options?.host))
+const parsedOptions = computed(() => linkDisplayOptionsSchema.safeParse(props.options ?? {}))
+const host = computed(() => (parsedOptions.value.success ? parsedOptions.value.data.host : null))
+const href = computed(() => displayHref(props.value, host.value))
 
 /**
  * Opens the displayed path when a valid host is configured.
  * @returns void
  */
 function openValue() {
-	if (href.value === null || displayHost(props.options?.host) === null) return
+	// Keep invalid or incomplete display configuration non-interactive rather than opening a bad URL.
+	if (href.value === null || displayHost(host.value) === null) return
 	window.open(href.value, '_blank', 'noopener,noreferrer')
 }
 </script>
@@ -25,7 +29,7 @@ function openValue() {
 <template>
 	<div class="sluggernaut-link">
 		<span class="sluggernaut-link__value">{{ value ?? '—' }}</span>
-		<CopyButton v-if="path !== null" :value="value ?? null" x-small />
+		<CopyButton :value="value ?? null" x-small />
 		<v-button
 			v-if="href !== null"
 			small

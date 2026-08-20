@@ -1,8 +1,19 @@
+/**
+ * @fileoverview Coordinates pure derived-field mutation values.
+ *
+ * Coordinates derived-field values during Directus item mutations.
+ *
+ * Slugs are resolved before permalinks because a permalink may depend on a slug produced by the
+ * same mutation. The coordinator is deliberately pure: callers decide whether the returned
+ * payload is written through Directus services or directly through the transaction database.
+ */
 import type {
 	CollectionConfiguration,
 	DiscoveredPermalinkField,
 	DiscoveredSlugField,
-} from '../shared/types'
+} from '../../shared/configuration/types'
+
+import { hasKey, isString } from '@onderwijsin/directus-extension-utils'
 
 import {
 	applyTrailingSlash,
@@ -11,10 +22,12 @@ import {
 	joinPrefixAndSlug,
 	normalizeSlug,
 	resolveFinalValue,
-} from '../shared/normalization'
+} from '../../shared/values/normalization'
 
+/** Mutation context that determines when derived values should be refreshed. */
 export type MutationKind = 'create' | 'update' | 'recalculate'
 
+/** Input required to derive Sluggernaut values for one mutation. */
 export interface MutationCoordinatorInput {
 	kind: MutationKind
 	payload: Readonly<Record<string, unknown>>
@@ -25,9 +38,8 @@ export interface MutationCoordinatorInput {
 }
 
 export interface MutationCoordinatorResult {
+	/** A shallow copy of the input payload with derived fields applied. */
 	payload: Record<string, unknown>
-	changedSlugFields: string[]
-	changedPermalinkFields: string[]
 }
 
 /**
@@ -37,7 +49,7 @@ export interface MutationCoordinatorResult {
  * @returns Whether at least one field is present.
  */
 function hasAnyField(payload: Readonly<Record<string, unknown>>, fields: readonly string[]) {
-	return fields.some((field) => Object.hasOwn(payload, field))
+	return fields.some((field) => hasKey(payload, field))
 }
 
 /**
@@ -67,16 +79,18 @@ function resolveSlugValue(
 	input: MutationCoordinatorInput,
 	field: DiscoveredSlugField,
 ): { value: string | null; shouldWrite: boolean } {
-	const explicitlySupplied = Object.hasOwn(input.payload, field.field)
+	const explicitlySupplied = hasKey(input.payload, field.field)
 	const sourceChanged = hasAnyField(input.payload, field.options.sourceFields)
+	// Creates and recalculations always derive; updates derive only when configured source fields changed.
 	const shouldDerive =
 		input.kind === 'create' ||
 		input.kind === 'recalculate' ||
 		(field.options.updateOnSourceChange && sourceChanged)
 
 	if (explicitlySupplied) {
+		// An explicit value wins over derivation, but still passes through the same normalization rules.
 		const value = input.payload[field.field]
-		if (value !== null && value !== undefined && typeof value !== 'string') {
+		if (value !== null && value !== undefined && !isString(value)) {
 			throw new Error(`Slug field "${field.field}" must receive a string or null value.`)
 		}
 		return {
@@ -88,7 +102,7 @@ function resolveSlugValue(
 	if (!shouldDerive) {
 		const existingValue = input.existingItem[field.field]
 		return {
-			value: typeof existingValue === 'string' ? existingValue : null,
+			value: isString(existingValue) ? existingValue : null,
 			shouldWrite: false,
 		}
 	}
@@ -117,7 +131,7 @@ function finalSlugValue(
 ): string | null {
 	if (derivedValues.has(field.field)) return derivedValues.get(field.field) ?? null
 	const value = resolveFinalValue(input.payload, input.existingItem, field.field)
-	return typeof value === 'string' ? value : null
+	return isString(value) ? value : null
 }
 
 /**
@@ -134,7 +148,7 @@ function slugChanged(
 ): boolean {
 	if (input.kind === 'create') return true
 	const previous = input.existingItem[field.field]
-	return (typeof previous === 'string' ? previous : null) !== value
+	return (isString(previous) ? previous : null) !== value
 }
 
 /**
@@ -149,16 +163,17 @@ function resolvePermalinkValue(
 	field: DiscoveredPermalinkField,
 	derivedSlugs: ReadonlyMap<string, string | null>,
 ): { value: string | null; shouldWrite: boolean } {
-	const explicitlySupplied = Object.hasOwn(input.payload, field.field)
+	const explicitlySupplied = hasKey(input.payload, field.field)
 	if (explicitlySupplied) {
 		const value = input.payload[field.field]
-		if (value !== null && value !== undefined && typeof value !== 'string') {
+		if (value !== null && value !== undefined && !isString(value)) {
 			throw new Error(`Permalink field "${field.field}" must receive a string or null value.`)
 		}
 		return {
 			value: normalizeManualPermalink(value, {
-				prefix: field.options.prefix,
-				validatePrefix: field.options.validatePrefixOnManualInput,
+				prefix: field.options.generateFromSlug ? field.options.prefix : undefined,
+				validatePrefix:
+					field.options.generateFromSlug && field.options.validatePrefixOnManualInput,
 				trailingSlash: field.options.trailingSlash,
 				enforceTrailingSlash: field.options.enforceTrailingSlashOnManualInput,
 			}),
@@ -169,22 +184,29 @@ function resolvePermalinkValue(
 	if (!field.options.generateFromSlug) return { value: null, shouldWrite: false }
 	const slugField = field.options.slugField
 	if (!slugField) return { value: null, shouldWrite: false }
-	const slug = derivedSlugs.get(slugField)
 	const slugConfiguration = input.configuration.slugs.find(
 		(candidate) => candidate.field === slugField,
 	)
 	if (!slugConfiguration) return { value: null, shouldWrite: false }
-	const finalSlug = slug ?? finalSlugValue(input, slugConfiguration, derivedSlugs)
+	const finalSlug = derivedSlugs.has(slugField)
+		? (derivedSlugs.get(slugField) ?? null)
+		: finalSlugValue(input, slugConfiguration, derivedSlugs)
 	const shouldSynchronize =
 		input.kind === 'create' ||
 		input.kind === 'recalculate' ||
 		(field.options.updateOnSlugChange && slugChanged(input, slugConfiguration, finalSlug))
 	if (!shouldSynchronize) return { value: null, shouldWrite: false }
+	// A cleared slug must clear its generated permalink as well.
 	if (finalSlug === null) return { value: null, shouldWrite: true }
 
 	return {
 		value: applyTrailingSlash(
-			joinPrefixAndSlug(field.options.prefix, finalSlug),
+			joinPrefixAndSlug(
+				field.options.prefix,
+				finalSlug,
+				slugConfiguration.options.locale,
+				slugConfiguration.options.lowercase,
+			),
 			field.options.trailingSlash,
 		),
 		shouldWrite: true,
@@ -199,34 +221,23 @@ function resolvePermalinkValue(
 export function coordinateMutation(input: MutationCoordinatorInput): MutationCoordinatorResult {
 	const payload: Record<string, unknown> = { ...input.payload }
 	const derivedSlugs = new Map<string, string | null>()
-	const changedSlugFields: string[] = []
-	const changedPermalinkFields: string[] = []
 
+	// Resolve slugs first so dependent permalink fields see the final slug values.
 	for (const field of input.configuration.slugs) {
 		if (input.fieldKeys && !input.fieldKeys.has(field.field)) continue
 		const result = resolveSlugValue(input, field)
 		if (!result.shouldWrite) continue
 		payload[field.field] = result.value
 		derivedSlugs.set(field.field, result.value)
-		if (input.kind === 'create' || slugChanged(input, field, result.value)) {
-			changedSlugFields.push(field.field)
-		}
 	}
 
+	// Permalinks are resolved after all slug fields have been processed.
 	for (const field of input.configuration.permalinks) {
 		if (input.fieldKeys && !input.fieldKeys.has(field.field)) continue
 		const result = resolvePermalinkValue(input, field, derivedSlugs)
 		if (!result.shouldWrite) continue
 		payload[field.field] = result.value
-		if (
-			input.kind === 'create' ||
-			(typeof input.existingItem[field.field] === 'string'
-				? input.existingItem[field.field]
-				: null) !== result.value
-		) {
-			changedPermalinkFields.push(field.field)
-		}
 	}
 
-	return { payload, changedSlugFields, changedPermalinkFields }
+	return { payload }
 }

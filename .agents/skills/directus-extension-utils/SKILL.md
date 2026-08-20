@@ -87,6 +87,42 @@ Use `createCache` for disposable derived data and `createKv` for coordination st
 markers. Both support local and Redis-backed stores. Use `createRedisLockProvider` for Redis locks
 so Redis connection ownership stays inside the utility.
 
+For a reusable cache-aside read, use `initializeCache` with `withCache`:
+
+```ts
+import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
+
+const cache = initializeCache(env, { ttl: 60_000 })
+const readField = withCache(
+	{ cache, namespace: 'fields' },
+	async (collection: string, includeHidden: boolean) => {
+		return loadFields(collection, includeHidden)
+	},
+)
+
+const fields = await readField('articles', false)
+await readField.clear('articles')
+```
+
+`withCache` returns a `CachedHandler<TArgs, TResult>` with the signature
+`(key: string, ...args: TArgs) => Promise<TResult>` plus `clear(key): Promise<void>`. The first
+argument is the logical key: it is used for lookup, passed unchanged to the miss handler, and
+prefixed only for backend operations when `namespace` is supplied. For example, the call above uses
+`fields:articles` in the backend and passes `('articles', false)` to `loadFields` on a miss. A
+namespace ending in `:` is preserved without adding a duplicate separator.
+
+Cache hits skip the handler. Cache misses invoke the handler and store its resolved result. A
+`cache: null` option disables get/set/delete operations but still invokes the handler, which makes
+the same wrapper safe when caching is disabled by environment. `clear` removes one exact logical
+key; it does not flush other entries or coordinate invalidation across processes. Consumers must
+wire `clear` to their own schema/data events, and should use a Redis-backed cache when invalidation
+must be visible across Directus instances.
+
+The public server types are `CacheEnv`, `CacheOptions` (`ttl` must be finite and positive),
+`WithCacheOptions` (`cache: Cache | null`, optional `namespace`), and
+`CachedHandler<TArgs, TResult>`. Keep cache values disposable and derived; use `createKv` for
+coordination state or durable markers.
+
 ### Locks
 
 `tryAcquire` returns an owner-bound lease or `null` on contention. Use `isLocked` for a read-only

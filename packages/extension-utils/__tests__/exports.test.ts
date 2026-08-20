@@ -48,6 +48,7 @@ describe('runtime-aware exports', () => {
 				'validateExtensionOptions',
 				'getAccountabilityFromRequest',
 				'initializeCache',
+				'withCache',
 				'cacheConfigSchema',
 				'emailConfigSchema',
 				'requiredEmailConfigSchema',

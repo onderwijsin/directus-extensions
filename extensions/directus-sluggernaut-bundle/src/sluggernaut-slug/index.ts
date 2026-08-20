@@ -1,3 +1,4 @@
+/** Registers the Sluggernaut slug interface in Directus Studio. */
 import { defineInterface } from '@directus/extensions-sdk'
 
 import SlugInterface from './interface.vue'
