@@ -12,7 +12,7 @@ export const envSchema = directusStartupSchema.safeExtend({
 	SLUGGERNAUT_ENABLED: z.boolean().default(true),
 	SLUGGERNAUT_REDIRECTS_ENABLED: z.boolean().default(false),
 	SLUGGERNAUT_REDIRECTS_COLLECTION: collectionIdentifier.default('redirects'),
-	SLUGGERNAUT_FIELDS_CACHE_TTL_MS: z.number().finite().positive().default(60_000),
+	SLUGGERNAUT_FIELDS_CACHE_TTL_MS: z.number().positive().default(60_000),
 	SLUGGERNAUT_SCHEMA_CHANGES_ENABLED: z.boolean().default(false),
 	SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR: z.boolean().default(true),
 	SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED: z.boolean().default(false),

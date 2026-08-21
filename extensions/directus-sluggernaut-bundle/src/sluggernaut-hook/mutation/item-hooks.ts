@@ -20,9 +20,7 @@ import {
 	isRecord,
 	isString,
 } from '@onderwijsin/directus-extension-utils'
-import { z } from 'zod'
 
-import { discoverCollectionConfiguration } from '../../shared/configuration/ordering'
 import {
 	canonicalUrlForItem,
 	planArchiveReactivation,
@@ -35,26 +33,20 @@ import {
 	applyRedirectPlan,
 	readManagedRedirectsForItem,
 	readRelevantRedirects,
-} from '../redirects/service'
-import { createRedirectStore } from '../redirects/store'
+} from '../redirects/redirect-operations'
+import { createRedirectService } from '../redirects/service'
 import { coordinateMutation } from './coordinator'
+import { getConfiguration, logConfigurationWarnings } from './helpers'
 
-const collectionMetadataSchema = z.looseObject({
-	meta: z
-		.looseObject({
-			archive_field: z.string().optional(),
-			archive_value: z.unknown().optional(),
-			unarchive_value: z.unknown().optional(),
-		})
-		.nullable()
-		.optional(),
-})
-
-interface ArchiveSettings {
-	field: string
-	archiveValue: unknown
-	unarchiveValue: unknown
+interface CollectionMetadata {
+	meta: {
+		archive_field?: string
+		archive_value?: unknown
+		unarchive_value?: unknown
+	} | null
 }
+
+type ArchiveSettings = NonNullable<CollectionMetadata['meta']>
 
 /**
  * Resolves an archive field change into its redirect lifecycle transition.
@@ -75,25 +67,6 @@ function archiveLifecycle(
 		return 'unarchive'
 	}
 	return null
-}
-
-/**
- * Coordinates a single item in a bulk create payload.
- * @param item - Incoming bulk-create item.
- * @param configuration - Parsed collection configuration.
- * @returns The item with derived values applied.
- */
-function coordinateCreatedItem(
-	item: unknown,
-	configuration: ReturnType<typeof discoverCollectionConfiguration>,
-): Record<string, unknown> {
-	if (!isRecord(item)) throw new Error('Sluggernaut bulk creates require item objects.')
-	return coordinateMutation({
-		kind: 'create',
-		payload: item,
-		existingItem: {},
-		configuration,
-	}).payload
 }
 
 /**
@@ -131,16 +104,6 @@ export function registerSluggernautItemHooks(
 	options: SluggernautEnv,
 	fieldReader: FieldReader,
 ): void {
-	/**
-	 * Reads and validates field configuration for one collection.
-	 * @param collection - Directus collection key.
-	 * @returns Parsed collection configuration.
-	 */
-	async function discoverConfiguration(collection: string) {
-		const fields = await fieldReader.read(collection)
-		return discoverCollectionConfiguration(fields)
-	}
-
 	/**
 	 * Reads Directus-native archive metadata for one collection.
 	 * @param collection - Directus collection key.
@@ -192,25 +155,6 @@ export function registerSluggernautItemHooks(
 	}
 
 	/**
-	 * Emits structured warnings for invalid or duplicate field configuration.
-	 * @param collection - Directus collection key.
-	 * @param configuration - Parsed collection configuration.
-	 * @returns void
-	 */
-	function logConfigurationWarnings(
-		collection: string,
-		configuration: ReturnType<typeof discoverCollectionConfiguration>,
-	) {
-		for (const warning of configuration.warnings) {
-			context.logger.warn(warning.message, {
-				collection,
-				field: warning.field,
-				code: warning.code,
-			})
-		}
-	}
-
-	/**
 	 * Checks whether the payload can affect a Sluggernaut-derived value.
 	 * @param payload - Incoming mutation payload.
 	 * @param configuration - Parsed collection configuration.
@@ -249,18 +193,18 @@ export function registerSluggernautItemHooks(
 		const newCanonical = canonicalUrlForItem(source, nextItem)
 		if (oldCanonical === null || newCanonical === null || oldCanonical === newCanonical) return
 
-		const store = await createRedirectStore(
+		const service = await createRedirectService(
 			context,
 			options.SLUGGERNAUT_REDIRECTS_COLLECTION,
 			database,
 		)
-		const existingRedirects = await readRelevantRedirects(store, oldCanonical, newCanonical)
+		const existingRedirects = await readRelevantRedirects(service, oldCanonical, newCanonical)
 		const plan = planCanonicalRedirect({
 			oldCanonical,
 			newCanonical,
 			source,
-			sourceCollection: collection,
-			sourceItem: String(key),
+			source_collection: collection,
+			source_item: String(key),
 			existingRedirects,
 		})
 		for (const warning of plan.warnings) {
@@ -270,7 +214,7 @@ export function registerSluggernautItemHooks(
 				code: 'redirect-conflict',
 			})
 		}
-		await applyRedirectPlan(store, plan)
+		await applyRedirectPlan(service, plan)
 	}
 
 	/**
@@ -286,7 +230,7 @@ export function registerSluggernautItemHooks(
 		database: EventContext['database'],
 	) {
 		if (!options.SLUGGERNAUT_REDIRECTS_ENABLED) return
-		const store = await createRedirectStore(
+		const service = await createRedirectService(
 			context,
 			options.SLUGGERNAUT_REDIRECTS_COLLECTION,
 			database,
@@ -294,8 +238,8 @@ export function registerSluggernautItemHooks(
 
 		for (const key of keys) {
 			// Each item owns an independent redirect history; one item can be processed after another.
-			const redirects = await readManagedRedirectsForItem(store, collection, String(key))
-			await applyRedirectLifecyclePlan(store, {
+			const redirects = await readManagedRedirectsForItem(service, collection, String(key))
+			await applyRedirectLifecyclePlan(service, {
 				deactivate: planLifecycleDeactivation(redirects, 'delete'),
 				reactivate: [],
 			})
@@ -317,13 +261,13 @@ export function registerSluggernautItemHooks(
 		database: EventContext['database'],
 	) {
 		if (!options.SLUGGERNAUT_REDIRECTS_ENABLED) return
-		const store = await createRedirectStore(
+		const service = await createRedirectService(
 			context,
 			options.SLUGGERNAUT_REDIRECTS_COLLECTION,
 			database,
 		)
-		const redirects = await readManagedRedirectsForItem(store, collection, String(key))
-		await applyRedirectLifecyclePlan(store, {
+		const redirects = await readManagedRedirectsForItem(service, collection, String(key))
+		await applyRedirectLifecyclePlan(service, {
 			deactivate:
 				lifecycle === 'archive' ? planLifecycleDeactivation(redirects, 'archive') : [],
 			reactivate: lifecycle === 'unarchive' ? planArchiveReactivation(redirects) : [],
@@ -417,19 +361,22 @@ export function registerSluggernautItemHooks(
 		return key
 	}
 
+	/**
+	 * Applies configured derived values to an item creation payload.
+	 * @param payload - Incoming item or bulk item payload.
+	 * @param meta - Directus mutation metadata.
+	 * @returns The payload with derived values applied.
+	 */
 	hook.filter('items.create', async (payload, meta) => {
-		if (!isRecord(payload) && !isArray(payload)) return payload
+		if (!isRecord(payload)) return payload
 		const collection = meta.collection
 		if (!isString(collection)) throw new Error('Sluggernaut requires a collection key.')
 
-		const configuration = await discoverConfiguration(collection)
-		logConfigurationWarnings(collection, configuration)
+		const configuration = await getConfiguration(collection, fieldReader)
+		logConfigurationWarnings(collection, configuration, context)
+
 		if (configuration.slugs.length === 0 && configuration.permalinks.length === 0)
 			return payload
-
-		// Bulk creates use the same pure coordinator once per item; no existing item state is needed.
-		if (isArray(payload))
-			return payload.map((item) => coordinateCreatedItem(item, configuration))
 
 		return coordinateMutation({
 			kind: 'create',
@@ -442,9 +389,10 @@ export function registerSluggernautItemHooks(
 	hook.filter('items.update', async (payload, meta, eventContext) => {
 		if (!isRecord(payload)) return payload
 		const collection = meta.collection
+
 		if (!isString(collection)) throw new Error('Sluggernaut requires a collection key.')
 
-		const configuration = await discoverConfiguration(collection)
+		const configuration = await getConfiguration(collection, fieldReader)
 		const archiveSettings = options.SLUGGERNAUT_REDIRECTS_ENABLED
 			? await discoverArchiveSettings(collection)
 			: null

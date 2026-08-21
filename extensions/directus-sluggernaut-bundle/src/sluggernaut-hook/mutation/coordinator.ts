@@ -21,7 +21,7 @@ import {
 	normalizeManualPermalink,
 	joinPrefixAndSlug,
 	normalizeSlug,
-	resolveFinalValue,
+	resolveEffectiveFieldValue,
 } from '../../shared/values/normalization'
 
 /** Mutation context that determines when derived values should be refreshed. */
@@ -65,7 +65,7 @@ function sourceValues(
 	field: DiscoveredSlugField,
 ): unknown[] {
 	return field.options.sourceFields.map((sourceField) =>
-		resolveFinalValue(payload, existingItem, sourceField),
+		resolveEffectiveFieldValue(payload, existingItem, sourceField),
 	)
 }
 
@@ -130,7 +130,7 @@ function finalSlugValue(
 	derivedValues: ReadonlyMap<string, string | null>,
 ): string | null {
 	if (derivedValues.has(field.field)) return derivedValues.get(field.field) ?? null
-	const value = resolveFinalValue(input.payload, input.existingItem, field.field)
+	const value = resolveEffectiveFieldValue(input.payload, input.existingItem, field.field)
 	return isString(value) ? value : null
 }
 

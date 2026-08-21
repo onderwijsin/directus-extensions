@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { discoverCollectionConfiguration } from '../src/shared/configuration/ordering'
+import { discoverCollectionConfiguration } from '../src/shared/configuration/discovery'
 
 describe('Sluggernaut configuration discovery', () => {
 	it('sorts interfaces by Directus sort and field key', () => {
@@ -13,7 +13,13 @@ describe('Sluggernaut configuration discovery', () => {
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: 1,
-					options: { sourceFields: ['title'] },
+					options: {
+						sourceFields: ['title'],
+						locale: 'en',
+						lowercase: true,
+						updateOnSourceChange: true,
+						automaticRedirects: false,
+					},
 				},
 			},
 			{
@@ -21,7 +27,13 @@ describe('Sluggernaut configuration discovery', () => {
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: 1,
-					options: { sourceFields: ['name'] },
+					options: {
+						sourceFields: ['name'],
+						locale: 'en',
+						lowercase: true,
+						updateOnSourceChange: true,
+						automaticRedirects: false,
+					},
 				},
 			},
 			{
@@ -29,7 +41,13 @@ describe('Sluggernaut configuration discovery', () => {
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: null,
-					options: { sourceFields: ['fallback'] },
+					options: {
+						sourceFields: ['fallback'],
+						locale: 'en',
+						lowercase: true,
+						updateOnSourceChange: true,
+						automaticRedirects: false,
+					},
 				},
 			},
 		])
@@ -50,7 +68,15 @@ describe('Sluggernaut configuration discovery', () => {
 				field: 'route',
 				meta: {
 					interface: 'sluggernaut-permalink',
-					options: { generateFromSlug: true, slugField: 'missing' },
+					options: {
+						generateFromSlug: true,
+						slugField: 'missing',
+						updateOnSlugChange: false,
+						validatePrefixOnManualInput: false,
+						trailingSlash: false,
+						enforceTrailingSlashOnManualInput: false,
+						automaticRedirects: false,
+					},
 				},
 			},
 			{
@@ -58,7 +84,13 @@ describe('Sluggernaut configuration discovery', () => {
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: 1,
-					options: { sourceFields: ['title'] },
+					options: {
+						sourceFields: ['title'],
+						locale: 'en',
+						lowercase: true,
+						updateOnSourceChange: true,
+						automaticRedirects: false,
+					},
 				},
 			},
 		])
@@ -74,7 +106,14 @@ describe('Sluggernaut configuration discovery', () => {
 				field: 'route',
 				meta: {
 					interface: 'sluggernaut-permalink',
-					options: { generateFromSlug: false },
+					options: {
+						generateFromSlug: false,
+						updateOnSlugChange: false,
+						validatePrefixOnManualInput: false,
+						trailingSlash: false,
+						enforceTrailingSlashOnManualInput: false,
+						automaticRedirects: false,
+					},
 				},
 			},
 		])
@@ -89,7 +128,13 @@ describe('Sluggernaut configuration discovery', () => {
 				field: 'slug',
 				meta: {
 					interface: 'sluggernaut-slug',
-					options: { sourceFields: ['deleted_title'] },
+					options: {
+						sourceFields: ['deleted_title'],
+						locale: 'en',
+						lowercase: true,
+						updateOnSourceChange: true,
+						automaticRedirects: false,
+					},
 				},
 			},
 		])

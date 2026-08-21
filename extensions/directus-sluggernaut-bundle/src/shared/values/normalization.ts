@@ -1,18 +1,26 @@
 /**
  * @fileoverview Defines the canonical slug, path, prefix, and host normalization rules.
  *
- * Shared normalization rules for Sluggernaut slugs, paths, prefixes, and display hosts.
- *
  * These helpers define the canonical representation used by both the mutation coordinator and
  * redirect planner. They reject absolute URLs and unsafe path syntax where the field contract
  * requires a path, while keeping empty values representable as null.
  */
-import { hasKey, isString } from '@onderwijsin/directus-extension-utils'
+import {
+	hasKey,
+	isString,
+	isDefined,
+	isNonBlankString,
+} from '@onderwijsin/directus-extension-utils'
+import {
+	cleanDoubleSlashes,
+	joinURL,
+	withLeadingSlash,
+	withTrailingSlash,
+	withoutTrailingSlash,
+} from 'ufo'
 
 const COMBINING_MARKS = /\p{M}/gu
 const NON_WORD_CHARACTERS = /[^\p{L}\p{N}]+/gu
-const REPEATED_SLASHES = /\/{2,}/gu
-
 export interface PathNormalizationOptions {
 	/** Whether a non-root path must end with a slash. */
 	trailingSlash?: boolean
@@ -36,7 +44,7 @@ export function normalizeSlug(
 	locale = 'en',
 	lowercase = true,
 ): string | null {
-	if (value === null || value === undefined || value.trim() === '') return null
+	if (value === null || !isDefined(value) || !isNonBlankString(value)) return null
 
 	const localeNormalized = lowercase ? value.toLocaleLowerCase(locale) : value
 	const normalized = localeNormalized.normalize('NFKD').replace(COMBINING_MARKS, '')
@@ -45,18 +53,18 @@ export function normalizeSlug(
 		.replace(/^-+|-+$/gu, '')
 		.replace(/-{2,}/gu, '-')
 
-	if (slug === '') return null
+	if (!isNonBlankString(slug)) return null
 	return slug
 }
 
 /**
- * Resolves a field from the final payload/item state.
+ * Resolves the effective value of a field from the payload/item state.
  * @param payload - Incoming mutation payload.
  * @param existingItem - Existing item values.
  * @param field - Field key to resolve.
  * @returns The explicitly supplied value or existing value.
  */
-export function resolveFinalValue(
+export function resolveEffectiveFieldValue(
 	payload: Readonly<Record<string, unknown>>,
 	existingItem: Readonly<Record<string, unknown>>,
 	field: string,
@@ -65,18 +73,18 @@ export function resolveFinalValue(
 }
 
 /**
- * Removes empty source values and combines the remaining values.
+ * Removes empty permalink source values and combines the remaining values with hyphens.
  * @param values - Candidate source values.
- * @returns Combined source text or null when no source is present.
+ * @returns Combined permalink source text or null when no source is present.
  */
-export function combineSourceValues(values: readonly unknown[]): string | null {
+export function combinePermalinkSourceValues(values: readonly unknown[]): string | null {
 	const nonEmptyValues = values.flatMap((value) => {
 		if (!isString(value)) return []
 		const trimmed = value.trim()
 		return trimmed === '' ? [] : [trimmed]
 	})
 
-	return nonEmptyValues.length > 0 ? nonEmptyValues.join(' ') : null
+	return nonEmptyValues.length > 0 ? nonEmptyValues.join('-') : null
 }
 
 /**
@@ -91,7 +99,7 @@ export function deriveSlug(
 	locale = 'en',
 	lowercase = true,
 ): string | null {
-	return normalizeSlug(combineSourceValues(sourceValues), locale, lowercase)
+	return normalizeSlug(combinePermalinkSourceValues(sourceValues), locale, lowercase)
 }
 
 /**
@@ -123,7 +131,7 @@ export function normalizePermalink(value: string | null | undefined): string | n
 		throw new Error('A permalink must not contain a URL scheme.')
 	}
 
-	const normalized = path.replace(REPEATED_SLASHES, '/')
+	const normalized = cleanDoubleSlashes(path)
 	// Dot segments are rejected after slash collapsing so equivalent unsafe paths cannot bypass validation.
 	if (normalized.split('/').some((segment) => segment === '.' || segment === '..')) {
 		throw new Error('A permalink must not contain dot path segments.')
@@ -138,10 +146,10 @@ export function normalizePermalink(value: string | null | undefined): string | n
  */
 export function normalizePrefix(prefix: string | null | undefined): string | null {
 	if (prefix === null || prefix === undefined || prefix.trim() === '') return null
-	const normalized = normalizePermalink(prefix.startsWith('/') ? prefix : `/${prefix}`)
+	const normalized = normalizePermalink(withLeadingSlash(prefix))
 	if (normalized === null) return null
 	if (normalized === '/') return '/'
-	return normalized.replace(/\/+$/u, '')
+	return withoutTrailingSlash(normalized)
 }
 
 /**
@@ -153,7 +161,7 @@ export function normalizePrefix(prefix: string | null | undefined): string | nul
 export function applyTrailingSlash(value: string, trailingSlash: boolean): string {
 	const normalized = normalizePermalink(value)
 	if (normalized === null || normalized === '/') return '/'
-	return trailingSlash ? `${normalized.replace(/\/+$/u, '')}/` : normalized.replace(/\/+$/u, '')
+	return trailingSlash ? withTrailingSlash(normalized) : withoutTrailingSlash(normalized)
 }
 
 /**
@@ -173,7 +181,7 @@ export function joinPrefixAndSlug(
 	const normalizedSlug = normalizeSlug(slug, locale, lowercase)
 	if (normalizedSlug === null) return normalizePrefix(prefix) ?? '/'
 	const normalizedPrefix = normalizePrefix(prefix)
-	return `${normalizedPrefix && normalizedPrefix !== '/' ? normalizedPrefix : ''}/${normalizedSlug}`
+	return joinURL(normalizedPrefix ?? '/', normalizedSlug)
 }
 
 /**

@@ -1,4 +1,25 @@
-import type { SlugInterfaceOptions, PermalinkInterfaceOptions } from './interface-options.schema'
+import type { Locale } from './locales'
+
+/** Options persisted by the Sluggernaut slug interface. */
+export interface SlugInterfaceOptions {
+	sourceFields: string[]
+	locale: Locale
+	lowercase: boolean
+	updateOnSourceChange: boolean
+	automaticRedirects: boolean
+}
+
+/** Options persisted by the Sluggernaut permalink interface. */
+export interface PermalinkInterfaceOptions {
+	generateFromSlug: boolean
+	slugField?: string
+	updateOnSlugChange: boolean
+	prefix?: string
+	validatePrefixOnManualInput: boolean
+	trailingSlash: boolean
+	enforceTrailingSlashOnManualInput: boolean
+	automaticRedirects: boolean
+}
 
 /** Directus field metadata consumed by Sluggernaut configuration discovery. */
 export interface SluggernautFieldMetadata {
@@ -6,7 +27,7 @@ export interface SluggernautFieldMetadata {
 	meta?: {
 		interface?: string | null
 		sort?: number | null
-		options?: unknown
+		options?: Record<string, unknown> | null
 	} | null
 	schema?: { is_primary_key?: boolean } | null
 }

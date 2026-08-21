@@ -9,6 +9,7 @@ import type { HookExtensionContext } from '@directus/types'
 import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
 import type { SluggernautEnv } from './env.schema'
 
+import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
 	ensureDirectusPolicy,
 	ensureDirectusSchema,
@@ -20,7 +21,7 @@ import {
 
 import redirectPolicies from '../../../schema/policies.json'
 import redirectSchema from '../../../schema/redirects.json'
-import { EXTENSION_NAME } from '../../shared/configuration/constants'
+import { EXTENSION_NAME, POLICY_IDS } from '../../shared/configuration/constants'
 
 /**
  * Registers Sluggernaut schema and policy startup coordination.
@@ -73,9 +74,13 @@ export function registerSluggernautStartup(
 			accountability: null,
 			knex: context.database,
 		})
-		try {
-			await collectionsService.readOne(options.SLUGGERNAUT_REDIRECTS_COLLECTION)
-		} catch {
+
+		// Because DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED can be disabled, we need to manually check if the collection exists.
+		const { error } = await attempt(() =>
+			collectionsService.readOne(options.SLUGGERNAUT_REDIRECTS_COLLECTION),
+		)
+
+		if (error) {
 			context.logger.warn(
 				'Sluggernaut policy registration skipped; redirect collection is unavailable.',
 				{
@@ -87,16 +92,20 @@ export function registerSluggernautStartup(
 		}
 
 		const definitions = validatePolicyDefinition(redirectPolicies)
-		const enabledPolicies = new Set(
+
+		// Only seed the policy that are enabled via config
+		const enabledPolicies = new Set<string>(
 			[
-				options.SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED ? 'Can Manage Redirects' : null,
-				options.SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED
-					? 'Can Read Active Redirects'
+				options.SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED
+					? POLICY_IDS.manageRedirects
 					: null,
-			].filter((name): name is string => name !== null),
+				options.SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED
+					? POLICY_IDS.readActiveRedirects
+					: null,
+			].filter((id) => id !== null),
 		)
 		for (const definition of definitions.policies) {
-			if (!enabledPolicies.has(definition.name)) continue
+			if (!enabledPolicies.has(definition.id)) continue
 			await ensureDirectusPolicy({
 				id: EXTENSION_NAME,
 				database: context.database,

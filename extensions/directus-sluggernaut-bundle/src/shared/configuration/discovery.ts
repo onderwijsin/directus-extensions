@@ -3,25 +3,30 @@
  *
  * Discovers the usable Sluggernaut configuration from Directus field metadata.
  *
- * Configuration is parsed defensively because metadata is persisted user input. Invalid fields
- * are excluded and returned as warnings, allowing unrelated fields in the same collection to
- * continue working. Valid fields are sorted by Directus field order with a name tie-breaker.
+ * Interface options are owned by the Sluggernaut interfaces and are read using their declared
+ * types. Missing or mismatched options are excluded and returned as warnings, allowing unrelated
+ * fields in the same collection to continue working. Valid fields are sorted by Directus field
+ * order with a name tie-breaker.
  */
 import type {
 	CollectionConfiguration,
 	ConfigurationWarning,
 	DiscoveredPermalinkField,
 	DiscoveredSlugField,
+	PermalinkInterfaceOptions,
 	SluggernautFieldMetadata,
+	SlugInterfaceOptions,
 } from './types'
 
-import { isFiniteNumber } from '@onderwijsin/directus-extension-utils'
+import {
+	isArray,
+	isBoolean,
+	isFiniteNumber,
+	isString,
+	isDefined,
+} from '@onderwijsin/directus-extension-utils'
 
 import { INTERFACE_IDS } from './constants'
-import {
-	permalinkInterfaceOptionsSchema,
-	slugInterfaceOptionsSchema,
-} from './interface-options.schema'
 
 /**
  * Compares field metadata using the deterministic Sluggernaut ordering.
@@ -42,7 +47,7 @@ function compareFieldOrder(
 }
 
 /**
- * Creates a warning for invalid persisted interface options.
+ * Creates a warning for missing or mismatched interface options.
  * @param field - Field key.
  * @param type - Interface type.
  * @returns A structured configuration warning.
@@ -61,7 +66,44 @@ interface FieldDiscoveryResult<T> {
 }
 
 /**
- * Parses one Sluggernaut slug field and validates its source references.
+ * Narrows raw Directus options to the options owned by the slug interface.
+ * @param options - Raw options read from Directus field metadata.
+ * @returns Whether the options have the slug interface shape.
+ */
+function isSlugInterfaceOptions(
+	options: Record<string, unknown>,
+): options is SlugInterfaceOptions & Record<string, unknown> {
+	return (
+		isArray(options.sourceFields) &&
+		isString(options.locale) &&
+		isBoolean(options.lowercase) &&
+		isBoolean(options.updateOnSourceChange) &&
+		isBoolean(options.automaticRedirects)
+	)
+}
+
+/**
+ * Narrows raw Directus options to the options owned by the permalink interface.
+ * @param options - Raw options read from Directus field metadata.
+ * @returns Whether the options have the permalink interface shape.
+ */
+function isPermalinkInterfaceOptions(
+	options: Record<string, unknown>,
+): options is PermalinkInterfaceOptions & Record<string, unknown> {
+	return (
+		isBoolean(options.generateFromSlug) &&
+		(!isDefined(options.slugField) || isString(options.slugField)) &&
+		isBoolean(options.updateOnSlugChange) &&
+		(!isDefined(options.prefix) || isString(options.prefix)) &&
+		isBoolean(options.validatePrefixOnManualInput) &&
+		isBoolean(options.trailingSlash) &&
+		isBoolean(options.enforceTrailingSlashOnManualInput) &&
+		isBoolean(options.automaticRedirects)
+	)
+}
+
+/**
+ * Reads one Sluggernaut slug field and validates its source references.
  * @param field - Directus field metadata.
  * @param sort - Deterministic field order.
  * @param availableFields - Fields available in the collection.
@@ -72,12 +114,12 @@ function parseSlugField(
 	sort: number | null,
 	availableFields: ReadonlySet<string>,
 ): FieldDiscoveryResult<DiscoveredSlugField> {
-	const parsed = slugInterfaceOptionsSchema.safeParse(field.meta?.options ?? {})
-	if (!parsed.success) {
+	const options = field.meta?.options
+	if (options === undefined || options === null || !isSlugInterfaceOptions(options)) {
 		return { value: null, warning: warningForInvalidOptions(field.field, 'slug') }
 	}
 
-	const missingSourceField = parsed.data.sourceFields.find(
+	const missingSourceField = options.sourceFields.find(
 		(sourceField) => !availableFields.has(sourceField),
 	)
 	if (missingSourceField !== undefined) {
@@ -91,11 +133,11 @@ function parseSlugField(
 		}
 	}
 
-	return { value: { field: field.field, sort, options: parsed.data } }
+	return { value: { field: field.field, sort, options } }
 }
 
 /**
- * Parses one Sluggernaut permalink field.
+ * Reads one Sluggernaut permalink field.
  * @param field - Directus field metadata.
  * @param sort - Deterministic field order.
  * @returns The discovered field or its configuration warning.
@@ -104,20 +146,20 @@ function parsePermalinkField(
 	field: SluggernautFieldMetadata,
 	sort: number | null,
 ): FieldDiscoveryResult<DiscoveredPermalinkField> {
-	const parsed = permalinkInterfaceOptionsSchema.safeParse(field.meta?.options ?? {})
-	if (!parsed.success) {
+	const options = field.meta?.options
+	if (!isDefined(options) || options === null || !isPermalinkInterfaceOptions(options)) {
 		return { value: null, warning: warningForInvalidOptions(field.field, 'permalink') }
 	}
-	return { value: { field: field.field, sort, options: parsed.data } }
+	return { value: { field: field.field, sort, options } }
 }
 
 /**
- * Discovers and validates Sluggernaut field configuration from Directus field metadata.
+ * Discovers Sluggernaut field configuration from Directus field metadata.
  *
  * Invalid interface options are reported as warnings and excluded from runtime configuration so
  * callers can keep unrelated content mutations working.
  * @param fields - Directus field metadata for one collection.
- * @returns Parsed and deterministically ordered configuration.
+ * @returns Deterministically ordered configuration.
  */
 export function discoverCollectionConfiguration(
 	fields: readonly SluggernautFieldMetadata[],
@@ -162,6 +204,7 @@ export function discoverCollectionConfiguration(
 		})
 		return false
 	})
+
 	validPermalinks.sort(compareFieldOrder)
 
 	if (slugs.length > 1) {

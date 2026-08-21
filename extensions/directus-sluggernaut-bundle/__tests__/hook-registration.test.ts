@@ -33,6 +33,7 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 	}),
 }))
 
+import { POLICY_IDS } from '../src/shared/configuration/constants'
 import hook from '../src/sluggernaut-hook'
 
 function registerHook() {
@@ -85,9 +86,9 @@ describe('Sluggernaut startup registration', () => {
 				}),
 			}),
 		)
-		expect(mocks.ensurePolicy.mock.calls.map(([input]) => input.definition.name)).toEqual([
-			'Can Manage Redirects',
-			'Can Read Active Redirects',
+		expect(mocks.ensurePolicy.mock.calls.map(([input]) => input.definition.id)).toEqual([
+			POLICY_IDS.manageRedirects,
+			POLICY_IDS.readActiveRedirects,
 		])
 		expect(mocks.ensurePolicy.mock.calls[0]?.[0].definition.permissions).toEqual(
 			expect.arrayContaining([

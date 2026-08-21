@@ -21,7 +21,7 @@ import {
 } from '@onderwijsin/directus-extension-utils'
 
 import { createFieldReader } from '../server/field-reader'
-import { discoverCollectionConfiguration } from '../shared/configuration/ordering'
+import { discoverCollectionConfiguration } from '../shared/configuration/discovery'
 import { coordinateMutation } from '../sluggernaut-hook/mutation/coordinator'
 
 /** Aggregate outcome counts returned by the recalculation operation. */

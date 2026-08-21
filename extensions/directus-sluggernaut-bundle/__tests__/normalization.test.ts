@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	applyTrailingSlash,
-	combineSourceValues,
+	combinePermalinkSourceValues,
 	deriveSlug,
 	isWithinPrefix,
 	joinPrefixAndSlug,
@@ -10,7 +10,7 @@ import {
 	normalizeManualPermalink,
 	normalizePermalink,
 	normalizePrefix,
-	resolveFinalValue,
+	resolveEffectiveFieldValue,
 } from '../src/shared/values/normalization'
 
 describe('Sluggernaut normalization', () => {
@@ -20,12 +20,15 @@ describe('Sluggernaut normalization', () => {
 
 	it('uses locale-aware lowercasing without relying on truthiness', () => {
 		expect(deriveSlug(['İstanbul'], 'tr', true)).toBe('istanbul')
-		expect(combineSourceValues([null, undefined, '', '  ', 'kept'])).toBe('kept')
+		expect(combinePermalinkSourceValues([null, undefined, '', '  ', 'kept'])).toBe('kept')
+		expect(combinePermalinkSourceValues(['News', 'Article'])).toBe('News-Article')
 	})
 
-	it('resolves an explicitly present falsy payload value', () => {
-		expect(resolveFinalValue({ title: null }, { title: 'Old title' }, 'title')).toBeNull()
-		expect(resolveFinalValue({}, { title: 'Old title' }, 'title')).toBe('Old title')
+	it('resolves the effective field value from payload or existing item', () => {
+		expect(
+			resolveEffectiveFieldValue({ title: null }, { title: 'Old title' }, 'title'),
+		).toBeNull()
+		expect(resolveEffectiveFieldValue({}, { title: 'Old title' }, 'title')).toBe('Old title')
 	})
 
 	it('validates absolute permalink paths', () => {

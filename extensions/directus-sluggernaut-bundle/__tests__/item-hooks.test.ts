@@ -52,7 +52,13 @@ describe('Sluggernaut item hooks', () => {
 					field: 'slug',
 					meta: {
 						interface: 'sluggernaut-slug',
-						options: { sourceFields: ['title'] },
+						options: {
+							sourceFields: ['title'],
+							locale: 'en',
+							lowercase: true,
+							updateOnSourceChange: true,
+							automaticRedirects: false,
+						},
 					},
 				},
 				{
@@ -63,6 +69,10 @@ describe('Sluggernaut item hooks', () => {
 							generateFromSlug: true,
 							slugField: 'slug',
 							updateOnSlugChange: true,
+							validatePrefixOnManualInput: false,
+							trailingSlash: false,
+							enforceTrailingSlashOnManualInput: false,
+							automaticRedirects: false,
 						},
 					},
 				},

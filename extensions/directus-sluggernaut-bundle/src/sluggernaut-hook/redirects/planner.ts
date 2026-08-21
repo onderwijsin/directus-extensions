@@ -1,73 +1,45 @@
 /**
  * @fileoverview Plans redirect history without mutating Directus data.
  *
- * Plans redirect-history changes without performing database writes.
- *
  * Planning is kept separate from persistence so conflict handling and redirect ownership can be
  * tested deterministically. Only redirects carrying Sluggernaut provenance are eligible for
  * rewrite or lifecycle updates; existing redirects owned by another system are preserved.
  */
+import type { PrimaryKey } from '@directus/types'
 import type { CollectionConfiguration } from '../../shared/configuration/types'
+import type { Redirect, RedirectSource, RedirectCreateInput } from './schema'
 
-import { z } from 'zod'
+import { isNonBlankString } from '@onderwijsin/directus-extension-utils'
+import { withLeadingSlash } from 'ufo'
 
 import { normalizePermalink } from '../../shared/values/normalization'
 
-/** Supported field types for canonical redirect sources. */
-export type RedirectSourceType = 'slug' | 'permalink'
-
-/** Identifies the configured field that supplies a canonical redirect URL. */
-export interface RedirectSource {
-	type: RedirectSourceType
-	field: string
-}
-
-/** Runtime schema for the planner's normalized redirect record. */
-export const redirectRecordSchema = z.strictObject({
-	id: z.string(),
-	origin: z.string(),
-	destination: z.string(),
-	type: z.number(),
-	isActive: z.boolean(),
-	managedBy: z.literal('sluggernaut').nullable().optional(),
-	sourceCollection: z.string().nullable().optional(),
-	sourceItem: z.string().nullable().optional(),
-	sourceField: z.string().nullable().optional(),
-	sourceType: z.enum(['slug', 'permalink']).nullable().optional(),
-	inactiveReason: z.enum(['archive', 'delete']).nullable().optional(),
-})
-
-/** Normalized redirect record used by the planner. */
-export type RedirectRecord = z.output<typeof redirectRecordSchema>
-
-/** Runtime schema for a new managed redirect. */
-export const redirectCreationSchema = z.strictObject({
-	origin: z.string(),
-	destination: z.string(),
-	type: z.literal(301),
-	isActive: z.literal(true),
-	managedBy: z.literal('sluggernaut'),
-	sourceCollection: z.string(),
-	sourceItem: z.string(),
-	sourceField: z.string(),
-	sourceType: z.enum(['slug', 'permalink']),
-	inactiveReason: z.null(),
-})
-
-export type RedirectCreation = z.output<typeof redirectCreationSchema>
-
-/** Pure database mutations required for one canonical URL transition. */
+/**
+ * Pure database mutations required when a source item's canonical URL changes.
+ *
+ * A redirect plan preserves the item's URL history: it creates or rewrites the redirect from the
+ * previous canonical URL to the new one, repairs older managed redirect chains, and deactivates a
+ * managed redirect that would otherwise point back to the new canonical URL. It does not represent
+ * archive, unarchive, or delete events; those are described by {@link RedirectLifecyclePlan}.
+ */
 export interface RedirectPlan {
-	create: RedirectCreation | null
-	rewrite: { id: string; destination: string }[]
-	deactivate: { id: string; inactiveReason: null }[]
+	create: RedirectCreateInput | null
+	rewrite: { id: PrimaryKey; destination: string }[]
+	deactivate: { id: PrimaryKey; inactive_reason: null }[]
 	warnings: string[]
 }
 
-/** Lifecycle changes applied when a source item is archived, restored, or deleted. */
+/**
+ * Pure database mutations required when a source item changes lifecycle state.
+ *
+ * A lifecycle plan suspends all active Sluggernaut-owned redirect history when the item is archived
+ * or deleted, and reactivates history that was suspended specifically by archiving when the item is
+ * restored. It does not change redirect origins or destinations after a canonical URL change; those
+ * mutations are described by {@link RedirectPlan}.
+ */
 export interface RedirectLifecyclePlan {
-	deactivate: { id: string; inactiveReason: 'archive' | 'delete' }[]
-	reactivate: { id: string; isActive: true; inactiveReason: null }[]
+	deactivate: { id: PrimaryKey; inactive_reason: 'archive' | 'delete' }[]
+	reactivate: { id: PrimaryKey; is_active: true; inactive_reason: null }[]
 }
 
 /**
@@ -79,17 +51,17 @@ export interface RedirectLifecyclePlan {
  * @returns Whether all provenance fields identify the current source.
  */
 function belongsToSource(
-	redirect: RedirectRecord,
+	redirect: Redirect,
 	source: RedirectSource,
 	collection: string,
 	item: string,
 ): boolean {
 	return (
-		redirect.managedBy === 'sluggernaut' &&
-		redirect.sourceCollection === collection &&
-		redirect.sourceItem === item &&
-		redirect.sourceField === source.field &&
-		redirect.sourceType === source.type
+		redirect.managed_by === 'sluggernaut' &&
+		redirect.source_collection === collection &&
+		redirect.source_item === item &&
+		redirect.source_field === source.field &&
+		redirect.source_type === source.type
 	)
 }
 
@@ -107,11 +79,11 @@ function planCurrentOrigin(
 		oldCanonical: string
 		newCanonical: string
 		source: RedirectSource
-		sourceCollection: string
-		sourceItem: string
+		source_collection: string
+		source_item: string
 	},
-	managedOrigin: RedirectRecord | undefined,
-	conflicting: RedirectRecord | undefined,
+	managedOrigin: Redirect | undefined,
+	conflicting: Redirect | undefined,
 ): void {
 	if (conflicting !== undefined) {
 		plan.warnings.push(
@@ -129,13 +101,13 @@ function planCurrentOrigin(
 		origin: input.oldCanonical,
 		destination: input.newCanonical,
 		type: 301,
-		isActive: true,
-		managedBy: 'sluggernaut',
-		sourceCollection: input.sourceCollection,
-		sourceItem: input.sourceItem,
-		sourceField: input.source.field,
-		sourceType: input.source.type,
-		inactiveReason: null,
+		is_active: true,
+		managed_by: 'sluggernaut',
+		source_collection: input.source_collection,
+		source_item: input.source_item,
+		source_field: input.source.field,
+		source_type: input.source.type,
+		inactive_reason: null,
 	}
 }
 
@@ -168,8 +140,8 @@ export function canonicalUrlForItem(
 	item: Readonly<Record<string, unknown>>,
 ): string | null {
 	const value = item[source.field]
-	if (typeof value !== 'string' || value.trim() === '') return null
-	const candidate = source.type === 'slug' ? `/${value}` : value
+	if (!isNonBlankString(value)) return null
+	const candidate = source.type === 'slug' ? withLeadingSlash(value) : value
 	try {
 		return normalizePermalink(candidate)
 	} catch {
@@ -186,9 +158,9 @@ export function planCanonicalRedirect(input: {
 	oldCanonical: string | null
 	newCanonical: string | null
 	source: RedirectSource
-	sourceCollection: string
-	sourceItem: string
-	existingRedirects: readonly RedirectRecord[]
+	source_collection: string
+	source_item: string
+	existingRedirects: readonly Redirect[]
 }): RedirectPlan {
 	const plan: RedirectPlan = {
 		create: null,
@@ -207,15 +179,15 @@ export function planCanonicalRedirect(input: {
 	}
 
 	const managed = input.existingRedirects.filter(
-		(redirect) => redirect.managedBy === 'sluggernaut',
+		(redirect) => redirect.managed_by === 'sluggernaut',
 	)
 	const managedOrigin = managed.find(
 		(redirect) =>
 			redirect.origin === input.oldCanonical &&
-			redirect.sourceCollection === input.sourceCollection &&
-			redirect.sourceItem === input.sourceItem &&
-			redirect.sourceField === input.source.field &&
-			redirect.sourceType === input.source.type,
+			redirect.source_collection === input.source_collection &&
+			redirect.source_item === input.source_item &&
+			redirect.source_field === input.source.field &&
+			redirect.source_type === input.source.type,
 	)
 	const conflicting = input.existingRedirects.find(
 		(redirect) => redirect.origin === input.oldCanonical && redirect !== managedOrigin,
@@ -228,8 +200,8 @@ export function planCanonicalRedirect(input: {
 			oldCanonical: input.oldCanonical,
 			newCanonical: input.newCanonical,
 			source: input.source,
-			sourceCollection: input.sourceCollection,
-			sourceItem: input.sourceItem,
+			source_collection: input.source_collection,
+			source_item: input.source_item,
 		},
 		managedOrigin,
 		conflicting,
@@ -237,7 +209,7 @@ export function planCanonicalRedirect(input: {
 
 	for (const redirect of managed) {
 		if (
-			belongsToSource(redirect, input.source, input.sourceCollection, input.sourceItem) &&
+			belongsToSource(redirect, input.source, input.source_collection, input.source_item) &&
 			redirect.destination === input.oldCanonical &&
 			redirect.origin !== input.newCanonical &&
 			redirect.id !== managedOrigin?.id
@@ -246,9 +218,9 @@ export function planCanonicalRedirect(input: {
 		}
 		if (
 			redirect.origin === input.newCanonical &&
-			belongsToSource(redirect, input.source, input.sourceCollection, input.sourceItem)
+			belongsToSource(redirect, input.source, input.source_collection, input.source_item)
 		) {
-			plan.deactivate.push({ id: redirect.id, inactiveReason: null })
+			plan.deactivate.push({ id: redirect.id, inactive_reason: null })
 		}
 	}
 
@@ -262,17 +234,17 @@ export function planCanonicalRedirect(input: {
  * @returns Redirect records to deactivate.
  */
 export function planLifecycleDeactivation(
-	redirects: readonly RedirectRecord[],
+	redirects: readonly Redirect[],
 	inactiveReason: 'archive' | 'delete',
 ): RedirectLifecyclePlan['deactivate'] {
 	return redirects
 		.filter(
 			(redirect) =>
-				redirect.managedBy === 'sluggernaut' &&
-				redirect.isActive &&
-				redirect.inactiveReason === null,
+				redirect.managed_by === 'sluggernaut' &&
+				redirect.is_active &&
+				redirect.inactive_reason === null,
 		)
-		.map((redirect) => ({ id: redirect.id, inactiveReason }))
+		.map((redirect) => ({ id: redirect.id, inactive_reason: inactiveReason }))
 }
 
 /**
@@ -281,12 +253,12 @@ export function planLifecycleDeactivation(
  * @returns IDs eligible for reactivation.
  */
 export function planArchiveReactivation(
-	redirects: readonly RedirectRecord[],
+	redirects: readonly Redirect[],
 ): RedirectLifecyclePlan['reactivate'] {
 	return redirects
 		.filter(
 			(redirect) =>
-				redirect.managedBy === 'sluggernaut' && redirect.inactiveReason === 'archive',
+				redirect.managed_by === 'sluggernaut' && redirect.inactive_reason === 'archive',
 		)
-		.map((redirect) => ({ id: redirect.id, isActive: true, inactiveReason: null }))
+		.map((redirect) => ({ id: redirect.id, is_active: true, inactive_reason: null }))
 }
