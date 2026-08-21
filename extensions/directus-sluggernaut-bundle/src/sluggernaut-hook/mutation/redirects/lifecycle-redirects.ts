@@ -27,14 +27,29 @@ export async function processArchiveLifecycle(input: {
 	const { context, options, collection, key, lifecycle, database } = input
 	if (!options.SLUGGERNAUT_REDIRECTS_ENABLED) return
 
-	const service = await createRedirectService(
-		context,
-		options.SLUGGERNAUT_REDIRECTS_COLLECTION,
-		database,
-	)
-	const redirects = await readManagedRedirectsForItem(service, collection, key)
-	await applyRedirectLifecyclePlan(service, {
-		deactivate: lifecycle === 'archive' ? planLifecycleDeactivation(redirects, 'archive') : [],
-		reactivate: lifecycle === 'unarchive' ? planArchiveReactivation(redirects) : [],
-	})
+	try {
+		const service = await createRedirectService(
+			context,
+			options.SLUGGERNAUT_REDIRECTS_COLLECTION,
+			database,
+		)
+		const redirects = await readManagedRedirectsForItem(service, collection, key)
+		await applyRedirectLifecyclePlan(service, {
+			deactivate:
+				lifecycle === 'archive' ? planLifecycleDeactivation(redirects, 'archive') : [],
+			reactivate: lifecycle === 'unarchive' ? planArchiveReactivation(redirects) : [],
+		})
+	} catch (error) {
+		// Redirect lifecycle history is optional and must not block the archive transition itself.
+		context.logger.warn(
+			'Sluggernaut skipped redirect lifecycle processing because the redirect collection is unavailable or incompatible.',
+			{
+				collection,
+				redirectCollection: options.SLUGGERNAUT_REDIRECTS_COLLECTION,
+				lifecycle,
+				code: 'redirect-runtime-unavailable',
+				error,
+			},
+		)
+	}
 }

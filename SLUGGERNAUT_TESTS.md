@@ -1,465 +1,374 @@
-# Sluggernaut v2 test implementation checklist
+# Sluggernaut test plan
 
-This is a test task list for the current working-tree implementation of
-`extensions/directus-sluggernaut-bundle`. It deliberately excludes cases already covered by the
-existing tests under `extensions/directus-sluggernaut-bundle/__tests__/`; those files are listed
-near the end as audited with no duplicate tasks.
+This document is the implementation-ready test plan for `extensions/directus-sluggernaut-bundle`. It
+covers the refactored v2 bundle through unit, component, integration, packed-consumer, and real
+Directus end-to-end tests. It is a plan only: the cases below are not implemented by this document.
 
-Tags use the repository conventions:
+The highest-priority contract is data integrity. A test is not complete merely because a request
+returns successfully: it must verify the final item, the redirect history, provenance, lifecycle
+state, and the absence of collateral changes.
 
-- `[unit]` — deterministic logic, schemas, adapters, registrations, or Vue/component contracts;
-- `[e2e]` — behavior that must be proven through a built bundle loaded by a real Directus instance.
+## Test layers and evidence rules
 
-Do not treat a passing unit mock as evidence for an E2E requirement. E2E fixtures should use
-non-conventional field keys, own their collections/items/policies, and clean up in `finally` blocks.
+- `[unit]` Pure normalization, schemas, discovery, planning, mapping, validation, and failure
+  decisions. These tests must be deterministic and use arbitrary field names.
+- `[component]` Vue interface, display, and configuration-picker behavior in the Vue Vitest project.
+- `[integration]` Built package, process, filesystem/cache coordination, and packed-consumer checks.
+- `[e2e]` A built bundle loaded by a real Directus instance. These are the source of truth for item
+  mutations, permissions, transactions, lifecycle hooks, Flow execution, and persisted redirect
+  records.
+- `[manual]` A repeatable operator check for Studio behavior or a deployment concern that cannot be
+  reliably automated yet. Manual cases still require recorded input, expected output, and
+  screenshots/logs or API evidence.
 
-## File-by-file checklist
+Do not promote a passing mock to E2E evidence. Every E2E fixture must use non-conventional field
+keys, own its collections/items/configuration, and clean up in `finally` blocks. Keep within the
+Directus Core E2E limits: no more than 25 collections, five flows, and two ephemeral non-root users
+at one time.
 
-### `package.json`
+## Test oracle: invariants every scenario must check
 
-- [ ] `[unit]` Load the bundle metadata and assert the package exposes exactly the five specified
-      entries, with the correct entry types, source files, app/API split for the operation, and host
-      range.
-- [ ] `[unit]` Build/inspect the package and assert all runtime imports are publishable runtime
-      dependencies and test utilities are not bundled as runtime dependencies.
-- [ ] `[e2e]` Install the packed package into a clean Directus consumer and verify every entry loads
-      without unresolved imports or registration errors.
+For each scenario, capture the before and after state of the source item and the configured redirect
+collection. Assert the following unless the scenario explicitly says otherwise:
 
-### `schema/redirects.json`
+1. Only fields in the mutation payload or derived-field allowlist change.
+2. Derived slugs use the final source state, derive before dependent permalinks, and never retain
+   stale source material.
+3. Explicit values win over derivation but are still normalized and type-validated.
+4. A rejected mutation leaves the item and redirect collection unchanged.
+5. A redirect is created only for a real canonical transition, has `301`, and contains complete
+   provenance: `managed_by`, source collection, item, field, and source type.
+6. A managed redirect is changed only when provenance identifies the same source lifecycle. URL
+   equality alone never grants ownership.
+7. Redirect history has no active self-loop, avoidable chain, duplicate managed origin, or redirect
+   to a stale canonical destination.
+8. Archive/delete deactivation is distinct from canonical-history updates; scheduled dates and
+   unrelated/manual redirect records are preserved.
+9. Retry, duplicate delivery, repeated startup, and repeated recalculation are idempotent.
+10. Failures are visible in logs/statistics and do not silently report successful data changes.
 
-- [ ] `[unit]` Validate the schema definition contains the core redirect fields, all provenance
-      fields, nullable lifecycle fields, and the intended defaults/types.
-- [ ] `[unit]` Verify schema identity replacement can change the collection name without changing
-      field definitions or policy semantics.
-- [ ] `[e2e]` Register the schema into an empty instance and verify the resulting collection and
-      fields are usable by redirect runtime operations.
-- [ ] `[e2e]` Run registration twice and verify it is idempotent and non-destructive.
-- [ ] `[e2e]` Run against a compatible pre-existing collection and verify it is reused; run against
-      an incompatible collection and verify a visible warning plus continued slug/permalink
-      derivation without redirect runtime use.
+## Shared fixture
 
-### `schema/policies.json`
+Create one reusable E2E fixture, with scenario-specific additions:
 
-- [ ] `[unit]` Assert `Can Manage Redirects` grants only CRUD on the redirect collection and does
-      not grant admin, role, policy, or unrelated-collection access.
-- [ ] `[unit]` Assert `Can Read Active Redirects` is read-only and its filter exactly expresses
-      active status, start-date lower bound, and end-date upper bound semantics.
-- [ ] `[unit]` Verify policy identity/name stability and configured-collection substitution.
-- [ ] `[e2e]` Verify both policies can be registered repeatedly without duplicates, are not assigned
-      automatically, and enforce the expected permissions/filter against real Directus records.
+```text
+collection: editorial_entries
+primary key: entry_id
+source fields: headline_text, section_label, locale_code, zero_value, false_value
+slug fields: public_route, api_route
+permalink fields: canonical_route, alternate_route, standalone_route
+unrelated fields: editor_note, publish_state, revision_number
+redirect collection: sluggernaut_redirects_e2e
+```
 
-### `src/shared/configuration/constants.ts`
+Use the actual configured field metadata rather than conventional names in at least half of the
+cases. Define `public_route` and `canonical_route` with automatic redirects in separate runs so
+source precedence is observable. Add a second collection with the same field keys to detect
+cross-collection cache or provenance leakage.
 
-- [ ] `[unit]` Assert the extension identifier and both interface IDs remain stable and match the
-      package metadata and specification.
+The fixture must support generated and manually overridden values; null, empty, Unicode,
+punctuation, long, and adversarial source values; two independent slugs and two independent
+generated permalinks; a standalone permalink with no slug dependency; compatible, incompatible,
+managed, unmanaged, scheduled, inactive, conflicting, and chained redirect records; archive- enabled
+and non-archive collections; and API, SDK, Flow, import, and server-side mutation entry points where
+available.
 
-### `src/shared/configuration/field-metadata.schema.ts`
+## A. Unit and component coverage
 
-- [ ] `[unit]` Cover valid metadata with absent/null/partial `meta`, null `schema`, finite/null
-      `sort`, unknown Directus properties, and non-string field keys/options shapes.
-- [ ] `[unit]` Verify malformed persisted metadata is rejected at the boundary rather than being
-      coerced into unsafe defaults.
+### Configuration, schemas, and registration
 
-### `src/shared/configuration/interface-options.schema.ts`
-
-- [ ] `[unit]` Cover every default for slug and permalink options.
-- [ ] `[unit]` Reject empty/whitespace source fields, empty locale, non-boolean flags, malformed
-      optional slug fields/prefixes, unknown keys, and invalid option container types.
-- [ ] `[unit]` Verify trimming and default application do not alter valid arbitrary field keys.
-- [ ] `[unit]` Verify standalone permalink options do not acquire an implicit slug dependency.
-
-### `src/shared/configuration/types.ts`
-
-- [ ] `[unit]` Add compile-time/type-contract coverage for discovered fields, warning codes, and
-      collection configuration so invalid redirect-source or option shapes cannot be introduced
-      silently.
-
-### `src/shared/configuration/ordering.ts`
-
-- [ ] `[unit]` Discover by `meta.interface`, never by conventional names such as `slug`, `path`, or
-      `permalink`.
-- [ ] `[unit]` Cover one and multiple independent slug fields and one and multiple independent
-      permalink fields with arbitrary keys.
-- [ ] `[unit]` Cover null sort values last, lexicographic field-key tie-breaking, and deterministic
-      results across differently ordered metadata input.
-- [ ] `[unit]` Verify duplicate slug/permalink warnings are prominent, contain actionable guidance,
-      and do not disable valid independent derivation.
-- [ ] `[unit]` Reject invalid slug source references, malformed interface options, generated
-      permalink references to missing/non-slug/same-collection-invalid fields, while retaining
-      unrelated valid configuration.
-- [ ] `[unit]` Verify the first discovered interface remains the redirect candidate even when its
-      `automaticRedirects` flag is false; a later enabled interface must not replace it.
-
-### `src/shared/values/normalization.ts`
-
-- [ ] `[unit]` Cover single-source slug derivation, arbitrary source field values, locale-specific
-      slugification, lowercase on/off, Unicode/diacritics, punctuation/separators, and explicit slug
-      normalization.
-- [ ] `[unit]` Cover source values `null`, `undefined`, empty, whitespace, numeric zero, boolean
-      false, and other falsy-but-present payload values; distinguish property presence from
-      truthiness.
-- [ ] `[unit]` Cover one empty source with another retained, all sources empty returning `null`, and
-      no stale source material surviving an update.
-- [ ] `[unit]` Cover absolute path acceptance and normalization for root, repeated slashes, spaces,
-      and valid nested paths.
-- [ ] `[unit]` Reject missing leading slash, schemes, hosts, protocol-relative URLs, queries,
-      fragments, backslashes, control characters, dot segments, and dot-dot segments.
-- [ ] `[unit]` Cover null permalink handling and the distinction between normalized values and
-      rejected values.
-- [ ] `[unit]` Cover prefix values `news`, `/news`, `/news/`, `/`, empty, and invalid prefixes;
-      joining with empty/root/non-root prefixes and empty/null slugs.
-- [ ] `[unit]` Cover exact prefix boundaries, including the prefix itself, descendants, and
-      lookalikes such as `/newspaper`.
-- [ ] `[unit]` Cover generated trailing-slash on/off, root preservation, duplicate trailing slashes,
-      and manual enforcement on/off while preserving a valid user's choice when disabled.
-- [ ] `[unit]` Cover manual prefix validation on/off without silently adding a prefix.
-- [ ] `[unit]` Cover host normalization for HTTP/HTTPS origins, trailing slash removal, ports,
-      query/fragment/path/base-path rejection, credentials rejection, non-HTTP schemes, and
-      malformed hosts.
-
-### `src/shared/components/CopyButton.vue`
-
-- [ ] `[unit]` Mount with a supported clipboard API and verify the button copies the exact stored
-      value, converts `null` to an empty string, stops event propagation, and changes accessible
-      label to `Copied` after success.
-- [ ] `[unit]` Verify small/x-small defaults and overrides, and that the control is absent when
-      clipboard support is unavailable.
-
-### `src/shared/components/SluggernautInput.vue`
-
-- [ ] `[unit]` Verify a fresh mount is locked, input is disabled while locked, and copy remains
-      available while locked.
-- [ ] `[unit]` Verify unlock enables editing, emits string values for string/number/null input, and
-      relock disables editing again without changing the configured value.
-- [ ] `[unit]` Verify `disabled` and `nonEditable` independently suppress editing/lock controls,
-      including non-editable display behavior.
-- [ ] `[unit]` Verify slug/path placeholders for default English and non-English locales, error
-      presentation, null values, and prop updates.
-- [ ] `[unit]` Verify the shared component does not mark the Directus field readonly or prevent an
-      emitted API/Flow/import/server write at the interface boundary.
-
-### `src/sluggernaut-slug/index.ts`
-
-- [ ] `[unit]` Assert interface registration ID, name, string type, component, and all option
-      definitions/defaults, including required `sourceFields` and same-collection string source
-      picker configuration.
-
-### `src/sluggernaut-slug/interface.vue`
-
-- [ ] `[unit]` Verify it passes value, locale, disabled, and non-editable state to the shared input
-      and forwards emitted edits unchanged.
-- [ ] `[e2e]` Verify a configured slug interface is locked by default in Studio while API, Flow,
-      import, SDK, and server-side writes remain possible.
-
-### `src/sluggernaut-permalink/index.ts`
-
-- [ ] `[unit]` Assert interface registration ID, name, string type, component, all option
-      definitions/defaults, and the generated-from-slug configuration surface.
-- [ ] `[unit]` Verify options expose no prefix/slug-derived behavior for standalone mode at the app
-      boundary where that mode is selected.
-
-### `src/sluggernaut-permalink/interface.vue`
-
-- [ ] `[unit]` Verify it configures the shared input as a path, forwards value/disabled/
-      non-editable props, and forwards edits.
-- [ ] `[e2e]` Verify manual permalink editing is locked initially, unlockable, relockable, and
-      server validation remains authoritative.
-
-### `src/sluggernaut-permalink/SlugFieldOption.vue`
-
-- [ ] `[unit]` Mock the fields API and verify only same-collection `sluggernaut-slug` fields are
-      offered, with arbitrary field keys and stable labels.
-- [ ] `[unit]` Verify exactly one available slug field is auto-selected only when the current value
-      is null; multiple fields require an explicit selection.
-- [ ] `[unit]` Verify loading/disabled states, empty results, malformed API rows, API failures,
-      collection changes, and selection clearing are handled safely and accessibly.
-- [ ] `[e2e]` Verify Studio cannot configure a permalink against a missing, cross-collection, or
-      non-Sluggernaut slug field.
-
-### `src/sluggernaut-link/options.schema.ts`
-
-- [ ] `[unit]` Cover omitted/null/valid host options and reject malformed non-string host values
-      before display URL handling.
-
-### `src/sluggernaut-link/link.ts`
-
-- [ ] `[unit]` Cover stored slug vs stored permalink display paths, whitespace, null/undefined, and
-      exact copy-value preservation.
-- [ ] `[unit]` Cover host + path joining for root, slug without slash, permalink with slash, ports,
-      and invalid/no host.
-- [ ] `[unit]` Verify generated hrefs never include an absolute URL in the copied value and cannot
-      produce an unsafe URL.
-
-### `src/sluggernaut-link/display.vue`
-
-- [ ] `[unit]` Mount valid/invalid/null options and verify complete stored value rendering, null
-      placeholder, copy action, and open-button visibility.
-- [ ] `[unit]` Mock `window.open` and verify valid hosts open with the exact href, `_blank`, and
-      `noopener,noreferrer`; invalid/missing hosts and values do not open anything.
-- [ ] `[unit]` Verify malformed options remain non-interactive rather than throwing during render.
-
-### `src/sluggernaut-link/index.ts`
-
-- [ ] `[unit]` Assert display registration ID, string type, component, and optional host option
-      metadata.
-
-### `src/server/field-reader.ts`
-
-- [ ] `[unit]` Verify `FieldsService` receives schema, null accountability, and the event database
-      handle when supplied.
-- [ ] `[unit]` Verify only valid field metadata is returned, malformed rows are ignored, and
-      unrelated Directus field properties survive parsing as permitted.
-- [ ] `[unit]` Verify collection-scoped cache hits avoid repeated service reads, TTL expiry causes
-      refresh, and `clear(collection)` invalidates only that collection.
-- [ ] `[unit]` Verify cache failures propagate or are logged according to the shared cache contract
-      without returning stale data as valid configuration.
-- [ ] `[e2e]` Verify field metadata changes become visible after cache invalidation and do not leak
-      configuration between collections.
-
-### `src/sluggernaut-hook/configuration/env.schema.ts`
-
-- [ ] `[unit]` Cover every documented default and valid boolean/number/collection identifier input.
-- [ ] `[unit]` Reject blank, whitespace, invalid-character, leading-digit, and otherwise invalid
-      redirect collection identifiers; cover trimming and finite positive cache TTL.
-- [ ] `[unit]` Verify the repository-wide schema-change gate remains an upper bound over the
-      Sluggernaut schema-change flag.
-
-### `src/sluggernaut-hook/configuration/cache-invalidation.ts`
-
-- [ ] `[unit]` Verify only field create/update/delete events are registered, each valid collection
-      invalidates the matching cache, malformed metadata is ignored, and clear failures are logged.
-- [ ] `[unit]` Verify invalidating one collection does not clear another collection's cache.
-
-### `src/sluggernaut-hook/configuration/startup.ts`
-
-- [ ] `[unit]` Verify disabled extension/global schema/data gates skip the correct startup work.
-- [ ] `[unit]` Verify configured redirect collection identity is substituted in schema and policy
-      definitions everywhere, with no hardcoded `redirects` runtime target.
-- [ ] `[unit]` Verify schema registration passes lock provider and abort-on-error settings and
-      validates the schema definition.
-- [ ] `[unit]` Verify each policy flag independently registers only the requested policy, and both
-      flags register both policies.
-- [ ] `[unit]` Verify unavailable/incompatible redirect collections warn and skip policy
-      registration without affecting derivation startup.
-- [ ] `[e2e]` Verify schema startup is lock-safe, idempotent across repeated/concurrent startup, and
-      never destructively recreates a compatible collection.
-
-### `src/sluggernaut-hook/mutation/coordinator.ts`
-
-- [ ] `[unit]` Cover explicit slug override, normalization of explicit values, and future
-      `updateOnSourceChange` behavior after a manually unlocked/custom value.
-- [ ] `[unit]` Cover `updateOnSourceChange=false` preserving an existing slug, while explicit slug
-      payload values still win.
-- [ ] `[unit]` Cover all falsy source transitions, one-source-removed/one-source-retained, all
-      sources empty, and final-state reads for omitted source fields.
-- [ ] `[unit]` Cover multiple independent slug fields updating separately and simultaneously.
-- [ ] `[unit]` Cover generated permalink from selected slug, explicit `slugField`, explicit
-      permalink override, stable-by-default permalink, synchronization, and null slug clearing.
-- [ ] `[unit]` Cover prefix/trailing-slash/manual validation options through the coordinator, not
-      only through isolated normalization helpers.
-- [ ] `[unit]` Cover multiple independent permalink fields, standalone permalink preservation, and
-      strict recalculate field allowlists including omitted, one, many, unknown, slug-only, and
-      permalink-only selection.
-- [ ] `[unit]` Verify the ordered result is slug → permalink and no unrelated payload causes a
-      derived write or unnecessary dependency work.
-- [ ] `[e2e]` Verify create/update mutations persist the coordinated final values in Directus for
-      non-conventional and multiple independent field keys.
-
-### `src/sluggernaut-hook/mutation/item-hooks.ts`
-
-- [ ] `[unit]` Verify item filter registration covers create, single update, bulk create, bulk
-      update, and item deletion with the expected Directus event names.
-- [ ] `[unit]` Verify unrelated updates pass through without field reads or derived writes.
-- [ ] `[unit]` Verify required-field reads are minimal, deduplicated, use accountability, and use
-      `eventContext.database`/knex for the same mutation transaction.
-- [ ] `[unit]` Verify create and bulk-create payload validation rejects non-object bulk items and
-      coordinates each valid item independently.
-- [ ] `[unit]` Verify update and bulk-update handling rejects ambiguous multi-item derivation rather
-      than applying one derived value to all items; unrelated bulk updates remain allowed.
-- [ ] `[unit]` Verify invalid configuration warnings are structured and do not disable unrelated
-      valid fields.
-- [ ] `[unit]` Verify redirect processing is gated globally and by the deterministic selected
-      interface, skips initial creation/stable canonical values, and applies at most one plan.
-- [ ] `[unit]` Verify delete processing deactivates only managed records and archive processing
-      handles archive, explicit unarchive, unchanged values, and manual state overrides.
-- [ ] `[unit]` Verify arbitrary `status`/publication values do not trigger lifecycle handling unless
-      Directus collection archive metadata explicitly declares them.
-- [ ] `[unit]` Verify redirect store/service failures are visible and do not incorrectly suppress
+- [ ] `[unit]` Assert the five bundle entries, stable IDs, entry types, app/API split, runtime
+      dependency boundaries, host range, packed output, and shims that do not mask missing imports.
+- [ ] `[unit]` Validate all environment defaults, boolean/TTL/collection-name constraints, global
+      schema/data gates, and custom redirect collection substitution.
+- [ ] `[unit]` Validate field metadata and interface options, including null/partial metadata,
+      arbitrary field keys, invalid source references, duplicate interfaces, unknown keys, and
+      standalone permalink defaults.
+- [ ] `[unit]` Assert deterministic discovery by interface metadata, field sort, and key tie-break;
+      preserve valid independent fields when one configuration is malformed.
+- [ ] `[unit]` Verify schema/policy definitions contain expected field types, defaults, filters,
+      read-only provenance fields, least-privilege permissions, and no automatic assignment.
+- [ ] `[unit]` Verify startup is disabled by each applicable gate, idempotent, lock-aware, and
+      non-destructive for compatible collections; incompatible collections warn and do not disable
       slug/permalink derivation.
-- [ ] `[e2e]` Verify create, update, delete, archive, unarchive, bulk, and transaction behavior
-      against the supported Directus event lifecycle, including rollback/failed-mutation behavior.
+- [ ] `[unit]` Verify cache hits, TTL expiry, per-collection invalidation, malformed metadata,
+      invalidation failures, and event registration for all documented schema changes.
 
-### `src/sluggernaut-hook/redirects/planner.ts`
+### Slug and permalink algorithms
 
-- [ ] `[unit]` Cover global/interface redirect gating as planner inputs, first-interface selection,
-      disabled-first precedence, and permalink-over-slug precedence.
-- [ ] `[unit]` Cover no plan for initial create, null canonical sides, unchanged canonical values,
-      and canonical changes that produce exactly one redirect.
-- [ ] `[unit]` Cover managed 301/active/provenance fields, all source metadata, and null lifecycle
-      reason.
-- [ ] `[unit]` Cover chain flattening across multiple owned records, only same-source ownership,
-      cross-item ownership conflicts, and manual/unowned conflicts without failing content mutation.
-- [ ] `[unit]` Cover canonical reversion, old-origin rewrites, self-loop prevention, and
-      deactivation rather than creation when origin equals destination.
-- [ ] `[unit]` Cover deletion vs archive deactivation, archive-only reactivation, manual records,
-      already-inactive records, and manual activation-state override clearing suspension metadata.
-- [ ] `[unit]` Cover scheduled redirect dates as preserved data and ensure automatic creation does
-      not invent start/end dates.
+- [ ] `[unit]` Cover one/multiple source fields, trimming, empty-source removal, source ordering,
+      null/undefined, numeric zero, boolean false, Unicode/diacritics, locale variants, lowercase
+      on/off, punctuation, separators, repeated hyphens, and empty-result `null`.
+- [ ] `[unit]` Cover explicit slug normalization, non-string rejection, update-on-source-change
+      true/false, omitted source values resolved from the existing item, and stale-value removal.
+- [ ] `[unit]` Cover absolute path normalization, repeated slashes, root, trailing slash policy,
+      prefix joining/boundaries, manual prefix validation, and generated/manual divergence.
+- [ ] `[unit]` Reject schemes, hosts, protocol-relative URLs, queries, fragments, whitespace,
+      backslashes, controls, dot segments, dot-dot segments, malformed prefixes, and malformed
+      hosts.
+- [ ] `[unit]` Cover generated permalinks from the same-mutation slug, explicit slug selection,
+      missing/non-slug/cross-collection references, update-on-slug-change true/false, null slug
+      clearing, multiple independent dependencies, and standalone paths.
+- [ ] `[unit]` Verify mutation coordination order is slug → permalink and that unrelated payloads do
+      not cause derived writes.
 
-### `src/sluggernaut-hook/redirects/service.ts`
+### Redirect planning and persistence
 
-- [ ] `[unit]` Cover parsing of every compatible redirect field, string/number IDs, nullable dates,
-      provenance, lifecycle reasons, and rejection of malformed/incompatible records.
-- [ ] `[unit]` Verify relevant-read filters include the configured old/new canonical values and do
-      not load unrelated redirect history unnecessarily.
-- [ ] `[unit]` Verify managed-history reads filter by source collection/item and never infer
-      ownership from matching URLs.
-- [ ] `[unit]` Verify create mapping preserves 301, active state, dates, and all provenance; verify
-      rewrite/deactivation update mappings and operation ordering.
-- [ ] `[unit]` Verify manual redirect conflict records are not overwritten or deleted.
-- [ ] `[unit]` Verify service calls receive the transaction-bound store and errors are surfaced with
-      structured context.
-- [ ] `[e2e]` Verify persisted redirect records contain the expected public fields/provenance and
-      remain auditable after source deletion.
+- [ ] `[unit]` Verify the first valid permalink is preferred over slug, the first interface remains
+      authoritative when disabled, and no later interface silently replaces it.
+- [ ] `[unit]` Cover create/no-op/changed canonical/null canonical/reversion transitions and exact
+      managed 301 provenance with no invented lifecycle dates.
+- [ ] `[unit]` Cover managed-history ownership, old-origin rewrite, multi-hop chain flattening,
+      canonical-loop deactivation, self-loop prevention, duplicate-origin prevention, and stable
+      retry behavior.
+- [ ] `[unit]` Cover unmanaged redirects included/excluded from planning and conflict behavior
+      `override`/`block`; manual records must never be deleted or silently re-owned.
+- [ ] `[unit]` Cover archive, unarchive, delete, already-inactive records, manual activation
+      override, inactive reasons, and scheduled `start_date`/`end_date` preservation.
+- [ ] `[unit]` Verify service/store mappings, transaction-bound database handles, configured
+      collection names, compatible-record parsing, malformed-record rejection, and structured error
+      context.
 
-### `src/sluggernaut-hook/redirects/store.ts`
+### Recalculation, interfaces, and display
 
-- [ ] `[unit]` Verify the configured collection, schema, null accountability, and supplied knex
-      transaction are passed to `ItemsService`.
-- [ ] `[unit]` Verify `getSchema` is awaited once and service construction failures are propagated.
-- [ ] `[e2e]` Verify custom redirect collection names are used for reads/writes in a real Directus
-      mutation.
+- [ ] `[unit]` Verify recalculation authorization, option defaults/allowlists, disabled-extension
+      behavior, bounded paging, stable primary-key ordering, empty scopes, dependency ordering,
+      per-item failures, continuation, and exact statistics.
+- [ ] `[unit]` Verify `createRedirects=true/false`, selected slug-only/permalink-only fields,
+      unknown fields, standalone fields, and no implicit dependent-field updates.
+- [ ] `[component]` Verify slug/permalink locking, unlock/relock, disabled/non-editable states,
+      placeholders/locales, null/error rendering, emitted values, and API/Flow/import writes not
+      being blocked by the Studio control.
+- [ ] `[component]` Verify permalink field selection offers only same-collection Sluggernaut slug
+      fields and handles loading, empty, malformed, failed, changed-collection, and cleared
+      selections safely.
+- [ ] `[component]` Verify link display copies the exact stored path, renders null safely, opens
+      only valid HTTP(S) origins with `_blank` and `noopener,noreferrer`, and stays inert for
+      malformed options/values.
 
-### `src/sluggernaut-hook/index.ts`
+## B. End-to-end real-life scenario matrix
 
-- [ ] `[unit]` Verify disabled startup calls setup start/end and registers no startup, invalidation,
-      or item hooks.
-- [ ] `[unit]` Verify enabled startup validates options, creates one shared field cache with the
-      configured TTL/database, registers all three subsystems, and closes lifecycle bookkeeping.
-- [ ] `[unit]` Verify validation/setup failures do not leave a partially registered hook.
-- [ ] `[e2e]` Verify the built hook loads once and all five bundle entries remain available in the
-      packed consumer.
+Each row is a separate scenario or parameterized scenario family. For every row, assert the
+invariants above plus the row-specific oracle. “No redirect” means no new or changed managed
+redirect—not that unrelated pre-existing redirects disappear.
 
-### `src/sluggernaut-recalculate/options.schema.ts`
+### B1. Basic content creation and source resolution
 
-- [ ] `[unit]` Cover trimmed/non-empty collection, optional exact field-key arrays, default
-      `createRedirects=true`, explicit false, duplicate/blank keys, and unknown-key rejection.
+| ID  | Scenario                                                                                                     | Expected result                                                                                                                      |
+| --- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| E01 | Create with one normal headline                                                                              | Slug and generated permalink are derived and persisted in dependency order; no redirect is created for initial canonical assignment. |
+| E02 | Create with two source fields                                                                                | Trimmed non-empty values join in configured order; both derived fields use the same final slug.                                      |
+| E03 | Create with source values `null`, `undefined`, `""`, whitespace, `0`, and `false`                            | Presence and falsy values follow the contract; no accidental loss or stringification.                                                |
+| E04 | Create with all sources empty or punctuation-only                                                            | Slug and dependent permalink become `null`; item creation remains valid if Directus permits null.                                    |
+| E05 | Create with explicit slug and permalink                                                                      | Explicit values win, are normalized, and are not overwritten by source derivation.                                                   |
+| E06 | Create with invalid explicit slug/permalink types                                                            | Request fails at the boundary; item and redirects remain unchanged.                                                                  |
+| E07 | Create with Unicode/diacritics and each supported locale family                                              | Expected locale behavior is stable; no mojibake, unsafe path, or empty unexpected result.                                            |
+| E08 | Create with repeated punctuation, separators, emoji, RTL text, and mixed scripts                             | Output is normalized deterministically and remains a valid slug/path.                                                                |
+| E09 | Create with a field key containing spaces, hyphens, `$`, or non-English characters where Directus permits it | Discovery and persistence use metadata keys exactly; no conventional-name assumption.                                                |
+| E10 | Create two records with identical source text                                                                | Both records can be created; uniqueness behavior is owned by Directus/schema, not hidden slug mutation.                              |
+| E11 | Create with unrelated fields only                                                                            | No derived field or redirect is written; unrelated fields persist unchanged.                                                         |
 
-### `src/sluggernaut-recalculate/validation.ts`
+### B2. Updates, overrides, and dependency behavior
 
-- [ ] `[unit]` Verify root/null/admin/admin-access accountability is accepted, ordinary users are
-      forbidden, malformed options fail at the boundary, and valid options receive schema defaults.
-- [ ] `[e2e]` Verify a non-admin cannot run the operation and an authorized administrator can run it
-      only with valid inputs.
+| ID  | Scenario                                                        | Expected result                                                                                                                     |
+| --- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| E12 | Update one configured source field                              | With `updateOnSourceChange=true`, slug re-derives from final state and generated permalink follows configured synchronization.      |
+| E13 | Update unrelated field                                          | Slug/permalink and redirect history remain byte-for-byte unchanged.                                                                 |
+| E14 | Update source to empty while another source remains             | Remaining source material is retained; stale removed source text is absent.                                                         |
+| E15 | Clear all sources                                               | Slug becomes `null`; synchronized permalink clears; redirect behavior follows null-canonical rules without inventing a destination. |
+| E16 | Update source with `updateOnSourceChange=false`                 | Existing slug is preserved; an explicit slug payload still wins and normalizes.                                                     |
+| E17 | Manually unlock and set a custom slug                           | Custom value persists; later unrelated updates do not overwrite it.                                                                 |
+| E18 | Change slug with `updateOnSlugChange=false`                     | Existing generated permalink remains unchanged; no redirect is based on a permalink that did not change.                            |
+| E19 | Change slug with `updateOnSlugChange=true`                      | Permalink synchronizes, and exactly one canonical transition is planned from old to new.                                            |
+| E20 | Explicit permalink override while generated mode is enabled     | Manual path is accepted/rejected according to path and prefix rules; it is not silently regenerated.                                |
+| E21 | Manual permalink outside prefix with validation on/off          | Validation on rejects; validation off preserves the valid user path without silently adding the prefix.                             |
+| E22 | Toggle trailing-slash policy across generated and manual values | Only configured operations change slash policy; root remains `/`; disabled enforcement preserves a valid manual choice.             |
+| E23 | Update both source and explicit dependent fields in one payload | Explicit values win at each field; dependency ordering does not overwrite them.                                                     |
+| E24 | Update two independent slugs/permalinks simultaneously          | Each dependency graph is isolated; one invalid graph does not corrupt the valid graph.                                              |
+| E25 | Update with omitted source fields and an existing item          | Existing values are used only where the contract requires; no source becomes the string `undefined`.                                |
+| E26 | Send invalid path classes through API/SDK/import                | Request fails atomically and the prior item plus redirect history remain unchanged.                                                 |
 
-### `src/sluggernaut-recalculate/handler.ts`
+### B3. Bulk, import, and mutation-entry-point coverage
 
-- [ ] `[unit]` Verify collection configuration is discovered once, standalone permalinks are
-      skipped, derived fields are selected strictly, and unknown requested fields are ignored.
-- [ ] `[unit]` Verify slug-before-permalink dependency ordering, permalink-only stored-slug input,
-      slug-only no-dependent-update, and initial null-to-value backfill.
-- [ ] `[unit]` Verify pagination uses bounded pages, stable primary-key ordering, does not load the
-      collection unbounded, and handles a short terminal page.
-- [ ] `[unit]` Verify primary-key discovery, invalid/missing item IDs, no-op items, per-item update
-      failures, continued processing after failures, and bounded
-      `{ processed, updated, skipped, failed }` statistics/logging.
-- [ ] `[unit]` Verify `createRedirects=true` uses the item service/hooks and false bypasses redirect
-      generation while writing through the transaction database.
-- [ ] `[unit]` Verify empty selected scope exits without item reads and redirect-global-disabled
-      behavior remains correct.
-- [ ] `[e2e]` Verify a large enough fixture proves paging, exact field scope, dependent ordering,
-      per-item failure accounting, redirect opt-out, and redirect creation during recalculation.
+| ID  | Scenario                                                      | Expected result                                                                                                |
+| --- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| E27 | Bulk create three heterogeneous records                       | Each item derives independently; one item’s source values cannot bleed into another.                           |
+| E28 | Bulk create containing a malformed item                       | The supported Directus behavior is recorded; valid items are not mis-derived and failures are visible.         |
+| E29 | Bulk update records with the same source change               | Only supported unambiguous behavior occurs; no single derived value is copied to unrelated items.              |
+| E30 | Bulk update with ambiguous keys requiring existing-item reads | Operation rejects the derived mutation rather than applying unsafe shared data.                                |
+| E31 | API, SDK, Flow, CSV/import, and server-side writes            | All supported paths invoke the same server authority; Studio lock state does not block them.                   |
+| E32 | Duplicate/retried request with identical payload              | Final item and redirect set are unchanged after the first successful application.                              |
+| E33 | Failed derived-field write or redirect write                  | Failure is visible; verify the documented atomicity boundary and that no false success is returned.            |
+| E34 | Concurrent updates to the same item                           | Record the supported outcome; no impossible mixed slug/permalink pair or orphaned managed redirect may remain. |
 
-### `src/sluggernaut-recalculate/api.ts`
+### B4. Permalink algorithm matrix
 
-- [ ] `[unit]` Verify disabled extension returns zero statistics without validation/service work,
-      enabled operation validates options and environment, and setup ends on success and failure.
-- [ ] `[unit]` Verify the operation passes validated environment options and context through to the
-      handler exactly once.
-- [ ] `[e2e]` Verify the operation is loadable under the declared Directus operation entry and
-      returns bounded statistics.
+| ID  | Scenario                                                                                          | Expected result                                                                           |
+| --- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| E35 | Generated path with no prefix, `/news`, `news`, and `/news/`                                      | Equivalent valid prefixes produce one normalized path; invalid prefixes fail safely.      |
+| E36 | Generated root/empty/null slug                                                                    | Root and null semantics are explicit; no `//`, `undefined`, or dangling prefix is stored. |
+| E37 | Manual `/`, `/a//b`, `/a/b/`, and nested path                                                     | Valid paths normalize exactly according to trailing-slash settings.                       |
+| E38 | Manual full URL, protocol-relative URL, query, fragment, backslash, control, `.`/`..`, whitespace | Every invalid class is rejected without changing the item.                                |
+| E39 | Prefix boundary `/news` vs `/newspaper`                                                           | Prefix validation does not accept lookalike paths.                                        |
+| E40 | Permalink references missing, cross-collection, non-slug, or malformed slug field                 | Invalid configuration is warned and excluded; unrelated valid fields continue to derive.  |
+| E41 | Standalone permalink create/update                                                                | It accepts only explicit valid paths and never acquires an implicit slug dependency.      |
+| E42 | Two generated permalinks from different slugs                                                     | Each follows its selected slug and update policy; one change does not rewrite the other.  |
 
-### `src/sluggernaut-recalculate/index.ts`
+### B5. Redirect source selection and canonical transitions
 
-- [ ] `[unit]` Assert operation ID/name/description/icon, required collection option, JSON field
-      allowlist option, redirect default, and overview output for omitted/selected fields and false
-      redirect creation.
-- [ ] `[e2e]` Verify Studio exposes the operation with the documented name and options.
+| ID  | Scenario                                                                    | Expected result                                                                           |
+| --- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| E43 | Redirects disabled globally                                                 | Slug/permalink derivation works; no redirect collection read/write occurs.                |
+| E44 | Redirects enabled with automatic slug                                       | First valid enabled slug is the sole canonical source; initial create has no redirect.    |
+| E45 | Automatic permalink and automatic slug both configured                      | First valid permalink has precedence over slug.                                           |
+| E46 | First discovered permalink disabled, later permalink enabled                | First discovered interface remains the candidate; later interface does not replace it.    |
+| E47 | Canonical change from `/old` to `/new`                                      | One active managed `301` is created with complete provenance and no lifecycle dates.      |
+| E48 | Canonical value unchanged or unavailable on one side                        | No redirect plan is applied.                                                              |
+| E49 | Canonical reversion `/old` → `/new` → `/old`                                | History is rewritten safely; no active self-loop or duplicate managed origin is created.  |
+| E50 | Canonical changes multiple times quickly                                    | Latest canonical destination wins and older chains flatten to it.                         |
+| E51 | Previous managed redirect exists for same source                            | It is rewritten, not duplicated; ownership fields remain correct.                         |
+| E52 | Matching URL exists but provenance belongs to another item/field/collection | It is not treated as owned history.                                                       |
+| E53 | Custom redirect collection name                                             | Every runtime read/write targets the configured collection, never hardcoded `redirects`.  |
+| E54 | Redirect collection missing/incompatible while derivation is enabled        | Derivation remains usable; redirect failure is visible and does not produce fake history. |
 
-### `src/shims.d.ts`
+### B6. Redirect chains, conflicts, and integrity attacks
 
-- [ ] `[unit]` Add a typecheck/build guard that the declaration shim does not mask missing runtime
-      modules or permit app/server boundary imports that would fail in the packed artifact.
+| ID  | Scenario                                                                   | Expected result                                                                                          |
+| --- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| E55 | Existing chain `/a` → `/b` → `/c`, canonical moves to `/d`                 | Included managed chain is flattened to `/d`; no avoidable multi-hop chain remains.                       |
+| E56 | Existing redirect originates at new canonical `/new`                       | It is deactivated as needed to prevent an active loop; unrelated records are preserved.                  |
+| E57 | Unmanaged `/old` conflict with behavior `override`                         | The configured conflict policy is applied and recorded; no unmanaged record is deleted.                  |
+| E58 | Unmanaged `/old` conflict with behavior `block`                            | Existing conflict is preserved, no managed replacement is created, and warning evidence exists.          |
+| E59 | `includeUnmanagedRedirectsInPlanning=false`                                | Unmanaged records do not participate in chain flattening/conflict planning; managed history still works. |
+| E60 | Manual redirect with same destination but different origin                 | It remains untouched unless the explicit planning contract includes it.                                  |
+| E61 | Redirect with malformed type/provenance/date fields                        | It is rejected or ignored safely; valid history remains intact and diagnostics identify it.              |
+| E62 | Duplicate active managed redirects for one origin are pre-seeded           | Mutation does not amplify the duplicate; report the integrity violation and preserve ownership safety.   |
+| E63 | Redirect record attempts to impersonate Sluggernaut via URL only           | Provenance checks prevent takeover or rewrite of another source’s history.                               |
+| E64 | Redirect destination equals origin, including slash-normalization variants | No active self-loop is persisted.                                                                        |
+| E65 | Scheduled redirect with start/end dates is encountered during planning     | Dates are preserved; automatic canonical changes do not invent or erase consumer-owned scheduling.       |
 
-## Existing test files audited — no duplicate task items
+### B7. Archive, unarchive, delete, and manual state management
 
-The following existing tests were reviewed and their covered cases are intentionally not repeated
-above:
+| ID  | Scenario                                                                    | Expected result                                                                                    |
+| --- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| E66 | Archive item with active managed history                                    | All active redirects owned by that item/source deactivate with `inactive_reason=archive`.          |
+| E67 | Unarchive item after archive                                                | Only records suspended specifically by archive reactivate; deleted/manual/inactive records do not. |
+| E68 | Delete item                                                                 | Managed history deactivates with `inactive_reason=delete`; source provenance remains auditable.    |
+| E69 | Delete/archive item with no managed history                                 | Source action succeeds with no fabricated redirect updates.                                        |
+| E70 | Archive and canonical change in one supported lifecycle sequence            | Final item, lifecycle state, canonical history, and redirect reasons are internally consistent.    |
+| E71 | Unarchive after a manual activation-state override                          | Manual override metadata is cleared/applied exactly as documented; no accidental reactivation.     |
+| E72 | Non-archive collection with `status`, `published`, or custom boolean fields | Those fields never trigger lifecycle behavior without Directus archive metadata.                   |
+| E73 | Repeated archive/delete/unarchive events                                    | Operations are idempotent and do not change inactive reason unexpectedly.                          |
 
-- `__tests__/bundle.test.ts` — IDs and environment defaults.
-- `__tests__/configuration.test.ts` — basic ordering, duplicate warning, invalid permalink
-  reference, standalone permalink, and missing source reference.
-- `__tests__/hook-registration.test.ts` — basic startup schema/policy registration, invalidation
-  event registration, and unavailable-collection policy skip.
-- `__tests__/link-display.test.ts` — basic path/host/href/null helper behavior.
-- `__tests__/mutation-coordinator.test.ts` — basic create ordering, null source, stable/sync
-  permalink, null synchronized permalink, explicit values, standalone permalink, and two recalculate
-  scope cases.
-- `__tests__/normalization.test.ts` — basic slug, falsy resolution, path, prefix, boundary, trailing
-  slash, manual prefix, and host behavior.
-- `__tests__/redirect-planner.test.ts` — basic source precedence, canonical normalization, create,
-  chain flattening, managed-origin update, ownership conflict, self-loop conflict, and lifecycle.
-- `__tests__/redirect-service.test.ts` — basic compatible reads, plan application, managed-history
-  reads, and lifecycle writes.
-- `__tests__/validation.test.ts` — basic operation defaults/unknown keys, field metadata, and link
-  option boundary validation.
+### B8. Schema, policy, cache, and operational behavior
 
-## Spec and implementation-plan reconciliation
+| ID  | Scenario                                                         | Expected result                                                                                                    |
+| --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| E74 | Provision empty redirect schema                                  | Collection, fields, policies, and defaults are usable by runtime operations.                                       |
+| E75 | Provision twice or start two instances concurrently              | No duplicate schema/policy rows, destructive recreation, or partial registration occurs.                           |
+| E76 | Compatible pre-existing redirect collection                      | It is reused without destructive changes.                                                                          |
+| E77 | Incompatible pre-existing collection                             | Startup warning and safe derivation-only behavior; abort setting is respected.                                     |
+| E78 | Policies enabled individually and together                       | Exact policy is registered, least privilege is enforced, and no policy is auto-assigned.                           |
+| E79 | Authorized and unauthorized redirect reads/writes                | Permissions and active-date filters match the schema contract; ordinary users cannot run admin-only recalculation. |
+| E80 | Change field metadata after cache warm-up                        | Relevant collection invalidates; unrelated collection cache remains valid; new config becomes visible.             |
+| E81 | Two collections with similar metadata and one cache invalidation | No configuration, field, or redirect provenance leaks across collections.                                          |
+| E82 | Extension disabled, then enabled after restart                   | Disabled instance is inert; enabled instance registers cleanly without stale in-memory state.                      |
+| E83 | Packed package in clean Directus consumer                        | All five entries load, imports resolve, and the E2E matrix can run against the built artifact.                     |
 
-### Specification section 80 — unit requirements
+### B9. Recalculation and repair
 
-- [x] Slug basics, arbitrary keys, locale/lowercase, explicit override, null/falsy handling,
-      independent fields, stable/synchronized permalinks, explicit slug selection, standalone mode,
-      path/prefix/trailing-slash normalization, canonical source precedence, basic redirect
-      planning, managed provenance/lifecycle, display helpers, and basic recalculation scope are
-      represented by existing tests plus the outstanding file-specific tasks above.
-- [ ] Complete the remaining unit matrix: `updateOnSourceChange=false`, empty/whitespace source
-      transitions, all invalid path classes, all option/schema defaults and invalid inputs, multiple
-      independent interfaces, full redirect gates/conflicts/reversion/manual override, component
-      actions/locking, configuration cache/adapter/transaction behavior, policy/schema
-      reconciliation, operation authorization/pagination/failure statistics, and
-      registration/package contracts.
+| ID  | Scenario                                                         | Expected result                                                                                    |
+| --- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| E84 | Recalculate all derived fields over more than one page           | Stable primary-key paging processes each item once with bounded memory and exact counts.           |
+| E85 | Recalculate selected slug only                                   | Only selected slug changes; dependent permalink is not implicitly changed.                         |
+| E86 | Recalculate selected permalink only                              | It uses stored/current slug input according to contract; unrelated slug stays unchanged.           |
+| E87 | Recalculate both slug and permalink                              | Dependency order is correct and final pair is coherent.                                            |
+| E88 | Recalculate standalone permalink                                 | Only explicit/standalone behavior applies.                                                         |
+| E89 | Recalculate with `createRedirects=true`                          | Canonical transitions create/repair redirects through the supported mutation path.                 |
+| E90 | Recalculate with `createRedirects=false`                         | Derived fields update but redirect history is not created or changed by recalculation.             |
+| E91 | One item fails validation or update in the middle of a page      | Processing continues; failed count/logging identify the item; successful items remain correct.     |
+| E92 | Recalculate empty selection, unknown fields, or empty collection | No unnecessary item reads; bounded zero/skip statistics are returned.                              |
+| E93 | Run recalculation twice                                          | Second run is a no-op for items, redirects, counts, and audit fields except documented statistics. |
 
-### Specification section 81 — E2E requirements
+### B10. Bot/adversarial and data-integrity scenarios
 
-- [ ] Add real-Directus coverage for item create/update/null-source, independent slug/permalink
-      interfaces, duplicate warnings, first-interface redirect selection, permalink-over-slug
-      precedence, chain/reversion behavior, delete/archive/unarchive/manual preservation, compatible
-      schema reuse and idempotence, custom collection names, both policies and no auto-assignment,
-      recalculation/backfill/scope/redirect opt-out, API writes despite Studio locks, transaction
-      behavior, and bulk mutation behavior.
+These cases model imports, crawlers, malicious clients, flaky workers, and automation rather than a
+human carefully using Studio.
 
-### Specification sections 82–83 and implementation phases 1–6
+| ID   | Scenario                                                                                                         | Expected result                                                                                                |
+| ---- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| E94  | Submit maximum practical title length and repeated punctuation                                                   | No crash, truncation surprise, unsafe path, or non-deterministic output; document any Directus field limit.    |
+| E95  | Submit HTML, Markdown, SQL-like text, template syntax, null bytes, control characters, and bidi markers          | Values are treated as data; unsafe path classes reject; no log injection or code execution occurs.             |
+| E96  | Submit absolute URLs, protocol-relative URLs, encoded traversal, double-encoded traversal, and mixed slash forms | No host/query/fragment/traversal value reaches stored permalink or redirect origin/destination.                |
+| E97  | Send rapidly repeated updates that alternate canonical values                                                    | Final item and redirect graph converge to the last committed state without loops or orphaned active redirects. |
+| E98  | Replay the same webhook/import batch after partial network timeout                                               | Retry is safe; no duplicate managed history or cross-item source ownership appears.                            |
+| E99  | Concurrent workers recalculate and mutate the same collection                                                    | No lost updates outside documented transaction semantics; conflicts/failures are observable.                   |
+| E100 | Attempt to write read-only redirect provenance/lifecycle fields directly                                         | Directus permissions/schema and extension behavior prevent unauthorized provenance forgery.                    |
+| E101 | Attempt cross-collection slug reference and cross-item redirect provenance forgery                               | Configuration is rejected/ignored and existing history is not taken over.                                      |
+| E102 | Use non-ASCII field keys, reordered metadata, null sort values, and duplicate interfaces                         | Discovery remains deterministic across restart and process order.                                              |
+| E103 | Kill/fail a request at each redirect persistence step, then retry                                                | Document transaction/rollback behavior; no silently half-applied state is accepted as success.                 |
+| E104 | Run startup/recalculation during schema invalidation                                                             | No stale configuration causes unsafe derivation; lock/cache behavior is visible in logs.                       |
 
-- [ ] Make the package/packed-consumer checks prove the five entrypoints and runtime dependencies;
-      make documentation validation prove README/skill coverage; and record the repository gates
-      separately from behavioral tests.
-- [ ] Before marking complete, map every implementation-phase exit criterion to passing unit or E2E
-      evidence, especially schema/policy idempotence, safe incompatible-collection behavior,
-      structured failures/logging, bounded recalculation, and clean packed-consumer loading.
+## C. Failure, rollback, and transaction evidence
 
-### Known test-plan gaps not visible in the current implementation files
+The E2E suite must deliberately inject or induce failures at these boundaries:
 
-- [ ] `[e2e]` Add a fixture proving v1 hierarchy/namespace/system-metadata behavior is not invoked
-      by v2 and that arbitrary application status fields do not trigger archive lifecycle logic.
-- [ ] `[e2e]` Add rollback/atomicity evidence for derived fields plus redirect writes when the
-      supported Directus event transaction fails; document the exact limitation if Directus cannot
-      provide this guarantee.
-- [ ] `[e2e]` Add a concurrent/startup lock scenario for schema and policy registration, not just
-      sequential idempotence.
+- invalid field configuration;
+- item read failure;
+- derived item update failure;
+- redirect collection read/create/update failure;
+- archive/delete lifecycle failure;
+- schema/policy provisioning failure;
+- cache invalidation failure;
+- Flow authorization or malformed operation input failure.
 
-## Completion rule
+For each failure, record whether Directus rolls back the item, the derived fields, and redirect
+writes together. If the event model cannot guarantee all-or-nothing behavior, the test plan must
+state the exact partial-write boundary and require an operator repair/recalculation procedure. Never
+mark a failure case passed because an error was logged if persisted state is inconsistent.
 
-The checklist is complete only when every unchecked task above has an implemented test, every
-existing test remains non-duplicative, all 33 E2E requirements in the specification have evidence,
-and the repository’s required test/build/package gates are recorded with exact commands.
+## D. Test data and assertions to retain
+
+Every E2E case should retain enough evidence to diagnose a bot-created data-integrity issue:
+
+- request entry point, payload, actor/accountability, collection, item key, and timestamp;
+- pre-mutation item and redirect snapshots;
+- response/error and relevant Directus/extension log lines;
+- post-mutation item and redirect snapshots, including all provenance and lifecycle columns;
+- graph check of active `origin → destination` edges for loops, chains, duplicate origins, and stale
+  destinations;
+- cleanup result and any records intentionally left for forensic review.
+
+Use exact path comparisons after normalization. Do not assert only on rendered Studio values.
+
+## E. Execution order and completion gates
+
+Run in this order so failures narrow quickly:
+
+1. `[unit]` normalization, schemas, discovery, coordinator, planner, service, validation;
+2. `[component]` interfaces, picker, and display;
+3. `[integration]` build, package metadata, cache/process/packed-consumer checks;
+4. `[e2e]` E01–E42 algorithm and mutation matrix;
+5. `[e2e]` E43–E73 redirect and lifecycle matrix;
+6. `[e2e]` E74–E93 operational and recalculation matrix;
+7. `[e2e]` E94–E104 adversarial, concurrency, retry, and failure matrix;
+8. repository validation and diff review.
+
+Required repository checks for the eventual implementation are:
+
+```text
+corepack pnpm format
+corepack pnpm build:utils
+corepack pnpm lint:fix
+corepack pnpm typecheck
+corepack pnpm test:unit
+corepack pnpm test:integration       # when process/packed checks are added
+corepack pnpm test:e2e                # when Directus E2E checks are added
+git diff --check
+```
+
+The plan is complete when every matrix ID has recorded evidence, all documented invariants pass,
+rollback limitations are explicit, the packed artifact is tested, and no existing unit test is
+counted as E2E evidence by implication. A future implementation task should also update the package
+README and consumer skill if testable public behavior changes; this documentation-only update does
+not require a Changeset.

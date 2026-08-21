@@ -220,8 +220,9 @@ deactivate included loops. By default, unmanaged redirects are included and the 
 value overrides an unmanaged conflict. Set `includeUnmanagedRedirectsInPlanning=false` to ignore
 unmanaged records, or set `unmanagedRedirectConflictBehavior=block` to preserve an included
 unmanaged conflict and log a warning. Update-time redirect persistence is in the item mutation flow:
-if it fails, the item update fails. Delete/archive lifecycle failures are logged after the source
-action.
+if the redirect collection is unavailable or incompatible, redirect processing is skipped, logged,
+and the derived item update still completes. Delete/archive lifecycle failures are logged after the
+source action.
 
 The bundle does not serve redirects. A web server, frontend, edge worker, or endpoint must query
 active records and issue the HTTP response.

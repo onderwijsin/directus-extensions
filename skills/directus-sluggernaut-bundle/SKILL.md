@@ -288,8 +288,10 @@ archive field transitions to its archive value, records are deactivated with
 `inactive_reason=archive`; unarchive reactivates only archive-suspended records. Manual reactivation
 clears the inactive reason.
 
-Update-time redirect writes are part of the mutation flow: persistence failure fails the update.
-Delete/archive action failures are logged after the source mutation and cannot roll back deletion.
+Update-time redirect writes are part of the mutation flow. If the configured redirect collection is
+unavailable or incompatible, redirect processing is skipped and logged while the derived item update
+continues. Delete/archive action failures are logged after the source mutation and cannot roll back
+deletion.
 
 Sluggernaut does not serve these records. A redirect consumer should at minimum filter
 `is_active=true`, honor `start_date`/`end_date`, and return the stored `type` and `destination`.

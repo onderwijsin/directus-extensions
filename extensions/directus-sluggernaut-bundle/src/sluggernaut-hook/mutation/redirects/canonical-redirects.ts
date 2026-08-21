@@ -43,30 +43,45 @@ export async function processCanonicalRedirect(input: {
 	if (oldCanonical === null || newCanonical === null || oldCanonical === newCanonical) return
 
 	// Read the small slice of redirect history needed to resolve ownership and chain conflicts.
-	const service = await createRedirectService(
-		context,
-		options.SLUGGERNAUT_REDIRECTS_COLLECTION,
-		database,
-	)
-	const existingRedirects = await readRelevantRedirects(service, oldCanonical, newCanonical)
-	// The pure planner decides whether to create, rewrite, deactivate, or warn about redirects.
-	const plan = planCanonicalRedirect({
-		oldCanonical,
-		newCanonical,
-		source,
-		source_collection: collection,
-		source_item: key,
-		existingRedirects,
-	})
-
-	// Conflicts are informational; the planner preserves redirects it does not own.
-	for (const warning of plan.warnings) {
-		context.logger.warn(warning, {
-			collection,
-			field: source.field,
-			code: 'redirect-conflict',
+	try {
+		const service = await createRedirectService(
+			context,
+			options.SLUGGERNAUT_REDIRECTS_COLLECTION,
+			database,
+		)
+		const existingRedirects = await readRelevantRedirects(service, oldCanonical, newCanonical)
+		// The pure planner decides whether to create, rewrite, deactivate, or warn about redirects.
+		const plan = planCanonicalRedirect({
+			oldCanonical,
+			newCanonical,
+			source,
+			source_collection: collection,
+			source_item: key,
+			existingRedirects,
 		})
+
+		// Conflicts are informational; the planner preserves redirects it does not own.
+		for (const warning of plan.warnings) {
+			context.logger.warn(warning, {
+				collection,
+				field: source.field,
+				code: 'redirect-conflict',
+			})
+		}
+		// Apply the deterministic plan through the same transaction used by the source-item mutation.
+		await applyRedirectPlan(service, plan)
+	} catch (error) {
+		// Redirect infrastructure is optional. A missing or incompatible collection must not prevent
+		// the derived content mutation from completing.
+		context.logger.warn(
+			'Sluggernaut skipped redirect processing because the redirect collection is unavailable or incompatible.',
+			{
+				collection,
+				redirectCollection: options.SLUGGERNAUT_REDIRECTS_COLLECTION,
+				field: source.field,
+				code: 'redirect-runtime-unavailable',
+				error,
+			},
+		)
 	}
-	// Apply the deterministic plan through the same transaction used by the source-item mutation.
-	await applyRedirectPlan(service, plan)
 }
