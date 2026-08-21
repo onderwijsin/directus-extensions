@@ -87,21 +87,22 @@ Configured application records are cached for 60 seconds for reads. Deployment a
 authorization bypasses this cache so changes to `enabled` and `deploy_enabled` take effect
 immediately. Redis is intentionally shared across horizontally scaled Directus processes.
 
-| Variable                                 | Default                | Valid values / effect                                                       |
-| ---------------------------------------- | ---------------------- | --------------------------------------------------------------------------- |
-| `CACHE_ENABLED`                          | `true` for this bundle | Boolean cache switch.                                                       |
-| `CACHE_STORE`                            | `memory`               | `memory` or `redis`. Memory is per process.                                 |
-| `REDIS_ENABLED`                          | `false`                | Enables component-based Redis configuration.                                |
-| `REDIS`                                  | unset                  | Complete `redis://` or `rediss://` URL; takes precedence.                   |
-| `REDIS_HOST`                             | unset                  | Component hostname.                                                         |
-| `REDIS_PORT`                             | unset                  | Component port, `1`–`65535`.                                                |
-| `REDIS_USERNAME`                         | unset                  | Component username.                                                         |
-| `REDIS_PASSWORD`                         | unset                  | Component password.                                                         |
-| `SYNCHRONIZATION_STORE`                  | `memory`               | Global synchronization fallback, separate from `CACHE_STORE`.               |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`      | unset                  | Optional `memory`, `redis`, or `fs` startup lock provider.                  |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`     | unset                  | Required if the effective lock provider is Redis without another Redis URL. |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`  | unset                  | Required if the effective lock provider is `fs`.                            |
-| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` | unset                  | Optional `memory` or `redis` shared utility setting.                        |
+| Variable                                     | Default                | Valid values / effect                                                       |
+| -------------------------------------------- | ---------------------- | --------------------------------------------------------------------------- |
+| `CACHE_ENABLED`                              | `true` for this bundle | Boolean cache switch.                                                       |
+| `CACHE_STORE`                                | `memory`               | `memory` or `redis`. Memory is per process.                                 |
+| `REDIS_ENABLED`                              | `false`                | Enables component-based Redis configuration.                                |
+| `REDIS`                                      | unset                  | Complete `redis://` or `rediss://` URL; takes precedence.                   |
+| `REDIS_HOST`                                 | unset                  | Component hostname.                                                         |
+| `REDIS_PORT`                                 | unset                  | Component port, `1`–`65535`.                                                |
+| `REDIS_USERNAME`                             | unset                  | Component username.                                                         |
+| `REDIS_PASSWORD`                             | unset                  | Component password.                                                         |
+| `DIRECTUS_POLICY_CACHE_INVALIDATION_ENABLED` | `true`                 | Registers global policy-cache invalidation in the hook.                     |
+| `SYNCHRONIZATION_STORE`                      | `memory`               | Global synchronization fallback, separate from `CACHE_STORE`.               |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`          | unset                  | Optional `memory`, `redis`, or `fs` startup lock provider.                  |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`         | unset                  | Required if the effective lock provider is Redis without another Redis URL. |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`      | unset                  | Required if the effective lock provider is `fs`.                            |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`     | unset                  | Optional `memory` or `redis` shared utility setting.                        |
 
 Use a URL:
 
@@ -125,6 +126,13 @@ REDIS_PASSWORD=secret
 
 If any Redis component is supplied, all four are required. `CACHE_STORE=redis` requires a URL or all
 components. Use Redis for multiple Directus processes.
+
+Authorization uses the shared policy helpers. Policy results are cached only with valid Redis
+configuration, for up to three days, in the isolated `directus:policies` namespace. The hook clears
+that namespace on create, update, or delete in `directus_access`, `directus_policies`, and
+`directus_roles`. If the standalone policies endpoint bundle is also installed, set
+`DIRECTUS_POLICY_CACHE_INVALIDATION_ENABLED=false` in one extension to avoid duplicate hook
+registration.
 
 ## Configure applications
 

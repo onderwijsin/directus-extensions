@@ -20,7 +20,7 @@ import {
 	toEntries,
 } from '@onderwijsin/directus-extension-utils'
 
-import { createFieldCache } from '../server/field-reader'
+import { createFieldReader } from '../server/field-reader'
 import { discoverCollectionConfiguration } from '../shared/configuration/ordering'
 import { coordinateMutation } from '../sluggernaut-hook/mutation/coordinator'
 
@@ -165,16 +165,8 @@ export async function recalculateFields(
 	envOptions: SluggernautEnv,
 ): Promise<RecalculateResult> {
 	const { collection, createRedirects } = options
-	const fieldCache = createFieldCache(
-		{
-			services: context.services,
-			getSchema: context.getSchema,
-			database: context.database,
-		},
-		context.env,
-		envOptions.SLUGGERNAUT_FIELDS_CACHE_TTL_MS,
-	)
-	const fields = await fieldCache.read(collection)
+	const fieldReader = createFieldReader(context)
+	const fields = await fieldReader.read(collection)
 	const schema = await context.getSchema()
 	const configuration = discoverCollectionConfiguration(fields)
 	const primaryKey = primaryKeyFromFields(fields)

@@ -41,6 +41,7 @@ export default defineOperationApi<CoolifyDeployOptions>({
 				options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID,
 				services,
 				await getSchema(),
+				null,
 			))
 		) {
 			throw new ForbiddenError()
@@ -59,6 +60,7 @@ export default defineOperationApi<CoolifyDeployOptions>({
 
 		const client = createCoolifyDeploymentClient(options, {
 			...options,
+			CACHE_ENABLED: false,
 			services,
 			getSchema,
 			logger,

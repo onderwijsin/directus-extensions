@@ -37,16 +37,36 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 ```
 
+Use `/hook` when defining an API hook with asynchronous action handlers. This subpath contains the
+corrected Directus hook types and keeps `@directus/extensions-sdk` isolated from consumers that only
+import server utilities:
+
+```ts
+import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
+```
+
+Import only the corrected hook types from `/types` when a utility needs the compile-time contract
+without the hook runtime:
+
+```ts
+import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
+```
+
 Use the server policy utilities when an extension must resolve Directus policy assignments,
 including nested roles and `ip_access` filtering. The first accountability controls whose policy
 assignments are resolved; by default it also controls CRUD filtering while reading `directus_access`
 and `directus_policies`:
 
 ```ts
-import { fetchPolicies, hasPolicies } from '@onderwijsin/directus-extension-utils/server'
+import {
+  fetchPolicies,
+  hasPolicies,
+  initializePolicyCache,
+} from '@onderwijsin/directus-extension-utils/server'
 
-const policies = await fetchPolicies(accountability, services, schema, cache)
-const allowed = await hasPolicies(accountability, policyId, services, schema)
+const policyCache = initializePolicyCache(env)
+const policies = await fetchPolicies(accountability, services, schema, policyCache)
+const allowed = await hasPolicies(accountability, policyId, services, schema, policyCache)
 ```
 
 Pass a final `null` read accountability only for a trusted server-side consumer that must resolve
@@ -55,63 +75,74 @@ must not be used before returning policies to a client unless exposing all match
 is intentional:
 
 ```ts
-const policies = await fetchPolicies(accountability, services, schema, cache, null)
-const allowed = await hasPolicies(accountability, policyId, services, schema, null, null)
+const policies = await fetchPolicies(accountability, services, schema, policyCache, null)
+const allowed = await hasPolicies(accountability, policyId, services, schema, policyCache, null)
 ```
 
 The policies endpoint uses the default user-scoped mode. Its callers therefore need read access to
 the relevant `directus_access` and `directus_policies` records, directly or through a role.
 
-Policy caching is opt-in. Pass a consumer-owned cache when a bounded TTL and invalidation strategy
-are appropriate for the deployment.
+Initialize a policy cache once during extension startup with `initializePolicyCache`. It returns
+`null` when caching is disabled or Redis configuration is invalid. Pass that cache to policy
+helpers; they never initialize Redis clients on the request path. The Redis-only policy cache uses
+the shared `directus:policies` namespace so separate extension entrypoints can invalidate it.
 
 Create a local or Redis-backed cache from validated Directus environment values:
 
 ```ts
 import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
-const cache = initializeCache(env, { ttl: 60_000 })
-const cached = await cache?.get('orders:summary')
+const cache = initializeCache(context.env, { ttl: 60_000 })
+const summaryCacheKey = (collection: string): string => `summary:${collection}`
 
-const readSummary = withCache({ cache, namespace: 'summary' }, async (collection: string) => {
-  return loadSummary(collection)
-})
-const summary = await readSummary('orders')
-await readSummary.clear('orders')
+const summary = await withCache({ cache, key: summaryCacheKey('orders') }, () =>
+  loadSummary('orders'),
+)
 ```
 
-`withCache` accepts a `Cache | null` and an optional namespace, then returns a typed asynchronous
-handler with this shape:
+`withCache` accepts a `Cache | null`, an explicit cache key, and an asynchronous cache-miss handler:
 
 ```ts
-type CachedHandler<TArgs extends readonly unknown[], TResult> = ((
-  key: string,
-  ...args: TArgs
-) => Promise<TResult>) & {
-  clear(key: string): Promise<void>
-}
+withCache<TResult>(
+  options: { cache: Cache | null; key: string },
+  handler: () => Promise<TResult>,
+): Promise<TResult>
 ```
 
-The logical `key` is used for cache lookup and is the first argument passed to the miss handler;
-additional arguments are forwarded unchanged. When `namespace: 'summary'` is supplied, the backend
-key is `summary:<key>` for reads, writes, and `clear(key)`. A namespace ending in `:` is not given a
-second separator. Without a namespace, keys pass through unchanged. A cache hit returns the cached
-value without invoking the handler; a miss invokes the handler and stores its result. A `null` cache
-disables reads, writes, and deletes while still invoking the handler.
+The handler runs only on a cache miss, and its resolved value is stored under the explicit key. A
+`null` cache bypasses cache reads and writes while still invoking the handler. Keep key construction
+next to the cached operation and use stable extension-specific prefixes such as
+`fields:<collection>` or `summary:<collection>`; key construction has no implicit extension prefix.
 
-`clear(key)` deletes only the exact namespaced key and resolves after the delete completes. It does
-not invalidate other keys, flush the cache, or coordinate invalidation across processes by itself.
-Choose a Redis-backed cache and call `clear` from the relevant schema/data events when consumers
-need cross-process invalidation.
+For mutation-driven invalidation, use `registerCollectionCacheInvalidation` with the same key
+function used by `withCache`:
 
-The related public types are `CacheEnv` (the input environment shape), `CacheOptions` (`ttl`, a
-finite positive number), and `WithCacheOptions` (`cache` plus an optional namespace).
+```ts
+registerCollectionCacheInvalidation(
+  'articles',
+  { cache, key: (collection) => `fields:${collection}` },
+  hook,
+  context,
+)
+```
 
-`cacheConfigSchema` validates Directus cache and Redis settings. `REDIS` takes precedence over
+Invalidation deletes the exact key associated with the mutated collection. It is non-blocking and
+logs deletion failures; use Redis when invalidation must be visible across Directus processes. Pass
+a string for regular item events, an array for explicit event targets, or an object to select
+create/update/delete events and system-collection handling.
+
+The related public types are `CacheEnv`, `CacheOptions` (`ttl`, a finite positive number),
+`WithCacheOptions` (`cache` plus `key`), `CollectionInput`, and
+`CollectionCacheInvalidationOptions`.
+
+`CacheOptions.namespace` isolates Redis keys and makes `clear()` namespace-scoped. Local caches have
+a private store per initialized instance; a namespace does not make separate local instances share
+data. `cacheConfigSchema` validates Directus cache and Redis settings. `REDIS` takes precedence over
 `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, and `REDIS_PASSWORD`; component configuration requires
 `REDIS_ENABLED=true` and all four values. Disabled caching returns `null`; an unset `CACHE_STORE`
 uses `memory`, even though `initializeCache` maps memory to the library's local backend. TTL values
-must be finite and positive.
+must be finite and positive. Policy caching is the exception: it deliberately ignores memory and
+requires valid Redis configuration.
 
 The server entrypoint also exports `emailConfigSchema`, `requiredEmailConfigSchema`, and
 `isEmailConfigured`. The base email schema supplies Directus defaults without requiring a transport;

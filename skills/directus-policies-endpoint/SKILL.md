@@ -14,7 +14,7 @@ user's effective policies, including policies inherited through nested roles.
 pnpm add @onderwijsin/directus-policies-endpoint
 ```
 
-Load the extension in a Directus 12.2.0-or-newer runtime. It uses the built-in `users`, `roles`, and
+Load the bundle in a Directus 12.2.0-or-newer runtime. It uses the built-in `users`, `roles`, and
 `policies` system collections and does not create or modify any of them. The caller must
 authenticate normally; anonymous access is rejected with HTTP 403.
 
@@ -52,8 +52,9 @@ GET /users/me/policies
 Authorization: Bearer <token>
 ```
 
-The resolver caches results in local memory for up to five seconds, keyed by the accountability's
-user, effective roles, and IP address.
+The resolver caches results only with valid Redis configuration, for up to three days, keyed by the
+accountability's user, effective roles, and IP address. Without Redis, it does not cache. Redis uses
+the isolated `directus:policies` namespace so the bundle hook can clear it across processes.
 
 ## Configuration
 
@@ -61,11 +62,17 @@ user, effective roles, and IP address.
 | -------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
 | `POLICIES_ENDPOINT_ENABLED`                                    | `true`  | Set to `false` to disable the extension.                                                         |
 | `DIRECTUS_POLICIES_ENDPOINT_BYPASS_ACCOUNTABILITY`             | `false` | Read all access and policy metadata with system accountability; use only in trusted deployments. |
-| `CACHE_ENABLED`                                                | `true`  | Enable effective-policy caching.                                                                 |
-| `CACHE_STORE`                                                  | unset   | Cache backend; defaults to `memory`.                                                             |
+| `CACHE_ENABLED`                                                | `true`  | Enables policy caching when valid Redis settings are present.                                    |
+| `CACHE_STORE`                                                  | unset   | Must be `redis`; `memory` is intentionally ignored for policy caching.                           |
 | `REDIS_ENABLED`                                                | `false` | Enables component-based Redis configuration.                                                     |
 | `REDIS`                                                        | —       | Complete Redis URL; takes precedence over components.                                            |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | —       | Required together for component-based Redis.                                                     |
+| `DIRECTUS_POLICY_CACHE_INVALIDATION_ENABLED`                   | `true`  | Registers invalidation for `access`, `policies`, and `roles` create/update/delete events.        |
+
+The hook clears the complete `directus:policies` namespace after any mutation in those three system
+collections. If another installed extension registers the same invalidation, disable this setting in
+one extension to avoid duplicate hook registration. Redis must be configured with
+`CACHE_STORE=redis` and either `REDIS` or all four component values; otherwise caching is bypassed.
 
 ## Security and operations
 

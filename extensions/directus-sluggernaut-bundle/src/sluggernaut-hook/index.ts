@@ -7,13 +7,13 @@
  * startup provisioning, cache invalidation, and item mutation handlers. Individual handlers keep
  * their registration details in separate modules so this file remains the composition boundary.
  */
-import { defineHook } from '@directus/extensions-sdk'
+import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
 import {
 	extensionSetup,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { createFieldCache } from '../server/field-reader'
+import { createFieldReader } from '../server/field-reader'
 import { EXTENSION_NAME } from '../shared/configuration/constants'
 import { registerFieldCacheInvalidation } from './configuration/cache-invalidation'
 import { envSchema } from './configuration/env.schema'
@@ -32,19 +32,13 @@ export default defineHook((hook, context) => {
 
 	const options = validateExtensionOptions(context.env, envSchema, context.logger)
 	// All handlers in this hook share one cache so schema reads stay collection-scoped and cheap.
-	const fieldCache = createFieldCache(
-		{
-			services: context.services,
-			getSchema: context.getSchema,
-			database: context.database,
-		},
-		context.env,
-		options.SLUGGERNAUT_FIELDS_CACHE_TTL_MS,
-	)
+	const fieldReader = createFieldReader(context, {
+		ttl: options.SLUGGERNAUT_FIELDS_CACHE_TTL_MS,
+	})
 
 	registerSluggernautStartup(hook.action, context, options)
-	registerFieldCacheInvalidation(hook.action, fieldCache, context.logger)
-	registerSluggernautItemHooks(hook, context, options, fieldCache)
+	registerFieldCacheInvalidation(hook, fieldReader)
+	registerSluggernautItemHooks(hook, context, options, fieldReader)
 
 	setup.end()
 })

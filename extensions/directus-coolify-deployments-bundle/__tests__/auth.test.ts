@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { isAssignedPolicy, requirePolicies } from '../src/coolify-deployments-endpoint/auth'
 
 const schema = {} as SchemaOverview
+const cache = null
+const env = cache
 
 const accountability = (overrides: Partial<Accountability> = {}): Accountability => ({
 	role: 'role-id',
@@ -44,6 +46,7 @@ describe('isAssignedPolicy', () => {
 				['direct-policy', 'role-policy'],
 				services,
 				schema,
+				env,
 			),
 		).toBe(true)
 		expect(
@@ -52,6 +55,7 @@ describe('isAssignedPolicy', () => {
 				['direct-policy', 'missing-policy'],
 				services,
 				schema,
+				env,
 			),
 		).toBe(false)
 		expect(readByQuery).toHaveBeenCalledWith({
@@ -85,6 +89,7 @@ describe('isAssignedPolicy', () => {
 				'public-policy',
 				services,
 				schema,
+				env,
 			),
 		).toBe(true)
 		expect(readByQuery).toHaveBeenCalledWith({
@@ -113,7 +118,13 @@ describe('isAssignedPolicy', () => {
 		const { services, readByQuery } = createServices([])
 
 		expect(
-			await isAssignedPolicy(accountability({ admin: true }), 'any-policy', services, schema),
+			await isAssignedPolicy(
+				accountability({ admin: true }),
+				'any-policy',
+				services,
+				schema,
+				env,
+			),
 		).toBe(false)
 		expect(readByQuery).toHaveBeenCalledOnce()
 	})
@@ -132,6 +143,7 @@ describe('requirePolicies', () => {
 			['first-policy', 'second-policy'],
 			services,
 			schema,
+			env,
 			next,
 		)
 
@@ -142,7 +154,14 @@ describe('requirePolicies', () => {
 		const { services, readByQuery } = createServices([])
 		const next = vi.fn()
 
-		await requirePolicies(accountability({ admin: true }), 'any-policy', services, schema, next)
+		await requirePolicies(
+			accountability({ admin: true }),
+			'any-policy',
+			services,
+			schema,
+			env,
+			next,
+		)
 
 		expect(next).toHaveBeenCalledWith()
 		expect(readByQuery).not.toHaveBeenCalled()
@@ -158,6 +177,7 @@ describe('requirePolicies', () => {
 				'any-policy',
 				services,
 				schema,
+				env,
 				next,
 			),
 		).toBeUndefined()
@@ -168,7 +188,7 @@ describe('requirePolicies', () => {
 		const { services } = createServices([])
 		const next = vi.fn()
 
-		await requirePolicies(accountability(), 'missing-policy', services, schema, next)
+		await requirePolicies(accountability(), 'missing-policy', services, schema, env, next)
 
 		await vi.waitFor(() => expect(next).toHaveBeenCalledWith(expect.any(Error)))
 	})

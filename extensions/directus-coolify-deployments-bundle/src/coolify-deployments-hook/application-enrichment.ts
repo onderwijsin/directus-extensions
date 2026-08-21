@@ -1,4 +1,5 @@
-import type { ApiExtensionContext, RegisterFunctions } from '@directus/types'
+import type { ApiExtensionContext } from '@directus/types'
+import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
 import type { CoolifyApplication } from '../shared/coolify-client/schemas'
 import type { CoolifyDeploymentClient } from '../shared/coolify-client/types'
 

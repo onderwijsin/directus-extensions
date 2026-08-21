@@ -1,11 +1,11 @@
 {
 	"name": "@onderwijsin/directus-policies-endpoint",
 	"version": "0.1.0",
-	"description": "Directus endpoint for resolving the current user's policies",
+	"description": "Directus bundle for resolving the current user's policies",
 	"keywords": [
 		"directus",
 		"directus-extension",
-		"directus-extension-endpoint"
+		"directus-extension-bundle"
 	],
 	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
 	"bugs": {
@@ -35,7 +35,7 @@
 		"CHANGELOG.md"
 	],
 	"type": "module",
-	"main": "./dist/index.js",
+	"main": "./dist/api.js",
 	"publishConfig": {
 		"access": "public"
 	},
@@ -66,9 +66,23 @@
 		"node": ">=24.10.0"
 	},
 	"directus:extension": {
-		"type": "endpoint",
-		"path": "dist/index.js",
-		"source": "src/index.ts",
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"name": "policies-endpoint",
+				"type": "endpoint",
+				"source": "src/index.ts"
+			},
+			{
+				"name": "policies-hook",
+				"type": "hook",
+				"source": "src/hook.ts"
+			}
+		],
 		"host": "^12.2.0"
 	}
 }

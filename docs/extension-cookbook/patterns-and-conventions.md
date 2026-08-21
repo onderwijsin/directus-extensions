@@ -98,22 +98,17 @@ not replace complete boundary validation with Zod.
 
 ## Cache and KV
 
-Cache and KV are Directus runtime concerns. Use `@directus/memory` directly; extension utilities do
-not add another cache abstraction.
-
-Use `createCache` for disposable derived values. A cache miss is normal because the value can be
-rebuilt:
+Cache and KV are Directus runtime concerns. Use `initializeCache` and `withCache` from the
+extension-utils server surface for disposable derived values. A cache miss is normal because the
+value can be rebuilt:
 
 ```ts
-import { createCache } from '@directus/memory'
+import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
-const cache = createCache({
-  type: 'local',
-  namespace: 'orders:derived',
-})
+const cache = initializeCache(context.env, { ttl: 60_000 })
+const summaryKey = (id: string): string => `orders:summary:${id}`
 
-await cache.set('summary:42', { total: 3 }, 60_000)
-const summary = await cache.get('summary:42')
+const summary = await withCache({ cache, key: summaryKey('42') }, () => loadSummary('42'))
 ```
 
 Use `createKv` for coordination state, such as markers or a last-processed value:
@@ -130,16 +125,11 @@ await kv.set('last-sync', new Date().toISOString())
 const lastSync = await kv.get('last-sync')
 ```
 
-For multiple Directus replicas, configure both providers for Redis and use stable,
-extension-specific namespaces:
+For multiple Directus replicas, configure the cache and KV providers for Redis. Use stable,
+extension-specific cache keys, an explicit Redis namespace where isolation matters, and register
+explicit invalidation hooks for mutable derived data:
 
 ```ts
-const sharedCache = createCache({
-  type: 'redis',
-  namespace: 'orders:derived',
-  redis,
-})
-
 const sharedKv = createKv({
   type: 'redis',
   namespace: 'orders:coordination',

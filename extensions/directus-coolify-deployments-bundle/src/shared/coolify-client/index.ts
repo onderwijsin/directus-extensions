@@ -13,7 +13,7 @@ import type { CoolifyDeploymentClient } from './types'
 import type { DirectusCoolifyApplication } from './types'
 
 import { ForbiddenError } from '@directus/errors'
-import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
+import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 import { ofetch } from 'ofetch'
 
 import { COOLIFY_REQUEST_TIMEOUT_MS, LIST_APPLICATION_CACHE_DURATION_MS } from '../constants'
@@ -68,6 +68,34 @@ export function createCoolifyDeploymentClient(
 		: null
 
 	/**
+	 *
+	 */
+	/** @returns Cached enabled Coolify application records. */
+	const readConfiguredApplications = () =>
+		withCache(
+			{
+				cache,
+				key: CONFIGURED_APPLICATIONS_CACHE_KEY,
+			},
+			async () => {
+				if (!context)
+					throw new Error('Directus context is required to list configured applications')
+
+				const applications = await new context.services.ItemsService<
+					DirectusCoolifyApplication & { id: string }
+				>(options.COOLIFY_APPLICATIONS_COLLECTION, {
+					schema: await context.getSchema(),
+					accountability: null,
+				}).readByQuery({ limit: -1, filter: { enabled: { _eq: true } } })
+
+				return applications.map(({ id, ...application }) => ({
+					...application,
+					directusApplicationId: id,
+				}))
+			},
+		)
+
+	/**
 	 * @param options - Cache behavior for this read.
 	 * @param options.bypassCache - Whether to read the current allow-list.
 	 * @returns Allow-listed applications from Directus.
@@ -77,25 +105,12 @@ export function createCoolifyDeploymentClient(
 	}: { bypassCache?: boolean } = {}): Promise<DirectusCoolifyApplication[]> => {
 		if (!context)
 			throw new Error('Directus context is required to list configured applications')
-		const cached = bypassCache
-			? undefined
-			: await cache?.get<DirectusCoolifyApplication[]>(CONFIGURED_APPLICATIONS_CACHE_KEY)
 
-		if (cached) return cached
+		if (bypassCache) {
+			await cache?.delete(CONFIGURED_APPLICATIONS_CACHE_KEY)
+		}
 
-		const applications = await new context.services.ItemsService<
-			DirectusCoolifyApplication & { id: string }
-		>(options.COOLIFY_APPLICATIONS_COLLECTION, {
-			schema: await context.getSchema(),
-			accountability: null,
-		}).readByQuery({ limit: -1, filter: { enabled: { _eq: true } } })
-		const normalizedApplications = applications.map(({ id, ...application }) => ({
-			...application,
-			directusApplicationId: id,
-		}))
-
-		await cache?.set(CONFIGURED_APPLICATIONS_CACHE_KEY, normalizedApplications)
-		return normalizedApplications
+		return readConfiguredApplications()
 	}
 
 	/**
@@ -110,21 +125,20 @@ export function createCoolifyDeploymentClient(
 		{ bypassCache = false }: { bypassCache?: boolean } = {},
 	) => {
 		if (!context) throw new Error('Directus context is required to get configured application')
-		const cached = bypassCache
-			? undefined
-			: await cache?.get<DirectusCoolifyApplication>(
-					`${CONFIGURED_APPLICATIONS_CACHE_KEY}:${id}`,
-				)
 
-		if (cached) return cached
+		const key = `${CONFIGURED_APPLICATIONS_CACHE_KEY}:${id}`
+		if (bypassCache) {
+			await cache?.delete(key)
+		}
 
-		const application = (await listConfiguredApplication({ bypassCache })).find(
-			(candidate) => candidate.directusApplicationId === id,
-		)
-		if (!application) throw new ForbiddenError()
+		return withCache({ cache, key }, async () => {
+			const application = (await listConfiguredApplication({ bypassCache })).find(
+				(candidate) => candidate.directusApplicationId === id,
+			)
+			if (!application) throw new ForbiddenError()
 
-		await cache?.set(`${CONFIGURED_APPLICATIONS_CACHE_KEY}:${id}`, application)
-		return application
+			return application
+		})
 	}
 
 	/** @returns Unique allowed Coolify application UUIDs. */

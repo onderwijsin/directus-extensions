@@ -10,7 +10,7 @@ export const fieldMetadataSchema = z.looseObject({
 	meta: z
 		.looseObject({
 			interface: z.string().nullable().optional(),
-			sort: z.number().finite().nullable().optional(),
+			sort: z.number().nullable().optional(),
 			options: z.unknown().optional(),
 		})
 		.nullable()

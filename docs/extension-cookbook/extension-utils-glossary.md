@@ -48,7 +48,9 @@ actually shared by those replicas.
 ### Namespace
 
 A prefix used to keep one extension's keys separate from another extension's keys in a shared
-backend. Namespaces are not locks and do not grant ownership.
+backend. Cache namespaces are supported by Redis-backed `initializeCache` instances and scope
+`clear()`; local cache instances remain private regardless of namespace. Namespaces are not locks
+and do not grant ownership.
 
 ### Storage
 
@@ -223,8 +225,10 @@ handler before disposing its storage.
 
 ### Cache
 
-Disposable derived data. A cache miss is normal and the value can be recomputed. Use Directus'
-`createCache` directly inside the Directus extension runtime.
+Disposable derived data. A cache miss is normal and the value can be recomputed. Use
+`initializeCache` to select the configured local or Redis backend and `withCache` for explicit
+cache-aside operations. Use stable extension-specific keys and invalidate them from relevant schema
+or data events when cached values become stale.
 
 ### KV store
 

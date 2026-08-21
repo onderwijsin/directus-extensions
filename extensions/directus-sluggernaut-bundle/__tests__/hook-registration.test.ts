@@ -96,7 +96,7 @@ describe('Sluggernaut startup registration', () => {
 		)
 	})
 
-	it('registers schema invalidation and item lifecycle dependencies', () => {
+	it('registers item lifecycle dependencies when caching is disabled', () => {
 		const action = registerHook()
 		expect(action.mock.calls.map(([event]) => event)).toEqual([
 			'fields.create',

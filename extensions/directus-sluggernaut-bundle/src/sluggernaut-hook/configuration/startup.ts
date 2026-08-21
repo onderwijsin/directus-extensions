@@ -5,7 +5,8 @@
  * global/extension switches and distributed locking. This file supplies the extension-specific
  * schema and policy definitions and skips policy work when the redirect collection is unavailable.
  */
-import type { HookExtensionContext, RegisterFunctions } from '@directus/types'
+import type { HookExtensionContext } from '@directus/types'
+import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
 import type { SluggernautEnv } from './env.schema'
 
 import {

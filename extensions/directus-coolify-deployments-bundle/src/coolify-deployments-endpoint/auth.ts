@@ -1,3 +1,4 @@
+import type { Cache } from '@directus/memory'
 import type { Accountability, ApiExtensionContext, SchemaOverview } from '@directus/types'
 import type { NextFunction } from 'express'
 
@@ -10,6 +11,7 @@ import { hasPolicies } from '@onderwijsin/directus-extension-utils/server'
  * @param data - One or more policy IDs to require.
  * @param services - Directus API services.
  * @param schema - Current Directus schema used to construct AccessService.
+ * @param cache - Initialized Redis policy cache, or null to disable caching.
  * @returns Whether all requested policies are effective.
  */
 export async function isAssignedPolicy(
@@ -17,8 +19,9 @@ export async function isAssignedPolicy(
 	data: string | string[],
 	services: ApiExtensionContext['services'],
 	schema: SchemaOverview,
+	cache: Cache | null,
 ): Promise<boolean> {
-	return hasPolicies(accountability, data, services, schema, null, null)
+	return hasPolicies(accountability, data, services, schema, cache, null)
 }
 
 /**
@@ -28,6 +31,7 @@ export async function isAssignedPolicy(
  * @param data - One or more policy IDs to require.
  * @param services - Directus API services.
  * @param schema - Current Directus schema used to construct AccessService.
+ * @param cache - Initialized Redis policy cache, or null to disable caching.
  * @param next - Express continuation receiving an authorization error or no argument.
  * @returns Nothing.
  */
@@ -36,6 +40,7 @@ export async function requirePolicies(
 	data: string | string[],
 	services: ApiExtensionContext['services'],
 	schema: SchemaOverview,
+	cache: Cache | null,
 	next: NextFunction,
 ): Promise<void> {
 	if (
@@ -47,7 +52,7 @@ export async function requirePolicies(
 	}
 
 	try {
-		const assigned = await isAssignedPolicy(accountability, data, services, schema)
+		const assigned = await isAssignedPolicy(accountability, data, services, schema, cache)
 		if (assigned) next()
 		else next(new ForbiddenError())
 	} catch (error: unknown) {

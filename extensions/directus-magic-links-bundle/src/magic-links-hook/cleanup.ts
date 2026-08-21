@@ -1,5 +1,7 @@
 import type { ApiExtensionContext } from '@directus/types'
 
+import { attempt } from '@onderwijsin/directus-extension-utils'
+
 import { parseDuration } from '../magic-links-endpoint/helpers'
 
 type Database = ApiExtensionContext['database']
@@ -50,11 +52,11 @@ export const registerMagicLinkCleanup = (schedule: Schedule, input: CleanupSched
 	if (!input.enabled) return
 
 	schedule(input.cron, async () => {
-		try {
-			const deleted = await cleanupMagicLinks(input)
-			input.logger.info({ msg: 'Magic-link cleanup completed', deleted })
-		} catch (error) {
+		const { data: deleted, error } = await attempt(() => cleanupMagicLinks(input))
+		if (error) {
 			input.logger.error({ msg: 'Magic-link cleanup failed', cause: error })
+			return
 		}
+		input.logger.info({ msg: 'Magic-link cleanup completed', deleted })
 	})
 }

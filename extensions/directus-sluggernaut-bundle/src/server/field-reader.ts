@@ -9,78 +9,78 @@
  */
 import type { ApiExtensionContext } from '@directus/types'
 
-import {
-	initializeCache,
-	withCache,
-	type CacheEnv,
-} from '@onderwijsin/directus-extension-utils/server'
+import { createAdminAccountability } from '@onderwijsin/directus-extension-utils'
+import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
 import {
 	fieldMetadataSchema,
 	type SluggernautFieldMetadata,
 } from '../shared/configuration/field-metadata.schema'
 
-type Services = ApiExtensionContext['services']
-type Database = ApiExtensionContext['database']
+/**
+ * Builds the cache key for one collection's field metadata.
+ * @param collection - Directus collection key.
+ * @returns The collection-scoped cache key.
+ */
+export const fieldsCacheKey = (collection: string): string => `sluggernaut:fields:${collection}`
 
-const FIELD_CACHE_KEY_PREFIX = 'sluggernaut:fields:'
-
-export interface FieldCache {
+export interface FieldReader {
 	/** Reads parsed field metadata for one collection. */
 	read(collection: string): Promise<SluggernautFieldMetadata[]>
-	/** Removes one collection's cached field metadata. */
-	clear(collection: string): Promise<void>
-}
-
-interface FieldReaderContext {
-	services: Services
-	getSchema: ApiExtensionContext['getSchema']
-	database?: Database
+	/** Clears all cached field metadata. */
+	clearCache(): void
 }
 
 /**
- * Creates a cached reader for one collection's Directus field metadata.
- * @param context - Directus services and schema access.
- * @param env - Directus cache environment values.
- * @param ttl - Cache duration in milliseconds.
- * @returns A collection-scoped field metadata cache.
+ * Creates a field metadata reader with optional cache instance.
+ * @param context - Directus extension context.
+ * @param cacheOptions - Optional cache configuration. Omit to disable caching.
+ * @returns A field metadata reader.
  */
-export function createFieldCache(
-	context: FieldReaderContext,
-	env: CacheEnv,
-	ttl: number,
-): FieldCache {
-	const cache = initializeCache(env, { ttl })
-	const readCachedFields = withCache(
-		{ cache, namespace: FIELD_CACHE_KEY_PREFIX },
-		async (collection: string) => {
-			const schema = await context.getSchema()
-			const serviceOptions = {
-				schema,
-				accountability: null,
-				...(context.database === undefined ? {} : { knex: context.database }),
-			}
-			const fieldsService = new context.services.FieldsService(serviceOptions)
-			const result = await fieldsService.readAll(collection)
-			return result.flatMap((field) => {
-				const parsed = fieldMetadataSchema.safeParse(field)
-				return parsed.success ? [parsed.data] : []
-			})
-		},
-	)
+export function createFieldReader(
+	context: ApiExtensionContext,
+	cacheOptions?: { ttl: number },
+): FieldReader {
+	const cache = cacheOptions ? initializeCache(context.env, { ttl: cacheOptions.ttl }) : null
+
+	/**
+	 * Reads and caches parsed field metadata for one collection.
+	 * @param collection - Directus collection key.
+	 * @returns Field metadata, potentially from cache.
+	 */
+	const read = (collection: string) =>
+		withCache(
+			{
+				cache,
+				key: fieldsCacheKey(collection),
+			},
+			async () => {
+				const schema = await context.getSchema()
+				const serviceOptions = {
+					schema,
+					accountability: createAdminAccountability(),
+					...(context.database === undefined ? {} : { knex: context.database }),
+				}
+				const fieldsService = new context.services.FieldsService(serviceOptions)
+				const result = await fieldsService.readAll(collection)
+				return result.flatMap((field) => {
+					const parsed = fieldMetadataSchema.safeParse(field)
+					return parsed.success ? [parsed.data] : []
+				})
+			},
+		)
 
 	return {
+		read,
 		/**
-		 * Reads field metadata for a collection.
-		 * @param collection - Directus collection key.
-		 * @returns Field metadata, potentially from cache.
+		 * Clears all cached field metadata.
+		 * @returns Nothing.
 		 */
-		read: (collection) => readCachedFields(collection),
-		/**
-		 * Clears cached field metadata for one collection.
-		 * @param collection - Directus collection key.
-		 * @returns A promise that resolves after the cache is cleared.
-		 */
-		clear: (collection) => readCachedFields.clear(collection),
+		clearCache: () => {
+			if (!cache) return
+			void cache.clear().catch((error: unknown) => {
+				context.logger.error('Failed to clear Sluggernaut field cache.', { error })
+			})
+		},
 	}
 }

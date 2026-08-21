@@ -1,4 +1,4 @@
-import { defineHook } from '@directus/extensions-sdk'
+import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
 import {
 	ensureDirectusSchema,
 	validateSchemaDefinition,

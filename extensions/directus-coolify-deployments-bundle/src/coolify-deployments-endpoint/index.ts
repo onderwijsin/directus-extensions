@@ -10,6 +10,7 @@ import {
 	hasAuthenticatedUser,
 	assertRequestWithAccountability,
 	attempt,
+	initializePolicyCache,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { DEPLOYMENT_POLL_INTERVAL_HEADER, EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
@@ -43,6 +44,7 @@ export default defineEndpoint({
 		if (!setup.isEnabled()) return
 
 		const options = validateExtensionOptions(env, envSchema, logger)
+		const policyCache = initializePolicyCache(options)
 		const client = createCoolifyDeploymentClient(options, {
 			...options,
 			services,
@@ -68,7 +70,14 @@ export default defineEndpoint({
 				}
 
 				const schema = await getSchema()
-				await requirePolicies(request.accountability, policies, services, schema, next)
+				await requirePolicies(
+					request.accountability,
+					policies,
+					services,
+					schema,
+					policyCache,
+					next,
+				)
 			})
 
 		/**

@@ -1,11 +1,26 @@
+import type { ActionHandler, HookConfig, RegisterFunctions } from '../src/types'
+
 import { describe, expect, it } from 'vitest'
 
 import * as app from '../src/app/index'
+import * as hook from '../src/hook'
 import * as server from '../src/server/index'
 import * as sentry from '../src/server/sentry'
 import * as shared from '../src/shared/index'
 
+const typeContract: {
+	action: ActionHandler
+	config: HookConfig
+	register: RegisterFunctions
+} | null = null
+
 describe('runtime-aware exports', () => {
+	it('exposes corrected Directus hook types on the hook subpath', () => {
+		expect(hook.defineHook).toBeDefined()
+		expect('defineHook' in server).toBe(false)
+		expect(typeContract).toBeNull()
+	})
+
 	it('keeps Directus coordination utilities on the server subpath', () => {
 		expect(Object.keys(app).sort()).toEqual(Object.keys(shared).sort())
 		expect(Object.keys(server).sort()).toEqual(
@@ -48,7 +63,10 @@ describe('runtime-aware exports', () => {
 				'validateExtensionOptions',
 				'getAccountabilityFromRequest',
 				'initializeCache',
+				'initializePolicyCache',
 				'withCache',
+				'mapCollectionInputToHookEvents',
+				'registerCollectionCacheInvalidation',
 				'cacheConfigSchema',
 				'emailConfigSchema',
 				'requiredEmailConfigSchema',
@@ -65,6 +83,7 @@ describe('runtime-aware exports', () => {
 				'fetchPolicies',
 				'filterPoliciesByIp',
 				'hasPolicies',
+				'registerPolicyCacheInvalidation',
 				'policyAccessFilter',
 			].sort(),
 		)

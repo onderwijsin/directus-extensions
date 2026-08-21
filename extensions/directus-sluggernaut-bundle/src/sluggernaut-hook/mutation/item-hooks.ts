@@ -7,11 +7,14 @@
  * then use the event transaction to maintain redirect history, while archive transitions suspend
  * and restore managed redirects without affecting redirects owned by other systems.
  */
-import type { EventContext, HookExtensionContext, RegisterFunctions } from '@directus/types'
-import type { FieldCache } from '../../server/field-reader'
+import type { EventContext, HookExtensionContext } from '@directus/types'
+import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
+import type { FieldReader } from '../../server/field-reader'
 import type { SluggernautEnv } from '../configuration/env.schema'
 
 import {
+	attempt,
+	createAdminAccountability,
 	hasKey,
 	isArray,
 	isNumber,
@@ -120,14 +123,14 @@ function relevantFields(
  * @param hook - Directus hook registration context.
  * @param context - Directus extension context.
  * @param options - Validated extension options.
- * @param fieldCache - Collection-scoped field metadata cache.
+ * @param fieldReader - Field metadata reader.
  * @returns Nothing.
  */
 export function registerSluggernautItemHooks(
 	hook: RegisterFunctions,
 	context: HookExtensionContext,
 	options: SluggernautEnv,
-	fieldCache: FieldCache,
+	fieldReader: FieldReader,
 ): void {
 	/**
 	 * Reads and validates field configuration for one collection.
@@ -135,7 +138,7 @@ export function registerSluggernautItemHooks(
 	 * @returns Parsed collection configuration.
 	 */
 	async function discoverConfiguration(collection: string) {
-		const fields = await fieldCache.read(collection)
+		const fields = await fieldReader.read(collection)
 		return discoverCollectionConfiguration(fields)
 	}
 
@@ -148,7 +151,7 @@ export function registerSluggernautItemHooks(
 		const schema = await context.getSchema()
 		const itemsService = new context.services.ItemsService('directus_collections', {
 			schema,
-			accountability: null,
+			accountability: createAdminAccountability(),
 		})
 		const result = await itemsService.readOne(collection, { fields: ['meta'] })
 		const parsed = collectionMetadataSchema.safeParse(result)
@@ -443,7 +446,9 @@ export function registerSluggernautItemHooks(
 		if (!isString(collection)) throw new Error('Sluggernaut requires a collection key.')
 
 		const configuration = await discoverConfiguration(collection)
-		const archiveSettings = await discoverArchiveSettings(collection)
+		const archiveSettings = options.SLUGGERNAUT_REDIRECTS_ENABLED
+			? await discoverArchiveSettings(collection)
+			: null
 		const archiveFieldChanged =
 			archiveSettings !== null && hasKey(payload, archiveSettings.field)
 		const hasRelevantFields = hasRelevantPayloadField(payload, configuration)
@@ -466,7 +471,7 @@ export function registerSluggernautItemHooks(
 		)
 	})
 
-	hook.action('items.delete', (meta, eventContext) => {
+	hook.action('items.delete', async (meta, eventContext) => {
 		const deleteMeta = isRecord(meta) ? meta : {}
 		const collection = deleteMeta.collection
 		if (!isString(collection)) return
@@ -475,14 +480,15 @@ export function registerSluggernautItemHooks(
 		)
 		if (keys.length === 0) return
 
-		void processDeletedItems(collection, keys, eventContext.database).catch(
-			(error: unknown) => {
-				context.logger.error('Sluggernaut failed to process deleted items.', { error })
-			},
+		const { error } = await attempt(() =>
+			processDeletedItems(collection, keys, eventContext.database),
 		)
+		if (error) {
+			context.logger.error('Sluggernaut failed to process deleted items.', { error })
+		}
 	})
 
-	hook.action('items.update', (meta, eventContext) => {
+	hook.action('items.update', async (meta, eventContext) => {
 		if (meta.collection !== options.SLUGGERNAUT_REDIRECTS_COLLECTION) return
 		if (!isRecord(meta.payload) || !hasKey(meta.payload, 'is_active')) return
 		if (hasKey(meta.payload, 'inactive_reason')) return
@@ -494,12 +500,14 @@ export function registerSluggernautItemHooks(
 
 		// Directus may toggle is_active without an inactive_reason; restore the neutral reason in that
 		// case so manually reactivated redirects are not mistaken for archived/deleted history.
-		void eventContext
-			.database(options.SLUGGERNAUT_REDIRECTS_COLLECTION)
-			.whereIn('id', keys)
-			.update({ inactive_reason: null })
-			.catch((error: unknown) => {
-				context.logger.error('Sluggernaut failed to reactivate redirects.', { error })
-			})
+		const { error } = await attempt(() =>
+			eventContext
+				.database(options.SLUGGERNAUT_REDIRECTS_COLLECTION)
+				.whereIn('id', keys)
+				.update({ inactive_reason: null }),
+		)
+		if (error) {
+			context.logger.error('Sluggernaut failed to reactivate redirects.', { error })
+		}
 	})
 }
