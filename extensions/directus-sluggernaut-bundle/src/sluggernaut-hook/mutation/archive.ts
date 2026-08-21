@@ -1,24 +1,19 @@
 import type { HookExtensionContext } from '@directus/types'
 
-import { z } from 'zod'
+import { hasKey, isRecord, isString } from '@onderwijsin/directus-extension-utils'
 
-/** Archive configuration read from Directus collection metadata. */
-export interface ArchiveSettings {
-	field: string
-	archiveValue: unknown
-	unarchiveValue: unknown
+/**
+ * Narrows a record to one with a string-valued property.
+ * @param value - Record to inspect.
+ * @param key - Property key to inspect.
+ * @returns Whether the property exists and contains a string.
+ */
+function hasStringProperty<Key extends string>(
+	value: Record<string, unknown>,
+	key: Key,
+): value is Record<string, unknown> & Record<Key, string> {
+	return Object.hasOwn(value, key) && isString(value[key])
 }
-
-const collectionMetadataSchema = z.looseObject({
-	meta: z
-		.looseObject({
-			archive_field: z.string().optional(),
-			archive_value: z.unknown().optional(),
-			unarchive_value: z.unknown().optional(),
-		})
-		.nullable()
-		.optional(),
-})
 
 /**
  * Reads Directus-native archive metadata for one collection.
@@ -26,26 +21,18 @@ const collectionMetadataSchema = z.looseObject({
  * @param collection - Directus collection key.
  * @returns Archive metadata when configured, otherwise null.
  */
-export async function discoverArchiveSettings(
-	context: HookExtensionContext,
-	collection: string,
-): Promise<ArchiveSettings | null> {
+export async function discoverArchiveSettings(context: HookExtensionContext, collection: string) {
 	const schema = await context.getSchema()
 	const collectionsService = new context.services.CollectionsService({
 		schema,
 		accountability: null,
 	})
-	const result = await collectionsService.readOne(collection)
-	const parsed = collectionMetadataSchema.safeParse(result)
-	if (!parsed.success) return null
-	const meta = parsed.data.meta
-	if (meta?.archive_field === undefined) return null
-	return {
-		field: meta.archive_field,
-		archiveValue: meta.archive_value,
-		unarchiveValue: meta.unarchive_value,
-	}
+	const { meta } = await collectionsService.readOne(collection)
+	if (!isRecord(meta) || !hasStringProperty(meta, 'archive_field')) return null
+	return meta
 }
+
+export type ArchiveSettings = NonNullable<Awaited<ReturnType<typeof discoverArchiveSettings>>>
 
 /**
  * Resolves an archive field change into its redirect lifecycle transition.
@@ -59,10 +46,14 @@ export function archiveLifecycle(
 	nextValue: unknown,
 	settings: ArchiveSettings,
 ): 'archive' | 'unarchive' | null {
-	if (nextValue === settings.archiveValue && previousValue !== settings.archiveValue) {
+	const archiveValue = hasKey(settings, 'archive_value') ? settings.archive_value : undefined
+	const unarchiveValue = hasKey(settings, 'unarchive_value')
+		? settings.unarchive_value
+		: undefined
+	if (nextValue === archiveValue && previousValue !== archiveValue) {
 		return 'archive'
 	}
-	if (nextValue === settings.unarchiveValue && previousValue === settings.archiveValue) {
+	if (nextValue === unarchiveValue && previousValue === archiveValue) {
 		return 'unarchive'
 	}
 	return null

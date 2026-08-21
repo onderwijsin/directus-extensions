@@ -71,7 +71,7 @@ export async function readExistingItem(
  * @param value - Directus mutation keys.
  * @returns A scalar item key.
  */
-export function singleItemKey(value: unknown): string | number {
+export function resolveSingleUpdateItemKey(value: unknown): string | number {
 	if (!isArray(value)) throw new Error('Sluggernaut requires a scalar item key for updates.')
 	if (value.length > 1) {
 		throw new Error('Sluggernaut cannot derive or archive items in an ambiguous bulk mutation.')

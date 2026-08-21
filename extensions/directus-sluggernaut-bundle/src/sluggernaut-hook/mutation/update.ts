@@ -52,15 +52,15 @@ export async function processItemUpdate(input: {
 		key,
 		[
 			...relevantFields(configuration),
-			...(archiveSettings === null ? [] : [archiveSettings.field]),
+			...(archiveSettings === null ? [] : [archiveSettings.archive_field]),
 		],
 		eventContext,
 	)
 
 	if (archiveSettings !== null && archiveFieldChanged) {
 		const lifecycle = archiveLifecycle(
-			existingItem[archiveSettings.field],
-			payload[archiveSettings.field],
+			existingItem[archiveSettings.archive_field],
+			payload[archiveSettings.archive_field],
 			archiveSettings,
 		)
 		if (lifecycle !== null) {

@@ -21,7 +21,7 @@ import {
 import { discoverArchiveSettings } from './archive'
 import { coordinateMutation } from './coordinator'
 import { getConfiguration, logConfigurationWarnings } from './helpers'
-import { hasRelevantPayloadField, singleItemKey } from './items'
+import { hasRelevantPayloadField, resolveSingleUpdateItemKey } from './items'
 import { processDeletedItems } from './redirects'
 import { processItemUpdate } from './update'
 
@@ -83,7 +83,7 @@ export function registerSluggernautItemHooks(
 			? await discoverArchiveSettings(context, collection)
 			: null
 		const archiveFieldChanged =
-			archiveSettings !== null && hasKey(payload, archiveSettings.field)
+			archiveSettings !== null && hasKey(payload, archiveSettings.archive_field)
 		const hasRelevantFields = hasRelevantPayloadField(payload, configuration)
 		if (
 			configuration.slugs.length === 0 &&
@@ -98,7 +98,7 @@ export function registerSluggernautItemHooks(
 			options,
 			payload,
 			collection,
-			key: singleItemKey(meta.keys),
+			key: resolveSingleUpdateItemKey(meta.keys),
 			configuration,
 			archiveSettings,
 			archiveFieldChanged,
