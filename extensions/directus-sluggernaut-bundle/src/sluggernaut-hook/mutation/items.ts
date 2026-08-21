@@ -1,7 +1,13 @@
 import type { EventContext, HookExtensionContext } from '@directus/types'
 import type { CollectionConfiguration } from '../../shared/configuration/types'
 
-import { hasKey, isArray, isRecord } from '@onderwijsin/directus-extension-utils'
+import {
+	hasKey,
+	isArray,
+	isInteger,
+	isRecord,
+	isString,
+} from '@onderwijsin/directus-extension-utils'
 
 /**
  * Collects the minimum field set required by the mutation coordinator.
@@ -71,7 +77,7 @@ export function singleItemKey(value: unknown): string | number {
 		throw new Error('Sluggernaut cannot derive or archive items in an ambiguous bulk mutation.')
 	}
 	const key = value[0]
-	if (typeof key !== 'string' && typeof key !== 'number') {
+	if (!isString(key) && !isInteger(key)) {
 		throw new Error('Sluggernaut requires a scalar item key for updates.')
 	}
 	return key

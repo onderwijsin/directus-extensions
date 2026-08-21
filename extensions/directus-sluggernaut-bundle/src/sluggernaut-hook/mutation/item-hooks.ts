@@ -49,6 +49,7 @@ export function registerSluggernautItemHooks(
 		if (!isRecord(payload)) return payload
 		const collection = meta.collection
 		if (!isString(collection)) throw new Error('Sluggernaut requires a collection key.')
+		if (collection === options.SLUGGERNAUT_REDIRECTS_COLLECTION) return payload
 
 		const configuration = await getConfiguration(collection, fieldReader)
 		logConfigurationWarnings(collection, configuration, context)
@@ -74,6 +75,7 @@ export function registerSluggernautItemHooks(
 		if (!isRecord(payload)) return payload
 		const collection = meta.collection
 		if (!isString(collection)) throw new Error('Sluggernaut requires a collection key.')
+		if (collection === options.SLUGGERNAUT_REDIRECTS_COLLECTION) return payload
 
 		const configuration = await getConfiguration(collection, fieldReader)
 		logConfigurationWarnings(collection, configuration, context)
@@ -91,7 +93,7 @@ export function registerSluggernautItemHooks(
 			return payload
 		if (!hasRelevantFields && !archiveFieldChanged) return payload
 
-		return processItemUpdate({
+		return await processItemUpdate({
 			context,
 			options,
 			payload,
@@ -115,6 +117,7 @@ export function registerSluggernautItemHooks(
 		const deleteMeta = isRecord(meta) ? meta : {}
 		const collection = deleteMeta.collection
 		if (!isString(collection)) return
+		if (collection === options.SLUGGERNAUT_REDIRECTS_COLLECTION) return
 		const keys = (isArray(deleteMeta.keys) ? deleteMeta.keys : []).filter(
 			(key): key is string | number => isString(key) || isNumber(key),
 		)

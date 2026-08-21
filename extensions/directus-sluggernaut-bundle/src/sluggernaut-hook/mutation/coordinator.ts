@@ -13,7 +13,7 @@ import type {
 	DiscoveredSlugField,
 } from '../../shared/configuration/types'
 
-import { hasKey, isString } from '@onderwijsin/directus-extension-utils'
+import { hasKey, isDefined, isString } from '@onderwijsin/directus-extension-utils'
 
 import {
 	applyTrailingSlash,
@@ -90,7 +90,7 @@ function resolveSlugValue(
 	if (explicitlySupplied) {
 		// An explicit value wins over derivation, but still passes through the same normalization rules.
 		const value = input.payload[field.field]
-		if (value !== null && value !== undefined && !isString(value)) {
+		if (value !== null && isDefined(value) && !isString(value)) {
 			throw new Error(`Slug field "${field.field}" must receive a string or null value.`)
 		}
 		return {
@@ -118,18 +118,23 @@ function resolveSlugValue(
 }
 
 /**
- * Resolves the final value of a slug field.
+ * Resolves the slug value that a generated permalink should use.
+ *
+ * A slug may come from this mutation's derived values, from an explicitly supplied payload value,
+ * or from the stored item. The derived-value map takes precedence because it contains the value that
+ * will actually be persisted by this coordinator run.
  * @param input - Mutation input.
  * @param field - Slug field configuration.
  * @param derivedValues - Values already derived in this mutation.
  * @returns Final slug value.
  */
-function finalSlugValue(
+function resolveSlugForPermalink(
 	input: MutationCoordinatorInput,
 	field: DiscoveredSlugField,
 	derivedValues: ReadonlyMap<string, string | null>,
 ): string | null {
-	if (derivedValues.has(field.field)) return derivedValues.get(field.field) ?? null
+	const derivedValue = derivedValues.get(field.field)
+	if (isDefined(derivedValue)) return derivedValue
 	const value = resolveEffectiveFieldValue(input.payload, input.existingItem, field.field)
 	return isString(value) ? value : null
 }
@@ -166,7 +171,7 @@ function resolvePermalinkValue(
 	const explicitlySupplied = hasKey(input.payload, field.field)
 	if (explicitlySupplied) {
 		const value = input.payload[field.field]
-		if (value !== null && value !== undefined && !isString(value)) {
+		if (value !== null && isDefined(value) && !isString(value)) {
 			throw new Error(`Permalink field "${field.field}" must receive a string or null value.`)
 		}
 		return {
@@ -181,16 +186,21 @@ function resolvePermalinkValue(
 		}
 	}
 
+	// A permalink without slug generation is independent; only explicit values can update it.
 	if (!field.options.generateFromSlug) return { value: null, shouldWrite: false }
+
 	const slugField = field.options.slugField
-	if (!slugField) return { value: null, shouldWrite: false }
+	// Generated permalinks need a configured source slug field.
+	if (!isDefined(slugField)) return { value: null, shouldWrite: false }
+
 	const slugConfiguration = input.configuration.slugs.find(
 		(candidate) => candidate.field === slugField,
 	)
-	if (!slugConfiguration) return { value: null, shouldWrite: false }
-	const finalSlug = derivedSlugs.has(slugField)
-		? (derivedSlugs.get(slugField) ?? null)
-		: finalSlugValue(input, slugConfiguration, derivedSlugs)
+	// Ignore an invalid reference rather than generating a permalink from an unknown slug field.
+	if (!isDefined(slugConfiguration)) return { value: null, shouldWrite: false }
+
+	const finalSlug = resolveSlugForPermalink(input, slugConfiguration, derivedSlugs)
+	// On updates, preserve the existing permalink unless slug synchronization is enabled and the slug changed.
 	const shouldSynchronize =
 		input.kind === 'create' ||
 		input.kind === 'recalculate' ||
