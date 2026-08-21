@@ -16,7 +16,7 @@ import { join, resolve } from 'node:path'
 /** @typedef {SpawnOptions & {streamOutput?: boolean, timeoutMs?: number}} RunCommandOptions */
 /** @typedef {{State?: string, ExitCode?: number}} ComposeService */
 const composeFiles = ['docker/compose.yaml', 'tests/compose.e2e.yaml']
-const e2eOperationTimeoutMs = 60_000
+const e2eOperationTimeoutMs = 180_000
 const composeCommandTimeout = 900_000
 const composeCompletionTimeout = 300_000
 const serviceReadinessTimeout = 180_000

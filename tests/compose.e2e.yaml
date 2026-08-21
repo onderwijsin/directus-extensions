@@ -77,6 +77,14 @@ services:
       USE_MAGIC_LINK_CLEANUP: 'true'
       MAGIC_LINK_CLEANUP_WINDOW: 1ms
       MAGIC_LINK_CLEANUP_CRON: '* * * * * *'
+      SLUGGERNAUT_ENABLED: 'true'
+      SLUGGERNAUT_REDIRECTS_ENABLED: 'true'
+      SLUGGERNAUT_SCHEMA_CHANGES_ENABLED: 'true'
+      # Core-plan E2E coverage does not need optional redirect policies. Their filtered
+      # permission rules require a restricted Directus resource, so keep policy seeding off.
+      SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED: 'false'
+      SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED: 'false'
+      SLUGGERNAUT_REDIRECTS_COLLECTION: redirects
     healthcheck:
       test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:8055/server/ping']
       interval: 5s

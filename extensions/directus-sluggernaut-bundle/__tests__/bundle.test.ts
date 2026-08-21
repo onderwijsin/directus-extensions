@@ -36,7 +36,7 @@ describe('Sluggernaut bundle scaffold', () => {
 		)
 		expect(manifest.engines.node).toBe('>=24.10.0')
 		expect(manifest.dependencies['@workspace/test-utils']).toBeUndefined()
-		expect(manifest.devDependencies['@workspace/test-utils']).toBeUndefined()
+		expect(manifest.devDependencies['@workspace/test-utils']).toBe('workspace:*')
 	})
 	it('uses the V2 interface identifiers', () => {
 		expect(INTERFACE_IDS).toEqual({
