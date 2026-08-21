@@ -119,10 +119,14 @@ Add a string field and choose `Sluggernaut Slug`.
 | Option                 |  Default | Behavior                                                                                     |
 | ---------------------- | -------: | -------------------------------------------------------------------------------------------- |
 | `sourceFields`         | required | One or more string fields from the same collection. Non-empty values are joined with spaces. |
-| `locale`               |     `en` | Locale passed to case conversion.                                                            |
+| `locale`               |     `en` | Fixed locale choice used for case conversion.                                                |
 | `lowercase`            |   `true` | Lowercases the derived slug before separator normalization.                                  |
 | `updateOnSourceChange` |   `true` | Re-derives the slug when a configured source field changes.                                  |
 | `automaticRedirects`   |  `false` | Allows this field to be selected as the canonical redirect source.                           |
+
+The Studio locale option is a fixed dropdown. Supported values are `nl`, `en`, `bg`, `de`, `es`,
+`fr`, `pt`, `uk`, `vi`, `da`, `nb`, `it`, and `sv`. Custom locale values are not offered by the
+interface. The slug input uses a locale-specific generated-value placeholder when available.
 
 For `sourceFields: ["title", "category"]`, `title: "Summer News"`, and `category: "Sports"`:
 
@@ -158,8 +162,9 @@ generated permalink: /news/summer-news
 ```
 
 Permalinks are paths, not full URLs. The server rejects schemes, hosts, protocol-relative paths,
-query strings, fragments, backslashes, control characters, and `.`/`..` path segments. Repeated
-slashes are normalized. Prefix and trailing-slash rules apply according to the options above.
+query strings, fragments, whitespace, backslashes, control characters, and `.`/`..` path segments.
+Repeated slashes are normalized. Prefix and trailing-slash rules apply according to the options
+above.
 
 ## Mutation behavior
 
@@ -201,6 +206,10 @@ Sluggernaut creates managed `301` records with provenance:
 | `managed_by`                                                      | `sluggernaut` for managed records.                      |
 | `source_collection`, `source_item`, `source_field`, `source_type` | Provenance for safe rewrites and lifecycle updates.     |
 | `inactive_reason`                                                 | `archive` or `delete` for lifecycle deactivation.       |
+
+When Sluggernaut provisions this collection, the provenance and lifecycle fields (`managed_by`,
+`source_collection`, `source_item`, `source_field`, `source_type`, and `inactive_reason`) are
+read-only and maintained by the bundle.
 
 Canonical changes rewrite managed history for the same source item and preserve redirects owned by
 another system. Conflicts are logged and preserved. Update-time redirect persistence is in the item

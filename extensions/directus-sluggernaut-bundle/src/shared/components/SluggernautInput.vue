@@ -7,6 +7,7 @@
  */
 import { computed, shallowRef } from 'vue'
 
+import { translations, type Locale } from '../configuration/locales'
 import CopyButton from './CopyButton.vue'
 
 const props = withDefaults(
@@ -14,9 +15,10 @@ const props = withDefaults(
 		value: string | null
 		disabled?: boolean
 		nonEditable?: boolean
-		locale?: string
+		locale?: Locale
 		fieldType: 'slug' | 'path'
 		errorMessage?: string | null
+		generateFromSlug?: boolean
 	}>(),
 	{
 		disabled: false,
@@ -33,10 +35,12 @@ const emit = defineEmits<{
 const locked = shallowRef(true)
 const placeholder = computed(() => {
 	// Use examples only for the default locale; other locales may have different conventions.
-	if (props.fieldType === 'slug') return props.locale === 'en' ? 'e.g. hello-world' : ''
-	return props.locale === 'en' ? 'e.g. /news/hello-world' : ''
-})
+	if (props.fieldType === 'slug') return translations.slug[props.locale]
 
+	if (props.generateFromSlug) return translations.path[props.locale]
+
+	return '/news/hello-world'
+})
 /**
  * Emits a manually edited value.
  * @param value - New input value.
@@ -57,17 +61,18 @@ function handleChange(value: string | number | null): void {
 				:error="errorMessage !== null"
 				@update:model-value="handleChange"
 			/>
-			<CopyButton :value="value" />
+			<CopyButton v-if="!!value" :value="value" />
 		</div>
 		<v-button
 			v-if="!nonEditable"
 			secondary
-			small
+			icon
+			class="sluggernaut-input__lock-button"
 			:aria-label="locked ? 'Unlock field' : 'Lock field'"
+			:tooltip="locked ? 'Unlock field' : 'Lock field'"
 			@click="locked = !locked"
 		>
 			<v-icon :name="locked ? 'lock' : 'lock_open'" small />
-			{{ locked ? 'Unlock' : 'Lock' }}
 		</v-button>
 	</div>
 </template>
@@ -75,7 +80,7 @@ function handleChange(value: string | number | null): void {
 <style scoped>
 .sluggernaut-input {
 	display: flex;
-	align-items: center;
+	align-items: stretch;
 	gap: 0.5rem;
 	width: 100%;
 }
@@ -85,10 +90,22 @@ function handleChange(value: string | number | null): void {
 	flex: 1;
 }
 
-.sluggernaut-input__input :deep(.sluggernaut-copy-button) {
+.sluggernaut-copy-button {
 	position: absolute;
 	right: 0.5rem;
 	top: 50%;
 	transform: translateY(-50%);
+}
+
+.sluggernaut-input__lock-button {
+	width: var(--theme--form--field--input--height);
+	height: var(--theme--form--field--input--height);
+	flex: 0 0 var(--theme--form--field--input--height);
+}
+
+.sluggernaut-input__lock-button :deep(.button) {
+	width: 100%;
+	height: 100%;
+	padding: 0;
 }
 </style>

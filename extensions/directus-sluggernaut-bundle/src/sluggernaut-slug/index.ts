@@ -1,6 +1,7 @@
 /** Registers the Sluggernaut slug interface in Directus Studio. */
 import { defineInterface } from '@directus/extensions-sdk'
 
+import { locales } from '../shared/configuration/locales'
 import SlugInterface from './interface.vue'
 
 export default defineInterface({
@@ -16,7 +17,7 @@ export default defineInterface({
 	 * @param context - Interface context.
 	 * @returns Sluggernaut interface option definitions.
 	 */
-	options: function getSlugInterfaceOptions(context) {
+	options: (context) => {
 		const collection = context.collection ?? ''
 
 		return [
@@ -42,7 +43,18 @@ export default defineInterface({
 				field: 'locale',
 				name: 'Locale',
 				type: 'string',
-				meta: { width: 'half', interface: 'input' },
+				meta: {
+					width: 'half',
+					interface: 'select-dropdown',
+					options: {
+						choices: locales.map((locale) => ({
+							text: locale.label,
+							value: locale.value,
+						})),
+						allowOther: false,
+					},
+					note: 'The locale determines the character set used for the slug',
+				},
 				schema: { default_value: 'en' },
 			},
 			{

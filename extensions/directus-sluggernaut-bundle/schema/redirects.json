@@ -7,12 +7,22 @@
 				{
 					"collection": "redirects",
 					"field": "id",
-					"type": "integer",
+					"type": "uuid",
 					"schema": {
-						"data_type": "integer",
+						"data_type": "uuid",
 						"is_primary_key": true,
 						"is_nullable": false,
-						"has_auto_increment": true
+						"has_auto_increment": false
+					},
+					"meta": {
+						"field": "id",
+						"hidden": true,
+						"readonly": true,
+						"translations": [{ "language": "en-US", "translation": "ID" }],
+						"note": "Internal Directus identifier for this redirect.",
+						"special": ["uuid"],
+						"interface": "input",
+						"display": "raw"
 					}
 				}
 			],
@@ -28,84 +38,185 @@
 			"field": "origin",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": false },
-			"meta": { "interface": "input", "required": true }
+			"meta": {
+				"interface": "input",
+				"required": true,
+				"translations": [{ "language": "en-US", "translation": "Redirect origin" }],
+				"note": "The previous canonical path that should redirect to the destination."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "destination",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": false },
-			"meta": { "interface": "input", "required": true }
+			"meta": {
+				"interface": "input",
+				"required": true,
+				"translations": [{ "language": "en-US", "translation": "Redirect destination" }],
+				"note": "The new canonical path visitors should be redirected to."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "type",
 			"type": "integer",
 			"schema": { "data_type": "integer", "default_value": 301, "is_nullable": false },
-			"meta": { "interface": "input" }
+			"meta": {
+				"interface": "select-dropdown",
+				"options": {
+					"choices": [
+						{
+							"text": "301",
+							"value": 301
+						},
+						{
+							"text": "302",
+							"value": 302
+						},
+						{
+							"text": "307",
+							"value": 307
+						},
+						{
+							"text": "308",
+							"value": 308
+						}
+					]
+				},
+				"required": true,
+				"translations": [{ "language": "en-US", "translation": "HTTP status code" }],
+				"note": "The HTTP redirect status code returned by the redirect consumer."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "is_active",
 			"type": "boolean",
 			"schema": { "data_type": "boolean", "default_value": true, "is_nullable": false },
-			"meta": { "interface": "boolean" }
+			"meta": {
+				"interface": "boolean",
+				"translations": [{ "language": "en-US", "translation": "Redirect active" }],
+				"note": "Whether the redirect is currently available to the redirect consumer."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "start_date",
 			"type": "timestamp",
 			"schema": { "data_type": "timestamp", "is_nullable": true },
-			"meta": { "interface": "datetime" }
+			"meta": {
+				"interface": "datetime",
+				"translations": [{ "language": "en-US", "translation": "Start date" }],
+				"note": "Optional date and time from which the redirect is active."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "end_date",
 			"type": "timestamp",
 			"schema": { "data_type": "timestamp", "is_nullable": true },
-			"meta": { "interface": "datetime" }
+			"meta": {
+				"interface": "datetime",
+				"translations": [{ "language": "en-US", "translation": "End date" }],
+				"note": "Optional date and time after which the redirect is inactive."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "managed_by",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 32, "is_nullable": true },
-			"meta": { "interface": "input" }
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Managed by" }],
+				"note": "The system that owns and maintains this redirect."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "source_collection",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
-			"meta": { "interface": "input" }
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Source collection" }],
+				"note": "The Directus collection containing the source item for this redirect."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "source_item",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
-			"meta": { "interface": "input" }
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Source item" }],
+				"note": "The primary key of the source item for this redirect."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "source_field",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
-			"meta": { "interface": "input" }
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Source field" }],
+				"note": "The source field whose canonical value created this redirect."
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "source_type",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 16, "is_nullable": true },
-			"meta": { "interface": "input" }
+			"meta": {
+				"interface": "select-dropdown",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Source type" }],
+				"note": "Whether the source value came from a slug or permalink field.",
+				"options": {
+					"choices": [
+						{
+							"text": "Slug",
+							"value": "slug"
+						},
+						{
+							"text": "Permalink",
+							"value": "permalink"
+						}
+					]
+				}
+			}
 		},
 		{
 			"collection": "redirects",
 			"field": "inactive_reason",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 16, "is_nullable": true },
-			"meta": { "interface": "input" }
+			"meta": {
+				"interface": "select-dropdown",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Inactive reason" }],
+				"note": "The lifecycle event that caused this redirect to become inactive.",
+				"options": {
+					"choices": [
+						{
+							"text": "Item was archived",
+							"value": "archived"
+						},
+						{
+							"text": "Item was deleted",
+							"value": "deleted"
+						}
+					]
+				}
+			}
 		}
 	],
 	"relations": []

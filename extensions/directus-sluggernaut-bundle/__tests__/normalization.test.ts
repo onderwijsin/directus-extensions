@@ -34,6 +34,8 @@ describe('Sluggernaut normalization', () => {
 		expect(() => normalizePermalink('news/hello')).toThrow()
 		expect(() => normalizePermalink('https://example.com/news')).toThrow()
 		expect(() => normalizePermalink('/news?draft=true')).toThrow()
+		expect(() => normalizePermalink('/hello/hello-worldasf  ASFASF124')).toThrow()
+		expect(() => normalizePermalink('/hello/hello-worldasf\tASFASF124')).toThrow()
 		expect(() => normalizePermalink('/news/../hello')).toThrow()
 	})
 

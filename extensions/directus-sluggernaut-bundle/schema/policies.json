@@ -46,7 +46,7 @@
 							}
 						]
 					},
-					"fields": ["*"]
+					"fields": ["id", "origin", "destination"]
 				}
 			]
 		}

@@ -111,10 +111,14 @@ Create a string field and select `Sluggernaut Slug`.
 | Option                 | Required | Default | Details                                                                                                                    |
 | ---------------------- | -------- | ------: | -------------------------------------------------------------------------------------------------------------------------- |
 | `sourceFields`         | yes      |       — | One or more same-collection string fields. Values are trimmed, empty values removed, and the remainder joined with spaces. |
-| `locale`               | no       |    `en` | Locale used by case conversion.                                                                                            |
+| `locale`               | no       |    `en` | Fixed locale choice used by case conversion.                                                                               |
 | `lowercase`            | no       |  `true` | Lowercase before slug separator normalization.                                                                             |
 | `updateOnSourceChange` | no       |  `true` | Re-derive when a configured source field is in an update payload.                                                          |
 | `automaticRedirects`   | no       | `false` | Opt this field into canonical redirect selection.                                                                          |
+
+The Studio locale option is a fixed dropdown; custom values are not offered. Supported values are
+`nl`, `en`, `bg`, `de`, `es`, `fr`, `pt`, `uk`, `vi`, `da`, `nb`, `it`, and `sv`. The slug input
+uses a locale-specific generated-value placeholder when available.
 
 Example:
 
@@ -159,6 +163,10 @@ Create a string field and select `Sluggernaut Permalink`.
 | `trailingSlash`                     | no             | `false` | Add a trailing slash to generated non-root paths.                                             |
 | `enforceTrailingSlashOnManualInput` | no             | `false` | Apply the trailing-slash policy to manual values.                                             |
 | `automaticRedirects`                | no             | `false` | Opt this field into canonical redirect selection.                                             |
+
+Manual permalinks must be absolute paths without whitespace. Schemes, hosts, protocol-relative
+paths, query strings, fragments, backslashes, control characters, and `.`/`..` path segments are
+also rejected. Repeated slashes are normalized.
 
 ```json
 {
@@ -264,6 +272,10 @@ Redirects with another owner are preserved and a conflict is logged.
 | `source_collection`, `source_item`, `source_field`, `source_type` | Ownership/provenance metadata.                       |
 | `inactive_reason`                                                 | `archive` or `delete` for lifecycle deactivation.    |
 
+When the bundle provisions the redirect collection, the provenance and lifecycle fields
+(`managed_by`, `source_collection`, `source_item`, `source_field`, `source_type`, and
+`inactive_reason`) are read-only and maintained by Sluggernaut.
+
 On source deletion, managed records are deactivated with `inactive_reason=delete`. When a Directus
 archive field transitions to its archive value, records are deactivated with
 `inactive_reason=archive`; unarchive reactivates only archive-suspended records. Manual reactivation
@@ -341,7 +353,7 @@ accountability for schema and metadata operations; item update reads retain muta
 | Interfaces are missing                 | Package is installed in the Directus runtime, Directus restarted, and runtime is within `>=12.2.0 <13`.                 |
 | Slug is unchanged                      | `sourceFields` contains the changed field and `updateOnSourceChange=true`; explicit slug payloads override derivation.  |
 | Permalink is ignored                   | `slugField` points to a valid same-collection Sluggernaut slug; invalid references are excluded with a warning.         |
-| Manual permalink fails                 | Use a path, not a URL; remove query/fragment/scheme/dot segments and check prefix options.                              |
+| Manual permalink fails                 | Use a path without whitespace, not a URL; remove query/fragment/scheme/dot segments and check prefix options.           |
 | Redirects are absent                   | Enable the global redirect switch, enable automatic redirects on the selected source, and verify the collection exists. |
 | Schema setup is absent                 | Both local and global schema switches must be true. Policy setup also needs the global data-seed switch.                |
 | Recalculation is forbidden             | Run with administrator or internal system accountability.                                                               |

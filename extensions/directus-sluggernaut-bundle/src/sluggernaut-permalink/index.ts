@@ -13,66 +13,77 @@ export default defineInterface({
 	group: 'standard',
 	/**
 	 * Defines the field configuration shown in Directus Studio.
+	 * @param context - Interface context.
 	 * @returns Sluggernaut interface option definitions.
 	 */
-	options: () => [
-		{
-			field: 'generateFromSlug',
-			name: 'Generate from slug',
-			type: 'boolean',
-			meta: { width: 'half', interface: 'checkbox' },
-			schema: { default_value: true },
-		},
-		{
-			field: 'slugField',
-			name: 'Slug field',
-			type: 'string',
-			meta: {
-				width: 'half',
-				interface: 'input',
-				note: 'Must reference a Sluggernaut slug field in this collection.',
+	options: (context) => {
+		const collection = context.collection ?? ''
+
+		return [
+			{
+				field: 'generateFromSlug',
+				name: 'Generate from slug',
+				type: 'boolean',
+				meta: { width: 'half', interface: 'checkbox' },
+				schema: { default_value: true },
 			},
-		},
-		{
-			field: 'updateOnSlugChange',
-			name: 'Update on slug change',
-			type: 'boolean',
-			meta: { width: 'half', interface: 'checkbox' },
-			schema: { default_value: false },
-		},
-		{
-			field: 'prefix',
-			name: 'Prefix',
-			type: 'string',
-			meta: { width: 'half', interface: 'input' },
-		},
-		{
-			field: 'validatePrefixOnManualInput',
-			name: 'Validate prefix on manual input',
-			type: 'boolean',
-			meta: { width: 'half', interface: 'checkbox' },
-			schema: { default_value: false },
-		},
-		{
-			field: 'trailingSlash',
-			name: 'Trailing slash',
-			type: 'boolean',
-			meta: { width: 'half', interface: 'checkbox' },
-			schema: { default_value: false },
-		},
-		{
-			field: 'enforceTrailingSlashOnManualInput',
-			name: 'Enforce trailing slash on manual input',
-			type: 'boolean',
-			meta: { width: 'half', interface: 'checkbox' },
-			schema: { default_value: false },
-		},
-		{
-			field: 'automaticRedirects',
-			name: 'Automatic redirects',
-			type: 'boolean',
-			meta: { width: 'half', interface: 'checkbox' },
-			schema: { default_value: false },
-		},
-	],
+			{
+				field: 'slugField',
+				name: 'Slug field',
+				type: 'string',
+				meta: {
+					width: 'half',
+					interface: 'system-field',
+					options: {
+						collectionName: collection,
+						typeAllowList: ['string'],
+						allowNone: true,
+						multiple: false,
+					},
+					note: 'Must reference a Sluggernaut slug field in this collection.',
+				},
+			},
+			{
+				field: 'updateOnSlugChange',
+				name: 'Update on slug change',
+				type: 'boolean',
+				meta: { width: 'half', interface: 'checkbox' },
+				schema: { default_value: false },
+			},
+			{
+				field: 'prefix',
+				name: 'Prefix',
+				type: 'string',
+				meta: { width: 'half', interface: 'input' },
+			},
+			{
+				field: 'validatePrefixOnManualInput',
+				name: 'Validate prefix on manual input',
+				type: 'boolean',
+				meta: { width: 'half', interface: 'checkbox' },
+				schema: { default_value: false },
+			},
+			{
+				field: 'trailingSlash',
+				name: 'Trailing slash',
+				type: 'boolean',
+				meta: { width: 'half', interface: 'checkbox' },
+				schema: { default_value: false },
+			},
+			{
+				field: 'enforceTrailingSlashOnManualInput',
+				name: 'Enforce trailing slash on manual input',
+				type: 'boolean',
+				meta: { width: 'half', interface: 'checkbox' },
+				schema: { default_value: false },
+			},
+			{
+				field: 'automaticRedirects',
+				name: 'Automatic redirects',
+				type: 'boolean',
+				meta: { width: 'half', interface: 'checkbox' },
+				schema: { default_value: false },
+			},
+		]
+	},
 })

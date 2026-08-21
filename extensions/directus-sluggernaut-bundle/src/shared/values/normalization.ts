@@ -112,6 +112,7 @@ export function normalizePermalink(value: string | null | undefined): string | n
 			const code = character.codePointAt(0) ?? 0
 			return (code >= 0 && code <= 31) || code === 127
 		}) ||
+		/\s/u.test(path) ||
 		path.includes('\\') ||
 		path.includes('?') ||
 		path.includes('#')
