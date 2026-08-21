@@ -1,12 +1,30 @@
 import type { OperationContext } from '@directus/types'
 
 import { ForbiddenError } from '@directus/errors'
-import { hasKey } from '@onderwijsin/directus-extension-utils'
+import { z } from 'zod'
 
 import { recalculateOptionsSchema, type RecalculateOptions } from './options.schema'
 
 /** Re-exported operation input type for consumers of the validation boundary. */
 export type { RecalculateOptions } from './options.schema'
+
+const accountabilitySchema = z
+	.looseObject({
+		admin: z.boolean().optional(),
+		admin_access: z.boolean().optional(),
+	})
+	.nullable()
+
+/**
+ * Checks whether accountability represents an administrator or internal execution.
+ * @param accountability - Directus accountability value.
+ * @returns Whether recalculation is authorized.
+ */
+function hasAdministratorAccess(accountability: unknown): boolean {
+	const parsed = accountabilitySchema.safeParse(accountability)
+	if (!parsed.success) return false
+	return parsed.data === null || parsed.data.admin === true || parsed.data.admin_access === true
+}
 
 /**
  * Authorizes and parses the recalculation operation input at its boundary.
@@ -18,13 +36,6 @@ export function validateRecalculateOptions(
 	options: unknown,
 	context: OperationContext,
 ): RecalculateOptions {
-	const accountability = context.accountability
-	const isAdmin =
-		accountability === null ||
-		accountability.admin === true ||
-		(hasKey(accountability, 'admin_access') && accountability.admin_access === true)
-	if (!isAdmin) throw new ForbiddenError()
-	const parsed = recalculateOptionsSchema.safeParse(options)
-	if (!parsed.success) throw new Error('Invalid Sluggernaut recalculation options.')
-	return parsed.data
+	if (!hasAdministratorAccess(context.accountability)) throw new ForbiddenError()
+	return recalculateOptionsSchema.parse(options)
 }
