@@ -168,7 +168,8 @@ generated permalink: /news/summer-news
 Permalinks are paths, not full URLs. The server rejects schemes, hosts, protocol-relative paths,
 query strings, fragments, whitespace, backslashes, control characters, and `.`/`..` path segments.
 Repeated slashes are normalized. Prefix and trailing-slash rules apply according to the options
-above.
+above. When `generateFromSlug` is disabled, slug-derived options are hidden in the Directus field
+editor; saved values are preserved if generation is enabled again later.
 
 ## Mutation behavior
 

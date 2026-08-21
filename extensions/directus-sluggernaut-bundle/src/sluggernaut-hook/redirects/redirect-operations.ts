@@ -14,6 +14,12 @@ import { isArray } from '@onderwijsin/directus-extension-utils'
 
 import { redirectRecordSchema, type Redirect, REDIRECT_FIELDS } from './schema'
 
+interface RedirectOperationsService {
+	readByQuery: (query: Parameters<RedirectService['readByQuery']>[0]) => Promise<unknown>
+	createOne: (...args: Parameters<RedirectService['createOne']>) => Promise<unknown>
+	updateOne: (...args: Parameters<RedirectService['updateOne']>) => Promise<unknown>
+}
+
 /**
  * Parses the public redirect shape and managed provenance fields.
  * @param value - Unknown Directus redirect record.
@@ -33,7 +39,7 @@ function parseRedirectRecord(value: unknown): Redirect | null {
  * @returns Parsed redirect records.
  */
 export async function readRelevantRedirects(
-	service: RedirectService,
+	service: RedirectOperationsService,
 	oldCanonical: string,
 	newCanonical: string,
 ): Promise<Redirect[]> {
@@ -63,7 +69,7 @@ export async function readRelevantRedirects(
  * @returns Parsed managed redirect records.
  */
 export async function readManagedRedirectsForItem(
-	service: RedirectService,
+	service: RedirectOperationsService,
 	sourceCollection: string,
 	sourceItem: PrimaryKey,
 ): Promise<Redirect[]> {
@@ -97,7 +103,7 @@ export async function readManagedRedirectsForItem(
  * @returns void
  */
 export async function applyRedirectPlan(
-	service: RedirectService,
+	service: RedirectOperationsService,
 	plan: RedirectPlan,
 ): Promise<void> {
 	// Apply the plan in a stable order: create/rewrite the active route, then deactivate conflicts.
@@ -125,7 +131,7 @@ export async function applyRedirectPlan(
  * @returns void
  */
 export async function applyRedirectLifecyclePlan(
-	service: RedirectService,
+	service: RedirectOperationsService,
 	plan: RedirectLifecyclePlan,
 ): Promise<void> {
 	for (const redirect of plan.deactivate) {

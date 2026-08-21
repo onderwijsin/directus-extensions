@@ -172,6 +172,10 @@ Manual permalinks must be absolute paths without whitespace. Schemes, hosts, pro
 paths, query strings, fragments, backslashes, control characters, and `.`/`..` path segments are
 also rejected. Repeated slashes are normalized.
 
+When `generateFromSlug` is false, Directus hides the slug-derived options (`slugField`,
+`updateOnSlugChange`, `prefix`, and `validatePrefixOnManualInput`). Existing saved values are
+preserved and become visible again if generation is re-enabled.
+
 ```json
 {
   "generateFromSlug": true,

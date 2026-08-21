@@ -136,6 +136,93 @@ available.
       per-item failures, continuation, and exact statistics.
 - [ ] `[unit]` Verify `createRedirects=true/false`, selected slug-only/permalink-only fields,
       unknown fields, standalone fields, and no implicit dependent-field updates.
+
+### Mutation orchestration, adapters, and failure paths
+
+The following cases close the unit-level gaps between pure algorithms and Directus E2E behavior.
+Mock the Directus services and transaction handles, but assert calls, arguments, ordering, return
+values, thrown errors, and structured log metadata—not only final happy-path values.
+
+- [ ] `[unit]` `mutation/items.ts`: verify `relevantFields` includes every source, derived, and
+      slug-reference field exactly once; `hasRelevantPayloadField` distinguishes absent keys from
+      present `null`/empty values; and `readExistingItem` passes schema, accountability, transaction
+      database, deduplicated fields, and primary key to `ItemsService`.
+- [ ] `[unit]` `mutation/items.ts`: verify existing-item read failures and non-record responses
+      throw; `resolveSingleUpdateItemKey` accepts scalar string/number keys in a one-element array
+      and rejects non-arrays, empty arrays, multi-key arrays, booleans, objects, null, and floats.
+- [ ] `[unit]` `mutation/archive.ts`: verify archive metadata is read with null accountability,
+      missing/non-record metadata returns `null`, missing/non-string `archive_field` returns `null`,
+      and service/schema failures propagate to the caller.
+- [ ] `[unit]` `mutation/archive.ts`: cover archive, unarchive, unchanged values, wrong previous
+      value, wrong next value, missing archive/unarchive values, equal archive/unarchive values, and
+      falsy archive values without confusing a normal status update for a lifecycle transition.
+- [ ] `[unit]` `mutation/update.ts`: verify existing fields are read before coordination; archive
+      processing is awaited before canonical processing; unrelated updates return the original
+      payload without coordination; relevant updates pass the merged next item to canonical
+      planning; and every service failure has the documented propagation behavior.
+- [ ] `[unit]` `mutation/item-hooks.ts`: verify create, update, bulk-create, bulk-update, delete,
+      and archive event registrations; malformed collection keys and payload shapes; empty and
+      ambiguous key arrays; unrelated mutations; configuration-warning logging; and cleanup when
+      setup or a callback fails.
+- [ ] `[unit]` `mutation/item-hooks.ts`: verify redirect processing is skipped when globally
+      disabled, when no canonical source is selected, and for initial/stable values; verify at most
+      one canonical plan is applied and delete/archive failures are logged or propagated exactly as
+      implemented.
+- [ ] `[unit]` `mutation/redirects/canonical-redirects.ts`: cover disabled redirects, no selected
+      source, null old/new canonical values, unchanged canonical values, redirect-service creation
+      failure, relevant-read failure, planner warnings, plan-application failure, configured
+      collection forwarding, transaction forwarding, and the exact `redirect-runtime-unavailable`
+      warning shape.
+- [ ] `[unit]` `mutation/redirects/deletion-redirects.ts`: cover disabled redirects, zero/multiple
+      deleted keys, managed-history reads per key, empty histories, lifecycle-plan application,
+      service/read/write failures, configured collection forwarding, and transaction forwarding.
+- [ ] `[unit]` `mutation/redirects/lifecycle-redirects.ts`: cover disabled redirects, archive and
+      unarchive branches, empty histories, service/read/write failures, warning payloads, and the
+      guarantee that lifecycle processing never creates or rewrites origins/destinations.
+- [ ] `[unit]` `redirects/schema.ts`: validate every required/nullable field, literal managed/type
+      constraints, string/number primary keys, nullable dates/reasons, unknown-key rejection, and
+      malformed provenance records.
+- [ ] `[unit]` `redirects/redirect-operations.ts`: verify compatible-record filtering, relevant
+      origin/destination query filters, managed source-ownership filters, empty results, malformed
+      rows, create/update/deactivate/reactivate mappings, operation ordering, and first-error
+      propagation without silently applying later operations.
+- [ ] `[unit]` `redirects/service.ts`: verify the configured collection, schema, null
+      accountability, and transaction-bound knex handle reach the `ItemsService`; schema lookup is
+      awaited once; construction failures propagate; and the returned service exposes the expected
+      operations.
+- [ ] `[unit]` `mutation/redirects/*` failure matrix: verify content derivation remains independent
+      from optional canonical redirect infrastructure where the implementation promises that
+      behavior, while delete/lifecycle error handling is tested separately because those adapters
+      have different failure contracts.
+- [ ] `[unit]` `recalculate/selection.ts`: cover omitted field allowlists, empty arrays, unknown
+      fields, duplicate requested fields, slug-only/permalink-only selections, standalone
+      permalinks, primary-key discovery with multiple/null/missing primary markers, and exact
+      deduplicated required-field ordering.
+- [ ] `[unit]` `recalculate/pages.ts`: cover empty pages, short terminal pages, exactly-full pages,
+      multiple pages, non-array service responses, exact `limit`/`offset`/sort arguments, every
+      `updated`/`skipped`/`failed` outcome, and processor failure propagation.
+- [ ] `[unit]` `recalculate/item.ts`: cover non-record items, missing/null/object/boolean IDs,
+      string and numeric IDs, empty updates, derivation errors, service-update mode, direct-
+      database mode, database failures, logger messages for `Error` and non-Error values, and exact
+      outcome/count semantics.
+- [ ] `[unit]` `recalculate/api.ts`: verify setup start/end on disabled, validation failure,
+      environment failure, handler success, and handler failure; zero statistics when disabled; and
+      exactly-once forwarding of validated options and context.
+- [ ] `[unit]` `recalculate/validation.ts`: cover null/internal/admin/admin-access accountability,
+      ordinary users, malformed accountability objects, malformed options, defaults, unknown keys,
+      and the exact forbidden error boundary.
+- [ ] `[unit]` `shared/configuration/locales.ts`: verify the supported locale list is complete,
+      values are unique, translations have matching keys, and invalid locale configuration is
+      rejected rather than silently selecting an unintended locale.
+- [ ] `[unit]` `shared/configuration/helpers`: verify configuration warnings contain stable codes,
+      collection/field context, actionable messages, and do not suppress valid independent
+      configuration.
+
+Unit tests must not claim to prove transaction atomicity, Directus event semantics, real
+permissions, cross-process locking, or concurrent convergence. Those remain covered by the E2E and
+integration scenarios below; unit tests should prove the deterministic decisions and adapter
+contracts feeding those scenarios.
+
 - [ ] `[component]` Verify slug/permalink locking, unlock/relock, disabled/non-editable states,
       placeholders/locales, null/error rendering, emitted values, and API/Flow/import writes not
       being blocked by the Studio control.

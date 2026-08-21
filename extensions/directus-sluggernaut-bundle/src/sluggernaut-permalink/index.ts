@@ -3,6 +3,17 @@ import { defineInterface } from '@directus/extensions-sdk'
 
 import PermalinkInterface from './interface.vue'
 
+const generatedFromSlugCondition = [
+	{
+		rule: {
+			generateFromSlug: {
+				_eq: false,
+			},
+		},
+		hidden: true,
+	},
+]
+
 export default defineInterface({
 	id: 'sluggernaut-permalink',
 	name: 'Sluggernaut Permalink',
@@ -34,6 +45,7 @@ export default defineInterface({
 				meta: {
 					width: 'half',
 					interface: 'system-field',
+					conditions: generatedFromSlugCondition,
 					options: {
 						collectionName: collection,
 						typeAllowList: ['string'],
@@ -47,20 +59,32 @@ export default defineInterface({
 				field: 'updateOnSlugChange',
 				name: 'Update on slug change',
 				type: 'boolean',
-				meta: { width: 'half', interface: 'checkbox' },
+				meta: {
+					width: 'half',
+					interface: 'checkbox',
+					conditions: generatedFromSlugCondition,
+				},
 				schema: { default_value: false },
 			},
 			{
 				field: 'prefix',
 				name: 'Prefix',
 				type: 'string',
-				meta: { width: 'half', interface: 'input' },
+				meta: {
+					width: 'half',
+					interface: 'input',
+					conditions: generatedFromSlugCondition,
+				},
 			},
 			{
 				field: 'validatePrefixOnManualInput',
 				name: 'Validate prefix on manual input',
 				type: 'boolean',
-				meta: { width: 'half', interface: 'checkbox' },
+				meta: {
+					width: 'half',
+					interface: 'checkbox',
+					conditions: generatedFromSlugCondition,
+				},
 				schema: { default_value: false },
 			},
 			{

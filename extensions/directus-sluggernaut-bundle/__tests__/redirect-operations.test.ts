@@ -31,7 +31,7 @@ describe('redirect operations', () => {
 		const records = await readRelevantRedirects(service, '/old', '/new')
 
 		expect(service.readByQuery).toHaveBeenCalledWith(expect.objectContaining({ limit: -1 }))
-		expect(records).toEqual([expect.objectContaining({ id: '1', managedBy: 'sluggernaut' })])
+		expect(records).toEqual([expect.objectContaining({ id: 1, managed_by: 'sluggernaut' })])
 	})
 
 	it('applies creates, rewrites, and deactivations in order', async () => {
@@ -46,16 +46,16 @@ describe('redirect operations', () => {
 				origin: '/old',
 				destination: '/new',
 				type: 301,
-				isActive: true,
-				managedBy: 'sluggernaut',
-				sourceCollection: 'articles',
-				sourceItem: '1',
-				sourceField: 'route',
-				sourceType: 'permalink',
-				inactiveReason: null,
+				is_active: true,
+				managed_by: 'sluggernaut',
+				source_collection: 'articles',
+				source_item: '1',
+				source_field: 'route',
+				source_type: 'permalink',
+				inactive_reason: null,
 			},
 			rewrite: [{ id: 'chain', destination: '/new' }],
-			deactivate: [{ id: 'loop', inactiveReason: null }],
+			deactivate: [{ id: 'loop', inactive_reason: null }],
 			warnings: [],
 		})
 
@@ -84,7 +84,7 @@ describe('redirect operations', () => {
 			readByQuery: vi.fn(() =>
 				Promise.resolve([
 					{
-						id: 'managed',
+						id: 2,
 						origin: '/old',
 						destination: '/new',
 						type: 301,
@@ -92,6 +92,8 @@ describe('redirect operations', () => {
 						managed_by: 'sluggernaut',
 						source_collection: 'articles',
 						source_item: '1',
+						source_field: 'route',
+						source_type: 'permalink',
 						inactive_reason: 'delete',
 					},
 				]),
@@ -101,7 +103,7 @@ describe('redirect operations', () => {
 		}
 
 		await expect(readManagedRedirectsForItem(service, 'articles', '1')).resolves.toEqual([
-			expect.objectContaining({ id: 'managed', inactiveReason: 'delete' }),
+			expect.objectContaining({ id: 2, inactive_reason: 'delete' }),
 		])
 	})
 
@@ -113,8 +115,8 @@ describe('redirect operations', () => {
 		}
 
 		await applyRedirectLifecyclePlan(service, {
-			deactivate: [{ id: 'deleted', inactiveReason: 'delete' }],
-			reactivate: [{ id: 'archived', isActive: true, inactiveReason: null }],
+			deactivate: [{ id: 'deleted', inactive_reason: 'delete' }],
+			reactivate: [{ id: 'archived', is_active: true, inactive_reason: null }],
 		})
 
 		expect(service.updateOne).toHaveBeenNthCalledWith(1, 'deleted', {
