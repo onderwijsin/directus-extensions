@@ -45,6 +45,7 @@ catalog:
   vue-router: 4.6.3
   zod: 4.4.3
   ofetch: 1.5.1
+  ufo: 1.6.4
 catalogs:
   node24:
     '@types/node': 24.13.3
