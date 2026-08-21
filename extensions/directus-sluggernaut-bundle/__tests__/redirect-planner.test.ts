@@ -57,7 +57,7 @@ describe('redirect planner', () => {
 		})
 	})
 
-	it('does not let a later permalink replace the first disabled one', () => {
+	it('selects the first enabled permalink when an earlier one is disabled', () => {
 		const source = selectRedirectSource({
 			...configuration,
 			permalinks: [
@@ -76,7 +76,7 @@ describe('redirect planner', () => {
 				options: { ...field.options, automaticRedirects: false },
 			})),
 		})
-		expect(source).toBeNull()
+		expect(source).toMatchObject({ type: 'permalink', field: 'preview_route' })
 	})
 
 	it('normalizes permalink and slug canonical values', () => {

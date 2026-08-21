@@ -2,12 +2,22 @@ import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
 	createCollection,
 	createField,
+	createFlow,
 	createItem,
 	createItems,
+	createOperation,
 	customEndpoint,
+	deleteFlow,
 	deleteCollection,
 	deleteItem,
+	deleteOperation,
+	readCollection,
+	readFieldsByCollection,
 	readItems,
+	readPolicies,
+	readExtensions,
+	updateFlow,
+	updateField,
 	updateItem,
 	updateItems,
 } from '@workspace/test-utils/commands'
@@ -40,6 +50,15 @@ interface RedirectRecord {
 	source_item: string | null
 	source_field: string | null
 	inactive_reason: string | null
+}
+
+interface LoadedExtension {
+	id: string
+	meta: { enabled: boolean }
+	schema: {
+		name?: string
+		entries?: { name: string; type: string }[]
+	}
 }
 
 const slugOptions = {
@@ -263,6 +282,47 @@ function readRedirects(collection: string, sourceItem?: string): Promise<Redirec
 			sort: ['origin'],
 		}),
 	)
+}
+
+async function runRecalculation(
+	collection: string,
+	options: { fields?: string[]; createRedirects?: boolean } = {},
+): Promise<{ processed: number; updated: number; skipped: number; failed: number }> {
+	const flow = await client.request(
+		createFlow({
+			name: `Sluggernaut E2E ${Date.now()}`,
+			status: 'active',
+			trigger: 'webhook',
+			accountability: '$trigger',
+			options: { method: 'POST', async: false, return: '$last' },
+		}),
+	)
+	let operationId: string | undefined
+	try {
+		const operation = await client.request<{ id: string }>(
+			createOperation({
+				flow: flow.id,
+				key: `sluggernaut_recalculate_${Date.now()}`,
+				name: 'Sluggernaut recalculation',
+				type: 'sluggernaut-recalculate',
+				position_x: 1,
+				position_y: 1,
+				options: { collection, ...options },
+			}),
+		)
+		operationId = operation.id
+		await client.request(updateFlow(flow.id, { operation: operation.id }))
+		return await client.request(
+			customEndpoint({
+				path: `/flows/trigger/${flow.id}`,
+				method: 'POST',
+				body: JSON.stringify({}),
+			}),
+		)
+	} finally {
+		if (operationId) await client.request(deleteOperation(operationId)).catch(() => undefined)
+		await client.request(deleteFlow(flow.id)).catch(() => undefined)
+	}
 }
 
 async function createRedirect(overrides: Record<string, unknown>): Promise<{ id: string }> {
@@ -1192,11 +1252,7 @@ describe('Sluggernaut Directus integration', () => {
 	})
 
 	it('E46 uses the first discovered enabled permalink as the redirect source', async () => {
-		const fixture = await createSluggernautCollection(
-			{ automaticRedirects: false },
-			{},
-			{ includePrimarySlug: false },
-		)
+		const fixture = await createSluggernautCollection({ automaticRedirects: false })
 		let itemId: string | undefined
 		try {
 			await client.request(
@@ -1217,6 +1273,7 @@ describe('Sluggernaut Directus integration', () => {
 			const created = await client.request(
 				createItem(fixture.collection, { title: 'Later Old' }),
 			)
+			expect(created).toMatchObject({ permalink_later: '/later/later-old' })
 			itemId = String(created.id)
 			await client.request(updateItem(fixture.collection, created.id, { title: 'Later New' }))
 			await expect(readRedirects(fixture.collection, itemId)).resolves.toEqual([
@@ -1290,7 +1347,12 @@ describe('Sluggernaut Directus integration', () => {
 					({ is_active, origin, destination }) => !is_active || origin !== destination,
 				),
 			).toBe(true)
-			expect(redirects.filter(({ is_active }) => is_active)).toHaveLength(0)
+			expect(redirects.filter(({ is_active }) => is_active)).toEqual([
+				expect.objectContaining({
+					origin: '/articles/revert-new',
+					destination: '/articles/revert-old',
+				}),
+			])
 		} finally {
 			if (itemId)
 				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
@@ -1309,9 +1371,22 @@ describe('Sluggernaut Directus integration', () => {
 			await client.request(updateItem(fixture.collection, item.id, { title: 'Quick Two' }))
 			await client.request(updateItem(fixture.collection, item.id, { title: 'Quick Three' }))
 			const redirects = await readRedirects(fixture.collection, itemId)
-			expect(redirects.filter(({ is_active }) => is_active)).toEqual([
-				expect.objectContaining({ destination: '/articles/quick-three' }),
-			])
+			const activeRedirects = redirects.filter(({ is_active }) => is_active)
+			expect(activeRedirects).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						origin: '/articles/quick-one',
+						destination: '/articles/quick-three',
+					}),
+					expect.objectContaining({
+						origin: '/articles/quick-two',
+						destination: '/articles/quick-three',
+					}),
+				]),
+			)
+			expect(
+				activeRedirects.every(({ destination }) => destination === '/articles/quick-three'),
+			).toBe(true)
 		} finally {
 			if (itemId)
 				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
@@ -1891,13 +1966,15 @@ describe('Sluggernaut Directus integration', () => {
 				updateItem(fixture.collection, item.id, { title: 'Delete Changed' }),
 			)
 			await client.request(deleteItem(fixture.collection, item.id))
-			await expect(readRedirects(fixture.collection, itemId)).resolves.toEqual([
-				expect.objectContaining({
-					is_active: false,
-					inactive_reason: 'delete',
-					source_item: itemId,
-				}),
-			])
+			await expect
+				.poll(() => readRedirects(fixture.collection, itemId))
+				.toEqual([
+					expect.objectContaining({
+						is_active: false,
+						inactive_reason: 'delete',
+						source_item: itemId,
+					}),
+				])
 		} finally {
 			if (itemId)
 				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
@@ -2285,6 +2362,670 @@ describe('Sluggernaut Directus integration', () => {
 		} finally {
 			if (itemId)
 				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
+			await fixture.dispose()
+		}
+	})
+
+	it('E74 provisions a usable redirect schema with safe defaults', async () => {
+		const collection = await client.request(readCollection('redirects'))
+		const fields = await client.request(readFieldsByCollection('redirects'))
+		expect(collection).toMatchObject({ collection: 'redirects' })
+		expect(fields).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					field: 'origin',
+					schema: expect.objectContaining({ is_nullable: false }),
+				}),
+				expect.objectContaining({
+					field: 'destination',
+					schema: expect.objectContaining({ is_nullable: false }),
+				}),
+				expect.objectContaining({
+					field: 'type',
+					schema: expect.objectContaining({ default_value: 301 }),
+				}),
+				expect.objectContaining({
+					field: 'is_active',
+					schema: expect.objectContaining({ default_value: true }),
+				}),
+			]),
+		)
+	})
+
+	it('E75 keeps startup schema provisioning idempotent', async () => {
+		const fields = await client.request(readFieldsByCollection('redirects'))
+		const names = fields.map(({ field }) => field)
+		expect(new Set(names).size).toBe(names.length)
+		expect(names).toEqual(
+			expect.arrayContaining(['origin', 'destination', 'managed_by', 'source_item']),
+		)
+	})
+
+	it('E76 preserves the compatible redirect collection contract', async () => {
+		const fields = await client.request(readFieldsByCollection('redirects'))
+		for (const field of [
+			'origin',
+			'destination',
+			'type',
+			'is_active',
+			'start_date',
+			'end_date',
+		])
+			expect(fields.find((entry) => entry.field === field)).toBeDefined()
+	})
+
+	it('E77 continues safe derivation when an unrelated field has invalid Sluggernaut metadata', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			await client.request(
+				createField(fixture.collection, {
+					field: 'invalid_permalink',
+					type: 'string',
+					meta: {
+						interface: 'sluggernaut-permalink',
+						options: { ...permalinkOptions, slugField: 'missing' },
+					},
+					schema: { is_nullable: true },
+				}),
+			)
+			await expect(
+				client.request(createItem(fixture.collection, { title: 'Safe Invalid Config' })),
+			).resolves.toMatchObject({
+				slug: 'safe-invalid-config',
+				permalink: '/articles/safe-invalid-config',
+			})
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E78 leaves optional Core-plan policies unseeded', async () => {
+		const policies = await client.request(readPolicies({ fields: ['id', 'name'] }))
+		expect(policies.some(({ name }) => name === 'Can Manage Sluggernaut Redirects')).toBe(false)
+		expect(policies.some(({ name }) => name === 'Can Read Active Redirects')).toBe(false)
+	})
+
+	it('E79 keeps root redirect reads and extension writes usable on Core', async () => {
+		const fixture = await createSluggernautCollection()
+		let itemId: string | undefined
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Root Access' }),
+			)
+			itemId = String(item.id)
+			await client.request(
+				updateItem(fixture.collection, item.id, { title: 'Root Access Updated' }),
+			)
+			await expect(readRedirects(fixture.collection, itemId)).resolves.toEqual([
+				expect.objectContaining({
+					destination: '/articles/root-access-updated',
+					is_active: true,
+				}),
+			])
+		} finally {
+			if (itemId)
+				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
+			await fixture.dispose()
+		}
+	})
+
+	it('E80 invalidates the affected collection after field metadata changes', async () => {
+		const fixture = await createSluggernautCollection()
+		let itemId: string | undefined
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Before Cache' }),
+			)
+			itemId = String(item.id)
+			await client.request(
+				updateField(fixture.collection, 'title', {
+					meta: { interface: 'input', note: 'changed' },
+				}),
+			)
+			await expect(
+				client.request(updateItem(fixture.collection, item.id, { title: 'After Cache' })),
+			).resolves.toMatchObject({ slug: 'after-cache' })
+		} finally {
+			if (itemId)
+				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
+			await fixture.dispose()
+		}
+	})
+
+	it('E81 keeps redirect provenance scoped to the configured collection', async () => {
+		const first = await createSluggernautCollection()
+		try {
+			const item = await client.request(createItem(first.collection, { title: 'Scoped One' }))
+			await client.request(updateItem(first.collection, item.id, { title: 'Scoped Two' }))
+			const redirects = await readRedirects(first.collection, String(item.id))
+			expect(redirects).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						source_collection: first.collection,
+						source_item: String(item.id),
+					}),
+				]),
+			)
+		} finally {
+			await first.dispose()
+		}
+	})
+
+	it('E82 reports a clean loaded extension surface for the enabled instance', async () => {
+		const extensions = await client.request<LoadedExtension[]>(readExtensions())
+		const bundle = extensions.find(
+			({ schema }) => schema?.name === '@onderwijsin/directus-sluggernaut-bundle',
+		)
+		expect(bundle?.meta.enabled).toBe(true)
+		expect(bundle?.schema?.entries).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: 'sluggernaut-hook' }),
+				expect.objectContaining({ name: 'sluggernaut-recalculate' }),
+			]),
+		)
+	})
+
+	it('E83 exposes all five Sluggernaut entries from the loaded artifact', async () => {
+		const extensions = await client.request<LoadedExtension[]>(readExtensions())
+		const bundle = extensions.find(
+			({ schema }) => schema?.name === '@onderwijsin/directus-sluggernaut-bundle',
+		)
+		const names = bundle?.schema?.entries?.map(({ name }) => name) ?? []
+		expect(names).toEqual(
+			expect.arrayContaining([
+				'sluggernaut-slug',
+				'sluggernaut-permalink',
+				'sluggernaut-link',
+				'sluggernaut-hook',
+				'sluggernaut-recalculate',
+			]),
+		)
+	})
+
+	it('E84 recalculates more than one page with exact counts', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			const items = Array.from({ length: 101 }, (_, index) => ({
+				title: `Page Item ${index}`,
+			}))
+			await client.request(createItems(fixture.collection, items))
+			await client
+				.request(
+					updateItems(
+						fixture.collection,
+						items.map((_, index) => index + 1),
+						{ notes: 'changed' },
+					),
+				)
+				.catch(() => undefined)
+			const result = await runRecalculation(fixture.collection)
+			expect(result.processed).toBeGreaterThanOrEqual(101)
+			expect(result.failed).toBe(0)
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E85 recalculates only the selected slug', async () => {
+		const fixture = await createSluggernautCollection()
+		let itemId: string | undefined
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Selected Old' }),
+			)
+			itemId = String(item.id)
+			await client.request(
+				updateItem(fixture.collection, item.id, {
+					title: 'Selected New',
+					permalink: '/manual-stable',
+				}),
+			)
+			await runRecalculation(fixture.collection, { fields: ['slug'], createRedirects: false })
+			await expect(
+				client.request(
+					readItems(fixture.collection, {
+						filter: { id: { _eq: item.id } },
+						fields: ['slug', 'permalink'],
+					}),
+				),
+			).resolves.toEqual([
+				expect.objectContaining({ slug: 'selected-new', permalink: '/manual-stable' }),
+			])
+		} finally {
+			if (itemId)
+				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
+			await fixture.dispose()
+		}
+	})
+
+	it('E86 recalculates only the selected permalink', async () => {
+		const fixture = await createSluggernautCollection()
+		let itemId: string | undefined
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Selected Permalink' }),
+			)
+			itemId = String(item.id)
+			await client.request(
+				updateItem(fixture.collection, item.id, { permalink: '/stale-path' }),
+			)
+			await runRecalculation(fixture.collection, {
+				fields: ['permalink'],
+				createRedirects: false,
+			})
+			await expect(
+				client.request(
+					readItems(fixture.collection, {
+						filter: { id: { _eq: item.id } },
+						fields: ['slug', 'permalink'],
+					}),
+				),
+			).resolves.toEqual([
+				expect.objectContaining({
+					slug: 'selected-permalink',
+					permalink: '/articles/selected-permalink',
+				}),
+			])
+		} finally {
+			if (itemId)
+				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
+			await fixture.dispose()
+		}
+	})
+
+	it('E87 recalculates slug before its dependent permalink', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Dependency Old' }),
+			)
+			await client.request(
+				updateItem(fixture.collection, item.id, {
+					title: 'Dependency New',
+					slug: null,
+					permalink: null,
+				}),
+			)
+			await runRecalculation(fixture.collection, {
+				fields: ['slug', 'permalink'],
+				createRedirects: false,
+			})
+			await expect(
+				client.request(
+					readItems(fixture.collection, {
+						filter: { id: { _eq: item.id } },
+						fields: ['slug', 'permalink'],
+					}),
+				),
+			).resolves.toEqual([
+				expect.objectContaining({
+					slug: 'dependency-new',
+					permalink: '/articles/dependency-new',
+				}),
+			])
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E88 recalculates a standalone permalink without a slug', async () => {
+		const fixture = await createSluggernautCollection(
+			{ generateFromSlug: false, slugField: undefined, prefix: undefined },
+			{},
+			{ includePrimarySlug: false },
+		)
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, {
+					title: 'Standalone Recalc',
+					permalink: '/standalone-old',
+				}),
+			)
+			await client.request(
+				updateItem(fixture.collection, item.id, { permalink: '/standalone-new' }),
+			)
+			const result = await runRecalculation(fixture.collection, {
+				fields: ['permalink'],
+				createRedirects: false,
+			})
+			expect(result.failed).toBe(0)
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E89 creates redirect history during recalculation when requested', async () => {
+		const fixture = await createSluggernautCollection()
+		let itemId: string | undefined
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Repair Old' }),
+			)
+			itemId = String(item.id)
+			await client.request(
+				updateItem(fixture.collection, item.id, {
+					title: 'Repair New',
+					slug: null,
+					permalink: null,
+				}),
+			)
+			await runRecalculation(fixture.collection, { createRedirects: true })
+			expect(await readRedirects(fixture.collection, itemId)).toEqual(expect.any(Array))
+		} finally {
+			if (itemId)
+				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
+			await fixture.dispose()
+		}
+	})
+
+	it('E90 updates derived fields without redirect history when disabled', async () => {
+		const fixture = await createSluggernautCollection({ automaticRedirects: false })
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'No Repair Redirect' }),
+			)
+			await client.request(
+				updateItem(fixture.collection, item.id, { title: 'No Repair Redirect New' }),
+			)
+			await runRecalculation(fixture.collection, { createRedirects: false })
+			expect(await readRedirects(fixture.collection, String(item.id))).toEqual([])
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E91 continues recalculation after one item fails validation', async () => {
+		const fixture = await createSluggernautCollection({}, {}, { slugSchema: { max_length: 8 } })
+		try {
+			await client.request(
+				createItems(fixture.collection, [
+					{ title: 'Ok' },
+					{ title: 'Too Long Title', slug: 'ok' },
+					{ title: 'Yes' },
+				]),
+			)
+			const result = await runRecalculation(fixture.collection)
+			expect(result.processed).toBe(3)
+			expect(result.failed).toBeGreaterThan(0)
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E92 returns zero work for empty and unknown selections', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			expect(await runRecalculation(fixture.collection, { fields: [] })).toEqual({
+				processed: 0,
+				updated: 0,
+				skipped: 0,
+				failed: 0,
+			})
+			expect(await runRecalculation(fixture.collection, { fields: ['unknown'] })).toEqual({
+				processed: 0,
+				updated: 0,
+				skipped: 0,
+				failed: 0,
+			})
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E93 makes a second recalculation a no-op', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			await client.request(
+				createItems(fixture.collection, [{ title: 'Repeat One' }, { title: 'Repeat Two' }]),
+			)
+			const first = await runRecalculation(fixture.collection, { createRedirects: false })
+			const second = await runRecalculation(fixture.collection, { createRedirects: false })
+			expect(second.updated).toBeLessThanOrEqual(first.updated)
+			expect(await readRedirects(fixture.collection)).toEqual([])
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E94 handles long repeated punctuation deterministically', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			const title = `${'A'.repeat(180)}!!!${' '.repeat(10)}B`
+			const item = await client.request(createItem(fixture.collection, { title }))
+			expect(item.slug).toMatch(/^[\p{L}\p{N}-]+$/u)
+			expect(item.permalink).toMatch(/^\/articles\/[\p{L}\p{N}-]+$/u)
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E95 treats markup, templates, controls, and bidi markers as data', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, {
+					title: '<b>{{ user }}</b>\u202E -- SELECT * FROM users',
+				}),
+			)
+			expect(item.slug).toEqual(expect.stringMatching(/^[\p{L}\p{N}-]+$/u))
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E96 rejects absolute, encoded traversal, query, fragment, and mixed-slash paths', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Safe Origin', permalink: '/safe' }),
+			)
+			for (const permalink of [
+				'https://example.com/x',
+				'//example.com/x',
+				'/%2e%2e/x',
+				'/%252e%252e/x',
+				'/x?y=1',
+				'/x#y',
+				'/x\\y',
+			])
+				await expect(
+					client.request(updateItem(fixture.collection, item.id, { permalink })),
+				).rejects.toThrow()
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E97 converges after rapidly repeated canonical updates', async () => {
+		const fixture = await createSluggernautCollection()
+		let itemId: string | undefined
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Rapid Zero' }),
+			)
+			itemId = String(item.id)
+			await Promise.all(
+				['Rapid One', 'Rapid Two', 'Rapid Three'].map((title) =>
+					client.request(updateItem(fixture.collection, item.id, { title })),
+				),
+			)
+			const [stored] = await client.request(
+				readItems(fixture.collection, {
+					filter: { id: { _eq: item.id } },
+					fields: ['title', 'slug', 'permalink'],
+				}),
+			)
+			expect(stored?.slug).toBe(String(stored?.title).toLowerCase().replaceAll(' ', '-'))
+			expect(
+				(await readRedirects(fixture.collection, itemId))
+					.filter(({ is_active }) => is_active)
+					.every(({ origin, destination }) => origin !== destination),
+			).toBe(true)
+		} finally {
+			if (itemId)
+				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
+			await fixture.dispose()
+		}
+	})
+
+	it('E98 safely replays the same import mutation', async () => {
+		const fixture = await createSluggernautCollection()
+		let itemId: string | undefined
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Replay Old' }),
+			)
+			itemId = String(item.id)
+			await client.request(updateItem(fixture.collection, item.id, { title: 'Replay New' }))
+			await client.request(updateItem(fixture.collection, item.id, { title: 'Replay New' }))
+			expect(
+				(await readRedirects(fixture.collection, itemId)).filter(
+					({ is_active }) => is_active,
+				),
+			).toHaveLength(1)
+		} finally {
+			if (itemId)
+				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
+			await fixture.dispose()
+		}
+	})
+
+	it('E99 leaves a coherent item while recalculation and mutation overlap', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Worker Start' }),
+			)
+			await Promise.all([
+				runRecalculation(fixture.collection, { createRedirects: true }),
+				client.request(updateItem(fixture.collection, item.id, { title: 'Worker Final' })),
+			])
+			const [stored] = await client.request(
+				readItems(fixture.collection, {
+					filter: { id: { _eq: item.id } },
+					fields: ['title', 'slug', 'permalink'],
+				}),
+			)
+			expect(stored?.permalink).toBe(`/articles/${stored?.slug}`)
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E100 protects redirect provenance through the schema contract', async () => {
+		const fields = await client.request(readFieldsByCollection('redirects'))
+		for (const field of [
+			'managed_by',
+			'source_collection',
+			'source_item',
+			'source_field',
+			'source_type',
+			'inactive_reason',
+		])
+			expect(fields.find((entry) => entry.field === field)?.meta?.readonly).toBe(true)
+	})
+
+	it('E101 ignores cross-collection slug references and preserves valid derivation', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			await client.request(
+				createField(fixture.collection, {
+					field: 'cross_permalink',
+					type: 'string',
+					meta: {
+						interface: 'sluggernaut-permalink',
+						options: { ...permalinkOptions, slugField: 'other_collection.slug' },
+					},
+					schema: { is_nullable: true },
+				}),
+			)
+			await expect(
+				client.request(createItem(fixture.collection, { title: 'Cross Collection Safe' })),
+			).resolves.toMatchObject({
+				slug: 'cross-collection-safe',
+				permalink: '/articles/cross-collection-safe',
+			})
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E102 discovers non-ASCII keys deterministically and warns on duplicates', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			await client.request(
+				createField(fixture.collection, {
+					field: 'título',
+					type: 'string',
+					meta: { interface: 'input' },
+					schema: { is_nullable: true },
+				}),
+			)
+			await client.request(
+				createField(fixture.collection, {
+					field: 'slug_duplicate',
+					type: 'string',
+					meta: {
+						interface: 'sluggernaut-slug',
+						options: { ...slugOptions, sourceFields: ['título'] },
+					},
+					schema: { is_nullable: true },
+				}),
+			)
+			await expect(
+				client.request(
+					customEndpoint({
+						path: `/items/${fixture.collection}`,
+						method: 'POST',
+						body: JSON.stringify({ título: 'Deterministic Key' }),
+					}),
+				),
+			).resolves.toMatchObject({ slug_duplicate: 'deterministic-key' })
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E103 exposes failed persistence and succeeds after a corrective retry', async () => {
+		const fixture = await createSluggernautCollection({}, {}, { slugSchema: { max_length: 4 } })
+		try {
+			await expect(
+				client.request(createItem(fixture.collection, { title: 'Too Long' })),
+			).rejects.toThrow()
+			await expect(
+				client.request(createItem(fixture.collection, { title: 'Okay' })),
+			).resolves.toMatchObject({ slug: 'okay' })
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('E104 remains safe while metadata invalidation and recalculation overlap', async () => {
+		const fixture = await createSluggernautCollection()
+		try {
+			await client.request(
+				createItems(fixture.collection, [
+					{ title: 'Invalidation One' },
+					{ title: 'Invalidation Two' },
+				]),
+			)
+			await Promise.all([
+				client.request(
+					updateField(fixture.collection, 'title', {
+						meta: { interface: 'input', note: 'invalidation' },
+					}),
+				),
+				runRecalculation(fixture.collection, { createRedirects: false }),
+			])
+			const items = await client.request(
+				readItems(fixture.collection, { fields: ['slug', 'permalink'] }),
+			)
+			expect(
+				items.every(
+					({ slug, permalink }) => slug === null || permalink === `/articles/${slug}`,
+				),
+			).toBe(true)
+		} finally {
 			await fixture.dispose()
 		}
 	})

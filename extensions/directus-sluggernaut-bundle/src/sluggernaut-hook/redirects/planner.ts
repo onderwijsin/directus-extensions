@@ -261,8 +261,8 @@ function createManagedRedirect(transition: CanonicalRedirectTransition): Redirec
 export function selectRedirectSource(
 	configuration: CollectionConfiguration,
 ): RedirectSource | null {
-	const permalink = configuration.permalinks[0]
-	if (permalink?.options.automaticRedirects) {
+	const permalink = configuration.permalinks.find((field) => field.options.automaticRedirects)
+	if (permalink !== undefined) {
 		return {
 			type: 'permalink',
 			field: permalink.field,

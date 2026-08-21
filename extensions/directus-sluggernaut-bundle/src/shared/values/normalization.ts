@@ -113,28 +113,50 @@ export function normalizePermalink(value: string | null | undefined): string | n
 	if (!isString(value) || value.trim() === '') return null
 
 	const path = value.trim()
-	if (!path.startsWith('/') || path.startsWith('//')) {
-		throw new Error('A permalink must be an absolute URL path.')
+	let decodedPath = path
+	for (let layer = 0; layer < 8 && /%[0-9a-f]{2}/iu.test(decodedPath); layer += 1) {
+		let nextPath: string
+		try {
+			nextPath = decodeURIComponent(decodedPath)
+		} catch {
+			throw new Error('A permalink contains invalid percent encoding.')
+		}
+		if (nextPath === decodedPath) break
+		decodedPath = nextPath
 	}
-	if (
-		Array.from(path).some((character) => {
-			const code = character.codePointAt(0) ?? 0
-			return (code >= 0 && code <= 31) || code === 127
-		}) ||
-		/\s/u.test(path) ||
-		path.includes('\\') ||
-		path.includes('?') ||
-		path.includes('#')
-	) {
-		throw new Error('A permalink contains a forbidden character.')
+	if (/%[0-9a-f]{2}/iu.test(decodedPath)) {
+		throw new Error('A permalink contains too many encoded layers.')
 	}
-	if (/^[a-z][a-z\d+.-]*:/iu.test(path)) {
-		throw new Error('A permalink must not contain a URL scheme.')
+
+	for (const candidate of [path, decodedPath]) {
+		if (!candidate.startsWith('/') || candidate.startsWith('//')) {
+			throw new Error('A permalink must be an absolute URL path.')
+		}
+		if (
+			Array.from(candidate).some((character) => {
+				const code = character.codePointAt(0) ?? 0
+				return (code >= 0 && code <= 31) || code === 127
+			}) ||
+			/\s/u.test(candidate) ||
+			candidate.includes('\\') ||
+			candidate.includes('?') ||
+			candidate.includes('#')
+		) {
+			throw new Error('A permalink contains a forbidden character.')
+		}
+		if (/^[a-z][a-z\d+.-]*:/iu.test(candidate)) {
+			throw new Error('A permalink must not contain a URL scheme.')
+		}
 	}
 
 	const normalized = cleanDoubleSlashes(path)
-	// Dot segments are rejected after slash collapsing so equivalent unsafe paths cannot bypass validation.
-	if (normalized.split('/').some((segment) => segment === '.' || segment === '..')) {
+	const decodedNormalized = cleanDoubleSlashes(decodedPath)
+	// Dot segments are rejected after slash collapsing and decoding so equivalent unsafe paths cannot bypass validation.
+	if (
+		[normalized, decodedNormalized].some((candidate) =>
+			candidate.split('/').some((segment) => segment === '.' || segment === '..'),
+		)
+	) {
 		throw new Error('A permalink must not contain dot path segments.')
 	}
 	return normalized
