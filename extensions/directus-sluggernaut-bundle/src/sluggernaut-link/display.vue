@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 
 import CopyButton from '../shared/components/CopyButton.vue'
-import { displayHref, displayHost } from './link'
+import { displayHref } from './link'
 
 const props = defineProps<{
 	value?: string | null
@@ -18,7 +18,7 @@ const href = computed(() => displayHref(props.value, props.host))
  */
 function openValue() {
 	// Keep invalid or incomplete display configuration non-interactive rather than opening a bad URL.
-	if (href.value === null || displayHost(props.host) === null) return
+	if (href.value === null) return
 	window.open(href.value, '_blank', 'noopener,noreferrer')
 }
 </script>

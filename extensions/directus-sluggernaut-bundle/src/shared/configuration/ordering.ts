@@ -7,12 +7,12 @@
  * are excluded and returned as warnings, allowing unrelated fields in the same collection to
  * continue working. Valid fields are sorted by Directus field order with a name tie-breaker.
  */
-import type { SluggernautFieldMetadata } from './field-metadata.schema'
 import type {
 	CollectionConfiguration,
 	ConfigurationWarning,
 	DiscoveredPermalinkField,
 	DiscoveredSlugField,
+	SluggernautFieldMetadata,
 } from './types'
 
 import { isFiniteNumber } from '@onderwijsin/directus-extension-utils'

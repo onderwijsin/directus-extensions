@@ -1,6 +1,15 @@
 import type { SlugInterfaceOptions, PermalinkInterfaceOptions } from './interface-options.schema'
 
-export type { SluggernautFieldMetadata } from './field-metadata.schema'
+/** Directus field metadata consumed by Sluggernaut configuration discovery. */
+export interface SluggernautFieldMetadata {
+	field: string
+	meta?: {
+		interface?: string | null
+		sort?: number | null
+		options?: unknown
+	} | null
+	schema?: { is_primary_key?: boolean } | null
+}
 
 /** A validated slug field and its deterministic Directus order. */
 export interface DiscoveredSlugField {

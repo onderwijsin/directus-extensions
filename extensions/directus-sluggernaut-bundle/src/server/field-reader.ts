@@ -1,21 +1,17 @@
 /**
- * @fileoverview Provides cached, validated Directus field metadata.
+ * @fileoverview Provides cached Directus field metadata.
  *
  * Reads and caches the Directus field metadata used by Sluggernaut configuration discovery.
  *
  * The cache is scoped by collection and can be invalidated by schema mutation hooks. The reader
- * intentionally parses only the metadata contract Sluggernaut needs, allowing unrelated Directus
- * field properties to evolve independently.
+ * only exposes the metadata contract Sluggernaut needs, allowing unrelated Directus field
+ * properties to evolve independently.
  */
 import type { ApiExtensionContext } from '@directus/types'
+import type { SluggernautFieldMetadata } from '../shared/configuration/types'
 
 import { createAdminAccountability } from '@onderwijsin/directus-extension-utils'
 import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
-
-import {
-	fieldMetadataSchema,
-	type SluggernautFieldMetadata,
-} from '../shared/configuration/field-metadata.schema'
 
 /**
  * Builds the cache key for one collection's field metadata.
@@ -62,11 +58,7 @@ export function createFieldReader(
 					...(context.database === undefined ? {} : { knex: context.database }),
 				}
 				const fieldsService = new context.services.FieldsService(serviceOptions)
-				const result = await fieldsService.readAll(collection)
-				return result.flatMap((field) => {
-					const parsed = fieldMetadataSchema.safeParse(field)
-					return parsed.success ? [parsed.data] : []
-				})
+				return fieldsService.readAll(collection)
 			},
 		)
 
