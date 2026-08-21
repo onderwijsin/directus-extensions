@@ -26,6 +26,27 @@ keys, own its collections/items/configuration, and clean up in `finally` blocks.
 Directus Core E2E limits: no more than 25 collections, five flows, and two ephemeral non-root users
 at one time.
 
+### Directus Core CI capability constraint
+
+The CI E2E project runs on the Directus Core plan. Core does not provide granular RBAC, including
+row-level or field-level permission rules. A policy seed that contains restricted resources such as
+`custom_permission_rules_enabled` may therefore log a `RESOURCE_RESTRICTED`/403 error and leave the
+policy absent. That is an expected CI capability limitation, not a Sluggernaut startup or data
+integrity failure.
+
+Core-plan E2E cases must:
+
+- treat the restricted policy-seed error and absent granular policy as expected evidence;
+- never require the seeded granular policy to be present in CI;
+- run data-integrity and extension behavior assertions with the root administrator or other
+  available Core-plan access; and
+- mark permission, row-filter, field-filter, and policy-presence assertions as conditional on a
+  Directus environment that supports granular RBAC.
+
+The policy seed remains available for non-Core environments. Do not remove the restricted
+configuration merely to make Core CI green, and do not convert the expected seed limitation into a
+passing policy mock.
+
 ## Test oracle: invariants every scenario must check
 
 For each scenario, capture the before and after state of the source item and the configured redirect
@@ -349,18 +370,18 @@ redirect—not that unrelated pre-existing redirects disappear.
 
 ### B8. Schema, policy, cache, and operational behavior
 
-| ID  | Scenario                                                         | Expected result                                                                                                    |
-| --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| E74 | Provision empty redirect schema                                  | Collection, fields, policies, and defaults are usable by runtime operations.                                       |
-| E75 | Provision twice or start two instances concurrently              | No duplicate schema/policy rows, destructive recreation, or partial registration occurs.                           |
-| E76 | Compatible pre-existing redirect collection                      | It is reused without destructive changes.                                                                          |
-| E77 | Incompatible pre-existing collection                             | Startup warning and safe derivation-only behavior; abort setting is respected.                                     |
-| E78 | Policies enabled individually and together                       | Exact policy is registered, least privilege is enforced, and no policy is auto-assigned.                           |
-| E79 | Authorized and unauthorized redirect reads/writes                | Permissions and active-date filters match the schema contract; ordinary users cannot run admin-only recalculation. |
-| E80 | Change field metadata after cache warm-up                        | Relevant collection invalidates; unrelated collection cache remains valid; new config becomes visible.             |
-| E81 | Two collections with similar metadata and one cache invalidation | No configuration, field, or redirect provenance leaks across collections.                                          |
-| E82 | Extension disabled, then enabled after restart                   | Disabled instance is inert; enabled instance registers cleanly without stale in-memory state.                      |
-| E83 | Packed package in clean Directus consumer                        | All five entries load, imports resolve, and the E2E matrix can run against the built artifact.                     |
+| ID  | Scenario                                                         | Expected result                                                                                                                                                                                                                                                                        |
+| --- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E74 | Provision empty redirect schema                                  | Collection, fields, and defaults are usable by runtime operations. Policy availability is conditional on the Directus plan.                                                                                                                                                            |
+| E75 | Provision twice or start two instances concurrently              | No duplicate schema/policy rows, destructive recreation, or partial registration occurs.                                                                                                                                                                                               |
+| E76 | Compatible pre-existing redirect collection                      | It is reused without destructive changes.                                                                                                                                                                                                                                              |
+| E77 | Incompatible pre-existing collection                             | Startup warning and safe derivation-only behavior; abort setting is respected.                                                                                                                                                                                                         |
+| E78 | Policies enabled individually and together                       | On granular-RBAC environments, the exact policy is registered, least privilege is enforced, and no policy is auto-assigned. On Core CI, the restricted policy seed is expected to be absent after the documented `RESOURCE_RESTRICTED` error; do not assert policy presence.           |
+| E79 | Authorized and unauthorized redirect reads/writes                | On granular-RBAC environments, permissions and active-date filters match the schema contract; ordinary users cannot run admin-only recalculation. On Core CI, run root-accessible data-integrity and extension behavior checks and mark granular authorization assertions unavailable. |
+| E80 | Change field metadata after cache warm-up                        | Relevant collection invalidates; unrelated collection cache remains valid; new config becomes visible.                                                                                                                                                                                 |
+| E81 | Two collections with similar metadata and one cache invalidation | No configuration, field, or redirect provenance leaks across collections.                                                                                                                                                                                                              |
+| E82 | Extension disabled, then enabled after restart                   | Disabled instance is inert; enabled instance registers cleanly without stale in-memory state.                                                                                                                                                                                          |
+| E83 | Packed package in clean Directus consumer                        | All five entries load, imports resolve, and the E2E matrix can run against the built artifact.                                                                                                                                                                                         |
 
 ### B9. Recalculation and repair
 
@@ -382,19 +403,19 @@ redirect—not that unrelated pre-existing redirects disappear.
 These cases model imports, crawlers, malicious clients, flaky workers, and automation rather than a
 human carefully using Studio.
 
-| ID   | Scenario                                                                                                         | Expected result                                                                                                |
-| ---- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| E94  | Submit maximum practical title length and repeated punctuation                                                   | No crash, truncation surprise, unsafe path, or non-deterministic output; document any Directus field limit.    |
-| E95  | Submit HTML, Markdown, SQL-like text, template syntax, null bytes, control characters, and bidi markers          | Values are treated as data; unsafe path classes reject; no log injection or code execution occurs.             |
-| E96  | Submit absolute URLs, protocol-relative URLs, encoded traversal, double-encoded traversal, and mixed slash forms | No host/query/fragment/traversal value reaches stored permalink or redirect origin/destination.                |
-| E97  | Send rapidly repeated updates that alternate canonical values                                                    | Final item and redirect graph converge to the last committed state without loops or orphaned active redirects. |
-| E98  | Replay the same webhook/import batch after partial network timeout                                               | Retry is safe; no duplicate managed history or cross-item source ownership appears.                            |
-| E99  | Concurrent workers recalculate and mutate the same collection                                                    | No lost updates outside documented transaction semantics; conflicts/failures are observable.                   |
-| E100 | Attempt to write read-only redirect provenance/lifecycle fields directly                                         | Directus permissions/schema and extension behavior prevent unauthorized provenance forgery.                    |
-| E101 | Attempt cross-collection slug reference and cross-item redirect provenance forgery                               | Configuration is rejected/ignored and existing history is not taken over.                                      |
-| E102 | Use non-ASCII field keys, reordered metadata, null sort values, and duplicate interfaces                         | Discovery remains deterministic across restart and process order.                                              |
-| E103 | Kill/fail a request at each redirect persistence step, then retry                                                | Document transaction/rollback behavior; no silently half-applied state is accepted as success.                 |
-| E104 | Run startup/recalculation during schema invalidation                                                             | No stale configuration causes unsafe derivation; lock/cache behavior is visible in logs.                       |
+| ID   | Scenario                                                                                                         | Expected result                                                                                                                                                                                                                      |
+| ---- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| E94  | Submit maximum practical title length and repeated punctuation                                                   | No crash, truncation surprise, unsafe path, or non-deterministic output; document any Directus field limit.                                                                                                                          |
+| E95  | Submit HTML, Markdown, SQL-like text, template syntax, null bytes, control characters, and bidi markers          | Values are treated as data; unsafe path classes reject; no log injection or code execution occurs.                                                                                                                                   |
+| E96  | Submit absolute URLs, protocol-relative URLs, encoded traversal, double-encoded traversal, and mixed slash forms | No host/query/fragment/traversal value reaches stored permalink or redirect origin/destination.                                                                                                                                      |
+| E97  | Send rapidly repeated updates that alternate canonical values                                                    | Final item and redirect graph converge to the last committed state without loops or orphaned active redirects.                                                                                                                       |
+| E98  | Replay the same webhook/import batch after partial network timeout                                               | Retry is safe; no duplicate managed history or cross-item source ownership appears.                                                                                                                                                  |
+| E99  | Concurrent workers recalculate and mutate the same collection                                                    | No lost updates outside documented transaction semantics; conflicts/failures are observable.                                                                                                                                         |
+| E100 | Attempt to write read-only redirect provenance/lifecycle fields directly                                         | On granular-RBAC environments, Directus permissions/schema and extension behavior prevent unauthorized provenance forgery. On Core CI, assert schema and extension-side protection only; do not require granular policy enforcement. |
+| E101 | Attempt cross-collection slug reference and cross-item redirect provenance forgery                               | Configuration is rejected/ignored and existing history is not taken over.                                                                                                                                                            |
+| E102 | Use non-ASCII field keys, reordered metadata, null sort values, and duplicate interfaces                         | Discovery remains deterministic across restart and process order.                                                                                                                                                                    |
+| E103 | Kill/fail a request at each redirect persistence step, then retry                                                | Document transaction/rollback behavior; no silently half-applied state is accepted as success.                                                                                                                                       |
+| E104 | Run startup/recalculation during schema invalidation                                                             | No stale configuration causes unsafe derivation; lock/cache behavior is visible in logs.                                                                                                                                             |
 
 ## C. Failure, rollback, and transaction evidence
 
