@@ -1,6 +1,7 @@
 import type { OperationContext } from '@directus/types'
 
 import { ForbiddenError } from '@directus/errors'
+import { hasKey } from '@onderwijsin/directus-extension-utils'
 
 import { recalculateOptionsSchema, type RecalculateOptions } from './options.schema'
 
@@ -21,7 +22,7 @@ export function validateRecalculateOptions(
 	const isAdmin =
 		accountability === null ||
 		accountability.admin === true ||
-		('admin_access' in accountability && accountability.admin_access === true)
+		(hasKey(accountability, 'admin_access') && accountability.admin_access === true)
 	if (!isAdmin) throw new ForbiddenError()
 	const parsed = recalculateOptionsSchema.safeParse(options)
 	if (!parsed.success) throw new Error('Invalid Sluggernaut recalculation options.')

@@ -1,4 +1,5 @@
 import type { CollectionConfiguration } from '../src/shared/configuration/types'
+import type { Redirect } from '../src/sluggernaut-hook/redirects/schema'
 
 import { describe, expect, it } from 'vitest'
 
@@ -21,6 +22,8 @@ const configuration: CollectionConfiguration = {
 				lowercase: true,
 				updateOnSourceChange: true,
 				automaticRedirects: true,
+				includeUnmanagedRedirectsInPlanning: true,
+				unmanagedRedirectConflictBehavior: 'override',
 			},
 		},
 	],
@@ -36,6 +39,8 @@ const configuration: CollectionConfiguration = {
 				trailingSlash: false,
 				enforceTrailingSlashOnManualInput: false,
 				automaticRedirects: true,
+				includeUnmanagedRedirectsInPlanning: true,
+				unmanagedRedirectConflictBehavior: 'override',
 			},
 		},
 	],
@@ -44,7 +49,12 @@ const configuration: CollectionConfiguration = {
 
 describe('redirect planner', () => {
 	it('prefers the first permalink source over the slug source', () => {
-		expect(selectRedirectSource(configuration)).toEqual({ type: 'permalink', field: 'route' })
+		expect(selectRedirectSource(configuration)).toEqual({
+			type: 'permalink',
+			field: 'route',
+			includeUnmanagedRedirectsInPlanning: true,
+			unmanagedRedirectConflictBehavior: 'override',
+		})
 	})
 
 	it('does not let a later permalink replace the first disabled one', () => {
@@ -83,16 +93,16 @@ describe('redirect planner', () => {
 			oldCanonical: '/news/old',
 			newCanonical: '/news/new',
 			source: { type: 'permalink', field: 'route' },
-			sourceCollection: 'articles',
-			sourceItem: '1',
+			source_collection: 'articles',
+			source_item: '1',
 			existingRedirects: [],
 		})
 
 		expect(plan.create).toMatchObject({
 			origin: '/news/old',
 			destination: '/news/new',
-			managedBy: 'sluggernaut',
-			sourceType: 'permalink',
+			managed_by: 'sluggernaut',
+			source_type: 'permalink',
 		})
 	})
 
@@ -101,21 +111,21 @@ describe('redirect planner', () => {
 			oldCanonical: '/b',
 			newCanonical: '/c',
 			source: { type: 'permalink', field: 'route' },
-			sourceCollection: 'articles',
-			sourceItem: '1',
+			source_collection: 'articles',
+			source_item: '1',
 			existingRedirects: [
 				{
 					id: 'old',
 					origin: '/a',
 					destination: '/b',
 					type: 301,
-					isActive: true,
-					managedBy: 'sluggernaut',
-					sourceCollection: 'articles',
-					sourceItem: '1',
-					sourceField: 'route',
-					sourceType: 'permalink',
-					inactiveReason: null,
+					is_active: true,
+					managed_by: 'sluggernaut',
+					source_collection: 'articles',
+					source_item: '1',
+					source_field: 'route',
+					source_type: 'permalink',
+					inactive_reason: null,
 				},
 			],
 		})
@@ -128,21 +138,21 @@ describe('redirect planner', () => {
 			oldCanonical: '/a',
 			newCanonical: '/b',
 			source: { type: 'permalink', field: 'route' },
-			sourceCollection: 'articles',
-			sourceItem: '1',
+			source_collection: 'articles',
+			source_item: '1',
 			existingRedirects: [
 				{
 					id: 'managed',
 					origin: '/a',
 					destination: '/previous',
 					type: 301,
-					isActive: true,
-					managedBy: 'sluggernaut',
-					sourceCollection: 'articles',
-					sourceItem: '1',
-					sourceField: 'route',
-					sourceType: 'permalink',
-					inactiveReason: null,
+					is_active: true,
+					managed_by: 'sluggernaut',
+					source_collection: 'articles',
+					source_item: '1',
+					source_field: 'route',
+					source_type: 'permalink',
+					inactive_reason: null,
 				},
 			],
 		})
@@ -151,33 +161,33 @@ describe('redirect planner', () => {
 		expect(plan.rewrite).toEqual([{ id: 'managed', destination: '/b' }])
 	})
 
-	it('does not rewrite a managed redirect owned by another source item', () => {
+	it('rewrites a managed redirect owned by another source item so the latest canonical wins', () => {
 		const plan = planCanonicalRedirect({
 			oldCanonical: '/a',
 			newCanonical: '/b',
 			source: { type: 'permalink', field: 'route' },
-			sourceCollection: 'articles',
-			sourceItem: '2',
+			source_collection: 'articles',
+			source_item: '2',
 			existingRedirects: [
 				{
 					id: 'managed-by-item-1',
 					origin: '/a',
 					destination: '/previous',
 					type: 301,
-					isActive: true,
-					managedBy: 'sluggernaut',
-					sourceCollection: 'articles',
-					sourceItem: '1',
-					sourceField: 'route',
-					sourceType: 'permalink',
-					inactiveReason: null,
+					is_active: true,
+					managed_by: 'sluggernaut',
+					source_collection: 'articles',
+					source_item: '1',
+					source_field: 'route',
+					source_type: 'permalink',
+					inactive_reason: null,
 				},
 			],
 		})
 
 		expect(plan.create).toBeNull()
-		expect(plan.warnings).toHaveLength(1)
-		expect(plan.rewrite).toEqual([])
+		expect(plan.warnings).toHaveLength(0)
+		expect(plan.rewrite).toEqual([{ id: 'managed-by-item-1', destination: '/b' }])
 	})
 
 	it('preserves unowned conflicts and prevents self-loop reversion', () => {
@@ -185,57 +195,113 @@ describe('redirect planner', () => {
 			oldCanonical: '/b',
 			newCanonical: '/c',
 			source: { type: 'permalink', field: 'route' },
-			sourceCollection: 'articles',
-			sourceItem: '1',
+			source_collection: 'articles',
+			source_item: '1',
 			existingRedirects: [
-				{ id: 'manual', origin: '/b', destination: '/manual', type: 302, isActive: true },
+				{
+					id: 'manual',
+					origin: '/b',
+					destination: '/manual',
+					type: 302,
+					is_active: true,
+					managed_by: null,
+					source_collection: null,
+					source_item: null,
+					source_field: null,
+					source_type: null,
+					inactive_reason: null,
+				},
 				{
 					id: 'loop',
 					origin: '/c',
 					destination: '/d',
 					type: 301,
-					isActive: true,
-					managedBy: 'sluggernaut',
-					sourceCollection: 'articles',
-					sourceItem: '1',
-					sourceField: 'route',
-					sourceType: 'permalink',
-					inactiveReason: null,
+					is_active: true,
+					managed_by: 'sluggernaut',
+					source_collection: 'articles',
+					source_item: '1',
+					source_field: 'route',
+					source_type: 'permalink',
+					inactive_reason: null,
 				},
 			],
 		})
 
 		expect(plan.create).toBeNull()
+		expect(plan.warnings).toHaveLength(0)
+		expect(plan.rewrite).toContainEqual({ id: 'manual', destination: '/c' })
+		expect(plan.deactivate).toEqual([{ id: 'loop', inactive_reason: null }])
+	})
+
+	it('can block an included unmanaged conflict', () => {
+		const plan = planCanonicalRedirect({
+			oldCanonical: '/old',
+			newCanonical: '/new',
+			source: {
+				type: 'permalink',
+				field: 'route',
+				unmanagedRedirectConflictBehavior: 'block',
+			},
+			source_collection: 'articles',
+			source_item: '1',
+			existingRedirects: [
+				{
+					id: 'manual',
+					origin: '/old',
+					destination: '/manual',
+					type: 302,
+					is_active: true,
+					managed_by: null,
+					source_collection: null,
+					source_item: null,
+					source_field: null,
+					source_type: null,
+					inactive_reason: null,
+				},
+			],
+		})
+
+		expect(plan.create).toBeNull()
+		expect(plan.rewrite).toEqual([])
 		expect(plan.warnings).toHaveLength(1)
-		expect(plan.deactivate).toEqual([{ id: 'loop', inactiveReason: null }])
 	})
 
 	it('deactivates and reactivates only managed lifecycle records', () => {
-		const redirects = [
+		const redirects: Redirect[] = [
 			{
 				id: 'managed',
 				origin: '/a',
 				destination: '/b',
 				type: 301,
-				isActive: true,
-				managedBy: 'sluggernaut' as const,
-				inactiveReason: null,
+				is_active: true,
+				managed_by: 'sluggernaut' as const,
+				source_collection: null,
+				source_item: null,
+				source_field: null,
+				source_type: null,
+				inactive_reason: null,
 			},
 			{
 				id: 'manual',
 				origin: '/x',
 				destination: '/y',
 				type: 301,
-				isActive: true,
+				is_active: true,
+				managed_by: null,
+				source_collection: null,
+				source_item: null,
+				source_field: null,
+				source_type: null,
+				inactive_reason: null,
 			},
 		]
 		expect(planLifecycleDeactivation(redirects, 'delete')).toEqual([
-			{ id: 'managed', inactiveReason: 'delete' },
+			{ id: 'managed', inactive_reason: 'delete' },
 		])
 		expect(
 			planArchiveReactivation([
-				{ ...redirects[0]!, inactiveReason: 'archive', isActive: false },
+				{ ...redirects[0]!, inactive_reason: 'archive', is_active: false },
 			]),
-		).toEqual([{ id: 'managed', isActive: true, inactiveReason: null }])
+		).toEqual([{ id: 'managed', is_active: true, inactive_reason: null }])
 	})
 })

@@ -1,3 +1,5 @@
+import { attemptSync } from '@onderwijsin/directus-extension-utils'
+
 /** Converts stored Sluggernaut values into safe display links. */
 import { normalizeHost, normalizePermalink } from '../shared/values/normalization'
 
@@ -10,11 +12,8 @@ export function displayPath(value: string | null | undefined): string | null {
 	if (value === null || value === undefined || value.trim() === '') return null
 	const trimmed = value.trim()
 	const candidate = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
-	try {
-		return normalizePermalink(candidate)
-	} catch {
-		return null
-	}
+	const result = attemptSync(() => normalizePermalink(candidate))
+	return result.error === null ? result.data : null
 }
 
 /**

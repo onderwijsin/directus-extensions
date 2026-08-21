@@ -4,7 +4,7 @@
  * Hook callbacks keep only Directus boundary validation and orchestration. Mutation, archive, and
  * redirect behavior lives in domain-focused utilities so each path can be tested independently.
  */
-import type { HookExtensionContext } from '@directus/types'
+import type { HookExtensionContext, PrimaryKey } from '@directus/types'
 import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
 import type { FieldReader } from '../../server/field-reader'
 import type { SluggernautEnv } from '../configuration/env.schema'
@@ -13,7 +13,7 @@ import {
 	attempt,
 	hasKey,
 	isArray,
-	isNumber,
+	isInteger,
 	isRecord,
 	isString,
 } from '@onderwijsin/directus-extension-utils'
@@ -22,7 +22,7 @@ import { discoverArchiveSettings } from './archive'
 import { coordinateMutation } from './coordinator'
 import { getConfiguration, logConfigurationWarnings } from './helpers'
 import { hasRelevantPayloadField, resolveSingleUpdateItemKey } from './items'
-import { processDeletedItems } from './redirects'
+import { processDeletedItems } from './redirects/deletion-redirects'
 import { processItemUpdate } from './update'
 
 /**
@@ -79,12 +79,14 @@ export function registerSluggernautItemHooks(
 
 		const configuration = await getConfiguration(collection, fieldReader)
 		logConfigurationWarnings(collection, configuration, context)
+
 		const archiveSettings = options.SLUGGERNAUT_REDIRECTS_ENABLED
 			? await discoverArchiveSettings(context, collection)
 			: null
 		const archiveFieldChanged =
 			archiveSettings !== null && hasKey(payload, archiveSettings.archive_field)
 		const hasRelevantFields = hasRelevantPayloadField(payload, configuration)
+
 		if (
 			configuration.slugs.length === 0 &&
 			configuration.permalinks.length === 0 &&
@@ -119,7 +121,7 @@ export function registerSluggernautItemHooks(
 		if (!isString(collection)) return
 		if (collection === options.SLUGGERNAUT_REDIRECTS_COLLECTION) return
 		const keys = (isArray(deleteMeta.keys) ? deleteMeta.keys : []).filter(
-			(key): key is string | number => isString(key) || isNumber(key),
+			(key): key is PrimaryKey => isString(key) || isInteger(key),
 		)
 		if (keys.length === 0) return
 
@@ -147,7 +149,7 @@ export function registerSluggernautItemHooks(
 		if (hasKey(meta.payload, 'inactive_reason')) return
 
 		const keys = (isArray(meta.keys) ? meta.keys : []).filter(
-			(key): key is string | number => isString(key) || isNumber(key),
+			(key): key is PrimaryKey => isString(key) || isInteger(key),
 		)
 		if (keys.length === 0) return
 

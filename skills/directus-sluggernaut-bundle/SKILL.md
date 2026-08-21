@@ -108,13 +108,15 @@ shared Redis cache backend when schema changes must propagate across Directus in
 
 Create a string field and select `Sluggernaut Slug`.
 
-| Option                 | Required | Default | Details                                                                                                                    |
-| ---------------------- | -------- | ------: | -------------------------------------------------------------------------------------------------------------------------- |
-| `sourceFields`         | yes      |       — | One or more same-collection string fields. Values are trimmed, empty values removed, and the remainder joined with spaces. |
-| `locale`               | no       |    `en` | Fixed locale choice used by case conversion.                                                                               |
-| `lowercase`            | no       |  `true` | Lowercase before slug separator normalization.                                                                             |
-| `updateOnSourceChange` | no       |  `true` | Re-derive when a configured source field is in an update payload.                                                          |
-| `automaticRedirects`   | no       | `false` | Opt this field into canonical redirect selection.                                                                          |
+| Option                                | Required |    Default | Details                                                                                                                     |
+| ------------------------------------- | -------- | ---------: | --------------------------------------------------------------------------------------------------------------------------- |
+| `sourceFields`                        | yes      |          — | One or more same-collection string fields. Values are trimmed, empty values removed, and the remainder joined with spaces.  |
+| `locale`                              | no       |       `en` | Fixed locale choice used by case conversion.                                                                                |
+| `lowercase`                           | no       |     `true` | Lowercase before slug separator normalization.                                                                              |
+| `updateOnSourceChange`                | no       |     `true` | Re-derive when a configured source field is in an update payload.                                                           |
+| `automaticRedirects`                  | no       |    `false` | Opt this field into canonical redirect selection.                                                                           |
+| `includeUnmanagedRedirectsInPlanning` | no       |     `true` | Include non-Sluggernaut redirects in chain flattening, loop prevention, and conflict planning.                              |
+| `unmanagedRedirectConflictBehavior`   | no       | `override` | For included unmanaged conflicts, use `override` to let the latest canonical value win or `block` to preserve the conflict. |
 
 The Studio locale option is a fixed dropdown; custom values are not offered. Supported values are
 `nl`, `en`, `bg`, `de`, `es`, `fr`, `pt`, `uk`, `vi`, `da`, `nb`, `it`, and `sv`. The slug input
@@ -153,16 +155,18 @@ normalized too. Non-string explicit values are rejected.
 
 Create a string field and select `Sluggernaut Permalink`.
 
-| Option                              | Required       | Default | Details                                                                                       |
-| ----------------------------------- | -------------- | ------: | --------------------------------------------------------------------------------------------- |
-| `generateFromSlug`                  | no             |  `true` | Derive the path from a Sluggernaut slug. Set false for standalone manual paths.               |
-| `slugField`                         | when generated |   unset | Sluggernaut slug field in the same collection. Invalid references disable this configuration. |
-| `updateOnSlugChange`                | no             | `false` | Synchronize an existing path when the source slug changes.                                    |
-| `prefix`                            | no             |   unset | Optional normalized path prefix, for example `/news`.                                         |
-| `validatePrefixOnManualInput`       | no             | `false` | Reject manual paths outside `prefix` in generated mode.                                       |
-| `trailingSlash`                     | no             | `false` | Add a trailing slash to generated non-root paths.                                             |
-| `enforceTrailingSlashOnManualInput` | no             | `false` | Apply the trailing-slash policy to manual values.                                             |
-| `automaticRedirects`                | no             | `false` | Opt this field into canonical redirect selection.                                             |
+| Option                                | Required       |    Default | Details                                                                                                                     |
+| ------------------------------------- | -------------- | ---------: | --------------------------------------------------------------------------------------------------------------------------- |
+| `generateFromSlug`                    | no             |     `true` | Derive the path from a Sluggernaut slug. Set false for standalone manual paths.                                             |
+| `slugField`                           | when generated |      unset | Sluggernaut slug field in the same collection. Invalid references disable this configuration.                               |
+| `updateOnSlugChange`                  | no             |    `false` | Synchronize an existing path when the source slug changes.                                                                  |
+| `prefix`                              | no             |      unset | Optional normalized path prefix, for example `/news`.                                                                       |
+| `validatePrefixOnManualInput`         | no             |    `false` | Reject manual paths outside `prefix` in generated mode.                                                                     |
+| `trailingSlash`                       | no             |    `false` | Add a trailing slash to generated non-root paths.                                                                           |
+| `enforceTrailingSlashOnManualInput`   | no             |    `false` | Apply the trailing-slash policy to manual values.                                                                           |
+| `automaticRedirects`                  | no             |    `false` | Opt this field into canonical redirect selection.                                                                           |
+| `includeUnmanagedRedirectsInPlanning` | no             |     `true` | Include non-Sluggernaut redirects in chain flattening, loop prevention, and conflict planning.                              |
+| `unmanagedRedirectConflictBehavior`   | no             | `override` | For included unmanaged conflicts, use `override` to let the latest canonical value win or `block` to preserve the conflict. |
 
 Manual permalinks must be absolute paths without whitespace. Schemes, hosts, protocol-relative
 paths, query strings, fragments, backslashes, control characters, and `.`/`..` path segments are
@@ -259,8 +263,11 @@ canonical source is selected in this order:
 3. No redirect handling when neither exists.
 
 A later enabled permalink does not replace an earlier disabled permalink. When a canonical value
-changes, Sluggernaut creates or rewrites a managed `301` record and flattens managed chains.
-Redirects with another owner are preserved and a conflict is logged.
+changes, Sluggernaut creates or rewrites the latest `301` record, flattens included chains, and
+deactivates included loops. By default, unmanaged redirects are included and the latest canonical
+value overrides unmanaged conflicts. Set `includeUnmanagedRedirectsInPlanning=false` to ignore
+unmanaged records, or set `unmanagedRedirectConflictBehavior=block` to preserve an included
+unmanaged conflict and log a warning.
 
 | Redirect field                                                    | Purpose                                              |
 | ----------------------------------------------------------------- | ---------------------------------------------------- |

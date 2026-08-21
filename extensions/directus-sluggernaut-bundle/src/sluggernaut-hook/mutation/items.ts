@@ -1,4 +1,4 @@
-import type { EventContext, HookExtensionContext } from '@directus/types'
+import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/types'
 import type { CollectionConfiguration } from '../../shared/configuration/types'
 
 import {
@@ -51,7 +51,7 @@ export function hasRelevantPayloadField(
 export async function readExistingItem(
 	context: HookExtensionContext,
 	collection: string,
-	key: string | number,
+	key: PrimaryKey,
 	fields: readonly string[],
 	eventContext: EventContext,
 ): Promise<Record<string, unknown>> {
@@ -71,7 +71,7 @@ export async function readExistingItem(
  * @param value - Directus mutation keys.
  * @returns A scalar item key.
  */
-export function resolveSingleUpdateItemKey(value: unknown): string | number {
+export function resolveSingleUpdateItemKey(value: unknown): PrimaryKey {
 	if (!isArray(value)) throw new Error('Sluggernaut requires a scalar item key for updates.')
 	if (value.length > 1) {
 		throw new Error('Sluggernaut cannot derive or archive items in an ambiguous bulk mutation.')

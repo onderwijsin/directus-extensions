@@ -1,11 +1,12 @@
-import type { EventContext, HookExtensionContext } from '@directus/types'
+import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/types'
 import type { CollectionConfiguration } from '../../shared/configuration/types'
 import type { SluggernautEnv } from '../configuration/env.schema'
 
 import { archiveLifecycle, type ArchiveSettings } from './archive'
 import { coordinateMutation } from './coordinator'
 import { readExistingItem, relevantFields } from './items'
-import { processArchiveLifecycle, processCanonicalRedirect } from './redirects'
+import { processCanonicalRedirect } from './redirects/canonical-redirects'
+import { processArchiveLifecycle } from './redirects/lifecycle-redirects'
 
 /**
  * Validates and processes one item update after its boundary checks succeed.
@@ -27,7 +28,7 @@ export async function processItemUpdate(input: {
 	options: SluggernautEnv
 	payload: Record<string, unknown>
 	collection: string
-	key: string | number
+	key: PrimaryKey
 	configuration: CollectionConfiguration
 	archiveSettings: ArchiveSettings | null
 	archiveFieldChanged: boolean
@@ -64,6 +65,8 @@ export async function processItemUpdate(input: {
 			archiveSettings,
 		)
 		if (lifecycle !== null) {
+			// Lifecycle processing only changes the active state/reason of this item's existing redirect history.
+			// Await it so the mutation completes before canonical planning; fire-and-forget could race the transaction.
 			await processArchiveLifecycle({
 				context,
 				options,
@@ -82,6 +85,8 @@ export async function processItemUpdate(input: {
 		existingItem,
 		configuration,
 	})
+	// Canonical processing creates or rewrites URL history when the item's canonical value changes;
+	// it does not decide whether the source item is archived or deleted.
 	await processCanonicalRedirect({
 		context,
 		options,

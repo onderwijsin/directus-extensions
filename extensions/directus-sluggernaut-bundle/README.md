@@ -116,13 +116,15 @@ REDIS=redis://redis:6379
 
 Add a string field and choose `Sluggernaut Slug`.
 
-| Option                 |  Default | Behavior                                                                                     |
-| ---------------------- | -------: | -------------------------------------------------------------------------------------------- |
-| `sourceFields`         | required | One or more string fields from the same collection. Non-empty values are joined with spaces. |
-| `locale`               |     `en` | Fixed locale choice used for case conversion.                                                |
-| `lowercase`            |   `true` | Lowercases the derived slug before separator normalization.                                  |
-| `updateOnSourceChange` |   `true` | Re-derives the slug when a configured source field changes.                                  |
-| `automaticRedirects`   |  `false` | Allows this field to be selected as the canonical redirect source.                           |
+| Option                                |    Default | Behavior                                                                                                   |
+| ------------------------------------- | ---------: | ---------------------------------------------------------------------------------------------------------- |
+| `sourceFields`                        |   required | One or more string fields from the same collection. Non-empty values are joined with spaces.               |
+| `locale`                              |       `en` | Fixed locale choice used for case conversion.                                                              |
+| `lowercase`                           |     `true` | Lowercases the derived slug before separator normalization.                                                |
+| `updateOnSourceChange`                |     `true` | Re-derives the slug when a configured source field changes.                                                |
+| `automaticRedirects`                  |    `false` | Allows this field to be selected as the canonical redirect source.                                         |
+| `includeUnmanagedRedirectsInPlanning` |     `true` | Includes redirects not created by Sluggernaut in chain flattening, loop prevention, and conflict planning. |
+| `unmanagedRedirectConflictBehavior`   | `override` | On an included unmanaged conflict, either `override` it or `block` the canonical transition.               |
 
 The Studio locale option is a fixed dropdown. Supported values are `nl`, `en`, `bg`, `de`, `es`,
 `fr`, `pt`, `uk`, `vi`, `da`, `nb`, `it`, and `sv`. Custom locale values are not offered by the
@@ -142,16 +144,18 @@ empty result is stored as `null`. Explicit slug values use the same normalizatio
 
 Add a string field and choose `Sluggernaut Permalink`.
 
-| Option                              | Default | Behavior                                                                                    |
-| ----------------------------------- | ------: | ------------------------------------------------------------------------------------------- |
-| `generateFromSlug`                  |  `true` | Generates the path from a Sluggernaut slug field. Set false for an independent manual path. |
-| `slugField`                         |   unset | Sluggernaut slug field in the same collection. Required when generated.                     |
-| `updateOnSlugChange`                | `false` | Updates a generated permalink when its source slug changes.                                 |
-| `prefix`                            |   unset | Optional path prefix such as `/news`.                                                       |
-| `validatePrefixOnManualInput`       | `false` | Rejects manual paths outside the configured prefix.                                         |
-| `trailingSlash`                     | `false` | Adds a trailing slash to generated non-root paths.                                          |
-| `enforceTrailingSlashOnManualInput` | `false` | Applies the trailing-slash policy to manual input.                                          |
-| `automaticRedirects`                | `false` | Allows this field to be selected as the canonical redirect source.                          |
+| Option                                |    Default | Behavior                                                                                                   |
+| ------------------------------------- | ---------: | ---------------------------------------------------------------------------------------------------------- |
+| `generateFromSlug`                    |     `true` | Generates the path from a Sluggernaut slug field. Set false for an independent manual path.                |
+| `slugField`                           |      unset | Sluggernaut slug field in the same collection. Required when generated.                                    |
+| `updateOnSlugChange`                  |    `false` | Updates a generated permalink when its source slug changes.                                                |
+| `prefix`                              |      unset | Optional path prefix such as `/news`.                                                                      |
+| `validatePrefixOnManualInput`         |    `false` | Rejects manual paths outside the configured prefix.                                                        |
+| `trailingSlash`                       |    `false` | Adds a trailing slash to generated non-root paths.                                                         |
+| `enforceTrailingSlashOnManualInput`   |    `false` | Applies the trailing-slash policy to manual input.                                                         |
+| `automaticRedirects`                  |    `false` | Allows this field to be selected as the canonical redirect source.                                         |
+| `includeUnmanagedRedirectsInPlanning` |     `true` | Includes redirects not created by Sluggernaut in chain flattening, loop prevention, and conflict planning. |
+| `unmanagedRedirectConflictBehavior`   | `override` | On an included unmanaged conflict, either `override` it or `block` the canonical transition.               |
 
 Example:
 
@@ -211,10 +215,13 @@ When Sluggernaut provisions this collection, the provenance and lifecycle fields
 `source_collection`, `source_item`, `source_field`, `source_type`, and `inactive_reason`) are
 read-only and maintained by the bundle.
 
-Canonical changes rewrite managed history for the same source item and preserve redirects owned by
-another system. Conflicts are logged and preserved. Update-time redirect persistence is in the item
-mutation flow: if it fails, the item update fails. Delete/archive lifecycle failures are logged
-after the source action.
+Canonical changes create or rewrite the latest redirect, flatten included redirect chains, and
+deactivate included loops. By default, unmanaged redirects are included and the latest canonical
+value overrides an unmanaged conflict. Set `includeUnmanagedRedirectsInPlanning=false` to ignore
+unmanaged records, or set `unmanagedRedirectConflictBehavior=block` to preserve an included
+unmanaged conflict and log a warning. Update-time redirect persistence is in the item mutation flow:
+if it fails, the item update fails. Delete/archive lifecycle failures are logged after the source
+action.
 
 The bundle does not serve redirects. A web server, frontend, edge worker, or endpoint must query
 active records and issue the HTTP response.

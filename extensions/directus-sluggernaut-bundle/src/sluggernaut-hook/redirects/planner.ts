@@ -2,14 +2,14 @@
  * @fileoverview Plans redirect history without mutating Directus data.
  *
  * Planning is kept separate from persistence so conflict handling and redirect ownership can be
- * tested deterministically. Only redirects carrying Sluggernaut provenance are eligible for
- * rewrite or lifecycle updates; existing redirects owned by another system are preserved.
+ * tested deterministically. Canonical planning can include redirects from other systems when the
+ * selected source field opts into it; lifecycle planning remains limited to Sluggernaut records.
  */
 import type { PrimaryKey } from '@directus/types'
 import type { CollectionConfiguration } from '../../shared/configuration/types'
 import type { Redirect, RedirectSource, RedirectCreateInput } from './schema'
 
-import { isNonBlankString } from '@onderwijsin/directus-extension-utils'
+import { attemptSync, isNonBlankString } from '@onderwijsin/directus-extension-utils'
 import { withLeadingSlash } from 'ufo'
 
 import { normalizePermalink } from '../../shared/values/normalization'
@@ -42,6 +42,28 @@ export interface RedirectLifecyclePlan {
 	reactivate: { id: PrimaryKey; is_active: true; inactive_reason: null }[]
 }
 
+/** Canonical URL transition and provenance used to plan redirect history. */
+export interface CanonicalRedirectTransition {
+	oldCanonical: string
+	newCanonical: string
+	source: RedirectSource
+	source_collection: string
+	source_item: PrimaryKey
+}
+
+/**
+ * Creates an empty plan for a canonical transition with no redirect changes.
+ * @returns An empty redirect plan.
+ */
+function emptyRedirectPlan(): RedirectPlan {
+	return {
+		create: null,
+		rewrite: [],
+		deactivate: [],
+		warnings: [],
+	}
+}
+
 /**
  * Checks whether a managed redirect belongs to the current canonical lifecycle.
  * @param redirect - Redirect provenance to inspect.
@@ -50,11 +72,11 @@ export interface RedirectLifecyclePlan {
  * @param item - Source item key.
  * @returns Whether all provenance fields identify the current source.
  */
-function belongsToSource(
+function isOwnedBySource(
 	redirect: Redirect,
 	source: RedirectSource,
 	collection: string,
-	item: string,
+	item: PrimaryKey,
 ): boolean {
 	return (
 		redirect.managed_by === 'sluggernaut' &&
@@ -66,47 +88,158 @@ function belongsToSource(
 }
 
 /**
- * Adds the create, rewrite, or conflict result for the current redirect origin.
- * @param plan - Redirect plan being assembled.
- * @param input - Canonical transition and ownership context.
+ * Plans the redirect for the previous canonical origin.
+ * @param transition - Canonical transition and provenance context.
  * @param managedOrigin - Existing managed redirect for the old canonical origin.
- * @param conflicting - Existing redirect that owns the old canonical origin.
- * @returns void.
+ * @param competingRedirect - Existing redirect that already occupies the old canonical origin.
+ * @returns The create, rewrite, or warning decision for the old origin.
  */
-function planCurrentOrigin(
-	plan: RedirectPlan,
-	input: {
-		oldCanonical: string
-		newCanonical: string
-		source: RedirectSource
-		source_collection: string
-		source_item: string
-	},
+function planOldCanonicalOrigin(
+	transition: CanonicalRedirectTransition,
 	managedOrigin: Redirect | undefined,
-	conflicting: Redirect | undefined,
-): void {
-	if (conflicting !== undefined) {
-		plan.warnings.push(
-			`Preserved existing redirect conflict for origin "${input.oldCanonical}".`,
-		)
-		return
+	competingRedirect: Redirect | undefined,
+): Pick<RedirectPlan, 'create' | 'rewrite' | 'warnings'> {
+	if (competingRedirect !== undefined) {
+		if (
+			competingRedirect.managed_by !== 'sluggernaut' &&
+			(transition.source.unmanagedRedirectConflictBehavior ?? 'override') === 'block'
+		) {
+			return {
+				create: null,
+				rewrite: [],
+				warnings: [
+					`Preserved existing redirect conflict for origin "${transition.oldCanonical}".`,
+				],
+			}
+		}
+		return {
+			create: null,
+			rewrite: [{ id: competingRedirect.id, destination: transition.newCanonical }],
+			warnings: [],
+		}
 	}
 
 	if (managedOrigin !== undefined) {
-		plan.rewrite.push({ id: managedOrigin.id, destination: input.newCanonical })
-		return
+		return {
+			create: null,
+			rewrite: [{ id: managedOrigin.id, destination: transition.newCanonical }],
+			warnings: [],
+		}
 	}
 
-	plan.create = {
-		origin: input.oldCanonical,
-		destination: input.newCanonical,
+	return {
+		create: createManagedRedirect(transition),
+		rewrite: [],
+		warnings: [],
+	}
+}
+
+/**
+ * Selects the redirect records visible to canonical planning.
+ * @param redirects - Redirect records to inspect.
+ * @param transition - Canonical transition and source policy.
+ * @returns Redirects included by the source field's planning policy.
+ */
+function redirectsIncludedInPlanning(
+	redirects: readonly Redirect[],
+	transition: CanonicalRedirectTransition,
+): Redirect[] {
+	if (transition.source.includeUnmanagedRedirectsInPlanning ?? true) return [...redirects]
+	return redirects.filter((redirect) => redirect.managed_by === 'sluggernaut')
+}
+
+/**
+ * Finds the managed redirect owned by the current source at the old origin.
+ * @param redirects - Managed redirect records to inspect.
+ * @param transition - Canonical transition and provenance context.
+ * @returns The matching redirect, if one exists.
+ */
+function managedRedirectAtOldOrigin(
+	redirects: readonly Redirect[],
+	transition: CanonicalRedirectTransition,
+): Redirect | undefined {
+	return redirects.find(
+		(redirect) =>
+			redirect.origin === transition.oldCanonical &&
+			isOwnedBySource(
+				redirect,
+				transition.source,
+				transition.source_collection,
+				transition.source_item,
+			),
+	)
+}
+
+/**
+ * Finds another redirect competing for the old canonical origin.
+ * @param redirects - Redirect records to inspect.
+ * @param transition - Canonical transition and provenance context.
+ * @param managedOrigin - Current source's managed redirect, if present.
+ * @returns The competing redirect, if one exists.
+ */
+function competingRedirectAtOldOrigin(
+	redirects: readonly Redirect[],
+	transition: CanonicalRedirectTransition,
+	managedOrigin: Redirect | undefined,
+): Redirect | undefined {
+	return redirects.find(
+		(redirect) => redirect.origin === transition.oldCanonical && redirect !== managedOrigin,
+	)
+}
+
+/**
+ * Flattens older managed redirect chains to the new canonical destination.
+ * @param redirects - Managed redirect records to inspect.
+ * @param transition - Canonical transition and provenance context.
+ * @param managedOrigin - Current source's managed redirect, if present.
+ * @returns Rewrites required to flatten older history.
+ */
+function planOlderRedirectChains(
+	redirects: readonly Redirect[],
+	transition: CanonicalRedirectTransition,
+	managedOrigin: Redirect | undefined,
+): RedirectPlan['rewrite'] {
+	return redirects
+		.filter(
+			(redirect) =>
+				redirect.destination === transition.oldCanonical &&
+				redirect.origin !== transition.newCanonical &&
+				redirect.id !== managedOrigin?.id,
+		)
+		.map((redirect) => ({ id: redirect.id, destination: transition.newCanonical }))
+}
+
+/**
+ * Plans deactivation of a managed redirect that would loop back to the new canonical URL.
+ * @param redirects - Managed redirect records to inspect.
+ * @param transition - Canonical transition and provenance context.
+ * @returns Deactivations required to prevent a canonical loop.
+ */
+function planCanonicalLoopDeactivations(
+	redirects: readonly Redirect[],
+	transition: CanonicalRedirectTransition,
+): RedirectPlan['deactivate'] {
+	return redirects
+		.filter((redirect) => redirect.origin === transition.newCanonical)
+		.map((redirect) => ({ id: redirect.id, inactive_reason: null }))
+}
+
+/**
+ * Builds a redirect record for a new managed canonical transition.
+ * @param transition - Canonical transition and provenance context.
+ * @returns A managed redirect creation input.
+ */
+function createManagedRedirect(transition: CanonicalRedirectTransition): RedirectCreateInput {
+	return {
+		origin: transition.oldCanonical,
+		destination: transition.newCanonical,
 		type: 301,
 		is_active: true,
 		managed_by: 'sluggernaut',
-		source_collection: input.source_collection,
-		source_item: input.source_item,
-		source_field: input.source.field,
-		source_type: input.source.type,
+		source_collection: transition.source_collection,
+		source_item: transition.source_item,
+		source_field: transition.source.field,
+		source_type: transition.source.type,
 		inactive_reason: null,
 	}
 }
@@ -121,11 +254,24 @@ export function selectRedirectSource(
 ): RedirectSource | null {
 	const permalink = configuration.permalinks[0]
 	if (permalink?.options.automaticRedirects) {
-		return { type: 'permalink', field: permalink.field }
+		return {
+			type: 'permalink',
+			field: permalink.field,
+			includeUnmanagedRedirectsInPlanning:
+				permalink.options.includeUnmanagedRedirectsInPlanning,
+			unmanagedRedirectConflictBehavior: permalink.options.unmanagedRedirectConflictBehavior,
+		}
 	}
 
 	const slug = configuration.slugs[0]
-	if (slug?.options.automaticRedirects) return { type: 'slug', field: slug.field }
+	if (slug?.options.automaticRedirects) {
+		return {
+			type: 'slug',
+			field: slug.field,
+			includeUnmanagedRedirectsInPlanning: slug.options.includeUnmanagedRedirectsInPlanning,
+			unmanagedRedirectConflictBehavior: slug.options.unmanagedRedirectConflictBehavior,
+		}
+	}
 	return null
 }
 
@@ -142,11 +288,8 @@ export function canonicalUrlForItem(
 	const value = item[source.field]
 	if (!isNonBlankString(value)) return null
 	const candidate = source.type === 'slug' ? withLeadingSlash(value) : value
-	try {
-		return normalizePermalink(candidate)
-	} catch {
-		return null
-	}
+	const result = attemptSync(() => normalizePermalink(candidate))
+	return result.error === null ? result.data : null
 }
 
 /**
@@ -159,72 +302,51 @@ export function planCanonicalRedirect(input: {
 	newCanonical: string | null
 	source: RedirectSource
 	source_collection: string
-	source_item: string
+	source_item: PrimaryKey
 	existingRedirects: readonly Redirect[]
 }): RedirectPlan {
-	const plan: RedirectPlan = {
-		create: null,
-		rewrite: [],
-		deactivate: [],
-		warnings: [],
-	}
-
 	if (
 		input.oldCanonical === null ||
 		input.newCanonical === null ||
 		input.oldCanonical === input.newCanonical
 	) {
 		// There is no redirect history to change when either endpoint is unavailable or unchanged.
-		return plan
+		return emptyRedirectPlan()
 	}
 
-	const managed = input.existingRedirects.filter(
-		(redirect) => redirect.managed_by === 'sluggernaut',
-	)
-	const managedOrigin = managed.find(
-		(redirect) =>
-			redirect.origin === input.oldCanonical &&
-			redirect.source_collection === input.source_collection &&
-			redirect.source_item === input.source_item &&
-			redirect.source_field === input.source.field &&
-			redirect.source_type === input.source.type,
-	)
-	const conflicting = input.existingRedirects.find(
-		(redirect) => redirect.origin === input.oldCanonical && redirect !== managedOrigin,
-	)
-
-	// First handle the old canonical origin, then repair older managed history below it.
-	planCurrentOrigin(
-		plan,
-		{
-			oldCanonical: input.oldCanonical,
-			newCanonical: input.newCanonical,
-			source: input.source,
-			source_collection: input.source_collection,
-			source_item: input.source_item,
-		},
+	// Normalize the input into one named transition so every planning stage uses the same provenance.
+	const transition: CanonicalRedirectTransition = {
+		oldCanonical: input.oldCanonical,
+		newCanonical: input.newCanonical,
+		source: input.source,
+		source_collection: input.source_collection,
+		source_item: input.source_item,
+	}
+	// The field setting controls whether manually owned redirects participate in chain flattening,
+	// loop prevention, and origin conflict resolution.
+	const planningRedirects = redirectsIncludedInPlanning(input.existingRedirects, transition)
+	// Resolve ownership at the old origin before deciding whether to create or rewrite its redirect.
+	const managedOrigin = managedRedirectAtOldOrigin(planningRedirects, transition)
+	// Any other included record at that origin competes for the previous canonical URL.
+	const competingRedirect = competingRedirectAtOldOrigin(
+		planningRedirects,
+		transition,
 		managedOrigin,
-		conflicting,
 	)
+	// Decide the primary action for the old canonical URL.
+	const oldOriginPlan = planOldCanonicalOrigin(transition, managedOrigin, competingRedirect)
 
-	for (const redirect of managed) {
-		if (
-			belongsToSource(redirect, input.source, input.source_collection, input.source_item) &&
-			redirect.destination === input.oldCanonical &&
-			redirect.origin !== input.newCanonical &&
-			redirect.id !== managedOrigin?.id
-		) {
-			plan.rewrite.push({ id: redirect.id, destination: input.newCanonical })
-		}
-		if (
-			redirect.origin === input.newCanonical &&
-			belongsToSource(redirect, input.source, input.source_collection, input.source_item)
-		) {
-			plan.deactivate.push({ id: redirect.id, inactive_reason: null })
-		}
+	return {
+		...emptyRedirectPlan(),
+		...oldOriginPlan,
+		// Flatten included older URLs so they point directly to the new canonical destination.
+		rewrite: [
+			...oldOriginPlan.rewrite,
+			...planOlderRedirectChains(planningRedirects, transition, managedOrigin),
+		],
+		// Disable included redirects originating at the new URL to prevent a redirect loop.
+		deactivate: planCanonicalLoopDeactivations(planningRedirects, transition),
 	}
-
-	return plan
 }
 
 /**

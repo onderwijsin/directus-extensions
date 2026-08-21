@@ -9,7 +9,7 @@ export const redirectRecordSchema = z.strictObject({
 	is_active: z.boolean().default(true),
 	managed_by: z.literal('sluggernaut').nullable().default(null),
 	source_collection: z.string().nullable().default(null),
-	source_item: z.string().nullable().default(null),
+	source_item: z.union([z.string(), z.number()]).nullable().default(null),
 	source_field: z.string().nullable().default(null),
 	source_type: z.enum(['slug', 'permalink']).nullable().default(null),
 	inactive_reason: z.enum(['archive', 'delete']).nullable().default(null),
@@ -23,7 +23,7 @@ export const redirectCreateSchema = redirectRecordSchema
 		// Record creation from within hook, means these values MUST be provided
 		managed_by: z.literal('sluggernaut'),
 		source_collection: z.string(),
-		source_item: z.string(),
+		source_item: z.union([z.string(), z.number()]),
 		source_field: z.string(),
 		source_type: z.enum(['slug', 'permalink']),
 		inactive_reason: z.null(),
@@ -42,4 +42,6 @@ export type RedirectCreateInput = z.input<typeof redirectCreateSchema>
 export interface RedirectSource {
 	type: RedirectSourceType
 	field: string
+	includeUnmanagedRedirectsInPlanning?: boolean
+	unmanagedRedirectConflictBehavior?: 'block' | 'override'
 }

@@ -10,7 +10,7 @@
 import type { ApiExtensionContext } from '@directus/types'
 import type { SluggernautFieldMetadata } from '../shared/configuration/types'
 
-import { createAdminAccountability } from '@onderwijsin/directus-extension-utils'
+import { attempt, createAdminAccountability } from '@onderwijsin/directus-extension-utils'
 import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
 /**
@@ -70,8 +70,10 @@ export function createFieldReader(
 		 */
 		clearCache: () => {
 			if (!cache) return
-			void cache.clear().catch((error: unknown) => {
-				context.logger.error('Failed to clear Sluggernaut field cache.', { error })
+			void attempt(() => cache.clear()).then(({ error }) => {
+				if (error !== null) {
+					context.logger.error('Failed to clear Sluggernaut field cache.', { error })
+				}
 			})
 		},
 	}

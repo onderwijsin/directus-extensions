@@ -7,6 +7,8 @@ export interface SlugInterfaceOptions {
 	lowercase: boolean
 	updateOnSourceChange: boolean
 	automaticRedirects: boolean
+	includeUnmanagedRedirectsInPlanning?: boolean
+	unmanagedRedirectConflictBehavior?: 'block' | 'override'
 }
 
 /** Options persisted by the Sluggernaut permalink interface. */
@@ -19,6 +21,8 @@ export interface PermalinkInterfaceOptions {
 	trailingSlash: boolean
 	enforceTrailingSlashOnManualInput: boolean
 	automaticRedirects: boolean
+	includeUnmanagedRedirectsInPlanning?: boolean
+	unmanagedRedirectConflictBehavior?: 'block' | 'override'
 }
 
 /** Directus field metadata consumed by Sluggernaut configuration discovery. */

@@ -78,7 +78,12 @@ function isSlugInterfaceOptions(
 		isString(options.locale) &&
 		isBoolean(options.lowercase) &&
 		isBoolean(options.updateOnSourceChange) &&
-		isBoolean(options.automaticRedirects)
+		isBoolean(options.automaticRedirects) &&
+		(!isDefined(options.includeUnmanagedRedirectsInPlanning) ||
+			isBoolean(options.includeUnmanagedRedirectsInPlanning)) &&
+		(!isDefined(options.unmanagedRedirectConflictBehavior) ||
+			options.unmanagedRedirectConflictBehavior === 'block' ||
+			options.unmanagedRedirectConflictBehavior === 'override')
 	)
 }
 
@@ -98,7 +103,12 @@ function isPermalinkInterfaceOptions(
 		isBoolean(options.validatePrefixOnManualInput) &&
 		isBoolean(options.trailingSlash) &&
 		isBoolean(options.enforceTrailingSlashOnManualInput) &&
-		isBoolean(options.automaticRedirects)
+		isBoolean(options.automaticRedirects) &&
+		(!isDefined(options.includeUnmanagedRedirectsInPlanning) ||
+			isBoolean(options.includeUnmanagedRedirectsInPlanning)) &&
+		(!isDefined(options.unmanagedRedirectConflictBehavior) ||
+			options.unmanagedRedirectConflictBehavior === 'block' ||
+			options.unmanagedRedirectConflictBehavior === 'override')
 	)
 }
 
@@ -133,7 +143,19 @@ function parseSlugField(
 		}
 	}
 
-	return { value: { field: field.field, sort, options } }
+	return {
+		value: {
+			field: field.field,
+			sort,
+			options: {
+				...options,
+				includeUnmanagedRedirectsInPlanning:
+					options.includeUnmanagedRedirectsInPlanning ?? true,
+				unmanagedRedirectConflictBehavior:
+					options.unmanagedRedirectConflictBehavior === 'block' ? 'block' : 'override',
+			},
+		},
+	}
 }
 
 /**
@@ -150,7 +172,19 @@ function parsePermalinkField(
 	if (!isDefined(options) || options === null || !isPermalinkInterfaceOptions(options)) {
 		return { value: null, warning: warningForInvalidOptions(field.field, 'permalink') }
 	}
-	return { value: { field: field.field, sort, options } }
+	return {
+		value: {
+			field: field.field,
+			sort,
+			options: {
+				...options,
+				includeUnmanagedRedirectsInPlanning:
+					options.includeUnmanagedRedirectsInPlanning ?? true,
+				unmanagedRedirectConflictBehavior:
+					options.unmanagedRedirectConflictBehavior === 'block' ? 'block' : 'override',
+			},
+		},
+	}
 }
 
 /**

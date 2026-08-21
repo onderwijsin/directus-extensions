@@ -6,6 +6,7 @@
  * requires a path, while keeping empty values representable as null.
  */
 import {
+	attemptSync,
 	hasKey,
 	isString,
 	isDefined,
@@ -231,14 +232,19 @@ export function normalizeManualPermalink(
  */
 export function normalizeHost(host: string | null | undefined): HostNormalizationResult {
 	if (host === null || host === undefined || host.trim() === '') return { host: '', error: null }
-	try {
+	const result = attemptSync(() => {
 		const url = new URL(host.trim())
 		if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Host must use HTTP(S).')
 		if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
 			throw new Error('Host must be an HTTP(S) origin without credentials or a base path.')
 		}
-		return { host: url.origin, error: null }
-	} catch (error) {
-		return { host: '', error: error instanceof Error ? error.message : 'Invalid host.' }
+		return url.origin
+	})
+	if (result.error !== null || result.data === null) {
+		return {
+			host: '',
+			error: result.error instanceof Error ? result.error.message : 'Invalid host.',
+		}
 	}
+	return { host: result.data, error: null }
 }

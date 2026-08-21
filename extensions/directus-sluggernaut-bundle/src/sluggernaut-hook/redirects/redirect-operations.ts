@@ -1,10 +1,11 @@
+import type { PrimaryKey } from '@directus/types'
 /**
  * @fileoverview Validates and applies redirect operations at the Directus boundary.
  *
  * Adapts the redirect planner's domain model to Directus persistence operations.
  *
- * Directus stores field names in snake_case and may return numeric primary keys, while the planner
- * uses a stable camelCase model. This module validates and translates at that runtime boundary.
+ * Directus stores field names in snake_case and may return numeric primary keys. This module
+ * validates and applies that native Directus shape at the runtime boundary.
  */
 import type { RedirectLifecyclePlan, RedirectPlan } from './planner'
 import type { RedirectService } from './service'
@@ -64,7 +65,7 @@ export async function readRelevantRedirects(
 export async function readManagedRedirectsForItem(
 	service: RedirectService,
 	sourceCollection: string,
-	sourceItem: string,
+	sourceItem: PrimaryKey,
 ): Promise<Redirect[]> {
 	const result = await service.readByQuery({
 		filter: {
