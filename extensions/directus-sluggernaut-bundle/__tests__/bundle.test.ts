@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { INTERFACE_IDS } from '../src/shared/configuration/constants'
 import { envSchema } from '../src/sluggernaut-hook/configuration/env.schema'
+import operation from '../src/sluggernaut-recalculate'
 
 describe('Sluggernaut bundle scaffold', () => {
 	it('uses the V2 interface identifiers', () => {
@@ -23,5 +24,31 @@ describe('Sluggernaut bundle scaffold', () => {
 			SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED: false,
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
 		})
+	})
+
+	it('uses collection-aware system interfaces for recalculation options', () => {
+		expect(operation.options).toEqual(
+			expect.arrayContaining([
+				{
+					field: 'collection',
+					name: '$t:collection',
+					type: 'string',
+					meta: {
+						interface: 'system-collection',
+						options: { includeSystem: false },
+					},
+				},
+				{
+					field: 'fields',
+					name: 'Fields',
+					type: 'json',
+					meta: {
+						interface: 'system-fields',
+						width: 'full',
+						options: { collectionField: 'collection' },
+					},
+				},
+			]),
+		)
 	})
 })

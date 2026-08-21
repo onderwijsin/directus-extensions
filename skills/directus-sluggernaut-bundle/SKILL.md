@@ -307,7 +307,7 @@ Add `Sluggernaut: Recalculate Fields` to a Flow. The operation API accepts:
 ```json
 {
   "collection": "articles",
-  "fieldKeys": ["slug", "permalink"],
+  "fields": ["slug", "permalink"],
   "createRedirects": true
 }
 ```
@@ -315,8 +315,11 @@ Add `Sluggernaut: Recalculate Fields` to a Flow. The operation API accepts:
 | Input             | Required |            Default | Details                                                                                                            |
 | ----------------- | -------- | -----------------: | ------------------------------------------------------------------------------------------------------------------ |
 | `collection`      | yes      |                  — | Non-empty collection name.                                                                                         |
-| `fieldKeys`       | no       | all derived fields | Exact keys. Only configured slug fields and generated-from-slug permalink fields are eligible.                     |
+| `fields`          | no       | all derived fields | Exact keys. Only configured slug fields and generated-from-slug permalink fields are eligible.                     |
 | `createRedirects` | no       |             `true` | Uses item-service updates when true and redirects are enabled; otherwise writes directly without redirect history. |
+
+Existing flows may still send the previous `fieldKeys` option as a legacy alias; new flows should
+use `fields`.
 
 The operation returns:
 

@@ -3,7 +3,7 @@ import { defineOperationApp } from '@directus/extensions-sdk'
 /** Values shown in the operation overview card. */
 interface RecalculateOverviewOptions {
 	collection?: string
-	fieldKeys?: string[]
+	fields?: string[]
 	createRedirects?: boolean
 }
 
@@ -13,11 +13,11 @@ interface RecalculateOverviewOptions {
  * @returns Operation overview fields.
  */
 function getRecalculateOverview(options: RecalculateOverviewOptions) {
-	const { collection, fieldKeys, createRedirects } = options
+	const { collection, fields, createRedirects } = options
 
 	return [
 		{ label: 'Collection', text: collection ?? 'Not configured' },
-		{ label: 'Fields', text: fieldKeys ? JSON.stringify(fieldKeys) : 'All derived fields' },
+		{ label: 'Fields', text: fields ? JSON.stringify(fields) : 'All derived fields' },
 		{ label: 'Create redirects', text: createRedirects ? 'Yes' : 'No' },
 	]
 }
@@ -31,18 +31,25 @@ export default defineOperationApp({
 	options: [
 		{
 			field: 'collection',
-			name: 'Collection',
+			name: '$t:collection',
 			type: 'string',
-			meta: { width: 'full', interface: 'input', required: true },
+			meta: {
+				interface: 'system-collection',
+				options: {
+					includeSystem: false,
+				},
+			},
 		},
 		{
-			field: 'fieldKeys',
-			name: 'Field keys',
+			field: 'fields',
+			name: 'Fields',
 			type: 'json',
 			meta: {
 				width: 'full',
-				interface: 'input-code',
-				note: 'Optional JSON array of exact field keys to recalculate.',
+				interface: 'system-fields',
+				options: {
+					collectionField: 'collection',
+				},
 			},
 		},
 		{

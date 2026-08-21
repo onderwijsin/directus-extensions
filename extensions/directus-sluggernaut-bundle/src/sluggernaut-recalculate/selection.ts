@@ -22,9 +22,9 @@ export function selectFieldKeys(
 			.filter((field) => field.options.generateFromSlug)
 			.map((field) => field.field),
 	]
-	if (!isDefined(options.fieldKeys)) return new Set(derivedFields)
+	if (!isDefined(options.fields)) return new Set(derivedFields)
 
-	const requestedFields = new Set(options.fieldKeys)
+	const requestedFields = new Set(options.fields)
 	return new Set(derivedFields.filter((field) => requestedFields.has(field)))
 }
 

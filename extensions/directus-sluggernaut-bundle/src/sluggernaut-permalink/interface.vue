@@ -28,6 +28,7 @@ const emit = defineEmits<{
 		:value="props.value"
 		:disabled="props.disabled"
 		:non-editable="props.nonEditable"
+		:locale="props.locale"
 		field-type="path"
 		:generate-from-slug="props.generateFromSlug"
 		@input="emit('input', $event)"

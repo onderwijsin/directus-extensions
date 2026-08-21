@@ -249,7 +249,7 @@ Add `Sluggernaut: Recalculate Fields` to a Directus Flow:
 ```json
 {
   "collection": "articles",
-  "fieldKeys": ["slug", "permalink"],
+  "fields": ["slug", "permalink"],
   "createRedirects": true
 }
 ```
@@ -257,8 +257,11 @@ Add `Sluggernaut: Recalculate Fields` to a Directus Flow:
 | Input             | Required |            Default | Description                                                                                                        |
 | ----------------- | -------- | -----------------: | ------------------------------------------------------------------------------------------------------------------ |
 | `collection`      | yes      |                  — | Collection to scan.                                                                                                |
-| `fieldKeys`       | no       | all derived fields | Exact slug/permalink field keys to recalculate. Unknown/non-derived keys are ignored.                              |
+| `fields`          | no       | all derived fields | Exact slug/permalink field keys to recalculate. Unknown/non-derived keys are ignored.                              |
 | `createRedirects` | no       |             `true` | Uses item-service updates when true and redirects are enabled; otherwise writes directly without redirect history. |
+
+Existing flows using the previous `fieldKeys` option remain supported as a legacy alias; new flows
+use `fields`.
 
 The operation returns:
 
