@@ -55,6 +55,7 @@ describe('redirect operations', () => {
 				inactive_reason: null,
 			},
 			rewrite: [{ id: 'chain', destination: '/new' }],
+			reactivate: [{ id: 'reactivated' }],
 			deactivate: [{ id: 'loop', inactive_reason: null }],
 			warnings: [],
 		})
@@ -73,7 +74,11 @@ describe('redirect operations', () => {
 			inactive_reason: null,
 		})
 		expect(service.updateOne).toHaveBeenNthCalledWith(1, 'chain', { destination: '/new' })
-		expect(service.updateOne).toHaveBeenNthCalledWith(2, 'loop', {
+		expect(service.updateOne).toHaveBeenNthCalledWith(2, 'reactivated', {
+			is_active: true,
+			inactive_reason: null,
+		})
+		expect(service.updateOne).toHaveBeenNthCalledWith(3, 'loop', {
 			is_active: false,
 			inactive_reason: null,
 		})

@@ -161,6 +161,49 @@ describe('redirect planner', () => {
 		expect(plan.rewrite).toEqual([{ id: 'managed', destination: '/b' }])
 	})
 
+	it('reactivates a loop-suppressed origin when a canonical value returns to it', () => {
+		const plan = planCanonicalRedirect({
+			oldCanonical: '/a',
+			newCanonical: '/b',
+			source: { type: 'permalink', field: 'route' },
+			source_collection: 'articles',
+			source_item: '1',
+			existingRedirects: [
+				{
+					id: 'a-to-b',
+					origin: '/a',
+					destination: '/b',
+					type: 301,
+					is_active: false,
+					managed_by: 'sluggernaut',
+					source_collection: 'articles',
+					source_item: '1',
+					source_field: 'route',
+					source_type: 'permalink',
+					inactive_reason: null,
+				},
+				{
+					id: 'b-to-a',
+					origin: '/b',
+					destination: '/a',
+					type: 301,
+					is_active: true,
+					managed_by: 'sluggernaut',
+					source_collection: 'articles',
+					source_item: '1',
+					source_field: 'route',
+					source_type: 'permalink',
+					inactive_reason: null,
+				},
+			],
+		})
+
+		expect(plan.create).toBeNull()
+		expect(plan.rewrite).toEqual([{ id: 'a-to-b', destination: '/b' }])
+		expect(plan.reactivate).toEqual([{ id: 'a-to-b' }])
+		expect(plan.deactivate).toEqual([{ id: 'b-to-a', inactive_reason: null }])
+	})
+
 	it('rewrites a managed redirect owned by another source item so the latest canonical wins', () => {
 		const plan = planCanonicalRedirect({
 			oldCanonical: '/a',

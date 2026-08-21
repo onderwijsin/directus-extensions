@@ -25,6 +25,7 @@ import { normalizePermalink } from '../../shared/values/normalization'
 export interface RedirectPlan {
 	create: RedirectCreateInput | null
 	rewrite: { id: PrimaryKey; destination: string }[]
+	reactivate: { id: PrimaryKey }[]
 	deactivate: { id: PrimaryKey; inactive_reason: null }[]
 	warnings: string[]
 }
@@ -59,6 +60,7 @@ function emptyRedirectPlan(): RedirectPlan {
 	return {
 		create: null,
 		rewrite: [],
+		reactivate: [],
 		deactivate: [],
 		warnings: [],
 	}
@@ -98,7 +100,7 @@ function planOldCanonicalOrigin(
 	transition: CanonicalRedirectTransition,
 	managedOrigin: Redirect | undefined,
 	competingRedirect: Redirect | undefined,
-): Pick<RedirectPlan, 'create' | 'rewrite' | 'warnings'> {
+): Pick<RedirectPlan, 'create' | 'rewrite' | 'reactivate' | 'warnings'> {
 	if (competingRedirect !== undefined) {
 		if (
 			competingRedirect.managed_by !== 'sluggernaut' &&
@@ -107,6 +109,7 @@ function planOldCanonicalOrigin(
 			return {
 				create: null,
 				rewrite: [],
+				reactivate: [],
 				warnings: [
 					`Preserved existing redirect conflict for origin "${transition.oldCanonical}".`,
 				],
@@ -115,6 +118,7 @@ function planOldCanonicalOrigin(
 		return {
 			create: null,
 			rewrite: [{ id: competingRedirect.id, destination: transition.newCanonical }],
+			reactivate: [],
 			warnings: [],
 		}
 	}
@@ -123,6 +127,10 @@ function planOldCanonicalOrigin(
 		return {
 			create: null,
 			rewrite: [{ id: managedOrigin.id, destination: transition.newCanonical }],
+			reactivate:
+				managedOrigin.is_active || managedOrigin.inactive_reason !== null
+					? []
+					: [{ id: managedOrigin.id }],
 			warnings: [],
 		}
 	}
@@ -130,6 +138,7 @@ function planOldCanonicalOrigin(
 	return {
 		create: createManagedRedirect(transition),
 		rewrite: [],
+		reactivate: [],
 		warnings: [],
 	}
 }
@@ -344,6 +353,7 @@ export function planCanonicalRedirect(input: {
 			...oldOriginPlan.rewrite,
 			...planOlderRedirectChains(planningRedirects, transition, managedOrigin),
 		],
+		reactivate: oldOriginPlan.reactivate,
 		// Disable included redirects originating at the new URL to prevent a redirect loop.
 		deactivate: planCanonicalLoopDeactivations(planningRedirects, transition),
 	}

@@ -3,6 +3,48 @@ import { describe, expect, it } from 'vitest'
 import { discoverCollectionConfiguration } from '../src/shared/configuration/discovery'
 
 describe('Sluggernaut configuration discovery', () => {
+	it('restores omitted Studio defaults from sparse persisted options', () => {
+		const configuration = discoverCollectionConfiguration([
+			{ field: 'title' },
+			{
+				field: 'slug',
+				meta: {
+					interface: 'sluggernaut-slug',
+					options: { sourceFields: ['title'], automaticRedirects: true },
+				},
+			},
+			{
+				field: 'path',
+				meta: {
+					interface: 'sluggernaut-permalink',
+					options: {
+						slugField: 'slug',
+						updateOnSlugChange: true,
+						prefix: '/test',
+						automaticRedirects: true,
+					},
+				},
+			},
+		])
+
+		expect(configuration.warnings).toHaveLength(0)
+		expect(configuration.slugs[0]?.options).toMatchObject({
+			locale: 'en',
+			lowercase: true,
+			updateOnSourceChange: true,
+			includeUnmanagedRedirectsInPlanning: true,
+			unmanagedRedirectConflictBehavior: 'override',
+		})
+		expect(configuration.permalinks[0]?.options).toMatchObject({
+			generateFromSlug: true,
+			validatePrefixOnManualInput: false,
+			trailingSlash: false,
+			enforceTrailingSlashOnManualInput: false,
+			includeUnmanagedRedirectsInPlanning: true,
+			unmanagedRedirectConflictBehavior: 'override',
+		})
+	})
+
 	it('sorts interfaces by Directus sort and field key', () => {
 		const configuration = discoverCollectionConfiguration([
 			{ field: 'title' },

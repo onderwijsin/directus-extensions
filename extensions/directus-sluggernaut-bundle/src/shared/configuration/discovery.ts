@@ -113,6 +113,48 @@ function isPermalinkInterfaceOptions(
 }
 
 /**
+ * Applies the defaults declared by the Studio slug interface.
+ *
+ * Directus persists only options that differ from an interface default in some mutations. The
+ * runtime therefore cannot require every optional option to be present in `meta.options`.
+ * @param options - Raw options persisted by Directus.
+ * @returns Options with the interface defaults restored.
+ */
+function withSlugInterfaceDefaults(options: Record<string, unknown>): Record<string, unknown> {
+	return {
+		locale: 'en',
+		lowercase: true,
+		updateOnSourceChange: true,
+		automaticRedirects: false,
+		includeUnmanagedRedirectsInPlanning: true,
+		unmanagedRedirectConflictBehavior: 'override',
+		...options,
+	}
+}
+
+/**
+ * Applies the defaults declared by the Studio permalink interface.
+ *
+ * Directus persists only options that differ from an interface default in some mutations. The
+ * runtime therefore cannot require every optional option to be present in `meta.options`.
+ * @param options - Raw options persisted by Directus.
+ * @returns Options with the interface defaults restored.
+ */
+function withPermalinkInterfaceDefaults(options: Record<string, unknown>): Record<string, unknown> {
+	return {
+		generateFromSlug: true,
+		updateOnSlugChange: false,
+		validatePrefixOnManualInput: false,
+		trailingSlash: false,
+		enforceTrailingSlashOnManualInput: false,
+		automaticRedirects: false,
+		includeUnmanagedRedirectsInPlanning: true,
+		unmanagedRedirectConflictBehavior: 'override',
+		...options,
+	}
+}
+
+/**
  * Reads one Sluggernaut slug field and validates its source references.
  * @param field - Directus field metadata.
  * @param sort - Deterministic field order.
@@ -125,11 +167,13 @@ function parseSlugField(
 	availableFields: ReadonlySet<string>,
 ): FieldDiscoveryResult<DiscoveredSlugField> {
 	const options = field.meta?.options
-	if (options === undefined || options === null || !isSlugInterfaceOptions(options)) {
+	const normalizedOptions =
+		options === undefined || options === null ? null : withSlugInterfaceDefaults(options)
+	if (normalizedOptions === null || !isSlugInterfaceOptions(normalizedOptions)) {
 		return { value: null, warning: warningForInvalidOptions(field.field, 'slug') }
 	}
 
-	const missingSourceField = options.sourceFields.find(
+	const missingSourceField = normalizedOptions.sourceFields.find(
 		(sourceField) => !availableFields.has(sourceField),
 	)
 	if (missingSourceField !== undefined) {
@@ -148,11 +192,13 @@ function parseSlugField(
 			field: field.field,
 			sort,
 			options: {
-				...options,
+				...normalizedOptions,
 				includeUnmanagedRedirectsInPlanning:
-					options.includeUnmanagedRedirectsInPlanning ?? true,
+					normalizedOptions.includeUnmanagedRedirectsInPlanning,
 				unmanagedRedirectConflictBehavior:
-					options.unmanagedRedirectConflictBehavior === 'block' ? 'block' : 'override',
+					normalizedOptions.unmanagedRedirectConflictBehavior === 'block'
+						? 'block'
+						: 'override',
 			},
 		},
 	}
@@ -169,7 +215,9 @@ function parsePermalinkField(
 	sort: number | null,
 ): FieldDiscoveryResult<DiscoveredPermalinkField> {
 	const options = field.meta?.options
-	if (!isDefined(options) || options === null || !isPermalinkInterfaceOptions(options)) {
+	const normalizedOptions =
+		options === undefined || options === null ? null : withPermalinkInterfaceDefaults(options)
+	if (normalizedOptions === null || !isPermalinkInterfaceOptions(normalizedOptions)) {
 		return { value: null, warning: warningForInvalidOptions(field.field, 'permalink') }
 	}
 	return {
@@ -177,11 +225,13 @@ function parsePermalinkField(
 			field: field.field,
 			sort,
 			options: {
-				...options,
+				...normalizedOptions,
 				includeUnmanagedRedirectsInPlanning:
-					options.includeUnmanagedRedirectsInPlanning ?? true,
+					normalizedOptions.includeUnmanagedRedirectsInPlanning,
 				unmanagedRedirectConflictBehavior:
-					options.unmanagedRedirectConflictBehavior === 'block' ? 'block' : 'override',
+					normalizedOptions.unmanagedRedirectConflictBehavior === 'block'
+						? 'block'
+						: 'override',
 			},
 		},
 	}

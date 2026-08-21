@@ -106,10 +106,13 @@ export async function applyRedirectPlan(
 	service: RedirectOperationsService,
 	plan: RedirectPlan,
 ): Promise<void> {
-	// Apply the plan in a stable order: create/rewrite the active route, then deactivate conflicts.
+	// Apply the plan in a stable order: create/rewrite/reactivate the active route, then deactivate conflicts.
 	if (plan.create !== null) await service.createOne(plan.create)
 	for (const rewrite of plan.rewrite) {
 		await service.updateOne(rewrite.id, { destination: rewrite.destination })
+	}
+	for (const reactivate of plan.reactivate) {
+		await service.updateOne(reactivate.id, { is_active: true, inactive_reason: null })
 	}
 	for (const deactivate of plan.deactivate) {
 		await service.updateOne(deactivate.id, {
