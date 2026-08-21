@@ -34,6 +34,34 @@ describe('redirect operations', () => {
 		expect(records).toEqual([expect.objectContaining({ id: 1, managed_by: 'sluggernaut' })])
 	})
 
+	it('forwards exact relevant and ownership filters and ignores non-array results', async () => {
+		const service = {
+			readByQuery: vi.fn().mockResolvedValue(null),
+			createOne: vi.fn(),
+			updateOne: vi.fn(),
+		}
+		await expect(readRelevantRedirects(service, '/old', '/new')).resolves.toEqual([])
+		expect(service.readByQuery).toHaveBeenCalledWith(
+			expect.objectContaining({
+				filter: {
+					_or: [{ origin: { _in: ['/old', '/new'] } }, { destination: { _eq: '/old' } }],
+				},
+			}),
+		)
+		await expect(readManagedRedirectsForItem(service, 'entries', 7)).resolves.toEqual([])
+		expect(service.readByQuery).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				filter: {
+					_and: [
+						{ managed_by: { _eq: 'sluggernaut' } },
+						{ source_collection: { _eq: 'entries' } },
+						{ source_item: { _eq: 7 } },
+					],
+				},
+			}),
+		)
+	})
+
 	it('applies creates, rewrites, and deactivations in order', async () => {
 		const service = {
 			readByQuery: vi.fn(),
@@ -132,5 +160,36 @@ describe('redirect operations', () => {
 			is_active: true,
 			inactive_reason: null,
 		})
+	})
+
+	it('stops applying later operations after the first persistence error', async () => {
+		const service = {
+			readByQuery: vi.fn(),
+			createOne: vi.fn().mockRejectedValue(new Error('create failed')),
+			updateOne: vi.fn(),
+		}
+		await expect(
+			applyRedirectPlan(service, {
+				create: {
+					origin: '/old',
+					destination: '/new',
+					type: 301,
+					is_active: true,
+					managed_by: 'sluggernaut',
+					source_collection: 'entries',
+					source_item: 1,
+					source_field: 'route',
+					source_type: 'permalink',
+					inactive_reason: null,
+					start_date: null,
+					end_date: null,
+				},
+				rewrite: [{ id: 'later', destination: '/new' }],
+				reactivate: [],
+				deactivate: [],
+				warnings: [],
+			}),
+		).rejects.toThrow('create failed')
+		expect(service.updateOne).not.toHaveBeenCalled()
 	})
 })

@@ -67,7 +67,7 @@ function itemKeyFromValue(
  * @param item - Existing item values.
  * @param configuration - Discovered collection configuration.
  * @param fieldKeys - Selected derived field keys.
- * @returns Values that should be persisted.
+ * @returns Values that differ from the stored item and should be persisted.
  */
 function recalculationUpdates(
 	item: Record<string, unknown>,
@@ -81,7 +81,11 @@ function recalculationUpdates(
 		configuration,
 		fieldKeys,
 	})
-	return fromEntries(toEntries(mutation.payload).filter(([field]) => fieldKeys.has(field)))
+	return fromEntries(
+		toEntries(mutation.payload).filter(
+			([field, value]) => fieldKeys.has(field) && item[field] !== value,
+		),
+	)
 }
 
 /**

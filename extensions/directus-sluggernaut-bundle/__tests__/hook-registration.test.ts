@@ -123,4 +123,13 @@ describe('Sluggernaut startup registration', () => {
 			expect.objectContaining({ code: 'redirect-collection-unavailable' }),
 		)
 	})
+
+	it('does not register any handlers when the extension setup gate is disabled', () => {
+		vi.clearAllMocks()
+		mocks.setup.isEnabled.mockReturnValue(false)
+		const action = registerHook()
+		expect(action).not.toHaveBeenCalled()
+		expect(mocks.startup.schema).not.toHaveBeenCalled()
+		expect(mocks.startup.data).not.toHaveBeenCalled()
+	})
 })

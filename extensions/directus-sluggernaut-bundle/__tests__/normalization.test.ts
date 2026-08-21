@@ -10,10 +10,24 @@ import {
 	normalizeManualPermalink,
 	normalizePermalink,
 	normalizePrefix,
+	normalizeSlug,
 	resolveEffectiveFieldValue,
 } from '../src/shared/values/normalization'
 
 describe('Sluggernaut normalization', () => {
+	it('covers falsy values, locale variants, punctuation, separators, and empty results', () => {
+		expect(deriveSlug([0, false, null, undefined, '  A  ', 'B'], 'en', true)).toBe('a-b')
+		expect(deriveSlug(['İSTANBUL'], 'tr', true)).toBe('istanbul')
+		expect(deriveSlug(['Äë—hello___world!!!'], 'de', false)).toBe('Ae-hello-world')
+		expect(deriveSlug(['---', '…'], 'en', true)).toBeNull()
+		expect(deriveSlug(['Hello'], 'en', false)).toBe('Hello')
+	})
+
+	it('rejects non-string explicit slug values through the normalization boundary', () => {
+		expect(deriveSlug([123])).toBeNull()
+		expect(normalizeSlug(null)).toBeNull()
+		expect(normalizeSlug('  ')).toBeNull()
+	})
 	it('derives a slug from multiple non-empty source values', () => {
 		expect(deriveSlug([' Remí ', 'Huigen'], 'en', true)).toBe('remi-huigen')
 	})
@@ -80,5 +94,41 @@ describe('Sluggernaut normalization', () => {
 		})
 		expect(normalizeHost('https://example.com/base').error).toBeTruthy()
 		expect(normalizeHost('example.com').error).toBeTruthy()
+	})
+
+	it('rejects every unsafe path class and malformed prefix', () => {
+		for (const value of [
+			'https://example.com/path',
+			'//example.com/path',
+			'/path?query',
+			'/path#fragment',
+			'/path\\child',
+			'/path/./child',
+			'/path/../child',
+			'/path\nchild',
+			'/path child',
+		])
+			expect(() => normalizePermalink(value)).toThrow()
+		for (const prefix of ['https://example.com', '//news', '/news?draft=true', '/news\\x'])
+			expect(() => normalizePrefix(prefix)).toThrow()
+	})
+
+	it('keeps generated and manual trailing slash behavior distinct', () => {
+		expect(
+			normalizeManualPermalink('/news/item/', {
+				trailingSlash: true,
+				enforceTrailingSlash: false,
+			}),
+		).toBe('/news/item/')
+		expect(
+			normalizeManualPermalink('/news/item', {
+				trailingSlash: true,
+				enforceTrailingSlash: false,
+			}),
+		).toBe('/news/item')
+		expect(
+			normalizeManualPermalink('/', { trailingSlash: false, enforceTrailingSlash: true }),
+		).toBe('/')
+		expect(joinPrefixAndSlug('/news/', 'Hello World', 'en', false)).toBe('/news/Hello-World')
 	})
 })

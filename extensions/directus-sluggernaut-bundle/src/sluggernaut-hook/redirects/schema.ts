@@ -7,6 +7,8 @@ export const redirectRecordSchema = z.strictObject({
 	destination: z.string(),
 	type: z.union([z.literal(301), z.literal(302), z.literal(307), z.literal(308)]).default(301),
 	is_active: z.boolean().default(true),
+	start_date: z.string().datetime().nullable().optional(),
+	end_date: z.string().datetime().nullable().optional(),
 	managed_by: z.literal('sluggernaut').nullable().default(null),
 	source_collection: z.string().nullable().default(null),
 	source_item: z.union([z.string(), z.number()]).nullable().default(null),

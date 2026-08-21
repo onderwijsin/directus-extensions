@@ -184,4 +184,53 @@ describe('Sluggernaut configuration discovery', () => {
 		expect(configuration.slugs).toHaveLength(0)
 		expect(configuration.warnings[0]?.code).toBe('invalid-source-reference')
 	})
+
+	it('warns and excludes malformed options while preserving independent fields', () => {
+		const configuration = discoverCollectionConfiguration([
+			{ field: 'headline text' },
+			{
+				field: 'good_slug',
+				meta: {
+					interface: 'sluggernaut-slug',
+					options: {
+						sourceFields: ['headline text'],
+						locale: 'en',
+						lowercase: true,
+						updateOnSourceChange: true,
+						automaticRedirects: false,
+					},
+				},
+			},
+			{
+				field: 'bad_slug',
+				meta: {
+					interface: 'sluggernaut-slug',
+					options: { sourceFields: ['headline text'], locale: 'en', lowercase: 'yes' },
+				},
+			},
+			{
+				field: 'standalone',
+				meta: {
+					interface: 'sluggernaut-permalink',
+					options: {
+						generateFromSlug: false,
+						updateOnSlugChange: false,
+						validatePrefixOnManualInput: false,
+						trailingSlash: false,
+						enforceTrailingSlashOnManualInput: false,
+						automaticRedirects: false,
+					},
+				},
+			},
+		])
+		expect(configuration.slugs.map(({ field }) => field)).toEqual(['good_slug'])
+		expect(configuration.permalinks.map(({ field }) => field)).toEqual(['standalone'])
+		expect(configuration.warnings).toEqual([
+			expect.objectContaining({
+				field: 'bad_slug',
+				code: 'invalid-interface-options',
+				message: expect.stringContaining('bad_slug'),
+			}),
+		])
+	})
 })

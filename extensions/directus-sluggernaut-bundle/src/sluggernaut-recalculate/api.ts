@@ -29,10 +29,9 @@ export default defineOperationApi<RecalculateOptions>({
 			return { processed: 0, updated: 0, skipped: 0, failed: 0 }
 		}
 
-		const parsedOptions = validateRecalculateOptions(options, context)
-		const envOptions = validateExtensionOptions(context.env, envSchema, context.logger)
-
 		try {
+			const parsedOptions = validateRecalculateOptions(options, context)
+			const envOptions = validateExtensionOptions(context.env, envSchema, context.logger)
 			return await recalculateFields(parsedOptions, context, envOptions)
 		} finally {
 			setup.end()

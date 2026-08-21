@@ -147,6 +147,9 @@ export function normalizePermalink(value: string | null | undefined): string | n
  */
 export function normalizePrefix(prefix: string | null | undefined): string | null {
 	if (prefix === null || prefix === undefined || prefix.trim() === '') return null
+	if (prefix.trim().startsWith('//') || /^[a-z][a-z\d+.-]*:/iu.test(prefix.trim())) {
+		throw new Error('A permalink prefix must be a path, not a URL.')
+	}
 	const normalized = normalizePermalink(withLeadingSlash(prefix))
 	if (normalized === null) return null
 	if (normalized === '/') return '/'

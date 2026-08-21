@@ -110,7 +110,10 @@ export default defineConfig({
 					testTimeout: 30_000,
 					hookTimeout: 30_000,
 					include: integrationEnvironmentInitialized
-						? ['packages/**/__tests__/**/*.integration.{test,spec}.{js,jsx,ts,tsx}']
+						? [
+								'packages/**/__tests__/**/*.integration.{test,spec}.{js,jsx,ts,tsx}',
+								'extensions/**/__tests__/**/*.integration.{test,spec}.{js,jsx,ts,tsx}',
+							]
 						: [],
 				},
 			},
