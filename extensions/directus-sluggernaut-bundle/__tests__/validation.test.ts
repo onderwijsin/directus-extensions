@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { fieldMetadataSchema } from '../src/shared/configuration/field-metadata.schema'
-import { linkDisplayOptionsSchema } from '../src/sluggernaut-link/options.schema'
 import { recalculateOptionsSchema } from '../src/sluggernaut-recalculate/options.schema'
 
 describe('Sluggernaut boundary schemas', () => {
@@ -18,9 +17,5 @@ describe('Sluggernaut boundary schemas', () => {
 	it('accepts only usable field metadata', () => {
 		expect(fieldMetadataSchema.safeParse({ field: 'title', meta: null }).success).toBe(true)
 		expect(fieldMetadataSchema.safeParse({ field: 42 }).success).toBe(false)
-	})
-
-	it('rejects malformed display options before string handling', () => {
-		expect(linkDisplayOptionsSchema.safeParse({ host: 8055 }).success).toBe(false)
 	})
 })

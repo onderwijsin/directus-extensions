@@ -4,16 +4,13 @@ import { computed } from 'vue'
 
 import CopyButton from '../shared/components/CopyButton.vue'
 import { displayHref, displayHost } from './link'
-import { linkDisplayOptionsSchema, type LinkDisplayOptions } from './options.schema'
 
 const props = defineProps<{
 	value?: string | null
-	options?: LinkDisplayOptions
+	host?: string
 }>()
 
-const parsedOptions = computed(() => linkDisplayOptionsSchema.safeParse(props.options ?? {}))
-const host = computed(() => (parsedOptions.value.success ? parsedOptions.value.data.host : null))
-const href = computed(() => displayHref(props.value, host.value))
+const href = computed(() => displayHref(props.value, props.host))
 
 /**
  * Opens the displayed path when a valid host is configured.
@@ -21,7 +18,7 @@ const href = computed(() => displayHref(props.value, host.value))
  */
 function openValue() {
 	// Keep invalid or incomplete display configuration non-interactive rather than opening a bad URL.
-	if (href.value === null || displayHost(host.value) === null) return
+	if (href.value === null || displayHost(props.host) === null) return
 	window.open(href.value, '_blank', 'noopener,noreferrer')
 }
 </script>
@@ -32,7 +29,7 @@ function openValue() {
 		<CopyButton :value="value ?? null" x-small />
 		<v-button
 			v-if="href !== null"
-			small
+			x-small
 			secondary
 			icon
 			aria-label="Open link"
@@ -47,8 +44,17 @@ function openValue() {
 .sluggernaut-link {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
+	gap: 0.25rem;
 	width: 100%;
+}
+
+.sluggernaut-copy-button {
+	opacity: 0;
+	transition: opacity 0.1s ease-in;
+}
+
+.sluggernaut-link:hover .sluggernaut-copy-button {
+	opacity: 1;
 }
 
 .sluggernaut-link__value {

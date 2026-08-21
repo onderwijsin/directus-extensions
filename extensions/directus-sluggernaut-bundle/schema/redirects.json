@@ -42,7 +42,10 @@
 				"interface": "input",
 				"required": true,
 				"translations": [{ "language": "en-US", "translation": "Redirect origin" }],
-				"note": "The previous canonical path that should redirect to the destination."
+				"note": "The previous canonical path that should redirect to the destination.",
+				"options": {
+					"placeholder": "/old"
+				}
 			}
 		},
 		{
@@ -54,7 +57,10 @@
 				"interface": "input",
 				"required": true,
 				"translations": [{ "language": "en-US", "translation": "Redirect destination" }],
-				"note": "The new canonical path visitors should be redirected to."
+				"note": "The new canonical path visitors should be redirected to.",
+				"options": {
+					"placeholder": "/new"
+				}
 			}
 		},
 		{
@@ -131,7 +137,10 @@
 				"interface": "input",
 				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Managed by" }],
-				"note": "The system that owns and maintains this redirect."
+				"note": "The system that owns and maintains this redirect.",
+				"options": {
+					"placeholder": "Will be set automatically if needed"
+				}
 			}
 		},
 		{
@@ -143,7 +152,10 @@
 				"interface": "input",
 				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Source collection" }],
-				"note": "The Directus collection containing the source item for this redirect."
+				"note": "The Directus collection containing the source item for this redirect.",
+				"options": {
+					"placeholder": "Will be set automatically if needed"
+				}
 			}
 		},
 		{
@@ -155,7 +167,10 @@
 				"interface": "input",
 				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Source item" }],
-				"note": "The primary key of the source item for this redirect."
+				"note": "The primary key of the source item for this redirect.",
+				"options": {
+					"placeholder": "Will be set automatically if needed"
+				}
 			}
 		},
 		{
@@ -167,7 +182,10 @@
 				"interface": "input",
 				"readonly": true,
 				"translations": [{ "language": "en-US", "translation": "Source field" }],
-				"note": "The source field whose canonical value created this redirect."
+				"note": "The source field whose canonical value created this redirect.",
+				"options": {
+					"placeholder": "Will be set automatically if needed"
+				}
 			}
 		},
 		{

@@ -14,7 +14,6 @@ import type { SluggernautEnv } from '../configuration/env.schema'
 
 import {
 	attempt,
-	createAdminAccountability,
 	hasKey,
 	isArray,
 	isNumber,
@@ -149,11 +148,11 @@ export function registerSluggernautItemHooks(
 	 */
 	async function discoverArchiveSettings(collection: string) {
 		const schema = await context.getSchema()
-		const itemsService = new context.services.ItemsService('directus_collections', {
+		const collectionsService = new context.services.CollectionsService({
 			schema,
-			accountability: createAdminAccountability(),
+			accountability: null,
 		})
-		const result = await itemsService.readOne(collection, { fields: ['meta'] })
+		const result = await collectionsService.readOne(collection)
 		const parsed = collectionMetadataSchema.safeParse(result)
 		if (!parsed.success) return null
 		const meta = parsed.data.meta
