@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { generateEnvironmentSecrets, responseIsReady, shouldStagePlayground } from './e2e.mjs'
+import {
+	generateEnvironmentSecrets,
+	isVerbose,
+	responseIsReady,
+	shouldStagePlayground,
+} from './e2e.mjs'
 
 describe('E2E runner helpers', () => {
 	it('recognizes successful readiness responses', () => {
@@ -20,5 +25,11 @@ describe('E2E runner helpers', () => {
 	it('does not stage source when a packed playground build is available', () => {
 		expect(shouldStagePlayground(true)).toBe(false)
 		expect(shouldStagePlayground(false)).toBe(true)
+	})
+
+	it('only enables Compose diagnostics when --verbose is passed', () => {
+		expect(isVerbose([])).toBe(false)
+		expect(isVerbose(['--verbose'])).toBe(true)
+		expect(isVerbose(['--runInBand'])).toBe(false)
 	})
 })

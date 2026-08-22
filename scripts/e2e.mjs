@@ -2,8 +2,8 @@
  * End-to-end runner for the repository's isolated Directus test project.
  *
  * Invoked by `pnpm test:e2e` and directly by the CI E2E job. It starts the Compose
- * stack, initializes the test data, runs Vitest, prints diagnostics on failure,
- * and always removes the stack afterwards.
+ * stack, initializes the test data, runs Vitest, optionally prints diagnostics on
+ * failure, and always removes the stack afterwards.
  */
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -28,6 +28,17 @@ const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
 const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
+
+/**
+ * Determines whether the E2E runner should print Compose diagnostics.
+ * @param {string[]} [args] - Command-line arguments to inspect.
+ * @returns {boolean} Whether verbose diagnostics were requested.
+ */
+export function isVerbose(args = process.argv.slice(2)) {
+	return args.includes('--verbose')
+}
+
+const verbose = isVerbose()
 
 /**
  * Determines whether an HTTP response indicates that a service is ready.
@@ -293,7 +304,11 @@ async function waitForComposeCompletion(service) {
 		}
 		if (Date.now() >= nextProgressLog) {
 			log(`Still waiting for Compose service ${service}`)
-			await compose(['logs', '--no-color', '--tail', '50', service], { logCommand: false })
+			if (verbose) {
+				await compose(['logs', '--no-color', '--tail', '50', service], {
+					logCommand: false,
+				})
+			}
 			nextProgressLog = Date.now() + progressLogInterval
 		}
 		await new Promise((resolve) => setTimeout(resolve, 1_000))
@@ -433,13 +448,19 @@ export async function main() {
 		log(interrupted ? 'E2E run interrupted' : 'E2E tests completed successfully')
 	} catch (error) {
 		console.error(`[e2e ${new Date().toISOString()}] E2E run failed`, error)
-		// Service logs are the most useful startup/test failure diagnostic available from Compose.
-		try {
-			log('Collecting Compose service logs')
-			const logs = await compose(['logs', '--no-color'])
-			console.error(logs.stdout)
-		} catch (logError) {
-			console.error(logError)
+		if (verbose) {
+			// Service logs are the most useful startup/test failure diagnostic available from Compose.
+			try {
+				log('Collecting Compose service logs')
+				const logs = await compose(['logs', '--no-color'], { streamOutput: false })
+				console.error(logs.stdout)
+			} catch (logError) {
+				console.error(logError)
+			}
+		} else {
+			console.error(
+				'[e2e] Compose service logs suppressed; rerun with `pnpm test:e2e -- --verbose` for diagnostics',
+			)
 		}
 		process.exitCode = 1
 	} finally {

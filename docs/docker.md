@@ -92,6 +92,9 @@ Run it with:
 pnpm test:e2e
 ```
 
+Compose logs are suppressed on E2E failure by default. Rerun with `pnpm test:e2e -- --verbose` to
+include service logs and readiness diagnostics.
+
 The runner uses a unique Compose project name and run-scoped credentials. It removes all disposable
 resources in `finally`, including interrupted runs. It never stops the shared Docker daemon.
 

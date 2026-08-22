@@ -155,9 +155,16 @@ Run the isolated stack with:
 pnpm test:e2e
 ```
 
+The runner keeps Compose service logs out of the normal failure output so Vitest's failure report
+remains visible. Include them when diagnosing startup or service failures with:
+
+```sh
+pnpm test:e2e -- --verbose
+```
+
 The runner builds extensions, starts Compose, waits for service readiness, logs in the root
-administrator, runs the E2E Vitest project, prints diagnostics, and removes containers, networks,
-and named volumes in `finally`.
+administrator, runs the E2E Vitest project, and removes containers, networks, and named volumes in
+`finally`.
 
 Tests own their Directus fixtures. For example, the playground creates and removes `posts` locally:
 
