@@ -79,6 +79,29 @@ describe('redirect planner', () => {
 		expect(source).toMatchObject({ type: 'permalink', field: 'preview_route' })
 	})
 
+	it('selects the first enabled slug when an earlier one is disabled', () => {
+		const source = selectRedirectSource({
+			...configuration,
+			permalinks: configuration.permalinks.map((field) => ({
+				...field,
+				options: { ...field.options, automaticRedirects: false },
+			})),
+			slugs: [
+				{
+					...configuration.slugs[0]!,
+					options: { ...configuration.slugs[0]!.options, automaticRedirects: false },
+				},
+				{
+					...configuration.slugs[0]!,
+					field: 'secondary_slug',
+					options: { ...configuration.slugs[0]!.options, automaticRedirects: true },
+				},
+			],
+		})
+
+		expect(source).toMatchObject({ type: 'slug', field: 'secondary_slug' })
+	})
+
 	it('normalizes permalink and slug canonical values', () => {
 		expect(
 			canonicalUrlForItem({ type: 'permalink', field: 'route' }, { route: '/news//hello' }),

@@ -272,7 +272,7 @@ export function selectRedirectSource(
 		}
 	}
 
-	const slug = configuration.slugs[0]
+	const slug = configuration.slugs.find((field) => field.options.automaticRedirects)
 	if (slug?.options.automaticRedirects) {
 		return {
 			type: 'slug',

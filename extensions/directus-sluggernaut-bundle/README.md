@@ -95,9 +95,9 @@ When using Redis, provide `REDIS` as a complete URL, or configure `REDIS_ENABLED
 `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, and `REDIS_PASSWORD`. A complete `REDIS` URL takes
 precedence. For multiple Directus instances, use Redis or a shared filesystem lock.
 
-Field metadata is cached for the configured TTL and invalidated when Directus fields, collections,
-or relations are created, updated, or deleted. Use a shared cache backend such as Redis when
-multiple Directus instances must observe schema changes consistently.
+Field metadata is cached for the configured TTL and invalidated when Directus fields are created,
+updated, or deleted. Use a shared cache backend such as Redis when multiple Directus instances must
+observe field changes consistently.
 
 ```dotenv
 SLUGGERNAUT_ENABLED=true

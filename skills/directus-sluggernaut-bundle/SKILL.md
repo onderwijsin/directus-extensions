@@ -98,9 +98,8 @@ the default collection is `redirects`; a custom `SLUGGERNAUT_REDIRECTS_COLLECTIO
 schema definition.
 
 Field metadata is cached for `SLUGGERNAUT_FIELDS_CACHE_TTL_MS` and invalidated on Directus
-`fields.create`, `fields.update`, `fields.delete`, `collections.create`, `collections.update`,
-`collections.delete`, `relations.create`, `relations.update`, and `relations.delete` events. Use a
-shared Redis cache backend when schema changes must propagate across Directus instances.
+`fields.create`, `fields.update`, and `fields.delete` events. Use a shared Redis cache backend when
+field changes must propagate across Directus instances.
 
 ## Interfaces
 
