@@ -210,7 +210,7 @@ Sluggernaut creates managed `301` records with provenance:
 | `start_date`, `end_date`                                          | Optional time window owned by the consumer.             |
 | `managed_by`                                                      | `sluggernaut` for managed records.                      |
 | `source_collection`, `source_item`, `source_field`, `source_type` | Provenance for safe rewrites and lifecycle updates.     |
-| `inactive_reason`                                                 | `archive` or `delete` for lifecycle deactivation.       |
+| `inactive_reason`                                                 | `archived` or `deleted` for lifecycle deactivation.     |
 
 When Sluggernaut provisions this collection, the provenance and lifecycle fields (`managed_by`,
 `source_collection`, `source_item`, `source_field`, `source_type`, and `inactive_reason`) are

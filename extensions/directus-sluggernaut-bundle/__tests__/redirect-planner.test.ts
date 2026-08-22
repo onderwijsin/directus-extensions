@@ -338,12 +338,12 @@ describe('redirect planner', () => {
 				inactive_reason: null,
 			},
 		]
-		expect(planLifecycleDeactivation(redirects, 'delete')).toEqual([
-			{ id: 'managed', inactive_reason: 'delete' },
+		expect(planLifecycleDeactivation(redirects, 'deleted')).toEqual([
+			{ id: 'managed', inactive_reason: 'deleted' },
 		])
 		expect(
 			planArchiveReactivation([
-				{ ...redirects[0]!, inactive_reason: 'archive', is_active: false },
+				{ ...redirects[0]!, inactive_reason: 'archived', is_active: false },
 			]),
 		).toEqual([{ id: 'managed', is_active: true, inactive_reason: null }])
 	})

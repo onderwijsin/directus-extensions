@@ -491,7 +491,7 @@ describe('Sluggernaut Directus integration', () => {
 				.toEqual([
 					expect.objectContaining({
 						is_active: false,
-						inactive_reason: 'archive',
+						inactive_reason: 'archived',
 					}),
 				])
 
@@ -515,7 +515,7 @@ describe('Sluggernaut Directus integration', () => {
 						origin: '/articles/original-title',
 						destination: '/articles/new-title',
 						is_active: false,
-						inactive_reason: 'delete',
+						inactive_reason: 'deleted',
 					}),
 				])
 		} finally {
@@ -1916,7 +1916,8 @@ describe('Sluggernaut Directus integration', () => {
 			const redirects = await readRedirects(fixture.collection, itemId)
 			expect(
 				redirects.every(
-					({ is_active, inactive_reason }) => !is_active && inactive_reason === 'archive',
+					({ is_active, inactive_reason }) =>
+						!is_active && inactive_reason === 'archived',
 				),
 			).toBe(true)
 		} finally {
@@ -1944,7 +1945,7 @@ describe('Sluggernaut Directus integration', () => {
 			expect(
 				redirects.every(
 					({ inactive_reason }) =>
-						inactive_reason === null || inactive_reason === 'archive',
+						inactive_reason === null || inactive_reason === 'archived',
 				),
 			).toBe(true)
 		} finally {
@@ -1971,7 +1972,7 @@ describe('Sluggernaut Directus integration', () => {
 				.toEqual([
 					expect.objectContaining({
 						is_active: false,
-						inactive_reason: 'delete',
+						inactive_reason: 'deleted',
 						source_item: itemId,
 					}),
 				])
@@ -2109,7 +2110,7 @@ describe('Sluggernaut Directus integration', () => {
 			await client.request(deleteItem(fixture.collection, item.id))
 			await client.request(deleteItem(fixture.collection, item.id)).catch(() => undefined)
 			await expect(readRedirects(fixture.collection, itemId)).resolves.toEqual([
-				expect.objectContaining({ is_active: false, inactive_reason: 'delete' }),
+				expect.objectContaining({ is_active: false, inactive_reason: 'deleted' }),
 			])
 		} finally {
 			if (itemId)

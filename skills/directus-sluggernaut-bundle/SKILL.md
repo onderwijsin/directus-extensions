@@ -281,16 +281,16 @@ unmanaged conflict and log a warning.
 | `start_date`, `end_date`                                          | Optional consumer-controlled time window.            |
 | `managed_by`                                                      | `sluggernaut` for managed records.                   |
 | `source_collection`, `source_item`, `source_field`, `source_type` | Ownership/provenance metadata.                       |
-| `inactive_reason`                                                 | `archive` or `delete` for lifecycle deactivation.    |
+| `inactive_reason`                                                 | `archived` or `deleted` for lifecycle deactivation.  |
 
 When the bundle provisions the redirect collection, the provenance and lifecycle fields
 (`managed_by`, `source_collection`, `source_item`, `source_field`, `source_type`, and
 `inactive_reason`) are read-only and maintained by Sluggernaut.
 
-On source deletion, managed records are deactivated with `inactive_reason=delete`. When a Directus
+On source deletion, managed records are deactivated with `inactive_reason=deleted`. When a Directus
 archive field transitions to its archive value, records are deactivated with
-`inactive_reason=archive`; unarchive reactivates only archive-suspended records. Manual reactivation
-clears the inactive reason.
+`inactive_reason=archived`; unarchive reactivates only archive-suspended records. Manual
+reactivation clears the inactive reason.
 
 Update-time redirect writes are part of the mutation flow. If the configured redirect collection is
 unavailable or incompatible, redirect processing is skipped and logged while the derived item update

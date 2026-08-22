@@ -127,7 +127,7 @@ describe('redirect operations', () => {
 						source_item: '1',
 						source_field: 'route',
 						source_type: 'permalink',
-						inactive_reason: 'delete',
+						inactive_reason: 'deleted',
 					},
 				]),
 			),
@@ -136,7 +136,7 @@ describe('redirect operations', () => {
 		}
 
 		await expect(readManagedRedirectsForItem(service, 'articles', '1')).resolves.toEqual([
-			expect.objectContaining({ id: 2, inactive_reason: 'delete' }),
+			expect.objectContaining({ id: 2, inactive_reason: 'deleted' }),
 		])
 	})
 
@@ -148,13 +148,13 @@ describe('redirect operations', () => {
 		}
 
 		await applyRedirectLifecyclePlan(service, {
-			deactivate: [{ id: 'deleted', inactive_reason: 'delete' }],
+			deactivate: [{ id: 'deleted', inactive_reason: 'deleted' }],
 			reactivate: [{ id: 'archived', is_active: true, inactive_reason: null }],
 		})
 
 		expect(service.updateOne).toHaveBeenNthCalledWith(1, 'deleted', {
 			is_active: false,
-			inactive_reason: 'delete',
+			inactive_reason: 'deleted',
 		})
 		expect(service.updateOne).toHaveBeenNthCalledWith(2, 'archived', {
 			is_active: true,

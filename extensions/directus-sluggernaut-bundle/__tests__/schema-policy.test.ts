@@ -23,6 +23,10 @@ describe('Sluggernaut schema and policies', () => {
 		]) {
 			expect(byName.get(field)?.meta.readonly).toBe(true)
 		}
+		expect(byName.get('inactive_reason')?.meta.options?.choices).toEqual([
+			{ text: 'Item was archived', value: 'archived' },
+			{ text: 'Item was deleted', value: 'deleted' },
+		])
 	})
 
 	it('keeps policy permissions least-privilege and does not assign policies automatically', () => {

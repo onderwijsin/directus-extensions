@@ -1,6 +1,8 @@
 import { keys } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
+export const inactiveReasonSchema = z.enum(['archived', 'deleted'])
+
 export const redirectRecordSchema = z.strictObject({
 	id: z.union([z.uuid(), z.number()]),
 	origin: z.string(),
@@ -14,7 +16,7 @@ export const redirectRecordSchema = z.strictObject({
 	source_item: z.union([z.string(), z.number()]).nullable().default(null),
 	source_field: z.string().nullable().default(null),
 	source_type: z.enum(['slug', 'permalink']).nullable().default(null),
-	inactive_reason: z.enum(['archive', 'delete']).nullable().default(null),
+	inactive_reason: inactiveReasonSchema.nullable().default(null),
 })
 
 export const redirectCreateSchema = redirectRecordSchema
@@ -36,6 +38,7 @@ export const REDIRECT_FIELDS = keys(redirectRecordSchema.shape)
 export type RedirectSourceType = NonNullable<
 	z.output<typeof redirectRecordSchema.shape.source_type>
 >
+export type InactiveReason = z.output<typeof inactiveReasonSchema>
 export type RedirectField = keyof typeof redirectRecordSchema.shape
 export type Redirect = z.output<typeof redirectRecordSchema>
 export type RedirectCreateInput = z.input<typeof redirectCreateSchema>

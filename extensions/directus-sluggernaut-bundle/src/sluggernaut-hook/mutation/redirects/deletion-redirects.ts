@@ -31,7 +31,7 @@ export async function processDeletedItems(input: {
 	for (const key of keys) {
 		const redirects = await readManagedRedirectsForItem(service, collection, key)
 		await applyRedirectLifecyclePlan(service, {
-			deactivate: planLifecycleDeactivation(redirects, 'delete'),
+			deactivate: planLifecycleDeactivation(redirects, 'deleted'),
 			reactivate: [],
 		})
 	}

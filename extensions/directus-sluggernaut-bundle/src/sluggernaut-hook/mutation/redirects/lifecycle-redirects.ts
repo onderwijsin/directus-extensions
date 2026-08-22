@@ -36,7 +36,7 @@ export async function processArchiveLifecycle(input: {
 		const redirects = await readManagedRedirectsForItem(service, collection, key)
 		await applyRedirectLifecyclePlan(service, {
 			deactivate:
-				lifecycle === 'archive' ? planLifecycleDeactivation(redirects, 'archive') : [],
+				lifecycle === 'archive' ? planLifecycleDeactivation(redirects, 'archived') : [],
 			reactivate: lifecycle === 'unarchive' ? planArchiveReactivation(redirects) : [],
 		})
 	} catch (error) {

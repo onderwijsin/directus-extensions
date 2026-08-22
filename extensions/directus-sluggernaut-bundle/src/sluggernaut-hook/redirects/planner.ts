@@ -7,7 +7,7 @@
  */
 import type { PrimaryKey } from '@directus/types'
 import type { CollectionConfiguration } from '../../shared/configuration/types'
-import type { Redirect, RedirectSource, RedirectCreateInput } from './schema'
+import type { InactiveReason, Redirect, RedirectSource, RedirectCreateInput } from './schema'
 
 import { attemptSync, isNonBlankString } from '@onderwijsin/directus-extension-utils'
 import { withLeadingSlash } from 'ufo'
@@ -39,7 +39,7 @@ export interface RedirectPlan {
  * mutations are described by {@link RedirectPlan}.
  */
 export interface RedirectLifecyclePlan {
-	deactivate: { id: PrimaryKey; inactive_reason: 'archive' | 'delete' }[]
+	deactivate: { id: PrimaryKey; inactive_reason: InactiveReason }[]
 	reactivate: { id: PrimaryKey; is_active: true; inactive_reason: null }[]
 }
 
@@ -367,7 +367,7 @@ export function planCanonicalRedirect(input: {
  */
 export function planLifecycleDeactivation(
 	redirects: readonly Redirect[],
-	inactiveReason: 'archive' | 'delete',
+	inactiveReason: InactiveReason,
 ): RedirectLifecyclePlan['deactivate'] {
 	return redirects
 		.filter(
@@ -390,7 +390,7 @@ export function planArchiveReactivation(
 	return redirects
 		.filter(
 			(redirect) =>
-				redirect.managed_by === 'sluggernaut' && redirect.inactive_reason === 'archive',
+				redirect.managed_by === 'sluggernaut' && redirect.inactive_reason === 'archived',
 		)
 		.map((redirect) => ({ id: redirect.id, is_active: true, inactive_reason: null }))
 }
