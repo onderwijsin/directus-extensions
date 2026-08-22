@@ -35,6 +35,133 @@
 	"fields": [
 		{
 			"collection": "redirects",
+			"field": "user_created",
+			"type": "uuid",
+			"schema": {
+				"data_type": "uuid",
+				"is_nullable": true,
+				"foreign_key_schema": "public",
+				"foreign_key_table": "directus_users",
+				"foreign_key_column": "id"
+			},
+			"meta": {
+				"special": ["user-created"],
+				"interface": "select-dropdown-m2o",
+				"display": "user",
+				"readonly": true,
+				"required": false,
+				"hidden": false
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "date_created",
+			"type": "timestamp",
+			"schema": {
+				"data_type": "timestamp with time zone",
+				"is_nullable": false
+			},
+			"meta": {
+				"special": ["date-created"],
+				"interface": "datetime",
+				"display": "datetime",
+				"readonly": true,
+				"required": false,
+				"hidden": false
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "user_updated",
+			"type": "uuid",
+			"schema": {
+				"data_type": "uuid",
+				"is_nullable": true,
+				"foreign_key_schema": "public",
+				"foreign_key_table": "directus_users",
+				"foreign_key_column": "id"
+			},
+			"meta": {
+				"special": ["user-updated"],
+				"interface": "select-dropdown-m2o",
+				"display": "user",
+				"readonly": true,
+				"required": false,
+				"hidden": false
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "date_updated",
+			"type": "timestamp",
+			"schema": {
+				"data_type": "timestamp with time zone",
+				"is_nullable": true
+			},
+			"meta": {
+				"special": ["date-updated"],
+				"interface": "datetime",
+				"display": "datetime",
+				"readonly": true,
+				"required": false,
+				"hidden": false
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "match",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 7,
+				"default_value": "exact",
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "select-dropdown",
+				"required": true,
+				"options": {
+					"choices": [
+						{ "text": "Exact", "value": "exact" },
+						{ "text": "Pattern", "value": "pattern" }
+					]
+				},
+				"translations": [{ "language": "en-US", "translation": "Match type" }]
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "specificity",
+			"type": "bigInteger",
+			"schema": {
+				"data_type": "bigint",
+				"numeric_precision": 64,
+				"numeric_scale": 0,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"note": "System-derived pattern precedence. Exact redirects leave this field empty."
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "matcher_signature",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"note": "System-derived pattern matching signature. Exact redirects leave this field empty."
+			}
+		},
+		{
+			"collection": "redirects",
 			"field": "origin",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": false },
@@ -216,7 +343,12 @@
 			"collection": "redirects",
 			"field": "inactive_reason",
 			"type": "string",
-			"schema": { "data_type": "varchar", "max_length": 16, "is_nullable": true },
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 16,
+				"default_value": null,
+				"is_nullable": true
+			},
 			"meta": {
 				"interface": "select-dropdown",
 				"readonly": true,
@@ -237,5 +369,44 @@
 			}
 		}
 	],
-	"relations": []
+	"relations": [
+		{
+			"collection": "redirects",
+			"field": "user_created",
+			"related_collection": "directus_users",
+			"schema": {
+				"column": "user_created",
+				"foreign_key_schema": "public",
+				"foreign_key_table": "directus_users",
+				"foreign_key_column": "id",
+				"on_update": "NO ACTION",
+				"on_delete": "NO ACTION"
+			},
+			"meta": {
+				"many_collection": "redirects",
+				"many_field": "user_created",
+				"one_collection": "directus_users",
+				"one_deselect_action": "nullify"
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "user_updated",
+			"related_collection": "directus_users",
+			"schema": {
+				"column": "user_updated",
+				"foreign_key_schema": "public",
+				"foreign_key_table": "directus_users",
+				"foreign_key_column": "id",
+				"on_update": "NO ACTION",
+				"on_delete": "NO ACTION"
+			},
+			"meta": {
+				"many_collection": "redirects",
+				"many_field": "user_updated",
+				"one_collection": "directus_users",
+				"one_deselect_action": "nullify"
+			}
+		}
+	]
 }

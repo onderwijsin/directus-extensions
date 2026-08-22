@@ -24,14 +24,20 @@ describe('Sluggernaut redirect boundaries', () => {
 			id: 1,
 			origin: '/old',
 			destination: '/new',
+			date_created: '2025-03-17T15:19:35.672Z',
 			start_date: '2026-01-01T00:00:00.000Z',
 			end_date: null,
 		})
 		expect(record).toMatchObject({ type: 301, is_active: true, managed_by: null })
 		expect(record.start_date).toBe('2026-01-01T00:00:00.000Z')
 		expect(
-			redirectRecordSchema.parse({ id: 2, origin: '/old', destination: '/new' }),
-		).not.toHaveProperty('start_date')
+			redirectRecordSchema.parse({
+				id: 2,
+				origin: '/old',
+				destination: '/new',
+				date_created: '2025-03-17T15:19:35.672Z',
+			}),
+		).toMatchObject({ start_date: null, end_date: null })
 		expect(
 			redirectCreateSchema.parse({
 				origin: '/old',

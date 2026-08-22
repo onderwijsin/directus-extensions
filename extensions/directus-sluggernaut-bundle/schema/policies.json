@@ -46,7 +46,15 @@
 							}
 						]
 					},
-					"fields": ["id", "origin", "destination"]
+					"fields": [
+						"id",
+						"origin",
+						"destination",
+						"match",
+						"specificity",
+						"start_date",
+						"end_date"
+					]
 				}
 			]
 		}

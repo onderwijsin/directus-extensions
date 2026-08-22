@@ -16,7 +16,11 @@ describe('redirect operations', () => {
 						id: 1,
 						origin: '/old',
 						destination: '/new',
+						date_created: '2025-03-17T15:19:35.672Z',
 						type: 301,
+						match: 'exact',
+						specificity: null,
+						matcher_signature: null,
 						is_active: true,
 						managed_by: 'sluggernaut',
 						inactive_reason: null,
@@ -44,7 +48,15 @@ describe('redirect operations', () => {
 		expect(service.readByQuery).toHaveBeenCalledWith(
 			expect.objectContaining({
 				filter: {
-					_or: [{ origin: { _in: ['/old', '/new'] } }, { destination: { _eq: '/old' } }],
+					_and: [
+						{ match: { _eq: 'exact' } },
+						{
+							_or: [
+								{ origin: { _in: ['/old', '/new'] } },
+								{ destination: { _eq: '/old' } },
+							],
+						},
+					],
 				},
 			}),
 		)
@@ -53,6 +65,7 @@ describe('redirect operations', () => {
 			expect.objectContaining({
 				filter: {
 					_and: [
+						{ match: { _eq: 'exact' } },
 						{ managed_by: { _eq: 'sluggernaut' } },
 						{ source_collection: { _eq: 'entries' } },
 						{ source_item: { _eq: 7 } },
@@ -74,6 +87,9 @@ describe('redirect operations', () => {
 				origin: '/old',
 				destination: '/new',
 				type: 301,
+				match: 'exact',
+				specificity: null,
+				matcher_signature: null,
 				is_active: true,
 				managed_by: 'sluggernaut',
 				source_collection: 'articles',
@@ -93,6 +109,9 @@ describe('redirect operations', () => {
 			origin: '/old',
 			destination: '/new',
 			type: 301,
+			match: 'exact',
+			specificity: null,
+			matcher_signature: null,
 			is_active: true,
 			managed_by: 'sluggernaut',
 			source_collection: 'articles',
@@ -120,7 +139,11 @@ describe('redirect operations', () => {
 						id: 2,
 						origin: '/old',
 						destination: '/new',
+						date_created: '2025-03-17T15:19:35.672Z',
 						type: 301,
+						match: 'exact',
+						specificity: null,
+						matcher_signature: null,
 						is_active: false,
 						managed_by: 'sluggernaut',
 						source_collection: 'articles',
@@ -174,6 +197,9 @@ describe('redirect operations', () => {
 					origin: '/old',
 					destination: '/new',
 					type: 301,
+					match: 'exact',
+					specificity: null,
+					matcher_signature: null,
 					is_active: true,
 					managed_by: 'sluggernaut',
 					source_collection: 'entries',

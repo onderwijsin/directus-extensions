@@ -7,6 +7,11 @@ describe('Sluggernaut schema and policies', () => {
 	it('declares redirect fields, defaults, nullable scheduling, and read-only provenance', () => {
 		const fields = redirects.fields
 		const byName = new Map(fields.map((field) => [field.field, field]))
+		expect(byName.get('match')?.schema.default_value).toBe('exact')
+		expect(byName.get('match')?.schema.is_nullable).toBe(false)
+		expect(byName.get('specificity')?.type).toBe('bigInteger')
+		expect(byName.get('specificity')?.schema.is_nullable).toBe(true)
+		expect(byName.get('matcher_signature')?.meta.readonly).toBe(true)
 		expect(byName.get('origin')?.schema.is_nullable).toBe(false)
 		expect(byName.get('destination')?.schema.is_nullable).toBe(false)
 		expect(byName.get('type')?.schema.default_value).toBe(301)
@@ -23,6 +28,22 @@ describe('Sluggernaut schema and policies', () => {
 		]) {
 			expect(byName.get(field)?.meta.readonly).toBe(true)
 		}
+		for (const field of ['user_created', 'date_created', 'user_updated', 'date_updated'])
+			expect(byName.get(field)?.meta.readonly).toBe(true)
+		expect(redirects.relations).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					field: 'user_created',
+					related_collection: 'directus_users',
+					meta: expect.objectContaining({ one_deselect_action: 'nullify' }),
+				}),
+				expect.objectContaining({
+					field: 'user_updated',
+					related_collection: 'directus_users',
+					meta: expect.objectContaining({ one_deselect_action: 'nullify' }),
+				}),
+			]),
+		)
 		expect(byName.get('inactive_reason')?.meta.options?.choices).toEqual([
 			{ text: 'Item was archived', value: 'archived' },
 			{ text: 'Item was deleted', value: 'deleted' },
@@ -39,6 +60,14 @@ describe('Sluggernaut schema and policies', () => {
 			).toBe(true)
 		}
 		const read = policies.policies.find((policy) => policy.name === 'Can Read Active Redirects')
-		expect(read?.permissions[0]?.fields).toEqual(['id', 'origin', 'destination'])
+		expect(read?.permissions[0]?.fields).toEqual([
+			'id',
+			'origin',
+			'destination',
+			'match',
+			'specificity',
+			'start_date',
+			'end_date',
+		])
 	})
 })

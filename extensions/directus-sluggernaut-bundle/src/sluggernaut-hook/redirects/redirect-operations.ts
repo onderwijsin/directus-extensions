@@ -45,9 +45,14 @@ export async function readRelevantRedirects(
 ): Promise<Redirect[]> {
 	const result = await service.readByQuery({
 		filter: {
-			_or: [
-				{ origin: { _in: [oldCanonical, newCanonical] } },
-				{ destination: { _eq: oldCanonical } },
+			_and: [
+				{ match: { _eq: 'exact' } },
+				{
+					_or: [
+						{ origin: { _in: [oldCanonical, newCanonical] } },
+						{ destination: { _eq: oldCanonical } },
+					],
+				},
 			],
 		},
 		fields: [...REDIRECT_FIELDS],
@@ -76,6 +81,7 @@ export async function readManagedRedirectsForItem(
 	const result = await service.readByQuery({
 		filter: {
 			_and: [
+				{ match: { _eq: 'exact' } },
 				{ managed_by: { _eq: 'sluggernaut' } },
 				{ source_collection: { _eq: sourceCollection } },
 				{ source_item: { _eq: sourceItem } },

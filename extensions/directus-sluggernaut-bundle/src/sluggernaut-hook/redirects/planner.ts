@@ -153,8 +153,9 @@ function redirectsIncludedInPlanning(
 	redirects: readonly Redirect[],
 	transition: CanonicalRedirectTransition,
 ): Redirect[] {
-	if (transition.source.includeUnmanagedRedirectsInPlanning ?? true) return [...redirects]
-	return redirects.filter((redirect) => redirect.managed_by === 'sluggernaut')
+	const exactRedirects = redirects.filter((redirect) => redirect.match === 'exact')
+	if (transition.source.includeUnmanagedRedirectsInPlanning ?? true) return exactRedirects
+	return exactRedirects.filter((redirect) => redirect.managed_by === 'sluggernaut')
 }
 
 /**
@@ -243,6 +244,9 @@ function createManagedRedirect(transition: CanonicalRedirectTransition): Redirec
 		origin: transition.oldCanonical,
 		destination: transition.newCanonical,
 		type: 301,
+		match: 'exact',
+		specificity: null,
+		matcher_signature: null,
 		is_active: true,
 		managed_by: 'sluggernaut',
 		source_collection: transition.source_collection,

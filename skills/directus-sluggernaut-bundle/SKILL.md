@@ -277,15 +277,20 @@ unmanaged conflict and log a warning.
 | ----------------------------------------------------------------- | ---------------------------------------------------- |
 | `origin`, `destination`                                           | Canonical path transition.                           |
 | `type`                                                            | Managed records use `301`.                           |
+| `match`                                                           | `exact` for automatically generated records.         |
+| `specificity`, `matcher_signature`                                | Reserved matcher metadata; currently `null`.         |
 | `is_active`                                                       | Whether a redirect consumer should serve the record. |
 | `start_date`, `end_date`                                          | Optional consumer-controlled time window.            |
 | `managed_by`                                                      | `sluggernaut` for managed records.                   |
 | `source_collection`, `source_item`, `source_field`, `source_type` | Ownership/provenance metadata.                       |
 | `inactive_reason`                                                 | `archived` or `deleted` for lifecycle deactivation.  |
+| `user_created`, `date_created`, `user_updated`, `date_updated`    | Standard Directus audit fields.                      |
 
 When the bundle provisions the redirect collection, the provenance and lifecycle fields
 (`managed_by`, `source_collection`, `source_item`, `source_field`, `source_type`, and
-`inactive_reason`) are read-only and maintained by Sluggernaut.
+`inactive_reason`, `specificity`, and `matcher_signature`) are read-only and maintained by
+Sluggernaut. The automatic history planner currently includes exact-match records only; pattern
+records are reserved for a future matcher and are not interpreted or generated yet.
 
 On source deletion, managed records are deactivated with `inactive_reason=deleted`. When a Directus
 archive field transitions to its archive value, records are deactivated with

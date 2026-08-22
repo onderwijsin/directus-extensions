@@ -208,15 +208,20 @@ Sluggernaut creates managed `301` records with provenance:
 | `origin`                                                          | Previous canonical path.                                |
 | `destination`                                                     | New canonical path.                                     |
 | `type`                                                            | `301` for managed records.                              |
+| `match`                                                           | `exact` for automatically generated records.            |
+| `specificity`, `matcher_signature`                                | Reserved matcher metadata; currently `null`.            |
 | `is_active`                                                       | Whether your redirect consumer should serve the record. |
 | `start_date`, `end_date`                                          | Optional time window owned by the consumer.             |
 | `managed_by`                                                      | `sluggernaut` for managed records.                      |
 | `source_collection`, `source_item`, `source_field`, `source_type` | Provenance for safe rewrites and lifecycle updates.     |
 | `inactive_reason`                                                 | `archived` or `deleted` for lifecycle deactivation.     |
+| `user_created`, `date_created`, `user_updated`, `date_updated`    | Standard Directus audit fields.                         |
 
 When Sluggernaut provisions this collection, the provenance and lifecycle fields (`managed_by`,
-`source_collection`, `source_item`, `source_field`, `source_type`, and `inactive_reason`) are
-read-only and maintained by the bundle.
+`source_collection`, `source_item`, `source_field`, `source_type`, `inactive_reason`, `specificity`,
+and `matcher_signature`) are read-only and maintained by the bundle. The automatic history planner
+currently includes exact-match records only; pattern records are reserved for a future matcher and
+are not interpreted or generated yet.
 
 Canonical changes create or rewrite the latest redirect, flatten included redirect chains, and
 deactivate included loops. By default, unmanaged redirects are included and the latest canonical
