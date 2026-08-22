@@ -46,6 +46,7 @@ catalog:
   zod: 4.4.3
   ofetch: 1.5.1
   ufo: 1.6.4
+  regexparam: 3.0.0
 catalogs:
   node24:
     '@types/node': 24.13.3
