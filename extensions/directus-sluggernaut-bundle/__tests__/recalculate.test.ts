@@ -2,6 +2,7 @@ import type { CollectionConfiguration } from '../src/shared/configuration/types'
 
 import { describe, expect, it, vi } from 'vitest'
 
+import { coordinateMutation } from '../src/sluggernaut-hook/mutation/coordinator'
 import { recalculateItem } from '../src/sluggernaut-recalculate/item'
 import { recalculatePages } from '../src/sluggernaut-recalculate/pages'
 import {
@@ -49,6 +50,146 @@ const configuration: CollectionConfiguration = {
 const logger = { warn: vi.fn() }
 
 describe('Sluggernaut recalculation', () => {
+	it('recalculate only the selected slug or permalink', () => {
+		expect(
+			coordinateMutation({
+				kind: 'recalculate',
+				payload: {},
+				existingItem: {
+					title: 'Selected New',
+					slug: 'selected-old',
+					route: '/manual-stable',
+				},
+				configuration,
+				fieldKeys: new Set(['slug']),
+			}).payload,
+		).toEqual({ slug: 'selected-new' })
+		expect(
+			coordinateMutation({
+				kind: 'recalculate',
+				payload: {},
+				existingItem: {
+					title: 'Selected Permalink',
+					slug: 'selected-permalink',
+					route: '/stale-path',
+				},
+				configuration,
+				fieldKeys: new Set(['route']),
+			}).payload,
+		).toEqual({ route: '/selected-permalink' })
+	})
+
+	it('recalculates a slug before its dependent permalink', () => {
+		expect(
+			coordinateMutation({
+				kind: 'recalculate',
+				payload: {},
+				existingItem: { title: 'Dependency New', slug: null, route: null },
+				configuration,
+				fieldKeys: new Set(['slug', 'route']),
+			}).payload,
+		).toEqual({ slug: 'dependency-new', route: '/dependency-new' })
+	})
+
+	it('supports recalculating a standalone permalink without a slug', () => {
+		const standaloneConfiguration: CollectionConfiguration = {
+			slugs: [],
+			permalinks: [
+				{
+					field: 'route',
+					sort: 1,
+					options: {
+						generateFromSlug: false,
+						updateOnSlugChange: false,
+						validatePrefixOnManualInput: false,
+						trailingSlash: false,
+						enforceTrailingSlashOnManualInput: false,
+						automaticRedirects: false,
+					},
+				},
+			],
+			warnings: [],
+		}
+		expect(
+			coordinateMutation({
+				kind: 'recalculate',
+				payload: {},
+				existingItem: { route: '/standalone-old' },
+				configuration: standaloneConfiguration,
+				fieldKeys: new Set(['route']),
+			}).payload,
+		).toEqual({})
+	})
+
+	it('uses database persistence when redirect creation is disabled', async () => {
+		const update = vi.fn().mockResolvedValue(1)
+		const database = vi.fn(() => ({ where: vi.fn(() => ({ update })) }))
+		await expect(
+			recalculateItem({
+				item: { entry_id: 1, title: 'No Redirect Repair', slug: 'old' },
+				primaryKey: 'entry_id',
+				collection: 'entries',
+				configuration,
+				fieldKeys: new Set(['slug']),
+				itemsService: { updateOne: vi.fn() },
+				database,
+				logger,
+				createRedirects: false,
+				redirectsEnabled: true,
+			} as never),
+		).resolves.toBe('updated')
+		expect(update).toHaveBeenCalledWith({ slug: 'no-redirect-repair' })
+	})
+
+	it('continues page processing after a failed item', async () => {
+		const processItem = vi.fn().mockResolvedValueOnce('failed').mockResolvedValueOnce('updated')
+		await expect(
+			recalculatePages({
+				itemsService: {
+					readByQuery: vi.fn().mockResolvedValue([{ id: 1 }, { id: 2 }]),
+				} as never,
+				fields: ['id'],
+				primaryKey: 'id',
+				processItem,
+			}),
+		).resolves.toEqual({ processed: 2, updated: 1, skipped: 0, failed: 1 })
+	})
+
+	it('returns no work for empty and unknown field selections', () => {
+		expect(
+			selectFieldKeys(
+				{ collection: 'entries', fields: [], createRedirects: false },
+				configuration,
+			),
+		).toEqual(new Set())
+		expect(
+			selectFieldKeys(
+				{ collection: 'entries', fields: ['unknown'], createRedirects: false },
+				configuration,
+			),
+		).toEqual(new Set())
+	})
+
+	it('are no-ops for repeated recalculation and repeated import values', () => {
+		const first = coordinateMutation({
+			kind: 'recalculate',
+			payload: {},
+			existingItem: { title: 'Repeat', slug: 'repeat', route: '/repeat' },
+			configuration,
+		})
+		const second = coordinateMutation({
+			kind: 'update',
+			payload: { title: 'Repeat' },
+			existingItem: { title: 'Repeat', slug: 'repeat', route: '/repeat' },
+			configuration,
+		})
+		expect(first.payload).toEqual({ slug: 'repeat', route: '/repeat' })
+		expect(second.payload).toEqual({
+			title: 'Repeat',
+			slug: 'repeat',
+		})
+	})
+
 	it('selects deduplicated fields, preserves dependency order, and finds primary keys', () => {
 		expect(
 			selectFieldKeys(
