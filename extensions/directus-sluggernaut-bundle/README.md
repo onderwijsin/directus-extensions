@@ -1,10 +1,12 @@
 # @onderwijsin/directus-sluggernaut-bundle
 
 Sluggernaut provides field-driven slugs, URL paths, a link display, managed redirect history, and a
-recalculation operation for Directus 12.2.0 and newer.
+recalculation operation for Directus 12.2.0 and later within the Directus 12 release line
+(`>=12.2.0 <13`).
 
-It is a non-sandboxed bundle. Install it in a trusted, self-hosted Directus runtime; it is not a
-Marketplace-safe extension.
+It is a non-sandboxed bundle. It is best suited for installation as an npm package in a trusted,
+self-hosted Directus runtime. Marketplace availability depends on the Directus instance's trust
+configuration for non-sandboxed extensions.
 
 ## What it provides
 

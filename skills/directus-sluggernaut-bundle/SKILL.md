@@ -25,10 +25,11 @@ worker must serve records from the redirect collection.
 
 ## Prerequisites and deployment
 
-- Directus runtime `>=12.2.0 <13`.
+- Directus 12.2.0 or later within the Directus 12 release line (`>=12.2.0 <13`).
 - Node.js `>=24.10.0` in the Directus runtime.
-- A trusted self-hosted Directus deployment. The bundle is non-sandboxed and is not suitable for
-  Marketplace distribution.
+- A trusted self-hosted Directus deployment. The bundle is non-sandboxed and is best suited for
+  installation as an npm package. Marketplace availability depends on the instance's trust
+  configuration for non-sandboxed extensions.
 - Permission to install an npm package in the Directus runtime and restart Directus.
 - A string source field for each generated slug.
 - A string field for each Sluggernaut slug or permalink interface.
