@@ -2,12 +2,12 @@ import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/t
 import type { CollectionConfiguration } from '../../../shared/configuration/types'
 import type { SluggernautEnv } from '../../configuration/env.schema'
 
+import { applyRedirectPlan, readRelevantRedirects } from '../../redirects/history/operations'
 import {
 	canonicalUrlForItem,
 	planCanonicalRedirect,
 	selectRedirectSource,
-} from '../../redirects/planner'
-import { applyRedirectPlan, readRelevantRedirects } from '../../redirects/redirect-operations'
+} from '../../redirects/history/planner'
 import { createRedirectService } from '../../redirects/service'
 
 /**

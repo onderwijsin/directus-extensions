@@ -7,7 +7,7 @@ import {
 	canonicalUrlForItem,
 	planCanonicalRedirect,
 	selectRedirectSource,
-} from '../src/sluggernaut-hook/redirects/planner'
+} from '../src/sluggernaut-hook/redirects/history/planner'
 
 const source: RedirectSource = {
 	type: 'permalink' as const,

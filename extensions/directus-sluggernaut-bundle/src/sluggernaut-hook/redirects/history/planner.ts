@@ -6,13 +6,13 @@
  * selected source field opts into it; lifecycle planning remains limited to Sluggernaut records.
  */
 import type { PrimaryKey } from '@directus/types'
-import type { CollectionConfiguration } from '../../shared/configuration/types'
-import type { InactiveReason, Redirect, RedirectSource, RedirectCreateInput } from './schema'
+import type { CollectionConfiguration } from '../../../shared/configuration/types'
+import type { InactiveReason, Redirect, RedirectSource, RedirectCreateInput } from '../schema'
 
 import { attemptSync, isNonBlankString } from '@onderwijsin/directus-extension-utils'
 import { withLeadingSlash } from 'ufo'
 
-import { normalizePermalink } from '../../shared/values/normalization'
+import { normalizePermalink } from '../../../shared/values/normalization'
 
 /**
  * Pure database mutations required when a source item's canonical URL changes.

@@ -5,7 +5,7 @@ import {
 	applyRedirectPlan,
 	readManagedRedirectsForItem,
 	readRelevantRedirects,
-} from '../src/sluggernaut-hook/redirects/redirect-operations'
+} from '../src/sluggernaut-hook/redirects/history/operations'
 
 describe('redirect operations', () => {
 	it('reads and parses only compatible redirect records', async () => {

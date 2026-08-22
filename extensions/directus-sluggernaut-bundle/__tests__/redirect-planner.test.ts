@@ -9,7 +9,7 @@ import {
 	planCanonicalRedirect,
 	planLifecycleDeactivation,
 	selectRedirectSource,
-} from '../src/sluggernaut-hook/redirects/planner'
+} from '../src/sluggernaut-hook/redirects/history/planner'
 
 const configuration: CollectionConfiguration = {
 	slugs: [

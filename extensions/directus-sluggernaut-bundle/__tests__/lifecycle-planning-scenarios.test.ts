@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
 	planArchiveReactivation,
 	planLifecycleDeactivation,
-} from '../src/sluggernaut-hook/redirects/planner'
+} from '../src/sluggernaut-hook/redirects/history/planner'
 
 const redirect = (overrides: Partial<Redirect> = {}): Redirect => ({
 	id: 'redirect',

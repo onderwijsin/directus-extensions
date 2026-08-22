@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../src/sluggernaut-hook/redirects/service', () => ({
 	createRedirectService: mocks.createRedirectService,
 }))
-vi.mock('../src/sluggernaut-hook/redirects/redirect-operations', () => ({
+vi.mock('../src/sluggernaut-hook/redirects/history/operations', () => ({
 	readRelevantRedirects: mocks.readRelevantRedirects,
 	applyRedirectPlan: mocks.applyRedirectPlan,
 	readManagedRedirectsForItem: mocks.readManagedRedirectsForItem,

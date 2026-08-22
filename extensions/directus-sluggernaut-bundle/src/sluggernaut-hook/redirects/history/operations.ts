@@ -1,4 +1,5 @@
 import type { PrimaryKey } from '@directus/types'
+import type { RedirectService } from '../service'
 /**
  * @fileoverview Validates and applies redirect operations at the Directus boundary.
  *
@@ -8,11 +9,10 @@ import type { PrimaryKey } from '@directus/types'
  * validates and applies that native Directus shape at the runtime boundary.
  */
 import type { RedirectLifecyclePlan, RedirectPlan } from './planner'
-import type { RedirectService } from './service'
 
 import { isArray } from '@onderwijsin/directus-extension-utils'
 
-import { redirectRecordSchema, type Redirect, REDIRECT_FIELDS } from './schema'
+import { redirectRecordSchema, type Redirect, REDIRECT_FIELDS } from '../schema'
 
 interface RedirectOperationsService {
 	readByQuery: (query: Parameters<RedirectService['readByQuery']>[0]) => Promise<unknown>

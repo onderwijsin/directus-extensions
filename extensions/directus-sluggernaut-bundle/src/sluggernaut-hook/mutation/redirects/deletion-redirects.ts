@@ -1,11 +1,11 @@
 import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/types'
 import type { SluggernautEnv } from '../../configuration/env.schema'
 
-import { planLifecycleDeactivation } from '../../redirects/planner'
 import {
 	applyRedirectLifecyclePlan,
 	readManagedRedirectsForItem,
-} from '../../redirects/redirect-operations'
+} from '../../redirects/history/operations'
+import { planLifecycleDeactivation } from '../../redirects/history/planner'
 import { createRedirectService } from '../../redirects/service'
 
 /**
