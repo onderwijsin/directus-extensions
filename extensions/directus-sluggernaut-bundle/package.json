@@ -56,6 +56,7 @@
 		"@directus/errors": "catalog:",
 		"@directus/memory": "catalog:",
 		"@vueuse/core": "catalog:",
+		"regexparam": "catalog:",
 		"ufo": "catalog:",
 		"zod": "catalog:"
 	},
