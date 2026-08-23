@@ -139,13 +139,13 @@ registration.
 The startup hook ensures `coolify_applications` (or the configured collection). Fields are required
 and non-null:
 
-| Field                                                                                            | Input       | Behavior                                                     |
-| ------------------------------------------------------------------------------------------------ | ----------- | ------------------------------------------------------------ |
-| `id`                                                                                             | none        | Hidden Directus UUID primary key.                            |
-| `application_uuid`                                                                               | create only | Unique Coolify application UUID.                             |
-| `name`, `project_uuid`, `project_name`, `environment_uuid`, `environment_name`, `production_url` | none        | Loaded from Coolify and read-only.                           |
-| `enabled`                                                                                        | writable    | Defaults true; false removes the record from endpoint reads. |
-| `deploy_enabled`                                                                                 | writable    | Defaults true; false blocks deploy and cancel mutations.     |
+| Field                                                                                            | Input            | Behavior                                                     |
+| ------------------------------------------------------------------------------------------------ | ---------------- | ------------------------------------------------------------ |
+| `id`                                                                                             | none             | Hidden Directus UUID primary key.                            |
+| `application_uuid`                                                                               | create or update | Unique Coolify application UUID.                             |
+| `name`, `project_uuid`, `project_name`, `environment_uuid`, `environment_name`, `production_url` | none             | Loaded from Coolify and read-only.                           |
+| `enabled`                                                                                        | writable         | Defaults true; false removes the record from endpoint reads. |
+| `deploy_enabled`                                                                                 | writable         | Defaults true; false blocks deploy and cancel mutations.     |
 
 Create with only the UUID:
 
@@ -162,12 +162,14 @@ const result = await fetch(`${directusUrl}/items/coolify_applications`, {
 if (!result.ok) throw new Error(await result.text())
 ```
 
-The create filter fetches Coolify with an initial allow-list bypass, verifies the UUID, and requires
-name, project UUID/name, environment UUID/name, and an HTTP(S) production URL. If Coolify returns
-multiple comma-separated FQDNs, only the first URL is stored. An unavailable, incomplete, or unsafe
-provider response rejects the item without saving partial data. Existing records are not refreshed
-automatically. Updates to `application_uuid` and other Coolify-managed metadata fields are rejected;
-after creation, only `enabled` and `deploy_enabled` may be changed.
+The create and update filters fetch Coolify with an initial allow-list bypass, verify the UUID, and
+require name, project UUID/name, environment UUID/name, and an HTTP(S) production URL. If Coolify
+returns multiple comma-separated FQDNs, only the first URL is stored. An unavailable, incomplete, or
+unsafe provider response rejects the item without saving partial data. Existing records are not
+refreshed automatically unless `application_uuid` is included in an update. Updates that include an
+`application_uuid` re-enrich the complete provider-managed metadata; other direct updates to
+Coolify-managed metadata fields are rejected. After creation, only `enabled` and `deploy_enabled`
+may be changed without re-enrichment.
 
 ## Bundle entries
 

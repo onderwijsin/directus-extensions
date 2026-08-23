@@ -75,7 +75,7 @@ const application = {
 	serverName: null,
 }
 
-describe('Coolify application create hook', () => {
+describe('Coolify application enrichment hook', () => {
 	const registerHook = () =>
 		hook(
 			{
@@ -194,21 +194,38 @@ describe('Coolify application create hook', () => {
 		expect(mocks.logger.error).toHaveBeenCalledOnce()
 	})
 
-	it('rejects updates to provider-managed fields', () => {
+	it('enriches updates that change the application UUID', async () => {
 		const updateFilter = mocks.filter.mock.calls.find(
 			([event]) => event === 'deployment_targets.items.update',
 		)?.[1]
 		if (typeof updateFilter !== 'function')
 			throw new Error('Expected application update filter')
 
-		expect(() => updateFilter({ application_uuid: 'another-application' })).toThrow(
-			'application_uuid is managed by Coolify and cannot be updated',
-		)
-		expect(updateFilter({ enabled: false, deploy_enabled: true })).toEqual({
+		await expect(
+			updateFilter({ application_uuid: ' application-1 ', enabled: false }),
+		).resolves.toEqual({
+			application_uuid: 'application-1',
+			name: 'Frontend',
+			project_uuid: 'project-1',
+			project_name: 'Frontend project',
+			environment_uuid: 'environment-1',
+			environment_name: 'Production',
+			production_url: 'https://frontend.example.com',
+			enabled: true,
+			deploy_enabled: true,
+		})
+
+		await expect(updateFilter({ enabled: false, deploy_enabled: true })).resolves.toEqual({
 			enabled: false,
 			deploy_enabled: true,
 		})
-		expect(() => updateFilter([{ production_url: 'https://attacker.test' }])).toThrow(
+		await expect(
+			updateFilter([{ application_uuid: 'application-1' }, { enabled: false }]),
+		).resolves.toEqual([
+			expect.objectContaining({ application_uuid: 'application-1', name: 'Frontend' }),
+			{ enabled: false },
+		])
+		await expect(updateFilter([{ production_url: 'https://attacker.test' }])).rejects.toThrow(
 			'production_url is managed by Coolify and cannot be updated',
 		)
 	})

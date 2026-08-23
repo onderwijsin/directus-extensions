@@ -140,16 +140,16 @@ different valid collection name. The bundle derives seeded policy permissions an
 from that setting. Every field is non-null. The generated identifier and Coolify metadata are not
 required in Studio, while `application_uuid` and the enablement flags remain required:
 
-| Field                                   | Writable    | Description                                               |
-| --------------------------------------- | ----------- | --------------------------------------------------------- |
-| `id`                                    | no          | Hidden Directus UUID primary key.                         |
-| `application_uuid`                      | create only | Unique Coolify application UUID.                          |
-| `name`                                  | no          | Coolify application name.                                 |
-| `project_uuid` / `project_name`         | no          | Coolify project metadata.                                 |
-| `environment_uuid` / `environment_name` | no          | Coolify environment metadata.                             |
-| `production_url`                        | no          | Coolify production FQDN.                                  |
-| `enabled`                               | yes         | Initialized `true`; only enabled records are used.        |
-| `deploy_enabled`                        | yes         | Initialized `true`; false blocks deploy/cancel mutations. |
+| Field                                   | Writable         | Description                                               |
+| --------------------------------------- | ---------------- | --------------------------------------------------------- |
+| `id`                                    | no               | Hidden Directus UUID primary key.                         |
+| `application_uuid`                      | create or update | Unique Coolify application UUID.                          |
+| `name`                                  | no               | Coolify application name.                                 |
+| `project_uuid` / `project_name`         | no               | Coolify project metadata.                                 |
+| `environment_uuid` / `environment_name` | no               | Coolify environment metadata.                             |
+| `production_url`                        | no               | Coolify production FQDN.                                  |
+| `enabled`                               | yes              | Initialized `true`; only enabled records are used.        |
+| `deploy_enabled`                        | yes              | Initialized `true`; false blocks deploy/cancel mutations. |
 
 Create an application using only its UUID:
 
@@ -160,13 +160,14 @@ curl -X POST "$DIRECTUS_URL/items/coolify_applications" \
   --data '{"application_uuid":"your-coolify-application-uuid"}'
 ```
 
-The create filter loads the application from Coolify and fills all other fields. It requires a
-matching UUID, name, project UUID/name, environment UUID/name, and production URL. When Coolify
-returns multiple comma-separated FQDNs, the first URL is stored. If Coolify is unavailable or
-returns incomplete data, creation fails and no partial item is saved. Existing records are not
-automatically refreshed when Coolify metadata changes. Updates to `application_uuid` and other
-Coolify-managed metadata fields are rejected; only `enabled` and `deploy_enabled` may be changed
-after creation.
+The create and update filters load the application from Coolify and fill all other fields. They
+require a matching UUID, name, project UUID/name, environment UUID/name, and production URL. When
+Coolify returns multiple comma-separated FQDNs, the first URL is stored. If Coolify is unavailable
+or returns incomplete data, the write fails and no partial item is saved. Existing records are not
+automatically refreshed when Coolify metadata changes unless `application_uuid` is included in an
+update. Updates that include an `application_uuid` re-enrich the complete provider-managed metadata;
+other direct updates to Coolify-managed metadata fields are rejected. Only `enabled` and
+`deploy_enabled` may be changed without re-enrichment.
 
 ## Policies and security
 
