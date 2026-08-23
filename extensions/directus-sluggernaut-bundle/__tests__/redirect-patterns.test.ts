@@ -162,6 +162,14 @@ describe('pattern specificity and metadata', () => {
 		})
 	})
 
+	it('keeps the derived signature within the schema limit for the longest origin', () => {
+		const origin = `/${'a'.repeat(251)}/:x`
+		const metadata = derivePatternMetadata(origin, '/articles/:x')
+
+		expect(origin.length).toBe(255)
+		expect(metadata.matcher_signature.length).toBeLessThanOrEqual(512)
+	})
+
 	it('propagates origin and destination validation failures through metadata derivation', () => {
 		expect(() => derivePatternMetadata('/legacy/:slug', '/articles/:id')).toThrow(
 			/unknown parameter/u,

@@ -119,15 +119,21 @@ async function validatePatternIntegrity(
 		id?: PrimaryKey
 	}[],
 ): Promise<void> {
+	// Only active patterns participate in redirect resolution, so inactive and exact candidates
+	// cannot conflict with the matching semantics enforced here.
 	const active = candidates.filter(({ state }) => isPattern(state) && state.is_active === true)
 	if (active.length === 0) return
 
+	// Derive metadata from the complete post-mutation state rather than trusting caller-supplied
+	// fields. This gives every candidate the canonical signature used by persisted records.
 	const derived = active.map(({ state, id }) => ({
 		id,
 		metadata: patternMetadata(state),
 	}))
 	const candidateSignatures = new Set<string>()
 	for (const candidate of derived) {
+		// Detect collisions within one bulk request before querying Directus. This also prevents two
+		// new records in the same request from bypassing the persisted-record check below.
 		if (candidateSignatures.has(candidate.metadata.matcher_signature))
 			throw sluggernautIntegrityError(
 				`Multiple active patterns use matcher signature "${candidate.metadata.matcher_signature}".`,
@@ -135,6 +141,8 @@ async function validatePatternIntegrity(
 		candidateSignatures.add(candidate.metadata.matcher_signature)
 	}
 
+	// Query only active pattern records whose canonical signatures are candidates for collision.
+	// The narrow query keeps the check independent of unrelated redirect records and signatures.
 	const records = await service.readByQuery({
 		filter: {
 			_and: [
@@ -146,8 +154,12 @@ async function validatePatternIntegrity(
 		fields: [...PATTERN_INTEGRITY_FIELDS],
 		limit: -1,
 	})
+	// An update naturally reads its own existing record back. Exclude those IDs so an unchanged
+	// pattern, or a pattern changing only its destination, is not mistaken for a duplicate.
 	const candidateIds = new Set(derived.flatMap(({ id }) => (isDefined(id) ? [String(id)] : [])))
 	for (const record of records) {
+		// Keep the defensive checks because the service boundary is typed around Directus data and
+		// may still return malformed or stale rows in a real installation.
 		if (!isDefined(record.id) || candidateIds.has(String(record.id))) continue
 		if (record.match !== 'pattern' || record.is_active !== true) continue
 		if (isString(record.matcher_signature) && candidateSignatures.has(record.matcher_signature))

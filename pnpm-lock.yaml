@@ -96,9 +96,6 @@ catalogs:
     publint:
       specifier: 0.3.23
       version: 0.3.23
-    regexparam:
-      specifier: 3.0.0
-      version: 3.0.0
     tsdown:
       specifier: 0.22.14
       version: 0.22.14
@@ -410,9 +407,6 @@ importers:
       '@vueuse/core':
         specifier: 'catalog:'
         version: 14.0.0(vue@3.5.24(typescript@5.9.3))
-      regexparam:
-        specifier: 'catalog:'
-        version: 3.0.0
       ufo:
         specifier: 'catalog:'
         version: 1.6.4
@@ -5096,10 +5090,6 @@ packages:
   redis-parser@3.0.0:
     resolution: {integrity: sha512-DJnGAeenTdpMEH6uAJRK/uiyEIH9WVsUmoLwzudwGJUwZPp80PDBWPHXSAGNPwNvIXAbe7MSUB1zQFugFml66A==}
     engines: {node: '>=4'}
-
-  regexparam@3.0.0:
-    resolution: {integrity: sha512-RSYAtP31mvYLkAHrOlh25pCNQ5hWnT106VukGaaFfuJrZFkGRX5GhUAdPqpSDXxOhA2c4akmRuplv1mRqnBn6Q==}
-    engines: {node: '>=8'}
 
   require-from-string@2.0.2:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
@@ -10478,8 +10468,6 @@ snapshots:
   redis-parser@3.0.0:
     dependencies:
       redis-errors: 1.2.0
-
-  regexparam@3.0.0: {}
 
   require-from-string@2.0.2: {}
 

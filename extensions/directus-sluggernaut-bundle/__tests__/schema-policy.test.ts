@@ -12,6 +12,7 @@ describe('Sluggernaut schema and policies', () => {
 		expect(byName.get('specificity')?.type).toBe('bigInteger')
 		expect(byName.get('specificity')?.schema.is_nullable).toBe(true)
 		expect(byName.get('matcher_signature')?.meta.readonly).toBe(true)
+		expect(byName.get('matcher_signature')?.schema.max_length).toBe(512)
 		expect(byName.get('origin')?.schema.is_nullable).toBe(false)
 		expect(byName.get('destination')?.schema.is_nullable).toBe(false)
 		expect(byName.get('type')?.schema.default_value).toBe(301)

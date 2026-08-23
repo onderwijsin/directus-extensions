@@ -51,6 +51,8 @@ interface E2ERedirect {
 	origin: string
 	destination: string
 	type: number
+	match: 'exact' | 'pattern'
+	specificity: string | null
 	is_active: boolean
 	start_date: string | null
 	end_date: string | null

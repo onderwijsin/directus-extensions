@@ -151,7 +151,7 @@
 			"type": "string",
 			"schema": {
 				"data_type": "varchar",
-				"max_length": 255,
+				"max_length": 512,
 				"is_nullable": true
 			},
 			"meta": {

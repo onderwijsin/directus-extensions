@@ -234,9 +234,11 @@ currently includes exact-match records only. Direct pattern records are supporte
 parameters (`/legacy/:slug`), optional parameters (`/:slug?`), one wildcard (`/files/*` or
 `/files/*?`), and simple parameter suffixes (`/files/:name.pdf`). Pattern destinations are path-only
 templates backed by origin captures, and pattern records are always unmanaged/manual. Specificity
-and matcher signatures are derived on create and structural update. Redirect reads without an
-explicit sort default to exact records first, then pattern specificity descending, then `id`
-ascending; an explicit sort is preserved unchanged.
+and matcher signatures are derived on create and structural update. Pattern origins may contain at
+most 20 slash-separated segments so specificity remains lossless in the 64-bit field; derived
+matcher signatures are stored in a 512-character field. Redirect reads without an explicit sort
+default to exact records first, then pattern specificity descending, then `id` ascending; an
+explicit sort is preserved unchanged.
 
 Canonical changes create or rewrite the latest redirect, flatten included redirect chains, and
 deactivate included loops. By default, unmanaged redirects are included and the latest canonical

@@ -11,7 +11,7 @@ slug/permalink mutation and canonical-history logic.
 
 Automatic redirects remain unchanged in purpose: Sluggernaut creates and maintains exact `301`
 redirects when canonical slugs or permalinks change. Manual redirects may be either exact or
-pattern-based. Pattern matching uses a deliberately restricted subset of `regexparam`: named
+pattern-based. Pattern matching uses a deliberately restricted route-pattern grammar: named
 parameters, optional parameters, wildcards, optional wildcards, and simple static suffixes. Raw or
 constrained regular expressions are explicitly out of scope.
 
@@ -100,9 +100,8 @@ performing partial validation.
 
 ### Restricted pattern parser contract
 
-The public pattern language is intentionally narrower than the theoretical capabilities of
-`regexparam`. `regexparam` may be used as an implementation primitive, but raw regular expressions,
-custom parser options, and arbitrary regex syntax are not part of the public API.
+The public pattern language is intentionally narrow. Raw regular expressions, custom parser options,
+and arbitrary regex syntax are not part of the public API.
 
 A pattern origin is path-only and consists of slash-separated segments:
 
@@ -122,6 +121,10 @@ The parser contract is:
 - query strings, fragments, raw `RegExp` values, regex constraints, regex groups, alternatives,
   duplicate names, malformed names, and partial-segment optional markers are rejected; and
 - trailing-slash behavior is the same as exact redirects: Sluggernaut does not add or remove one.
+
+Pattern origins may contain at most 20 slash-separated segments so specificity remains lossless in
+the 64-bit field. The derived matcher signature is stored in a 512-character field, which
+accommodates the full accepted 255-character origin length and its signature markers.
 
 Supported examples are:
 
@@ -415,8 +418,7 @@ External destinations naturally terminate traversal.
 
 Pattern redirects are manually authored redirects only.
 
-Supported syntax should intentionally be narrower than everything `regexparam` can theoretically
-parse.
+Supported syntax should intentionally remain narrow.
 
 In scope:
 
@@ -694,7 +696,7 @@ automatic canonical history
 direct redirect mutation behavior
 ```
 
-but do **not** implement the new mutation guards or regexparam support yet.
+but do **not** implement the new mutation guards or pattern support yet.
 
 Pattern-specific fields remain system-owned and unused/null.
 
@@ -762,7 +764,8 @@ canonical-history planner to preserve integrity.
 
 ### Scope
 
-Add `regexparam` as a runtime dependency.
+Implement the restricted grammar with a purpose-built parser; no third-party pattern-parser
+dependency is required.
 
 Implement the restricted pattern grammar:
 

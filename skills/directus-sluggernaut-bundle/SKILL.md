@@ -294,9 +294,11 @@ Sluggernaut. The automatic history planner includes exact-match records only. Di
 support named parameters (`/legacy/:slug`), optional parameters (`/:slug?`), one wildcard
 (`/files/*` or `/files/*?`), and simple parameter suffixes (`/files/:name.pdf`). Pattern
 destinations are path-only templates backed by origin captures, and pattern records are always
-unmanaged/manual. Specificity and matcher signatures are derived on create and structural update.
-Redirect reads without an explicit sort use exact records first, then pattern specificity
-descending, then `id` ascending; an explicit sort is preserved unchanged.
+unmanaged/manual. Pattern origins may contain at most 20 slash-separated segments so specificity
+remains lossless in the 64-bit field; derived matcher signatures are stored in a 512-character
+field. Specificity and matcher signatures are derived on create and structural update. Redirect
+reads without an explicit sort use exact records first, then pattern specificity descending, then
+`id` ascending; an explicit sort is preserved unchanged.
 
 On source deletion, managed records are deactivated with `inactive_reason=deleted`. When a Directus
 archive field transitions to its archive value, records are deactivated with

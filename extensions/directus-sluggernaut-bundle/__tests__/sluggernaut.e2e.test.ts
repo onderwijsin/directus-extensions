@@ -43,7 +43,11 @@ interface RedirectRecord {
 	origin: string
 	destination: string
 	type: number
+	match: 'exact' | 'pattern'
+	specificity: string | null
 	is_active: boolean
+	start_date: string | null
+	end_date: string | null
 	managed_by: string | null
 	source_collection: string | null
 	source_item: string | null
@@ -191,7 +195,11 @@ function readRedirects(collection: string, sourceItem?: string): Promise<Redirec
 				'origin',
 				'destination',
 				'type',
+				'match',
+				'specificity',
 				'is_active',
+				'start_date',
+				'end_date',
 				'managed_by',
 				'source_collection',
 				'source_item',
@@ -201,6 +209,36 @@ function readRedirects(collection: string, sourceItem?: string): Promise<Redirec
 			sort: ['origin'],
 		}),
 	)
+}
+
+const redirectQueryFields = [
+	'id',
+	'origin',
+	'destination',
+	'type',
+	'match',
+	'specificity',
+	'is_active',
+	'start_date',
+	'end_date',
+	'managed_by',
+	'source_collection',
+	'source_item',
+	'source_field',
+	'inactive_reason',
+] as const
+
+function readRedirectQuery(options: Record<string, unknown> = {}): Promise<RedirectRecord[]> {
+	return client.request(
+		readItems('redirects', {
+			...options,
+			fields: [...redirectQueryFields],
+		}),
+	)
+}
+
+async function deleteRedirectFixtures(ids: readonly string[]): Promise<void> {
+	for (const id of ids) await client.request(deleteItem('redirects', id)).catch(() => undefined)
 }
 
 async function runRecalculation(
@@ -457,6 +495,170 @@ describe('Sluggernaut Directus integration', () => {
 						source_item: itemId,
 					}),
 				])
+		} finally {
+			if (itemId)
+				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
+			await fixture.dispose()
+		}
+	})
+
+	it('applies deterministic default ordering before pagination and preserves explicit sorting', async () => {
+		const ids: string[] = []
+		const createRedirect = async (payload: Record<string, unknown>) => {
+			const redirect = await client.request<{ id: string }>(createItem('redirects', payload))
+			ids.push(redirect.id)
+			return redirect
+		}
+
+		try {
+			await createRedirect({
+				origin: '/legacy/archive',
+				destination: '/articles/archive',
+				match: 'exact',
+				is_active: true,
+			})
+			await createRedirect({
+				origin: '/legacy/:slug.pdf',
+				destination: '/articles/:slug.pdf',
+				match: 'pattern',
+				is_active: true,
+			})
+			await createRedirect({
+				origin: '/legacy/:slug',
+				destination: '/articles/:slug',
+				match: 'pattern',
+				is_active: true,
+			})
+			await createRedirect({
+				origin: '/legacy/*',
+				destination: '/articles/*',
+				match: 'pattern',
+				is_active: true,
+			})
+
+			const full = await readRedirectQuery({ filter: { id: { _in: ids } } })
+			expect(full.map(({ origin }) => origin)).toEqual([
+				'/legacy/archive',
+				'/legacy/:slug.pdf',
+				'/legacy/:slug',
+				'/legacy/*',
+			])
+			expect(full.map(({ match }) => match)).toEqual([
+				'exact',
+				'pattern',
+				'pattern',
+				'pattern',
+			])
+
+			const firstPage = await readRedirectQuery({
+				filter: { id: { _in: ids } },
+				limit: 2,
+				offset: 0,
+			})
+			const secondPage = await readRedirectQuery({
+				filter: { id: { _in: ids } },
+				limit: 2,
+				offset: 2,
+			})
+			expect([...firstPage, ...secondPage].map(({ id }) => id)).toEqual(
+				full.map(({ id }) => id),
+			)
+
+			const explicitSort = await readRedirectQuery({
+				filter: { id: { _in: ids } },
+				sort: ['origin'],
+			})
+			expect(explicitSort.map(({ origin }) => origin)).toEqual([
+				'/legacy/*',
+				'/legacy/:slug',
+				'/legacy/:slug.pdf',
+				'/legacy/archive',
+			])
+		} finally {
+			await deleteRedirectFixtures(ids)
+		}
+	})
+
+	it('leaves inactive rows out of active queries while retaining scheduled active rows', async () => {
+		const ids: string[] = []
+		const createRedirect = async (payload: Record<string, unknown>) => {
+			const redirect = await client.request<{ id: string }>(createItem('redirects', payload))
+			ids.push(redirect.id)
+			return redirect
+		}
+
+		try {
+			await createRedirect({
+				origin: '/scheduled/:slug',
+				destination: '/articles/:slug',
+				match: 'pattern',
+				is_active: true,
+				start_date: '2099-01-01T00:00:00.000Z',
+			})
+			await createRedirect({
+				origin: '/inactive/:slug',
+				destination: '/articles/:slug',
+				match: 'pattern',
+				is_active: false,
+			})
+
+			const active = await readRedirectQuery({
+				filter: { id: { _in: ids }, is_active: { _eq: true } },
+			})
+			expect(active).toHaveLength(1)
+			expect(active[0]).toMatchObject({
+				origin: '/scheduled/:slug',
+				is_active: true,
+			})
+			expect(active[0]?.start_date).toContain('2099-01-01')
+		} finally {
+			await deleteRedirectFixtures(ids)
+		}
+	})
+
+	it('keeps detached redirect ownership through later canonical mutations', async () => {
+		const fixture = await createSluggernautCollection()
+		let itemId: string | undefined
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Ownership Original' }),
+			)
+			itemId = String(item.id)
+			await client.request(
+				updateItem(fixture.collection, item.id, { title: 'Ownership New' }),
+			)
+			const [managed] = await readRedirects(fixture.collection, itemId)
+			expect(managed).toMatchObject({ managed_by: 'sluggernaut' })
+			if (!managed)
+				throw new Error('Expected managed redirect history after canonical update.')
+
+			await client.request(
+				updateItem('redirects', managed.id, { destination: '/manual-target' }),
+			)
+			await expect(
+				readRedirectQuery({ filter: { id: { _eq: managed.id } } }),
+			).resolves.toEqual([
+				expect.objectContaining({
+					managed_by: null,
+					destination: '/manual-target',
+					source_collection: null,
+				}),
+			])
+
+			await client.request(
+				updateItem(fixture.collection, item.id, { title: 'Ownership Final' }),
+			)
+			const afterCanonicalMutation = await readRedirectQuery({
+				filter: { id: { _eq: managed.id } },
+			})
+			expect(afterCanonicalMutation).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						managed_by: null,
+						destination: '/manual-target',
+					}),
+				]),
+			)
 		} finally {
 			if (itemId)
 				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
