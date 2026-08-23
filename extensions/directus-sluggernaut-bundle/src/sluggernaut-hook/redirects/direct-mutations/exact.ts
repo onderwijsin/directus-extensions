@@ -41,6 +41,12 @@ const GRAPH_FIELDS = [
 	'match',
 	'is_active',
 ] as const satisfies readonly RedirectField[]
+const PATTERN_INTEGRITY_FIELDS = [
+	'id',
+	'match',
+	'is_active',
+	'matcher_signature',
+] as const satisfies readonly RedirectField[]
 const PROVENANCE_FIELDS = [
 	'managed_by',
 	'source_collection',
@@ -98,6 +104,57 @@ function patternMetadata(value: RedirectState | Partial<RedirectMutationInput>) 
 			'A pattern redirect requires string origin and destination values.',
 		)
 	return derivePatternMetadata(value.origin, value.destination)
+}
+
+/**
+ * Validates that active pattern candidates are unique by matching semantics.
+ * @param service - Configured redirect persistence service.
+ * @param candidates - Complete resulting pattern states and their existing IDs.
+ * @returns Nothing; rejects when an equivalent active pattern exists.
+ */
+async function validatePatternIntegrity(
+	service: RedirectService,
+	candidates: readonly {
+		state: RedirectState | Partial<RedirectMutationInput>
+		id?: PrimaryKey
+	}[],
+): Promise<void> {
+	const active = candidates.filter(({ state }) => isPattern(state) && state.is_active === true)
+	if (active.length === 0) return
+
+	const derived = active.map(({ state, id }) => ({
+		id,
+		metadata: patternMetadata(state),
+	}))
+	const candidateSignatures = new Set<string>()
+	for (const candidate of derived) {
+		if (candidateSignatures.has(candidate.metadata.matcher_signature))
+			throw sluggernautIntegrityError(
+				`Multiple active patterns use matcher signature "${candidate.metadata.matcher_signature}".`,
+			)
+		candidateSignatures.add(candidate.metadata.matcher_signature)
+	}
+
+	const records = await service.readByQuery({
+		filter: {
+			_and: [
+				{ match: { _eq: 'pattern' } },
+				{ is_active: { _eq: true } },
+				{ matcher_signature: { _in: [...candidateSignatures.keys()] } },
+			],
+		},
+		fields: [...PATTERN_INTEGRITY_FIELDS],
+		limit: -1,
+	})
+	const candidateIds = new Set(derived.flatMap(({ id }) => (isDefined(id) ? [String(id)] : [])))
+	for (const record of records) {
+		if (!isDefined(record.id) || candidateIds.has(String(record.id))) continue
+		if (record.match !== 'pattern' || record.is_active !== true) continue
+		if (isString(record.matcher_signature) && candidateSignatures.has(record.matcher_signature))
+			throw sluggernautIntegrityError(
+				`An active pattern already uses matcher signature "${record.matcher_signature}".`,
+			)
+	}
 }
 
 /**
@@ -320,6 +377,13 @@ async function validateDirectRedirectUpdateMany(input: {
 	)
 	const proposedStates = proposed.map(({ state }) => state)
 	const patternStates = proposedStates.filter(isPattern)
+	if (
+		patternStates.length > 0 &&
+		(hasKey(payload, 'specificity') || hasKey(payload, 'matcher_signature'))
+	)
+		throw sluggernautValidationError(
+			'Pattern specificity and matcher signature are system-derived and cannot be supplied in bulk updates.',
+		)
 	const patternStructuralChange =
 		hasKey(payload, 'origin') || hasKey(payload, 'destination') || hasKey(payload, 'match')
 	// Structural pattern updates must leave every target with the same matcher semantics because
@@ -343,6 +407,10 @@ async function validateDirectRedirectUpdateMany(input: {
 				'Bulk pattern updates must produce identical matcher metadata for every target.',
 			)
 	}
+	await validatePatternIntegrity(
+		service,
+		proposed.map(({ state }, index) => ({ state, id: existing[index]?.id })),
+	)
 	// Validate exact candidates independently and fold their normalized fields into the one payload
 	// that Directus will apply to every target. Pattern targets are handled separately below.
 	const exactCandidates = proposed.map(({ state }) => exactInput(state))
@@ -437,7 +505,13 @@ export async function validateDirectRedirectMutation(input: {
 			throw sluggernautValidationError(
 				'A redirect match must be either "exact" or "pattern".',
 			)
-		if (isPattern(proposed)) return normalizedPatternPayload(payload, proposed)
+		if (isPattern(proposed)) {
+			const patternService = isDefined(input.service)
+				? input.service
+				: await createRedirectService(context, collection, eventContext.database)
+			await validatePatternIntegrity(patternService, [{ state: proposed, id: existing?.id }])
+			return normalizedPatternPayload(payload, proposed)
+		}
 		const exactProposed = exactInput(proposed)
 		if (!isExact(exactProposed))
 			return resultPayload(payload, proposed, owned.transfersOwnership)

@@ -8,6 +8,7 @@ import {
 	validateDirectRedirectMutation,
 } from '../src/sluggernaut-hook/redirects/direct-mutations/exact'
 import { withMutationSource } from '../src/sluggernaut-hook/redirects/direct-mutations/mutation-source'
+import { derivePatternMetadata } from '../src/sluggernaut-hook/redirects/patterns'
 
 const options = {
 	SLUGGERNAUT_REDIRECTS_ENABLED: true,
@@ -118,6 +119,43 @@ describe('direct exact redirect mutation hooks', () => {
 				},
 			}),
 		).rejects.toThrow(/unknown parameter/u)
+	})
+
+	it('rejects an active pattern equivalent to an existing active pattern', async () => {
+		const matcher_signature = derivePatternMetadata(
+			'/foo/:id',
+			'/articles/:id',
+		).matcher_signature
+		const existing = { ...pattern('/foo/:id', '/articles/:id', 2), matcher_signature }
+		const { filters } = setup([existing])
+		const create = filters.get('items.create')!
+
+		await expect(
+			create(
+				{ origin: '/foo/:slug', destination: '/articles/:slug', match: 'pattern' },
+				{ collection: 'custom_redirects' },
+				eventContext,
+			),
+		).rejects.toThrow(/already uses matcher signature/u)
+	})
+
+	it('checks equivalent patterns again when an inactive pattern is reactivated', async () => {
+		const matcher_signature = derivePatternMetadata(
+			'/foo/:id',
+			'/articles/:id',
+		).matcher_signature
+		const target = { ...pattern('/foo/:slug', '/articles/:slug', 1, false), matcher_signature }
+		const conflict = { ...pattern('/foo/:id', '/articles/:id', 2), matcher_signature }
+		const { filters } = setup([target, conflict])
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ is_active: true },
+				{ collection: 'custom_redirects', keys: [1] },
+				eventContext,
+			),
+		).rejects.toThrow(/already uses matcher signature/u)
 	})
 
 	it.each([
@@ -300,7 +338,7 @@ describe('direct exact redirect mutation hooks', () => {
 		).rejects.toThrow(/identical matcher metadata/u)
 	})
 
-	it('applies one derived metadata payload to equivalent bulk pattern targets', async () => {
+	it('rejects equivalent active patterns within one bulk mutation set', async () => {
 		const records = [
 			pattern('/legacy/:slug', '/articles/:slug', 1),
 			pattern('/legacy/:other', '/articles/:other', 2),
@@ -314,11 +352,23 @@ describe('direct exact redirect mutation hooks', () => {
 				{ collection: 'custom_redirects', keys: [1, 2] },
 				eventContext,
 			),
-		).resolves.toMatchObject({
-			destination: '/docs',
-			specificity: expect.stringMatching(/^\d+$/u),
-			matcher_signature: expect.any(String),
-		})
+		).rejects.toThrow(/Multiple active patterns/u)
+	})
+
+	it('rejects caller-supplied derived metadata in bulk pattern updates', async () => {
+		const { filters } = setup([
+			pattern('/legacy/:slug', '/articles/:slug', 1),
+			pattern('/other/:slug', '/articles/:slug', 2),
+		])
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ specificity: '999', matcher_signature: 'forged' },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).rejects.toThrow(/system-derived/u)
 	})
 
 	it('rejects bulk matcher updates that mix exact and pattern targets', async () => {
