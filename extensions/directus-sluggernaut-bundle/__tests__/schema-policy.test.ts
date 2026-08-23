@@ -7,18 +7,23 @@ describe('Sluggernaut schema and policies', () => {
 	it('declares redirect fields, defaults, nullable scheduling, and read-only provenance', () => {
 		const fields = redirects.fields
 		const byName = new Map(fields.map((field) => [field.field, field]))
-		expect(byName.get('match')?.schema.default_value).toBe('exact')
-		expect(byName.get('match')?.schema.is_nullable).toBe(false)
+		const getSchema = (fieldName: string) => {
+			const schema = byName.get(fieldName)?.schema
+			if (!schema) throw new Error(`Expected schema for field ${fieldName}`)
+			return schema
+		}
+		expect(getSchema('match').default_value).toBe('exact')
+		expect(getSchema('match').is_nullable).toBe(false)
 		expect(byName.get('specificity')?.type).toBe('bigInteger')
-		expect(byName.get('specificity')?.schema.is_nullable).toBe(true)
+		expect(getSchema('specificity').is_nullable).toBe(true)
 		expect(byName.get('matcher_signature')?.meta.readonly).toBe(true)
-		expect(byName.get('matcher_signature')?.schema.max_length).toBe(512)
-		expect(byName.get('origin')?.schema.is_nullable).toBe(false)
-		expect(byName.get('destination')?.schema.is_nullable).toBe(false)
-		expect(byName.get('type')?.schema.default_value).toBe(301)
-		expect(byName.get('is_active')?.schema.default_value).toBe(true)
+		expect(getSchema('matcher_signature').max_length).toBe(512)
+		expect(getSchema('origin').is_nullable).toBe(false)
+		expect(getSchema('destination').is_nullable).toBe(false)
+		expect(getSchema('type').default_value).toBe(301)
+		expect(getSchema('is_active').default_value).toBe(true)
 		for (const field of ['start_date', 'end_date'])
-			expect(byName.get(field)?.schema.is_nullable).toBe(true)
+			expect(getSchema(field).is_nullable).toBe(true)
 		for (const field of [
 			'managed_by',
 			'source_collection',
