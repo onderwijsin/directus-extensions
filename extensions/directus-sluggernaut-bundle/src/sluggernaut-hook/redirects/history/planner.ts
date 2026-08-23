@@ -83,7 +83,8 @@ function isOwnedBySource(
 	return (
 		redirect.managed_by === 'sluggernaut' &&
 		redirect.source_collection === collection &&
-		redirect.source_item === item &&
+		redirect.source_item !== null &&
+		String(redirect.source_item) === String(item) &&
 		redirect.source_field === source.field &&
 		redirect.source_type === source.type
 	)

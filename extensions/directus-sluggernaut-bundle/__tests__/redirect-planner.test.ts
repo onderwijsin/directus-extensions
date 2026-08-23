@@ -245,7 +245,7 @@ describe('redirect planner', () => {
 			newCanonical: '/b',
 			source: { type: 'permalink', field: 'route' },
 			source_collection: 'articles',
-			source_item: '1',
+			source_item: 1,
 			existingRedirects: [
 				{
 					id: 'a-to-b',

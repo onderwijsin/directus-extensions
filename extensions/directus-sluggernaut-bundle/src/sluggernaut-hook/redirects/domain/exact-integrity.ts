@@ -65,7 +65,7 @@ export function validateExactRedirect(record: ExactRedirectInput): ValidatedExac
 		throw new Error('A redirect active state must be boolean.')
 	const origin = normalizeExactRedirectOrigin(record.origin)
 	const destination = normalizeExactRedirectDestination(record.destination)
-	if (destination.kind === 'path' && origin === destination.value) {
+	if (record.is_active && destination.kind === 'path' && origin === destination.value) {
 		throw new Error('An exact redirect must not point to itself.')
 	}
 	return { id: record.id, origin, destination, match: 'exact', is_active: record.is_active }

@@ -233,6 +233,11 @@ describe('exact redirect domain', () => {
 		expect(participatesInActiveExactGraph(exact('/a', '/b', undefined, false))).toBe(false)
 	})
 
+	it('allows inactive self-loops but rejects them when active', () => {
+		expect(() => validateExactRedirect(exact('/a', '/a', undefined, false))).not.toThrow()
+		expect(() => validateExactRedirect(exact('/a', '/a'))).toThrow(/point to itself/)
+	})
+
 	it('detects graph-affecting transitions while ignoring operational changes', () => {
 		const previous = exact('/a', '/b', 1)
 		expect(requiresExactIntegrityLookup(previous, { ...previous, is_active: true })).toBe(false)
