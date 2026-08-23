@@ -85,7 +85,20 @@ describe('redirect state matrix', () => {
 					source_item: '2',
 				}),
 			],
-			expectation: { create: false, rewrite: [{ id: 'other-source', destination: '/new' }] },
+			expectation: {
+				create: false,
+				rewrite: [
+					{
+						id: 'other-source',
+						destination: '/new',
+						managed_by: 'sluggernaut',
+						source_collection: 'articles',
+						source_item: 1,
+						source_field: 'route',
+						source_type: 'permalink',
+					},
+				],
+			},
 		},
 		{
 			name: 'active manual record with default override policy',
@@ -301,5 +314,61 @@ describe('redirect state matrix', () => {
 		expect(decideRedirectOwnership(existing, proposed, mutationSource).transfersOwnership).toBe(
 			expected,
 		)
+	})
+
+	it('transfers provenance when a managed redirect is reused by another source', () => {
+		const result = planCanonicalRedirect({
+			oldCanonical: '/old',
+			newCanonical: '/new',
+			source,
+			source_collection: 'articles',
+			source_item: 2,
+			existingRedirects: [
+				redirect({
+					id: 'owned-by-item-1',
+					managed_by: 'sluggernaut',
+					source_item: '1',
+				}),
+			],
+		})
+
+		expect(result.rewrite).toEqual([
+			{
+				id: 'owned-by-item-1',
+				destination: '/new',
+				managed_by: 'sluggernaut',
+				source_collection: 'articles',
+				source_item: 2,
+				source_field: 'route',
+				source_type: 'permalink',
+			},
+		])
+	})
+
+	it.each(['source_collection', 'source_item', 'source_field', 'source_type'] as const)(
+		'distinguishes managed provenance mismatch in %s',
+		(field) => {
+			const overrides: Partial<Redirect> = {}
+			if (field === 'source_collection') overrides.source_collection = 'other'
+			if (field === 'source_item') overrides.source_item = 2
+			if (field === 'source_field') overrides.source_field = 'other_route'
+			if (field === 'source_type') overrides.source_type = 'slug'
+
+			expect(plan([redirect({ id: 'other', ...overrides })]).rewrite).toEqual([
+				{ id: 'other', destination: '/new' },
+			])
+		},
+	)
+
+	it('treats active scheduled and expired redirects as participating routes', () => {
+		for (const dates of [
+			{ start_date: '2099-01-01T00:00:00.000Z', end_date: null },
+			{ start_date: null, end_date: '2020-01-01T00:00:00.000Z' },
+			{ start_date: '2020-01-01T00:00:00.000Z', end_date: '2099-01-01T00:00:00.000Z' },
+		]) {
+			const result = plan([redirect({ id: 'scheduled', ...dates })])
+			expect(result.create).toBeNull()
+			expect(result.rewrite).toEqual([{ id: 'scheduled', destination: '/new' }])
+		}
 	})
 })

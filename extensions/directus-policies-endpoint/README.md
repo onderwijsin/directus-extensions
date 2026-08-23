@@ -45,6 +45,17 @@ Without Redis, the endpoint does not cache policy results.
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | —       | Required together for component-based Redis.                                                     |
 | `DIRECTUS_POLICY_CACHE_INVALIDATION_ENABLED`                   | `true`  | Registers global invalidation for `access`, `policies`, and `roles` CUD events.                  |
 
+Example configuration using the Redis service from the repository's local Compose stack:
+
+```dotenv
+POLICIES_ENDPOINT_ENABLED=true
+DIRECTUS_POLICIES_ENDPOINT_BYPASS_ACCOUNTABILITY=false
+CACHE_ENABLED=true
+CACHE_STORE=redis
+REDIS=redis://default:p4ssw0rd!@cache:6379/0
+DIRECTUS_POLICY_CACHE_INVALIDATION_ENABLED=true
+```
+
 The policy cache uses the isolated Redis namespace `directus:policies` and is invalidated globally
 when any `directus_access`, `directus_policies`, or `directus_roles` item is created, updated, or
 deleted. If this bundle and another extension that registers the same invalidation are installed

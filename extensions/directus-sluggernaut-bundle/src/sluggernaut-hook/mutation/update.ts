@@ -47,6 +47,7 @@ export async function processItemUpdate(input: {
 		hasRelevantFields,
 		eventContext,
 	} = input
+	let lifecycle: 'archive' | 'unarchive' | null = null
 	const existingItem = await readExistingItem(
 		context,
 		collection,
@@ -59,7 +60,7 @@ export async function processItemUpdate(input: {
 	)
 
 	if (archiveSettings !== null && archiveFieldChanged) {
-		const lifecycle = archiveLifecycle(
+		lifecycle = archiveLifecycle(
 			existingItem[archiveSettings.archive_field],
 			payload[archiveSettings.archive_field],
 			archiveSettings,
@@ -85,6 +86,8 @@ export async function processItemUpdate(input: {
 		existingItem,
 		configuration,
 	})
+	// An archived item must not create fresh active history in the same mutation that archives it.
+	if (lifecycle === 'archive') return result.payload
 	// Canonical processing creates or rewrites URL history when the item's canonical value changes;
 	// it does not decide whether the source item is archived or deleted.
 	await processCanonicalRedirect({

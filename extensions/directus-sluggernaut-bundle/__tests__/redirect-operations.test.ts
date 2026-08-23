@@ -32,7 +32,7 @@ describe('redirect operations', () => {
 			updateOne: vi.fn(),
 		}
 
-		const records = await readRelevantRedirects(service, '/old', '/new')
+		const records = await readRelevantRedirects(service as never, '/old', '/new')
 
 		expect(service.readByQuery).toHaveBeenCalledWith(expect.objectContaining({ limit: -1 }))
 		expect(records).toEqual([expect.objectContaining({ id: 1, managed_by: 'sluggernaut' })])
@@ -44,7 +44,7 @@ describe('redirect operations', () => {
 			createOne: vi.fn(),
 			updateOne: vi.fn(),
 		}
-		await expect(readRelevantRedirects(service, '/old', '/new')).resolves.toEqual([])
+		await expect(readRelevantRedirects(service as never, '/old', '/new')).resolves.toEqual([])
 		expect(service.readByQuery).toHaveBeenCalledWith(
 			expect.objectContaining({
 				filter: {
@@ -60,7 +60,9 @@ describe('redirect operations', () => {
 				},
 			}),
 		)
-		await expect(readManagedRedirectsForItem(service, 'entries', 7)).resolves.toEqual([])
+		await expect(readManagedRedirectsForItem(service as never, 'entries', 7)).resolves.toEqual(
+			[],
+		)
 		expect(service.readByQuery).toHaveBeenLastCalledWith(
 			expect.objectContaining({
 				filter: {
@@ -75,6 +77,49 @@ describe('redirect operations', () => {
 		)
 	})
 
+	it('loads every predecessor in a multi-hop chain before canonical flattening', async () => {
+		const service = {
+			readByQuery: vi
+				.fn()
+				.mockResolvedValueOnce([
+					{
+						id: 2,
+						origin: '/b',
+						destination: '/old',
+						date_created: '2025-03-17T15:19:35.672Z',
+					},
+				])
+				.mockResolvedValueOnce([
+					{
+						id: 1,
+						origin: '/a',
+						destination: '/b',
+						date_created: '2025-03-17T15:19:35.672Z',
+					},
+				])
+				.mockResolvedValueOnce([]),
+			createOne: vi.fn(),
+			updateOne: vi.fn(),
+		}
+
+		const records = await readRelevantRedirects(service as never, '/old', '/new')
+
+		expect(records.map((record) => record.id)).toEqual([2, 1])
+		expect(service.readByQuery).toHaveBeenCalledTimes(3)
+		expect(service.readByQuery).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				filter: expect.objectContaining({
+					_and: expect.arrayContaining([
+						{
+							_or: expect.arrayContaining([{ destination: { _eq: '/b' } }]),
+						},
+					]),
+				}),
+			}),
+		)
+	})
+
 	it('applies creates, rewrites, and deactivations in order', async () => {
 		const service = {
 			readByQuery: vi.fn(),
@@ -82,7 +127,7 @@ describe('redirect operations', () => {
 			updateOne: vi.fn(),
 		}
 
-		await applyRedirectPlan(service, {
+		await applyRedirectPlan(service as never, {
 			create: {
 				origin: '/old',
 				destination: '/new',
@@ -158,9 +203,9 @@ describe('redirect operations', () => {
 			updateOne: vi.fn(),
 		}
 
-		await expect(readManagedRedirectsForItem(service, 'articles', '1')).resolves.toEqual([
-			expect.objectContaining({ id: 2, inactive_reason: 'deleted' }),
-		])
+		await expect(
+			readManagedRedirectsForItem(service as never, 'articles', '1'),
+		).resolves.toEqual([expect.objectContaining({ id: 2, inactive_reason: 'deleted' })])
 	})
 
 	it('applies lifecycle deactivation and reactivation updates', async () => {
@@ -170,7 +215,7 @@ describe('redirect operations', () => {
 			updateOne: vi.fn(),
 		}
 
-		await applyRedirectLifecyclePlan(service, {
+		await applyRedirectLifecyclePlan(service as never, {
 			deactivate: [{ id: 'deleted', inactive_reason: 'deleted' }],
 			reactivate: [{ id: 'archived', is_active: true, inactive_reason: null }],
 		})
@@ -192,7 +237,7 @@ describe('redirect operations', () => {
 			updateOne: vi.fn(),
 		}
 		await expect(
-			applyRedirectPlan(service, {
+			applyRedirectPlan(service as never, {
 				create: {
 					origin: '/old',
 					destination: '/new',

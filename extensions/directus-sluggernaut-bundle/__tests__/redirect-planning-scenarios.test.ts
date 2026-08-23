@@ -179,7 +179,17 @@ describe('Redirect planning scenarios', () => {
 		expect(
 			plan('/old', '/new', [redirect({ source_item: 'other', source_collection: 'other' })])
 				.rewrite,
-		).toEqual([{ id: 'redirect', destination: '/new' }])
+		).toEqual([
+			{
+				id: 'redirect',
+				destination: '/new',
+				managed_by: 'sluggernaut',
+				source_collection: 'articles',
+				source_item: '1',
+				source_field: 'route',
+				source_type: 'permalink',
+			},
+		])
 	})
 
 	it('handles unavailable or disabled redirect infrastructure at the planning boundary', () => {
@@ -232,7 +242,17 @@ describe('Redirect planning scenarios', () => {
 	it('handle malformed, duplicate, and provenance-conflicting records conservatively', () => {
 		expect(
 			plan('/old', '/new', [redirect({ id: 'first' }), redirect({ id: 'second' })]).rewrite,
-		).toEqual([{ id: 'second', destination: '/new' }])
+		).toEqual([
+			{
+				id: 'second',
+				destination: '/new',
+				managed_by: 'sluggernaut',
+				source_collection: 'articles',
+				source_item: '1',
+				source_field: 'route',
+				source_type: 'permalink',
+			},
+		])
 		const blocked = plan(
 			'/old',
 			'/new',

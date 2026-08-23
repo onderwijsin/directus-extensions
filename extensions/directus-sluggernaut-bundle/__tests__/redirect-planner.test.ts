@@ -335,7 +335,17 @@ describe('redirect planner', () => {
 
 		expect(plan.create).toBeNull()
 		expect(plan.warnings).toHaveLength(0)
-		expect(plan.rewrite).toEqual([{ id: 'managed-by-item-1', destination: '/b' }])
+		expect(plan.rewrite).toEqual([
+			{
+				id: 'managed-by-item-1',
+				destination: '/b',
+				managed_by: 'sluggernaut',
+				source_collection: 'articles',
+				source_item: '2',
+				source_field: 'route',
+				source_type: 'permalink',
+			},
+		])
 	})
 
 	it('preserves unowned conflicts and prevents self-loop reversion', () => {

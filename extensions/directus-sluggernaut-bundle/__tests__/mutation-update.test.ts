@@ -38,6 +38,7 @@ describe('Sluggernaut item update orchestration', () => {
 
 	it('reads before coordination, awaits archive processing, then plans canonical redirects', async () => {
 		const order: string[] = []
+		mocks.readExistingItem.mockResolvedValueOnce({ title: 'old', status: 'archived' })
 		mocks.processArchiveLifecycle.mockImplementation(() => {
 			order.push('archive')
 			return Promise.resolve()
@@ -50,7 +51,7 @@ describe('Sluggernaut item update orchestration', () => {
 			processItemUpdate({
 				context,
 				options,
-				payload: { title: 'new', status: 'archived' },
+				payload: { title: 'new', status: 'published' },
 				collection: 'entries',
 				key: 1,
 				configuration,
@@ -66,11 +67,11 @@ describe('Sluggernaut item update orchestration', () => {
 		).resolves.toEqual({ title: 'new', slug: 'new' })
 		expect(order).toEqual(['archive', 'canonical'])
 		expect(mocks.coordinateMutation).toHaveBeenCalledWith(
-			expect.objectContaining({ existingItem: { title: 'old', status: 'published' } }),
+			expect.objectContaining({ existingItem: { title: 'old', status: 'archived' } }),
 		)
 		expect(mocks.processCanonicalRedirect).toHaveBeenCalledWith(
 			expect.objectContaining({
-				nextItem: { title: 'new', status: 'published', slug: 'new' },
+				nextItem: { title: 'new', status: 'archived', slug: 'new' },
 				database: eventContext.database,
 			}),
 		)
@@ -92,6 +93,32 @@ describe('Sluggernaut item update orchestration', () => {
 			}),
 		).resolves.toEqual({ unrelated: true })
 		expect(mocks.coordinateMutation).not.toHaveBeenCalled()
+		expect(mocks.processCanonicalRedirect).not.toHaveBeenCalled()
+	})
+
+	it('does not create active canonical history when archiving and changing the canonical field together', async () => {
+		await expect(
+			processItemUpdate({
+				context,
+				options,
+				payload: { title: 'new', status: 'archived', route: '/new' },
+				collection: 'entries',
+				key: 1,
+				configuration,
+				archiveSettings: {
+					archive_field: 'status',
+					archive_value: 'archived',
+					unarchive_value: 'published',
+				} as never,
+				archiveFieldChanged: true,
+				hasRelevantFields: true,
+				eventContext: eventContext as never,
+			}),
+		).resolves.toBeDefined()
+
+		expect(mocks.processArchiveLifecycle).toHaveBeenCalledWith(
+			expect.objectContaining({ lifecycle: 'archive' }),
+		)
 		expect(mocks.processCanonicalRedirect).not.toHaveBeenCalled()
 	})
 

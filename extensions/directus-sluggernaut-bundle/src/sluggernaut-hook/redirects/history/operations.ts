@@ -14,12 +14,6 @@ import { isArray } from '@onderwijsin/directus-extension-utils'
 
 import { redirectRecordSchema, type Redirect, REDIRECT_FIELDS } from '../schema'
 
-interface RedirectOperationsService {
-	readByQuery: (query: Parameters<RedirectService['readByQuery']>[0]) => Promise<unknown>
-	createOne: (...args: Parameters<RedirectService['createOne']>) => Promise<unknown>
-	updateOne: (...args: Parameters<RedirectService['updateOne']>) => Promise<unknown>
-}
-
 /**
  * Parses the public redirect shape and managed provenance fields.
  * @param value - Unknown Directus redirect record.
@@ -39,31 +33,51 @@ function parseRedirectRecord(value: unknown): Redirect | null {
  * @returns Parsed redirect records.
  */
 export async function readRelevantRedirects(
-	service: RedirectOperationsService,
+	service: RedirectService,
 	oldCanonical: string,
 	newCanonical: string,
 ): Promise<Redirect[]> {
-	const result = await service.readByQuery({
-		filter: {
-			_and: [
-				{ match: { _eq: 'exact' } },
-				{
-					_or: [
-						{ origin: { _in: [oldCanonical, newCanonical] } },
-						{ destination: { _eq: oldCanonical } },
-					],
-				},
-			],
-		},
-		fields: [...REDIRECT_FIELDS],
-		limit: -1,
-	})
-	if (!isArray(result)) return []
-	// Ignore malformed records rather than allowing one bad row to abort item mutation handling.
-	return result.flatMap((record) => {
-		const parsed = parseRedirectRecord(record)
-		return parsed === null ? [] : [parsed]
-	})
+	const records = new Map<string, Redirect>()
+	const queriedDestinations = new Set<string>()
+	const pendingDestinations = [oldCanonical]
+	let includeCanonicalOrigins = true
+
+	while (pendingDestinations.length > 0) {
+		const destination = pendingDestinations.shift()
+		if (destination === undefined || queriedDestinations.has(destination)) continue
+		queriedDestinations.add(destination)
+		const result = await service.readByQuery({
+			filter: {
+				_and: [
+					{ match: { _eq: 'exact' } },
+					{
+						_or: [
+							...(includeCanonicalOrigins
+								? [{ origin: { _in: [oldCanonical, newCanonical] } }]
+								: []),
+							{ destination: { _eq: destination } },
+						],
+					},
+				],
+			},
+			fields: [...REDIRECT_FIELDS],
+			limit: -1,
+		})
+		includeCanonicalOrigins = false
+		if (!isArray(result)) continue
+
+		// Ignore malformed records rather than allowing one bad row to abort item mutation handling.
+		for (const record of result) {
+			const parsed = parseRedirectRecord(record)
+			if (parsed === null) continue
+			const key = String(parsed.id)
+			if (records.has(key)) continue
+			records.set(key, parsed)
+			if (!queriedDestinations.has(parsed.origin)) pendingDestinations.push(parsed.origin)
+		}
+	}
+
+	return [...records.values()]
 }
 
 /**
@@ -74,7 +88,7 @@ export async function readRelevantRedirects(
  * @returns Parsed managed redirect records.
  */
 export async function readManagedRedirectsForItem(
-	service: RedirectOperationsService,
+	service: RedirectService,
 	sourceCollection: string,
 	sourceItem: PrimaryKey,
 ): Promise<Redirect[]> {
@@ -111,13 +125,14 @@ export async function readManagedRedirectsForItem(
  * @returns void
  */
 export async function applyRedirectPlan(
-	service: RedirectOperationsService,
+	service: RedirectService,
 	plan: RedirectPlan,
 ): Promise<void> {
 	// Apply the plan in a stable order: create/rewrite/reactivate the active route, then deactivate conflicts.
 	if (plan.create !== null) await service.createOne(plan.create)
 	for (const rewrite of plan.rewrite) {
-		await service.updateOne(rewrite.id, { destination: rewrite.destination })
+		const { id, ...payload } = rewrite
+		await service.updateOne(id, payload)
 	}
 	for (const reactivate of plan.reactivate) {
 		await service.updateOne(reactivate.id, { is_active: true, inactive_reason: null })
@@ -142,7 +157,7 @@ export async function applyRedirectPlan(
  * @returns void
  */
 export async function applyRedirectLifecyclePlan(
-	service: RedirectOperationsService,
+	service: RedirectService,
 	plan: RedirectLifecyclePlan,
 ): Promise<void> {
 	for (const redirect of plan.deactivate) {

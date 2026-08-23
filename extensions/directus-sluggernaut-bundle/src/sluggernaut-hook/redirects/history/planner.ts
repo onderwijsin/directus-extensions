@@ -24,10 +24,21 @@ import { normalizePermalink } from '../../../shared/values/normalization'
  */
 export interface RedirectPlan {
 	create: RedirectCreateInput | null
-	rewrite: { id: PrimaryKey; destination: string }[]
+	rewrite: RedirectRewrite[]
 	reactivate: { id: PrimaryKey }[]
 	deactivate: { id: PrimaryKey; inactive_reason: null }[]
 	warnings: string[]
+}
+
+/** A redirect rewrite and optional provenance transfer for managed takeover. */
+export interface RedirectRewrite {
+	id: PrimaryKey
+	destination: string
+	managed_by?: 'sluggernaut'
+	source_collection?: string
+	source_item?: PrimaryKey
+	source_field?: string
+	source_type?: RedirectSource['type']
 }
 
 /**
@@ -118,7 +129,7 @@ function planOldCanonicalOrigin(
 		}
 		return {
 			create: null,
-			rewrite: [{ id: competingRedirect.id, destination: transition.newCanonical }],
+			rewrite: [rewriteForTransition(competingRedirect, transition)],
 			reactivate: [],
 			warnings: [],
 		}
@@ -141,6 +152,28 @@ function planOldCanonicalOrigin(
 		rewrite: [],
 		reactivate: [],
 		warnings: [],
+	}
+}
+
+/** Builds a rewrite and transfers provenance when a managed origin changes source ownership.
+ * @param redirect - Existing redirect at the canonical origin.
+ * @param transition - Current canonical transition and source provenance.
+ * @returns The rewrite payload.
+ */
+function rewriteForTransition(
+	redirect: Redirect,
+	transition: CanonicalRedirectTransition,
+): RedirectRewrite {
+	if (redirect.managed_by !== 'sluggernaut')
+		return { id: redirect.id, destination: transition.newCanonical }
+	return {
+		id: redirect.id,
+		destination: transition.newCanonical,
+		managed_by: 'sluggernaut',
+		source_collection: transition.source_collection,
+		source_item: transition.source_item,
+		source_field: transition.source.field,
+		source_type: transition.source.type,
 	}
 }
 
