@@ -120,6 +120,36 @@ describe('redirect operations', () => {
 		)
 	})
 
+	it('rejects a predecessor beyond the configured graph depth', async () => {
+		const service = {
+			readByQuery: vi
+				.fn()
+				.mockResolvedValueOnce([
+					{
+						id: 2,
+						origin: '/b',
+						destination: '/old',
+						date_created: '2025-03-17T15:19:35.672Z',
+					},
+				])
+				.mockResolvedValueOnce([
+					{
+						id: 1,
+						origin: '/a',
+						destination: '/b',
+						date_created: '2025-03-17T15:19:35.672Z',
+					},
+				]),
+			createOne: vi.fn(),
+			updateOne: vi.fn(),
+		}
+
+		await expect(readRelevantRedirects(service as never, '/old', '/new', 1)).rejects.toThrow(
+			'graph depth exceeds the configured maximum of 1',
+		)
+		expect(service.readByQuery).toHaveBeenCalledTimes(2)
+	})
+
 	it('applies creates, rewrites, and deactivations in order', async () => {
 		const service = {
 			readByQuery: vi.fn(),

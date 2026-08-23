@@ -22,6 +22,12 @@ export default defineConfig({
 				),
 			},
 			{
+				find: /^@onderwijsin\/directus-extension-utils\/hook$/u,
+				replacement: fileURLToPath(
+					new URL('./packages/extension-utils/src/hook.ts', import.meta.url),
+				),
+			},
+			{
 				find: /^@onderwijsin\/directus-extension-utils\/server$/u,
 				replacement: fileURLToPath(
 					new URL('./packages/extension-utils/src/server/index.ts', import.meta.url),

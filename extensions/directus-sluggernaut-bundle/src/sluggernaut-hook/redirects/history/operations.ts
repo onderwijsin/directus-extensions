@@ -12,6 +12,7 @@ import type { RedirectLifecyclePlan, RedirectPlan } from './planner'
 
 import { isArray } from '@onderwijsin/directus-extension-utils'
 
+import { sluggernautIntegrityError } from '../../../shared/errors'
 import { redirectRecordSchema, type Redirect, REDIRECT_FIELDS } from '../schema'
 
 /**
@@ -30,21 +31,26 @@ function parseRedirectRecord(value: unknown): Redirect | null {
  * @param service - Configured redirect collection service.
  * @param oldCanonical - Previous canonical URL.
  * @param newCanonical - New canonical URL.
+ * @param maxDepth - Maximum number of predecessor edges to traverse.
  * @returns Parsed redirect records.
  */
 export async function readRelevantRedirects(
 	service: RedirectService,
 	oldCanonical: string,
 	newCanonical: string,
+	maxDepth = Number.POSITIVE_INFINITY,
 ): Promise<Redirect[]> {
 	const records = new Map<string, Redirect>()
 	const queriedDestinations = new Set<string>()
-	const pendingDestinations = [oldCanonical]
+	const pendingDestinations: { destination: string; depth: number }[] = [
+		{ destination: oldCanonical, depth: 0 },
+	]
 	let includeCanonicalOrigins = true
 
 	while (pendingDestinations.length > 0) {
-		const destination = pendingDestinations.shift()
-		if (destination === undefined || queriedDestinations.has(destination)) continue
+		const pending = pendingDestinations.shift()
+		if (pending === undefined || queriedDestinations.has(pending.destination)) continue
+		const { destination, depth } = pending
 		queriedDestinations.add(destination)
 		const result = await service.readByQuery({
 			filter: {
@@ -73,7 +79,14 @@ export async function readRelevantRedirects(
 			const key = String(parsed.id)
 			if (records.has(key)) continue
 			records.set(key, parsed)
-			if (!queriedDestinations.has(parsed.origin)) pendingDestinations.push(parsed.origin)
+			if (!queriedDestinations.has(parsed.origin)) {
+				if (depth >= maxDepth) {
+					throw sluggernautIntegrityError(
+						`Exact redirect graph depth exceeds the configured maximum of ${maxDepth}.`,
+					)
+				}
+				pendingDestinations.push({ destination: parsed.origin, depth: depth + 1 })
+			}
 		}
 	}
 

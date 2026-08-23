@@ -14,6 +14,7 @@ import type {
 	DiscoveredPermalinkField,
 	DiscoveredSlugField,
 	PermalinkInterfaceOptions,
+	RedirectInterfaceOptions,
 	SluggernautFieldMetadata,
 	SlugInterfaceOptions,
 } from './types'
@@ -27,6 +28,12 @@ import {
 } from '@onderwijsin/directus-extension-utils'
 
 import { INTERFACE_IDS } from './constants'
+
+const redirectInterfaceDefaults: Required<RedirectInterfaceOptions> = {
+	automaticRedirects: false,
+	includeUnmanagedRedirectsInPlanning: true,
+	unmanagedRedirectConflictBehavior: 'override',
+}
 
 /**
  * Compares field metadata using the deterministic Sluggernaut ordering.
@@ -125,9 +132,7 @@ function withSlugInterfaceDefaults(options: Record<string, unknown>): Record<str
 		locale: 'en',
 		lowercase: true,
 		updateOnSourceChange: true,
-		automaticRedirects: false,
-		includeUnmanagedRedirectsInPlanning: true,
-		unmanagedRedirectConflictBehavior: 'override',
+		...redirectInterfaceDefaults,
 		...options,
 	}
 }
@@ -147,9 +152,7 @@ function withPermalinkInterfaceDefaults(options: Record<string, unknown>): Recor
 		validatePrefixOnManualInput: false,
 		trailingSlash: false,
 		enforceTrailingSlashOnManualInput: false,
-		automaticRedirects: false,
-		includeUnmanagedRedirectsInPlanning: true,
-		unmanagedRedirectConflictBehavior: 'override',
+		...redirectInterfaceDefaults,
 		...options,
 	}
 }

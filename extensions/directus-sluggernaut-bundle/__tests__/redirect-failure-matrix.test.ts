@@ -47,6 +47,7 @@ const configuration: CollectionConfiguration = {
 const options = {
 	SLUGGERNAUT_REDIRECTS_ENABLED: true,
 	SLUGGERNAUT_REDIRECTS_COLLECTION: 'redirect_records',
+	SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH: 25,
 } as never
 
 function makeContext() {
@@ -106,7 +107,7 @@ describe('Sluggernaut redirect failure matrix', () => {
 			configuration,
 			database,
 		} as never)
-		expect(mocks.readRelevantRedirects).toHaveBeenCalledWith({}, '/old', '/new')
+		expect(mocks.readRelevantRedirects).toHaveBeenCalledWith({}, '/old', '/new', 25)
 	})
 
 	it('logs planner and application failures without blocking content derivation', async () => {

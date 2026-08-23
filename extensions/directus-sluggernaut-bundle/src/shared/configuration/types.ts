@@ -1,18 +1,22 @@
 import type { Locale } from './locales'
 
-/** Options persisted by the Sluggernaut slug interface. */
-export interface SlugInterfaceOptions {
-	sourceFields: string[]
-	locale: Locale
-	lowercase: boolean
-	updateOnSourceChange: boolean
+/** Redirect planning options shared by both Sluggernaut field interfaces. */
+export interface RedirectInterfaceOptions {
 	automaticRedirects: boolean
 	includeUnmanagedRedirectsInPlanning?: boolean
 	unmanagedRedirectConflictBehavior?: 'block' | 'override'
 }
 
+/** Options persisted by the Sluggernaut slug interface. */
+export interface SlugInterfaceOptions extends RedirectInterfaceOptions {
+	sourceFields: string[]
+	locale: Locale
+	lowercase: boolean
+	updateOnSourceChange: boolean
+}
+
 /** Options persisted by the Sluggernaut permalink interface. */
-export interface PermalinkInterfaceOptions {
+export interface PermalinkInterfaceOptions extends RedirectInterfaceOptions {
 	generateFromSlug: boolean
 	slugField?: string
 	updateOnSlugChange: boolean
@@ -20,9 +24,6 @@ export interface PermalinkInterfaceOptions {
 	validatePrefixOnManualInput: boolean
 	trailingSlash: boolean
 	enforceTrailingSlashOnManualInput: boolean
-	automaticRedirects: boolean
-	includeUnmanagedRedirectsInPlanning?: boolean
-	unmanagedRedirectConflictBehavior?: 'block' | 'override'
 }
 
 /** Directus field metadata consumed by Sluggernaut configuration discovery. */

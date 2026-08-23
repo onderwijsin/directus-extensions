@@ -48,7 +48,12 @@ export async function processCanonicalRedirect(input: {
 			options.SLUGGERNAUT_REDIRECTS_COLLECTION,
 			database,
 		)
-		const existingRedirects = await readRelevantRedirects(service, oldCanonical, newCanonical)
+		const existingRedirects = await readRelevantRedirects(
+			service,
+			oldCanonical,
+			newCanonical,
+			options.SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH,
+		)
 		// The pure planner decides whether to create, rewrite, deactivate, or warn about redirects.
 		const plan = planCanonicalRedirect({
 			oldCanonical,

@@ -48,4 +48,22 @@ describe('Sluggernaut interface option contracts', () => {
 			default_value: true,
 		})
 	})
+
+	it('keeps shared redirect options identical across interfaces', () => {
+		const getOptions = (extension: unknown) =>
+			(extension as { options: (context: unknown) => InterfaceOption[] }).options({
+				collection: 'articles',
+			})
+		const sharedFields = [
+			'automaticRedirects',
+			'includeUnmanagedRedirectsInPlanning',
+			'unmanagedRedirectConflictBehavior',
+		]
+		const slugOptions = getOptions(slug)
+		const permalinkOptions = getOptions(permalink)
+
+		expect(slugOptions.filter(({ field }) => sharedFields.includes(field))).toEqual(
+			permalinkOptions.filter(({ field }) => sharedFields.includes(field)),
+		)
+	})
 })
