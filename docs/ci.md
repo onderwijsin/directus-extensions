@@ -29,11 +29,12 @@ E2E testing. It is not sufficient release evidence.
 
 ## Process integration testing
 
-The `test:integration` job requires `quality`, builds `@onderwijsin/directus-extension-utils`, and
-runs the real child-process filesystem coordination tests. It has no Docker or Compose dependency
-and runs in parallel with the E2E job. Keeping it separate from quality makes the normal unit-test
-project fast while giving process and filesystem races a dedicated CI budget. It is also a natural
-place for future cross-process integration suites.
+The `test:integration` job requires `quality`, builds `@onderwijsin/directus-extension-utils` and
+the publishable extensions, and runs the real child-process filesystem coordination and packed
+artifact tests. It has no Docker or Compose dependency and runs in parallel with the E2E job.
+Keeping it separate from quality makes the normal unit-test project fast while giving process,
+filesystem, and packed-artifact integration suites a dedicated CI budget. It is also a natural place
+for future cross-process integration suites.
 
 ## Directus E2E testing
 
