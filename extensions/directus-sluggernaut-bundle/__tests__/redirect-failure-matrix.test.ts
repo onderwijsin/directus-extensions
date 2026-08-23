@@ -156,7 +156,7 @@ describe('Sluggernaut redirect failure matrix', () => {
 		} as never)
 		expect(mocks.readManagedRedirectsForItem).toHaveBeenNthCalledWith(1, {}, 'entries', 1)
 		expect(mocks.readManagedRedirectsForItem).toHaveBeenNthCalledWith(2, {}, 'entries', '2')
-		expect(mocks.applyRedirectLifecyclePlan).toHaveBeenCalledTimes(2)
+		expect(mocks.applyRedirectLifecyclePlan).not.toHaveBeenCalled()
 		expect(mocks.createRedirectService).toHaveBeenCalledWith(
 			context,
 			'redirect_records',

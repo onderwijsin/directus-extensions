@@ -155,16 +155,9 @@ Run the isolated stack with:
 pnpm test:e2e
 ```
 
-The runner keeps Compose service logs out of the normal failure output so Vitest's failure report
-remains visible. Include them when diagnosing startup or service failures with:
-
-```sh
-pnpm test:e2e -- --verbose
-```
-
-The runner builds extensions, starts Compose, waits for service readiness, logs in the root
-administrator, runs the E2E Vitest project, and removes containers, networks, and named volumes in
-`finally`.
+The runner builds extensions, starts Compose with health checks, logs in the root administrator,
+runs the E2E Vitest project, and removes containers, networks, and named volumes in `finally`. It
+does not collect Compose logs.
 
 Tests own their Directus fixtures. For example, the playground creates and removes `posts` locally:
 
@@ -189,8 +182,8 @@ DIRECTUS_E2E_COMPOSE_FILES
 DIRECTUS_E2E_COMPOSE_PROJECT
 ```
 
-Operation and log polling time out after 60 seconds. Service readiness waits up to three minutes;
-one-shot Compose initialization waits up to five minutes.
+Test operations and log polling time out after 60 seconds. Compose health checks wait up to three
+minutes.
 
 ## Vitest environments and cleanup
 

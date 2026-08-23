@@ -1,9 +1,8 @@
 import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/types'
 import type { SluggernautEnv } from '../../configuration/env.schema'
 
-import { withMutationSource } from '../direct-mutations/mutation-source'
 import { createRedirectService } from '../service'
-import { applyRedirectLifecyclePlan, readManagedRedirectsForItem } from './operations'
+import { readManagedRedirectsForItem } from './operations'
 import { planLifecycleDeactivation } from './planner'
 
 /**
@@ -28,11 +27,17 @@ export async function processDeletedItems(input: {
 	)
 	for (const key of keys) {
 		const redirects = await readManagedRedirectsForItem(service, collection, key)
-		await withMutationSource('internal', () =>
-			applyRedirectLifecyclePlan(service, {
-				deactivate: planLifecycleDeactivation(redirects, 'deleted'),
-				reactivate: [],
-			}),
-		)
+		const deactivate = planLifecycleDeactivation(redirects, 'deleted')
+		if (deactivate.length === 0) continue
+
+		// Delete actions run after the source mutation and can re-enter Directus item hooks when an
+		// ItemsService update is used here. Persist only the two controlled lifecycle fields directly
+		// so a partial follow-up event cannot erase the auditable deletion reason.
+		await database(options.SLUGGERNAUT_REDIRECTS_COLLECTION)
+			.whereIn(
+				'id',
+				deactivate.map((redirect) => redirect.id),
+			)
+			.update({ is_active: false, inactive_reason: 'deleted' })
 	}
 }

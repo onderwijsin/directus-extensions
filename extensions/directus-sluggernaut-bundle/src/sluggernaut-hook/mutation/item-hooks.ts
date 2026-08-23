@@ -116,7 +116,7 @@ export function registerSluggernautItemHooks(
 	 * @param eventContext - Directus event context.
 	 * @returns void.
 	 */
-	hook.action('items.delete', async (meta, eventContext) => {
+	hook.action('items.delete', async (meta) => {
 		const deleteMeta = isRecord(meta) ? meta : {}
 		const collection = deleteMeta.collection
 		if (!isString(collection)) return
@@ -135,7 +135,10 @@ export function registerSluggernautItemHooks(
 				options,
 				collection,
 				keys,
-				database: eventContext.database,
+				// Delete actions run after the source mutation has completed. Use the hook's
+				// application database rather than the event transaction, which may already be
+				// committed or released by the time the action executes.
+				database: context.database,
 			}),
 		)
 		if (error) context.logger.error('Sluggernaut failed to process deleted items.', { error })
@@ -150,6 +153,9 @@ export function registerSluggernautItemHooks(
 	hook.action('items.update', async (meta, eventContext) => {
 		if (meta.collection !== options.SLUGGERNAUT_REDIRECTS_COLLECTION) return
 		if (!isRecord(meta.payload) || !hasKey(meta.payload, 'is_active')) return
+		// Only a real reactivation can clear a lifecycle reason. Deactivation updates may be
+		// emitted without all fields in the action metadata and must never erase provenance.
+		if (meta.payload.is_active !== true) return
 		if (hasKey(meta.payload, 'inactive_reason')) return
 
 		const keys = (isArray(meta.keys) ? meta.keys : []).filter(

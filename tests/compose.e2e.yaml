@@ -22,13 +22,11 @@ services:
 
   mailpit:
     ports:
-      - '${DIRECTUS_E2E_MAILPIT_PORT:-18025}:8025'
+      - '127.0.0.1:${DIRECTUS_E2E_MAILPIT_PORT:-18025}:8025'
     volumes:
       - directus-extensions-e2e-mailpit:/data
 
   garage:
-    ports:
-      - '${DIRECTUS_E2E_STORAGE_PORT:-13900}:3900'
     volumes:
       - directus-extensions-e2e-garage-meta:/var/lib/garage/meta
       - directus-extensions-e2e-garage-data:/var/lib/garage/data
@@ -39,14 +37,12 @@ services:
       - ../docker/garage-init.sh:/usr/local/bin/garage-init.sh:ro
 
   meilisearch:
-    ports:
-      - '${DIRECTUS_E2E_SEARCH_PORT:-17700}:7700'
     volumes:
       - directus-extensions-e2e-meilisearch:/meili_data
 
   directus:
     ports:
-      - '${DIRECTUS_E2E_PORT:-18055}:8055'
+      - '127.0.0.1:${DIRECTUS_E2E_PORT:-18055}:8055'
     depends_on:
       cache:
         condition: service_healthy
@@ -66,8 +62,8 @@ services:
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:${DIRECTUS_E2E_PORT:-18055}}
       SECRET: ${DIRECTUS_SECRET:-directus-extensions-e2e-secret}
-      # Temporarily disable license activation while CI activation behavior is investigated.
-      LICENSE_KEY: ''
+      # Disabled by default; CI may provide a license key explicitly.
+      LICENSE_KEY: ${LICENSE_KEY:-}
       EXTENSIONS_AUTO_RELOAD: 'false'
       MAGIC_LINKS_ENABLED: 'true'
       MAGIC_LINKS_COLLECTION: custom_links
