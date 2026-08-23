@@ -8,12 +8,13 @@
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { access, chmod, cp, mkdtemp, rm } from 'node:fs/promises'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 /** @typedef {import('node:child_process').ChildProcessWithoutNullStreams} ChildProcess */
 /** @typedef {import('node:child_process').SpawnOptions} SpawnOptions */
-/** @typedef {SpawnOptions & {streamOutput?: boolean, timeoutMs?: number}} RunCommandOptions */
+/** @typedef {SpawnOptions & {streamOutput?: boolean, timeoutMs?: number, killGraceMs?: number, forceKillSettleMs?: number}} RunCommandOptions */
 /** @typedef {{State?: string, ExitCode?: number}} ComposeService */
 const composeFiles = ['docker/compose.yaml', 'tests/compose.e2e.yaml']
 const e2eOperationTimeoutMs = 180_000
@@ -21,13 +22,15 @@ const composeCommandTimeout = 900_000
 const composeCompletionTimeout = 300_000
 const serviceReadinessTimeout = 180_000
 const progressLogInterval = 5_000
-const composeProject = `directus-extensions-e2e-${process.pid}`
-const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
-const mailpitPort = process.env.DIRECTUS_E2E_MAILPIT_PORT ?? '18025'
-const storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT ?? '13900'
-const searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT ?? '17700'
-const baseUrl = `http://127.0.0.1:${port}`
+const composeProject = `directus-extensions-e2e-${process.pid}-${randomBytes(4).toString('hex')}`
+let port = process.env.DIRECTUS_E2E_PORT
+let mailpitPort = process.env.DIRECTUS_E2E_MAILPIT_PORT
+let storagePort = process.env.DIRECTUS_E2E_STORAGE_PORT
+let searchPort = process.env.DIRECTUS_E2E_SEARCH_PORT
+let baseUrl = ''
 const email = 'admin@example.com'
+const childKillGraceMs = 1_000
+const forceKillSettleMs = 1_000
 
 /**
  * Determines whether the E2E runner should print Compose diagnostics.
@@ -48,6 +51,7 @@ const verbose = isVerbose()
 export const responseIsReady = (response) => response.ok
 /** @type {ChildProcess | undefined} */
 let activeChild
+let activeKillTimer
 let interrupted = false
 
 /**
@@ -66,10 +70,16 @@ function log(message) {
  * @param {RunCommandOptions} options - Child-process options and output behavior.
  * @returns {Promise<{stdout: string, stderr: string}>} The completed process result.
  */
-function runCommand(
+export function runCommand(
 	command,
 	args,
-	{ streamOutput = true, timeoutMs = composeCommandTimeout, ...options } = {},
+	{
+		streamOutput = true,
+		timeoutMs = composeCommandTimeout,
+		killGraceMs = childKillGraceMs,
+		forceKillSettleMs: forceKillSettleDelayMs = forceKillSettleMs,
+		...options
+	} = {},
 ) {
 	return new Promise((resolve, reject) => {
 		const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -77,9 +87,54 @@ function runCommand(
 		const stdout = []
 		const stderr = []
 		let timedOut = false
+		let settled = false
+		let forceKillTimer
+		/**
+		 * Settles the command exactly once.
+		 * @param {() => void} callback - Settlement callback.
+		 * @returns {void} Nothing.
+		 */
+		const settle = (callback) => {
+			if (settled) return
+			settled = true
+			clearTimeout(timer)
+			clearTimeout(forceKillTimer)
+			if (activeKillTimer) clearTimeout(activeKillTimer)
+			activeKillTimer = undefined
+			activeChild = undefined
+			callback()
+		}
+		/**
+		 * Force-kills the child after the graceful termination window.
+		 * @returns {void} Nothing.
+		 */
+		const forceKill = () => {
+			if (settled) return
+			child.kill('SIGKILL')
+			// A descendant can keep the stdio pipes open after the direct child exits.
+			// Settle independently so a hostile process tree cannot hold the runner open.
+			forceKillTimer = setTimeout(() => {
+				settle(() =>
+					reject(
+						new Error(
+							`${command} ${args.join(' ')} timed out after ${timeoutMs / 1_000} seconds`,
+						),
+					),
+				)
+			}, forceKillSettleDelayMs)
+		}
+		/**
+		 * Starts graceful termination and schedules force-kill escalation.
+		 * @returns {void} Nothing.
+		 */
+		const terminate = () => {
+			if (settled) return
+			child.kill('SIGTERM')
+			forceKillTimer = setTimeout(forceKill, killGraceMs)
+		}
 		const timer = setTimeout(() => {
 			timedOut = true
-			child.kill('SIGTERM')
+			terminate()
 		}, timeoutMs)
 
 		child.stdout.on('data', (chunk) => {
@@ -93,23 +148,81 @@ function runCommand(
 			if (streamOutput) process.stderr.write(output)
 		})
 		child.on('error', (error) => {
-			clearTimeout(timer)
-			activeChild = undefined
-			reject(error)
+			settle(() => reject(error))
 		})
 		child.on('close', (code, signal) => {
-			clearTimeout(timer)
-			activeChild = undefined
-			if (code === 0) {
-				resolve({ stdout: stdout.join(''), stderr: stderr.join('') })
-				return
-			}
-			const reason = timedOut
-				? `timed out after ${timeoutMs / 1_000} seconds`
-				: `exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`
-			reject(new Error(`${command} ${args.join(' ')} ${reason}`))
+			settle(() => {
+				if (code === 0) {
+					resolve({ stdout: stdout.join(''), stderr: stderr.join('') })
+					return
+				}
+				const reason = timedOut
+					? `timed out after ${timeoutMs / 1_000} seconds`
+					: `exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`
+				reject(new Error(`${command} ${args.join(' ')} ${reason}`))
+			})
 		})
 	})
+}
+
+/**
+ * Stops the currently running child without allowing it to block cleanup.
+ * @returns Nothing.
+ */
+function stopActiveChild() {
+	if (!activeChild) return
+	activeChild.kill('SIGTERM')
+	if (activeKillTimer) clearTimeout(activeKillTimer)
+	activeKillTimer = setTimeout(() => {
+		activeChild?.kill('SIGKILL')
+	}, childKillGraceMs)
+}
+
+/**
+ * Handles an interrupt while leaving the lifecycle finally block in control.
+ * @param {string} signal - Signal received by the runner.
+ * @param {boolean} setExitCode - Whether to set the process exit code.
+ * @returns Nothing.
+ */
+export function handleInterrupt(signal = 'SIGTERM', setExitCode = true) {
+	interrupted = true
+	if (setExitCode) process.exitCode = signal === 'SIGINT' ? 130 : 143
+	log(`Received ${signal}; stopping the active child process and cleaning up`)
+	stopActiveChild()
+}
+
+/**
+ * Finds an unused loopback port, preferring an explicitly configured port.
+ * @param {string | undefined} preferred - Explicit port, if configured.
+ * @returns {Promise<string>} An available port number.
+ */
+async function findAvailablePort(preferred) {
+	if (preferred) return preferred
+	return new Promise((resolvePort, reject) => {
+		const server = createServer()
+		server.once('error', reject)
+		server.listen(0, '127.0.0.1', () => {
+			const address = server.address()
+			if (!address || typeof address === 'string') {
+				server.close()
+				reject(new Error('Could not determine an available E2E port'))
+				return
+			}
+			server.close((error) => (error ? reject(error) : resolvePort(String(address.port))))
+		})
+	})
+}
+
+/**
+ * Allocates the four host ports used by the isolated Compose project.
+ * @returns {Promise<void>} Nothing.
+ */
+async function allocatePorts() {
+	port = await findAvailablePort(port)
+	mailpitPort = await findAvailablePort(mailpitPort)
+	storagePort = await findAvailablePort(storagePort)
+	searchPort = await findAvailablePort(searchPort)
+	baseUrl = `http://127.0.0.1:${port}`
 }
 
 /**
@@ -231,6 +344,9 @@ async function compose(args, { logCommand = true, ...options } = {}) {
 			...process.env,
 			...environmentSecrets,
 			DIRECTUS_E2E_PORT: port,
+			DIRECTUS_E2E_MAILPIT_PORT: mailpitPort,
+			DIRECTUS_E2E_STORAGE_PORT: storagePort,
+			DIRECTUS_E2E_SEARCH_PORT: searchPort,
 			DIRECTUS_E2E_EXTENSIONS_DIR: extensionsDirectory,
 		},
 		timeoutMs: e2eOperationTimeoutMs,
@@ -382,6 +498,7 @@ async function runTests(token) {
 			DIRECTUS_E2E_TOKEN: token,
 			DIRECTUS_E2E_COMPOSE_FILES: JSON.stringify(composeFiles),
 			DIRECTUS_E2E_COMPOSE_PROJECT: composeProject,
+			DIRECTUS_E2E_MAILPIT_PORT: mailpitPort,
 		},
 		timeoutMs: e2eOperationTimeoutMs,
 	})
@@ -392,17 +509,19 @@ async function runTests(token) {
  * @returns Nothing.
  */
 function registerSignalHandlers() {
-	for (const [signal, exitCode] of [
-		['SIGINT', 130],
-		['SIGTERM', 143],
-	]) {
+	for (const signal of ['SIGINT', 'SIGTERM']) {
 		process.once(signal, () => {
-			interrupted = true
-			process.exitCode = exitCode
-			log(`Received ${signal}; stopping the active child process and cleaning up`)
-			activeChild?.kill('SIGTERM')
+			handleInterrupt(signal)
 		})
 	}
+}
+
+/**
+ * Returns the only Docker cleanup operation this runner is allowed to perform.
+ * @returns {string[]} Project-scoped Compose cleanup arguments.
+ */
+export function cleanupComposeArguments() {
+	return ['down', '--volumes', '--remove-orphans']
 }
 
 /**
@@ -411,7 +530,7 @@ function registerSignalHandlers() {
  */
 async function cleanup() {
 	log('Cleaning up E2E Compose resources')
-	await compose(['down', '--volumes', '--remove-orphans'], {
+	await compose(cleanupComposeArguments(), {
 		timeoutMs: e2eOperationTimeoutMs,
 	})
 	log('E2E cleanup completed')
@@ -423,21 +542,42 @@ async function cleanup() {
 }
 
 /**
+ * Runs cleanup before optional diagnostics and captures both failures independently.
+ * @param {{cleanupTask: () => Promise<void>, diagnosticsTask?: () => Promise<void>, collectDiagnostics: boolean}} options - Lifecycle tasks.
+ * @returns {Promise<{cleanupError?: unknown, diagnosticsError?: unknown}>} Captured task failures.
+ */
+export async function cleanupThenDiagnostics({ cleanupTask, diagnosticsTask, collectDiagnostics }) {
+	let cleanupError
+	let diagnosticsError
+	try {
+		await cleanupTask()
+	} catch (error) {
+		cleanupError = error
+	}
+	if (collectDiagnostics && diagnosticsTask) {
+		try {
+			await diagnosticsTask()
+		} catch (error) {
+			diagnosticsError = error
+		}
+	}
+	return { cleanupError, diagnosticsError }
+}
+
+/**
  * Runs the complete isolated E2E lifecycle.
  * @returns {Promise<void>} Nothing.
  */
 export async function main() {
 	registerSignalHandlers()
+	let originalError
+	let cleanupError
 	try {
+		await allocatePorts()
 		await prepareExtensionsDirectory()
 		log(`Starting E2E run for project ${composeProject}`)
 		log(`Compose files: ${composeFiles.join(', ')}`)
 		log(`Directus endpoint: ${baseUrl}`)
-		// Start from a clean project so stale containers or database volumes cannot affect the run.
-		log('Removing stale Compose resources')
-		await compose(['down', '--volumes', '--remove-orphans'], {
-			timeoutMs: e2eOperationTimeoutMs,
-		})
 		log('Starting Compose services; readiness probes will report progress')
 		await compose(['up', '-d'], { timeoutMs: composeCommandTimeout })
 		await waitForComposeCompletion('garage-init')
@@ -447,29 +587,39 @@ export async function main() {
 		await runTests(token)
 		log(interrupted ? 'E2E run interrupted' : 'E2E tests completed successfully')
 	} catch (error) {
-		console.error(`[e2e ${new Date().toISOString()}] E2E run failed`, error)
-		if (verbose) {
-			// Service logs are the most useful startup/test failure diagnostic available from Compose.
-			try {
-				log('Collecting Compose service logs')
-				const logs = await compose(['logs', '--no-color'], { streamOutput: false })
-				console.error(logs.stdout)
-			} catch (logError) {
-				console.error(logError)
-			}
-		} else {
-			console.error(
-				'[e2e] Compose service logs suppressed; rerun with `pnpm test:e2e -- --verbose` for diagnostics',
-			)
-		}
+		originalError = error
 		process.exitCode = 1
 	} finally {
-		// Cleanup runs for both passing and failing tests, including failed startup attempts.
-		try {
-			await cleanup()
-		} catch (error) {
-			console.error(error)
-			process.exitCode = 1
+		const lifecycle = await cleanupThenDiagnostics({
+			cleanupTask: cleanup,
+			collectDiagnostics: Boolean(originalError && verbose && !interrupted),
+			/** @returns {Promise<void>} Collected diagnostics. */
+			diagnosticsTask: async () => {
+				log('Collecting bounded Compose service diagnostics')
+				const logs = await compose(['logs', '--no-color'], {
+					streamOutput: false,
+					timeoutMs: e2eOperationTimeoutMs,
+				})
+				console.error(logs.stdout)
+			},
+		})
+		cleanupError = lifecycle.cleanupError
+		if (cleanupError) process.exitCode = 1
+		if (originalError) {
+			console.error(`[e2e ${new Date().toISOString()}] E2E run failed`, originalError)
+			if (cleanupError) console.error('[e2e] E2E cleanup failed', cleanupError)
+			if (lifecycle.diagnosticsError) {
+				console.error('[e2e] E2E diagnostics failed', lifecycle.diagnosticsError)
+			} else if (!verbose || interrupted) {
+				console.error(
+					'[e2e] Compose service logs suppressed; rerun with `pnpm test:e2e -- --verbose` for diagnostics',
+				)
+			}
+		}
+		if (cleanupError) {
+			console.error(
+				`[e2e] Cleanup is unverified for project ${composeProject}. Command: docker compose ${composeFiles.map((file) => `-f ${file}`).join(' ')} -p ${composeProject} ${cleanupComposeArguments().join(' ')}`,
+			)
 		}
 	}
 }

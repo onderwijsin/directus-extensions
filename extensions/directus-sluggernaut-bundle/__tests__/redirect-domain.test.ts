@@ -1,3 +1,6 @@
+import type { ExactRedirectInput } from '../src/sluggernaut-hook/redirects/domain/exact-integrity'
+import type { Redirect } from '../src/sluggernaut-hook/redirects/schema'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -8,16 +11,48 @@ import {
 	requiresExactIntegrityLookup,
 	validateExactRedirect,
 	validateRelevantExactRedirectGraph,
-} from '../src/sluggernaut-hook/redirects/direct'
-import { decideRedirectOwnership } from '../src/sluggernaut-hook/redirects/direct/ownership'
-import { materializeRedirectState } from '../src/sluggernaut-hook/redirects/direct/state'
+} from '../src/sluggernaut-hook/redirects/domain'
+import { decideRedirectOwnership } from '../src/sluggernaut-hook/redirects/domain/ownership'
+import { materializeRedirectState } from '../src/sluggernaut-hook/redirects/domain/state'
 
-const exact = (origin: string, destination: string, id?: number, is_active = true) => ({
+const exact = (
+	origin: string,
+	destination: string,
+	id?: number,
+	is_active = true,
+): ExactRedirectInput => ({
 	id,
 	origin,
 	destination,
-	match: 'exact',
+	match: 'exact' as const,
 	is_active,
+})
+
+const persisted = (
+	origin: string,
+	destination: string,
+	managed_by: Redirect['managed_by'] = null,
+): Redirect => ({
+	id: 1,
+	origin,
+	destination,
+	type: 301,
+	match: 'exact',
+	specificity: null,
+	matcher_signature: null,
+	is_active: true,
+	start_date: null,
+	end_date: null,
+	managed_by,
+	source_collection: managed_by === 'sluggernaut' ? 'pages' : null,
+	source_item: managed_by === 'sluggernaut' ? 1 : null,
+	source_field: managed_by === 'sluggernaut' ? 'route' : null,
+	source_type: managed_by === 'sluggernaut' ? 'permalink' : null,
+	inactive_reason: null,
+	user_created: null,
+	date_created: '2026-01-01T00:00:00.000Z',
+	user_updated: null,
+	date_updated: null,
 })
 
 describe('exact redirect domain', () => {
@@ -76,10 +111,10 @@ describe('exact redirect domain', () => {
 
 	it('preserves omitted, null, and falsey update values', () => {
 		const state = materializeRedirectState(
-			{ origin: '/old', destination: '/new', is_active: true, start_date: 'tomorrow' },
+			{ ...persisted('/old', '/new'), start_date: 'tomorrow' },
 			{ destination: null, is_active: false },
 		)
-		expect(state).toEqual({
+		expect(state).toMatchObject({
 			origin: '/old',
 			destination: null,
 			is_active: false,
@@ -88,24 +123,18 @@ describe('exact redirect domain', () => {
 	})
 
 	it('applies one shared update payload independently to multiple existing states', () => {
-		const payload = { destination: null, is_active: false, type: 302 }
+		const payload = { destination: null, is_active: false, type: 302 as const }
 		expect(
-			materializeRedirectState(
-				{ origin: '/one', destination: '/first', is_active: true, type: 301 },
-				payload,
-			),
+			materializeRedirectState({ ...persisted('/one', '/first'), type: 301 }, payload),
 		).toMatchObject({ origin: '/one', destination: null, is_active: false, type: 302 })
 		expect(
-			materializeRedirectState(
-				{ origin: '/two', destination: '/second', is_active: true, type: 307 },
-				payload,
-			),
+			materializeRedirectState({ ...persisted('/two', '/second'), type: 307 }, payload),
 		).toMatchObject({ origin: '/two', destination: null, is_active: false, type: 302 })
 	})
 
 	it('transfers managed ownership only for changed structural fields', () => {
-		const existing = {
-			...exact('/old', '/new', 1),
+		const existing: Redirect = {
+			...persisted('/old', '/new', 'sluggernaut'),
 			type: 301,
 			managed_by: 'sluggernaut',
 			source_collection: 'pages',
@@ -152,8 +181,8 @@ describe('exact redirect domain', () => {
 		['match', 'pattern'],
 		['type', 302],
 	] as const)('transfers ownership when structural field %s changes', (field, value) => {
-		const existing = {
-			...exact('/old', '/new', 1),
+		const existing: Redirect = {
+			...persisted('/old', '/new', 'sluggernaut'),
 			managed_by: 'sluggernaut',
 			source_collection: 'pages',
 			source_item: 1,
@@ -161,17 +190,33 @@ describe('exact redirect domain', () => {
 			source_type: 'permalink',
 			inactive_reason: null,
 		}
-		const proposed = { ...existing, [field]: value }
-		expect(decideRedirectOwnership(existing, proposed).transfersOwnership).toBe(true)
+		if (field === 'origin')
+			expect(
+				decideRedirectOwnership(existing, { ...existing, origin: value })
+					.transfersOwnership,
+			).toBe(true)
+		if (field === 'destination')
+			expect(
+				decideRedirectOwnership(existing, { ...existing, destination: value })
+					.transfersOwnership,
+			).toBe(true)
+		if (field === 'match')
+			expect(
+				decideRedirectOwnership(existing, { ...existing, match: value }).transfersOwnership,
+			).toBe(true)
+		if (field === 'type')
+			expect(
+				decideRedirectOwnership(existing, { ...existing, type: value }).transfersOwnership,
+			).toBe(true)
 	})
 
 	it('does not transfer unmanaged ownership or clear provenance on internal mutations', () => {
-		const unmanaged = { ...exact('/old', '/new', 1), managed_by: null, source_item: null }
+		const unmanaged = persisted('/old', '/new')
 		expect(
 			decideRedirectOwnership(unmanaged, { ...unmanaged, destination: '/other' })
 				.transfersOwnership,
 		).toBe(false)
-		const managed = { ...exact('/old', '/new', 1), managed_by: 'sluggernaut', source_item: 1 }
+		const managed = persisted('/old', '/new', 'sluggernaut')
 		const internal = decideRedirectOwnership(
 			managed,
 			{ ...managed, destination: '/other' },

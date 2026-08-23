@@ -14,10 +14,10 @@ vi.mock('../src/sluggernaut-hook/mutation/items', () => ({
 vi.mock('../src/sluggernaut-hook/mutation/coordinator', () => ({
 	coordinateMutation: mocks.coordinateMutation,
 }))
-vi.mock('../src/sluggernaut-hook/mutation/redirects/lifecycle-redirects', () => ({
+vi.mock('../src/sluggernaut-hook/redirects/history/lifecycle', () => ({
 	processArchiveLifecycle: mocks.processArchiveLifecycle,
 }))
-vi.mock('../src/sluggernaut-hook/mutation/redirects/canonical-redirects', () => ({
+vi.mock('../src/sluggernaut-hook/redirects/history/canonical', () => ({
 	processCanonicalRedirect: mocks.processCanonicalRedirect,
 }))
 

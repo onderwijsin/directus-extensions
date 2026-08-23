@@ -68,7 +68,7 @@ describe('redirect operations', () => {
 						{ match: { _eq: 'exact' } },
 						{ managed_by: { _eq: 'sluggernaut' } },
 						{ source_collection: { _eq: 'entries' } },
-						{ source_item: { _eq: 7 } },
+						{ source_item: { _eq: '7' } },
 					],
 				},
 			}),

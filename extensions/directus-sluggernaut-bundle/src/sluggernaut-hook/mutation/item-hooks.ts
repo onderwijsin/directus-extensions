@@ -14,15 +14,16 @@ import {
 	hasKey,
 	isArray,
 	isInteger,
+	isPrimaryKey,
 	isRecord,
 	isString,
 } from '@onderwijsin/directus-extension-utils'
 
+import { processDeletedItems } from '../redirects/history/deletion'
 import { discoverArchiveSettings } from './archive'
 import { coordinateMutation } from './coordinator'
 import { getConfiguration, logConfigurationWarnings } from './helpers'
 import { hasRelevantPayloadField, resolveSingleUpdateItemKey } from './items'
-import { processDeletedItems } from './redirects/deletion-redirects'
 import { processItemUpdate } from './update'
 
 /**
@@ -120,9 +121,12 @@ export function registerSluggernautItemHooks(
 		const collection = deleteMeta.collection
 		if (!isString(collection)) return
 		if (collection === options.SLUGGERNAUT_REDIRECTS_COLLECTION) return
-		const keys = (isArray(deleteMeta.keys) ? deleteMeta.keys : []).filter(
-			(key): key is PrimaryKey => isString(key) || isInteger(key),
-		)
+		const eventKeys = isArray(deleteMeta.keys)
+			? deleteMeta.keys
+			: isPrimaryKey(deleteMeta.key)
+				? [deleteMeta.key]
+				: []
+		const keys = eventKeys.filter((key): key is PrimaryKey => isString(key) || isInteger(key))
 		if (keys.length === 0) return
 
 		const { error } = await attempt(() =>

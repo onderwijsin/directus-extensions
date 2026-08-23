@@ -84,7 +84,9 @@ export async function readManagedRedirectsForItem(
 				{ match: { _eq: 'exact' } },
 				{ managed_by: { _eq: 'sluggernaut' } },
 				{ source_collection: { _eq: sourceCollection } },
-				{ source_item: { _eq: sourceItem } },
+				// Directus may deliver numeric primary keys in delete events, while the provenance
+				// field is persisted as text. Normalize the boundary value so both representations match.
+				{ source_item: { _eq: String(sourceItem) } },
 			],
 		},
 		fields: [...REDIRECT_FIELDS],

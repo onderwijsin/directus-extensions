@@ -2,13 +2,12 @@ import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/t
 import type { CollectionConfiguration } from '../../../shared/configuration/types'
 import type { SluggernautEnv } from '../../configuration/env.schema'
 
-import { applyRedirectPlan, readRelevantRedirects } from '../../redirects/history/operations'
-import {
-	canonicalUrlForItem,
-	planCanonicalRedirect,
-	selectRedirectSource,
-} from '../../redirects/history/planner'
-import { createRedirectService } from '../../redirects/service'
+import { InvalidPayloadError } from '@directus/errors'
+
+import { withMutationSource } from '../direct-mutations/mutation-source'
+import { createRedirectService } from '../service'
+import { applyRedirectPlan, readRelevantRedirects } from './operations'
+import { canonicalUrlForItem, planCanonicalRedirect, selectRedirectSource } from './planner'
 
 /**
  * Processes redirect history for one canonical URL transition.
@@ -69,8 +68,9 @@ export async function processCanonicalRedirect(input: {
 			})
 		}
 		// Apply the deterministic plan through the same transaction used by the source-item mutation.
-		await applyRedirectPlan(service, plan)
+		await withMutationSource('internal', () => applyRedirectPlan(service, plan))
 	} catch (error) {
+		if (error instanceof InvalidPayloadError) throw error
 		// Redirect infrastructure is optional. A missing or incompatible collection must not prevent
 		// the derived content mutation from completing.
 		context.logger.warn(

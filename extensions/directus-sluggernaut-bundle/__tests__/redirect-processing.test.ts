@@ -2,8 +2,8 @@ import type { CollectionConfiguration } from '../src/shared/configuration/types'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { processCanonicalRedirect } from '../src/sluggernaut-hook/mutation/redirects/canonical-redirects'
-import { processArchiveLifecycle } from '../src/sluggernaut-hook/mutation/redirects/lifecycle-redirects'
+import { processCanonicalRedirect } from '../src/sluggernaut-hook/redirects/history/canonical'
+import { processArchiveLifecycle } from '../src/sluggernaut-hook/redirects/history/lifecycle'
 
 const configuration: CollectionConfiguration = {
 	slugs: [],

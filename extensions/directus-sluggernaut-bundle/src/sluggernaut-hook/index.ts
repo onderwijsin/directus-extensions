@@ -19,6 +19,7 @@ import { registerFieldCacheInvalidation } from './configuration/cache-invalidati
 import { envSchema } from './configuration/env.schema'
 import { registerSluggernautStartup } from './configuration/startup'
 import { registerSluggernautItemHooks } from './mutation/item-hooks'
+import { registerDirectExactRedirectHooks } from './redirects/direct-mutations/exact'
 
 export default defineHook((hook, context) => {
 	const setup = extensionSetup(EXTENSION_NAME, context.env, context.logger)
@@ -39,6 +40,7 @@ export default defineHook((hook, context) => {
 	registerSluggernautStartup(hook.action, context, options)
 	registerFieldCacheInvalidation(hook, fieldReader)
 	registerSluggernautItemHooks(hook, context, options, fieldReader)
+	registerDirectExactRedirectHooks(hook, context, options)
 
 	setup.end()
 })

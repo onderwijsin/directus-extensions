@@ -1,4 +1,4 @@
-import type { Redirect } from '../schema'
+import type { Redirect, RedirectCreateInput } from '../schema'
 
 import { isDefined } from '@onderwijsin/directus-extension-utils'
 
@@ -6,16 +6,32 @@ import {
 	normalizeExactRedirectDestination,
 	normalizeExactRedirectOrigin,
 	type ExactRedirectDestination,
-} from '../normalization'
-
-type ExactRedirectFields = Pick<Redirect, 'origin' | 'destination' | 'match' | 'is_active'>
-type UnknownExactRedirectFields = { [Field in keyof ExactRedirectFields]: unknown }
+} from './normalization'
 
 /** Minimal input needed by the exact graph domain, derived from the redirect schema. */
-export type ExactRedirectInput = UnknownExactRedirectFields & { id?: Redirect['id'] } & Record<
-		string,
-		unknown
-	>
+export type ExactRedirectInput = Omit<
+	Partial<RedirectCreateInput>,
+	| 'match'
+	| 'origin'
+	| 'destination'
+	| 'managed_by'
+	| 'source_collection'
+	| 'source_item'
+	| 'source_field'
+	| 'source_type'
+	| 'inactive_reason'
+> & {
+	origin?: string | null
+	destination?: string | null
+	match?: Redirect['match']
+	id?: Redirect['id']
+	managed_by?: Redirect['managed_by']
+	source_collection?: Redirect['source_collection']
+	source_item?: Redirect['source_item']
+	source_field?: Redirect['source_field']
+	source_type?: Redirect['source_type']
+	inactive_reason?: Redirect['inactive_reason']
+}
 
 /** A validated exact redirect with its destination classified for graph traversal. */
 export type ValidatedExactRedirect = Omit<

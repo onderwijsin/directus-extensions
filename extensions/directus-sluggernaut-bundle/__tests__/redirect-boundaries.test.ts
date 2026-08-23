@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { processDeletedItems } from '../src/sluggernaut-hook/mutation/redirects/deletion-redirects'
-import { processArchiveLifecycle } from '../src/sluggernaut-hook/mutation/redirects/lifecycle-redirects'
+import { processDeletedItems } from '../src/sluggernaut-hook/redirects/history/deletion'
+import { processArchiveLifecycle } from '../src/sluggernaut-hook/redirects/history/lifecycle'
 import {
 	redirectCreateSchema,
 	redirectRecordSchema,

@@ -189,18 +189,37 @@ sluggernaut-hook
 │   └── automatic canonical redirect history
 │
 └── redirect domain
-    ├── schema
-    ├── normalization
-    ├── validation
-    ├── integrity
-    ├── pattern parsing/ranking
-    └── direct redirect mutation/query hooks
+    ├── schema and service
+    ├── domain
+    │   ├── normalization, state, ownership, and integrity
+    │   └── pattern parsing/ranking
+    ├── history
+    │   ├── planner and persistence operations
+    │   └── canonical, lifecycle, and deletion workflows
+    └── direct-mutations
+        └── exact mutation hooks and mutation-source context
 ```
 
 The existing canonical redirect planner remains responsible only for automatic canonical-history
 management. It must not gain regex/pattern-routing responsibilities.
 
 Direct mutations of the redirect collection use dedicated redirect-domain hooks.
+
+The current implementation maps this architecture to:
+
+```text
+src/sluggernaut-hook/redirects/
+├── schema.ts
+├── service.ts
+├── domain/
+├── history/
+└── direct-mutations/
+```
+
+`service.ts` is shared by history workflows and direct mutation hooks. `history/` contains the
+automatic redirect-history planner, persistence operations, and canonical/lifecycle/deletion
+workflows. `direct-mutations/` contains Directus-bound exact mutation validation and the
+request-local internal mutation-source context.
 
 ---
 
@@ -688,11 +707,18 @@ canonical-history implementation is fully insulated from subsequent manual redir
 
 ## PR 2 — Protect direct exact redirect mutations
 
+Implementation handoff for the remaining bulk-preflight work:
+[`SLUGGERNAUT_REDIRECTS_PR2C.md`](./SLUGGERNAUT_REDIRECTS_PR2C.md).
+
 **Goal:** Make the redirect collection itself integrity-safe before adding patterns.
 
 ### Scope
 
 Add dedicated redirect collection mutation hooks.
+
+The direct exact adapter belongs under `redirects/direct-mutations/`; it must reuse the shared
+`redirects/service.ts`. Automatic canonical, lifecycle, and deletion workflows belong under
+`redirects/history/`, while pure exact decisions remain under `redirects/domain/`.
 
 Implement exact redirect:
 

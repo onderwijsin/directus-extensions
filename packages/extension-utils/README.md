@@ -5,7 +5,8 @@ setups, but is intended to run inside Directus—not as a framework-agnostic uti
 
 The public surface includes:
 
-- runtime guards, attempt/retry helpers, object helpers, MIME classification, and UUIDs;
+- runtime guards (including Directus primary-key narrowing), attempt/retry helpers, object helpers,
+  MIME classification, and UUIDs;
 - server-only async Express adapters, locks, debounced auto-task handlers, task storage, logging,
   and extension setup helpers; and
 - reusable Directus extension types.

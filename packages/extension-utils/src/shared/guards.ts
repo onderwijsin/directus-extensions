@@ -54,6 +54,15 @@ export function isNumber(value: unknown): value is number {
 	return typeof value === 'number'
 }
 
+/**
+ * Returns true when a value is a Directus string or numeric primary key.
+ * @param value - Value to inspect.
+ * @returns Whether the value is a supported primary key.
+ */
+export function isPrimaryKey(value: unknown): value is string | number {
+	return isString(value) || isNumber(value)
+}
+
 /** Returns true for finite numbers.
  * @param value - Value to inspect.
  * @returns Whether the value is finite.

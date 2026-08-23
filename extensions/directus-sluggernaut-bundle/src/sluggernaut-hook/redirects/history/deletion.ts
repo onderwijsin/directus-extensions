@@ -1,12 +1,10 @@
 import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/types'
 import type { SluggernautEnv } from '../../configuration/env.schema'
 
-import {
-	applyRedirectLifecyclePlan,
-	readManagedRedirectsForItem,
-} from '../../redirects/history/operations'
-import { planLifecycleDeactivation } from '../../redirects/history/planner'
-import { createRedirectService } from '../../redirects/service'
+import { withMutationSource } from '../direct-mutations/mutation-source'
+import { createRedirectService } from '../service'
+import { applyRedirectLifecyclePlan, readManagedRedirectsForItem } from './operations'
+import { planLifecycleDeactivation } from './planner'
 
 /**
  * Deactivates managed redirect history after source-item deletion.
@@ -30,9 +28,11 @@ export async function processDeletedItems(input: {
 	)
 	for (const key of keys) {
 		const redirects = await readManagedRedirectsForItem(service, collection, key)
-		await applyRedirectLifecyclePlan(service, {
-			deactivate: planLifecycleDeactivation(redirects, 'deleted'),
-			reactivate: [],
-		})
+		await withMutationSource('internal', () =>
+			applyRedirectLifecyclePlan(service, {
+				deactivate: planLifecycleDeactivation(redirects, 'deleted'),
+				reactivate: [],
+			}),
+		)
 	}
 }

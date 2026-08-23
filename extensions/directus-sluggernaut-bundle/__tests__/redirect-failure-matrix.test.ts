@@ -20,9 +20,9 @@ vi.mock('../src/sluggernaut-hook/redirects/history/operations', () => ({
 	applyRedirectLifecyclePlan: mocks.applyRedirectLifecyclePlan,
 }))
 
-import { processCanonicalRedirect } from '../src/sluggernaut-hook/mutation/redirects/canonical-redirects'
-import { processDeletedItems } from '../src/sluggernaut-hook/mutation/redirects/deletion-redirects'
-import { processArchiveLifecycle } from '../src/sluggernaut-hook/mutation/redirects/lifecycle-redirects'
+import { processCanonicalRedirect } from '../src/sluggernaut-hook/redirects/history/canonical'
+import { processDeletedItems } from '../src/sluggernaut-hook/redirects/history/deletion'
+import { processArchiveLifecycle } from '../src/sluggernaut-hook/redirects/history/lifecycle'
 
 const configuration: CollectionConfiguration = {
 	slugs: [],

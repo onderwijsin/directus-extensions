@@ -15,6 +15,7 @@ describe('Sluggernaut configuration boundaries', () => {
 		expect(
 			envSchema.safeParse({
 				SLUGGERNAUT_REDIRECTS_COLLECTION: 'custom_$redirects',
+				SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH: 1,
 				SLUGGERNAUT_FIELDS_CACHE_TTL_MS: 1,
 			}).success,
 		).toBe(true)
@@ -24,6 +25,10 @@ describe('Sluggernaut configuration boundaries', () => {
 			)
 		}
 		expect(envSchema.safeParse({ SLUGGERNAUT_FIELDS_CACHE_TTL_MS: 0 }).success).toBe(false)
+		expect(envSchema.safeParse({ SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH: 0 }).success).toBe(false)
+		expect(envSchema.safeParse({ SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH: 1.5 }).success).toBe(
+			false,
+		)
 		expect(envSchema.safeParse({ SLUGGERNAUT_ENABLED: 'false' }).success).toBe(false)
 	})
 })

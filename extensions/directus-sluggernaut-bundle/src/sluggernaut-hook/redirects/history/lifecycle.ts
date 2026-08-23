@@ -1,12 +1,12 @@
 import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/types'
 import type { SluggernautEnv } from '../../configuration/env.schema'
 
-import {
-	applyRedirectLifecyclePlan,
-	readManagedRedirectsForItem,
-} from '../../redirects/history/operations'
-import { planArchiveReactivation, planLifecycleDeactivation } from '../../redirects/history/planner'
-import { createRedirectService } from '../../redirects/service'
+import { InvalidPayloadError } from '@directus/errors'
+
+import { withMutationSource } from '../direct-mutations/mutation-source'
+import { createRedirectService } from '../service'
+import { applyRedirectLifecyclePlan, readManagedRedirectsForItem } from './operations'
+import { planArchiveReactivation, planLifecycleDeactivation } from './planner'
 
 /**
  * Applies archive or unarchive changes to one source item's redirect history.
@@ -34,12 +34,15 @@ export async function processArchiveLifecycle(input: {
 			database,
 		)
 		const redirects = await readManagedRedirectsForItem(service, collection, key)
-		await applyRedirectLifecyclePlan(service, {
-			deactivate:
-				lifecycle === 'archive' ? planLifecycleDeactivation(redirects, 'archived') : [],
-			reactivate: lifecycle === 'unarchive' ? planArchiveReactivation(redirects) : [],
-		})
+		await withMutationSource('internal', () =>
+			applyRedirectLifecyclePlan(service, {
+				deactivate:
+					lifecycle === 'archive' ? planLifecycleDeactivation(redirects, 'archived') : [],
+				reactivate: lifecycle === 'unarchive' ? planArchiveReactivation(redirects) : [],
+			}),
+		)
 	} catch (error) {
+		if (error instanceof InvalidPayloadError) throw error
 		// Redirect lifecycle history is optional and must not block the archive transition itself.
 		context.logger.warn(
 			'Sluggernaut skipped redirect lifecycle processing because the redirect collection is unavailable or incompatible.',

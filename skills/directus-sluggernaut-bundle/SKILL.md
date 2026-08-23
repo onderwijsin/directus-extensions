@@ -53,6 +53,7 @@ the API hook or Flow operation.
 | `SLUGGERNAUT_ENABLED`                              |      `true` | boolean                                                   | Master switch. When false, the hook is inert and recalculation returns zero counts. |
 | `SLUGGERNAUT_REDIRECTS_ENABLED`                    |     `false` | boolean                                                   | Enables canonical redirect creation and archive/delete lifecycle handling.          |
 | `SLUGGERNAUT_REDIRECTS_COLLECTION`                 | `redirects` | non-empty identifier matching `^[A-Za-z_][A-Za-z0-9_$]*$` | Redirect collection name.                                                           |
+| `SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH`             |        `25` | positive integer                                          | Maximum exact-redirect graph expansion depth before a mutation is rejected.         |
 | `SLUGGERNAUT_FIELDS_CACHE_TTL_MS`                  |     `60000` | finite positive number                                    | Cache lifetime for field metadata.                                                  |
 | `SLUGGERNAUT_SCHEMA_CHANGES_ENABLED`               |     `false` | boolean                                                   | Allows startup schema reconciliation for the redirect collection.                   |
 | `SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR`                |      `true` | boolean                                                   | Whether schema/policy startup errors abort provisioning.                            |
@@ -301,6 +302,16 @@ Update-time redirect writes are part of the mutation flow. If the configured red
 unavailable or incompatible, redirect processing is skipped and logged while the derived item update
 continues. Delete/archive action failures are logged after the source mutation and cannot roll back
 deletion.
+
+Direct create and single-item update mutations on the configured redirect collection are validated
+before persistence when redirects are enabled. Exact redirects normalize origins and destinations,
+reject self-loops, duplicate active origins, and cycles, and query only the relevant active exact
+graph by origin. External structural edits to a managed redirect clear its provenance, while
+operational changes preserve it. Sluggernaut-generated history writes bypass ownership transfer and
+use the existing history planner for structural graph coordination while still receiving local exact
+validation. Pattern parsing and `updateMany` preflight remain out of scope. Invalid direct redirect
+mutations are returned as Directus invalid-payload errors, and a missing/incompatible enabled
+collection is not silently accepted for direct writes.
 
 Sluggernaut does not serve these records. A redirect consumer should at minimum filter
 `is_active=true`, honor `start_date`/`end_date`, and return the stored `type` and `destination`.

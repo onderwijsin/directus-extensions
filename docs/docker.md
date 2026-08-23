@@ -113,12 +113,10 @@ The shared runner does not create application collections or access-control fixt
 
 ## E2E ports and mounts
 
-| Service     | E2E host port |
-| ----------- | ------------: |
-| Directus    |       `18055` |
-| Mailpit     |       `18025` |
-| Garage S3   |       `13900` |
-| Meilisearch |       `17700` |
+Each E2E run selects an unused loopback port for Directus, Mailpit, Garage S3, and Meilisearch. This
+prevents an abandoned Compose project from blocking the next run. Override an individual port with
+`DIRECTUS_E2E_PORT`, `DIRECTUS_E2E_MAILPIT_PORT`, `DIRECTUS_E2E_STORAGE_PORT`, or
+`DIRECTUS_E2E_SEARCH_PORT` when a stable port is required.
 
 The E2E runner stages the regular extension directory together with the private playground from
 `tests/directus-e2e-playground` into a disposable extension tree, then mounts that tree read-only.

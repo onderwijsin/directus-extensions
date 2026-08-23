@@ -1,6 +1,6 @@
 import { isNonBlankString } from '@onderwijsin/directus-extension-utils'
 
-import { containsControlCharacter, normalizePermalink } from '../../shared/values/normalization'
+import { containsControlCharacter, normalizePermalink } from '../../../shared/values/normalization'
 
 /** A normalized destination that either continues through the redirect graph or terminates it. */
 export type ExactRedirectDestination =

@@ -2,11 +2,11 @@ import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/t
 import type { CollectionConfiguration } from '../../shared/configuration/types'
 import type { SluggernautEnv } from '../configuration/env.schema'
 
+import { processCanonicalRedirect } from '../redirects/history/canonical'
+import { processArchiveLifecycle } from '../redirects/history/lifecycle'
 import { archiveLifecycle, type ArchiveSettings } from './archive'
 import { coordinateMutation } from './coordinator'
 import { readExistingItem, relevantFields } from './items'
-import { processCanonicalRedirect } from './redirects/canonical-redirects'
-import { processArchiveLifecycle } from './redirects/lifecycle-redirects'
 
 /**
  * Validates and processes one item update after its boundary checks succeed.

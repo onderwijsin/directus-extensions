@@ -12,6 +12,7 @@ import {
 	isNonBlankString,
 	isNonEmptyString,
 	isNumber,
+	isPrimaryKey,
 	isRecord,
 	isString,
 } from '../src/index'
@@ -35,6 +36,9 @@ describe('primitive guards', () => {
 		expect(isNonEmptyString('')).toBe(false)
 		expect(isNonBlankString('\n\t')).toBe(false)
 		expect(isNumber(Number.POSITIVE_INFINITY)).toBe(true)
+		expect(isPrimaryKey('key')).toBe(true)
+		expect(isPrimaryKey(1)).toBe(true)
+		expect(isPrimaryKey(null)).toBe(false)
 		expect(isFiniteNumber(Number.POSITIVE_INFINITY)).toBe(false)
 		expect(isInteger(2.5)).toBe(false)
 		expect(isBoolean(0)).toBe(false)

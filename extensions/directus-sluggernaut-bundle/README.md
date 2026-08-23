@@ -69,6 +69,7 @@ loader.
 | `SLUGGERNAUT_ENABLED`                              |      `true` | Master switch for the hook and operation. When false, the operation returns zero counts and the hook registers no behavior.        |
 | `SLUGGERNAUT_REDIRECTS_ENABLED`                    |     `false` | Enables redirect creation and archive/delete lifecycle handling. Slug and permalink derivation work independently of this setting. |
 | `SLUGGERNAUT_REDIRECTS_COLLECTION`                 | `redirects` | Collection used for managed redirects. Must be a valid Directus collection identifier.                                             |
+| `SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH`             |        `25` | Maximum exact-redirect graph expansion depth before a mutation is rejected.                                                        |
 | `SLUGGERNAUT_FIELDS_CACHE_TTL_MS`                  |     `60000` | Field metadata cache lifetime in milliseconds. Must be finite and greater than zero.                                               |
 | `SLUGGERNAUT_SCHEMA_CHANGES_ENABLED`               |     `false` | Allows Sluggernaut to create or reconcile its redirect collection schema at startup.                                               |
 | `SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR`                |      `true` | Stops schema/policy startup processing when provisioning fails.                                                                    |
@@ -231,6 +232,17 @@ unmanaged conflict and log a warning. Update-time redirect persistence is in the
 if the redirect collection is unavailable or incompatible, redirect processing is skipped, logged,
 and the derived item update still completes. Delete/archive lifecycle failures are logged after the
 source action.
+
+Direct `items.create` and single-item `items.update` mutations to the configured redirect collection
+validate exact redirects before persistence. Origins and internal destinations are normalized,
+active exact redirects are checked for duplicate origins, self-loops, and cycles, and only the
+relevant origin frontier is read. External structural edits to a Sluggernaut-owned redirect clear
+its provenance; operational changes such as activation dates preserve ownership. Redirect writes
+made by Sluggernaut's own history workflow preserve provenance and local exact validation; the
+existing history planner remains authoritative for those internal structural writes. Pattern
+redirects and `updateMany` preflight are not implemented yet. Integrity failures are returned as
+Directus invalid-payload errors; an enabled but unavailable redirect collection therefore rejects
+direct redirect mutations rather than silently skipping validation.
 
 The bundle does not serve redirects. A web server, frontend, edge worker, or endpoint must query
 active records and issue the HTTP response.
