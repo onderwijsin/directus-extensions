@@ -1,12 +1,64 @@
-# @onderwijsin/directus-sluggernaut-bundle
+# Sluggernaut
 
-Sluggernaut provides field-driven slugs, URL paths, a link display, managed redirect history, and a
-recalculation operation for Directus 12.2.0 and later within the Directus 12 release line
-(`>=12.2.0 <13`).
+> _Complete URL lifecycle management for Directus._
+
+Sluggernaut keeps slugs, canonical permalinks, and redirects in sync as your content evolves.
+Generate clean slugs, derive and validate paths, automatically preserve old URLs when content moves,
+and manage manual exact or pattern redirects from one place.
+
+Built for headless projects where URLs need to remain stable long after the content that created
+them has changed.
+
+Sluggernaut is published as `@onderwijsin/directus-sluggernaut-bundle` and supports Directus
+`>=12.2.0 <13`.
 
 It is a non-sandboxed bundle. It is best suited for installation as an npm package in a trusted,
 self-hosted Directus runtime. Marketplace availability depends on the Directus instance's trust
 configuration for non-sandboxed extensions.
+
+## Why Sluggernaut?
+
+Directus can store a slug in a field, but a production URL is more than a slug. It often needs a
+stable path, validation, a frontend-independent canonical value, redirect history, archive/delete
+lifecycle handling, and a safe way to recalculate existing content after a configuration change.
+Sluggernaut provides those URL concerns as one Directus-native workflow.
+
+### What does it do that Directus does not?
+
+Sluggernaut adds the URL lifecycle around ordinary Directus fields:
+
+- deterministic slug generation from one or more source fields;
+- absolute-path permalink generation with prefix and trailing-slash policies;
+- validation for API, Flow, import, and Studio mutations;
+- managed `301` history when a canonical slug or permalink changes;
+- redirect-chain flattening, loop prevention, and lifecycle deactivation;
+- manually maintained exact and restricted pattern redirects in the same collection; and
+- a Flow operation to recalculate derived values across an existing collection.
+
+Directus remains the source of truth for the content and redirect records. Sluggernaut does not
+replace a frontend router or serve redirect HTTP responses.
+
+### What happens when a permalink changes?
+
+If redirects are enabled and the permalink field is opted into automatic redirects, Sluggernaut
+keeps the old path as an active exact `301` redirect to the new canonical path. Existing managed
+chains are flattened to the latest destination. When an item is archived or deleted, its managed
+redirects are deactivated with `inactive_reason=archived` or `deleted`. If redirects are disabled,
+the permalink still changes but no history is written.
+
+### Can I still manually control URLs?
+
+Yes. A permalink can be configured as standalone manual input with `generateFromSlug=false`, or a
+consumer can send an explicit permalink in an API/import/Flow payload. Explicit values take
+precedence over derivation, but every value is still normalized and validated. Manual redirects can
+also be created directly in the redirect collection. Sluggernaut validates exact redirect conflicts
+and supports restricted patterns such as `/legacy/:slug` and `/files/*`.
+
+### Does Sluggernaut lock me into a particular frontend?
+
+No. It stores path-only values such as `/news/summer-news` and redirect metadata in Directus. Your
+Next.js, Nuxt, Astro, PHP, native app backend, reverse proxy, or edge worker can consume them. The
+bundle does not install a router, frontend SDK, hosting platform, or redirect endpoint.
 
 ## What it provides
 
@@ -55,6 +107,41 @@ The server stores:
 
 The Studio inputs start locked. Unlock a field to edit it manually; server-side normalization and
 validation remain authoritative for every API, Flow, import, and Studio mutation.
+
+## Install and configure a redirect consumer
+
+Sluggernaut stores redirects; your application serves them. A minimal consumer should find an active
+record, honor its optional date window, and return the stored status code and destination:
+
+```ts
+const redirect = await directus.items('redirects').readByQuery({
+  filter: {
+    _and: [{ origin: { _eq: requestPath } }, { is_active: { _eq: true } }],
+  },
+  limit: 1,
+})
+
+// Apply start_date/end_date in the consumer's timezone policy, then:
+// HTTP 301/302/307/308 + Location: redirect.destination
+```
+
+For a direct API mutation, an exact manual redirect looks like this:
+
+```http
+POST /items/redirects
+Content-Type: application/json
+
+{
+  "origin": "/old-news",
+  "destination": "/news/summer-news",
+  "type": 301,
+  "match": "exact",
+  "is_active": true
+}
+```
+
+Do not write Sluggernaut-owned provenance fields yourself. When the bundle provisions the
+collection, those fields are read-only and maintained by Sluggernaut.
 
 ## Runtime configuration
 

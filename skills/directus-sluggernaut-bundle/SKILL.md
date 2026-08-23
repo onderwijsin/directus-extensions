@@ -9,6 +9,26 @@ Use this skill when installing or integrating `@onderwijsin/directus-sluggernaut
 Directus project. Sluggernaut supplies two interfaces, one display, one server hook, and one Flow
 operation for field-driven URL values and optional redirect history.
 
+## Product contract
+
+Directus can store a slug, but it does not by itself manage the complete lifecycle of a public URL.
+Sluggernaut adds deterministic multi-field slugging, validated canonical paths, redirect history,
+redirect graph safety, archive/delete handling, manual exact and pattern redirects, and collection-
+wide recalculation.
+
+It is frontend-independent: values are path-only (`/news/summer-news`) and can be consumed by any
+frontend, backend, reverse proxy, or edge worker. It does not provide a router, redirect-serving
+endpoint, hosting, SEO metadata, URL shortener, or frontend SDK.
+
+When a canonical permalink changes, the old path becomes an active managed `301` to the new path
+when redirects are enabled. Chains are flattened. Archive and delete transitions deactivate managed
+history with `inactive_reason=archived` or `deleted`. With redirects disabled, only the field value
+changes.
+
+Consumers retain manual control: set `generateFromSlug=false`, send an explicit permalink value, or
+create an unmanaged redirect directly. Explicit values still pass server normalization and
+validation.
+
 ## Contract at a glance
 
 | Entry ID                  | Type           | Consumer contract                                                          |
@@ -43,6 +63,9 @@ pnpm add @onderwijsin/directus-sluggernaut-bundle
 
 Restart Directus after installation. Installing the package in a Studio frontend does not register
 the API hook or Flow operation.
+
+The bundle is non-sandboxed and requires a trusted Directus runtime. It does not install Directus,
+Redis, a redirect server, a frontend router, or role assignments.
 
 ## Configuration reference
 
@@ -330,6 +353,42 @@ failures use `SLUGGERNAUT_CONFIGURATION` or `SLUGGERNAUT_INTERNAL` (`500`).
 
 Sluggernaut does not serve these records. A redirect consumer should at minimum filter
 `is_active=true`, honor `start_date`/`end_date`, and return the stored `type` and `destination`.
+
+Example exact redirect created by a consumer:
+
+```http
+POST /items/redirects
+Content-Type: application/json
+
+{
+  "origin": "/old-news",
+  "destination": "/news/summer-news",
+  "type": 301,
+  "match": "exact",
+  "is_active": true
+}
+```
+
+Example pattern redirect:
+
+```http
+POST /items/redirects
+Content-Type: application/json
+
+{
+  "origin": "/legacy/:slug",
+  "destination": "/articles/:slug",
+  "type": 301,
+  "match": "pattern",
+  "is_active": true
+}
+```
+
+Pattern destinations may interpolate only captures declared by the origin. Supported forms include
+named parameters (`:slug`), optional parameters (`:slug?`), one wildcard (`*` or `*?`), and simple
+parameter suffixes such as `:name.pdf`. Query strings, fragments, hosts, dot segments, and
+unsupported pattern syntax are rejected. Sluggernaut derives `specificity` and `matcher_signature`;
+consumers should not write those fields.
 
 ## Recalculation operation
 
