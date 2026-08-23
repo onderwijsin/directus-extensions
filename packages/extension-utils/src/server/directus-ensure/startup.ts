@@ -6,7 +6,7 @@ import { getDirectusStartupLockName, type DirectusStartupOptions } from './confi
 import { resolveDirectusLockProvider, type BaseEnsureOptions } from './operations/core'
 
 /** Minimal action registration contract used by server extensions. */
-export type ActionRegistrar = (event: 'server.start', handler: () => void) => void
+export type ActionRegistrar = (event: 'server.start', handler: () => void | Promise<void>) => void
 
 /** Options controlling startup coordination registration. */
 export interface CreateDirectusStartupCoordinatorOptions {
@@ -105,113 +105,111 @@ export function createDirectusStartupCoordinator(
 	const dataCallbacks: ((context: DirectusStartupContext) => Promise<void>)[] = []
 	const lockOptions: BaseEnsureOptions = options
 
-	action('server.start', () => {
-		void (async () => {
-			// Apply global and extension-level switches before resolving providers or acquiring locks.
-			if (options.disabledGlobally) {
-				logger.info(options.name + ' Directus startup is disabled globally')
-				return
-			}
-			if (options.disabled) {
-				logger.info(options.name + ' Directus startup is disabled for this extension')
-				return
-			}
-			if (options.dataDisabledGlobally) {
-				logger.info(options.name + ' Directus data seeds are disabled globally')
+	action('server.start', async () => {
+		// Apply global and extension-level switches before resolving providers or acquiring locks.
+		if (options.disabledGlobally) {
+			logger.info(options.name + ' Directus startup is disabled globally')
+			return
+		}
+		if (options.disabled) {
+			logger.info(options.name + ' Directus startup is disabled for this extension')
+			return
+		}
+		if (options.dataDisabledGlobally) {
+			logger.info(options.name + ' Directus data seeds are disabled globally')
+		}
+
+		// Provider construction is isolated so invalid configuration is logged as startup failure.
+		const providerResult = await attempt(() => resolveDirectusLockProvider(lockOptions))
+		if (providerResult.error !== null) {
+			logger.error({
+				msg: options.name + ' Directus startup failed',
+				cause: providerResult.error,
+			})
+			return
+		}
+		const configuredProvider = providerResult.data
+		if (!configuredProvider) return
+		const provider = configuredProvider.provider
+		const lockName = getDirectusStartupLockName(options.id)
+		let lease: LockLease | null = null
+		let renewalTimer: ReturnType<typeof setInterval> | undefined
+		let renewalError: unknown
+		let leaseLost = false
+		const startupResult = await attempt(async () => {
+			// Acquire one shared lease for every registered schema and data callback.
+			lease = await provider.tryAcquire(lockName, {
+				...(options.lockLeaseMs === undefined ? {} : { leaseMs: options.lockLeaseMs }),
+			})
+			if (!lease) return
+			const activeLease = lease
+
+			// Keep the shared lease alive while callbacks perform potentially slow Directus writes.
+			if (options.autoRenew ?? true) {
+				renewalTimer = setInterval(() => {
+					void activeLease
+						.renew()
+						.then((renewed) => {
+							if (!renewed) leaseLost = true
+						})
+						.catch((error: unknown) => {
+							leaseLost = true
+							renewalError = error
+						})
+				}, resolveRenewalIntervalMs(options.lockLeaseMs))
 			}
 
-			// Provider construction is isolated so invalid configuration is logged as startup failure.
-			const providerResult = await attempt(() => resolveDirectusLockProvider(lockOptions))
-			if (providerResult.error !== null) {
-				logger.error({
-					msg: options.name + ' Directus startup failed',
-					cause: providerResult.error,
-				})
-				return
+			// Nested ensure operations receive a borrowed provider and cannot release this lease.
+			const context = { lockProvider: createHeldLockProvider(lockName, lease) }
+			// Schema work always precedes data work, preserving the startup dependency order.
+			for (const callback of schemaCallbacks) {
+				await callback(context)
+				if (leaseLost) throw createLeaseLostError(renewalError)
 			}
-			const configuredProvider = providerResult.data
-			if (!configuredProvider) return
-			const provider = configuredProvider.provider
-			const lockName = getDirectusStartupLockName(options.id)
-			let lease: LockLease | null = null
-			let renewalTimer: ReturnType<typeof setInterval> | undefined
-			let renewalError: unknown
-			let leaseLost = false
-			const startupResult = await attempt(async () => {
-				// Acquire one shared lease for every registered schema and data callback.
-				lease = await provider.tryAcquire(lockName, {
-					...(options.lockLeaseMs === undefined ? {} : { leaseMs: options.lockLeaseMs }),
-				})
-				if (!lease) return
-				const activeLease = lease
-
-				// Keep the shared lease alive while callbacks perform potentially slow Directus writes.
-				if (options.autoRenew ?? true) {
-					renewalTimer = setInterval(() => {
-						void activeLease
-							.renew()
-							.then((renewed) => {
-								if (!renewed) leaseLost = true
-							})
-							.catch((error: unknown) => {
-								leaseLost = true
-								renewalError = error
-							})
-					}, resolveRenewalIntervalMs(options.lockLeaseMs))
-				}
-
-				// Nested ensure operations receive a borrowed provider and cannot release this lease.
-				const context = { lockProvider: createHeldLockProvider(lockName, lease) }
-				// Schema work always precedes data work, preserving the startup dependency order.
-				for (const callback of schemaCallbacks) {
+			if (!options.dataDisabledGlobally) {
+				// Data callbacks are skipped entirely when global data seeding is disabled.
+				for (const callback of dataCallbacks) {
 					await callback(context)
 					if (leaseLost) throw createLeaseLostError(renewalError)
 				}
-				if (!options.dataDisabledGlobally) {
-					// Data callbacks are skipped entirely when global data seeding is disabled.
-					for (const callback of dataCallbacks) {
-						await callback(context)
-						if (leaseLost) throw createLeaseLostError(renewalError)
-					}
-				}
+			}
+		})
+		if (startupResult.error !== null) {
+			logger.error({
+				msg: options.name + ' Directus startup failed',
+				cause: startupResult.error,
 			})
-			if (startupResult.error !== null) {
-				logger.error({
-					msg: options.name + ' Directus startup failed',
-					cause: startupResult.error,
-				})
-			} else if (!lease) {
-				logger.info({
-					msg: '⏭️ Directus startup skipped; another operation holds the lock',
-				})
-			}
+		} else if (!lease) {
+			logger.info({
+				msg: '⏭️ Directus startup skipped; another operation holds the lock',
+			})
+		}
 
-			// Stop renewal before releasing the lease or disposing a provider created from config.
-			if (lease) {
-				if (renewalTimer) clearInterval(renewalTimer)
-				const releaseResult = await attempt(() => lease?.release())
-				if (releaseResult.error !== null) {
-					logger.error({
-						msg: options.name + ' Directus startup lock release failed',
-						cause: releaseResult.error,
-					})
-				} else {
-					logger.debug?.({
-						msg: '🔓 Released Directus startup lock',
-						extensionId: options.id,
-					})
-				}
+		// Stop renewal before releasing the lease or disposing a provider created from config.
+		if (lease) {
+			if (renewalTimer) clearInterval(renewalTimer)
+			const releaseResult = await attempt(() => lease?.release())
+			if (releaseResult.error !== null) {
+				logger.error({
+					msg: options.name + ' Directus startup lock release failed',
+					cause: releaseResult.error,
+				})
+			} else {
+				logger.debug?.({
+					msg: '🔓 Released Directus startup lock',
+					extensionId: options.id,
+				})
 			}
-			if (!options.lockProvider) {
-				const disposeResult = await attempt(() => configuredProvider.dispose())
-				if (disposeResult.error !== null) {
-					logger.error({
-						msg: options.name + ' Directus startup provider cleanup failed',
-						cause: disposeResult.error,
-					})
-				}
+		}
+		if (!options.lockProvider) {
+			const disposeResult = await attempt(() => configuredProvider.dispose())
+			if (disposeResult.error !== null) {
+				logger.error({
+					msg: options.name + ' Directus startup provider cleanup failed',
+					cause: disposeResult.error,
+				})
 			}
-		})()
+		}
 	})
 
 	return {

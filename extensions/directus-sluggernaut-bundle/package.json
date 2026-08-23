@@ -1,0 +1,115 @@
+{
+	"name": "@onderwijsin/directus-sluggernaut-bundle",
+	"version": "0.1.0",
+	"description": "Field-driven slug, permalink, and redirect tooling for Directus",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle",
+		"permalink",
+		"redirects",
+		"slug"
+	],
+	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
+	"bugs": {
+		"url": "https://github.com/onderwijsin/directus-extensions/issues"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijsin.nl",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remihuigen@onderwijsin.nl",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
+		"directory": "extensions/directus-sluggernaut-bundle"
+	},
+	"files": [
+		"dist",
+		"schema",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"main": "./dist/api.js",
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"add": "directus-extension add",
+		"validate": "directus-extension validate",
+		"test:unit": "vitest run --config ../../vitest.config.ts",
+		"typecheck": "vue-tsc --noEmit"
+	},
+	"dependencies": {
+		"@directus/errors": "catalog:",
+		"@directus/memory": "catalog:",
+		"@vueuse/core": "catalog:",
+		"ufo": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "catalog:",
+		"@directus/types": "catalog:",
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"@types/node": "catalog:node24",
+		"@workspace/test-utils": "workspace:*",
+		"@workspace/typescript-config": "workspace:*",
+		"vitest": "catalog:",
+		"vue": "catalog:",
+		"vue-tsc": "catalog:"
+	},
+	"icon": "extension",
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"name": "sluggernaut-slug",
+				"type": "interface",
+				"source": "src/sluggernaut-slug/index.ts"
+			},
+			{
+				"name": "sluggernaut-permalink",
+				"type": "interface",
+				"source": "src/sluggernaut-permalink/index.ts"
+			},
+			{
+				"name": "sluggernaut-link",
+				"type": "display",
+				"source": "src/sluggernaut-link/index.ts"
+			},
+			{
+				"name": "sluggernaut-hook",
+				"type": "hook",
+				"source": "src/sluggernaut-hook/index.ts"
+			},
+			{
+				"name": "sluggernaut-recalculate",
+				"type": "operation",
+				"source": {
+					"app": "src/sluggernaut-recalculate/index.ts",
+					"api": "src/sluggernaut-recalculate/api.ts"
+				}
+			}
+		],
+		"host": ">=12.2.0 <13"
+	}
+}

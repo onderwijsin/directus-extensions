@@ -85,6 +85,20 @@ The loader script must match Sentry's hosted format:
 
 Whitespace and newlines between the tag attributes are accepted.
 
+Example configuration for server and browser reporting:
+
+```dotenv
+SENTRY_ENABLED=true
+SENTRY_DSN=https://public@example.ingest.sentry.io/123456
+SENTRY_LOADER_SCRIPT=<script src="https://js-de.sentry-cdn.com/0123456789abcdef0123456789abcdef.min.js" crossorigin="anonymous"></script>
+SENTRY_RELEASE_PREFIX=web
+SOURCE_COMMIT=local
+DEPLOYMENT_ENV=development
+```
+
+Keep `SENTRY_ENABLED=false` until the Directus runtime contains `@sentry/node` and loads the
+consumer-owned instrumentation file through `NODE_OPTIONS`.
+
 ## Boundaries
 
 - This extension is non-sandboxed, so it does not carry the trust required for Directus Marketplace

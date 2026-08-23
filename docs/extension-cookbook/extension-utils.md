@@ -13,7 +13,7 @@ visible.
 | Narrow Directus request accountability                              | [`isAccountability`](#accountability-helpers) and related server helpers          |
 | Narrow an unknown value                                             | [Guards](guards.md)                                                               |
 | Return an error instead of throwing                                 | [`attempt`](#attempts-and-retries) or [`attemptWithRetry`](#attempts-and-retries) |
-| Store derived data                                                  | [`initializeCache`](#cache)                                                       |
+| Store derived data                                                  | [`initializeCache`](#cache) and [`withCache`](#cache)                             |
 | Store coordination state                                            | Directus `createKv`                                                               |
 | Coordinate one [owner](extension-utils-glossary.md#owner) at a time | A lock provider                                                                   |
 | Debounce and coordinate work                                        | [`createAutoTaskHandler`](#auto-task-handlers)                                    |
@@ -31,9 +31,20 @@ Use public package subpaths rather than source paths:
 | `@onderwijsin/directus-extension-utils/server`    | Common helpers plus locks, auto-tasks, storage, logging, and setup | Directus server extensions and server lifecycle code            |
 | `@onderwijsin/directus-extension-utils/constants` | Deployment constants                                               | Environment schemas and deployment-value validation             |
 | `@onderwijsin/directus-extension-utils/sentry`    | Sentry capture and context helpers                                 | Server extensions that explicitly use Sentry                    |
+| `@onderwijsin/directus-extension-utils/hook`      | Corrected Directus hook and async action-handler types             | API hooks with asynchronous action handlers                     |
+| `@onderwijsin/directus-extension-utils/types`     | Corrected hook type contracts                                      | Type-only imports without hook runtime dependencies             |
 
 The `/sentry` entry point is intentionally separate from `/server`. This prevents consumers that
 only import server utilities such as `createLogger` from loading the Sentry integration.
+
+The `/hook` entry point provides `defineHook` with corrected action-handler types. It is separate
+from `/server` so consumers of server utilities do not load `@directus/extensions-sdk` through the
+hook definition helper. See the
+[custom `defineHook` decision record](../decisions/custom-define-hook-types.md) for the rationale
+and intended usage boundary.
+
+The `/types` entry point contains only the corrected hook types. Use it for type-only imports when
+the runtime hook adapter and `@directus/extensions-sdk` are not needed.
 
 The package also exposes an unbundled build configuration at
 `@onderwijsin/directus-extension-utils/extension.config.js`. It can be imported as the default
@@ -90,7 +101,7 @@ only the common helper surface.
 | Auto-tasks       | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                                                          | `/server`         |
 | Logging          | `createLogger`                                                                                                                                                                                                                              | `/server`         |
 | Setup            | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                            | `/server`         |
-| Cache            | `initializeCache`                                                                                                                                                                                                                           | `/server`         |
+| Cache            | `initializeCache`, `withCache`                                                                                                                                                                                                              | `/server`         |
 | Schema/data      | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `rejectWhileSchemaLocked`, `withCollectionIdentity` | `/server`         |
 | Constants        | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                                                                          | `/constants`      |
 | Sentry           | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                                                                            | `/sentry`         |
@@ -140,15 +151,45 @@ exposing all matching metadata is intentional.
 
 ### Cache
 
-Use `initializeCache` for disposable extension data that should follow the configured local or Redis
-backend:
+Use `initializeCache` to create a disposable cache that follows the configured local or Redis
+backend. Use `withCache` for each operation with an explicit, stable key:
 
 ```ts
-import { initializeCache } from '@onderwijsin/directus-extension-utils/server'
+import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
-const cache = initializeCache(env, { ttl: 60_000 })
-const cached = await cache?.get('orders:summary')
+const cache = initializeCache(context.env, { ttl: 60_000 })
+const summaryCacheKey = (collection: string): string => `summary:${collection}`
+
+const summary = await withCache({ cache, key: summaryCacheKey('orders') }, () =>
+  loadSummary('orders'),
+)
 ```
+
+`withCache` accepts a cache and an explicit key for one asynchronous operation:
+
+```ts
+withCache<TResult>(
+  options: { cache: Cache | null; key: string },
+  handler: () => Promise<TResult>,
+): Promise<TResult>
+```
+
+The handler runs only on a miss; a `null` cache bypasses cache operations while still running the
+handler. Construct keys explicitly and keep them extension-specific, for example
+`fields:${collection}` or `summary:${collection}`. Redis caches use the shared `directus:extensions`
+namespace by default; pass `namespace` to isolate a Redis cache and scope its `clear()` operation.
+Local cache instances are process-local with private stores, so a local namespace does not make
+separate instances share state.
+
+Use `registerCollectionCacheInvalidation` when a collection mutation makes a cached value stale. It
+accepts a collection name, explicit event targets, or an object for selecting events and system
+collections, and deletes the exact key derived from the mutated collection. Deletion is non-blocking
+and logged on failure. Use a Redis-backed cache when invalidation must be visible across Directus
+processes.
+
+The server export also exposes `CacheEnv`, `CacheOptions` (`ttl` must be finite and positive, with
+an optional Redis `namespace`), `WithCacheOptions` (`cache` plus `key`), `CollectionInput`, and
+`CollectionCacheInvalidationOptions`.
 
 Validate cache settings with `cacheConfigSchema`. `REDIS` takes precedence over the four component
 values; component configuration requires `REDIS_ENABLED=true` (or `SYNCHRONIZATION_STORE=redis`) and
@@ -156,6 +197,11 @@ all of `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, and `REDIS_PASSWORD`.
 `resolveRedisConnectionString` only resolves the URL and never creates a client.
 `resolveCacheStorage` returns the public `memory`, `redis`, or `null` value; `initializeCache` maps
 `memory` to `@directus/memory`'s local backend internally.
+
+Initialize the policy cache once during extension startup with `initializePolicyCache`, then pass
+the resulting `Cache | null` to `fetchPolicies` and `hasPolicies`. Invalid or absent Redis
+configuration returns `null`, so policy resolution remains uncached without creating request-path
+Redis clients. The Redis-only cache uses the shared `directus:policies` namespace.
 
 The same `/server` subpath exports `emailConfigSchema`, `requiredEmailConfigSchema`, and
 `isEmailConfigured`. Use the base schema for optional email settings and the required schema at an

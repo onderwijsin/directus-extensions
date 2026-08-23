@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-extension-utils': major
+'@onderwijsin/directus-extension-utils': minor
 ---
 
 Remove the unused `Geometry` and `LngLatCoordinates` type exports.

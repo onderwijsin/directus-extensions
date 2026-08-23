@@ -6,8 +6,13 @@ import type {
 	Policy,
 	SchemaOverview,
 } from '@directus/types'
+import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
 
 import { ipInNetworks } from '@directus/utils/node'
+import { attempt } from '@onderwijsin/directus-extension-utils'
+
+import { initializeCache, withCache, type CacheEnv } from './cache'
+import { cacheConfigSchema } from './config'
 
 export const POLICY_FIELDS = [
 	'id',
@@ -127,16 +132,35 @@ function toPolicyRecord(policy: PolicyAccessRow['policy']): PolicyRecord {
 	return publicPolicy
 }
 
+const POLICIES_CACHE_NAMESPACE = 'directus:policies'
+const POLICIES_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 3
+
+/**
+ * Creates a Redis cache instance for policy data.
+ * @param env - The Directus environment
+ * @returns Redis cache instance, or null when Redis caching is not configured.
+ */
+export function initializePolicyCache(env: CacheEnv): Cache | null {
+	const parsed = cacheConfigSchema.safeParse(env)
+	if (!parsed.success || parsed.data.CACHE_STORE !== 'redis') return null
+
+	return initializeCache(parsed.data, {
+		ttl: POLICIES_CACHE_TTL_MS,
+		namespace: POLICIES_CACHE_NAMESPACE,
+	})
+}
+
 /**
  * Resolves effective policies using Directus access-row semantics.
  *
- * Caching is opt-in because policy results are security-sensitive derived data. Consumers should
- * choose a TTL and backend appropriate to their deployment and invalidation requirements.
+ * Caching is opt-in because policy results are security-sensitive derived data. When enabled, the
+ * helper uses the shared Redis-only policy namespace with a three-day TTL; policy mutations clear
+ * the complete namespace through `registerPolicyCacheInvalidation`.
  *
  * @param accountability - Current request accountability.
  * @param services - Directus API services.
  * @param schema - Current Directus schema.
- * @param cache - Optional consumer-owned policy cache.
+ * @param cache - Initialized Redis policy cache, or null to disable invalidation.
  * @param readAccountability - Accountability used to read access metadata. Defaults to the
  * requesting accountability. Pass `null` only for trusted server-side consumers that must resolve
  * policy assignments without Directus CRUD filtering.
@@ -146,7 +170,7 @@ export async function fetchPolicies(
 	accountability: Accountability,
 	services: ApiExtensionContext['services'],
 	schema: SchemaOverview,
-	cache: Cache | null = null,
+	cache: Cache | null,
 	readAccountability: Accountability | null = accountability,
 ): Promise<PolicyRecord[]> {
 	const effectiveRoleIds = await resolveEffectiveRoleIds(
@@ -156,7 +180,7 @@ export async function fetchPolicies(
 		readAccountability,
 	)
 	const effectiveAccountability = { ...accountability, roles: effectiveRoleIds }
-	const cacheKey = `policies:${JSON.stringify({
+	const cacheKey = `effective:${JSON.stringify({
 		roles: effectiveRoleIds,
 		user: effectiveAccountability.user,
 		ip: effectiveAccountability.ip,
@@ -169,35 +193,38 @@ export async function fetchPolicies(
 				}
 			: null,
 	})}`
-	const cached = await cache?.get<PolicyRecord[]>(cacheKey)
-	if (cached) return cached
+	return withCache({ cache, key: cacheKey }, async () => {
+		const accessService = new services.AccessService({
+			accountability: readAccountability,
+			schema,
+		})
+		const accessRows = (await accessService.readByQuery({
+			filter: policyAccessFilter(effectiveAccountability),
+			fields: [
+				...POLICY_FIELDS.map((field) => `policy.${field}`),
+				'policy.ip_access',
+				'role',
+			],
+			limit: -1,
+		})) as PolicyAccessRow[]
 
-	const accessService = new services.AccessService({ accountability: readAccountability, schema })
-	const accessRows = (await accessService.readByQuery({
-		filter: policyAccessFilter(effectiveAccountability),
-		fields: [...POLICY_FIELDS.map((field) => `policy.${field}`), 'policy.ip_access', 'role'],
-		limit: -1,
-	})) as PolicyAccessRow[]
+		const filteredAccessRows = filterPoliciesByIp(accessRows, accountability.ip)
+		filteredAccessRows.sort((a, b) => {
+			if (!a.role && !b.role) return 0
+			if (!a.role) return 1
+			if (!b.role) return -1
 
-	const filteredAccessRows = filterPoliciesByIp(accessRows, accountability.ip)
-	filteredAccessRows.sort((a, b) => {
-		if (!a.role && !b.role) return 0
-		if (!a.role) return 1
-		if (!b.role) return -1
+			return effectiveRoleIds.indexOf(a.role) - effectiveRoleIds.indexOf(b.role)
+		})
 
-		return effectiveRoleIds.indexOf(a.role) - effectiveRoleIds.indexOf(b.role)
+		const policies = new Map<string, PolicyRecord>()
+		for (const { policy } of filteredAccessRows) {
+			const publicPolicy = toPolicyRecord(policy)
+			policies.set(publicPolicy.id, publicPolicy)
+		}
+
+		return [...policies.values()]
 	})
-
-	const policies = new Map<string, PolicyRecord>()
-	for (const { policy } of filteredAccessRows) {
-		const publicPolicy = toPolicyRecord(policy)
-		policies.set(publicPolicy.id, publicPolicy)
-	}
-
-	const result = [...policies.values()]
-	await cache?.set(cacheKey, result)
-
-	return result
 }
 
 /**
@@ -207,7 +234,7 @@ export async function fetchPolicies(
  * @param policyIds - One or more policy IDs to require.
  * @param services - Directus API services.
  * @param schema - Current Directus schema.
- * @param cache - Optional consumer-owned policy cache.
+ * @param cache - Initialized Redis policy cache, or null to disable caching.
  * @param readAccountability - Accountability used to read access metadata. Defaults to the
  * requesting accountability. Pass `null` only for trusted server-side consumers that must resolve
  * policy assignments without Directus CRUD filtering.
@@ -218,7 +245,7 @@ export async function hasPolicies(
 	policyIds: string | string[],
 	services: ApiExtensionContext['services'],
 	schema: SchemaOverview,
-	cache: Cache | null = null,
+	cache: Cache | null,
 	readAccountability: Accountability | null = accountability,
 ): Promise<boolean> {
 	const required = Array.isArray(policyIds) ? policyIds : [policyIds]
@@ -233,4 +260,34 @@ export async function hasPolicies(
 	)
 	const effectivePolicyIds = new Set(effectivePolicies.map(({ id }) => id))
 	return required.every((policyId) => effectivePolicyIds.has(policyId))
+}
+
+/**
+ * Invalidates policy cache when policy-related Directus system collections mutate.
+ * @param hook - Directus hook registration functions.
+ * @param context - Directus extension context.
+ * @param cache - Initialized Redis policy cache, or null to disable caching.
+ * @returns Nothing.
+ */
+export function registerPolicyCacheInvalidation(
+	hook: RegisterFunctions,
+	context: ApiExtensionContext,
+	cache: Cache | null,
+): void {
+	const events = ['access', 'policies', 'roles']
+		.map((event) => [`${event}.create`, `${event}.update`, `${event}.delete`])
+		.flat()
+
+	if (!cache) return
+
+	for (const event of events) {
+		hook.action(event, async () => {
+			const { error } = await attempt(() => cache.clear())
+			if (error) {
+				context.logger.error('Failed to invalidate policy cache.', {
+					error,
+				})
+			}
+		})
+	}
 }

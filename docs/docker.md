@@ -77,7 +77,7 @@ build extensions
     ↓
 start isolated Compose project
     ↓
-wait for database, cache, Garage, search, Mailpit, Directus
+wait for Compose health checks
     ↓
 native admin login → DIRECTUS_E2E_TOKEN
     ↓
@@ -91,6 +91,10 @@ Run it with:
 ```sh
 pnpm test:e2e
 ```
+
+The runner does not collect Compose logs. Inspect a running stack manually with
+`docker compose logs` when debugging locally; the runner always removes its project and disposable
+resources afterwards.
 
 The runner uses a unique Compose project name and run-scoped credentials. It removes all disposable
 resources in `finally`, including interrupted runs. It never stops the shared Docker daemon.
@@ -110,12 +114,10 @@ The shared runner does not create application collections or access-control fixt
 
 ## E2E ports and mounts
 
-| Service     | E2E host port |
-| ----------- | ------------: |
-| Directus    |       `18055` |
-| Mailpit     |       `18025` |
-| Garage S3   |       `13900` |
-| Meilisearch |       `17700` |
+Directus and Mailpit publish fixed loopback-only ports by default (`18055` and `18025`). Override
+`DIRECTUS_E2E_PORT` or `DIRECTUS_E2E_MAILPIT_PORT` when those ports are occupied. Garage and
+Meilisearch remain internal Compose services and are not published to the host. Concurrent E2E runs
+on the same machine are not supported.
 
 The E2E runner stages the regular extension directory together with the private playground from
 `tests/directus-e2e-playground` into a disposable extension tree, then mounts that tree read-only.
@@ -127,7 +129,7 @@ EXTENSIONS_MUST_LOAD: 'true'
 EXTENSIONS_AUTO_RELOAD: 'false'
 ```
 
-Override ports or the packed consumer directory when needed:
+Override a port or the packed consumer directory when needed:
 
 ```sh
 DIRECTUS_E2E_PORT=28055 \
@@ -140,8 +142,7 @@ pnpm test:e2e
 | Operation                         |    Timeout |
 | --------------------------------- | ---------: |
 | Individual E2E operation/log poll | 60 seconds |
-| Service readiness                 |  3 minutes |
-| Garage initialization             |  5 minutes |
+| Compose health checks             |  3 minutes |
 | Compose startup/child process     | 15 minutes |
 
 The first startup may take one to eight minutes while images and dependencies become ready.
@@ -172,5 +173,5 @@ Collect logs without stopping the Docker daemon:
 docker compose -f docker/compose.yaml -f tests/compose.e2e.yaml logs --no-color
 ```
 
-If a service is still starting, wait through the configured readiness window before diagnosing a
-failure. Keep real credentials in ignored files or CI secrets.
+Keep real credentials in ignored files or CI secrets. The E2E runner does not load the repository
+`.env` file.

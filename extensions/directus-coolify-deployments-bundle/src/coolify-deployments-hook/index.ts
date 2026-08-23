@@ -1,4 +1,4 @@
-import { defineHook } from '@directus/extensions-sdk'
+import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
 import {
 	ensureDirectusPolicy,
 	ensureDirectusSchema,
@@ -8,6 +8,8 @@ import {
 	extensionSetup,
 	withCollectionIdentity,
 	validateExtensionOptions,
+	initializePolicyCache,
+	registerPolicyCacheInvalidation,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import coolifyApplicationsSchema from '../../schema/coolify_applications.json'
@@ -118,6 +120,10 @@ export default defineHook((hook, context) => {
 		client,
 		logger,
 	)
+	if (options.DIRECTUS_POLICY_CACHE_INVALIDATION_ENABLED) {
+		const policyCache = initializePolicyCache(options)
+		registerPolicyCacheInvalidation(hook, context, policyCache)
+	}
 
 	setup.end()
 })

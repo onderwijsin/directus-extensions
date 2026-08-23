@@ -31,7 +31,9 @@ truth. `dist/` is generated; rebuild it before using declarations or packed outp
 
 - Use a guard when one value needs runtime narrowing.
 - Use `@directus/memory` caches for disposable derived data in Directus runtimes; cache misses are
-  normal.
+  normal. Use Redis with an explicit namespace when state must be shared or cleared by separate
+  extension entrypoints. Local cache instances are process-local and have private stores, so a local
+  namespace does not provide cross-entrypoint sharing.
 - Use a lock when one owner may perform work and ownership must be renewed or released.
 - Use an auto-task handler when triggers must be debounced and execution coordinated.
 - Use an attempt helper when an operation's failure should be returned as data.
@@ -48,13 +50,15 @@ Use Zod for structured external input and local guards for small runtime narrowi
 
 ## Runtime and import rules
 
-The package has one shared Directus-extension implementation and five public import paths:
+The package has one shared Directus-extension implementation and eight public import paths:
 
 - `@onderwijsin/directus-extension-utils` — default shared surface;
 - `@onderwijsin/directus-extension-utils/shared` — explicit browser-safe common surface;
 - `@onderwijsin/directus-extension-utils/app` — browser-safe shared surface; and
 - `@onderwijsin/directus-extension-utils/server` — common surface plus Directus-runtime utilities;
 - `@onderwijsin/directus-extension-utils/constants` — shared deployment-environment constants; and
+- `@onderwijsin/directus-extension-utils/hook` — corrected Directus hook and async action-handler types; and
+- `@onderwijsin/directus-extension-utils/types` — type-only corrected hook contracts; and
 - `@onderwijsin/directus-extension-utils/sentry` — explicit Sentry utilities.
 
 Import common browser-safe helpers from the root or `/shared`. Always use `/server` for
@@ -65,6 +69,13 @@ Import common browser-safe helpers from the root or `/shared`. Always use `/serv
 `ensureDirectusPolicy`, `createDirectusStartupCoordinator`, and `asyncHandler`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
 of Node-only imports.
+
+Use `/hook` for API hook entrypoints that register asynchronous action handlers. Keeping this
+subpath separate prevents `@directus/extensions-sdk` from being loaded by consumers that only use
+server utilities.
+
+Use `/types` for type-only imports of `ActionHandler`, `RegisterFunctions`, and `HookConfig`. This
+subpath contains no runtime hook adapter and does not import `@directus/extensions-sdk`.
 
 Use the server accountability helpers at Directus API boundaries when narrowing request
 accountability: `isAccountability`, `hasAuthenticatedUser`, `assertRequestWithAccountability`, and
@@ -86,6 +97,41 @@ server-only adapters because `@directus/memory` has no filesystem backend.
 Use `createCache` for disposable derived data and `createKv` for coordination state such as
 markers. Both support local and Redis-backed stores. Use `createRedisLockProvider` for Redis locks
 so Redis connection ownership stays inside the utility.
+
+For a cache-aside read, use `initializeCache` once and call `withCache` with an explicit key:
+
+```ts
+import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
+
+const cache = initializeCache(env, { ttl: 60_000 })
+const fieldsCacheKey = (collection: string): string => `fields:${collection}`
+
+const fields = await withCache(
+	{
+		cache,
+		key: fieldsCacheKey('articles'),
+	},
+	() => loadFields('articles'),
+)
+```
+
+`withCache` accepts `{ cache, key }` and a zero-argument asynchronous handler. The handler runs only
+on a miss, and its resolved value is stored under the explicit key. A `cache: null` option bypasses
+cache operations while still invoking the handler. Construct stable, extension-specific keys such
+as `fields:${collection}`. Redis caches use `directus:extensions` by default; pass an explicit
+namespace to isolate Redis keys and scope `clear()`. Local cache instances are process-local and
+have private stores, so a local namespace does not make separate instances share state.
+
+Use `registerCollectionCacheInvalidation` to delete the exact key when a collection changes. It
+accepts a collection name, explicit event targets, or an event-selection object. It registers
+non-blocking invalidation handlers and logs deletion failures. Use a Redis-backed cache when
+invalidation must be visible across Directus instances.
+
+The public server types are `CacheEnv`, `CacheOptions` (`ttl` must be finite and positive, with an
+optional Redis `namespace`),
+`WithCacheOptions` (`cache: Cache | null`, `key`), `CollectionInput`, and
+`CollectionCacheInvalidationOptions`. Keep cache values disposable and derived; use `createKv` for
+coordination state or durable markers.
 
 ### Locks
 

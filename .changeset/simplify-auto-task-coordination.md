@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-extension-utils': major
+'@onderwijsin/directus-extension-utils': minor
 ---
 
 Simplify auto-task coordination APIs by unifying marker provider names, moving Redis KV creation

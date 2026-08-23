@@ -50,6 +50,14 @@
 			"types": "./dist/server/index.d.ts",
 			"import": "./dist/server/index.js"
 		},
+		"./hook": {
+			"types": "./dist/hook.d.ts",
+			"import": "./dist/hook.js"
+		},
+		"./types": {
+			"types": "./dist/types.d.ts",
+			"import": "./dist/types.js"
+		},
 		"./app": {
 			"types": "./dist/app/index.d.ts",
 			"import": "./dist/app/index.js"
@@ -75,6 +83,7 @@
 	},
 	"dependencies": {
 		"@directus/errors": "catalog:",
+		"@directus/extensions-sdk": "catalog:",
 		"@directus/memory": "catalog:",
 		"@directus/utils": "catalog:",
 		"@sentry/node": "catalog:",

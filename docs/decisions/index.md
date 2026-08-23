@@ -13,6 +13,8 @@ They are binding for the feature they cover until explicitly revisited.
 | [Use Node 24 for organization runtimes](node-24-runtime.md)                                            | Accepted | Supported runtime for organization-owned instances        |
 | [Defer Sentry runtime configuration to consumers](defer-sentry-runtime-configuration-to-consumers.md)  | Accepted | Sentry bundle and Directus runtime configuration          |
 | [Magic-link architecture and security boundaries](magic-links-architecture-and-security-boundaries.md) | Accepted | Passwordless authentication endpoints and token security  |
+| [Provide a custom typed `defineHook`](custom-define-hook-types.md)                                     | Accepted | Directus API hook typing and package runtime boundaries   |
+| [Use async-local mutation source context](async-local-mutation-source.md)                              | Accepted | Sluggernaut nested redirect-history mutations             |
 
 ## Create or revisit a decision
 

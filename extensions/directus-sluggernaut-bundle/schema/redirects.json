@@ -1,0 +1,489 @@
+{
+	"collections": [
+		{
+			"collection": "redirects",
+			"schema": { "name": "redirects" },
+			"fields": [
+				{
+					"collection": "redirects",
+					"field": "id",
+					"type": "uuid",
+					"schema": {
+						"data_type": "uuid",
+						"is_primary_key": true,
+						"is_nullable": false,
+						"has_auto_increment": false
+					},
+					"meta": {
+						"field": "id",
+						"hidden": true,
+						"readonly": true,
+						"translations": [{ "language": "en-US", "translation": "ID" }],
+						"note": "Internal Directus identifier for this redirect.",
+						"special": ["uuid"],
+						"interface": "input",
+						"display": "raw"
+					}
+				}
+			],
+			"meta": {
+				"hidden": false,
+				"icon": "alt_route"
+			}
+		}
+	],
+	"fields": [
+		{
+			"collection": "redirects",
+			"field": "header",
+			"type": "alias",
+			"schema": null,
+			"meta": {
+				"collection": "redirects",
+				"field": "header",
+				"special": ["alias", "no-data"],
+				"interface": "header",
+				"options": {
+					"title": "Redirect",
+					"icon": "alt_route",
+					"subtitle": "Create a redirect by absolute or pattern matching routes",
+					"help": "<h2>Creating a manual redirect</h2><ol><li><p>Enter the old path in <strong>Redirect origin</strong> and the new path in <strong>Redirect destination</strong>.</p></li><li><p>Select an HTTP status code. Use <code dir=\"ltr\">301</code> for a permanent redirect, or <code>302</code> for temporary.</p></li><li><p>Choose <strong>Exact</strong> or <strong>Pattern</strong> as the <strong>Match type</strong>.</p></li><li><p>Enable <strong>Redirect active</strong> when the redirect should be served.</p></li><li><p>Optionally choose a start or end date.</p></li></ol><h3>Pattern matching</h3><p>Pattern matching lets one redirect cover several similar URLs. Use these formats:</p><ul><li><p><code dir=\"ltr\">/legacy/:slug</code> matches URLs such as <code dir=\"ltr\">/legacy/summer-news</code>. The <code dir=\"ltr\">:slug</code> part can change.</p></li><li><p><code dir=\"ltr\">/:slug?</code> matches a path with an optional final part.</p></li><li><p><code dir=\"ltr\">/files/*</code> matches anything after <code dir=\"ltr\">/files/</code>.</p></li><li><p><code dir=\"ltr\">/files/*?</code> also matches when nothing follows <code dir=\"ltr\">/files/</code>.</p></li><li><p><code dir=\"ltr\">/files/:name.pdf</code> matches PDF files such as <code dir=\"ltr\">/files/guide.pdf</code>.</p></li></ul><p>The destination should use the same changing part. For example:</p><p><code dir=\"ltr\">/legacy/:slug</code> → <code dir=\"ltr\">/news/:slug</code></p><p>This sends <code dir=\"ltr\">/legacy/summer-news</code> to <code dir=\"ltr\">/news/summer-news</code>.</p><p>Enter paths starting with <code dir=\"ltr\">/</code>. Pattern destinations cannot contain query strings or URL fragments. If both an exact redirect and a pattern could match, the exact redirect is used first. When several patterns match, the most specific one is used.</p>",
+					"helpDisplayMode": "modal"
+				},
+				"width": "full"
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "origin",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "input",
+				"required": true,
+				"translations": [{ "language": "en-US", "translation": "Redirect origin" }],
+				"note": "The previous canonical path that should redirect to the destination.",
+				"options": {
+					"placeholder": "/old"
+				}
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "destination",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "input",
+				"required": true,
+				"translations": [{ "language": "en-US", "translation": "Redirect destination" }],
+				"note": "The new canonical path visitors should be redirected to.",
+				"options": {
+					"placeholder": "/new"
+				}
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "type",
+			"type": "integer",
+			"schema": {
+				"data_type": "integer",
+				"default_value": 301,
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "select-dropdown",
+				"options": {
+					"choices": [
+						{
+							"text": "301 - Moved Permanently",
+							"value": 301
+						},
+						{
+							"text": "302 - Found (Temporary)",
+							"value": 302
+						},
+						{
+							"text": "307 - Temporary Redirect",
+							"value": 307
+						},
+						{
+							"text": "308 - Permanent Redirect",
+							"value": 308
+						}
+					]
+				},
+				"required": true,
+				"width": "half",
+				"translations": [{ "language": "en-US", "translation": "HTTP status code" }],
+				"note": "The HTTP redirect status code returned by the redirect consumer."
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "match",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 7,
+				"default_value": "exact",
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "select-dropdown",
+				"required": true,
+				"width": "half",
+				"options": {
+					"choices": [
+						{ "text": "Exact", "value": "exact" },
+						{ "text": "Pattern", "value": "pattern" }
+					]
+				},
+				"translations": [{ "language": "en-US", "translation": "Match type" }],
+				"note": "Should redirect be matched by absolute path or dynamic pattern"
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "is_active",
+			"type": "boolean",
+			"schema": {
+				"data_type": "boolean",
+				"default_value": true,
+				"is_nullable": false
+			},
+			"meta": {
+				"interface": "boolean",
+				"translations": [{ "language": "en-US", "translation": "Redirect active" }],
+				"note": "Whether the redirect is currently available to the redirect consumer."
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "start_date",
+			"type": "timestamp",
+			"schema": {
+				"data_type": "timestamp",
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "datetime",
+				"width": "half",
+				"translations": [{ "language": "en-US", "translation": "Start date" }],
+				"note": "Optional date and time from which the redirect is active."
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "end_date",
+			"type": "timestamp",
+			"schema": {
+				"data_type": "timestamp",
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "datetime",
+				"width": "half",
+				"translations": [{ "language": "en-US", "translation": "End date" }],
+				"note": "Optional date and time after which the redirect is inactive."
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "managed_by",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 32,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Managed by" }],
+				"note": "The system that owns and maintains this redirect.",
+				"options": {
+					"placeholder": "Will be set automatically if needed"
+				}
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "source_collection",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"width": "half",
+				"translations": [{ "language": "en-US", "translation": "Source collection" }],
+				"note": "The Directus collection containing the source item for this redirect.",
+				"options": {
+					"placeholder": "Will be set automatically if needed"
+				}
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "source_item",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"width": "half",
+				"translations": [{ "language": "en-US", "translation": "Source item" }],
+				"note": "The primary key of the source item for this redirect.",
+				"options": {
+					"placeholder": "Will be set automatically if needed"
+				}
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "source_field",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"width": "half",
+				"translations": [{ "language": "en-US", "translation": "Source field" }],
+				"note": "The source field whose canonical value created this redirect.",
+				"options": {
+					"placeholder": "Will be set automatically if needed"
+				}
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "source_type",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 16,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "select-dropdown",
+				"readonly": true,
+				"width": "half",
+				"translations": [{ "language": "en-US", "translation": "Source type" }],
+				"note": "Whether the source value came from a slug or permalink field.",
+				"options": {
+					"choices": [
+						{
+							"text": "Slug",
+							"value": "slug"
+						},
+						{
+							"text": "Permalink",
+							"value": "permalink"
+						}
+					]
+				}
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "inactive_reason",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 16,
+				"default_value": null,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "select-dropdown",
+				"readonly": true,
+				"translations": [{ "language": "en-US", "translation": "Inactive reason" }],
+				"note": "The lifecycle event that caused this redirect to become inactive.",
+				"options": {
+					"choices": [
+						{
+							"text": "Item was archived",
+							"value": "archived"
+						},
+						{
+							"text": "Item was deleted",
+							"value": "deleted"
+						}
+					]
+				}
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "specificity",
+			"type": "bigInteger",
+			"schema": {
+				"data_type": "bigint",
+				"numeric_precision": 64,
+				"numeric_scale": 0,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"hidden": true,
+				"note": "System-derived pattern precedence. Exact redirects leave this field empty."
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "matcher_signature",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 512,
+				"is_nullable": true
+			},
+			"meta": {
+				"interface": "input",
+				"readonly": true,
+				"hidden": true,
+				"note": "System-derived pattern matching signature. Exact redirects leave this field empty."
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "user_created",
+			"type": "uuid",
+			"schema": {
+				"data_type": "uuid",
+				"is_nullable": true,
+				"foreign_key_schema": "public",
+				"foreign_key_table": "directus_users",
+				"foreign_key_column": "id"
+			},
+			"meta": {
+				"special": ["user-created"],
+				"interface": "select-dropdown-m2o",
+				"display": "user",
+				"readonly": true,
+				"required": false,
+				"hidden": false,
+				"width": "half"
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "date_created",
+			"type": "timestamp",
+			"schema": {
+				"data_type": "timestamp with time zone",
+				"is_nullable": false
+			},
+			"meta": {
+				"special": ["date-created"],
+				"interface": "datetime",
+				"display": "datetime",
+				"readonly": true,
+				"required": false,
+				"hidden": false,
+				"width": "half"
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "user_updated",
+			"type": "uuid",
+			"schema": {
+				"data_type": "uuid",
+				"is_nullable": true,
+				"foreign_key_schema": "public",
+				"foreign_key_table": "directus_users",
+				"foreign_key_column": "id"
+			},
+			"meta": {
+				"special": ["user-updated"],
+				"interface": "select-dropdown-m2o",
+				"display": "user",
+				"readonly": true,
+				"required": false,
+				"hidden": false,
+				"width": "half"
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "date_updated",
+			"type": "timestamp",
+			"schema": {
+				"data_type": "timestamp with time zone",
+				"is_nullable": true
+			},
+			"meta": {
+				"special": ["date-updated"],
+				"interface": "datetime",
+				"display": "datetime",
+				"readonly": true,
+				"required": false,
+				"hidden": false,
+				"width": "half"
+			}
+		}
+	],
+	"relations": [
+		{
+			"collection": "redirects",
+			"field": "user_created",
+			"related_collection": "directus_users",
+			"schema": {
+				"column": "user_created",
+				"foreign_key_schema": "public",
+				"foreign_key_table": "directus_users",
+				"foreign_key_column": "id",
+				"on_update": "NO ACTION",
+				"on_delete": "NO ACTION"
+			},
+			"meta": {
+				"many_collection": "redirects",
+				"many_field": "user_created",
+				"one_collection": "directus_users",
+				"one_deselect_action": "nullify"
+			}
+		},
+		{
+			"collection": "redirects",
+			"field": "user_updated",
+			"related_collection": "directus_users",
+			"schema": {
+				"column": "user_updated",
+				"foreign_key_schema": "public",
+				"foreign_key_table": "directus_users",
+				"foreign_key_column": "id",
+				"on_update": "NO ACTION",
+				"on_delete": "NO ACTION"
+			},
+			"meta": {
+				"many_collection": "redirects",
+				"many_field": "user_updated",
+				"one_collection": "directus_users",
+				"one_deselect_action": "nullify"
+			}
+		}
+	]
+}

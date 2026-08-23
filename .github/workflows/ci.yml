@@ -116,5 +116,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build extension-utils
         run: pnpm build:utils
+      - name: Build extensions for packed-artifact integration tests
+        run: pnpm build:extensions
       - name: Run process integration tests
         run: pnpm test:integration

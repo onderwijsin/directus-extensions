@@ -6,6 +6,25 @@ and /app paths expose the browser-safe common surface. The /server path exposes 
 Directus-runtime utilities. Read the source export indexes
 when a new API is added; this file is a maintainer reference, not a replacement for tests.
 
+## Directus hooks
+
+The `@onderwijsin/directus-extension-utils/hook` subpath exports `defineHook` with corrected
+asynchronous action-handler types. Use this subpath for hook entrypoints so consumers that only
+import `/server` utilities do not load `@directus/extensions-sdk` through the hook helper.
+
+For type-only consumers, import `ActionHandler`, `RegisterFunctions`, or `HookConfig` from
+`@onderwijsin/directus-extension-utils/types`. The `/types` subpath has no hook runtime import.
+
+```ts
+import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
+
+export default defineHook((hook) => {
+	hook.action('items.create', async () => {
+		await doWork()
+	})
+})
+```
+
 ## Attempts
 
 ```ts
@@ -120,6 +139,66 @@ percent-encoded. Cache storage keeps the public `memory` value; `initializeCache
 memory package's local backend internally. The base email schema is optional and supplies Directus
 defaults; the required schema validates the selected `sendmail`, `smtp`, `mailgun`, or `ses`
 transport.
+
+## Server-only cache-aside helpers
+
+```ts
+type CacheEnv = z.input<typeof cacheConfigSchema>
+
+interface CacheOptions {
+  ttl: number // finite and positive
+}
+
+interface WithCacheOptions {
+  cache: Cache | null
+  key: string
+}
+
+type CollectionInput = string | string[] | {
+  collection: string
+  create?: boolean
+  update?: boolean
+  delete?: boolean
+  isSystem?: boolean
+}
+
+interface CollectionCacheInvalidationOptions {
+  cache: Cache | null
+  key: (collection: string) => string
+}
+
+initializeCache(env: CacheEnv, options: CacheOptions): Cache | null
+withCache<TResult>(
+  options: WithCacheOptions,
+  handler: () => Promise<TResult>,
+): Promise<TResult>
+registerCollectionCacheInvalidation(
+  collection: CollectionInput,
+  options: CollectionCacheInvalidationOptions,
+  hook: RegisterFunctions,
+  context: ApiExtensionContext,
+): void
+```
+
+`initializeCache` validates the cache environment and maps the public `memory` storage to
+`@directus/memory`'s local backend. It returns `null` when caching is disabled. Redis initialization
+creates an `ioredis` client owned by the returned Directus cache; consumers should not create a
+second client for the same cache instance. `CacheOptions.namespace` isolates Redis keys and makes
+`clear()` namespace-scoped. Local caches have a private store per initialized instance; namespaces
+do not make local instances share data.
+
+`withCache` uses the explicit key for cache reads and writes. On a hit it returns the cached value
+and does not call the handler. On a miss it calls the zero-argument handler and stores the resolved
+value. With `cache: null`, the handler always runs and no cache methods are called. Consumers should
+construct stable extension-specific keys. `initializePolicyCache` creates the Redis-only policy
+cache once at extension startup; invalid or absent Redis configuration returns `null`. Pass that
+cache to policy helpers so request handling never initializes Redis clients. The policy endpoint
+and invalidation hook share the `directus:policies` namespace.
+
+`registerCollectionCacheInvalidation` maps collection input to Directus action events and deletes
+the exact key returned by the supplied key function. It skips registration for a null cache and
+logs deletion failures without failing the originating mutation. It does not invalidate unrelated
+keys or provide cross-process coordination unless the cache backend is shared.
 
 ## Server-only locks
 

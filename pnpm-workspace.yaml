@@ -26,6 +26,7 @@ catalog:
   typescript: 5.9.3
   vitest: 4.1.10
   '@directus/extensions-sdk': 18.0.2
+  '@vueuse/core': 14.0.0
   '@directus/sdk': 24.0.0
   happy-dom: 20.11.2
   '@typescript/native-preview': 7.0.0-dev.20260707.2
@@ -44,6 +45,7 @@ catalog:
   vue-router: 4.6.3
   zod: 4.4.3
   ofetch: 1.5.1
+  ufo: 1.6.4
 catalogs:
   node24:
     '@types/node': 24.13.3

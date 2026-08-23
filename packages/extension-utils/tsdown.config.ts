@@ -8,6 +8,8 @@ export default defineConfig({
 	},
 	entry: [
 		'src/index.ts',
+		'src/hook.ts',
+		'src/types.ts',
 		'src/app/index.ts',
 		'src/server/index.ts',
 		'src/shared/index.ts',

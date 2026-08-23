@@ -1,4 +1,7 @@
-import { directusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
+import {
+	cacheConfigSchema,
+	directusStartupSchema,
+} from '@onderwijsin/directus-extension-utils/server'
 import { z } from 'zod'
 
 import {
@@ -12,7 +15,7 @@ import { coolifyEnvironmentSchema } from '../shared/coolify-client/schemas'
  * Validates environment values used by the Directus startup hook.
  * @returns The hook environment schema.
  */
-export const envSchema = directusStartupSchema.extend({
+const hookEnvSchema = directusStartupSchema.extend({
 	COOLIFY_DEPLOYMENTS_ENABLED: coolifyEnvironmentSchema.shape.COOLIFY_DEPLOYMENTS_ENABLED,
 	COOLIFY_APPLICATIONS_COLLECTION: coolifyEnvironmentSchema.shape.COOLIFY_APPLICATIONS_COLLECTION,
 	COOLIFY_URL: coolifyEnvironmentSchema.shape.COOLIFY_URL,
@@ -29,3 +32,11 @@ export const envSchema = directusStartupSchema.extend({
 		.uuid()
 		.default(DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID),
 })
+
+export const envSchema = z.intersection(
+	hookEnvSchema,
+	cacheConfigSchema.safeExtend({
+		CACHE_ENABLED: z.boolean().default(true),
+		DIRECTUS_POLICY_CACHE_INVALIDATION_ENABLED: z.boolean().default(true),
+	}),
+)

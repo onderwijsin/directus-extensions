@@ -10,4 +10,5 @@ export const envSchema = cacheConfigSchema.safeExtend({
 	POLICIES_ENDPOINT_ENABLED: z.boolean().default(true),
 	DIRECTUS_POLICIES_ENDPOINT_BYPASS_ACCOUNTABILITY: z.boolean().default(false),
 	CACHE_ENABLED: z.boolean().default(true),
+	DIRECTUS_POLICY_CACHE_INVALIDATION_ENABLED: z.boolean().default(true),
 })

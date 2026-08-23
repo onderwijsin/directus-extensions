@@ -46,8 +46,48 @@ interface E2EPermission {
 	action: string
 }
 
+interface E2ERedirect {
+	id: string
+	origin: string
+	destination: string
+	type: number
+	match: 'exact' | 'pattern'
+	specificity: string | null
+	is_active: boolean
+	start_date: string | null
+	end_date: string | null
+	managed_by: string | null
+	source_collection: string | null
+	source_item: string | null
+	source_field: string | null
+	source_type: string | null
+	inactive_reason: string | null
+}
+
+interface E2ESluggernautItem {
+	id: string
+	title: string | null
+	status: string | null
+	category: string | null
+	notes: string | null
+	source_a: unknown
+	source_b: unknown
+	source_c: unknown
+	source_d: unknown
+	source_e: unknown
+	source_f: unknown
+	'headline-with-hyphen': string | null
+	headline_$value: string | null
+	slug: string | null
+	permalink: string | null
+	slug_secondary: string | null
+	permalink_secondary: string | null
+}
+
 interface DirectusE2ESchema {
 	posts: E2EPost[]
+	redirects: E2ERedirect[]
+	sluggernaut_e2e: E2ESluggernautItem[]
 	directus_policies: E2EPolicy[]
 	directus_permissions: E2EPermission[]
 }

@@ -22,6 +22,12 @@ export default defineConfig({
 				),
 			},
 			{
+				find: /^@onderwijsin\/directus-extension-utils\/hook$/u,
+				replacement: fileURLToPath(
+					new URL('./packages/extension-utils/src/hook.ts', import.meta.url),
+				),
+			},
+			{
 				find: /^@onderwijsin\/directus-extension-utils\/server$/u,
 				replacement: fileURLToPath(
 					new URL('./packages/extension-utils/src/server/index.ts', import.meta.url),
@@ -110,7 +116,10 @@ export default defineConfig({
 					testTimeout: 30_000,
 					hookTimeout: 30_000,
 					include: integrationEnvironmentInitialized
-						? ['packages/**/__tests__/**/*.integration.{test,spec}.{js,jsx,ts,tsx}']
+						? [
+								'packages/**/__tests__/**/*.integration.{test,spec}.{js,jsx,ts,tsx}',
+								'extensions/**/__tests__/**/*.integration.{test,spec}.{js,jsx,ts,tsx}',
+							]
 						: [],
 				},
 			},

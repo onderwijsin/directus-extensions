@@ -7,9 +7,11 @@ import {
 	fetchPolicies,
 	hasPolicies,
 	policyAccessFilter,
+	registerPolicyCacheInvalidation,
 } from '../src/server/policies'
 
 const schema = {} as SchemaOverview
+const cache = null
 
 const accountability = (overrides: Partial<Accountability> = {}): Accountability => ({
 	role: 'role-id',
@@ -103,7 +105,7 @@ describe('fetchPolicies', () => {
 		])
 
 		await expect(
-			fetchPolicies(accountability({ ip: '127.0.0.1' }), services, schema),
+			fetchPolicies(accountability({ ip: '127.0.0.1' }), services, schema, cache),
 		).resolves.toEqual([
 			publicPolicy('parent-policy'),
 			publicPolicy('shared-policy'),
@@ -121,7 +123,7 @@ describe('fetchPolicies', () => {
 		const { services } = createServices([{ policy: policy('server-policy'), role: null }])
 
 		await expect(
-			fetchPolicies(accountability(), services, schema, null, null),
+			fetchPolicies(accountability(), services, schema, cache, null),
 		).resolves.toEqual([publicPolicy('server-policy')])
 		expect(services.AccessService).toHaveBeenCalledWith({ accountability: null, schema })
 	})
@@ -133,7 +135,7 @@ describe('fetchPolicies', () => {
 		)
 
 		await expect(
-			fetchPolicies(accountability({ roles: ['role-root'] }), services, schema),
+			fetchPolicies(accountability({ roles: ['role-root'] }), services, schema, cache),
 		).resolves.toEqual([publicPolicy('nested-policy')])
 		expect(readRolesByQuery).toHaveBeenCalledWith({
 			filter: { parent: { _in: ['role-root'] } },
@@ -145,9 +147,22 @@ describe('fetchPolicies', () => {
 	it('checks one or more effective policies', async () => {
 		const { services } = createServices([{ policy: policy('allowed'), role: null }])
 
-		await expect(hasPolicies(accountability(), 'allowed', services, schema)).resolves.toBe(true)
 		await expect(
-			hasPolicies(accountability(), ['allowed', 'missing'], services, schema),
+			hasPolicies(accountability(), 'allowed', services, schema, cache),
+		).resolves.toBe(true)
+		await expect(
+			hasPolicies(accountability(), ['allowed', 'missing'], services, schema, cache),
 		).resolves.toBe(false)
+	})
+})
+
+describe('registerPolicyCacheInvalidation', () => {
+	it('does not register invalidation when Redis is not configured', () => {
+		const action = vi.fn()
+		const context = { env: { CACHE_ENABLED: false }, logger: { error: vi.fn() } } as never
+
+		registerPolicyCacheInvalidation({ action } as never, context, null)
+
+		expect(action).not.toHaveBeenCalled()
 	})
 })
