@@ -20,6 +20,8 @@ import {
 	withoutTrailingSlash,
 } from 'ufo'
 
+import { sluggernautValidationError } from '../errors'
+
 const COMBINING_MARKS = /\p{M}/gu
 const NON_WORD_CHARACTERS = /[^\p{L}\p{N}]+/gu
 export interface PathNormalizationOptions {
@@ -130,18 +132,18 @@ export function normalizePermalink(value: string | null | undefined): string | n
 		try {
 			nextPath = decodeURIComponent(decodedPath)
 		} catch {
-			throw new Error('A permalink contains invalid percent encoding.')
+			throw sluggernautValidationError('A permalink contains invalid percent encoding.')
 		}
 		if (nextPath === decodedPath) break
 		decodedPath = nextPath
 	}
 	if (/%[0-9a-f]{2}/iu.test(decodedPath)) {
-		throw new Error('A permalink contains too many encoded layers.')
+		throw sluggernautValidationError('A permalink contains too many encoded layers.')
 	}
 
 	for (const candidate of [path, decodedPath]) {
 		if (!candidate.startsWith('/') || candidate.startsWith('//')) {
-			throw new Error('A permalink must be an absolute URL path.')
+			throw sluggernautValidationError('A permalink must be an absolute URL path.')
 		}
 		if (
 			containsControlCharacter(candidate) ||
@@ -150,10 +152,10 @@ export function normalizePermalink(value: string | null | undefined): string | n
 			candidate.includes('?') ||
 			candidate.includes('#')
 		) {
-			throw new Error('A permalink contains a forbidden character.')
+			throw sluggernautValidationError('A permalink contains a forbidden character.')
 		}
 		if (/^[a-z][a-z\d+.-]*:/iu.test(candidate)) {
-			throw new Error('A permalink must not contain a URL scheme.')
+			throw sluggernautValidationError('A permalink must not contain a URL scheme.')
 		}
 	}
 
@@ -165,7 +167,7 @@ export function normalizePermalink(value: string | null | undefined): string | n
 			candidate.split('/').some((segment) => segment === '.' || segment === '..'),
 		)
 	) {
-		throw new Error('A permalink must not contain dot path segments.')
+		throw sluggernautValidationError('A permalink must not contain dot path segments.')
 	}
 	return normalized
 }
@@ -178,7 +180,7 @@ export function normalizePermalink(value: string | null | undefined): string | n
 export function normalizePrefix(prefix: string | null | undefined): string | null {
 	if (prefix === null || prefix === undefined || prefix.trim() === '') return null
 	if (prefix.trim().startsWith('//') || /^[a-z][a-z\d+.-]*:/iu.test(prefix.trim())) {
-		throw new Error('A permalink prefix must be a path, not a URL.')
+		throw sluggernautValidationError('A permalink prefix must be a path, not a URL.')
 	}
 	const normalized = normalizePermalink(withLeadingSlash(prefix))
 	if (normalized === null) return null
@@ -251,7 +253,7 @@ export function normalizeManualPermalink(
 	const normalized = normalizePermalink(value)
 	if (normalized === null) return null
 	if (options.validatePrefix && !isWithinPrefix(normalized, options.prefix)) {
-		throw new Error('The permalink is outside the configured prefix.')
+		throw sluggernautValidationError('The permalink is outside the configured prefix.')
 	}
 	return options.enforceTrailingSlash
 		? applyTrailingSlash(normalized, options.trailingSlash ?? false)
@@ -267,9 +269,12 @@ export function normalizeHost(host: string | null | undefined): HostNormalizatio
 	if (host === null || host === undefined || host.trim() === '') return { host: '', error: null }
 	const result = attemptSync(() => {
 		const url = new URL(host.trim())
-		if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Host must use HTTP(S).')
+		if (!['http:', 'https:'].includes(url.protocol))
+			throw sluggernautValidationError('Host must use HTTP(S).')
 		if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
-			throw new Error('Host must be an HTTP(S) origin without credentials or a base path.')
+			throw sluggernautValidationError(
+				'Host must be an HTTP(S) origin without credentials or a base path.',
+			)
 		}
 		return url.origin
 	})

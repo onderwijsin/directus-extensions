@@ -2,6 +2,7 @@ import type { Redirect, RedirectCreateInput } from '../schema'
 
 import { isDefined } from '@onderwijsin/directus-extension-utils'
 
+import { sluggernautIntegrityError, sluggernautValidationError } from '../../../shared/errors'
 import {
 	normalizeExactRedirectDestination,
 	normalizeExactRedirectOrigin,
@@ -60,13 +61,13 @@ export function participatesInActiveExactGraph(
  */
 export function validateExactRedirect(record: ExactRedirectInput): ValidatedExactRedirect {
 	if (record.match !== 'exact')
-		throw new Error('Exact integrity validation requires an exact redirect.')
+		throw sluggernautValidationError('Exact integrity validation requires an exact redirect.')
 	if (typeof record.is_active !== 'boolean')
-		throw new Error('A redirect active state must be boolean.')
+		throw sluggernautValidationError('A redirect active state must be boolean.')
 	const origin = normalizeExactRedirectOrigin(record.origin)
 	const destination = normalizeExactRedirectDestination(record.destination)
 	if (record.is_active && destination.kind === 'path' && origin === destination.value) {
-		throw new Error('An exact redirect must not point to itself.')
+		throw sluggernautIntegrityError('An exact redirect must not point to itself.')
 	}
 	return { id: record.id, origin, destination, match: 'exact', is_active: record.is_active }
 }
@@ -175,7 +176,9 @@ export function validateRelevantExactRedirectGraph(
 		.filter(participatesInActiveExactGraph)
 		.map(validateExactRedirect)) {
 		if (candidateOrigins.has(candidate.origin)) {
-			throw new Error(`Multiple active exact candidates use origin "${candidate.origin}".`)
+			throw sluggernautIntegrityError(
+				`Multiple active exact candidates use origin "${candidate.origin}".`,
+			)
 		}
 		candidateOrigins.add(candidate.origin)
 	}
@@ -183,7 +186,9 @@ export function validateRelevantExactRedirectGraph(
 	for (const record of active) {
 		const previous = origins.get(record.origin)
 		if (isDefined(previous) && recordKey(previous) !== recordKey(record)) {
-			throw new Error(`Multiple active exact redirects use origin "${record.origin}".`)
+			throw sluggernautIntegrityError(
+				`Multiple active exact redirects use origin "${record.origin}".`,
+			)
 		}
 		origins.set(record.origin, record)
 	}
@@ -196,7 +201,7 @@ export function validateRelevantExactRedirectGraph(
 		let current: ValidatedExactRedirect | undefined = start
 		while (current?.destination.kind === 'path') {
 			if (visited.has(current.origin))
-				throw new Error('Active exact redirects must not contain a cycle.')
+				throw sluggernautIntegrityError('Active exact redirects must not contain a cycle.')
 			visited.add(current.origin)
 			if (
 				!origins.has(current.destination.value) &&
@@ -208,7 +213,7 @@ export function validateRelevantExactRedirectGraph(
 		}
 	}
 	if (unresolvedOrigins.size > 0) {
-		throw new Error(
+		throw sluggernautIntegrityError(
 			`Exact redirect graph context is incomplete for origin(s): ${[...unresolvedOrigins].join(', ')}.`,
 		)
 	}

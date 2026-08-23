@@ -4,7 +4,7 @@ import type { SluggernautEnv } from '../../configuration/env.schema'
 import type { RawRedirectMutationInput, RedirectState } from '../domain/state'
 import type { Redirect, RedirectCreateInput, RedirectField } from '../schema'
 
-import { InvalidPayloadError } from '@directus/errors'
+import { isDirectusError } from '@directus/errors'
 import {
 	attempt,
 	isArray,
@@ -14,6 +14,11 @@ import {
 	hasKey,
 } from '@onderwijsin/directus-extension-utils'
 
+import {
+	sluggernautIntegrityError,
+	sluggernautInternalError,
+	sluggernautValidationError,
+} from '../../../shared/errors'
 import {
 	deriveExactGraphFrontier,
 	materializeRedirectState,
@@ -55,11 +60,11 @@ type RedirectMutationPayload = Omit<
  * @returns A Directus invalid-payload error.
  */
 function mutationError(error: unknown, collection: string): Error {
-	if (error instanceof InvalidPayloadError) return error
+	if (isDirectusError(error)) return error
 	const message = error instanceof Error ? error.message : 'Unknown redirect validation failure.'
-	return new InvalidPayloadError({
-		reason: `Redirect mutation in "${collection}" was rejected: ${message}`,
-	})
+	return sluggernautValidationError(
+		`Redirect mutation in "${collection}" was rejected: ${message}`,
+	)
 }
 
 /**
@@ -153,7 +158,7 @@ async function validateGraph(
 		const frontier = deriveExactGraphFrontier(candidates, resolvedRecords, fetchedOrigins)
 		if (frontier.complete) break
 		if (depth >= maxDepth)
-			throw new Error(
+			throw sluggernautValidationError(
 				`The exact redirect graph exceeds the configured maximum depth of ${maxDepth}.`,
 			)
 		// Query only active exact redirects at the requested origins. This deliberately avoids
@@ -216,7 +221,8 @@ async function readExistingMany(service: RedirectService, keys: readonly Primary
 	const byId = new Map(records.map((record) => [String(record.id), record]))
 	return keys.map((key) => {
 		const record = byId.get(String(key))
-		if (!isDefined(record)) throw new Error(`Redirect target "${String(key)}" was not found.`)
+		if (!isDefined(record))
+			throw sluggernautValidationError(`Redirect target "${String(key)}" was not found.`)
 		return record
 	})
 }
@@ -268,7 +274,7 @@ async function validateDirectRedirectUpdateMany(input: {
 			!transfersOwnership && state.managed_by === 'sluggernaut',
 	)
 	if (transfersOwnership && preservesManagedOwnership)
-		throw new Error(
+		throw sluggernautIntegrityError(
 			'Bulk redirect updates cannot mix managed structural edits with managed operational edits.',
 		)
 	return resultPayload(
@@ -354,7 +360,10 @@ export async function validateDirectRedirectMutation(input: {
 	})
 	if (result.error !== null) throw mutationError(result.error, collection)
 	if (!isRecord(result.data))
-		throw mutationError(new Error('Redirect mutation returned no payload.'), collection)
+		throw mutationError(
+			sluggernautInternalError('Redirect mutation returned no payload.'),
+			collection,
+		)
 	return result.data
 }
 
@@ -387,10 +396,12 @@ export function registerDirectExactRedirectHooks(
 			return payload
 		const result = await attempt(async () => {
 			if (!isArray(meta.keys) || meta.keys.length === 0)
-				throw new Error('Direct redirect updates require one or more item keys.')
+				throw sluggernautValidationError(
+					'Direct redirect updates require one or more item keys.',
+				)
 			const keys = meta.keys.filter(isPrimaryKey)
 			if (keys.length !== meta.keys.length)
-				throw new Error('Direct redirect updates require valid item keys.')
+				throw sluggernautValidationError('Direct redirect updates require valid item keys.')
 			if (keys.length > 1)
 				return validateDirectRedirectUpdateMany({
 					context,
@@ -401,7 +412,8 @@ export function registerDirectExactRedirectHooks(
 					maxDepth: options.SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH,
 				})
 			const key = keys[0]
-			if (!isDefined(key)) throw new Error('Direct redirect updates require one item key.')
+			if (!isDefined(key))
+				throw sluggernautValidationError('Direct redirect updates require one item key.')
 			const service = await createRedirectService(
 				context,
 				options.SLUGGERNAUT_REDIRECTS_COLLECTION,
@@ -422,7 +434,7 @@ export function registerDirectExactRedirectHooks(
 			throw mutationError(result.error, options.SLUGGERNAUT_REDIRECTS_COLLECTION)
 		if (!isRecord(result.data))
 			throw mutationError(
-				new Error('Redirect mutation returned no payload.'),
+				sluggernautInternalError('Redirect mutation returned no payload.'),
 				options.SLUGGERNAUT_REDIRECTS_COLLECTION,
 			)
 		return result.data

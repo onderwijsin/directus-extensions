@@ -9,6 +9,8 @@ import {
 	isString,
 } from '@onderwijsin/directus-extension-utils'
 
+import { sluggernautInternalError, sluggernautValidationError } from '../../shared/errors'
+
 /**
  * Collects the minimum field set required by the mutation coordinator.
  * @param configuration - Parsed collection configuration.
@@ -62,7 +64,8 @@ export async function readExistingItem(
 		knex: eventContext.database,
 	})
 	const item = await itemsService.readOne(key, { fields: [...new Set(fields)] })
-	if (!isRecord(item)) throw new Error('Sluggernaut could not read the existing item.')
+	if (!isRecord(item))
+		throw sluggernautInternalError('Sluggernaut could not read the existing item.')
 	return item
 }
 
@@ -72,13 +75,16 @@ export async function readExistingItem(
  * @returns A scalar item key.
  */
 export function resolveSingleUpdateItemKey(value: unknown): PrimaryKey {
-	if (!isArray(value)) throw new Error('Sluggernaut requires a scalar item key for updates.')
+	if (!isArray(value))
+		throw sluggernautValidationError('Sluggernaut requires a scalar item key for updates.')
 	if (value.length > 1) {
-		throw new Error('Sluggernaut cannot derive or archive items in an ambiguous bulk mutation.')
+		throw sluggernautValidationError(
+			'Sluggernaut cannot derive or archive items in an ambiguous bulk mutation.',
+		)
 	}
 	const key = value[0]
 	if (!isString(key) && !isInteger(key)) {
-		throw new Error('Sluggernaut requires a scalar item key for updates.')
+		throw sluggernautValidationError('Sluggernaut requires a scalar item key for updates.')
 	}
 	return key
 }

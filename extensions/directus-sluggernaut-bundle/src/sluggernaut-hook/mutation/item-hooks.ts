@@ -19,6 +19,7 @@ import {
 	isString,
 } from '@onderwijsin/directus-extension-utils'
 
+import { sluggernautValidationError } from '../../shared/errors'
 import { processDeletedItems } from '../redirects/history/deletion'
 import { discoverArchiveSettings } from './archive'
 import { coordinateMutation } from './coordinator'
@@ -49,7 +50,8 @@ export function registerSluggernautItemHooks(
 	hook.filter('items.create', async (payload, meta) => {
 		if (!isRecord(payload)) return payload
 		const collection = meta.collection
-		if (!isString(collection)) throw new Error('Sluggernaut requires a collection key.')
+		if (!isString(collection))
+			throw sluggernautValidationError('Sluggernaut requires a collection key.')
 		if (collection === options.SLUGGERNAUT_REDIRECTS_COLLECTION) return payload
 
 		const configuration = await getConfiguration(collection, fieldReader)
@@ -75,7 +77,8 @@ export function registerSluggernautItemHooks(
 	hook.filter('items.update', async (payload, meta, eventContext) => {
 		if (!isRecord(payload)) return payload
 		const collection = meta.collection
-		if (!isString(collection)) throw new Error('Sluggernaut requires a collection key.')
+		if (!isString(collection))
+			throw sluggernautValidationError('Sluggernaut requires a collection key.')
 		if (collection === options.SLUGGERNAUT_REDIRECTS_COLLECTION) return payload
 
 		const configuration = await getConfiguration(collection, fieldReader)

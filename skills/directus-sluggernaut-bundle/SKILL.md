@@ -314,9 +314,11 @@ Sluggernaut-generated history writes bypass ownership transfer and use the exist
 for structural graph coordination while still receiving local exact validation. Pattern parsing
 remains out of scope. These application-level checks are best effort under concurrent writes; the
 bundle adds no database uniqueness constraint or distributed lock and does not promise rollback for
-`updateMany` beyond Directus' own transaction behavior. Invalid direct redirect mutations are
-returned as Directus invalid-payload errors, and a missing/incompatible enabled collection is not
-silently accepted for direct writes.
+`updateMany` beyond Directus' own transaction behavior. Direct redirect failures use Directus
+errors: `SLUGGERNAUT_VALIDATION` (`400`) for invalid consumer input and `SLUGGERNAUT_INTEGRITY`
+(`409`) for active redirect conflicts. A missing/incompatible enabled collection is not silently
+accepted for direct writes. Unexpected configuration and internal failures use
+`SLUGGERNAUT_CONFIGURATION` or `SLUGGERNAUT_INTERNAL` (`500`).
 
 Sluggernaut does not serve these records. A redirect consumer should at minimum filter
 `is_active=true`, honor `start_date`/`end_date`, and return the stored `type` and `destination`.

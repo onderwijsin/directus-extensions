@@ -1,7 +1,7 @@
 import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/types'
 import type { SluggernautEnv } from '../../configuration/env.schema'
 
-import { InvalidPayloadError } from '@directus/errors'
+import { isDirectusError } from '@directus/errors'
 
 import { withMutationSource } from '../direct-mutations/mutation-source'
 import { createRedirectService } from '../service'
@@ -42,7 +42,7 @@ export async function processArchiveLifecycle(input: {
 			}),
 		)
 	} catch (error) {
-		if (error instanceof InvalidPayloadError) throw error
+		if (isDirectusError(error)) throw error
 		// Redirect lifecycle history is optional and must not block the archive transition itself.
 		context.logger.warn(
 			'Sluggernaut skipped redirect lifecycle processing because the redirect collection is unavailable or incompatible.',

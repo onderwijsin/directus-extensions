@@ -30,16 +30,3 @@ export interface ParsedPattern {
 	isPattern: boolean
 	normalized: string
 }
-
-/** Error raised when a path does not satisfy the public redirect pattern grammar. */
-export class PatternSyntaxError extends Error {
-	public readonly code = 'PATTERN_SYNTAX_ERROR'
-
-	/**
-	 *
-	 */
-	public constructor(message: string) {
-		super(message)
-		this.name = 'PatternSyntaxError'
-	}
-}

@@ -1,11 +1,12 @@
-import {
-	PatternSyntaxError,
-	type ParsedPattern,
-	type PatternParameterSegment,
-	type PatternSegment,
-	type PatternStaticSegment,
-	type PatternWildcardSegment,
+import type {
+	ParsedPattern,
+	PatternParameterSegment,
+	PatternSegment,
+	PatternStaticSegment,
+	PatternWildcardSegment,
 } from './grammar'
+
+import { sluggernautValidationError } from '../../../shared/errors'
 
 const PARAMETER_NAME = /^[A-Za-z][A-Za-z0-9_]*$/u
 const UNSAFE_PATH = /[\s\\#]/u
@@ -17,7 +18,7 @@ const ENCODED_DOT_SEGMENT = /%2e/iu
  * @returns Never; always throws.
  */
 function syntax(message: string): never {
-	throw new PatternSyntaxError(message)
+	throw sluggernautValidationError(message)
 }
 
 /**

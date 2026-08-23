@@ -15,6 +15,7 @@ import type {
 
 import { hasKey, isDefined, isString } from '@onderwijsin/directus-extension-utils'
 
+import { sluggernautValidationError } from '../../shared/errors'
 import {
 	applyTrailingSlash,
 	deriveSlug,
@@ -91,7 +92,9 @@ function resolveSlugValue(
 		// An explicit value wins over derivation, but still passes through the same normalization rules.
 		const value = input.payload[field.field]
 		if (value !== null && isDefined(value) && !isString(value)) {
-			throw new Error(`Slug field "${field.field}" must receive a string or null value.`)
+			throw sluggernautValidationError(
+				`Slug field "${field.field}" must receive a string or null value.`,
+			)
 		}
 		return {
 			value: normalizeSlug(value, field.options.locale, field.options.lowercase),
@@ -172,7 +175,9 @@ function resolvePermalinkValue(
 	if (explicitlySupplied) {
 		const value = input.payload[field.field]
 		if (value !== null && isDefined(value) && !isString(value)) {
-			throw new Error(`Permalink field "${field.field}" must receive a string or null value.`)
+			throw sluggernautValidationError(
+				`Permalink field "${field.field}" must receive a string or null value.`,
+			)
 		}
 		return {
 			value: normalizeManualPermalink(value, {

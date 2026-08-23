@@ -250,9 +250,12 @@ validate the resulting mutation set before Directus writes. External structural 
 Sluggernaut-owned redirect clear its provenance; operational changes such as activation dates
 preserve ownership. Redirect writes made by Sluggernaut's own history workflow preserve provenance
 and local exact validation; the existing history planner remains authoritative for those internal
-structural writes. Pattern redirects remain out of scope. Integrity failures are returned as
-Directus invalid-payload errors; an enabled but unavailable redirect collection therefore rejects
-direct redirect mutations rather than silently skipping validation.
+structural writes. Pattern redirects remain out of scope. Direct redirect failures use Directus-
+compatible errors: `SLUGGERNAUT_VALIDATION` with status `400` for invalid consumer input and
+`SLUGGERNAUT_INTEGRITY` with status `409` for active redirect conflicts. An enabled but unavailable
+redirect collection therefore rejects direct redirect mutations rather than silently skipping
+validation. Unexpected configuration and internal failures use `SLUGGERNAUT_CONFIGURATION` or
+`SLUGGERNAUT_INTERNAL` with status `500`.
 
 The bundle does not serve redirects. A web server, frontend, edge worker, or endpoint must query
 active records and issue the HTTP response.
