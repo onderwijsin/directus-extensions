@@ -707,7 +707,7 @@ canonical-history implementation is fully insulated from subsequent manual redir
 
 ## PR 2 — Protect direct exact redirect mutations
 
-Implementation handoff for the remaining bulk-preflight work:
+Implementation handoff for the bulk-preflight work:
 [`SLUGGERNAUT_REDIRECTS_PR2C.md`](./SLUGGERNAUT_REDIRECTS_PR2C.md).
 
 **Goal:** Make the redirect collection itself integrity-safe before adding patterns.
@@ -743,6 +743,11 @@ Implement ownership transfer:
 - internal Sluggernaut mutations bypass ownership transfer.
 
 Handle partial and bulk updates correctly by resolving existing state where necessary.
+
+PR 2C adds the `updateMany` preflight: every target is resolved and materialized, the resulting
+mutation set is checked for intra-batch and relevant graph conflicts, and the filter rejects before
+persistence when integrity cannot be established. This remains application-level, best-effort
+validation under concurrency and does not add database uniqueness or rollback guarantees.
 
 ### Success criterion
 

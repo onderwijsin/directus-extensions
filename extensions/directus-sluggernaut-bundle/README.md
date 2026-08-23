@@ -218,6 +218,15 @@ Sluggernaut creates managed `301` records with provenance:
 | `inactive_reason`                                                 | `archived` or `deleted` for lifecycle deactivation.     |
 | `user_created`, `date_created`, `user_updated`, `date_updated`    | Standard Directus audit fields.                         |
 
+Direct `create`, single-item `update`, and multi-item `updateMany` writes to the configured redirect
+collection are preflighted before persistence. Exact redirects are normalized and checked for
+active-origin duplicates, self-loops, and relevant graph cycles. A bulk update resolves every target
+and validates the complete proposed mutation set, including conflicts between targets; a missing
+target or incomplete preflight rejects the whole filter event before Directus writes. These
+application-level checks are best effort under concurrent writes and do not provide a database
+uniqueness constraint or distributed lock. Sluggernaut does not promise transaction rollback for
+`updateMany` beyond Directus' own transaction behavior.
+
 When Sluggernaut provisions this collection, the provenance and lifecycle fields (`managed_by`,
 `source_collection`, `source_item`, `source_field`, `source_type`, `inactive_reason`, `specificity`,
 and `matcher_signature`) are read-only and maintained by the bundle. The automatic history planner
@@ -233,14 +242,15 @@ if the redirect collection is unavailable or incompatible, redirect processing i
 and the derived item update still completes. Delete/archive lifecycle failures are logged after the
 source action.
 
-Direct `items.create` and single-item `items.update` mutations to the configured redirect collection
-validate exact redirects before persistence. Origins and internal destinations are normalized,
-active exact redirects are checked for duplicate origins, self-loops, and cycles, and only the
-relevant origin frontier is read. External structural edits to a Sluggernaut-owned redirect clear
-its provenance; operational changes such as activation dates preserve ownership. Redirect writes
-made by Sluggernaut's own history workflow preserve provenance and local exact validation; the
-existing history planner remains authoritative for those internal structural writes. Pattern
-redirects and `updateMany` preflight are not implemented yet. Integrity failures are returned as
+Direct `items.create`, single-item `items.update`, and multi-item `items.update` mutations to the
+configured redirect collection validate exact redirects before persistence. Origins and internal
+destinations are normalized, active exact redirects are checked for duplicate origins, self-loops,
+and cycles, and only the relevant origin frontier is read. Bulk updates resolve every target and
+validate the resulting mutation set before Directus writes. External structural edits to a
+Sluggernaut-owned redirect clear its provenance; operational changes such as activation dates
+preserve ownership. Redirect writes made by Sluggernaut's own history workflow preserve provenance
+and local exact validation; the existing history planner remains authoritative for those internal
+structural writes. Pattern redirects remain out of scope. Integrity failures are returned as
 Directus invalid-payload errors; an enabled but unavailable redirect collection therefore rejects
 direct redirect mutations rather than silently skipping validation.
 

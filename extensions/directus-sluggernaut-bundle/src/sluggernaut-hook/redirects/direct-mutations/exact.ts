@@ -134,23 +134,23 @@ function resultPayload(
 /**
  * Resolves and validates the closed relevant exact graph.
  * @param service - Configured redirect persistence service.
- * @param candidate - Proposed exact redirect.
+ * @param candidates - Proposed exact redirects.
  * @param maxDepth - Maximum number of frontier expansion rounds.
  * @returns Nothing; rejects when integrity is invalid.
  */
 async function validateGraph(
 	service: RedirectService,
-	candidate: ExactRedirectInput,
+	candidates: readonly ExactRedirectInput[],
 	maxDepth = 25,
 ): Promise<void> {
-	if (!requiresExactIntegrityLookup(null, candidate)) return
+	if (!candidates.some((candidate) => requiresExactIntegrityLookup(null, candidate))) return
 	const resolvedRecords: ExactRedirectInput[] = []
 	const fetchedOrigins = new Set<string>()
 	let depth = 0
 	while (true) {
 		// The domain derives the next batch from the candidate and records already resolved. It
 		// includes both the candidate origin and internal path destinations, but never external URLs.
-		const frontier = deriveExactGraphFrontier([candidate], resolvedRecords, fetchedOrigins)
+		const frontier = deriveExactGraphFrontier(candidates, resolvedRecords, fetchedOrigins)
 		if (frontier.complete) break
 		if (depth >= maxDepth)
 			throw new Error(
@@ -172,23 +172,23 @@ async function validateGraph(
 		// Mark every requested origin as resolved before processing results. An empty result is still
 		// meaningful: it proves that the origin was queried and has no persisted redirect.
 		frontier.requestedOrigins.forEach((origin) => fetchedOrigins.add(origin))
-		// An update query can return the persisted predecessor at the candidate's origin. That row is
-		// replaced by the candidate and must not expand the frontier through its old destination.
+		// An update query can return persisted predecessors for candidates. Those rows are replaced by
+		// the proposed candidates and must not expand the frontier through their old destinations.
+		const candidateIds = new Set(
+			candidates.flatMap((candidate) =>
+				isDefined(candidate.id) ? [String(candidate.id)] : [],
+			),
+		)
 		resolvedRecords.push(
 			...result
 				.map(exactInput)
-				.filter(
-					(record) =>
-						!isDefined(candidate.id) ||
-						!isDefined(record.id) ||
-						String(record.id) !== String(candidate.id),
-				),
+				.filter((record) => !isDefined(record.id) || !candidateIds.has(String(record.id))),
 		)
 		depth += 1
 	}
 	// At closure, the domain validates uniqueness, self-loops, cycles, and the complete relevant
 	// subgraph. The adapter does not reproduce any of those redirect semantics.
-	validateRelevantExactRedirectGraph([candidate], resolvedRecords, fetchedOrigins)
+	validateRelevantExactRedirectGraph(candidates, resolvedRecords, fetchedOrigins)
 }
 
 /**
@@ -199,6 +199,92 @@ async function validateGraph(
  */
 async function readExisting(service: RedirectService, key: PrimaryKey) {
 	return service.readOne(key, { fields: [...REDIRECT_FIELDS] })
+}
+
+/**
+ * Reads every target of a bulk update with the complete fields needed for state materialization.
+ * @param service - Redirect persistence service.
+ * @param keys - Target primary keys from the Directus event.
+ * @returns Persisted target records in event-key order.
+ */
+async function readExistingMany(service: RedirectService, keys: readonly PrimaryKey[]) {
+	const records = await service.readByQuery({
+		filter: { id: { _in: [...keys] } },
+		fields: [...REDIRECT_FIELDS],
+		limit: -1,
+	})
+	const byId = new Map(records.map((record) => [String(record.id), record]))
+	return keys.map((key) => {
+		const record = byId.get(String(key))
+		if (!isDefined(record)) throw new Error(`Redirect target "${String(key)}" was not found.`)
+		return record
+	})
+}
+
+/**
+ * Handles a direct bulk update as one integrity preflight.
+ * @param input - Directus state, persistence, and mutation context.
+ * @returns The shared payload to continue through Directus.
+ */
+async function validateDirectRedirectUpdateMany(input: {
+	context: HookExtensionContext
+	collection: string
+	eventContext: EventContext
+	payload: Partial<RedirectCreateInput>
+	keys: readonly PrimaryKey[]
+	maxDepth?: number
+}): Promise<RedirectMutationPayload> {
+	const { context, collection, eventContext, payload, keys, maxDepth } = input
+	const service = await createRedirectService(context, collection, eventContext.database)
+	const existing = await readExistingMany(service, keys)
+	const source = currentMutationSource()
+	const proposed = existing.map((record) =>
+		decideRedirectOwnership(record, materializeRedirectState(record, payload), source),
+	)
+	const exactCandidates = proposed.map(({ state }) => exactInput(state))
+	const normalizedPayload = exactCandidates.reduce(
+		(result, candidate) =>
+			isExact(candidate)
+				? normalizedExactPayload(result, validateExactRedirect(candidate))
+				: result,
+		payload,
+	)
+
+	// Internal history writes retain ownership but still receive local exact validation. The history
+	// planner owns its graph coordination, so it must not be checked against an intermediate snapshot.
+	if (source !== 'internal') {
+		const graphAffecting = existing.some((record, index) => {
+			const candidate = exactCandidates[index]
+			return (
+				isDefined(candidate) && requiresExactIntegrityLookup(exactInput(record), candidate)
+			)
+		})
+		await validateGraph(service, graphAffecting ? exactCandidates : [], maxDepth)
+	}
+
+	const transfersOwnership = proposed.some(({ transfersOwnership }) => transfersOwnership)
+	const preservesManagedOwnership = proposed.some(
+		({ transfersOwnership, state }) =>
+			!transfersOwnership && state.managed_by === 'sluggernaut',
+	)
+	if (transfersOwnership && preservesManagedOwnership)
+		throw new Error(
+			'Bulk redirect updates cannot mix managed structural edits with managed operational edits.',
+		)
+	return resultPayload(
+		normalizedPayload,
+		transfersOwnership
+			? {
+					managed_by: null,
+					source_collection: null,
+					source_item: null,
+					source_field: null,
+					source_type: null,
+					inactive_reason: null,
+				}
+			: (proposed[0]?.state ?? payload),
+		transfersOwnership,
+	)
 }
 
 /**
@@ -260,7 +346,7 @@ export async function validateDirectRedirectMutation(input: {
 		const service = isDefined(input.service)
 			? input.service
 			: await createRedirectService(context, collection, eventContext.database)
-		await validateGraph(service, exactProposed, input.maxDepth)
+		await validateGraph(service, [exactProposed], input.maxDepth)
 
 		// 6. Return only mutation fields. Never write system fields from the materialized state back
 		//    into Directus accidentally; ownership transfer adds only the provenance nulls it needs.
@@ -300,14 +386,28 @@ export function registerDirectExactRedirectHooks(
 		if (meta.collection !== options.SLUGGERNAUT_REDIRECTS_COLLECTION || !isRecord(payload))
 			return payload
 		const result = await attempt(async () => {
-			if (!isArray(meta.keys) || meta.keys.length !== 1 || !isPrimaryKey(meta.keys[0]))
-				throw new Error('Direct redirect updates require one item key.')
+			if (!isArray(meta.keys) || meta.keys.length === 0)
+				throw new Error('Direct redirect updates require one or more item keys.')
+			const keys = meta.keys.filter(isPrimaryKey)
+			if (keys.length !== meta.keys.length)
+				throw new Error('Direct redirect updates require valid item keys.')
+			if (keys.length > 1)
+				return validateDirectRedirectUpdateMany({
+					context,
+					collection: options.SLUGGERNAUT_REDIRECTS_COLLECTION,
+					eventContext,
+					payload,
+					keys,
+					maxDepth: options.SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH,
+				})
+			const key = keys[0]
+			if (!isDefined(key)) throw new Error('Direct redirect updates require one item key.')
 			const service = await createRedirectService(
 				context,
 				options.SLUGGERNAUT_REDIRECTS_COLLECTION,
 				eventContext.database,
 			)
-			const existing = await readExisting(service, meta.keys[0])
+			const existing = await readExisting(service, key)
 			return validateDirectRedirectMutation({
 				context,
 				collection: options.SLUGGERNAUT_REDIRECTS_COLLECTION,

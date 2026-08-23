@@ -361,6 +361,16 @@ describe('exact redirect domain', () => {
 		).toThrow(/Multiple active exact candidates/)
 	})
 
+	it('rejects cycles formed entirely by resulting mutation candidates', () => {
+		expect(() =>
+			validateRelevantExactRedirectGraph(
+				[exact('/a', '/b', 1), exact('/b', '/a', 2)],
+				[],
+				new Set(['/a', '/b']),
+			),
+		).toThrow(/cycle/)
+	})
+
 	it('rejects validation with an incomplete relevant graph context', () => {
 		expect(() =>
 			validateRelevantExactRedirectGraph([exact('/a', '/b', 1)], [], new Set(['/a'])),

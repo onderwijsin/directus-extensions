@@ -303,15 +303,20 @@ unavailable or incompatible, redirect processing is skipped and logged while the
 continues. Delete/archive action failures are logged after the source mutation and cannot roll back
 deletion.
 
-Direct create and single-item update mutations on the configured redirect collection are validated
-before persistence when redirects are enabled. Exact redirects normalize origins and destinations,
-reject self-loops, duplicate active origins, and cycles, and query only the relevant active exact
-graph by origin. External structural edits to a managed redirect clear its provenance, while
-operational changes preserve it. Sluggernaut-generated history writes bypass ownership transfer and
-use the existing history planner for structural graph coordination while still receiving local exact
-validation. Pattern parsing and `updateMany` preflight remain out of scope. Invalid direct redirect
-mutations are returned as Directus invalid-payload errors, and a missing/incompatible enabled
-collection is not silently accepted for direct writes.
+Direct create, single-item update, and multi-item `updateMany` mutations on the configured redirect
+collection are validated before persistence when redirects are enabled. Exact redirects normalize
+origins and destinations, reject self-loops, duplicate active origins, and cycles, and query only
+the relevant active exact graph by origin. `updateMany` resolves every target, materializes the
+shared payload against each existing record, compares targets with one another and with relevant
+non-targeted records, and rejects when the preflight cannot establish integrity. External structural
+edits to a managed redirect clear its provenance, while operational changes preserve it.
+Sluggernaut-generated history writes bypass ownership transfer and use the existing history planner
+for structural graph coordination while still receiving local exact validation. Pattern parsing
+remains out of scope. These application-level checks are best effort under concurrent writes; the
+bundle adds no database uniqueness constraint or distributed lock and does not promise rollback for
+`updateMany` beyond Directus' own transaction behavior. Invalid direct redirect mutations are
+returned as Directus invalid-payload errors, and a missing/incompatible enabled collection is not
+silently accepted for direct writes.
 
 Sluggernaut does not serve these records. A redirect consumer should at minimum filter
 `is_active=true`, honor `start_date`/`end_date`, and return the stored `type` and `destination`.

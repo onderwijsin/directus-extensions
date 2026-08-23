@@ -22,8 +22,10 @@ const eventContext = {
 function setup(records: Record<string, unknown>[] = [], maxDepth = 25) {
 	const readOne = vi.fn().mockResolvedValue(records[0])
 	const readByQuery = vi.fn().mockResolvedValue(records)
+	const updateOne = vi.fn()
+	const updateMany = vi.fn()
 	const ItemsService = vi.fn(function () {
-		return { readOne, readByQuery }
+		return { readOne, readByQuery, updateOne, updateMany }
 	})
 	const context = {
 		getSchema: vi.fn().mockResolvedValue({ collections: {}, relations: [] }),
@@ -38,7 +40,7 @@ function setup(records: Record<string, unknown>[] = [], maxDepth = 25) {
 		context,
 		{ ...options, SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH: maxDepth } as never,
 	)
-	return { context, filters, ItemsService, readOne, readByQuery }
+	return { context, filters, ItemsService, readOne, readByQuery, updateOne, updateMany }
 }
 
 const exact = (origin: string, destination: string, id = 1, is_active = true) => ({
@@ -130,6 +132,147 @@ describe('direct exact redirect mutation hooks', () => {
 			expect.objectContaining({ fields: expect.any(Array) }),
 		)
 		expect(readByQuery).not.toHaveBeenCalled()
+	})
+
+	it.each([
+		['missing keys', []],
+		['invalid keys', [null]],
+	] as const)('rejects update events with %s', async (_label, keys) => {
+		const { filters, ItemsService } = setup()
+		const update = filters.get('items.update')!
+
+		await expect(
+			update({ type: 302 }, { collection: 'custom_redirects', keys }, eventContext),
+		).rejects.toThrow(/item key/)
+		expect(ItemsService).not.toHaveBeenCalled()
+	})
+
+	it('preflights every updateMany target with one complete materialization', async () => {
+		const records = [
+			{
+				...exact('/a', '/b', 1),
+				type: 301,
+				start_date: 'tomorrow',
+				managed_by: 'sluggernaut',
+			},
+			{ ...exact('/c', '/d', 2), type: 307, start_date: 'next week' },
+		]
+		const { filters, ItemsService, readByQuery } = setup(records)
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ is_active: false, type: 302 },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).resolves.toMatchObject({
+			is_active: false,
+			type: 302,
+			managed_by: null,
+			source_collection: null,
+		})
+
+		expect(readByQuery).toHaveBeenCalledOnce()
+		expect(readByQuery.mock.calls[0]?.[0]).toMatchObject({
+			filter: { id: { _in: [1, 2] } },
+			limit: -1,
+		})
+		expect(ItemsService).toHaveBeenCalledWith(
+			'custom_redirects',
+			expect.objectContaining({ knex: eventContext.database, accountability: null }),
+		)
+	})
+
+	it('reads only targeted records first, then expands through non-targeted records and absent origins', async () => {
+		const targets = [exact('/a', '/old', 1), exact('/c', '/old', 2)]
+		const nonTargeted = exact('/target', '/end', 3)
+		const { filters, readByQuery } = setup(targets)
+		readByQuery
+			.mockResolvedValueOnce(targets)
+			.mockResolvedValueOnce([nonTargeted])
+			.mockResolvedValueOnce([])
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ destination: '/target' },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).resolves.toMatchObject({ destination: '/target' })
+		expect(readByQuery).toHaveBeenCalledTimes(3)
+		expect(readByQuery.mock.calls[0]?.[0]).toMatchObject({
+			filter: { id: { _in: [1, 2] } },
+		})
+		expect(readByQuery.mock.calls[1]?.[0].filter._and[2].origin._in).toEqual(
+			expect.arrayContaining(['/a', '/c', '/target']),
+		)
+		expect(readByQuery.mock.calls[2]?.[0].filter._and[2].origin._in).toEqual(['/end'])
+	})
+
+	it('rejects duplicate origins introduced within one updateMany mutation', async () => {
+		const records = [exact('/a', '/b', 1), exact('/c', '/d', 2)]
+		const { filters, readByQuery, updateOne, updateMany } = setup(records)
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ origin: '/same', destination: '/target' },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).rejects.toThrow(/Multiple active exact candidates/)
+		expect(readByQuery).toHaveBeenCalledTimes(2)
+		expect(updateOne).not.toHaveBeenCalled()
+		expect(updateMany).not.toHaveBeenCalled()
+	})
+
+	it('rejects self-loops formed by updateMany candidates before persistence', async () => {
+		const records = [exact('/a', '/old', 1), exact('/b', '/old', 2)]
+		const { filters, readByQuery } = setup(records)
+		const update = filters.get('items.update')!
+		readByQuery.mockResolvedValueOnce(records).mockResolvedValueOnce(records)
+
+		await expect(
+			update(
+				{ destination: '/b' },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).rejects.toThrow(/point to itself/)
+		expect(readByQuery).toHaveBeenCalledOnce()
+	})
+
+	it('rejects a bulk update when a target cannot be resolved', async () => {
+		const { filters, readByQuery } = setup([exact('/a', '/b', 1)])
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ destination: '/c' },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).rejects.toThrow(/target "2" was not found/)
+		expect(readByQuery).toHaveBeenCalledOnce()
+	})
+
+	it('rejects bulk ownership mixes that cannot be represented by one payload', async () => {
+		const records = [
+			{ ...exact('/a', '/b', 1), managed_by: 'sluggernaut' },
+			{ ...exact('/c', '/changed', 2), managed_by: 'sluggernaut' },
+		]
+		const { filters } = setup(records)
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ destination: '/changed' },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).rejects.toThrow(/cannot mix managed structural edits/)
 	})
 
 	it('does not expand the replaced record through its previous destination', async () => {
