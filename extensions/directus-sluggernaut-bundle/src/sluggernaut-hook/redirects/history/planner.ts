@@ -154,7 +154,15 @@ function redirectsIncludedInPlanning(
 	redirects: readonly Redirect[],
 	transition: CanonicalRedirectTransition,
 ): Redirect[] {
-	const exactRedirects = redirects.filter((redirect) => redirect.match === 'exact')
+	// Inactive manual records and lifecycle-suspended history do not occupy a route. The one
+	// inactive state retained here is a managed loop-suppressed record, which must remain visible so
+	// a canonical reversal can reactivate it.
+	const exactRedirects = redirects.filter(
+		(redirect) =>
+			redirect.match === 'exact' &&
+			(redirect.is_active ||
+				(redirect.managed_by === 'sluggernaut' && redirect.inactive_reason === null)),
+	)
 	if (transition.source.includeUnmanagedRedirectsInPlanning ?? true) return exactRedirects
 	return exactRedirects.filter((redirect) => redirect.managed_by === 'sluggernaut')
 }
