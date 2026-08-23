@@ -4,7 +4,7 @@ import type { Redirect } from '../src/sluggernaut-hook/redirects/schema'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-	registerDirectExactRedirectHooks,
+	registerDirectRedirectHooks,
 	validateDirectRedirectMutation,
 } from '../src/sluggernaut-hook/redirects/direct-mutations/exact'
 import { withMutationSource } from '../src/sluggernaut-hook/redirects/direct-mutations/mutation-source'
@@ -32,7 +32,7 @@ function setup(records: Record<string, unknown>[] = [], maxDepth = 25) {
 		services: { ItemsService },
 	} as never as HookExtensionContext
 	const filters = new Map<string, (...args: unknown[]) => Promise<unknown>>()
-	registerDirectExactRedirectHooks(
+	registerDirectRedirectHooks(
 		{
 			filter: (event: string, callback: (...args: unknown[]) => Promise<unknown>) =>
 				filters.set(event, callback),
@@ -51,7 +51,290 @@ const exact = (origin: string, destination: string, id = 1, is_active = true) =>
 	is_active,
 })
 
+const pattern = (origin: string, destination: string, id = 1, is_active = true): Redirect => ({
+	id,
+	origin,
+	destination,
+	type: 301,
+	match: 'pattern',
+	specificity: '1',
+	matcher_signature: 'signature',
+	is_active,
+	start_date: null,
+	end_date: null,
+	managed_by: null,
+	source_collection: null,
+	source_item: null,
+	source_field: null,
+	source_type: null,
+	inactive_reason: null,
+	user_created: null,
+	date_created: '2025-01-01T00:00:00.000Z',
+	user_updated: null,
+	date_updated: null,
+})
+
 describe('direct exact redirect mutation hooks', () => {
+	it('validates pattern creates and derives metadata while clearing ownership fields', async () => {
+		const context = setup()
+		await expect(
+			validateDirectRedirectMutation({
+				context: context.context,
+				collection: 'custom_redirects',
+				eventContext,
+				payload: {
+					origin: '//legacy///:slug',
+					destination: '/articles//:slug',
+					match: 'pattern',
+					managed_by: 'sluggernaut',
+					source_collection: 'pages',
+					source_item: 1,
+					source_field: 'route',
+					source_type: 'permalink',
+				},
+			}),
+		).resolves.toMatchObject({
+			origin: '/legacy/:slug',
+			destination: '/articles/:slug',
+			match: 'pattern',
+			specificity: expect.stringMatching(/^\d+$/u),
+			matcher_signature: expect.any(String),
+			managed_by: null,
+			source_collection: null,
+		})
+	})
+
+	it('rejects unsafe pattern destination captures before persistence', async () => {
+		const context = setup()
+		await expect(
+			validateDirectRedirectMutation({
+				context: context.context,
+				collection: 'custom_redirects',
+				eventContext,
+				payload: {
+					origin: '/legacy/:slug',
+					destination: '/articles/:id',
+					match: 'pattern',
+				},
+			}),
+		).rejects.toThrow(/unknown parameter/u)
+	})
+
+	it.each([
+		{ origin: null, destination: '/articles/:slug' },
+		{ origin: 42, destination: '/articles/:slug' },
+		{ origin: '/legacy/:slug', destination: null },
+		{ origin: '/legacy/:slug', destination: 42 },
+	])('rejects non-string pattern path values before persistence: %o', async (values) => {
+		const { filters } = setup()
+		const create = filters.get('items.create')!
+
+		await expect(
+			create(
+				{ ...values, match: 'pattern' },
+				{ collection: 'custom_redirects' },
+				eventContext,
+			),
+		).rejects.toThrow(/requires string origin and destination/u)
+	})
+
+	it.each([{ match: null }, { match: 'regex' }, { match: 42 }])(
+		'rejects unsupported match values before persistence: %o',
+		async ({ match }) => {
+			const { filters } = setup()
+			const create = filters.get('items.create')!
+
+			await expect(
+				create(
+					{ origin: '/legacy/:slug', destination: '/articles/:slug', match },
+					{ collection: 'custom_redirects' },
+					eventContext,
+				),
+			).rejects.toThrow(/match must be either/u)
+		},
+	)
+
+	it('does not infer pattern matching when match is omitted', async () => {
+		const { filters } = setup()
+		const create = filters.get('items.create')!
+
+		await expect(
+			create(
+				{ origin: '/legacy/:slug', destination: '/articles/:slug' },
+				{ collection: 'custom_redirects' },
+				eventContext,
+			),
+		).rejects.toThrow(/exact redirect origin/u)
+	})
+
+	it('rejects a pattern that exceeds the lossless specificity segment limit', async () => {
+		const { filters } = setup()
+		const create = filters.get('items.create')!
+		const origin = `/${Array.from({ length: 21 }, (_, index) =>
+			index === 20 ? ':slug' : 'static',
+		).join('/')}`
+
+		await expect(
+			create(
+				{ origin, destination: '/articles/:slug', match: 'pattern' },
+				{ collection: 'custom_redirects' },
+				eventContext,
+			),
+		).rejects.toThrow(/at most 20 segments/u)
+	})
+
+	it('recomputes metadata and clears provenance when updating a pattern', async () => {
+		const existing = {
+			...pattern('/legacy/:slug', '/articles/:slug'),
+			managed_by: 'sluggernaut' as const,
+			source_collection: 'pages',
+			source_item: 1,
+			source_field: 'route',
+			source_type: 'permalink' as const,
+		}
+		const context = setup([existing])
+
+		await expect(
+			validateDirectRedirectMutation({
+				context: context.context,
+				collection: 'custom_redirects',
+				eventContext,
+				payload: { origin: '/new/:slug', destination: '/docs/:slug' },
+				existing,
+			}),
+		).resolves.toMatchObject({
+			origin: '/new/:slug',
+			destination: '/docs/:slug',
+			specificity: expect.stringMatching(/^\d+$/u),
+			matcher_signature: expect.any(String),
+			managed_by: null,
+			source_collection: null,
+		})
+	})
+
+	it('replaces caller-supplied pattern metadata with derived values on operational updates', async () => {
+		const existing = pattern('/legacy/:slug', '/articles/:slug')
+		const context = setup([existing])
+
+		await expect(
+			validateDirectRedirectMutation({
+				context: context.context,
+				collection: 'custom_redirects',
+				eventContext,
+				payload: { is_active: false, specificity: 'unsafe', matcher_signature: 'unsafe' },
+				existing,
+			}),
+		).resolves.toMatchObject({
+			is_active: false,
+			specificity: expect.stringMatching(/^\d+$/u),
+			matcher_signature: expect.any(String),
+		})
+	})
+
+	it('supports exact-to-pattern transitions with fresh metadata', async () => {
+		const existing: Redirect = {
+			...pattern('/legacy/slug', '/articles/slug'),
+			match: 'exact',
+			specificity: null,
+			matcher_signature: null,
+		}
+		const context = setup([existing])
+
+		await expect(
+			validateDirectRedirectMutation({
+				context: context.context,
+				collection: 'custom_redirects',
+				eventContext,
+				payload: {
+					origin: '/legacy/:slug',
+					destination: '/articles/:slug',
+					match: 'pattern',
+				},
+				existing,
+			}),
+		).resolves.toMatchObject({
+			match: 'pattern',
+			specificity: expect.stringMatching(/^\d+$/u),
+			matcher_signature: expect.any(String),
+		})
+	})
+
+	it('supports pattern-to-exact transitions and clears derived metadata', async () => {
+		const existing = pattern('/legacy/:slug', '/articles/:slug')
+		const context = setup([existing])
+
+		await expect(
+			validateDirectRedirectMutation({
+				context: context.context,
+				collection: 'custom_redirects',
+				eventContext,
+				payload: {
+					origin: '/legacy/slug',
+					destination: '/articles/slug',
+					match: 'exact',
+				},
+				existing,
+			}),
+		).resolves.toMatchObject({
+			match: 'exact',
+			origin: '/legacy/slug',
+			specificity: null,
+			matcher_signature: null,
+		})
+	})
+
+	it('rejects bulk pattern updates whose targets would receive different metadata', async () => {
+		const records = [
+			{ ...exact('/legacy/:slug', '/articles/:slug', 1), match: 'pattern' },
+			{ ...exact('/other/:slug', '/articles/:slug', 2), match: 'pattern' },
+		]
+		const { filters } = setup(records)
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ destination: '/articles/:slug' },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).rejects.toThrow(/identical matcher metadata/u)
+	})
+
+	it('applies one derived metadata payload to equivalent bulk pattern targets', async () => {
+		const records = [
+			pattern('/legacy/:slug', '/articles/:slug', 1),
+			pattern('/legacy/:other', '/articles/:other', 2),
+		]
+		const { filters } = setup(records)
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ destination: '/docs' },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).resolves.toMatchObject({
+			destination: '/docs',
+			specificity: expect.stringMatching(/^\d+$/u),
+			matcher_signature: expect.any(String),
+		})
+	})
+
+	it('rejects bulk matcher updates that mix exact and pattern targets', async () => {
+		const records = [pattern('/legacy/:slug', '/articles/:slug', 1), exact('/old', '/new', 2)]
+		const { filters } = setup(records)
+		const update = filters.get('items.update')!
+
+		await expect(
+			update(
+				{ destination: '/docs/:slug' },
+				{ collection: 'custom_redirects', keys: [1, 2] },
+				eventContext,
+			),
+		).rejects.toThrow(/mix pattern and exact/u)
+	})
+
 	it('registers configured collection filters and ignores other collections', async () => {
 		const { filters, ItemsService } = setup()
 		const create = filters.get('items.create')!

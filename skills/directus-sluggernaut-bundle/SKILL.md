@@ -274,24 +274,29 @@ value overrides unmanaged conflicts. Set `includeUnmanagedRedirectsInPlanning=fa
 unmanaged records, or set `unmanagedRedirectConflictBehavior=block` to preserve an included
 unmanaged conflict and log a warning.
 
-| Redirect field                                                    | Purpose                                              |
-| ----------------------------------------------------------------- | ---------------------------------------------------- |
-| `origin`, `destination`                                           | Canonical path transition.                           |
-| `type`                                                            | Managed records use `301`.                           |
-| `match`                                                           | `exact` for automatically generated records.         |
-| `specificity`, `matcher_signature`                                | Reserved matcher metadata; currently `null`.         |
-| `is_active`                                                       | Whether a redirect consumer should serve the record. |
-| `start_date`, `end_date`                                          | Optional consumer-controlled time window.            |
-| `managed_by`                                                      | `sluggernaut` for managed records.                   |
-| `source_collection`, `source_item`, `source_field`, `source_type` | Ownership/provenance metadata.                       |
-| `inactive_reason`                                                 | `archived` or `deleted` for lifecycle deactivation.  |
-| `user_created`, `date_created`, `user_updated`, `date_updated`    | Standard Directus audit fields.                      |
+| Redirect field                                                    | Purpose                                                  |
+| ----------------------------------------------------------------- | -------------------------------------------------------- |
+| `origin`, `destination`                                           | Canonical path transition.                               |
+| `type`                                                            | Managed records use `301`.                               |
+| `match`                                                           | `exact` for automatically generated records.             |
+| `specificity`, `matcher_signature`                                | `null` for exact records; derived metadata for patterns. |
+| `is_active`                                                       | Whether a redirect consumer should serve the record.     |
+| `start_date`, `end_date`                                          | Optional consumer-controlled time window.                |
+| `managed_by`                                                      | `sluggernaut` for managed records.                       |
+| `source_collection`, `source_item`, `source_field`, `source_type` | Ownership/provenance metadata.                           |
+| `inactive_reason`                                                 | `archived` or `deleted` for lifecycle deactivation.      |
+| `user_created`, `date_created`, `user_updated`, `date_updated`    | Standard Directus audit fields.                          |
 
 When the bundle provisions the redirect collection, the provenance and lifecycle fields
 (`managed_by`, `source_collection`, `source_item`, `source_field`, `source_type`, and
 `inactive_reason`, `specificity`, and `matcher_signature`) are read-only and maintained by
-Sluggernaut. The automatic history planner currently includes exact-match records only; pattern
-records are reserved for a future matcher and are not interpreted or generated yet.
+Sluggernaut. The automatic history planner includes exact-match records only. Direct pattern records
+support named parameters (`/legacy/:slug`), optional parameters (`/:slug?`), one wildcard
+(`/files/*` or `/files/*?`), and simple parameter suffixes (`/files/:name.pdf`). Pattern
+destinations are path-only templates backed by origin captures, and pattern records are always
+unmanaged/manual. Specificity and matcher signatures are derived on create and structural update.
+Redirect reads without an explicit sort use exact records first, then pattern specificity
+descending, then `id` ascending; an explicit sort is preserved unchanged.
 
 On source deletion, managed records are deactivated with `inactive_reason=deleted`. When a Directus
 archive field transitions to its archive value, records are deactivated with
@@ -308,17 +313,18 @@ collection are validated before persistence when redirects are enabled. Exact re
 origins and destinations, reject self-loops, duplicate active origins, and cycles, and query only
 the relevant active exact graph by origin. `updateMany` resolves every target, materializes the
 shared payload against each existing record, compares targets with one another and with relevant
-non-targeted records, and rejects when the preflight cannot establish integrity. External structural
-edits to a managed redirect clear its provenance, while operational changes preserve it.
-Sluggernaut-generated history writes bypass ownership transfer and use the existing history planner
-for structural graph coordination while still receiving local exact validation. Pattern parsing
-remains out of scope. These application-level checks are best effort under concurrent writes; the
-bundle adds no database uniqueness constraint or distributed lock and does not promise rollback for
-`updateMany` beyond Directus' own transaction behavior. Direct redirect failures use Directus
-errors: `SLUGGERNAUT_VALIDATION` (`400`) for invalid consumer input and `SLUGGERNAUT_INTEGRITY`
-(`409`) for active redirect conflicts. A missing/incompatible enabled collection is not silently
-accepted for direct writes. Unexpected configuration and internal failures use
-`SLUGGERNAUT_CONFIGURATION` or `SLUGGERNAUT_INTERNAL` (`500`).
+non-targeted records, and rejects when the preflight cannot establish integrity. Pattern origins and
+destinations are validated against the restricted grammar and receive derived matcher metadata.
+External structural edits to a managed redirect clear its provenance, while operational changes
+preserve it. Sluggernaut-generated history writes bypass ownership transfer and use the existing
+history planner for structural graph coordination while still receiving local exact validation.
+Pattern redirects remain outside exact graph validation. These application-level checks are best
+effort under concurrent writes; the bundle adds no database uniqueness constraint or distributed
+lock and does not promise rollback for `updateMany` beyond Directus' own transaction behavior.
+Direct redirect failures use Directus errors: `SLUGGERNAUT_VALIDATION` (`400`) for invalid consumer
+input and `SLUGGERNAUT_INTEGRITY` (`409`) for active redirect conflicts. A missing/incompatible
+enabled collection is not silently accepted for direct writes. Unexpected configuration and internal
+failures use `SLUGGERNAUT_CONFIGURATION` or `SLUGGERNAUT_INTERNAL` (`500`).
 
 Sluggernaut does not serve these records. A redirect consumer should at minimum filter
 `is_active=true`, honor `start_date`/`end_date`, and return the stored `type` and `destination`.

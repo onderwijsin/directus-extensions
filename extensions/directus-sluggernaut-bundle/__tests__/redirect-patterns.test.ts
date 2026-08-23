@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	createPatternSignature,
+	createPatternSpecificity,
+	derivePatternMetadata,
 	parseDestinationTemplate,
 	parsePatternOrigin,
+	PATTERN_SPECIFICITY_SEGMENT_LIMIT,
 	validatePatternDestination,
 	validatePatternRedirect,
 } from '../src/sluggernaut-hook/redirects/patterns'
@@ -106,5 +109,63 @@ describe('pattern destination validation', () => {
 		expect(createPatternSignature(parsePatternOrigin('/foo/:slug/'))).not.toBe(
 			createPatternSignature(parsePatternOrigin('/foo/:slug')),
 		)
+	})
+})
+
+describe('pattern specificity and metadata', () => {
+	it('ranks route structures according to the public precedence order', () => {
+		const values = [
+			'/legacy/archive/:slug',
+			'/legacy/:slug.pdf',
+			'/legacy/:slug',
+			'/legacy/:slug?',
+			'/legacy/*',
+			'/legacy/*?',
+		].map((value) => BigInt(createPatternSpecificity(parsePatternOrigin(value))))
+
+		for (let index = 1; index < values.length; index += 1) {
+			const previous = values[index - 1]
+			const current = values[index]
+			expect(previous).toBeDefined()
+			expect(current).toBeDefined()
+			if (previous !== undefined && current !== undefined)
+				expect(previous).toBeGreaterThan(current)
+		}
+	})
+
+	it('returns a decimal string that fits within the 64-bit database representation', () => {
+		const origin = `/${Array.from({ length: PATTERN_SPECIFICITY_SEGMENT_LIMIT }, (_, index) =>
+			index === 19 ? ':slug' : 'static',
+		).join('/')}`
+		const specificity = createPatternSpecificity(parsePatternOrigin(origin))
+		expect(specificity).toMatch(/^\d+$/u)
+		expect(BigInt(specificity)).toBeLessThan(2n ** 64n)
+	})
+
+	it('rejects origins beyond the lossless specificity segment limit', () => {
+		const origin = `/${Array.from(
+			{ length: PATTERN_SPECIFICITY_SEGMENT_LIMIT + 1 },
+			(_, index) => (index === PATTERN_SPECIFICITY_SEGMENT_LIMIT ? ':slug' : 'static'),
+		).join('/')}`
+
+		expect(() => createPatternSpecificity(parsePatternOrigin(origin))).toThrow(
+			/at most 20 segments/u,
+		)
+	})
+
+	it('derives normalized paths, signatures, and persisted specificity together', () => {
+		expect(derivePatternMetadata('//legacy///:slug', '/articles//:slug')).toMatchObject({
+			origin: '/legacy/:slug',
+			destination: '/articles/:slug',
+			matcher_signature: expect.any(String),
+			specificity: expect.stringMatching(/^\d+$/u),
+		})
+	})
+
+	it('propagates origin and destination validation failures through metadata derivation', () => {
+		expect(() => derivePatternMetadata('/legacy/:slug', '/articles/:id')).toThrow(
+			/unknown parameter/u,
+		)
+		expect(() => derivePatternMetadata('/legacy/:slug', '/articles/:slug?draft=true')).toThrow()
 	})
 })

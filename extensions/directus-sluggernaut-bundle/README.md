@@ -204,19 +204,19 @@ an earlier disabled permalink.
 
 Sluggernaut creates managed `301` records with provenance:
 
-| Field                                                             | Meaning                                                 |
-| ----------------------------------------------------------------- | ------------------------------------------------------- |
-| `origin`                                                          | Previous canonical path.                                |
-| `destination`                                                     | New canonical path.                                     |
-| `type`                                                            | `301` for managed records.                              |
-| `match`                                                           | `exact` for automatically generated records.            |
-| `specificity`, `matcher_signature`                                | Reserved matcher metadata; currently `null`.            |
-| `is_active`                                                       | Whether your redirect consumer should serve the record. |
-| `start_date`, `end_date`                                          | Optional time window owned by the consumer.             |
-| `managed_by`                                                      | `sluggernaut` for managed records.                      |
-| `source_collection`, `source_item`, `source_field`, `source_type` | Provenance for safe rewrites and lifecycle updates.     |
-| `inactive_reason`                                                 | `archived` or `deleted` for lifecycle deactivation.     |
-| `user_created`, `date_created`, `user_updated`, `date_updated`    | Standard Directus audit fields.                         |
+| Field                                                             | Meaning                                                         |
+| ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| `origin`                                                          | Previous canonical path.                                        |
+| `destination`                                                     | New canonical path.                                             |
+| `type`                                                            | `301` for managed records.                                      |
+| `match`                                                           | `exact` for automatically generated records.                    |
+| `specificity`, `matcher_signature`                                | `null` for exact records; derived system metadata for patterns. |
+| `is_active`                                                       | Whether your redirect consumer should serve the record.         |
+| `start_date`, `end_date`                                          | Optional time window owned by the consumer.                     |
+| `managed_by`                                                      | `sluggernaut` for managed records.                              |
+| `source_collection`, `source_item`, `source_field`, `source_type` | Provenance for safe rewrites and lifecycle updates.             |
+| `inactive_reason`                                                 | `archived` or `deleted` for lifecycle deactivation.             |
+| `user_created`, `date_created`, `user_updated`, `date_updated`    | Standard Directus audit fields.                                 |
 
 Direct `create`, single-item `update`, and multi-item `updateMany` writes to the configured redirect
 collection are preflighted before persistence. Exact redirects are normalized and checked for
@@ -230,8 +230,13 @@ uniqueness constraint or distributed lock. Sluggernaut does not promise transact
 When Sluggernaut provisions this collection, the provenance and lifecycle fields (`managed_by`,
 `source_collection`, `source_item`, `source_field`, `source_type`, `inactive_reason`, `specificity`,
 and `matcher_signature`) are read-only and maintained by the bundle. The automatic history planner
-currently includes exact-match records only; pattern records are reserved for a future matcher and
-are not interpreted or generated yet.
+currently includes exact-match records only. Direct pattern records are supported with named
+parameters (`/legacy/:slug`), optional parameters (`/:slug?`), one wildcard (`/files/*` or
+`/files/*?`), and simple parameter suffixes (`/files/:name.pdf`). Pattern destinations are path-only
+templates backed by origin captures, and pattern records are always unmanaged/manual. Specificity
+and matcher signatures are derived on create and structural update. Redirect reads without an
+explicit sort default to exact records first, then pattern specificity descending, then `id`
+ascending; an explicit sort is preserved unchanged.
 
 Canonical changes create or rewrite the latest redirect, flatten included redirect chains, and
 deactivate included loops. By default, unmanaged redirects are included and the latest canonical
@@ -245,17 +250,19 @@ source action.
 Direct `items.create`, single-item `items.update`, and multi-item `items.update` mutations to the
 configured redirect collection validate exact redirects before persistence. Origins and internal
 destinations are normalized, active exact redirects are checked for duplicate origins, self-loops,
-and cycles, and only the relevant origin frontier is read. Bulk updates resolve every target and
-validate the resulting mutation set before Directus writes. External structural edits to a
-Sluggernaut-owned redirect clear its provenance; operational changes such as activation dates
-preserve ownership. Redirect writes made by Sluggernaut's own history workflow preserve provenance
-and local exact validation; the existing history planner remains authoritative for those internal
-structural writes. Pattern redirects remain out of scope. Direct redirect failures use Directus-
-compatible errors: `SLUGGERNAUT_VALIDATION` with status `400` for invalid consumer input and
-`SLUGGERNAUT_INTEGRITY` with status `409` for active redirect conflicts. An enabled but unavailable
-redirect collection therefore rejects direct redirect mutations rather than silently skipping
-validation. Unexpected configuration and internal failures use `SLUGGERNAUT_CONFIGURATION` or
-`SLUGGERNAUT_INTERNAL` with status `500`.
+and cycles, and only the relevant origin frontier is read. Pattern origins and destinations are
+validated against the restricted grammar and receive derived matcher metadata. Bulk updates resolve
+every target and validate the resulting mutation set before Directus writes. External structural
+edits to a Sluggernaut-owned redirect clear its provenance; operational changes such as activation
+dates preserve ownership. Redirect writes made by Sluggernaut's own history workflow preserve
+provenance and local exact validation; the existing history planner remains authoritative for those
+internal structural writes. Pattern redirects are always unmanaged/manual and do not participate in
+exact graph validation. Direct redirect failures use Directus- compatible errors:
+`SLUGGERNAUT_VALIDATION` with status `400` for invalid consumer input and `SLUGGERNAUT_INTEGRITY`
+with status `409` for active redirect conflicts. An enabled but unavailable redirect collection
+therefore rejects direct redirect mutations rather than silently skipping validation. Unexpected
+configuration and internal failures use `SLUGGERNAUT_CONFIGURATION` or `SLUGGERNAUT_INTERNAL` with
+status `500`.
 
 The bundle does not serve redirects. A web server, frontend, edge worker, or endpoint must query
 active records and issue the HTTP response.

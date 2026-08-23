@@ -2,7 +2,7 @@ import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/t
 import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
 import type { SluggernautEnv } from '../../configuration/env.schema'
 import type { RawRedirectMutationInput, RedirectState } from '../domain/state'
-import type { Redirect, RedirectCreateInput, RedirectField } from '../schema'
+import type { Redirect, RedirectField, RedirectMutationInput } from '../schema'
 
 import { isDirectusError } from '@directus/errors'
 import {
@@ -11,6 +11,7 @@ import {
 	isDefined,
 	isPrimaryKey,
 	isRecord,
+	isString,
 	hasKey,
 } from '@onderwijsin/directus-extension-utils'
 
@@ -28,6 +29,7 @@ import {
 	decideRedirectOwnership,
 	type ExactRedirectInput,
 } from '../domain'
+import { derivePatternMetadata } from '../patterns'
 import { REDIRECT_FIELDS } from '../schema'
 import { createRedirectService, type RedirectService } from '../service'
 import { currentMutationSource } from './mutation-source'
@@ -48,7 +50,7 @@ const PROVENANCE_FIELDS = [
 	'inactive_reason',
 ] as const satisfies readonly RedirectField[]
 type RedirectMutationPayload = Omit<
-	Partial<RedirectCreateInput>,
+	Partial<RedirectMutationInput>,
 	(typeof PROVENANCE_FIELDS)[number]
 > &
 	Partial<Pick<Redirect, (typeof PROVENANCE_FIELDS)[number]>>
@@ -77,12 +79,34 @@ function isExact(value: ExactRedirectInput): boolean {
 }
 
 /**
+ * Checks whether a complete redirect state is a pattern redirect.
+ * @param value - Redirect-like state.
+ * @returns Whether the state is a pattern.
+ */
+function isPattern(value: RedirectState | Partial<RedirectMutationInput>): boolean {
+	return value.match === 'pattern'
+}
+
+/**
+ * Derives and validates pattern metadata from a complete mutation state.
+ * @param value - Complete resulting redirect state.
+ * @returns Derived pattern metadata.
+ */
+function patternMetadata(value: RedirectState | Partial<RedirectMutationInput>) {
+	if (!isString(value.origin) || !isString(value.destination))
+		throw sluggernautValidationError(
+			'A pattern redirect requires string origin and destination values.',
+		)
+	return derivePatternMetadata(value.origin, value.destination)
+}
+
+/**
  * Builds the exact fields required by the domain API.
  * @param value - Redirect-like state.
  * @returns Exact redirect input fields.
  */
 function exactInput(
-	value: Redirect | Partial<RedirectCreateInput> | RawRedirectMutationInput,
+	value: Redirect | Partial<RedirectMutationInput> | RawRedirectMutationInput,
 ): ExactRedirectInput {
 	const exact: ExactRedirectInput = {
 		origin: value.origin,
@@ -101,15 +125,58 @@ function exactInput(
  * @returns Payload with normalized path fields.
  */
 function normalizedExactPayload(
-	payload: Partial<RedirectCreateInput>,
+	payload: Partial<RedirectMutationInput>,
 	validated: ReturnType<typeof validateExactRedirect>,
-): Partial<RedirectCreateInput> {
+): Partial<RedirectMutationInput> {
 	const result = { ...payload }
+	// Normalize only fields the caller supplied; omitted fields already came from the complete
+	// materialized state and must not be copied back into Directus by this filter.
 	if (hasKey(payload, 'origin')) result.origin = validated.origin
 	if (hasKey(payload, 'destination') && validated.destination.kind === 'path') {
 		result.destination = validated.destination.value
 	}
+	// Exact redirects cannot carry pattern metadata. Clear it whenever matching-related fields are
+	// touched so stale values cannot survive an exact/pattern mode transition.
+	if (
+		hasKey(payload, 'match') ||
+		hasKey(payload, 'specificity') ||
+		hasKey(payload, 'matcher_signature')
+	) {
+		result.specificity = null
+		result.matcher_signature = null
+	}
 	return result
+}
+
+/**
+ * Applies normalized pattern paths, derived metadata, and manual ownership to a payload.
+ * @param payload - Original Directus mutation payload.
+ * @param state - Complete resulting redirect state.
+ * @returns Payload with normalized paths and derived metadata.
+ */
+function normalizedPatternPayload(
+	payload: Partial<RedirectMutationInput>,
+	state: RedirectState | Partial<RedirectMutationInput>,
+): Partial<RedirectMutationInput> {
+	// Pattern metadata is derived from the complete resulting state, not from the partial payload.
+	// This makes operational updates safe even when origin and destination were omitted.
+	const metadata = patternMetadata(state)
+	return {
+		...payload,
+		// Normalize paths only when they were part of this mutation; metadata always describes the
+		// complete resulting pattern and therefore is always written.
+		...(hasKey(payload, 'origin') ? { origin: metadata.origin } : {}),
+		...(hasKey(payload, 'destination') ? { destination: metadata.destination } : {}),
+		match: hasKey(payload, 'match') ? 'pattern' : payload.match,
+		specificity: metadata.specificity,
+		matcher_signature: metadata.matcher_signature,
+		managed_by: null,
+		source_collection: null,
+		source_item: null,
+		source_field: null,
+		source_type: null,
+		inactive_reason: null,
+	}
 }
 
 /**
@@ -120,8 +187,8 @@ function normalizedExactPayload(
  * @returns Payload to continue through Directus.
  */
 function resultPayload(
-	payload: Partial<RedirectCreateInput>,
-	state: Readonly<RedirectState | Partial<RedirectCreateInput>>,
+	payload: Partial<RedirectMutationInput>,
+	state: Readonly<RedirectState | Partial<RedirectMutationInput>>,
 	transfersOwnership: boolean,
 ): RedirectMutationPayload {
 	if (!transfersOwnership) return payload
@@ -218,6 +285,8 @@ async function readExistingMany(service: RedirectService, keys: readonly Primary
 		fields: [...REDIRECT_FIELDS],
 		limit: -1,
 	})
+	// Directus may return targets in an order different from the event keys. Index by primary key
+	// first, then rebuild the event order so ownership and payload decisions stay deterministic.
 	const byId = new Map(records.map((record) => [String(record.id), record]))
 	return keys.map((key) => {
 		const record = byId.get(String(key))
@@ -236,17 +305,46 @@ async function validateDirectRedirectUpdateMany(input: {
 	context: HookExtensionContext
 	collection: string
 	eventContext: EventContext
-	payload: Partial<RedirectCreateInput>
+	payload: Partial<RedirectMutationInput>
 	keys: readonly PrimaryKey[]
 	maxDepth?: number
 }): Promise<RedirectMutationPayload> {
 	const { context, collection, eventContext, payload, keys, maxDepth } = input
+	// Resolve all targets before validating anything. A shared update payload can produce different
+	// complete records depending on each target's current matcher and ownership state.
 	const service = await createRedirectService(context, collection, eventContext.database)
 	const existing = await readExistingMany(service, keys)
 	const source = currentMutationSource()
 	const proposed = existing.map((record) =>
 		decideRedirectOwnership(record, materializeRedirectState(record, payload), source),
 	)
+	const proposedStates = proposed.map(({ state }) => state)
+	const patternStates = proposedStates.filter(isPattern)
+	const patternStructuralChange =
+		hasKey(payload, 'origin') || hasKey(payload, 'destination') || hasKey(payload, 'match')
+	// Structural pattern updates must leave every target with the same matcher semantics because
+	// Directus supplies one shared payload. Operational-only pattern updates skip this comparison.
+	if (patternStructuralChange && patternStates.length > 0) {
+		if (patternStates.length !== proposedStates.length)
+			throw sluggernautValidationError(
+				'Bulk updates cannot mix pattern and exact redirects when changing matcher fields.',
+			)
+		const metadata = patternStates.map(patternMetadata)
+		const first = metadata[0]
+		if (
+			first !== undefined &&
+			metadata.some(
+				(value) =>
+					value.specificity !== first.specificity ||
+					value.matcher_signature !== first.matcher_signature,
+			)
+		)
+			throw sluggernautValidationError(
+				'Bulk pattern updates must produce identical matcher metadata for every target.',
+			)
+	}
+	// Validate exact candidates independently and fold their normalized fields into the one payload
+	// that Directus will apply to every target. Pattern targets are handled separately below.
 	const exactCandidates = proposed.map(({ state }) => exactInput(state))
 	const normalizedPayload = exactCandidates.reduce(
 		(result, candidate) =>
@@ -255,7 +353,16 @@ async function validateDirectRedirectUpdateMany(input: {
 				: result,
 		payload,
 	)
+	let patternPayload = normalizedPayload
+	if (patternStructuralChange && patternStates.length > 0) {
+		const firstState = patternStates[0]
+		if (firstState === undefined)
+			throw sluggernautValidationError('Bulk pattern update has no resulting pattern state.')
+		patternPayload = normalizedPatternPayload(normalizedPayload, firstState)
+	}
 
+	// Internal history writes already have graph coordination in the canonical planner. External
+	// bulk writes must validate the resulting exact candidates against the closed relevant graph.
 	// Internal history writes retain ownership but still receive local exact validation. The history
 	// planner owns its graph coordination, so it must not be checked against an intermediate snapshot.
 	if (source !== 'internal') {
@@ -277,8 +384,10 @@ async function validateDirectRedirectUpdateMany(input: {
 		throw sluggernautIntegrityError(
 			'Bulk redirect updates cannot mix managed structural edits with managed operational edits.',
 		)
+	// Ownership transfer uses a single null provenance payload because Directus applies one payload
+	// to the complete updateMany target set.
 	return resultPayload(
-		normalizedPayload,
+		patternPayload,
 		transfersOwnership
 			? {
 					managed_by: null,
@@ -302,7 +411,7 @@ export async function validateDirectRedirectMutation(input: {
 	context: HookExtensionContext
 	collection: string
 	eventContext: EventContext
-	payload: Partial<RedirectCreateInput>
+	payload: Partial<RedirectMutationInput>
 	existing?: Redirect
 	service?: RedirectService
 	maxDepth?: number
@@ -322,6 +431,13 @@ export async function validateDirectRedirectMutation(input: {
 					state: { match: 'exact' as const, is_active: true, ...payload },
 				}
 		const proposed = owned.state
+		// Match mode is a closed domain value. Reject malformed external input before either matcher
+		// path can accidentally treat it as an unvalidated redirect.
+		if (proposed.match !== 'exact' && proposed.match !== 'pattern')
+			throw sluggernautValidationError(
+				'A redirect match must be either "exact" or "pattern".',
+			)
+		if (isPattern(proposed)) return normalizedPatternPayload(payload, proposed)
 		const exactProposed = exactInput(proposed)
 		if (!isExact(exactProposed))
 			return resultPayload(payload, proposed, owned.transfersOwnership)
@@ -374,13 +490,15 @@ export async function validateDirectRedirectMutation(input: {
  * @param options - Validated Sluggernaut options.
  * @returns Nothing.
  */
-export function registerDirectExactRedirectHooks(
+export function registerDirectRedirectHooks(
 	hook: RegisterFunctions,
 	context: HookExtensionContext,
 	options: SluggernautEnv,
 ): void {
 	if (!options.SLUGGERNAUT_REDIRECTS_ENABLED) return
 	hook.filter('items.create', async (payload, meta, eventContext) => {
+		// Ignore unrelated collections and malformed payloads so this filter composes with other
+		// Directus item pipelines without changing their behavior.
 		if (meta.collection !== options.SLUGGERNAUT_REDIRECTS_COLLECTION || !isRecord(payload))
 			return payload
 		return validateDirectRedirectMutation({
@@ -392,6 +510,8 @@ export function registerDirectExactRedirectHooks(
 		})
 	})
 	hook.filter('items.update', async (payload, meta, eventContext) => {
+		// Single-target updates reuse the complete mutation validator; multiple targets use the bulk
+		// preflight so all resulting records are checked before Directus persists any shared payload.
 		if (meta.collection !== options.SLUGGERNAUT_REDIRECTS_COLLECTION || !isRecord(payload))
 			return payload
 		const result = await attempt(async () => {
@@ -411,6 +531,8 @@ export function registerDirectExactRedirectHooks(
 					keys,
 					maxDepth: options.SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH,
 				})
+			// A single key still needs a persisted read because partial updates must be validated against
+			// the complete current redirect state.
 			const key = keys[0]
 			if (!isDefined(key))
 				throw sluggernautValidationError('Direct redirect updates require one item key.')

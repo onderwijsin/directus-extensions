@@ -58,6 +58,11 @@ export type RedirectMatch = z.output<typeof redirectMatchSchema>
 export type RedirectField = keyof typeof redirectRecordSchema.shape
 export type Redirect = z.output<typeof redirectRecordSchema>
 export type RedirectCreateInput = z.input<typeof redirectCreateSchema>
+/** Input shape accepted by direct redirect mutations before domain-derived fields are applied. */
+export type RedirectMutationInput = Omit<
+	z.input<typeof redirectRecordSchema>,
+	'id' | 'user_created' | 'date_created' | 'user_updated' | 'date_updated'
+>
 
 /** Identifies the configured field that supplies a canonical redirect URL. */
 export interface RedirectSource {

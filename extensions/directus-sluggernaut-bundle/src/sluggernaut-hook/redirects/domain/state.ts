@@ -1,4 +1,4 @@
-import type { Redirect, RedirectCreateInput } from '../schema'
+import type { Redirect, RedirectMutationInput } from '../schema'
 
 import { keys } from '@onderwijsin/directus-extension-utils'
 
@@ -11,7 +11,7 @@ import { resolveEffectiveFieldValue } from '../../../shared/values/normalization
 export type RedirectState = Redirect | RawRedirectMutationInput
 
 export type RawRedirectMutationInput = Omit<
-	Partial<RedirectCreateInput>,
+	Partial<RedirectMutationInput>,
 	| 'origin'
 	| 'destination'
 	| 'is_active'
@@ -40,7 +40,7 @@ export type RawRedirectMutationInput = Omit<
  */
 export function materializeRedirectState(
 	existing: Redirect,
-	payload: Partial<RedirectCreateInput>,
+	payload: Partial<RedirectMutationInput>,
 ): RedirectState
 export function materializeRedirectState(
 	existing: Redirect,
@@ -48,7 +48,7 @@ export function materializeRedirectState(
 ): RedirectState
 export function materializeRedirectState(
 	existing: Redirect,
-	payload: Partial<RedirectCreateInput> | RawRedirectMutationInput,
+	payload: Partial<RedirectMutationInput> | RawRedirectMutationInput,
 ): RedirectState {
 	const fields = keys(existing)
 	const updates = Object.fromEntries(
