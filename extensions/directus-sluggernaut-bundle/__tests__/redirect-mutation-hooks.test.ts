@@ -132,6 +132,22 @@ describe('direct exact redirect mutation hooks', () => {
 		expect(readByQuery).not.toHaveBeenCalled()
 	})
 
+	it('does not expand the replaced record through its previous destination', async () => {
+		const existing = exact('/a', '/old', 1)
+		const { filters, readByQuery } = setup([existing])
+		readByQuery.mockResolvedValueOnce([existing]).mockResolvedValueOnce([])
+		const update = filters.get('items.update')!
+
+		await update(
+			{ destination: '/new' },
+			{ collection: 'custom_redirects', keys: [1] },
+			eventContext,
+		)
+
+		expect(readByQuery).toHaveBeenCalledOnce()
+		expect(readByQuery.mock.calls[0]?.[0].filter._and[2].origin._in).toEqual(['/a', '/new'])
+	})
+
 	it('transfers external structural edits but preserves ownership for operational and internal edits', async () => {
 		const existing: Redirect = {
 			...exact('/a', '/b'),

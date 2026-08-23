@@ -172,7 +172,18 @@ async function validateGraph(
 		// Mark every requested origin as resolved before processing results. An empty result is still
 		// meaningful: it proves that the origin was queried and has no persisted redirect.
 		frontier.requestedOrigins.forEach((origin) => fetchedOrigins.add(origin))
-		resolvedRecords.push(...result.map(exactInput))
+		// An update query can return the persisted predecessor at the candidate's origin. That row is
+		// replaced by the candidate and must not expand the frontier through its old destination.
+		resolvedRecords.push(
+			...result
+				.map(exactInput)
+				.filter(
+					(record) =>
+						!isDefined(candidate.id) ||
+						!isDefined(record.id) ||
+						String(record.id) !== String(candidate.id),
+				),
+		)
 		depth += 1
 	}
 	// At closure, the domain validates uniqueness, self-loops, cycles, and the complete relevant
