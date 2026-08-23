@@ -51,11 +51,13 @@ documented for consumers and covered by focused tests where practical.
 
 ### Exact normalization
 
-Exact origins and destinations use the existing permalink normalization rules. They remain
-path-only, reject schemes, hosts, protocol-relative URLs, query strings, fragments, whitespace,
-control characters, backslashes, and dot-segment traversal, and normalize repeated slashes.
-Sluggernaut does not add or remove trailing slashes. A consumer that requires trailing slashes must
-add them when applying the redirect.
+Exact origins use the existing permalink normalization rules and remain path-only, rejecting
+schemes, hosts, protocol-relative URLs, query strings, fragments, whitespace, control characters,
+backslashes, and dot-segment traversal while normalizing repeated slashes. Exact destinations may be
+either such an internal path or a valid absolute `http:`/`https:` URL; external destinations may
+contain query strings and fragments and terminate exact-graph traversal. Sluggernaut does not add or
+remove trailing slashes. A consumer that requires trailing slashes must add them when applying the
+redirect.
 
 ### Audit fields and required relations
 

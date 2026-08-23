@@ -33,6 +33,17 @@ export interface HostNormalizationResult {
 	error: string | null
 }
 
+/** Checks for ASCII control characters rejected by path and redirect normalization.
+ * @param value - Value to inspect.
+ * @returns Whether the value contains a rejected control character.
+ */
+export function containsControlCharacter(value: string): boolean {
+	return Array.from(value).some((character) => {
+		const code = character.codePointAt(0) ?? 0
+		return (code >= 0 && code <= 31) || code === 127
+	})
+}
+
 /**
  * Converts a user-facing value to a predictable URL-safe slug.
  * @param value - Value to normalize.
@@ -133,10 +144,7 @@ export function normalizePermalink(value: string | null | undefined): string | n
 			throw new Error('A permalink must be an absolute URL path.')
 		}
 		if (
-			Array.from(candidate).some((character) => {
-				const code = character.codePointAt(0) ?? 0
-				return (code >= 0 && code <= 31) || code === 127
-			}) ||
+			containsControlCharacter(candidate) ||
 			/\s/u.test(candidate) ||
 			candidate.includes('\\') ||
 			candidate.includes('?') ||
