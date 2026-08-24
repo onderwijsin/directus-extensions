@@ -7,12 +7,13 @@ rather than Coolify directly.
 
 ## Purpose and bundle entries
 
-| Entry                          | Type           | Status   | Purpose                                                                                                         |
-| ------------------------------ | -------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
-| `coolify-deployments-endpoint` | Endpoint       | Complete | Authenticated application and deployment API.                                                                   |
-| `coolify-deployments-module`   | Studio module  | Complete | Application, history, detail, polling, trigger, and cancellation views.                                         |
-| `coolify-deployments-hook`     | Hook           | Complete | Ensures the local collection, seeds policies, and enriches new records from Coolify.                            |
-| `coolify-deploy-operation`     | Flow operation | Complete | Accepts an application item ID, rechecks it is enabled and deploy-enabled, and triggers its Coolify deployment. |
+| Entry                               | Type           | Status   | Purpose                                                                                                                        |
+| ----------------------------------- | -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `coolify-deployments-endpoint`      | Endpoint       | Complete | Authenticated application and deployment API.                                                                                  |
+| `coolify-deployments-module`        | Studio module  | Complete | Application, history, detail, polling, trigger, and cancellation views.                                                        |
+| `coolify-deployments-hook`          | Hook           | Complete | Ensures the local collection, seeds policies, and enriches new records from Coolify.                                           |
+| `coolify-deploy-operation`          | Flow operation | Complete | Uses an async Directus `VSelect` for deployable applications, rechecks the selected item, and triggers its Coolify deployment. |
+| `coolify-deploy-application-select` | Interface      | Complete | Async Directus `VSelect` for the Flow operation's application item ID.                                                         |
 
 The package does not install Coolify, create a token, provide build logs, persist deployment
 history, or schedule deployments.
@@ -191,14 +192,15 @@ Express must resolve trusted proxy headers; the endpoint does not trust client-s
 Base path: `/coolify-deployments`. All routes return `X-Coolify-Deployments-Poll-Interval` with the
 configured polling interval and return `503` while schema startup work is locked.
 
-| Method | Route                                                                    | Policy  | Response                                                  |
-| ------ | ------------------------------------------------------------------------ | ------- | --------------------------------------------------------- |
-| `GET`  | `/coolify-deployments/permissions`                                       | Trigger | `{ "canTrigger": true }`                                  |
-| `GET`  | `/coolify-deployments/applications`                                      | Manage  | Application summary array.                                |
-| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read    | Normalized deployment array.                              |
-| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read    | One normalized deployment.                                |
-| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger | `201 { "id": "deployment-uuid" }`. Always forces rebuild. |
-| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger | Cancellation result.                                      |
+| Method | Route                                                                    | Policy          | Response                                                                          |
+| ------ | ------------------------------------------------------------------------ | --------------- | --------------------------------------------------------------------------------- |
+| `GET`  | `/coolify-deployments/permissions`                                       | Trigger         | `{ "canTrigger": true }`                                                          |
+| `GET`  | `/coolify-deployments/operation/applications`                            | Collection read | `[ { "id": "...", "name": "Frontend" } ]`; enabled and deploy-enabled items only. |
+| `GET`  | `/coolify-deployments/applications`                                      | Manage          | Application summary array.                                                        |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Normalized deployment array.                                                      |
+| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read            | One normalized deployment.                                                        |
+| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger         | `201 { "id": "deployment-uuid" }`. Always forces rebuild.                         |
+| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger         | Cancellation result.                                                              |
 
 `:id` is the stable Directus item ID, not the Coolify application UUID. URL-encode route values.
 
@@ -342,13 +344,19 @@ the authenticated Directus endpoint and never exposes the Coolify token.
 
 ## Flow operation
 
-`Coolify Deploy` has one `Application` text option. Enter the Directus item ID from the configured
-applications collection. At execution time the operation reads the selected item again, rechecks
-both flags, and triggers a Coolify deployment for its `application_uuid`. User-associated Flow
-executions also require the trigger policy; administrators bypass that check. System-triggered
-executions without accountability are trusted automation. Disabled or no-longer-deployable
-applications fail the flow. The package does not provide a scheduler, retry engine, or condition
-engine.
+`Coolify Deploy` has one `Application` option backed by the custom
+`coolify-deploy-application-select` interface. The interface uses Directus' `VSelect` and loads
+`GET /coolify-deployments/operation/applications` with the authenticated Studio session. That route
+reads the configured applications collection with the current user's Directus read permissions and
+returns only enabled, deploy-enabled item IDs and names. Loading, empty, and request-error states
+are shown in the operation form. Users without read access cannot load the choices; they still need
+the trigger policy to execute the operation.
+
+The stored value remains the Directus item ID. At execution time the operation reads the selected
+item again, rechecks both flags, and triggers a Coolify deployment for its `application_uuid`.
+User-associated Flow executions also require the trigger policy; administrators bypass that check.
+System-triggered executions without accountability are trusted automation. Disabled or
+no-longer-deployable applications fail the flow.
 
 Example:
 

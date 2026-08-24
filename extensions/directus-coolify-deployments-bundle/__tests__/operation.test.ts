@@ -99,14 +99,14 @@ describe('Coolify deploy operation', () => {
 		},
 	)
 
-	it('exposes an application ID input without hardcoding the configured collection', () => {
+	it('exposes an async application select without hardcoding the configured collection', () => {
 		expect(operationApp).toMatchObject({ id: 'coolify-deploy', name: 'Coolify Deploy' })
 		expect(operationApp.options).toEqual([
 			expect.objectContaining({
 				field: 'application',
 				meta: expect.objectContaining({
-					interface: 'input',
-					note: 'Enter the Directus ID of an enabled, deploy-enabled application.',
+					interface: 'coolify-deploy-application-select',
+					note: 'Select an enabled, deploy-enabled application.',
 				}),
 			}),
 		])

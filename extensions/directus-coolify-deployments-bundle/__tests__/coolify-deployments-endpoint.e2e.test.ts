@@ -337,6 +337,18 @@ describe('Coolify deployment endpoint middleware', () => {
 				expect(
 					await userClient.request(
 						customEndpoint({
+							path: '/coolify-deployments/operation/applications',
+							method: 'GET',
+						}),
+					),
+				).toEqual(
+					expect.arrayContaining([
+						{ id: String(directusApplicationId), name: 'E2E Coolify application' },
+					]),
+				)
+				expect(
+					await userClient.request(
+						customEndpoint({
 							path: `/coolify-deployments/applications/${encodeURIComponent(String(directusApplicationId))}/deployments`,
 							method: 'GET',
 						}),

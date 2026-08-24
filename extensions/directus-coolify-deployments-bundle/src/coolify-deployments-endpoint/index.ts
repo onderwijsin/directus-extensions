@@ -11,6 +11,7 @@ import {
 	assertRequestWithAccountability,
 	attempt,
 	initializePolicyCache,
+	getAccountabilityFromRequest,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { DEPLOYMENT_POLL_INTERVAL_HEADER, EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
@@ -138,6 +139,34 @@ export default defineEndpoint({
 			'/permissions',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID),
 			(_request, response) => response.json({ canTrigger: true }),
+		)
+
+		router.get(
+			'/operation/applications',
+			handle(async (request, response) => {
+				const accountability = getAccountabilityFromRequest(request)
+				const applications = await new services.ItemsService<{
+					id: string | number
+					name: string
+				}>(options.COOLIFY_APPLICATIONS_COLLECTION, {
+					schema: await getSchema(),
+					accountability,
+				}).readByQuery({
+					fields: ['id', 'name'],
+					filter: {
+						enabled: { _eq: true },
+						deploy_enabled: { _eq: true },
+					},
+					limit: -1,
+					sort: ['name', 'id'],
+				})
+				response.json(
+					applications.map((application) => ({
+						id: String(application.id),
+						name: application.name,
+					})),
+				)
+			}),
 		)
 
 		router.get(
