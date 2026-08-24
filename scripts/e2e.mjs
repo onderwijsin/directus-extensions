@@ -337,6 +337,29 @@ async function runTests(token) {
 }
 
 /**
+ * Applies the full repository migration path after extension startup has provisioned collections.
+ *
+ * @returns {Promise<void>} A promise completed when all migrations have been applied.
+ */
+async function runPostStartupMigrations() {
+	log('Applying post-startup Directus migrations')
+	await compose(
+		[
+			'exec',
+			'-T',
+			'-e',
+			'MIGRATIONS_PATH=/directus/migrations',
+			'directus',
+			'node',
+			'/directus/cli.js',
+			'database',
+			'migrate:latest',
+		],
+		{ timeoutMs: e2eOperationTimeoutMs },
+	)
+}
+
+/**
  * Registers signal handlers that let the normal finally block clean up Compose resources.
  * @returns Nothing.
  */
@@ -388,6 +411,7 @@ export async function main() {
 		await compose(['up', '-d', '--wait', '--wait-timeout', '180'], {
 			timeoutMs: composeCommandTimeout,
 		})
+		await runPostStartupMigrations()
 		log('Authenticating against Directus')
 		const token = await login()
 		await runTests(token)

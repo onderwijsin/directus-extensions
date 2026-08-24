@@ -41,6 +41,7 @@
 		"typecheck": "pnpm -r --if-present typecheck",
 		"dev": "pnpm --parallel --filter './extensions/*' dev",
 		"compose:up": "pnpm build && docker compose up -d",
+		"compose:migrate": "docker compose exec -e MIGRATIONS_PATH=/directus/migrations directus node /directus/cli.js database migrate:latest",
 		"compose:down": "docker compose down",
 		"compose:logs": "docker compose logs -f",
 		"compose:reset": "docker compose down --volumes --remove-orphans",

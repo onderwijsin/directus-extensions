@@ -111,7 +111,9 @@ services:
       TELEMETRY: ${TELEMETRY:-false}
       CORS_ENABLED: ${CORS_ENABLED:-true}
       CORS_ORIGIN: ${CORS_ORIGIN:-true}
-      MIGRATIONS_PATH: /directus/migrations
+      # Bootstrap migrations must not include collection-dependent migrations. Extensions provision
+      # their collections after bootstrap; the full migration path is applied afterwards when needed.
+      MIGRATIONS_PATH: /directus/migrations-bootstrap
 
       # Email
       EMAIL_TRANSPORT: smtp
@@ -150,6 +152,7 @@ services:
       - backend
     volumes:
       - ../migrations:/directus/migrations:ro
+      - ../migrations-bootstrap:/directus/migrations-bootstrap:ro
 
   mailpit:
     image: axllent/mailpit:v1.30.6
