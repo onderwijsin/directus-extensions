@@ -14,12 +14,7 @@ import {
 	getAccountabilityFromRequest,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import {
-	COOLIFY_DASHBOARD_CONCURRENCY,
-	DEPLOYMENT_POLL_INTERVAL_HEADER,
-	EXTENSION_ID,
-	EXTENSION_NAME,
-} from '../shared/constants'
+import { DEPLOYMENT_POLL_INTERVAL_HEADER, EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
 import { isAssignedPolicy, requirePolicies } from './auth'
 import { envSchema } from './env.schema'
@@ -28,8 +23,9 @@ import {
 	CoolifyUpstreamError,
 	rejectWhileSchemaLocked,
 } from './errors'
-import { assertDeploymentBelongsToApplication, normalizeDeployment, safeHttpUrl } from './helpers'
+import { assertDeploymentBelongsToApplication, normalizeDeployment } from './helpers'
 import { isSameOriginRequest } from './same-origin'
+import { loadApplicationSummaries } from './summary'
 
 export default defineEndpoint({
 	id: 'coolify-deployments',
@@ -140,73 +136,6 @@ export default defineEndpoint({
 				}
 			})
 
-		/**
-		 * Load provider metadata and the latest deployment for one application.
-		 * @param item - Configured application record.
-		 * @returns Application summary.
-		 */
-		const loadApplicationSummary = async (
-			item: Awaited<ReturnType<typeof client.listConfiguredApplication>>[number],
-		) => {
-			const provider = await client.getApplication(item.application_uuid)
-			const latest = await client.getLatestApplicationDeployment(item.application_uuid)
-			return {
-				directusApplicationId: item.directusApplicationId,
-				name: item.name || provider.name,
-				url: safeHttpUrl(item.production_url ?? provider.fqdn),
-				projectName: item.project_name,
-				environmentName: item.environment_name,
-				state: provider.status,
-				gitBranch: provider.gitBranch,
-				gitCommitSha: provider.gitCommitSha,
-				gitRepository: provider.gitRepository,
-				buildPack: provider.buildPack,
-				serverName: provider.serverName,
-				latestDeployment: latest
-					? {
-							...normalizeDeployment(latest, { COOLIFY_URL: options.COOLIFY_URL }),
-							directusApplicationId: item.directusApplicationId,
-						}
-					: null,
-			}
-		}
-
-		/**
-		 * Resolve application summaries with bounded provider concurrency.
-		 * @param configured - Configured application records.
-		 * @returns Application summaries in configuration order.
-		 */
-		const loadApplicationSummaries = async (
-			configured: Awaited<ReturnType<typeof client.listConfiguredApplication>>,
-		) => {
-			const results = new Array<Awaited<ReturnType<typeof loadApplicationSummary>>>(
-				configured.length,
-			)
-			let nextIndex = 0
-			/**
-			 * Process assigned applications until the shared queue is empty.
-			 * @returns Nothing.
-			 */
-			const worker = async () => {
-				while (nextIndex < configured.length) {
-					const index = nextIndex
-					nextIndex += 1
-					const item = configured[index]
-					if (item) results[index] = await loadApplicationSummary(item)
-				}
-			}
-			await Promise.all(
-				Array.from(
-					{ length: Math.min(COOLIFY_DASHBOARD_CONCURRENCY, configured.length) },
-					() => worker(),
-				),
-			)
-			return results.filter(
-				(result): result is Awaited<ReturnType<typeof loadApplicationSummary>> =>
-					result !== undefined,
-			)
-		}
-
 		router.get(
 			'/permissions',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID),
@@ -249,7 +178,11 @@ export default defineEndpoint({
 			]),
 			handle(async (request, response) => {
 				const configured = await client.listConfiguredApplication()
-				const applications = await loadApplicationSummaries(configured)
+				const applications = await loadApplicationSummaries(
+					client,
+					configured,
+					options.COOLIFY_URL,
+				)
 				const applicationByUuid = new Map(
 					configured.map((application) => [application.application_uuid, application]),
 				)
@@ -296,7 +229,9 @@ export default defineEndpoint({
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID),
 			handle(async (_request, response) => {
 				const configured = await client.listConfiguredApplication()
-				response.json(await loadApplicationSummaries(configured))
+				response.json(
+					await loadApplicationSummaries(client, configured, options.COOLIFY_URL),
+				)
 			}),
 		)
 
