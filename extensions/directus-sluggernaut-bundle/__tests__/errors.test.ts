@@ -5,6 +5,7 @@ import {
 	SluggernautConfigurationError,
 	SluggernautIntegrityError,
 	SluggernautInternalError,
+	SluggernautRedirectProcessingError,
 	SluggernautValidationError,
 	sluggernautValidationError,
 	toSluggernautError,
@@ -16,6 +17,7 @@ describe('Sluggernaut errors', () => {
 		[SluggernautIntegrityError, 'SLUGGERNAUT_INTEGRITY', 409],
 		[SluggernautConfigurationError, 'SLUGGERNAUT_CONFIGURATION', 500],
 		[SluggernautInternalError, 'SLUGGERNAUT_INTERNAL', 500],
+		[SluggernautRedirectProcessingError, 'SLUGGERNAUT_REDIRECT_PROCESSING', 500],
 	] as const)('creates a Directus error for %s', (ErrorConstructor, code, status) => {
 		const error = new ErrorConstructor({ reason: 'test reason' })
 		expect(isDirectusError(error)).toBe(true)

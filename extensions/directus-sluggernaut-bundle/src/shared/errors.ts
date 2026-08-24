@@ -33,6 +33,13 @@ export const SluggernautInternalError = createError<SluggernautErrorExtensions>(
 	500,
 )
 
+/** An unexpected failure occurred while maintaining redirect history. */
+export const SluggernautRedirectProcessingError = createError<SluggernautErrorExtensions>(
+	'SLUGGERNAUT_REDIRECT_PROCESSING',
+	({ reason }) => reason,
+	500,
+)
+
 /**
  * Creates a Directus error for invalid consumer input.
  * @param reason - Consumer-facing validation reason.
@@ -67,6 +74,15 @@ export function sluggernautConfigurationError(reason: string): Error {
  */
 export function sluggernautInternalError(reason: string): Error {
 	return new SluggernautInternalError({ reason })
+}
+
+/**
+ * Creates a Directus error for an unexpected redirect-history processing failure.
+ * @param reason - Consumer-facing processing failure reason.
+ * @returns A Directus redirect-processing error.
+ */
+export function sluggernautRedirectProcessingError(reason: string): Error {
+	return new SluggernautRedirectProcessingError({ reason })
 }
 
 /**
