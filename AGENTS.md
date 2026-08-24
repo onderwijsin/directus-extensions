@@ -87,7 +87,8 @@ route and file naming contracts. Do not perform opportunistic refactors.
   [`docs/extension-cookbook/extension-utils.md`](docs/extension-cookbook/extension-utils.md), its
   focused articles, public exports, and runtime subpaths synchronized.
 - Create one Changeset file per concern. Unrelated package changes require separate Changesets even
-  when they affect the same package or have the same release level.
+  when they affect the same package or have the same release level. Create Changesets only for
+  publishable packages, never for private packages.
 - Do not commit changes. The human collaborator reviews and commits them unless the current request
   explicitly says otherwise.
 
