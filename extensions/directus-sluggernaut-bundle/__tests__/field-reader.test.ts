@@ -49,7 +49,13 @@ describe('Sluggernaut field reader cache', () => {
 		)
 		expect(fieldsCacheKey('editorial_entries')).toBe('sluggernaut:fields:editorial_entries')
 		await expect(reader.read('editorial_entries')).resolves.toEqual([{ field: 'title' }])
-		expect(mocks.initializeCache).toHaveBeenCalledWith({}, { ttl: 2500 })
+		expect(mocks.initializeCache).toHaveBeenCalledWith(
+			{},
+			{
+				ttl: 2500,
+				namespace: 'directus:extensions:sluggernaut:fields',
+			},
+		)
 		expect(mocks.withCache).toHaveBeenCalledWith(
 			expect.objectContaining({ key: fieldsCacheKey('editorial_entries') }),
 			expect.any(Function),

@@ -20,6 +20,8 @@ import { initializeCache, withCache } from '@onderwijsin/directus-extension-util
  */
 export const fieldsCacheKey = (collection: string): string => `sluggernaut:fields:${collection}`
 
+const FIELDS_CACHE_NAMESPACE = 'directus:extensions:sluggernaut:fields'
+
 export interface FieldReader {
 	/** Reads parsed field metadata for one collection. */
 	read(collection: string): Promise<SluggernautFieldMetadata[]>
@@ -37,7 +39,12 @@ export function createFieldReader(
 	context: ApiExtensionContext,
 	cacheOptions?: { ttl: number },
 ): FieldReader {
-	const cache = cacheOptions ? initializeCache(context.env, { ttl: cacheOptions.ttl }) : null
+	const cache = cacheOptions
+		? initializeCache(context.env, {
+				ttl: cacheOptions.ttl,
+				namespace: FIELDS_CACHE_NAMESPACE,
+			})
+		: null
 
 	/**
 	 * Reads and caches parsed field metadata for one collection.

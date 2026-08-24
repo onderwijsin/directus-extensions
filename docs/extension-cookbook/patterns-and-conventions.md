@@ -105,7 +105,10 @@ value can be rebuilt:
 ```ts
 import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
-const cache = initializeCache(context.env, { ttl: 60_000 })
+const cache = initializeCache(context.env, {
+  ttl: 60_000,
+  namespace: 'directus:extensions:my-extension:summary',
+})
 const summaryKey = (id: string): string => `orders:summary:${id}`
 
 const summary = await withCache({ cache, key: summaryKey('42') }, () => loadSummary('42'))
@@ -126,8 +129,9 @@ const lastSync = await kv.get('last-sync')
 ```
 
 For multiple Directus replicas, configure the cache and KV providers for Redis. Use stable,
-extension-specific cache keys, an explicit Redis namespace where isolation matters, and register
-explicit invalidation hooks for mutable derived data:
+extension-specific cache keys and an explicit extension-specific Redis namespace for every
+publishable extension-owned cache. Use separate subsystem namespaces where targeted invalidation
+matters, and register explicit invalidation hooks for mutable derived data:
 
 ```ts
 const sharedKv = createKv({
