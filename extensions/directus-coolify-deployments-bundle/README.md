@@ -192,15 +192,16 @@ Express must resolve trusted proxy headers; the endpoint does not trust client-s
 Base path: `/coolify-deployments`. All routes return `X-Coolify-Deployments-Poll-Interval` with the
 configured polling interval and return `503` while schema startup work is locked.
 
-| Method | Route                                                                    | Policy          | Response                                                                          |
-| ------ | ------------------------------------------------------------------------ | --------------- | --------------------------------------------------------------------------------- |
-| `GET`  | `/coolify-deployments/permissions`                                       | Trigger         | `{ "canTrigger": true }`                                                          |
-| `GET`  | `/coolify-deployments/operation/applications`                            | Collection read | `[ { "id": "...", "name": "Frontend" } ]`; enabled and deploy-enabled items only. |
-| `GET`  | `/coolify-deployments/applications`                                      | Manage          | Application summary array.                                                        |
-| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Normalized deployment array.                                                      |
-| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read            | One normalized deployment.                                                        |
-| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger         | `201 { "id": "deployment-uuid" }`. Always forces rebuild.                         |
-| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger         | Cancellation result.                                                              |
+| Method | Route                                                                    | Policy          | Response                                                                                         |
+| ------ | ------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------ |
+| `GET`  | `/coolify-deployments/permissions`                                       | Trigger         | `{ "canTrigger": true }`                                                                         |
+| `GET`  | `/coolify-deployments/operation/applications`                            | Collection read | `[ { "id": "...", "name": "Frontend" } ]`; enabled and deploy-enabled items only.                |
+| `GET`  | `/coolify-deployments/dashboard`                                         | Manage + Read   | One dashboard projection containing applications, active/recent deployments, and trigger access. |
+| `GET`  | `/coolify-deployments/applications`                                      | Manage          | Application summary array.                                                                       |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Normalized deployment array.                                                                     |
+| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read            | One normalized deployment.                                                                       |
+| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger         | `201 { "id": "deployment-uuid" }`. Always forces rebuild.                                        |
+| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger         | Cancellation result.                                                                             |
 
 `:id` is the stable Directus item ID, not the Coolify application UUID. URL-encode route values.
 
@@ -340,7 +341,14 @@ The `Deployments` module provides:
 
 Its routes are `/coolify-deployments`, `/coolify-deployments/applications/:directusApplicationId`,
 and `/coolify-deployments/applications/:directusApplicationId/deployments/:deploymentId`. It uses
-the authenticated Directus endpoint and never exposes the Coolify token.
+the authenticated Directus endpoint and never exposes the Coolify token. The dashboard refresh uses
+`GET /coolify-deployments/dashboard`, which returns application summaries plus bounded active and
+recent deployment data in one response. Dashboard and detail polling never overlap, pause while the
+tab is hidden, preserve rendered data during refresh, and use a slower 30-second cadence when no
+deployment is active. The create-permission lookup is cached for the Studio session. Recent
+deployments returned by Coolify's per-application endpoint are associated with the configured
+application before they are displayed, including when Coolify supplies an internal application ID in
+the response. Empty recent history is shown in a contained soft card.
 
 ## Flow operation
 

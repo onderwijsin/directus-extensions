@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 		getConfiguredApplication: vi.fn(),
 		getApplication: vi.fn(),
 		listApplicationDeployments: vi.fn().mockResolvedValue([]),
+		listDashboardDeployments: vi.fn().mockResolvedValue([]),
 		getLatestApplicationDeployment: vi.fn().mockResolvedValue(null),
 		getDeployment: vi.fn(),
 		deploy: vi.fn(),
@@ -98,7 +99,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 		runEndpoint(router)
 
 		expect(router.use).toHaveBeenCalledOnce()
-		expect(router.get).toHaveBeenCalledTimes(5)
+		expect(router.get).toHaveBeenCalledTimes(6)
 		expect(router.post).toHaveBeenCalledTimes(2)
 
 		const middleware = router.use.mock.calls[0]?.[0]
@@ -261,7 +262,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 		})
 		const router = createRouter()
 		runEndpoint(router)
-		const route = router.get.mock.calls[2]?.[2]
+		const route = router.get.mock.calls[3]?.[2]
 		if (typeof route !== 'function') throw new Error('Expected applications route')
 		const response = createResponse()
 		route({}, response, vi.fn())
@@ -380,7 +381,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 		const request = { params: { id: 'frontend', deploymentId: 'deployment-1' } }
 
 		const detailResponse = createResponse()
-		const detailRoute = router.get.mock.calls[4]?.[2]
+		const detailRoute = router.get.mock.calls[5]?.[2]
 		if (typeof detailRoute !== 'function') throw new Error('Expected detail route')
 		await detailRoute(request, detailResponse, vi.fn())
 		await vi.waitFor(() =>

@@ -16,15 +16,16 @@ import {
 
 import { DEPLOYMENT_POLL_INTERVAL_HEADER, EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
-import { requirePolicies } from './auth'
+import { isAssignedPolicy, requirePolicies } from './auth'
 import { envSchema } from './env.schema'
 import {
 	CoolifyDeploymentApplicationMismatchError,
 	CoolifyUpstreamError,
 	rejectWhileSchemaLocked,
 } from './errors'
-import { assertDeploymentBelongsToApplication, normalizeDeployment, safeHttpUrl } from './helpers'
+import { assertDeploymentBelongsToApplication, normalizeDeployment } from './helpers'
 import { isSameOriginRequest } from './same-origin'
+import { loadApplicationSummaries } from './summary'
 
 export default defineEndpoint({
 	id: 'coolify-deployments',
@@ -170,40 +171,67 @@ export default defineEndpoint({
 		)
 
 		router.get(
+			'/dashboard',
+			authorizeRoute([
+				options.COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID,
+				options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID,
+			]),
+			handle(async (request, response) => {
+				const configured = await client.listConfiguredApplication()
+				const applications = await loadApplicationSummaries(
+					client,
+					configured,
+					options.COOLIFY_URL,
+				)
+				const applicationByUuid = new Map(
+					configured.map((application) => [application.application_uuid, application]),
+				)
+				const deployments = (await client.listDashboardDeployments(configured))
+					.map((deployment) => {
+						const application = applicationByUuid.get(deployment.coolifyApplicationId)
+						return {
+							...normalizeDeployment(deployment, {
+								COOLIFY_URL: options.COOLIFY_URL,
+							}),
+							directusApplicationId: application?.directusApplicationId ?? '',
+							applicationName: application?.name ?? null,
+							environmentName: application?.environment_name ?? null,
+						}
+					})
+					.filter((deployment) => deployment.directusApplicationId !== '')
+				const current = deployments.filter((deployment) =>
+					['queued', 'building'].includes(deployment.status),
+				)
+				const accountability = getAccountabilityFromRequest(request)
+				const canTriggerDeployments = accountability
+					? accountability.admin ||
+						(hasKey(accountability, 'admin_access') &&
+							accountability.admin_access === true) ||
+						(await isAssignedPolicy(
+							accountability,
+							options.COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID,
+							services,
+							await getSchema(),
+							policyCache,
+						))
+					: false
+				response.json({
+					applications,
+					current,
+					recent: deployments.slice(0, 10),
+					canTriggerDeployments,
+				})
+			}),
+		)
+
+		router.get(
 			'/applications',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID),
 			handle(async (_request, response) => {
 				const configured = await client.listConfiguredApplication()
-				const applications = await Promise.all(
-					configured.map(async (item) => {
-						const provider = await client.getApplication(item.application_uuid)
-						const latest = await client.getLatestApplicationDeployment(
-							item.application_uuid,
-						)
-						return {
-							directusApplicationId: item.directusApplicationId,
-							name: item.name || provider.name,
-							url: safeHttpUrl(item.production_url ?? provider.fqdn),
-							projectName: item.project_name,
-							environmentName: item.environment_name,
-							state: provider.status,
-							gitBranch: provider.gitBranch,
-							gitCommitSha: provider.gitCommitSha,
-							gitRepository: provider.gitRepository,
-							buildPack: provider.buildPack,
-							serverName: provider.serverName,
-							latestDeployment: latest
-								? {
-										...normalizeDeployment(latest, {
-											COOLIFY_URL: options.COOLIFY_URL,
-										}),
-										directusApplicationId: item.directusApplicationId,
-									}
-								: null,
-						}
-					}),
+				response.json(
+					await loadApplicationSummaries(client, configured, options.COOLIFY_URL),
 				)
-				response.json(applications)
 			}),
 		)
 

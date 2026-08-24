@@ -34,3 +34,10 @@ export interface ApplicationSummary {
 	serverName: string | null
 	latestDeployment: DeploymentSummary | null
 }
+
+export interface DashboardSummary {
+	applications: ApplicationSummary[]
+	current: DeploymentSummary[]
+	recent: DeploymentSummary[]
+	canTriggerDeployments: boolean
+}

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DeploymentStatus as Status } from '../types'
 
-defineProps<{ status: Status }>()
+defineProps<{ status: Status; primary?: boolean }>()
 
 const labels: Record<Status, string> = {
 	queued: 'Queued',
@@ -13,7 +13,7 @@ const labels: Record<Status, string> = {
 </script>
 
 <template>
-	<v-chip :class="['status', `status-${status}`]">
+	<v-chip :class="['status', `status-${status}`, primary ? 'status-primary' : '']">
 		<v-icon v-if="status === 'building'" name="sync" small class="status-icon spinning" />
 		<v-icon v-else-if="status === 'ready'" name="check_circle" small class="status-icon" />
 		<v-icon
@@ -50,6 +50,9 @@ const labels: Record<Status, string> = {
 }
 .status-icon {
 	color: var(--status-color);
+}
+.status-primary {
+	--status-color: var(--primary);
 }
 .status :deep(.chip-content) {
 	display: inline-flex;

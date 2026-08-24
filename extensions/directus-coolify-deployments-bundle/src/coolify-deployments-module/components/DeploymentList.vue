@@ -22,9 +22,11 @@ const router = useRouter()
 </script>
 
 <template>
-	<v-info v-if="deployments.length === 0" icon="history" :title="emptyTitle" center>
-		{{ emptyCopy }}
-	</v-info>
+	<div v-if="deployments.length === 0" class="empty-deployments-card">
+		<v-info icon="history" :title="emptyTitle" center>
+			{{ emptyCopy }}
+		</v-info>
+	</div>
 	<table v-else class="deployment-table">
 		<thead>
 			<tr>
@@ -74,6 +76,26 @@ const router = useRouter()
 	border: 1px solid var(--border-normal);
 	border-radius: 8px;
 	overflow: hidden;
+}
+.empty-deployments-card {
+	position: relative;
+	min-height: 180px;
+	padding: 60px;
+	display: grid;
+	place-items: center;
+	border: 1px solid var(--border-normal);
+	border-radius: 8px;
+	background: var(--background-subdued);
+}
+.empty-deployments-card :deep(.v-info) {
+	position: static !important;
+	inset: auto !important;
+	width: auto;
+	height: auto;
+	margin: 0;
+	transform: none !important;
+	justify-self: center;
+	align-self: center;
 }
 th,
 td {

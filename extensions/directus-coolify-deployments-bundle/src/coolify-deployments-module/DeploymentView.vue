@@ -13,7 +13,10 @@ const api = useCoolifyDeploymentsApi()
 const deployment = shallowRef<DeploymentSummary | null>(null)
 const loading = shallowRef(true)
 const error = shallowRef<string | null>(null)
-let poller: ReturnType<typeof setInterval> | undefined
+let poller: ReturnType<typeof setTimeout> | undefined
+let requestInFlight = false
+let requestSequence = 0
+let disposed = false
 const active = computed(
 	() => deployment.value && ['queued', 'building'].includes(deployment.value.status),
 )
@@ -22,17 +25,30 @@ const active = computed(
  * @returns Nothing.
  */
 const load = async () => {
+	if (requestInFlight) return
+	requestInFlight = true
+	const sequence = ++requestSequence
 	loading.value = true
-	deployment.value = null
-	error.value = null
 	try {
-		deployment.value = await api.getDeployment(props.directusApplicationId, props.deploymentId)
+		const nextDeployment = await api.getDeployment(
+			props.directusApplicationId,
+			props.deploymentId,
+		)
+		if (sequence !== requestSequence) return
+		deployment.value = nextDeployment
 		error.value = null
 	} catch (caughtError) {
 		error.value =
 			caughtError instanceof Error ? caughtError.message : 'Unable to load deployment'
 	} finally {
 		loading.value = false
+		requestInFlight = false
+		if (!disposed && active.value && !document.hidden && !poller) {
+			poller = setTimeout(() => {
+				poller = undefined
+				void load()
+			}, api.getPollingInterval())
+		}
 	}
 }
 /**
@@ -57,12 +73,27 @@ watch(
 	{ immediate: true },
 )
 onMounted(() => {
-	poller = setInterval(() => {
-		if (active.value) void load()
-	}, api.getPollingInterval())
+	disposed = false
+	/**
+	 * Pause active-deployment polling while the document is hidden.
+	 * @returns Nothing.
+	 */
+	const onVisibilityChange = () => {
+		if (document.hidden) {
+			if (poller) clearTimeout(poller)
+			poller = undefined
+		} else if (active.value && !requestInFlight) {
+			void load()
+		}
+	}
+	document.addEventListener('visibilitychange', onVisibilityChange)
+	onUnmounted(() => document.removeEventListener('visibilitychange', onVisibilityChange))
 })
 onUnmounted(() => {
-	if (poller) clearInterval(poller)
+	disposed = true
+	requestSequence += 1
+	if (poller) clearTimeout(poller)
+	poller = undefined
 })
 </script>
 

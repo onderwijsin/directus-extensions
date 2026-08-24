@@ -49,12 +49,12 @@ onUnmounted(() => {
 			v-for="deployment in deployments"
 			:key="deployment.id"
 			type="button"
-			class="active-deployment-card"
+			class="active-deployment-card clickable"
 			@click="router.push(applicationPath(deployment))"
 		>
 			<div class="card-heading">
 				<strong>{{ deployment.applicationName ?? deployment.id }}</strong>
-				<DeploymentStatus :status="deployment.status" />
+				<DeploymentStatus :status="deployment.status" primary />
 			</div>
 			<div class="card-meta">
 				<span><v-icon name="schedule" small /> {{ elapsed(deployment) }}</span>
@@ -74,7 +74,7 @@ onUnmounted(() => {
 	gap: 16px;
 	width: 100%;
 	padding: 20px;
-	border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border-normal));
+	border: var(--theme--border-width) solid var(--primary-dimmed);
 	border-radius: 8px;
 	background: var(--background-subdued);
 	color: var(--foreground-normal);
@@ -114,5 +114,16 @@ onUnmounted(() => {
 	.active-deployment-grid {
 		grid-template-columns: minmax(0, 1fr);
 	}
+}
+
+.clickable {
+	cursor: pointer;
+}
+.clickable:hover {
+	background: var(--background-highlight);
+	border-color: var(--primary);
+}
+.subdued {
+	color: var(--foreground-subdued);
 }
 </style>

@@ -16,7 +16,12 @@ import { ForbiddenError } from '@directus/errors'
 import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 import { ofetch } from 'ofetch'
 
-import { COOLIFY_REQUEST_TIMEOUT_MS, LIST_APPLICATION_CACHE_DURATION_MS } from '../constants'
+import {
+	COOLIFY_DASHBOARD_CONCURRENCY,
+	COOLIFY_REQUEST_TIMEOUT_MS,
+	DASHBOARD_DEPLOYMENT_LIMIT,
+	LIST_APPLICATION_CACHE_DURATION_MS,
+} from '../constants'
 
 export type {
 	CoolifyDeploymentClient,
@@ -344,6 +349,55 @@ export function createCoolifyDeploymentClient(
 	}
 
 	/**
+	 * Read the bounded deployment sample used by the dashboard.
+	 * @param applications - Configured applications already loaded for the dashboard response.
+	 * @returns Recent deployments plus all currently running deployments.
+	 */
+	const listDashboardDeployments = async (
+		applications: DirectusCoolifyApplication[],
+	): Promise<CoolifyDeployment[]> => {
+		const recent = new Map<string, CoolifyDeployment>()
+		let nextIndex = 0
+
+		/**
+		 * Fetch the next application sample while bounded workers are available.
+		 * @returns Nothing.
+		 */
+		const worker = async () => {
+			while (nextIndex < applications.length) {
+				const application = applications[nextIndex]
+				nextIndex += 1
+				if (!application) continue
+				const deployments = await parseDeployments(
+					`/deployments/applications/${encodeURIComponent(application.application_uuid)}`,
+					{ skip: 0, take: DASHBOARD_DEPLOYMENT_LIMIT },
+				)
+				for (const deployment of deployments)
+					recent.set(deployment.deploymentUuid, {
+						...deployment,
+						// Coolify may return its internal numeric application_id here instead of the UUID.
+						coolifyApplicationId: application.application_uuid,
+					})
+			}
+		}
+
+		await Promise.all(
+			Array.from(
+				{ length: Math.min(COOLIFY_DASHBOARD_CONCURRENCY, applications.length) },
+				() => worker(),
+			),
+		)
+
+		for (const deployment of await listRunningDeployments()) {
+			recent.set(deployment.deploymentUuid, deployment)
+		}
+
+		return [...recent.values()].sort((left, right) =>
+			(right.createdAt ?? '').localeCompare(left.createdAt ?? ''),
+		)
+	}
+
+	/**
 	 * @param deploymentUuid - Coolify deployment UUID.
 	 * @returns The requested deployment.
 	 */
@@ -408,6 +462,7 @@ export function createCoolifyDeploymentClient(
 		listApplications,
 		getApplication,
 		listApplicationDeployments,
+		listDashboardDeployments,
 		getLatestApplicationDeployment,
 		listRunningDeployments,
 		getDeployment,
