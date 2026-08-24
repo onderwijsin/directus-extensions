@@ -354,6 +354,10 @@ failures use `SLUGGERNAUT_CONFIGURATION` or `SLUGGERNAUT_INTERNAL` (`500`).
 Sluggernaut does not serve these records. A redirect consumer should at minimum filter
 `is_active=true`, honor `start_date`/`end_date`, and return the stored `type` and `destination`.
 
+The `match` discriminator controls origin parsing. Exact origins are literal paths, so `:` and `*`
+are valid literal characters. Pattern origins interpret those characters as named-parameter and
+wildcard syntax according to the restricted grammar below.
+
 Example exact redirect created by a consumer:
 
 ```http

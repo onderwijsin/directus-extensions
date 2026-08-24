@@ -56,10 +56,10 @@ const persisted = (
 })
 
 describe('exact redirect domain', () => {
-	it('normalizes origins and preserves their trailing slash choice', () => {
+	it('normalizes literal origins and preserves their trailing slash choice', () => {
 		expect(normalizeExactRedirectOrigin('/news//item/')).toBe('/news/item/')
-		expect(() => normalizeExactRedirectOrigin('/news/:item')).toThrow()
-		expect(() => normalizeExactRedirectOrigin('/news/*')).toThrow()
+		expect(normalizeExactRedirectOrigin('/news/:item')).toBe('/news/:item')
+		expect(normalizeExactRedirectOrigin('/news/*')).toBe('/news/*')
 	})
 
 	it.each([

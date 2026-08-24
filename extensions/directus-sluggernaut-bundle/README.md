@@ -311,6 +311,9 @@ status `500`.
 The bundle does not serve redirects. A web server, frontend, edge worker, or endpoint must query
 active records and issue the HTTP response.
 
+The `match` value determines how an origin is interpreted: exact origins treat `:` and `*` as
+literal path characters, while pattern origins reserve them for the documented pattern grammar.
+
 ## Link display
 
 Select `Sluggernaut Link` as the display for a slug or permalink field. It shows the stored value

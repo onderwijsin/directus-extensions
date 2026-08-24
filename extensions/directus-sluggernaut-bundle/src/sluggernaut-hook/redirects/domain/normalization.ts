@@ -28,17 +28,12 @@ function requireString(value: unknown, field: string): string {
 	return value
 }
 
-/** Normalizes an exact redirect origin as a path and rejects exact-pattern syntax.
+/** Normalizes an exact redirect origin as a literal path.
  * @param value - Raw origin.
  * @returns Normalized path.
  */
 export function normalizeExactRedirectOrigin(value: unknown): string {
 	const input = requireString(value, 'origin')
-	if (input.includes(':') || input.includes('*')) {
-		throw sluggernautValidationError(
-			'An exact redirect origin must not contain pattern syntax.',
-		)
-	}
 	return normalizePermalink(input) ?? '/'
 }
 
