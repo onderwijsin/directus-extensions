@@ -24,8 +24,9 @@ export default defineOperationApp({
 			type: 'string',
 			meta: {
 				width: 'full',
-				interface: 'input',
-				note: 'Enter the Directus ID of an enabled, deploy-enabled application.',
+				interface: 'coolify-deploy-application-select',
+				note: 'Select an enabled, deploy-enabled application.',
+				required: true,
 			},
 		},
 	],
