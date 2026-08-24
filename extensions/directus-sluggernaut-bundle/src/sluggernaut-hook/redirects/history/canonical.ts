@@ -4,6 +4,7 @@ import type { SluggernautEnv } from '../../configuration/env.schema'
 
 import { isDirectusError } from '@directus/errors'
 
+import { sluggernautRedirectProcessingError } from '../../../shared/errors'
 import { withMutationSource } from '../direct-mutations/mutation-source'
 import { createRedirectService } from '../service'
 import { applyRedirectPlan, readRelevantRedirects } from './operations'
@@ -76,17 +77,25 @@ export async function processCanonicalRedirect(input: {
 		await withMutationSource('internal', () => applyRedirectPlan(service, plan))
 	} catch (error) {
 		if (isDirectusError(error)) throw error
-		// Redirect infrastructure is optional. A missing or incompatible collection must not prevent
-		// the derived content mutation from completing.
+		const details = {
+			collection,
+			redirectCollection: options.SLUGGERNAUT_REDIRECTS_COLLECTION,
+			field: source.field,
+			code: 'redirect-processing-failed',
+			error,
+		}
+		if (options.SLUGGERNAUT_THROW_ON_PROCESSING_ERROR !== false) {
+			context.logger.error(
+				'Sluggernaut failed to maintain canonical redirect history.',
+				details,
+			)
+			throw sluggernautRedirectProcessingError(
+				'Sluggernaut could not maintain redirect history while saving this item. The item was not saved. Please contact an administrator.',
+			)
+		}
 		context.logger.warn(
-			'Sluggernaut skipped redirect processing because the redirect collection is unavailable or incompatible.',
-			{
-				collection,
-				redirectCollection: options.SLUGGERNAUT_REDIRECTS_COLLECTION,
-				field: source.field,
-				code: 'redirect-runtime-unavailable',
-				error,
-			},
+			'Sluggernaut skipped canonical redirect processing after an unexpected failure.',
+			details,
 		)
 	}
 }

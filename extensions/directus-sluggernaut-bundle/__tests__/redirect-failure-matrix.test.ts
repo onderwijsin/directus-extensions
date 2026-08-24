@@ -46,9 +46,10 @@ const configuration: CollectionConfiguration = {
 }
 const options = {
 	SLUGGERNAUT_REDIRECTS_ENABLED: true,
+	SLUGGERNAUT_THROW_ON_PROCESSING_ERROR: true,
 	SLUGGERNAUT_REDIRECTS_COLLECTION: 'redirect_records',
 	SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH: 25,
-} as never
+}
 
 function makeContext() {
 	return { logger: { warn: vi.fn(), error: vi.fn() } }
@@ -64,14 +65,14 @@ describe('Sluggernaut redirect failure matrix', () => {
 		mocks.applyRedirectLifecyclePlan.mockResolvedValue(undefined)
 	})
 
-	it('forwards configured collection and transaction and logs the exact optional-runtime warning', async () => {
+	it('forwards configured collection and supports fail-open processing errors', async () => {
 		const context = makeContext()
 		const database = vi.fn()
 		mocks.createRedirectService.mockRejectedValueOnce(new Error('missing collection'))
 		await expect(
 			processCanonicalRedirect({
 				context,
-				options,
+				options: { ...options, SLUGGERNAUT_THROW_ON_PROCESSING_ERROR: false },
 				collection: 'entries',
 				key: 1,
 				existingItem: { route: '/old' },
@@ -86,12 +87,12 @@ describe('Sluggernaut redirect failure matrix', () => {
 			database,
 		)
 		expect(context.logger.warn).toHaveBeenCalledWith(
-			'Sluggernaut skipped redirect processing because the redirect collection is unavailable or incompatible.',
+			'Sluggernaut skipped canonical redirect processing after an unexpected failure.',
 			expect.objectContaining({
 				collection: 'entries',
 				redirectCollection: 'redirect_records',
 				field: 'route',
-				code: 'redirect-runtime-unavailable',
+				code: 'redirect-processing-failed',
 				error: expect.any(Error),
 			}),
 		)
@@ -110,7 +111,7 @@ describe('Sluggernaut redirect failure matrix', () => {
 		expect(mocks.readRelevantRedirects).toHaveBeenCalledWith({}, '/old', '/new', 25)
 	})
 
-	it('logs planner and application failures without blocking content derivation', async () => {
+	it('wraps unexpected canonical failures in an explicit processing error', async () => {
 		const context = makeContext()
 		mocks.readRelevantRedirects.mockRejectedValueOnce(new Error('read failed'))
 		await expect(
@@ -124,10 +125,16 @@ describe('Sluggernaut redirect failure matrix', () => {
 				configuration,
 				database: vi.fn(),
 			} as never),
-		).resolves.toBeUndefined()
-		expect(context.logger.warn).toHaveBeenCalledWith(
-			expect.stringContaining('skipped redirect processing'),
-			expect.any(Object),
+		).rejects.toMatchObject({
+			code: 'SLUGGERNAUT_REDIRECT_PROCESSING',
+			message: expect.stringContaining('redirect history'),
+		})
+		expect(context.logger.error).toHaveBeenCalledWith(
+			'Sluggernaut failed to maintain canonical redirect history.',
+			expect.objectContaining({
+				code: 'redirect-processing-failed',
+				error: expect.any(Error),
+			}),
 		)
 
 		mocks.applyRedirectPlan.mockRejectedValueOnce(new Error('write failed'))
@@ -142,7 +149,28 @@ describe('Sluggernaut redirect failure matrix', () => {
 				configuration,
 				database: vi.fn(),
 			} as never),
+		).rejects.toMatchObject({ code: 'SLUGGERNAUT_REDIRECT_PROCESSING' })
+	})
+
+	it('keeps unexpected canonical failures fail-open when configured', async () => {
+		const context = makeContext()
+		mocks.readRelevantRedirects.mockRejectedValueOnce(new Error('read failed'))
+		await expect(
+			processCanonicalRedirect({
+				context,
+				options: { ...options, SLUGGERNAUT_THROW_ON_PROCESSING_ERROR: false },
+				collection: 'entries',
+				key: 'a',
+				existingItem: { route: '/old' },
+				nextItem: { route: '/new' },
+				configuration,
+				database: vi.fn(),
+			} as never),
 		).resolves.toBeUndefined()
+		expect(context.logger.warn).toHaveBeenCalledWith(
+			'Sluggernaut skipped canonical redirect processing after an unexpected failure.',
+			expect.objectContaining({ code: 'redirect-processing-failed' }),
+		)
 	})
 
 	it('processes each deleted key and forwards lifecycle plans without creating redirects', async () => {
@@ -205,10 +233,26 @@ describe('Sluggernaut redirect failure matrix', () => {
 				lifecycle: 'archive',
 				database: vi.fn(),
 			} as never),
+		).rejects.toMatchObject({ code: 'SLUGGERNAUT_REDIRECT_PROCESSING' })
+		expect(context.logger.error).toHaveBeenCalledWith(
+			'Sluggernaut failed to maintain redirect lifecycle history.',
+			expect.objectContaining({ code: 'redirect-processing-failed', lifecycle: 'archive' }),
+		)
+
+		mocks.createRedirectService.mockRejectedValueOnce(new Error('unavailable'))
+		await expect(
+			processArchiveLifecycle({
+				context,
+				options: { ...options, SLUGGERNAUT_THROW_ON_PROCESSING_ERROR: false },
+				collection: 'entries',
+				key: 1,
+				lifecycle: 'archive',
+				database: vi.fn(),
+			} as never),
 		).resolves.toBeUndefined()
 		expect(context.logger.warn).toHaveBeenCalledWith(
-			expect.stringContaining('skipped redirect lifecycle processing'),
-			expect.objectContaining({ code: 'redirect-runtime-unavailable', lifecycle: 'archive' }),
+			'Sluggernaut skipped redirect lifecycle processing after an unexpected failure.',
+			expect.objectContaining({ code: 'redirect-processing-failed', lifecycle: 'archive' }),
 		)
 	})
 })

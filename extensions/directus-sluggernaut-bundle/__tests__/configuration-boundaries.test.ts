@@ -19,6 +19,7 @@ describe('Sluggernaut configuration boundaries', () => {
 				SLUGGERNAUT_FIELDS_CACHE_TTL_MS: 1,
 			}).success,
 		).toBe(true)
+		expect(envSchema.parse({}).SLUGGERNAUT_THROW_ON_PROCESSING_ERROR).toBe(true)
 		for (const value of ['', 'redirects-name', '1redirects', 'redirects/name']) {
 			expect(envSchema.safeParse({ SLUGGERNAUT_REDIRECTS_COLLECTION: value }).success).toBe(
 				false,

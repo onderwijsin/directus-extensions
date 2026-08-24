@@ -3,6 +3,7 @@ import type { SluggernautEnv } from '../../configuration/env.schema'
 
 import { isDirectusError } from '@directus/errors'
 
+import { sluggernautRedirectProcessingError } from '../../../shared/errors'
 import { withMutationSource } from '../direct-mutations/mutation-source'
 import { createRedirectService } from '../service'
 import { applyRedirectLifecyclePlan, readManagedRedirectsForItem } from './operations'
@@ -43,16 +44,25 @@ export async function processArchiveLifecycle(input: {
 		)
 	} catch (error) {
 		if (isDirectusError(error)) throw error
-		// Redirect lifecycle history is optional and must not block the archive transition itself.
+		const details = {
+			collection,
+			redirectCollection: options.SLUGGERNAUT_REDIRECTS_COLLECTION,
+			lifecycle,
+			code: 'redirect-processing-failed',
+			error,
+		}
+		if (options.SLUGGERNAUT_THROW_ON_PROCESSING_ERROR !== false) {
+			context.logger.error(
+				'Sluggernaut failed to maintain redirect lifecycle history.',
+				details,
+			)
+			throw sluggernautRedirectProcessingError(
+				`Sluggernaut could not update redirect history while trying to ${lifecycle} this item. The item was not saved. Please contact an administrator.`,
+			)
+		}
 		context.logger.warn(
-			'Sluggernaut skipped redirect lifecycle processing because the redirect collection is unavailable or incompatible.',
-			{
-				collection,
-				redirectCollection: options.SLUGGERNAUT_REDIRECTS_COLLECTION,
-				lifecycle,
-				code: 'redirect-runtime-unavailable',
-				error,
-			},
+			'Sluggernaut skipped redirect lifecycle processing after an unexpected failure.',
+			details,
 		)
 	}
 }

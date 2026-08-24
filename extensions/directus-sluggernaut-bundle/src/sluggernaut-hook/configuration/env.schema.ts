@@ -11,6 +11,7 @@ const collectionIdentifier = z
 export const envSchema = directusStartupSchema.safeExtend({
 	SLUGGERNAUT_ENABLED: z.boolean().default(true),
 	SLUGGERNAUT_REDIRECTS_ENABLED: z.boolean().default(false),
+	SLUGGERNAUT_THROW_ON_PROCESSING_ERROR: z.boolean().default(true),
 	SLUGGERNAUT_REDIRECTS_COLLECTION: collectionIdentifier.default('redirects'),
 	SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH: z.number().int().positive().default(25),
 	SLUGGERNAUT_FIELDS_CACHE_TTL_MS: z.number().positive().default(60_000),

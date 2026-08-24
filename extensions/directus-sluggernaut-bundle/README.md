@@ -106,17 +106,18 @@ loader.
 
 ### Sluggernaut settings
 
-| Variable                                           |     Default | Description                                                                                                                        |
-| -------------------------------------------------- | ----------: | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `SLUGGERNAUT_ENABLED`                              |      `true` | Master switch for the hook and operation. When false, the operation returns zero counts and the hook registers no behavior.        |
-| `SLUGGERNAUT_REDIRECTS_ENABLED`                    |     `false` | Enables redirect creation and archive/delete lifecycle handling. Slug and permalink derivation work independently of this setting. |
-| `SLUGGERNAUT_REDIRECTS_COLLECTION`                 | `redirects` | Collection used for managed redirects. Must be a valid Directus collection identifier.                                             |
-| `SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH`             |        `25` | Maximum exact-redirect graph expansion depth before a mutation is rejected.                                                        |
-| `SLUGGERNAUT_FIELDS_CACHE_TTL_MS`                  |     `60000` | Field metadata cache lifetime in milliseconds. Must be finite and greater than zero.                                               |
-| `SLUGGERNAUT_SCHEMA_CHANGES_ENABLED`               |     `false` | Allows Sluggernaut to create or reconcile its redirect collection schema at startup.                                               |
-| `SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR`                |      `true` | Stops schema/policy startup processing when provisioning fails.                                                                    |
-| `SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED`      |     `false` | Enables the optional `Can Manage Redirects` policy definition.                                                                     |
-| `SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED` |     `false` | Enables the optional `Can Read Active Redirects` policy definition.                                                                |
+| Variable                                           |     Default | Description                                                                                                                                  |
+| -------------------------------------------------- | ----------: | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SLUGGERNAUT_ENABLED`                              |      `true` | Master switch for the hook and operation. When false, the operation returns zero counts and the hook registers no behavior.                  |
+| `SLUGGERNAUT_REDIRECTS_ENABLED`                    |     `false` | Enables redirect creation and archive/delete lifecycle handling. Slug and permalink derivation work independently of this setting.           |
+| `SLUGGERNAUT_THROW_ON_PROCESSING_ERROR`            |      `true` | Rejects source mutations when unexpected canonical or archive/unarchive redirect-processing failures occur. Set `false` to log and continue. |
+| `SLUGGERNAUT_REDIRECTS_COLLECTION`                 | `redirects` | Collection used for managed redirects. Must be a valid Directus collection identifier.                                                       |
+| `SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH`             |        `25` | Maximum exact-redirect graph expansion depth before a mutation is rejected.                                                                  |
+| `SLUGGERNAUT_FIELDS_CACHE_TTL_MS`                  |     `60000` | Field metadata cache lifetime in milliseconds. Must be finite and greater than zero.                                                         |
+| `SLUGGERNAUT_SCHEMA_CHANGES_ENABLED`               |     `false` | Allows Sluggernaut to create or reconcile its redirect collection schema at startup.                                                         |
+| `SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR`                |      `true` | Stops schema/policy startup processing when provisioning fails.                                                                              |
+| `SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED`      |     `false` | Enables the optional `Can Manage Redirects` policy definition.                                                                               |
+| `SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED` |     `false` | Enables the optional `Can Read Active Redirects` policy definition.                                                                          |
 
 Schema changes and policy definitions are opt-in for this bundle. If schema changes remain disabled,
 create the configured redirect collection yourself before enabling redirects. If policy definitions
@@ -286,10 +287,13 @@ Canonical changes create or rewrite the latest redirect, flatten included redire
 deactivate included loops. By default, unmanaged redirects are included and the latest canonical
 value overrides an unmanaged conflict. Set `includeUnmanagedRedirectsInPlanning=false` to ignore
 unmanaged records, or set `unmanagedRedirectConflictBehavior=block` to preserve an included
-unmanaged conflict and log a warning. Update-time redirect persistence is in the item mutation flow:
-if the redirect collection is unavailable or incompatible, redirect processing is skipped, logged,
-and the derived item update still completes. Delete/archive lifecycle failures are logged after the
-source action.
+unmanaged conflict and log a warning. Update-time redirect persistence is part of the item mutation
+flow. Unexpected canonical or archive/unarchive processing failures are surfaced as
+`SLUGGERNAUT_REDIRECT_PROCESSING` errors by default, so the source mutation does not silently
+complete without its redirect side effect. Set `SLUGGERNAUT_THROW_ON_PROCESSING_ERROR=false` to
+restore fail-open behavior; the failure is logged and the source mutation continues. Directus and
+Sluggernaut validation/integrity errors remain propagated unchanged. Delete lifecycle failures are
+logged after the source action.
 
 Direct `items.create`, single-item `items.update`, and multi-item `items.update` mutations to the
 configured redirect collection validate exact redirects before persistence. Origins and internal

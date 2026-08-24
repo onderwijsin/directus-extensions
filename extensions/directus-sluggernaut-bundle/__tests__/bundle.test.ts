@@ -49,6 +49,7 @@ describe('Sluggernaut bundle scaffold', () => {
 		expect(envSchema.parse({})).toMatchObject({
 			SLUGGERNAUT_ENABLED: true,
 			SLUGGERNAUT_REDIRECTS_ENABLED: false,
+			SLUGGERNAUT_THROW_ON_PROCESSING_ERROR: true,
 			SLUGGERNAUT_REDIRECTS_COLLECTION: 'redirects',
 			SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH: 25,
 			SLUGGERNAUT_FIELDS_CACHE_TTL_MS: 60_000,

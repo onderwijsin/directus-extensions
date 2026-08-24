@@ -71,17 +71,18 @@ Redis, a redirect server, a frontend router, or role assignments.
 
 ### Extension settings
 
-| Variable                                           |     Default | Accepted values / constraints                             | Effect                                                                              |
-| -------------------------------------------------- | ----------: | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `SLUGGERNAUT_ENABLED`                              |      `true` | boolean                                                   | Master switch. When false, the hook is inert and recalculation returns zero counts. |
-| `SLUGGERNAUT_REDIRECTS_ENABLED`                    |     `false` | boolean                                                   | Enables canonical redirect creation and archive/delete lifecycle handling.          |
-| `SLUGGERNAUT_REDIRECTS_COLLECTION`                 | `redirects` | non-empty identifier matching `^[A-Za-z_][A-Za-z0-9_$]*$` | Redirect collection name.                                                           |
-| `SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH`             |        `25` | positive integer                                          | Maximum exact-redirect graph expansion depth before a mutation is rejected.         |
-| `SLUGGERNAUT_FIELDS_CACHE_TTL_MS`                  |     `60000` | finite positive number                                    | Cache lifetime for field metadata.                                                  |
-| `SLUGGERNAUT_SCHEMA_CHANGES_ENABLED`               |     `false` | boolean                                                   | Allows startup schema reconciliation for the redirect collection.                   |
-| `SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR`                |      `true` | boolean                                                   | Whether schema/policy startup errors abort provisioning.                            |
-| `SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED`      |     `false` | boolean                                                   | Enables the manage-redirects policy definition.                                     |
-| `SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED` |     `false` | boolean                                                   | Enables the active-redirects read policy definition.                                |
+| Variable                                           |     Default | Accepted values / constraints                             | Effect                                                                                                                                |
+| -------------------------------------------------- | ----------: | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `SLUGGERNAUT_ENABLED`                              |      `true` | boolean                                                   | Master switch. When false, the hook is inert and recalculation returns zero counts.                                                   |
+| `SLUGGERNAUT_REDIRECTS_ENABLED`                    |     `false` | boolean                                                   | Enables canonical redirect creation and archive/delete lifecycle handling.                                                            |
+| `SLUGGERNAUT_THROW_ON_PROCESSING_ERROR`            |      `true` | boolean                                                   | Rejects source mutations after unexpected canonical or archive/unarchive redirect-processing failures; set false to log and continue. |
+| `SLUGGERNAUT_REDIRECTS_COLLECTION`                 | `redirects` | non-empty identifier matching `^[A-Za-z_][A-Za-z0-9_$]*$` | Redirect collection name.                                                                                                             |
+| `SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH`             |        `25` | positive integer                                          | Maximum exact-redirect graph expansion depth before a mutation is rejected.                                                           |
+| `SLUGGERNAUT_FIELDS_CACHE_TTL_MS`                  |     `60000` | finite positive number                                    | Cache lifetime for field metadata.                                                                                                    |
+| `SLUGGERNAUT_SCHEMA_CHANGES_ENABLED`               |     `false` | boolean                                                   | Allows startup schema reconciliation for the redirect collection.                                                                     |
+| `SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR`                |      `true` | boolean                                                   | Whether schema/policy startup errors abort provisioning.                                                                              |
+| `SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED`      |     `false` | boolean                                                   | Enables the manage-redirects policy definition.                                                                                       |
+| `SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED` |     `false` | boolean                                                   | Enables the active-redirects read policy definition.                                                                                  |
 
 `SLUGGERNAUT_ENABLED` is independent from redirect enablement: leave redirects disabled when you
 only need slug/permalink derivation.
@@ -328,10 +329,12 @@ archive field transitions to its archive value, records are deactivated with
 `inactive_reason=archived`; unarchive reactivates only archive-suspended records. Manual
 reactivation clears the inactive reason.
 
-Update-time redirect writes are part of the mutation flow. If the configured redirect collection is
-unavailable or incompatible, redirect processing is skipped and logged while the derived item update
-continues. Delete/archive action failures are logged after the source mutation and cannot roll back
-deletion.
+Update-time redirect writes are part of the mutation flow. Unexpected canonical or archive/unarchive
+processing failures become `SLUGGERNAUT_REDIRECT_PROCESSING` errors by default and reject the source
+mutation, with a user-facing message that redirect history could not be maintained. Set
+`SLUGGERNAUT_THROW_ON_PROCESSING_ERROR=false` to log and continue instead. Directus and Sluggernaut
+validation/integrity errors remain unchanged. Delete/archive action failures are logged after the
+source mutation and cannot roll back deletion.
 
 Direct create, single-item update, and multi-item `updateMany` mutations on the configured redirect
 collection are validated before persistence when redirects are enabled. Exact redirects normalize
