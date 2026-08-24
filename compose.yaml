@@ -45,7 +45,6 @@ services:
   garage-init:
     volumes:
       - ./.data/garage/meta:/var/lib/garage/meta:ro
-      - ./docker/garage-init.sh:/usr/local/bin/garage-init.sh:ro
 
   meilisearch:
     ports:

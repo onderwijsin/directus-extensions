@@ -59,6 +59,12 @@ The shared service configuration provides:
 - Directus WebSockets and extension loading; and
 - the stable local project ID migration.
 
+The `garage-init` service is built from `docker/garage-init.Dockerfile`. Its init image copies the
+`/garage` CLI from the same digest-pinned `dxflrs/garage:v2.3.0` image used by the Garage server, so
+starting the one-shot service does not download a binary. When upgrading Garage, update the version
+and manifest digest together in both `docker/compose.yaml` and `docker/garage-init.Dockerfile`; the
+digest is the multi-architecture manifest digest.
+
 The local defaults are intentionally development-only. Override them in an ignored `.env`:
 
 ```sh

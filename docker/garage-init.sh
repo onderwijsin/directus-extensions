@@ -5,21 +5,6 @@ log() {
   printf '[garage-init] %s\n' "$*"
 }
 
-case "$(uname -m)" in
-  x86_64) GARAGE_ARCH='x86_64-unknown-linux-musl' ;;
-  aarch64|arm64) GARAGE_ARCH='aarch64-unknown-linux-musl' ;;
-  armv7l|armv6l) GARAGE_ARCH='armv6l-unknown-linux-musleabihf' ;;
-  i686|i386) GARAGE_ARCH='i686-unknown-linux-musl' ;;
-  *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
-esac
-
-# Keep this CLI version in sync with the Garage image in compose.yaml.
-log 'Downloading Garage CLI'
-wget -q -T 30 -t 3 -O /usr/local/bin/garage \
-  "https://garagehq.deuxfleurs.fr/_releases/v2.3.0/${GARAGE_ARCH}/garage"
-chmod +x /usr/local/bin/garage
-log 'Garage CLI downloaded'
-
 READY=false
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
   log "Waiting for Garage RPC (attempt ${attempt}/10)"
