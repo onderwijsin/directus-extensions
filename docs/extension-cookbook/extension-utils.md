@@ -157,7 +157,10 @@ backend. Use `withCache` for each operation with an explicit, stable key:
 ```ts
 import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
-const cache = initializeCache(context.env, { ttl: 60_000 })
+const cache = initializeCache(context.env, {
+  ttl: 60_000,
+  namespace: 'directus:extensions:my-extension:summary',
+})
 const summaryCacheKey = (collection: string): string => `summary:${collection}`
 
 const summary = await withCache({ cache, key: summaryCacheKey('orders') }, () =>
@@ -176,10 +179,12 @@ withCache<TResult>(
 
 The handler runs only on a miss; a `null` cache bypasses cache operations while still running the
 handler. Construct keys explicitly and keep them extension-specific, for example
-`fields:${collection}` or `summary:${collection}`. Redis caches use the shared `directus:extensions`
-namespace by default; pass `namespace` to isolate a Redis cache and scope its `clear()` operation.
-Local cache instances are process-local with private stores, so a local namespace does not make
-separate instances share state.
+`fields:${collection}` or `summary:${collection}`. Publishable extensions must provide an explicit
+extension-specific Redis namespace, such as `directus:extensions:my-extension:summary`; use separate
+subsystem namespaces when targeted invalidation is useful. The shared `directus:extensions` default
+remains available for generic consumers. Namespaces scope Redis keys and `clear()` operations. Local
+cache instances are process-local with private stores, so a local namespace does not make separate
+instances share state.
 
 Use `registerCollectionCacheInvalidation` when a collection mutation makes a cached value stale. It
 accepts a collection name, explicit event targets, or an object for selecting events and system

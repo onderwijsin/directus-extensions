@@ -3,9 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
 	ofetch: vi.fn(),
 	request: vi.fn<(input: string, options?: unknown) => Promise<unknown>>(),
+	initializeCache: vi.fn().mockReturnValue(null),
 }))
 
 vi.mock('ofetch', () => ({ ofetch: { create: mocks.ofetch } }))
+vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) => ({
+	...(await importOriginal()),
+	initializeCache: mocks.initializeCache,
+}))
 
 import type {
 	CoolifyClientContext,
@@ -69,6 +74,8 @@ const createClient = () => createCoolifyDeploymentClient(options, context)
 describe('Coolify deployment client', () => {
 	beforeEach(() => {
 		mocks.ofetch.mockReset()
+		mocks.initializeCache.mockReset()
+		mocks.initializeCache.mockReturnValue(null)
 		mocks.ofetch.mockReturnValue(mocks.request)
 		mocks.request.mockReset()
 		readByQuery.mockClear()
@@ -194,10 +201,26 @@ describe('Coolify deployment client', () => {
 	})
 
 	it('reuses the configured application cache', async () => {
+		const values = new Map<string, unknown>()
+		mocks.initializeCache.mockReturnValue({
+			get: vi.fn((key: string) => Promise.resolve(values.get(key))),
+			set: vi.fn((key: string, value: unknown) => {
+				values.set(key, value)
+				return Promise.resolve()
+			}),
+			delete: vi.fn().mockResolvedValue(undefined),
+		})
 		const client = createCoolifyDeploymentClient(options, {
 			...context,
 			CACHE_ENABLED: true,
 		})
+		expect(mocks.initializeCache).toHaveBeenCalledWith(
+			expect.objectContaining({ CACHE_ENABLED: true }),
+			{
+				ttl: 60_000,
+				namespace: 'directus:extensions:coolify-deployments:applications',
+			},
+		)
 
 		await client.listConfiguredApplication()
 		await client.listConfiguredApplication()

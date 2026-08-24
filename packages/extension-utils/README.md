@@ -93,7 +93,10 @@ Create a local or Redis-backed cache from validated Directus environment values:
 ```ts
 import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 
-const cache = initializeCache(context.env, { ttl: 60_000 })
+const cache = initializeCache(context.env, {
+  ttl: 60_000,
+  namespace: 'directus:extensions:my-extension:summary',
+})
 const summaryCacheKey = (collection: string): string => `summary:${collection}`
 
 const summary = await withCache({ cache, key: summaryCacheKey('orders') }, () =>
@@ -136,6 +139,8 @@ The related public types are `CacheEnv`, `CacheOptions` (`ttl`, a finite positiv
 `WithCacheOptions` (`cache` plus `key`), `CollectionInput`, and
 `CollectionCacheInvalidationOptions`.
 
+Publishable extensions must provide an explicit extension-specific `CacheOptions.namespace` for
+extension-owned caches. Use separate subsystem namespaces when targeted invalidation is useful.
 `CacheOptions.namespace` isolates Redis keys and makes `clear()` namespace-scoped. Local caches have
 a private store per initialized instance; a namespace does not make separate local instances share
 data. `cacheConfigSchema` validates Directus cache and Redis settings. `REDIS` takes precedence over

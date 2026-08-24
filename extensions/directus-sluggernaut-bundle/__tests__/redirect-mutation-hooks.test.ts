@@ -192,7 +192,7 @@ describe('direct exact redirect mutation hooks', () => {
 		},
 	)
 
-	it('does not infer pattern matching when match is omitted', async () => {
+	it('treats pattern-looking origins as literal when match is omitted', async () => {
 		const { filters } = setup()
 		const create = filters.get('items.create')!
 
@@ -202,7 +202,10 @@ describe('direct exact redirect mutation hooks', () => {
 				{ collection: 'custom_redirects' },
 				eventContext,
 			),
-		).rejects.toThrow(/exact redirect origin/u)
+		).resolves.toMatchObject({
+			origin: '/legacy/:slug',
+			destination: '/articles/:slug',
+		})
 	})
 
 	it('rejects a pattern that exceeds the lossless specificity segment limit', async () => {

@@ -50,6 +50,7 @@ import {
 
 const API_PREFIX = '/api/v1'
 const CONFIGURED_APPLICATIONS_CACHE_KEY = 'coolify-deployments:configured-applications'
+const APPLICATIONS_CACHE_NAMESPACE = 'directus:extensions:coolify-deployments:applications'
 const DEPLOYMENT_PAGE_SIZE = 100
 
 /**
@@ -64,7 +65,10 @@ export function createCoolifyDeploymentClient(
 ): CoolifyDeploymentClient {
 	const baseUrl = options.COOLIFY_URL.replace(/\/$/u, '')
 	const cache = context
-		? initializeCache(context, { ttl: LIST_APPLICATION_CACHE_DURATION_MS })
+		? initializeCache(context, {
+				ttl: LIST_APPLICATION_CACHE_DURATION_MS,
+				namespace: APPLICATIONS_CACHE_NAMESPACE,
+			})
 		: null
 
 	/**

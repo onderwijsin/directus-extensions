@@ -56,6 +56,9 @@ describe('Sluggernaut normalization', () => {
 		expect(() => normalizePermalink('/news/../hello')).toThrow()
 		expect(() => normalizePermalink('/%2e%2e/hello')).toThrow()
 		expect(() => normalizePermalink('/%252e%252e/hello')).toThrow()
+		for (const value of ['/foo%ZZ', '/foo%', '/foo%2', '/foo%2g', '/foo%252'])
+			expect(() => normalizePermalink(value)).toThrow()
+		expect(normalizePermalink('/foo%2Fbar')).toBe('/foo%2Fbar')
 	})
 
 	it('normalizes prefixes and joins them with slugs', () => {

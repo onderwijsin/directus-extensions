@@ -56,10 +56,10 @@ const persisted = (
 })
 
 describe('exact redirect domain', () => {
-	it('normalizes origins and preserves their trailing slash choice', () => {
+	it('normalizes literal origins and preserves their trailing slash choice', () => {
 		expect(normalizeExactRedirectOrigin('/news//item/')).toBe('/news/item/')
-		expect(() => normalizeExactRedirectOrigin('/news/:item')).toThrow()
-		expect(() => normalizeExactRedirectOrigin('/news/*')).toThrow()
+		expect(normalizeExactRedirectOrigin('/news/:item')).toBe('/news/:item')
+		expect(normalizeExactRedirectOrigin('/news/*')).toBe('/news/*')
 	})
 
 	it.each([
@@ -89,6 +89,14 @@ describe('exact redirect domain', () => {
 			expect(() => normalizeExactRedirectDestination(value)).toThrow()
 		expect(() => normalizeExactRedirectDestination('mailto:user@example.com')).toThrow()
 		expect(() => normalizeExactRedirectDestination('https//example.com/a')).toThrow()
+		for (const value of [
+			'https://username@example.com/a',
+			'https://username:password@example.com/a',
+			'https://user%40name:pass%40word@example.com/a',
+		])
+			expect(() => normalizeExactRedirectDestination(value)).toThrow(
+				'External redirect destinations must not contain URL credentials.',
+			)
 	})
 
 	it('rejects path query strings and fragments while allowing them on external URLs', () => {
