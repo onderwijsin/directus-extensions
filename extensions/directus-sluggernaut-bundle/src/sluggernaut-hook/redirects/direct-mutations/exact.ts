@@ -1,17 +1,15 @@
 import type { EventContext, HookExtensionContext, PrimaryKey } from '@directus/types'
 import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
 import type { SluggernautEnv } from '../../configuration/env.schema'
-import type { RawRedirectMutationInput, RedirectState } from '../domain/state'
-import type { Redirect, RedirectField, RedirectMutationInput } from '../schema'
+import type { RedirectState } from '../domain/state'
+import type { Redirect, RedirectMutationInput } from '../schema'
 
-import { isDirectusError } from '@directus/errors'
 import {
 	attempt,
 	isArray,
 	isDefined,
 	isPrimaryKey,
 	isRecord,
-	isString,
 	hasKey,
 } from '@onderwijsin/directus-extension-utils'
 
@@ -29,163 +27,19 @@ import {
 	decideRedirectOwnership,
 	type ExactRedirectInput,
 } from '../domain'
-import { derivePatternMetadata } from '../patterns'
 import { REDIRECT_FIELDS } from '../schema'
 import { createRedirectService, type RedirectService } from '../service'
+import { mutationError } from './errors'
+import { GRAPH_FIELDS, type RedirectMutationPayload } from './fields'
 import { currentMutationSource } from './mutation-source'
-
-const GRAPH_FIELDS = [
-	'id',
-	'origin',
-	'destination',
-	'match',
-	'is_active',
-] as const satisfies readonly RedirectField[]
-const PATTERN_INTEGRITY_FIELDS = [
-	'id',
-	'match',
-	'is_active',
-	'matcher_signature',
-] as const satisfies readonly RedirectField[]
-const PROVENANCE_FIELDS = [
-	'managed_by',
-	'source_collection',
-	'source_item',
-	'source_field',
-	'source_type',
-	'inactive_reason',
-] as const satisfies readonly RedirectField[]
-type RedirectMutationPayload = Omit<
-	Partial<RedirectMutationInput>,
-	(typeof PROVENANCE_FIELDS)[number]
-> &
-	Partial<Pick<Redirect, (typeof PROVENANCE_FIELDS)[number]>>
-
-/**
- * Translates a domain or persistence failure to a Directus payload error.
- * @param error - Failure raised by validation or persistence.
- * @param collection - Configured redirect collection.
- * @returns A Directus invalid-payload error.
- */
-function mutationError(error: unknown, collection: string): Error {
-	if (isDirectusError(error)) return error
-	const message = error instanceof Error ? error.message : 'Unknown redirect validation failure.'
-	return sluggernautValidationError(
-		`Redirect mutation in "${collection}" was rejected: ${message}`,
-	)
-}
-
-/**
- * Checks whether a state is an exact redirect.
- * @param value - Redirect-like state.
- * @returns Whether the state is exact.
- */
-function isExact(value: ExactRedirectInput): boolean {
-	return value.match === 'exact'
-}
-
-/**
- * Checks whether a complete redirect state is a pattern redirect.
- * @param value - Redirect-like state.
- * @returns Whether the state is a pattern.
- */
-function isPattern(value: RedirectState | Partial<RedirectMutationInput>): boolean {
-	return value.match === 'pattern'
-}
-
-/**
- * Derives and validates pattern metadata from a complete mutation state.
- * @param value - Complete resulting redirect state.
- * @returns Derived pattern metadata.
- */
-function patternMetadata(value: RedirectState | Partial<RedirectMutationInput>) {
-	if (!isString(value.origin) || !isString(value.destination))
-		throw sluggernautValidationError(
-			'A pattern redirect requires string origin and destination values.',
-		)
-	return derivePatternMetadata(value.origin, value.destination)
-}
-
-/**
- * Validates that active pattern candidates are unique by matching semantics.
- * @param service - Configured redirect persistence service.
- * @param candidates - Complete resulting pattern states and their existing IDs.
- * @returns Nothing; rejects when an equivalent active pattern exists.
- */
-async function validatePatternIntegrity(
-	service: RedirectService,
-	candidates: readonly {
-		state: RedirectState | Partial<RedirectMutationInput>
-		id?: PrimaryKey
-	}[],
-): Promise<void> {
-	// Only active patterns participate in redirect resolution, so inactive and exact candidates
-	// cannot conflict with the matching semantics enforced here.
-	const active = candidates.filter(({ state }) => isPattern(state) && state.is_active === true)
-	if (active.length === 0) return
-
-	// Derive metadata from the complete post-mutation state rather than trusting caller-supplied
-	// fields. This gives every candidate the canonical signature used by persisted records.
-	const derived = active.map(({ state, id }) => ({
-		id,
-		metadata: patternMetadata(state),
-	}))
-	const candidateSignatures = new Set<string>()
-	for (const candidate of derived) {
-		// Detect collisions within one bulk request before querying Directus. This also prevents two
-		// new records in the same request from bypassing the persisted-record check below.
-		if (candidateSignatures.has(candidate.metadata.matcher_signature))
-			throw sluggernautIntegrityError(
-				`Multiple active patterns use matcher signature "${candidate.metadata.matcher_signature}".`,
-			)
-		candidateSignatures.add(candidate.metadata.matcher_signature)
-	}
-
-	// Query only active pattern records whose canonical signatures are candidates for collision.
-	// The narrow query keeps the check independent of unrelated redirect records and signatures.
-	const records = await service.readByQuery({
-		filter: {
-			_and: [
-				{ match: { _eq: 'pattern' } },
-				{ is_active: { _eq: true } },
-				{ matcher_signature: { _in: [...candidateSignatures.keys()] } },
-			],
-		},
-		fields: [...PATTERN_INTEGRITY_FIELDS],
-		limit: -1,
-	})
-	// An update naturally reads its own existing record back. Exclude those IDs so an unchanged
-	// pattern, or a pattern changing only its destination, is not mistaken for a duplicate.
-	const candidateIds = new Set(derived.flatMap(({ id }) => (isDefined(id) ? [String(id)] : [])))
-	for (const record of records) {
-		// Keep the defensive checks because the service boundary is typed around Directus data and
-		// may still return malformed or stale rows in a real installation.
-		if (!isDefined(record.id) || candidateIds.has(String(record.id))) continue
-		if (record.match !== 'pattern' || record.is_active !== true) continue
-		if (isString(record.matcher_signature) && candidateSignatures.has(record.matcher_signature))
-			throw sluggernautIntegrityError(
-				`An active pattern already uses matcher signature "${record.matcher_signature}".`,
-			)
-	}
-}
+import { patternMetadata, validatePatternIntegrity } from './pattern-integrity'
+import { exactInput, isExact, isPattern } from './state'
 
 /**
  * Builds the exact fields required by the domain API.
  * @param value - Redirect-like state.
  * @returns Exact redirect input fields.
  */
-function exactInput(
-	value: Redirect | Partial<RedirectMutationInput> | RawRedirectMutationInput,
-): ExactRedirectInput {
-	const exact: ExactRedirectInput = {
-		origin: value.origin,
-		destination: value.destination,
-		match: value.match,
-		is_active: value.is_active,
-	}
-	if ('id' in value && isPrimaryKey(value.id)) exact.id = value.id
-	return exact
-}
 
 /**
  * Applies normalized path values to fields explicitly supplied by the caller.
