@@ -373,7 +373,11 @@ export function createCoolifyDeploymentClient(
 					{ skip: 0, take: DASHBOARD_DEPLOYMENT_LIMIT },
 				)
 				for (const deployment of deployments)
-					recent.set(deployment.deploymentUuid, deployment)
+					recent.set(deployment.deploymentUuid, {
+						...deployment,
+						// Coolify may return its internal numeric application_id here instead of the UUID.
+						coolifyApplicationId: application.application_uuid,
+					})
 			}
 		}
 

@@ -335,7 +335,10 @@ describe('Coolify deployment client', () => {
 			createClient().listDashboardDeployments(configuredApplications),
 		).resolves.toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ deploymentUuid: 'recent-deployment' }),
+				expect.objectContaining({
+					deploymentUuid: 'recent-deployment',
+					coolifyApplicationId: 'application-1',
+				}),
 				expect.objectContaining({ deploymentUuid: 'active-deployment' }),
 			]),
 		)

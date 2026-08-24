@@ -37,10 +37,10 @@ const load = async () => {
 	canTriggerDeployments.value = false
 	page.value = 1
 	try {
-		canTriggerDeployments.value = await api.canTriggerDeployments()
-		const applications = await api.listApplications()
+		const dashboard = await api.getDashboard()
+		canTriggerDeployments.value = dashboard.canTriggerDeployments
 		application.value =
-			applications.find(
+			dashboard.applications.find(
 				(item) => item.directusApplicationId === props.directusApplicationId,
 			) ?? null
 		deployments.value = await api.listDeployments(props.directusApplicationId)
@@ -110,8 +110,10 @@ watch(
 					v-if="canTriggerDeployments"
 					:loading="loading"
 					@click="showDeployConfirmation = true"
-					><v-icon name="rocket_launch" /> Deploy</v-button
 				>
+					Deploy
+					<v-icon name="rocket_launch" style="margin-left: 5px" />
+				</v-button>
 			</div>
 		</template>
 		<v-dialog v-model="showDeployConfirmation">
@@ -140,8 +142,8 @@ watch(
 				<div class="metadata-panel">
 					<div class="metadata">
 						<div>
-							<span><v-icon name="public" small /> Application URL</span
-							><a
+							<span><v-icon name="public" small /> Application URL</span>
+							<a
 								v-if="application.url"
 								:href="application.url"
 								target="_blank"

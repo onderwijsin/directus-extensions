@@ -81,4 +81,20 @@ describe('useCoolifyDeploymentsApi', () => {
 		expect(initial).toBe(5000)
 		expect(api.getPollingInterval()).toBe(250)
 	})
+
+	it('loads the dashboard projection for application-view permissions', async () => {
+		mocks.api.get.mockResolvedValueOnce({
+			data: {
+				applications: [],
+				current: [],
+				recent: [],
+				canTriggerDeployments: true,
+			},
+			headers: {},
+		})
+		await expect(useCoolifyDeploymentsApi().getDashboard()).resolves.toMatchObject({
+			canTriggerDeployments: true,
+		})
+		expect(mocks.api.get).toHaveBeenCalledWith('/coolify-deployments/dashboard')
+	})
 })

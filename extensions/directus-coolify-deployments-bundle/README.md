@@ -345,7 +345,10 @@ the authenticated Directus endpoint and never exposes the Coolify token. The das
 `GET /coolify-deployments/dashboard`, which returns application summaries plus bounded active and
 recent deployment data in one response. Dashboard and detail polling never overlap, pause while the
 tab is hidden, preserve rendered data during refresh, and use a slower 30-second cadence when no
-deployment is active. The create-permission lookup is cached for the Studio session.
+deployment is active. The create-permission lookup is cached for the Studio session. Recent
+deployments returned by Coolify's per-application endpoint are associated with the configured
+application before they are displayed, including when Coolify supplies an internal application ID in
+the response. Empty recent history is shown in a contained soft card.
 
 ## Flow operation
 

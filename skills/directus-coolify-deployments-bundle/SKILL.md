@@ -301,7 +301,8 @@ dashboard response contains bounded active/recent deployment data, so the dashbo
 full application histories. Polling is serialized, paused while the tab is hidden, preserves
 rendered data during refresh, and slows to 30 seconds when no deployment is active. The create
 permission check is cached for the Studio session. The application history route remains the
-full-history endpoint.
+full-history endpoint. The dashboard maps per-application Coolify results back to the configured
+application UUID before rendering them, and empty recent history is shown in a contained soft card.
 
 ### Startup hook: `coolify-deployments-hook`
 
