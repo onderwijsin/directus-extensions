@@ -63,15 +63,19 @@ export function normalizeExactRedirectDestination(value: unknown): ExactRedirect
 				'An external redirect destination must be an absolute URL with a host.',
 			)
 		}
+		let parsed: URL
 		try {
-			const parsed = new URL(input)
-			if (!parsed.hostname)
-				throw sluggernautValidationError(
-					'An external redirect destination is missing a host.',
-				)
+			parsed = new URL(input)
 		} catch {
 			throw sluggernautValidationError(
 				'An external redirect destination must be a valid absolute URL.',
+			)
+		}
+		if (!parsed.hostname)
+			throw sluggernautValidationError('An external redirect destination is missing a host.')
+		if (parsed.username !== '' || parsed.password !== '') {
+			throw sluggernautValidationError(
+				'External redirect destinations must not contain URL credentials.',
 			)
 		}
 		return { kind: 'external', value: input }

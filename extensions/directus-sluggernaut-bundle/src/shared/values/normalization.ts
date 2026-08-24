@@ -116,6 +116,16 @@ export function deriveSlug(
 	return normalizeSlug(combinePermalinkSourceValues(sourceValues), locale, lowercase)
 }
 
+/** Rejects percent characters that do not begin a valid percent-encoded byte.
+ * @param value - Value to inspect.
+ * @returns Nothing when the value is valid.
+ */
+function assertValidPercentEncoding(value: string): void {
+	if (/%(?![0-9a-f]{2})/iu.test(value)) {
+		throw sluggernautValidationError('A permalink contains invalid percent encoding.')
+	}
+}
+
 /**
  * Validates and normalizes an absolute URL path. This intentionally does not accept a host.
  * @param value - Candidate permalink value.
@@ -127,6 +137,7 @@ export function normalizePermalink(value: string | null | undefined): string | n
 
 	const path = value.trim()
 	let decodedPath = path
+	assertValidPercentEncoding(decodedPath)
 	for (let layer = 0; layer < 8 && /%[0-9a-f]{2}/iu.test(decodedPath); layer += 1) {
 		let nextPath: string
 		try {
@@ -134,6 +145,7 @@ export function normalizePermalink(value: string | null | undefined): string | n
 		} catch {
 			throw sluggernautValidationError('A permalink contains invalid percent encoding.')
 		}
+		assertValidPercentEncoding(nextPath)
 		if (nextPath === decodedPath) break
 		decodedPath = nextPath
 	}
