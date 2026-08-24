@@ -416,7 +416,7 @@ describe('Sluggernaut Directus integration', () => {
 		}
 	})
 
-	it.skip('leaves a consistent item and redirect state after concurrent updates', async () => {
+	it('rejects one concurrent update and leaves consistent item and redirect state', async () => {
 		const fixture = await createSluggernautCollection()
 		let itemId: string | undefined
 		try {
@@ -424,7 +424,7 @@ describe('Sluggernaut Directus integration', () => {
 				createItem(fixture.collection, { title: 'Concurrent Start' }),
 			)
 			itemId = String(created.id)
-			await Promise.all([
+			const results = await Promise.allSettled([
 				client.request(
 					updateItem(fixture.collection, created.id, { title: 'Concurrent Alpha' }),
 				),
@@ -432,6 +432,8 @@ describe('Sluggernaut Directus integration', () => {
 					updateItem(fixture.collection, created.id, { title: 'Concurrent Beta' }),
 				),
 			])
+			expect(results.filter(({ status }) => status === 'fulfilled')).toHaveLength(1)
+			expect(results.filter(({ status }) => status === 'rejected')).toHaveLength(1)
 
 			const [item] = await client.request(
 				readItems(fixture.collection, {
@@ -446,8 +448,23 @@ describe('Sluggernaut Directus integration', () => {
 
 			const redirects = await readRedirects(fixture.collection, itemId)
 			expect(redirects.filter(({ is_active }) => is_active)).toEqual([
-				expect.objectContaining({ destination: item?.permalink }),
+				expect.objectContaining({
+					origin: '/articles/concurrent-start',
+					destination: item?.permalink,
+					managed_by: 'sluggernaut',
+				}),
 			])
+
+			const activeOriginMatches = await readRedirectQuery({
+				filter: {
+					_and: [
+						{ origin: { _eq: '/articles/concurrent-start' } },
+						{ match: { _eq: 'exact' } },
+						{ is_active: { _eq: true } },
+					],
+				},
+			})
+			expect(activeOriginMatches).toHaveLength(1)
 		} finally {
 			if (itemId)
 				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)
@@ -845,23 +862,29 @@ describe('Sluggernaut Directus integration', () => {
 				createItem(fixture.collection, { title: 'Rapid Zero' }),
 			)
 			itemId = String(item.id)
-			await Promise.all(
+			const results = await Promise.allSettled(
 				['Rapid One', 'Rapid Two', 'Rapid Three'].map((title) =>
 					client.request(updateItem(fixture.collection, item.id, { title })),
 				),
 			)
+			expect(results.some(({ status }) => status === 'fulfilled')).toBe(true)
 			const [stored] = await client.request(
 				readItems(fixture.collection, {
 					filter: { id: { _eq: item.id } },
 					fields: ['title', 'slug', 'permalink'],
 				}),
 			)
+			expect(stored?.title).toMatch(/^Rapid (One|Two|Three)$/u)
 			expect(stored?.slug).toBe(String(stored?.title).toLowerCase().replaceAll(' ', '-'))
-			expect(
-				(await readRedirects(fixture.collection, itemId))
-					.filter(({ is_active }) => is_active)
-					.every(({ origin, destination }) => origin !== destination),
-			).toBe(true)
+			const activeRedirects = (await readRedirects(fixture.collection, itemId)).filter(
+				({ is_active }) => is_active,
+			)
+			expect(activeRedirects.every(({ origin, destination }) => origin !== destination)).toBe(
+				true,
+			)
+			expect(new Set(activeRedirects.map(({ origin }) => origin)).size).toBe(
+				activeRedirects.length,
+			)
 		} finally {
 			if (itemId)
 				await client.request(deleteItem(fixture.collection, itemId)).catch(() => undefined)

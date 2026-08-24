@@ -76,6 +76,11 @@ The local and E2E Compose stacks mount the magic-links bundle template directory
 different extension checkout, override `DIRECTUS_E2E_EMAIL_TEMPLATES_DIR` with the corresponding
 host template directory.
 
+The Compose stacks use a two-phase migration lifecycle for collection-dependent migrations. They
+bootstrap from `migrations-bootstrap/`, start Directus so extensions can provision their
+collections, and then apply the full `migrations/` path. Do not add a migration that targets an
+extension-created collection to the bootstrap path.
+
 ## E2E lifecycle
 
 ```text
@@ -96,6 +101,17 @@ Run it with:
 
 ```sh
 pnpm test:e2e
+```
+
+The E2E runner applies the full repository migration path after Directus becomes healthy and before
+Vitest starts. This is required for the Sluggernaut concurrency tests because the redirect
+collection is created by `ensureDirectusSchema` during extension startup.
+
+For local Compose development, `pnpm compose:up` performs the bootstrap phase. After Directus has
+started, apply collection-dependent migrations explicitly:
+
+```sh
+pnpm compose:migrate
 ```
 
 The runner does not collect Compose logs. Inspect a running stack manually with

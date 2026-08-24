@@ -112,9 +112,12 @@ Directus uses the project URL, project ID, and license key together when activat
 `directus_settings.project_id` is missing, Directus assigns a new ID during startup. That would make
 repeated local or E2E runs look like new projects and could consume additional license activations.
 
-The shared Compose service mounts the repository migration at `/directus/migrations`, so startup
-seeds `directus_settings.id = 1` with a stable project ID for both environments. Reusing that ID is
-safe because local development and E2E use different `PUBLIC_URL` values.
+The shared Compose service mounts the full repository migrations at `/directus/migrations` and a
+bootstrap-only path at `/directus/migrations-bootstrap`. Startup uses the bootstrap path so
+collection-dependent migrations do not run before extensions provision their schema. The bootstrap
+path reuses the project-settings migration, so startup still seeds `directus_settings.id = 1` with a
+stable project ID for both environments. Reusing that ID is safe because local development and E2E
+use different `PUBLIC_URL` values.
 
 ## External and Directus validation
 

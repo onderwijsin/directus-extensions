@@ -314,15 +314,9 @@ unmanaged conflict and log a warning.
 When the bundle provisions the redirect collection, the provenance and lifecycle fields
 (`managed_by`, `source_collection`, `source_item`, `source_field`, `source_type`, and
 `inactive_reason`, `specificity`, and `matcher_signature`) are read-only and maintained by
-Sluggernaut. The automatic history planner includes exact-match records only. Direct pattern records
-support named parameters (`/legacy/:slug`), optional parameters (`/:slug?`), one wildcard
-(`/files/*` or `/files/*?`), and simple parameter suffixes (`/files/:name.pdf`). Pattern
-destinations are path-only templates backed by origin captures, and pattern records are always
-unmanaged/manual. Pattern origins may contain at most 20 slash-separated segments so specificity
-remains lossless in the 64-bit field; derived matcher signatures are stored in a 512-character
-field. Specificity and matcher signatures are derived on create and structural update. Redirect
-reads without an explicit sort use exact records first, then pattern specificity descending, then
-`id` ascending; an explicit sort is preserved unchanged.
+Sluggernaut. The automatic history planner includes exact-match records only. Redirect reads without
+an explicit sort use exact records first, then pattern specificity descending, then `id` ascending;
+an explicit sort is preserved unchanged.
 
 On source deletion, managed records are deactivated with `inactive_reason=deleted`. When a Directus
 archive field transitions to its archive value, records are deactivated with
@@ -347,12 +341,49 @@ External structural edits to a managed redirect clear its provenance, while oper
 preserve it. Sluggernaut-generated history writes bypass ownership transfer and use the existing
 history planner for structural graph coordination while still receiving local exact validation.
 Pattern redirects remain outside exact graph validation. These application-level checks are best
-effort under concurrent writes; the bundle adds no database uniqueness constraint or distributed
-lock and does not promise rollback for `updateMany` beyond Directus' own transaction behavior.
-Direct redirect failures use Directus errors: `SLUGGERNAUT_VALIDATION` (`400`) for invalid consumer
-input and `SLUGGERNAUT_INTEGRITY` (`409`) for active redirect conflicts. A missing/incompatible
-enabled collection is not silently accepted for direct writes. Unexpected configuration and internal
-failures use `SLUGGERNAUT_CONFIGURATION` or `SLUGGERNAUT_INTERNAL` (`500`).
+effort under concurrent writes; use the database migration below when database-level enforcement is
+required. The bundle does not promise rollback for `updateMany` beyond Directus' own transaction
+behavior. Direct redirect failures use Directus errors: `SLUGGERNAUT_VALIDATION` (`400`) for invalid
+consumer input and `SLUGGERNAUT_INTEGRITY` (`409`) for active redirect conflicts. A
+missing/incompatible enabled collection is not silently accepted for direct writes. Unexpected
+configuration and internal failures use `SLUGGERNAUT_CONFIGURATION` or `SLUGGERNAUT_INTERNAL`
+(`500`).
+
+### Database constraints
+
+Application-level validation cannot guarantee redirect integrity when concurrent requests, workers,
+imports, or other processes write to the same collection. If duplicate active redirect matches must
+be prevented in those scenarios, the invariant must also be enforced at database level.
+
+Copy the
+[Sluggernaut redirect integrity migration template](../../migrations/20260824A-sluggernaut-redirect-integrity.js)
+into the consuming project's Directus `migrations/` directory and run it through the normal Directus
+migration pipeline. Replace the template's `redirects` table name if
+`SLUGGERNAUT_REDIRECTS_COLLECTION` is customized. The migration validates existing data before
+creating database structures and stops when duplicate rows or missing pattern signatures require
+manual repair.
+
+### Fresh installations
+
+The migration requires the redirect collection to exist. Directus runs custom migrations during
+bootstrap before API extensions start, so keep this migration out of the active `MIGRATIONS_PATH`
+for the first bootstrap of a new project:
+
+1. Start Directus with `SLUGGERNAUT_SCHEMA_CHANGES_ENABLED=true` and without the integrity migration
+   in the active migration path.
+2. Wait for Directus to start once so Sluggernaut can provision the redirect collection.
+3. Add the integrity migration to the active `migrations/` directory.
+4. Restart Directus, or run `directus database migrate:latest`, to apply the constraints.
+
+When schema provisioning is disabled, apply the redirect collection schema through the project's
+normal Directus schema/snapshot workflow before running this migration. Existing installations with
+an already provisioned redirect collection can install the migration before their next migration
+run.
+
+The template supports PostgreSQL, MySQL, and SQLite. It adds uniqueness for active exact origins and
+active pattern matcher signatures. For any other database provider, translate the migration into
+equivalent SQL supported by that provider. Sluggernaut deliberately does not apply this migration
+from extension startup.
 
 Sluggernaut does not serve these records. A redirect consumer should at minimum filter
 `is_active=true`, honor `start_date`/`end_date`, and return the stored `type` and `destination`.
@@ -396,6 +427,59 @@ named parameters (`:slug`), optional parameters (`:slug?`), one wildcard (`*` or
 parameter suffixes such as `:name.pdf`. Query strings, fragments, hosts, dot segments, and
 unsupported pattern syntax are rejected. Sluggernaut derives `specificity` and `matcher_signature`;
 consumers should not write those fields.
+
+## Manual redirects
+
+Manual redirects are created directly in the configured redirect collection and are not owned by
+Sluggernaut. They can be exact or pattern redirects. Manual writes still pass server-side
+normalization and integrity validation, including duplicate active exact origins, cycles, and
+pattern matcher conflicts.
+
+Example exact manual redirect:
+
+```http
+POST /items/redirects
+Content-Type: application/json
+
+{
+  "origin": "/old-news",
+  "destination": "/news/summer-news",
+  "type": 301,
+  "match": "exact",
+  "is_active": true
+}
+```
+
+Manual redirects are not rewritten by canonical history processing. A redirect consumer should
+filter `is_active=true`, honor `start_date`/`end_date`, and return the stored `type` and
+`destination`.
+
+## Pattern matching
+
+Pattern redirects use `match=pattern` and are intended for manual redirect rules. Supported origin
+syntax includes named parameters (`:slug`), optional parameters (`:slug?`), one wildcard (`*` or
+`*?`), and simple parameter suffixes such as `:name.pdf`. Destinations may interpolate only captures
+declared by the origin.
+
+Pattern origins may contain at most 20 slash-separated segments. Sluggernaut derives the read-only
+`specificity` and `matcher_signature` fields. Equivalent active patterns are rejected by their
+matcher signature, even when parameter names differ. Query strings, fragments, hosts, dot segments,
+and unsupported pattern syntax are rejected.
+
+Example pattern redirect:
+
+```http
+POST /items/redirects
+Content-Type: application/json
+
+{
+  "origin": "/legacy/:slug",
+  "destination": "/articles/:slug",
+  "type": 301,
+  "match": "pattern",
+  "is_active": true
+}
+```
 
 ## Recalculation operation
 
