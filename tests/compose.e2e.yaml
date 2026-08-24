@@ -34,7 +34,6 @@ services:
   garage-init:
     volumes:
       - directus-extensions-e2e-garage-meta:/var/lib/garage/meta:ro
-      - ../docker/garage-init.sh:/usr/local/bin/garage-init.sh:ro
 
   meilisearch:
     volumes:

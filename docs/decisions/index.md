@@ -15,6 +15,7 @@ They are binding for the feature they cover until explicitly revisited.
 | [Magic-link architecture and security boundaries](magic-links-architecture-and-security-boundaries.md) | Accepted | Passwordless authentication endpoints and token security  |
 | [Provide a custom typed `defineHook`](custom-define-hook-types.md)                                     | Accepted | Directus API hook typing and package runtime boundaries   |
 | [Use async-local mutation source context](async-local-mutation-source.md)                              | Accepted | Sluggernaut nested redirect-history mutations             |
+| [Use a custom image for Garage initialization](custom-garage-init-image.md)                            | Accepted | Local and E2E Compose Garage initialization               |
 
 ## Create or revisit a decision
 

@@ -162,7 +162,7 @@ services:
       - backend
 
   garage:
-    image: dxflrs/garage:v2.3.0
+    image: dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690
     restart: unless-stopped
     configs:
       - source: garage-config
@@ -172,7 +172,9 @@ services:
       - backend
 
   garage-init:
-    image: alpine:3.22
+    build:
+      context: ..
+      dockerfile: docker/garage-init.Dockerfile
     restart: 'no'
     depends_on:
       garage:
@@ -186,12 +188,11 @@ services:
       STORAGE_REGION: ${STORAGE_REGION:-garage}
       GARAGE_ACCESS_KEY_ID: ${GARAGE_ACCESS_KEY_ID:-directus}
       GARAGE_SECRET_ACCESS_KEY: ${GARAGE_SECRET_ACCESS_KEY:-directus-development-secret}
-    command: ['/bin/sh', '/usr/local/bin/garage-init.sh']
     networks:
       - backend
 
   meilisearch:
-    image: getmeili/meilisearch:v1.15.2
+    image: getmeili/meilisearch:v1.53.0
     restart: unless-stopped
     environment:
       MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-development-meilisearch-key}
