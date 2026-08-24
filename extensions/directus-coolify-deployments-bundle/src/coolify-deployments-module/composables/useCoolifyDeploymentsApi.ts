@@ -1,4 +1,4 @@
-import type { ApplicationSummary, DeploymentSummary } from '../types'
+import type { ApplicationSummary, DashboardSummary, DeploymentSummary } from '../types'
 
 import { shallowRef } from 'vue'
 
@@ -40,6 +40,7 @@ const updateApplicationsCollection = (headers: Record<string, unknown>) => {
 export function useCoolifyDeploymentsApi() {
 	const api = useApi()
 	const base = '/coolify-deployments/applications'
+	let cachedCanCreateApplicationsPromise: Promise<boolean> | undefined
 	/**
 	 * Execute an API request and update the shared polling interval from its response headers.
 	 * @param operation - API request operation.
@@ -77,10 +78,24 @@ export function useCoolifyDeploymentsApi() {
 				data?: Record<string, { create?: { access?: string } }>
 			}>('/permissions/me'),
 		)
-
 		const access = data?.data.data?.[applicationsCollection.value]?.create?.access
 		return access === 'full' || access === 'partial'
 	}
+	/**
+	 * Read create access once for the lifetime of this Studio view.
+	 * @returns Whether the current user can create applications.
+	 */
+	const getCachedCanCreateApplications = async (): Promise<boolean> => {
+		cachedCanCreateApplicationsPromise ??= canCreateApplications()
+		return cachedCanCreateApplicationsPromise
+	}
+
+	/**
+	 * Fetch the complete dashboard projection in one Directus request.
+	 * @returns Dashboard applications, active/recent deployments, and trigger access.
+	 */
+	const getDashboard = async (): Promise<DashboardSummary> =>
+		request(() => api.get<DashboardSummary>('/coolify-deployments/dashboard'))
 
 	/**
 	 * Check whether the current user can trigger deployments.
@@ -158,10 +173,12 @@ export function useCoolifyDeploymentsApi() {
 	return {
 		cancelDeployment,
 		canCreateApplications,
+		getCachedCanCreateApplications,
 		canTriggerDeployments,
 		deploy,
 		getDeployment,
 		listApplications,
+		getDashboard,
 		listDeployments,
 		getPollingInterval,
 		getApplicationsCollection,

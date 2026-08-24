@@ -113,6 +113,7 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-true}
       # Bootstrap migrations must not include collection-dependent migrations. Extensions provision
       # their collections after bootstrap; the full migration path is applied afterwards when needed.
+      # MIGRATIONS_PATH: /directus/migrations-bootstrap
       MIGRATIONS_PATH: /directus/migrations-bootstrap
 
       # Email

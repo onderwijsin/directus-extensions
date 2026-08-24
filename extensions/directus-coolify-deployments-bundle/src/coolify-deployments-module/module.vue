@@ -18,7 +18,10 @@ const recent = shallowRef<DeploymentSummary[]>([])
 const canCreateApplications = shallowRef(false)
 const loading = shallowRef(true)
 const error = shallowRef<string | null>(null)
-let poller: ReturnType<typeof setInterval> | undefined
+let poller: ReturnType<typeof setTimeout> | undefined
+let requestInFlight = false
+let requestSequence = 0
+let disposed = false
 const applicationCreatePath = computed(
 	() => `/content/${encodeURIComponent(api.getApplicationsCollection())}/+`,
 )
@@ -28,50 +31,64 @@ const applicationCreatePath = computed(
  * @returns Nothing.
  */
 const load = async () => {
+	if (requestInFlight) return
+	requestInFlight = true
+	const sequence = ++requestSequence
 	try {
-		applications.value = await api.listApplications()
-		canCreateApplications.value = await api.canCreateApplications()
-		const deployments = await Promise.all(
-			applications.value.map((application) =>
-				api.listDeployments(application.directusApplicationId),
-			),
-		)
-		const allDeployments = deployments.flat()
-		const applicationById = new Map(
-			applications.value.map((application) => [
-				application.directusApplicationId,
-				application,
-			]),
-		)
-		const enrichedDeployments = allDeployments.map((deployment) => ({
-			...deployment,
-			applicationName: applicationById.get(deployment.directusApplicationId)?.name ?? null,
-			environmentName:
-				applicationById.get(deployment.directusApplicationId)?.environmentName ?? null,
-		}))
-		current.value = enrichedDeployments.filter((deployment) =>
-			['queued', 'building'].includes(deployment.status),
-		)
-		recent.value = [...enrichedDeployments]
-			.sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''))
-			.slice(0, 10)
+		const [dashboard, canCreate] = await Promise.all([
+			api.getDashboard(),
+			api.getCachedCanCreateApplications(),
+		])
+		if (sequence !== requestSequence) return
+		applications.value = dashboard.applications
+		current.value = dashboard.current
+		recent.value = dashboard.recent
+		canCreateApplications.value = canCreate
 		error.value = null
 	} catch (caughtError) {
 		error.value =
 			caughtError instanceof Error ? caughtError.message : 'Unable to load deployments'
 	} finally {
 		loading.value = false
+		requestInFlight = false
+		if (!disposed && !document.hidden && !poller) {
+			poller = setTimeout(
+				() => {
+					poller = undefined
+					void load()
+				},
+				current.value.length > 0 ? api.getPollingInterval() : 30_000,
+			)
+		}
+	}
+}
+
+/**
+ * Pause polling while the document is hidden and refresh when it becomes visible.
+ * @returns Nothing.
+ */
+const onVisibilityChange = () => {
+	if (document.hidden) {
+		if (poller) clearTimeout(poller)
+		poller = undefined
+	} else if (!requestInFlight) {
+		void load()
 	}
 }
 
 onMounted(() => {
+	disposed = false
 	void (async () => {
+		document.addEventListener('visibilitychange', onVisibilityChange)
 		await load()
-		poller = setInterval(() => void load(), api.getPollingInterval())
 	})()
 })
 onUnmounted(() => {
-	if (poller) clearInterval(poller)
+	disposed = true
+	document.removeEventListener('visibilitychange', onVisibilityChange)
+	if (poller) clearTimeout(poller)
+	poller = undefined
+	requestSequence += 1
 })
 </script>
 

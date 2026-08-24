@@ -314,6 +314,41 @@ describe('Coolify deployment client', () => {
 		})
 	})
 
+	it('bounds dashboard history and merges running deployments', async () => {
+		const recent = {
+			application_id: 'application-1',
+			deployment_uuid: 'recent-deployment',
+			status: 'finished',
+			created_at: '2026-08-20T10:00:00Z',
+		}
+		const active = {
+			application_id: 'application-1',
+			deployment_uuid: 'active-deployment',
+			status: 'running',
+			created_at: '2026-08-19T10:00:00Z',
+		}
+		mocks.request
+			.mockResolvedValueOnce(jsonResponse({ count: 1000, deployments: [recent] }))
+			.mockResolvedValueOnce(jsonResponse([active]))
+
+		await expect(
+			createClient().listDashboardDeployments(configuredApplications),
+		).resolves.toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ deploymentUuid: 'recent-deployment' }),
+				expect.objectContaining({ deploymentUuid: 'active-deployment' }),
+			]),
+		)
+		expect(mocks.request).toHaveBeenNthCalledWith(
+			1,
+			'/deployments/applications/application-1',
+			{
+				query: { skip: 0, take: 10 },
+			},
+		)
+		expect(mocks.request).toHaveBeenNthCalledWith(2, '/deployments', { query: undefined })
+	})
+
 	it('filters list responses and rejects unallow-listed single-record operations', async () => {
 		mocks.request.mockImplementationOnce(() =>
 			jsonResponse([

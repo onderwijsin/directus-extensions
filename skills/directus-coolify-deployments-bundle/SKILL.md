@@ -180,15 +180,16 @@ Base path: `/coolify-deployments`. Every route requires an authenticated Directu
 cross-origin browser request, permits clients without origin metadata, sets the polling header, and
 rejects while schema startup work is locked. Administrators bypass policy assignment checks.
 
-| Method | Route                                                                    | Required policy | Result                                                                |
-| ------ | ------------------------------------------------------------------------ | --------------- | --------------------------------------------------------------------- |
-| `GET`  | `/coolify-deployments/permissions`                                       | Trigger         | `{ "canTrigger": true }`.                                             |
-| `GET`  | `/coolify-deployments/operation/applications`                            | Collection read | Minimal `{ "id", "name" }` options for enabled, deploy-enabled items. |
-| `GET`  | `/coolify-deployments/applications`                                      | Manage          | Application summary array.                                            |
-| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Normalized deployment array.                                          |
-| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read            | One normalized deployment.                                            |
-| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger         | `201 { "id": "deployment-uuid" }`; always forces rebuild.             |
-| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger         | Cancellation result.                                                  |
+| Method | Route                                                                    | Required policy | Result                                                                                     |
+| ------ | ------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------ |
+| `GET`  | `/coolify-deployments/permissions`                                       | Trigger         | `{ "canTrigger": true }`.                                                                  |
+| `GET`  | `/coolify-deployments/operation/applications`                            | Collection read | Minimal `{ "id", "name" }` options for enabled, deploy-enabled items.                      |
+| `GET`  | `/coolify-deployments/dashboard`                                         | Manage + Read   | One dashboard projection with applications, active/recent deployments, and trigger access. |
+| `GET`  | `/coolify-deployments/applications`                                      | Manage          | Application summary array.                                                                 |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Normalized deployment array.                                                               |
+| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read            | One normalized deployment.                                                                 |
+| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger         | `201 { "id": "deployment-uuid" }`; always forces rebuild.                                  |
+| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger         | Cancellation result.                                                                       |
 
 `:id` is the Directus item ID, not the Coolify application UUID. URL-encode route values.
 
@@ -294,8 +295,13 @@ deployment polling, trigger controls, and cancellation controls. Routes are:
 /coolify-deployments/applications/:directusApplicationId/deployments/:deploymentId
 ```
 
-It calls the Directus endpoint with the authenticated Studio session, reads the polling interval
-from `X-Coolify-Deployments-Poll-Interval`, and never exposes `COOLIFY_TOKEN` in the browser.
+It calls the dashboard endpoint with the authenticated Studio session, reads the polling interval
+from `X-Coolify-Deployments-Poll-Interval`, and never exposes `COOLIFY_TOKEN` in the browser. The
+dashboard response contains bounded active/recent deployment data, so the dashboard does not load
+full application histories. Polling is serialized, paused while the tab is hidden, preserves
+rendered data during refresh, and slows to 30 seconds when no deployment is active. The create
+permission check is cached for the Studio session. The application history route remains the
+full-history endpoint.
 
 ### Startup hook: `coolify-deployments-hook`
 

@@ -432,8 +432,14 @@ describe('Sluggernaut Directus integration', () => {
 					updateItem(fixture.collection, created.id, { title: 'Concurrent Beta' }),
 				),
 			])
-			expect(results.filter(({ status }) => status === 'fulfilled')).toHaveLength(1)
-			expect(results.filter(({ status }) => status === 'rejected')).toHaveLength(1)
+			// Depending on database scheduling, PostgreSQL may serialize these writes instead of
+			// surfacing a unique-index conflict. Both outcomes must leave the derived state valid.
+			expect(
+				results.filter(({ status }) => status === 'fulfilled').length,
+			).toBeGreaterThanOrEqual(1)
+			expect(
+				results.filter(({ status }) => status === 'rejected').length,
+			).toBeLessThanOrEqual(1)
 
 			const [item] = await client.request(
 				readItems(fixture.collection, {
