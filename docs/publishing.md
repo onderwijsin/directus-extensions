@@ -84,6 +84,14 @@ publishes only versions included in the release and not already present on npm. 
 create package-specific Git tags and GitHub Releases. Re-running the workflow skips versions and
 GitHub Releases that already exist.
 
+The publish workflow configures npm authentication through `actions/setup-node` and passes the
+`NPM_TOKEN` secret as `NODE_AUTH_TOKEN` to the publishing step. Keep `NPM_TOKEN` configured as a
+GitHub Actions secret; the token must be allowed to publish the `@onderwijsin` scope and, when npm
+account 2FA requires it, be a granular access token with publish access and 2FA bypass. A missing or
+unauthorized token can appear as a `404 Not Found` on the scoped npm `PUT` request rather than as an
+explicit authentication error. Keep registry credentials out of the committed project `.npmrc`; pnpm
+deliberately does not expand environment-variable credentials there.
+
 The release workflow sends the published package list to the Slack notification workflow. Slack
 notifications require `ONDERWIJSIN_SLACK_APP_OAUTH_TOKEN` and `SLACK_DEPLOYMENTS_CHANNEL_ID`.
 
