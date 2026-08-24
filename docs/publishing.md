@@ -32,6 +32,18 @@ release note. Commit the generated `.changeset/<name>.md` file with the code cha
 posts the proposed release impact on the pull request. Documentation-only, CI-only, and private
 workspace changes do not need a Changeset.
 
+### Private workspace packages
+
+Changesets are only for packages that will be published to npm. Check the target package's
+`package.json` before creating one. Private workspace packages—such as
+`@onderwijsin/directus-extension-e2e-playground` and the test utilities—are excluded from versioning
+by `.changeset/config.json` and must not have `.changeset/*.md` files targeting them.
+
+A private-only Changeset is not harmless: Changesets can detect it as pending while producing no
+package version changes, which creates an empty `Version Packages` pull request and interrupts the
+release flow. For private-package, test-only, CI-only, or documentation-only work, leave the
+Changeset directory unchanged.
+
 Use one Changeset file per concern. Do not combine unrelated package changes into one release note,
 even when they affect the same package or use the same release level.
 
