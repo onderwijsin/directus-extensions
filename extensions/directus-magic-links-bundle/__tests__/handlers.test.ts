@@ -1,6 +1,6 @@
 import type { MagicLinksEnv } from '../src/magic-links-endpoint/env.schema'
 
-import { InvalidCredentialsError, InvalidOtpError } from '@directus/errors'
+import { InternalServerError, InvalidCredentialsError, InvalidOtpError } from '@directus/errors'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -474,7 +474,7 @@ describe('magic-link handlers', () => {
 		}
 
 		await expect(runRedeem(input)).rejects.toBeInstanceOf(InvalidOtpError)
-		await expect(runRedeem(input)).rejects.toThrow('rate limited')
+		await expect(runRedeem(input)).rejects.toBeInstanceOf(InternalServerError)
 		expect(verifyOTP).toHaveBeenCalledOnce()
 	})
 

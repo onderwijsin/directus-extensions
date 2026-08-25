@@ -1,3 +1,4 @@
+import { InternalServerError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
 import {
 	extensionSetup,
@@ -26,7 +27,7 @@ export default defineEndpoint((router, { env, logger }) => {
 	setup.start()
 
 	router.get('/', () => {
-		throw new Error('Intentional back end error for Sentry test')
+		throw new InternalServerError()
 	})
 
 	setup.end()

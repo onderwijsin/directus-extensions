@@ -12,7 +12,7 @@ import type {
 import type { CoolifyDeploymentClient } from './types'
 import type { DirectusCoolifyApplication } from './types'
 
-import { ForbiddenError } from '@directus/errors'
+import { ForbiddenError, InternalServerError } from '@directus/errors'
 import { initializeCache, withCache } from '@onderwijsin/directus-extension-utils/server'
 import { ofetch } from 'ofetch'
 
@@ -87,8 +87,7 @@ export function createCoolifyDeploymentClient(
 				key: CONFIGURED_APPLICATIONS_CACHE_KEY,
 			},
 			async () => {
-				if (!context)
-					throw new Error('Directus context is required to list configured applications')
+				if (!context) throw new InternalServerError()
 
 				const applications = await new context.services.ItemsService<
 					DirectusCoolifyApplication & { id: string }
@@ -112,8 +111,7 @@ export function createCoolifyDeploymentClient(
 	const listConfiguredApplication = async ({
 		bypassCache = false,
 	}: { bypassCache?: boolean } = {}): Promise<DirectusCoolifyApplication[]> => {
-		if (!context)
-			throw new Error('Directus context is required to list configured applications')
+		if (!context) throw new InternalServerError()
 
 		if (bypassCache) {
 			await cache?.delete(CONFIGURED_APPLICATIONS_CACHE_KEY)
@@ -133,7 +131,7 @@ export function createCoolifyDeploymentClient(
 		id: string,
 		{ bypassCache = false }: { bypassCache?: boolean } = {},
 	) => {
-		if (!context) throw new Error('Directus context is required to get configured application')
+		if (!context) throw new InternalServerError()
 
 		const key = `${CONFIGURED_APPLICATIONS_CACHE_KEY}:${id}`
 		if (bypassCache) {

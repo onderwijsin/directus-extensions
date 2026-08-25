@@ -2,6 +2,7 @@ import type { Limiter } from '@directus/memory'
 import type { ApiExtensionContext } from '@directus/types'
 import type { MagicLinksEnv } from './env.schema'
 
+import { InternalServerError } from '@directus/errors'
 import { createLimiter } from '@directus/memory'
 import {
 	resolveExtensionRateLimiterStore,
@@ -55,7 +56,7 @@ export async function createMagicLinkLimiter(
 			input.options,
 			input.options.SYNCHRONIZATION_STORE,
 		)
-		if (!redisUrl) throw new Error('Redis rate limiter requires Redis configuration')
+		if (!redisUrl) throw new InternalServerError()
 		return createLimiter({
 			type: 'redis',
 			namespace: REDIS_NAMESPACE,
