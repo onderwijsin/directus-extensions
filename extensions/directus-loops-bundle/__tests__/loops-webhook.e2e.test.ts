@@ -107,7 +107,7 @@ describe('Loops webhook Flow integration', () => {
 					customEndpoint({
 						path: `/flows/trigger/${flow.id}`,
 						method: 'POST',
-						headers: { 'content-type': 'application/json', ...headers },
+						headers: { 'Content-Type': 'application/json', ...headers },
 						body,
 					}),
 				)
@@ -185,7 +185,7 @@ describe('Loops webhook Flow integration', () => {
 					path: `/flows/trigger/${flow.id}`,
 					method: 'POST',
 					headers: {
-						'content-type': 'application/json',
+						'Content-Type': 'application/json',
 						'webhook-id': webhookId,
 						'webhook-timestamp': timestamp,
 						'webhook-signature': `v1,${createSignature(webhookId, timestamp, body)}`,
@@ -265,7 +265,7 @@ describe('Loops webhook Flow integration', () => {
 					path: `/flows/trigger/${flow.id}`,
 					method: 'POST',
 					headers: {
-						'content-type': 'application/json',
+						'Content-Type': 'application/json',
 						'webhook-id': webhookId,
 						'webhook-timestamp': timestamp,
 						'webhook-signature': `v1,${signature}`,
