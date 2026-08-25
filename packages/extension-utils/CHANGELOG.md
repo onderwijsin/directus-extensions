@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+### Patch Changes
+
+- 347cc18: Prevent schema ensures from attempting to recreate existing Directus metadata-only fields
+  that are omitted from the schema overview.
+
 ## 0.2.0
 
 ### Minor Changes

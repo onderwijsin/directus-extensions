@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-extension-utils",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Reusable utilities for Onderwijs in Directus extensions",
 	"keywords": [
 		"directus",
