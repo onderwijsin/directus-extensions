@@ -1,3 +1,5 @@
+import type { RequestWithRawBody } from '../src/loops-webhook-hook/types'
+
 import { createHmac } from 'node:crypto'
 import { Readable } from 'node:stream'
 
@@ -18,11 +20,9 @@ const signature = createHmac('sha256', Buffer.from('directus-loops-test-secret')
 	.digest('base64')
 
 const createRequest = (headers: Record<string, string>, body: string) => {
-	const request = Readable.from([Buffer.from(body)]) as Readable & {
-		headers: Record<string, string>
-		body?: unknown
-	}
+	const request = Readable.from([Buffer.from(body)]) as unknown as RequestWithRawBody
 	request.headers = headers
+	request.rawBody = Buffer.from(body)
 	return request
 }
 
