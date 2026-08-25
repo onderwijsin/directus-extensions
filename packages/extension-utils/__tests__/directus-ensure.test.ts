@@ -135,6 +135,11 @@ const createFixture = (schema: SchemaOverview) => {
 		public createOne = collectionCreate
 	}
 	class FieldsService {
+		public readOne = vi.fn((collection: string, field: string) => {
+			const value = fields.get(`${collection}.${field}`)
+			if (!value) throw new Error('missing')
+			return value
+		})
 		public createField = fieldCreate
 	}
 	class RelationsService {
@@ -419,6 +424,35 @@ describe('ensureDirectusSchema', () => {
 		expect(fixture.collectionCreate).not.toHaveBeenCalled()
 		expect(fixture.fieldCreate).not.toHaveBeenCalled()
 		expect(fixture.relationCreate).not.toHaveBeenCalled()
+	})
+
+	it('does not recreate compatible fields omitted from the schema overview', async () => {
+		const schema = emptySchema()
+		schema.collections.magic_links = { fields: {} } as never
+		const fixture = createFixture(schema)
+		fixture.collections.set('magic_links', { collection: 'magic_links' })
+		fixture.fields.set('magic_links.header', { field: 'header', type: 'alias' })
+
+		const result = await ensureDirectusSchema({
+			id: 'metadata-field-test',
+			database: fixture.database,
+			getSchema: fixture.getSchema,
+			logger: createLogger(),
+			definition: {
+				...definition,
+				fields: [{ collection: 'magic_links', field: 'header', type: 'alias' }],
+				relations: [],
+			},
+			services: fixture.services,
+			options: {},
+		})
+
+		expect(result).toEqual({ changed: [], skipped: false })
+		expect(fixture.fields.get('magic_links.header')).toEqual({
+			field: 'header',
+			type: 'alias',
+		})
+		expect(fixture.fieldCreate).not.toHaveBeenCalled()
 	})
 
 	it('treats matching structure as compatible even when UI metadata differs', async () => {
