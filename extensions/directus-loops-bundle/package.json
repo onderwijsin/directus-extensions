@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-loops-bundle",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Opinionated Directus building blocks for Loops contact synchronization and campaign archiving",
 	"keywords": [
 		"directus",

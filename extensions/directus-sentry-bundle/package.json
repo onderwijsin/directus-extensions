@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-sentry-bundle",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Extensions for adding Sentry to Directus projects and tools for testing the integration",
 	"keywords": [
 		"directus",

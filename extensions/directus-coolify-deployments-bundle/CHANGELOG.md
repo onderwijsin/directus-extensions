@@ -1,5 +1,11 @@
 # @onderwijsin/directus-coolify-deployments-bundle
 
+## 0.2.1
+
+### Patch Changes
+
+- a26af04: Use Directus error classes for failures raised by API extension entries.
+
 ## 0.2.0
 
 ### Minor Changes
