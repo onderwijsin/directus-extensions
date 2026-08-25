@@ -1,7 +1,7 @@
 import type { ApiExtensionContext, User } from '@directus/types'
 import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
 import type { LoopsClient } from 'loops'
-import type { LoopsEnv } from './env.schema'
+import type { LoopsEnv } from '../shared/env.schema'
 
 import {
 	attempt,

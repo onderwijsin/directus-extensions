@@ -4,10 +4,11 @@ import { isRecord } from '@onderwijsin/directus-extension-utils'
 import { validateExtensionOptions } from '@onderwijsin/directus-extension-utils/server'
 import { loopsWebhookSchema } from '@onderwijsin/loops-core'
 
-import { envSchema } from '../loops-webhook-hook/env.schema'
 import { LOOPS_WEBHOOK_ID_HEADER, LOOPS_WEBHOOK_VERIFIED_HEADER } from '../shared/constants'
+import { envSchema } from '../shared/env.schema'
 import { disableDeletedContactSync } from './contact-deletion'
 import { createCampaignIngestion } from './ingestion'
+import { createUsersService } from './services'
 import { isCampaignEmailSent, getTriggerHeader } from './utils'
 
 /**
@@ -44,10 +45,7 @@ export default defineOperationApi({
 		}
 
 		if (event.eventName === 'contact.deleted') {
-			const users = new context.services.UsersService({
-				knex: context.database,
-				schema: await context.getSchema(),
-			})
+			const users = await createUsersService(context, await context.getSchema())
 			const result = await disableDeletedContactSync(
 				users,
 				options.LOOPS_SYNC_ENABLED_FIELD,

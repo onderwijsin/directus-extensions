@@ -6,7 +6,7 @@
  */
 import type { HookExtensionContext } from '@directus/types'
 import type { RegisterFunctions } from '@onderwijsin/directus-extension-utils/types'
-import type { LoopsEnv } from './env.schema'
+import type { LoopsEnv } from '../shared/env.schema'
 
 import {
 	createDirectusStartupCoordinator,

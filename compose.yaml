@@ -47,6 +47,7 @@ services:
       - ./.data/garage/meta:/var/lib/garage/meta:ro
 
   meilisearch:
+    command: ['/bin/meilisearch', '--upgrade-db']
     ports:
       - '7700:7700'
     volumes:

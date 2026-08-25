@@ -1,24 +1,46 @@
 /* oxlint-disable typescript/require-await -- async mocks match the production dependency contracts. */
 
-import type { LoopsLmxAst, LoopsWebhook } from '@onderwijsin/loops-core'
+import type { OperationContext } from '@directus/types'
+import type { LoopsLmxAst, LoopsLmxDiagnostic, LoopsWebhook } from '@onderwijsin/loops-core'
 import type {
 	CampaignService,
 	DirectusCampaign,
 	DirectusRecipient,
 	RecipientsService,
+	UserService,
 } from '../src/loops-webhook-operation/services'
+import type { LoopsEnv } from '../src/shared/env.schema'
 
 import { loopsWebhookSchema } from '@onderwijsin/loops-core'
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-	type CampaignIngestionDependencies,
-	type CampaignRecord,
-	ingestCampaignEmailSent,
-} from '../src/loops-webhook-operation/ingestion'
+const mocks = vi.hoisted(() => ({
+	createCampaignService: vi.fn(),
+	createRecipientsService: vi.fn(),
+	createUsersService: vi.fn(),
+	createLoopsClient: vi.fn(),
+	parseLoopsLmx: vi.fn(),
+}))
+
+vi.mock('../src/loops-webhook-operation/services', () => mocks)
+vi.mock('../src/shared/client', () => ({ createLoopsClient: mocks.createLoopsClient }))
+vi.mock('@onderwijsin/loops-core', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('@onderwijsin/loops-core')>()
+	return { ...actual, parseLoopsLmx: mocks.parseLoopsLmx }
+})
+
+import { createCampaignIngestion } from '../src/loops-webhook-operation/ingestion'
 import payload from './fixtures/campaign-email-sent.json'
 
 type CampaignEmailSent = Extract<LoopsWebhook, { eventName: 'campaign.email.sent' }>
+type CampaignRecord = Pick<
+	DirectusCampaign,
+	| 'id'
+	| 'loops_campaign_id'
+	| 'loops_email_message_id'
+	| 'ingestion_status'
+	| 'processing_started_at'
+>
 
 const isCampaignEmailSent = (event: unknown): event is CampaignEmailSent =>
 	typeof event === 'object' &&
@@ -64,12 +86,29 @@ type UpdateCampaign = (id: string, input: unknown) => Promise<void>
 type FindRecipient = (loopsEmailId: string) => Promise<{ id: string } | null>
 type CreateRecipient = (input: unknown) => Promise<{ id: string }>
 type ClaimStale = () => Promise<boolean>
+type FetchEmailMessage = (emailMessageId: string) => Promise<unknown>
+type ParseLmx = (
+	lmx: string,
+	onDiagnostic: (diagnostic: LoopsLmxDiagnostic) => void,
+) => Promise<unknown>
 
-type TestCampaignService = CampaignService & { update: CampaignService['updateOne'] }
-type TestRecipientsService = RecipientsService & { create: RecipientsService['createOne'] }
-type TestDependencies = Omit<CampaignIngestionDependencies, 'campaigns' | 'recipients'> & {
+type TestCampaignService = Pick<
+	CampaignService,
+	'readByQuery' | 'readOne' | 'createOne' | 'updateOne' | 'updateByQuery'
+> & { update: CampaignService['updateOne'] }
+type TestRecipientsService = Pick<RecipientsService, 'readByQuery' | 'createOne'> & {
+	create: RecipientsService['createOne']
+}
+interface TestDependencies {
 	campaigns: TestCampaignService
 	recipients: TestRecipientsService
+	users: UserService
+	loops: { getEmailMessage: FetchEmailMessage }
+	database: unknown
+	options: LoopsEnv
+	fetchEmailMessage: FetchEmailMessage
+	parseLmx: ParseLmx
+	lmxParsingMode: 'best_effort' | 'strict'
 }
 
 const directusCampaign = (value: CampaignRecord): DirectusCampaign => ({
@@ -111,12 +150,8 @@ const createDependencies = (
 	updateCampaign: UpdateCampaign = vi.fn(async () => undefined),
 	findRecipient: FindRecipient = vi.fn(async () => null),
 	createRecipient: CreateRecipient = vi.fn(async () => ({ id: 'recipient-id' })),
-	fetchEmailMessage: CampaignIngestionDependencies['fetchEmailMessage'] = vi.fn(
-		async () => message,
-	),
-	parseLmx: NonNullable<CampaignIngestionDependencies['parseLmx']> = vi.fn(
-		async (_lmx, _onDiagnostic) => ast,
-	),
+	fetchEmailMessage: FetchEmailMessage = vi.fn(async () => message),
+	parseLmx: ParseLmx = vi.fn(async (_lmx, _onDiagnostic) => ast),
 	claimStale: ClaimStale = vi.fn(async () => true),
 ): TestDependencies => ({
 	campaigns: (() => {
@@ -133,6 +168,9 @@ const createDependencies = (
 			await updateCampaign(id, input)
 			return id
 		})
+		const updateByQuery = vi.fn(async () =>
+			(await claimStale()) ? ['directus-campaign-id'] : [],
+		)
 		const service: TestCampaignService = {
 			readByQuery,
 			readOne: vi.fn(async () =>
@@ -140,6 +178,7 @@ const createDependencies = (
 			),
 			createOne,
 			updateOne,
+			updateByQuery,
 			update: updateOne,
 		}
 		return service
@@ -153,6 +192,8 @@ const createDependencies = (
 		const service: TestRecipientsService = { readByQuery, createOne, create: createOne }
 		return service
 	})(),
+	users: {} as UserService,
+	loops: { getEmailMessage: fetchEmailMessage },
 	database: (() => {
 		const query = {
 			where: vi.fn(() => query),
@@ -160,11 +201,41 @@ const createDependencies = (
 		}
 		return vi.fn(() => query)
 	})(),
-	campaignCollection: 'loops_campaigns',
+	options: {
+		LOOPS_API_KEY: 'test-api-key',
+		LOOPS_CAMPAIGNS_COLLECTION: 'loops_campaigns',
+		LOOPS_CAMPAIGN_RECIPIENTS_COLLECTION: 'loops_campaign_recipients',
+		LOOPS_CAMPAIGN_PROCESSING_LEASE_MS: 300_000,
+		LOOPS_LMX_PARSING_MODE: 'best_effort',
+	} as LoopsEnv,
 	fetchEmailMessage,
 	parseLmx,
-	now: () => now,
+	lmxParsingMode: 'best_effort',
 })
+
+const ingestCampaignEmailSent = async (
+	event: CampaignEmailSent,
+	dependencies: TestDependencies,
+) => {
+	mocks.createCampaignService.mockResolvedValueOnce(dependencies.campaigns)
+	mocks.createRecipientsService.mockResolvedValueOnce(dependencies.recipients)
+	mocks.createUsersService.mockResolvedValueOnce(dependencies.users)
+	mocks.createLoopsClient.mockReturnValueOnce(dependencies.loops)
+	mocks.parseLoopsLmx.mockImplementation(
+		async (lmx: string, options: { onDiagnostic: (diagnostic: LoopsLmxDiagnostic) => void }) =>
+			dependencies.parseLmx(lmx, options.onDiagnostic),
+	)
+	const context = {
+		database: dependencies.database,
+		getSchema: vi.fn(async () => ({})),
+		services: {},
+	} as unknown as OperationContext
+	const ingest = await createCampaignIngestion(context, {
+		...dependencies.options,
+		LOOPS_LMX_PARSING_MODE: dependencies.lmxParsingMode,
+	})
+	return ingest(event)
+}
 
 describe('campaign ingestion', () => {
 	it('claims, fetches, parses, persists, and completes a new campaign', async () => {
@@ -295,7 +366,7 @@ describe('campaign ingestion', () => {
 
 	it('marks ingestion failed and rethrows when Loops fetch fails', async () => {
 		const fetchEmailMessage = vi
-			.fn<CampaignIngestionDependencies['fetchEmailMessage']>()
+			.fn<FetchEmailMessage>()
 			.mockRejectedValue(new Error('Loops unavailable'))
 		const dependencies = createDependencies(
 			undefined,
@@ -319,28 +390,72 @@ describe('campaign ingestion', () => {
 		)
 	})
 
-	it('retains the raw response and marks invalid email content failed', async () => {
-		const invalidMessage = { ...message, subject: undefined }
-		const fetchEmailMessage = vi.fn(async () => invalidMessage)
+	it('marks ingestion failed and rethrows when recipient persistence fails', async () => {
+		const createRecipient = vi
+			.fn<CreateRecipient>()
+			.mockRejectedValue(new Error('Directus recipient write failed'))
 		const dependencies = createDependencies(
 			undefined,
 			undefined,
 			undefined,
 			undefined,
-			undefined,
-			fetchEmailMessage,
+			createRecipient,
 		)
 
-		await expect(ingestCampaignEmailSent(campaignEvent, dependencies)).rejects.toThrow()
+		await expect(ingestCampaignEmailSent(campaignEvent, dependencies)).rejects.toThrow(
+			'Directus recipient write failed',
+		)
 		// oxlint-disable-next-line typescript/unbound-method
 		expect(dependencies.campaigns.update).toHaveBeenLastCalledWith(
 			'directus-campaign-id',
 			expect.objectContaining({
-				raw_loops_response: invalidMessage,
-				raw_lmx: message.lmx,
 				ingestion_status: 'failed',
+				ingestion_error: 'Directus recipient write failed',
 			}),
 		)
+		expect(dependencies.fetchEmailMessage).not.toHaveBeenCalled()
+	})
+
+	it('marks ingestion failed when the campaign archive update fails', async () => {
+		const updateCampaign = vi
+			.fn<UpdateCampaign>()
+			.mockRejectedValueOnce(new Error('Directus campaign write failed'))
+			.mockResolvedValue(undefined)
+		const dependencies = createDependencies(undefined, undefined, updateCampaign)
+
+		await expect(ingestCampaignEmailSent(campaignEvent, dependencies)).rejects.toThrow(
+			'Directus campaign write failed',
+		)
+		expect(updateCampaign).toHaveBeenNthCalledWith(
+			2,
+			'directus-campaign-id',
+			expect.objectContaining({
+				ingestion_status: 'failed',
+				ingestion_error: 'Directus campaign write failed',
+			}),
+		)
+	})
+
+	it('constructs the ingestion dependencies from the operation context', async () => {
+		const dependencies = createDependencies()
+
+		await ingestCampaignEmailSent(campaignEvent, dependencies)
+
+		expect(mocks.createCampaignService).toHaveBeenLastCalledWith(
+			expect.objectContaining({ database: dependencies.database }),
+			'loops_campaigns',
+			expect.anything(),
+		)
+		expect(mocks.createRecipientsService).toHaveBeenLastCalledWith(
+			expect.objectContaining({ database: dependencies.database }),
+			'loops_campaign_recipients',
+			expect.anything(),
+		)
+		expect(mocks.createUsersService).toHaveBeenLastCalledWith(
+			expect.objectContaining({ database: dependencies.database }),
+			expect.anything(),
+		)
+		expect(mocks.createLoopsClient).toHaveBeenLastCalledWith(dependencies.options)
 	})
 
 	it('rejects a fetched message belonging to another campaign', async () => {
@@ -364,7 +479,7 @@ describe('campaign ingestion', () => {
 	})
 
 	it('marks diagnostic-bearing LMX as partial while retaining the AST', async () => {
-		const parseLmx = vi.fn<NonNullable<CampaignIngestionDependencies['parseLmx']>>()
+		const parseLmx = vi.fn<ParseLmx>()
 		parseLmx.mockImplementation(async (_lmx, onDiagnostic) => {
 			onDiagnostic({ code: 'unsupported_tag', message: 'Unsupported tag' })
 			return ast
@@ -390,9 +505,7 @@ describe('campaign ingestion', () => {
 	})
 
 	it('marks parsing failures failed', async () => {
-		const parseLmx = vi
-			.fn<NonNullable<CampaignIngestionDependencies['parseLmx']>>()
-			.mockRejectedValue(new Error('parser failed'))
+		const parseLmx = vi.fn<ParseLmx>().mockRejectedValue(new Error('parser failed'))
 		const dependencies = createDependencies(
 			undefined,
 			undefined,
@@ -414,7 +527,7 @@ describe('campaign ingestion', () => {
 	})
 
 	it('fails strict parsing on diagnostics while retaining raw content', async () => {
-		const parseLmx = vi.fn<NonNullable<CampaignIngestionDependencies['parseLmx']>>()
+		const parseLmx = vi.fn<ParseLmx>()
 		parseLmx.mockImplementation(async (_lmx, onDiagnostic) => {
 			onDiagnostic({ code: 'unsupported_tag', message: 'Unsupported tag' })
 			return ast
@@ -441,9 +554,7 @@ describe('campaign ingestion', () => {
 	})
 
 	it('rejects an invalid AST returned by a custom parser', async () => {
-		const parseLmx = vi
-			.fn<NonNullable<CampaignIngestionDependencies['parseLmx']>>()
-			.mockResolvedValue({ type: 'invalid' })
+		const parseLmx = vi.fn<ParseLmx>().mockResolvedValue({ type: 'invalid' })
 		const dependencies = createDependencies(
 			undefined,
 			undefined,

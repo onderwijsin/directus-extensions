@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import { EventEmitter } from 'node:events'
+import { Readable } from 'node:stream'
 
 import { describe, expect, it, vi } from 'vitest'
 
@@ -18,15 +18,11 @@ const signature = createHmac('sha256', Buffer.from('directus-loops-test-secret')
 	.digest('base64')
 
 const createRequest = (headers: Record<string, string>, body: string) => {
-	const request = new EventEmitter() as EventEmitter & {
+	const request = Readable.from([Buffer.from(body)]) as Readable & {
 		headers: Record<string, string>
 		body?: unknown
 	}
 	request.headers = headers
-	queueMicrotask(() => {
-		request.emit('data', Buffer.from(body))
-		request.emit('end')
-	})
 	return request
 }
 

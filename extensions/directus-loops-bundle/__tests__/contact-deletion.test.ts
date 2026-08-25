@@ -1,8 +1,12 @@
+import type { UserService } from '../src/loops-webhook-operation/services'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import { disableDeletedContactSync } from '../src/loops-webhook-operation/contact-deletion'
 
 const event = (userId: string | null) => ({ contactIdentity: { userId } })
+const usersService = (readOne: unknown, updateOne: unknown) =>
+	({ readOne, updateOne }) as unknown as UserService
 
 describe('disableDeletedContactSync', () => {
 	it('disables synchronization for an existing Directus user', async () => {
@@ -11,7 +15,7 @@ describe('disableDeletedContactSync', () => {
 
 		await expect(
 			disableDeletedContactSync(
-				{ readOne, updateOne },
+				usersService(readOne, updateOne),
 				'loops_sync_enabled',
 				event('user-1'),
 			),
@@ -24,7 +28,11 @@ describe('disableDeletedContactSync', () => {
 		const updateOne = vi.fn()
 
 		await expect(
-			disableDeletedContactSync({ readOne, updateOne }, 'loops_sync_enabled', event(null)),
+			disableDeletedContactSync(
+				usersService(readOne, updateOne),
+				'loops_sync_enabled',
+				event(null),
+			),
 		).resolves.toEqual({ directusUserId: null, updated: false })
 		expect(readOne).not.toHaveBeenCalled()
 		expect(updateOne).not.toHaveBeenCalled()
@@ -36,7 +44,7 @@ describe('disableDeletedContactSync', () => {
 
 		await expect(
 			disableDeletedContactSync(
-				{ readOne, updateOne },
+				usersService(readOne, updateOne),
 				'loops_sync_enabled',
 				event('missing'),
 			),
@@ -51,7 +59,7 @@ describe('disableDeletedContactSync', () => {
 
 		await expect(
 			disableDeletedContactSync(
-				{ readOne, updateOne },
+				usersService(readOne, updateOne),
 				'loops_sync_enabled',
 				event('user-1'),
 			),

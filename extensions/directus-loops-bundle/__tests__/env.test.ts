@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { envSchema } from '../src/loops-webhook-hook/env.schema'
+import { envSchema } from '../src/shared/env.schema'
 
 describe('Loops environment configuration', () => {
 	it('defaults to the light-plan processing behavior', () => {

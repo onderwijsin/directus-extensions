@@ -6,7 +6,7 @@ import {
 
 import { createLoopsClient } from '../shared/client'
 import { EXTENSION_NAME } from '../shared/constants'
-import { envSchema } from './env.schema'
+import { envSchema } from '../shared/env.schema'
 import { registerLoopsProfileSyncHook } from './profile-sync'
 import { registerLoopsStartup } from './startup'
 import { createLoopsWebhookMiddleware } from './verification'

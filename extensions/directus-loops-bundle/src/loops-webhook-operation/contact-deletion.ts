@@ -1,8 +1,6 @@
-import type { ExtensionsServices } from '@directus/types'
+import type { UserService } from './services'
 
 import { attempt } from '@onderwijsin/directus-extension-utils'
-
-type UsersService = Pick<InstanceType<ExtensionsServices['UsersService']>, 'readOne' | 'updateOne'>
 
 export interface LoopsContactDeletedEvent {
 	contactIdentity: {
@@ -28,7 +26,7 @@ export interface ContactDeletionResult {
  * @returns Whether an existing Directus user was updated.
  */
 export const disableDeletedContactSync = async (
-	users: UsersService,
+	users: UserService,
 	fieldName: string,
 	event: LoopsContactDeletedEvent,
 ): Promise<ContactDeletionResult> => {

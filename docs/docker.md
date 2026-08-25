@@ -34,6 +34,10 @@ The main endpoints are:
 | Meilisearch | <http://localhost:7700> |
 | Garage S3   | internal by default     |
 
+The local Meilisearch service starts with `--upgrade-db`, so persisted development data is upgraded
+automatically when the configured Meilisearch image changes. This is intentionally limited to local
+Compose; E2E uses the shared service definition without the local override.
+
 Local state is stored below `.data/`. Reset it only when discarding local data is intentional:
 
 ```sh

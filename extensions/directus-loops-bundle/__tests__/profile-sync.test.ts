@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { envSchema } from '../src/loops-webhook-hook/env.schema'
 import {
 	registerLoopsProfileSyncHook,
 	shouldSyncUserUpdate,
 	toLoopsContactUpdate,
 	type DirectusLoopsUser,
 } from '../src/loops-webhook-hook/profile-sync'
+import { envSchema } from '../src/shared/env.schema'
 
 const env = envSchema.parse({})
 
@@ -60,14 +60,20 @@ describe('Loops profile synchronization', () => {
 		)
 		const updateContact = vi.fn().mockRejectedValue(new Error('Loops unavailable'))
 		const logger = { error: vi.fn() }
-		const database = vi.fn(() => ({
-			whereIn: vi.fn(() => ({
-				select: vi.fn().mockResolvedValue([user]),
-			})),
-		}))
+		const usersService = { readMany: vi.fn().mockResolvedValue([user]) }
+		const context = {
+			database: vi.fn(),
+			getSchema: vi.fn().mockResolvedValue({}),
+			logger,
+			services: {
+				UsersService: class {
+					public readMany = usersService.readMany
+				},
+			},
+		}
 
 		// @ts-expect-error -- the test invokes the captured action without Directus' unused context.
-		registerLoopsProfileSyncHook(action, database, logger, { updateContact }, env)
+		registerLoopsProfileSyncHook(action, { updateContact }, context, env)
 		expect(action).toHaveBeenCalledOnce()
 		expect(action).toHaveBeenCalledWith('users.update', expect.any(Function))
 		const handler = handlers.get('users.update')
@@ -103,12 +109,20 @@ describe('Loops profile synchronization', () => {
 			},
 		)
 		const updateContact = vi.fn().mockResolvedValue({ success: true, id: 'contact-1' })
-		const database = vi.fn(() => ({
-			whereIn: vi.fn(() => ({ select: vi.fn().mockResolvedValue(users) })),
-		}))
+		const usersService = { readMany: vi.fn().mockResolvedValue(users) }
+		const context = {
+			database: vi.fn(),
+			getSchema: vi.fn().mockResolvedValue({}),
+			logger: { error: vi.fn() },
+			services: {
+				UsersService: class {
+					public readMany = usersService.readMany
+				},
+			},
+		}
 
 		// @ts-expect-error -- the test invokes the captured action without Directus' unused context.
-		registerLoopsProfileSyncHook(action, database, { error: vi.fn() }, { updateContact }, env)
+		registerLoopsProfileSyncHook(action, { updateContact }, context, env)
 		const handler = handlers.get('users.update')
 		if (!handler) throw new Error('Expected users.update handler')
 		await handler({

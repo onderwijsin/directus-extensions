@@ -1,4 +1,4 @@
-import type { LoopsEnv } from '../loops-webhook-hook/env.schema'
+import type { LoopsEnv } from './env.schema'
 
 import { LoopsClient } from 'loops'
 
