@@ -78,6 +78,7 @@
 		"access": "public"
 	},
 	"scripts": {
+		"dev": "tsdown --watch",
 		"build": "tsdown",
 		"typecheck": "tsgo --noEmit"
 	},

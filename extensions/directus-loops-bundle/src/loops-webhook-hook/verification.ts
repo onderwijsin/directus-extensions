@@ -1,7 +1,8 @@
 import type { NextFunction, Request, Response } from 'express'
+import type { RequestWithRawBody } from './types'
 
 import { InternalServerError, InvalidPayloadError } from '@directus/errors'
-import { isArray, attempt } from '@onderwijsin/directus-extension-utils'
+import { isArray } from '@onderwijsin/directus-extension-utils'
 import { verifyLoopsWebhookSignature } from '@onderwijsin/loops-core'
 
 import { LOOPS_WEBHOOK_ID_HEADER, LOOPS_WEBHOOK_VERIFIED_HEADER } from '../shared/constants'
@@ -19,21 +20,6 @@ const getHeader = (request: Request, name: string): string | undefined => {
 }
 
 /**
- * Reads the unparsed request body.
- * @param request - Express request.
- * @returns Raw request bytes.
- */
-const readRawBody = (request: Request): Promise<Buffer> =>
-	new Promise((resolve, reject) => {
-		const chunks: Buffer[] = []
-		request.on('data', (chunk: Buffer | string) => {
-			chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-		})
-		request.on('end', () => resolve(Buffer.concat(chunks)))
-		request.on('error', reject)
-	})
-
-/**
  * Creates middleware that verifies Loops requests before Directus parses them.
  *
  * Requests without Loops webhook headers are passed through untouched so other webhook Flows
@@ -46,7 +32,7 @@ const readRawBody = (request: Request): Promise<Buffer> =>
  */
 export const createLoopsWebhookMiddleware =
 	(signingSecret: string | undefined, timestampToleranceSeconds: number) =>
-	async (request: Request, _response: Response, next: NextFunction): Promise<void> => {
+	async (request: RequestWithRawBody, _response: Response, next: NextFunction): Promise<void> => {
 		const id = getHeader(request, 'webhook-id')
 		const timestamp = getHeader(request, 'webhook-timestamp')
 		const signature = getHeader(request, 'webhook-signature')
@@ -70,13 +56,14 @@ export const createLoopsWebhookMiddleware =
 			return
 		}
 
-		const { data: rawBody, error } = await attempt(() => readRawBody(request))
-		if (error || !rawBody) {
+		const { rawBody } = request
+		if (!rawBody) {
 			next(new InvalidPayloadError({ reason: 'Unable to read Loops webhook body' }))
 			return
 		}
 
 		const rawBodyText = rawBody.toString('utf8')
+
 		const isValid = await verifyLoopsWebhookSignature(
 			rawBodyText,
 			{ id, timestamp, signature },

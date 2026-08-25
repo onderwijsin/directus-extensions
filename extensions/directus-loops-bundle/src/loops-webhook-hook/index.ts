@@ -39,7 +39,8 @@ export default defineHook((hook, context) => {
 	}
 
 	if (options.LOOPS_WEBHOOK_SIGNING_SECRET) {
-		init('middlewares.before', ({ app }) => {
+		// IMPORTANT: must use after, so express.json() is already called by Directus and we can access raw body
+		init('middlewares.after', ({ app }) => {
 			// oxlint-disable-next-line typescript/no-unsafe-call -- Directus exposes the Express app through the init hook context. It just doesn't type it.
 			app.use(
 				'/flows/trigger/:id',

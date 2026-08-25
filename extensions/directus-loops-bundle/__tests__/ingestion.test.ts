@@ -264,7 +264,7 @@ describe('campaign ingestion', () => {
 	it.each([
 		['completed campaign', record('success')],
 		['partially completed campaign', record('partial')],
-		['fresh processing claim', record('processing', now.toISOString())],
+		['fresh processing claim', record('processing', new Date().toISOString())],
 	])('persists the recipient without refetching for a %s', async (_label, existing) => {
 		const findCampaign = vi.fn(async () => existing)
 		const dependencies = createDependencies(findCampaign)
