@@ -1,0 +1,23 @@
+{
+	"collections": [],
+	"fields": [
+		{
+			"collection": "directus_users",
+			"field": "loops_sync_enabled",
+			"type": "boolean",
+			"schema": {
+				"data_type": "boolean",
+				"is_nullable": false,
+				"default_value": false
+			},
+			"meta": {
+				"width": "half",
+				"interface": "boolean",
+				"display": "boolean",
+				"translations": [{ "language": "en-US", "translation": "Sync profile to Loops" }],
+				"note": "When enabled, future name and email changes are mirrored to the Loops contact identified by this user ID. This does not subscribe the user to marketing."
+			}
+		}
+	],
+	"relations": []
+}

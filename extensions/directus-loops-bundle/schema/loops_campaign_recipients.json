@@ -1,0 +1,158 @@
+{
+	"collections": [
+		{
+			"collection": "loops_campaign_recipients",
+			"schema": { "name": "loops_campaign_recipients" },
+			"fields": [
+				{
+					"collection": "loops_campaign_recipients",
+					"field": "id",
+					"type": "uuid",
+					"schema": {
+						"data_type": "uuid",
+						"is_primary_key": true,
+						"is_nullable": false,
+						"has_auto_increment": false
+					},
+					"meta": {
+						"field": "id",
+						"hidden": true,
+						"readonly": true,
+						"special": ["uuid"],
+						"interface": "input",
+						"display": "raw"
+					}
+				}
+			],
+			"meta": {
+				"icon": "group",
+				"note": "Historical Loops campaign recipients. Each row represents one campaign send event for one Loops contact."
+			}
+		}
+	],
+	"fields": [
+		{
+			"collection": "loops_campaign_recipients",
+			"field": "campaign",
+			"type": "uuid",
+			"schema": { "data_type": "uuid", "is_nullable": false, "is_indexed": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "select-dropdown-m2o",
+				"display": "related-values",
+				"translations": [{ "language": "en-US", "translation": "Campaign" }],
+				"note": "Campaign that generated this recipient send event."
+			}
+		},
+		{
+			"collection": "loops_campaign_recipients",
+			"field": "directus_user",
+			"type": "uuid",
+			"schema": { "data_type": "uuid", "is_nullable": true, "is_indexed": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "select-dropdown-m2o",
+				"display": "related-values",
+				"translations": [{ "language": "en-US", "translation": "Directus user" }],
+				"note": "Resolved Directus user when the Loops contact carries a matching user ID."
+			}
+		},
+		{
+			"collection": "loops_campaign_recipients",
+			"field": "loops_contact_id",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false,
+				"is_indexed": true
+			},
+			"meta": {
+				"hidden": true,
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Loops contact ID" }],
+				"note": "External Loops contact identity."
+			}
+		},
+		{
+			"collection": "loops_campaign_recipients",
+			"field": "loops_email_id",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false,
+				"is_unique": true,
+				"is_indexed": true
+			},
+			"meta": {
+				"hidden": true,
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Loops email ID" }],
+				"note": "Individual email-send identity used for idempotency."
+			}
+		},
+		{
+			"collection": "loops_campaign_recipients",
+			"field": "email",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 320, "is_nullable": false },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "input",
+				"display": "formatted-value",
+				"translations": [{ "language": "en-US", "translation": "Recipient email" }],
+				"note": "Email snapshot from the Loops send event."
+			}
+		},
+		{
+			"collection": "loops_campaign_recipients",
+			"field": "sent_at",
+			"type": "timestamp",
+			"schema": { "data_type": "timestamp", "is_nullable": false, "is_indexed": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "datetime",
+				"display": "datetime",
+				"translations": [{ "language": "en-US", "translation": "Sent at" }],
+				"note": "Send event time reported by Loops."
+			}
+		}
+	],
+	"relations": [
+		{
+			"collection": "loops_campaign_recipients",
+			"field": "campaign",
+			"related_collection": "loops_campaigns",
+			"schema": { "on_delete": "CASCADE" },
+			"meta": {
+				"many_collection": "loops_campaign_recipients",
+				"many_field": "campaign",
+				"one_collection": "loops_campaigns",
+				"one_field": "recipients",
+				"one_deselect_action": "nullify"
+			}
+		},
+		{
+			"collection": "loops_campaign_recipients",
+			"field": "directus_user",
+			"related_collection": "directus_users",
+			"schema": { "on_delete": "SET NULL" },
+			"meta": {
+				"many_collection": "loops_campaign_recipients",
+				"many_field": "directus_user",
+				"one_collection": "directus_users",
+				"one_field": null,
+				"one_deselect_action": "nullify"
+			}
+		}
+	]
+}

@@ -10,6 +10,18 @@ services:
     networks:
       - backend
 
+  loops-mock:
+    image: node:24.10.0-alpine
+    restart: 'no'
+    command: ['node', '/opt/loops-mock/server.mjs']
+    volumes:
+      - ../tests/loops-mock/server.mjs:/opt/loops-mock/server.mjs:ro
+      - ../tests/loops-mock/email-message.json:/opt/loops-mock/email-message.json:ro
+    ports:
+      - '127.0.0.1:${DIRECTUS_E2E_LOOPS_MOCK_PORT:-18086}:3000'
+    networks:
+      - backend
+
   database:
     restart: 'no'
     volumes:
@@ -55,6 +67,8 @@ services:
         condition: service_healthy
       coolify-mock:
         condition: service_started
+      loops-mock:
+        condition: service_started
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
       - '${DIRECTUS_E2E_EMAIL_TEMPLATES_DIR:-../extensions/directus-magic-links-bundle/templates}:/directus/templates:ro'
@@ -80,6 +94,14 @@ services:
       SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED: 'false'
       SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED: 'false'
       SLUGGERNAUT_REDIRECTS_COLLECTION: redirects
+      LOOPS_ENABLED: 'true'
+      LOOPS_SYNC_ENABLED: 'true'
+      LOOPS_API_KEY: e2e-unused-api-key
+      LOOPS_API_BASE_URL: http://loops-mock:3000
+      LOOPS_WEBHOOK_SIGNING_SECRET: whsec_ZGlyZWN0dXMtbG9vcHMtZTJlLXNlY3JldA==
+      LOOPS_WEBHOOK_EVENT_ALLOWLIST: array:campaign.email.sent,contact.deleted
+      LOOPS_LMX_PARSING_MODE: best_effort
+      LOOPS_SYNC_ENABLED_FIELD: loops_sync_enabled
     healthcheck:
       test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:8055/server/ping']
       interval: 5s

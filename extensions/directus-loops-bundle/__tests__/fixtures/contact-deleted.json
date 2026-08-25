@@ -1,0 +1,10 @@
+{
+	"eventName": "contact.deleted",
+	"eventTime": 1734425918,
+	"webhookSchemaVersion": "1.0.0",
+	"contactIdentity": {
+		"id": "loops-contact-deleted",
+		"email": "deleted@example.com",
+		"userId": null
+	}
+}

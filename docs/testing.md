@@ -182,6 +182,10 @@ DIRECTUS_E2E_COMPOSE_FILES
 DIRECTUS_E2E_COMPOSE_PROJECT
 ```
 
+External integrations used by extension E2E tests must be represented by Compose mock services or
+deterministic test doubles. The Loops bundle uses `tests/loops-mock/` and does not contact a live
+Loops account.
+
 Test operations and log polling time out after 60 seconds. Compose health checks wait up to three
 minutes.
 

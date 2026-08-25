@@ -1,0 +1,18 @@
+{
+	"id": "cm4t1suns001ww6atotin3bn1",
+	"campaignId": "cm4t1suns001uw6atri87v54s",
+	"subject": "Test Subject",
+	"previewText": "A mocked Loops campaign",
+	"fromName": "Trainees in onderwijs",
+	"fromEmail": "mail",
+	"replyToEmail": "info@traineesinonderwijs.nl",
+	"languageCode": "en",
+	"emailFormat": "styled",
+	"lmx": "<Paragraph>Hoi {contact.firstName},</Paragraph>\n<Paragraph>Mock campaign content.</Paragraph>\n<Button href=\"https://example.com\">A button</Button>",
+	"contentRevisionId": "cm4t1suns001revision",
+	"updatedAt": "2026-08-20T13:10:40.576Z",
+	"contactPropertiesFallbacks": {
+		"userId": "undefined",
+		"firstName": "jouw naam"
+	}
+}

@@ -44,7 +44,7 @@ pnpm compose:reset
 
 ```text
 frontend network: Directus
-backend network:  Directus, PostgreSQL, Valkey, Garage, Mailpit, Meilisearch
+backend network:  Directus, PostgreSQL, Valkey, Garage, Mailpit, Meilisearch, Loops mock
 ```
 
 Directus joins both networks. Infrastructure services join only `backend`.
@@ -117,6 +117,10 @@ pnpm compose:migrate
 The runner does not collect Compose logs. Inspect a running stack manually with
 `docker compose logs` when debugging locally; the runner always removes its project and disposable
 resources afterwards.
+
+The Loops bundle's E2E tests use the `loops-mock` service. It serves fixture-backed email-message
+responses and records profile updates, so E2E runs do not require Loops credentials or contact the
+live Loops API.
 
 The runner uses a unique Compose project name and run-scoped credentials. It removes all disposable
 resources in `finally`, including interrupted runs. It never stops the shared Docker daemon.

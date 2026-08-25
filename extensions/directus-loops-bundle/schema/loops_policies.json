@@ -1,0 +1,56 @@
+{
+	"policies": [
+		{
+			"id": "5c1b2a73-7f34-4fb0-9c5a-62a4f8b9d1e6",
+			"name": "Can manage email campaigns",
+			"icon": "campaign",
+			"description": "Can create, read, update, and delete archived Loops email campaigns and read their recipients.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{ "collection": "loops_campaigns", "action": "create", "fields": ["*"] },
+				{ "collection": "loops_campaigns", "action": "read", "fields": ["*"] },
+				{ "collection": "loops_campaigns", "action": "update", "fields": ["*"] },
+				{ "collection": "loops_campaigns", "action": "delete", "fields": ["*"] },
+				{ "collection": "loops_campaign_recipients", "action": "read", "fields": ["*"] }
+			]
+		},
+		{
+			"id": "a8e4d7c2-1f6b-4a90-b3d5-7c2e9f1a6b84",
+			"name": "Can view email campaigns",
+			"icon": "visibility",
+			"description": "Can read public campaign fields and recipient records associated with the current Directus user.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{
+					"collection": "loops_campaigns",
+					"action": "read",
+					"fields": [
+						"id",
+						"campaign_name",
+						"subject",
+						"preview_text",
+						"from_name",
+						"from_email",
+						"reply_to_email",
+						"language_code",
+						"email_format",
+						"loops_ast",
+						"sent_at"
+					]
+				},
+				{
+					"collection": "loops_campaign_recipients",
+					"action": "read",
+					"fields": ["id", "campaign", "sent_at"],
+					"permissions": { "directus_user": { "_eq": "$CURRENT_USER" } }
+				}
+			]
+		}
+	]
+}
