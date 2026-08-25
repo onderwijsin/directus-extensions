@@ -513,12 +513,10 @@ describe('Coolify deployment client', () => {
 
 	it('requires Directus context for configured application reads', async () => {
 		const client = createCoolifyDeploymentClient(options)
-		await expect(client.listConfiguredApplication()).rejects.toThrow(
-			'Directus context is required to list configured applications',
-		)
-		await expect(client.getConfiguredApplication('application')).rejects.toThrow(
-			'Directus context is required to get configured application',
-		)
+		await expect(client.listConfiguredApplication()).rejects.toMatchObject({ status: 500 })
+		await expect(client.getConfiguredApplication('application')).rejects.toMatchObject({
+			status: 500,
+		})
 	})
 
 	it('encodes identifiers before sending provider requests', async () => {

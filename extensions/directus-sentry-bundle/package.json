@@ -54,6 +54,7 @@
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
+		"@directus/errors": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

@@ -4,7 +4,13 @@ import type { MagicLinksEnv } from './env.schema'
 
 import { randomBytes } from 'node:crypto'
 
-import { InvalidCredentialsError, InvalidOtpError, InvalidPayloadError } from '@directus/errors'
+import {
+	InternalServerError,
+	InvalidCredentialsError,
+	InvalidOtpError,
+	InvalidPayloadError,
+	isDirectusError,
+} from '@directus/errors'
 import { attempt, uuid } from '@onderwijsin/directus-extension-utils'
 
 import { runAsMagicLinkRefresh } from '../shared/magic-link-refresh-context'
@@ -75,8 +81,8 @@ interface RedeemableMagicLink {
  * @returns Never; always throws.
  */
 const throwAttemptError = (error: unknown): never => {
-	if (error instanceof Error) throw error
-	throw new Error('Magic-link operation failed')
+	if (isDirectusError(error)) throw error
+	throw new InternalServerError()
 }
 
 const BOOTSTRAP_SESSION_TTL_MS = 5 * 60 * 1000

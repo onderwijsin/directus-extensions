@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto'
 
+import { InternalServerError } from '@directus/errors'
 import { attemptSync } from '@onderwijsin/directus-extension-utils'
 
 const DURATION_PATTERN = /^(?<amount>\d+)(?<unit>ms|s|m|h|d|w)$/u
@@ -54,11 +55,11 @@ export const isAllowedRedirectUrl = (value: string, allowlist: string[]): boolea
  */
 export const parseDuration = (value: string): number => {
 	const match = DURATION_PATTERN.exec(value.trim())
-	if (!match?.groups) throw new Error(`Invalid duration: ${value}`)
+	if (!match?.groups) throw new InternalServerError()
 
 	const amount = Number(match.groups.amount)
 	const unit = match.groups.unit
-	if (!unit) throw new Error(`Invalid duration: ${value}`)
+	if (!unit) throw new InternalServerError()
 	const multipliers: Record<string, number> = {
 		ms: 1,
 		s: 1_000,
@@ -69,10 +70,10 @@ export const parseDuration = (value: string): number => {
 	}
 
 	const multiplier = multipliers[unit]
-	if (multiplier === undefined) throw new Error(`Invalid duration: ${value}`)
+	if (multiplier === undefined) throw new InternalServerError()
 	const milliseconds = amount * multiplier
 	if (!Number.isSafeInteger(milliseconds) || milliseconds <= 0) {
-		throw new Error(`Duration is outside the supported range: ${value}`)
+		throw new InternalServerError()
 	}
 	return milliseconds
 }
