@@ -1,0 +1,394 @@
+{
+	"collections": [
+		{
+			"collection": "loops_campaigns",
+			"schema": { "name": "loops_campaigns" },
+			"fields": [
+				{
+					"collection": "loops_campaigns",
+					"field": "id",
+					"type": "uuid",
+					"schema": {
+						"data_type": "uuid",
+						"is_primary_key": true,
+						"is_nullable": false,
+						"has_auto_increment": false
+					},
+					"meta": {
+						"field": "id",
+						"hidden": true,
+						"readonly": true,
+						"special": ["uuid"],
+						"interface": "input",
+						"display": "raw"
+					}
+				}
+			],
+			"meta": {
+				"icon": "campaign",
+				"note": "Archived Loops campaign emails retained for application rendering."
+			}
+		}
+	],
+	"fields": [
+		{
+			"collection": "loops_campaigns",
+			"field": "recipients",
+			"type": "alias",
+			"schema": null,
+			"meta": {
+				"collection": "loops_campaigns",
+				"field": "recipients",
+				"width": "full",
+				"special": ["alias", "no-data"],
+				"interface": "list-o2m",
+				"translations": [{ "language": "en-US", "translation": "Recipients" }],
+				"note": "People represented by campaign send events."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "loops_campaign_id",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false,
+				"is_unique": true,
+				"is_indexed": true
+			},
+			"meta": {
+				"hidden": true,
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Loops campaign ID" }],
+				"note": "Stable campaign identifier from Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "loops_email_message_id",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 255,
+				"is_nullable": false,
+				"is_unique": true,
+				"is_indexed": true
+			},
+			"meta": {
+				"hidden": true,
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Loops email message ID" }],
+				"note": "Stable sent email-message identifier from Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "campaign_name",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
+			"meta": {
+				"width": "full",
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Campaign name" }],
+				"note": "Campaign name reported by Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "subject",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 998, "is_nullable": true },
+			"meta": {
+				"width": "full",
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Subject" }],
+				"note": "Subject line of the archived email."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "preview_text",
+			"type": "text",
+			"schema": { "data_type": "text", "is_nullable": true },
+			"meta": {
+				"width": "full",
+				"readonly": true,
+				"interface": "input-multiline",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Preview text" }],
+				"note": "Inbox preview text for the archived email."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "from_name",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "From name" }],
+				"note": "Sender name reported by Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "from_email",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 320, "is_nullable": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "From email" }],
+				"note": "Sender email address reported by Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "reply_to_email",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 320, "is_nullable": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Reply-to email" }],
+				"note": "Reply-to address reported by Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "cc_email",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 320, "is_nullable": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "CC email" }],
+				"note": "Optional CC address reported by Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "bcc_email",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 320, "is_nullable": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "BCC email" }],
+				"note": "Optional BCC address reported by Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "language_code",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 16, "is_nullable": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "input",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Language code" }],
+				"note": "Optional language code reported by Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "email_format",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 16, "is_nullable": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "select-dropdown",
+				"display": "labels",
+				"options": {
+					"choices": [
+						{ "text": "Styled", "value": "styled" },
+						{ "text": "Plain", "value": "plain" }
+					]
+				},
+				"display_options": {
+					"choices": [
+						{ "text": "Styled", "value": "styled" },
+						{ "text": "Plain", "value": "plain" }
+					]
+				},
+				"translations": [{ "language": "en-US", "translation": "Email format" }],
+				"note": "Email format reported by Loops."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "raw_loops_response",
+			"type": "json",
+			"schema": { "data_type": "json", "is_nullable": true },
+			"meta": {
+				"hidden": true,
+				"readonly": true,
+				"interface": "input-code",
+				"options": { "language": "JSON" },
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Raw Loops response" }],
+				"note": "Complete email-message response retained for reprocessing and diagnostics."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "raw_lmx",
+			"type": "text",
+			"schema": { "data_type": "text", "is_nullable": true },
+			"meta": {
+				"hidden": true,
+				"readonly": true,
+				"interface": "input-code",
+				"options": { "language": "XML" },
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Raw LMX" }],
+				"note": "Original Loops Markup document retained for reprocessing."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "loops_ast",
+			"type": "json",
+			"schema": { "data_type": "json", "is_nullable": true },
+			"meta": {
+				"width": "full",
+				"readonly": true,
+				"interface": "input-code",
+				"options": { "language": "JSON" },
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Loops AST" }],
+				"note": "Normalized renderer-compatible AST produced from LMX."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "mailing_list_ids",
+			"type": "json",
+			"schema": { "data_type": "json", "is_nullable": true },
+			"meta": {
+				"hidden": true,
+				"readonly": true,
+				"interface": "input-code",
+				"options": { "language": "JSON" },
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Mailing list IDs" }],
+				"note": "Loops mailing-list IDs associated with this campaign; lists are not managed locally."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "sent_at",
+			"type": "timestamp",
+			"schema": { "data_type": "timestamp", "is_nullable": true, "is_indexed": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "datetime",
+				"display": "datetime",
+				"translations": [{ "language": "en-US", "translation": "Sent at" }],
+				"note": "Send time reported by the Loops webhook."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "loops_updated_at",
+			"type": "timestamp",
+			"schema": { "data_type": "timestamp", "is_nullable": true },
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "datetime",
+				"display": "datetime",
+				"translations": [{ "language": "en-US", "translation": "Loops updated at" }],
+				"note": "Last update time reported by the Loops email-message API."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "ingestion_status",
+			"type": "string",
+			"schema": {
+				"data_type": "varchar",
+				"max_length": 16,
+				"is_nullable": false,
+				"default_value": "processing"
+			},
+			"meta": {
+				"width": "half",
+				"readonly": true,
+				"interface": "select-dropdown",
+				"display": "labels",
+				"options": {
+					"choices": [
+						{ "text": "Processing", "value": "processing" },
+						{ "text": "Success", "value": "success" },
+						{ "text": "Partial", "value": "partial" },
+						{ "text": "Failed", "value": "failed" }
+					]
+				},
+				"display_options": {
+					"choices": [
+						{ "text": "Processing", "value": "processing" },
+						{ "text": "Success", "value": "success" },
+						{ "text": "Partial", "value": "partial" },
+						{ "text": "Failed", "value": "failed" }
+					]
+				},
+				"translations": [{ "language": "en-US", "translation": "Ingestion status" }],
+				"note": "Current campaign archive processing state."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "ingestion_error",
+			"type": "text",
+			"schema": { "data_type": "text", "is_nullable": true },
+			"meta": {
+				"hidden": true,
+				"readonly": true,
+				"interface": "input-multiline",
+				"display": "raw",
+				"translations": [{ "language": "en-US", "translation": "Ingestion error" }],
+				"note": "Bounded current error summary for failed or partial processing."
+			}
+		},
+		{
+			"collection": "loops_campaigns",
+			"field": "processing_started_at",
+			"type": "timestamp",
+			"schema": { "data_type": "timestamp", "is_nullable": true },
+			"meta": {
+				"hidden": true,
+				"readonly": true,
+				"interface": "datetime",
+				"display": "datetime",
+				"translations": [{ "language": "en-US", "translation": "Processing started at" }],
+				"note": "Processing lease timestamp used to recover stale concurrent ingestion."
+			}
+		}
+	],
+	"relations": []
+}

@@ -75,6 +75,54 @@ router.use(
 Keep synchronous handlers unwrapped. Use `attempt` when the caller should handle a failure as data;
 use `asyncHandler` when a rejected promise should be forwarded to Express with `next(error)`.
 
+## Directus errors at API boundaries
+
+API extensions—hooks, endpoints, and operations—must report consumer-visible failures through
+Directus's error pipeline. Throw a Directus-provided error when its meaning matches the failure:
+
+```ts
+import { ForbiddenError, InvalidPayloadError } from '@directus/errors'
+
+if (!request.accountability?.user) throw new ForbiddenError()
+if (!payload.name) throw new InvalidPayloadError({ reason: 'Name is required' })
+```
+
+In an endpoint, throwing from a synchronous handler or passing an error to `next(error)` lets
+Directus format the response. For asynchronous handlers, wrap the handler with `asyncHandler` so
+rejected promises reach the same error middleware. Hooks and operations should throw the error and
+allow Directus to abort and report the operation according to its normal lifecycle.
+
+When no provided error expresses the contract, create a custom Directus error with a stable,
+extension-specific uppercase code, an appropriate HTTP status, and a safe message:
+
+```ts
+import { createError } from '@directus/errors'
+
+interface UpstreamErrorExtensions {
+  reason: string
+}
+
+export const UpstreamError = createError<UpstreamErrorExtensions>(
+  'CATALOG_UPSTREAM_FAILED',
+  ({ reason }) => reason,
+  502,
+)
+
+throw new UpstreamError({ reason: 'Catalog provider is unavailable' })
+```
+
+Keep custom error definitions near the API boundary or in a shared `errors.ts` module when several
+handlers use them. Put stable machine-readable information in the code and extensions, and keep
+messages safe for clients: do not expose tokens, credentials, SQL, stack traces, or raw upstream
+responses. Translate unknown errors at the boundary, while preserving an existing Directus error
+when one is already available. Use
+[`isDirectusError`](https://github.com/directus/directus/blob/main/packages/errors/src/is-directus-error.ts)
+for that check.
+
+The `@directus/errors` package documents the built-in error classes, `createError`, error codes, and
+the `isDirectusError` helper:
+[Directus errors package](https://github.com/directus/directus/tree/main/packages/errors).
+
 ## Accountability at API boundaries
 
 Narrow Directus request accountability before using it for authorization or service accountability.

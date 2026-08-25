@@ -19,6 +19,7 @@ const composeCommandTimeout = 900_000
 const composeProject = `directus-extensions-e2e-${process.pid}-${randomBytes(4).toString('hex')}`
 const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
 const mailpitPort = process.env.DIRECTUS_E2E_MAILPIT_PORT ?? '18025'
+const loopsMockPort = process.env.DIRECTUS_E2E_LOOPS_MOCK_PORT ?? '18086'
 const baseUrl = `http://127.0.0.1:${port}`
 const email = 'admin@example.com'
 const childKillGraceMs = 1_000
@@ -271,6 +272,7 @@ async function compose(args, { logCommand = true, ...options } = {}) {
 			...environmentSecrets,
 			DIRECTUS_E2E_PORT: port,
 			DIRECTUS_E2E_MAILPIT_PORT: mailpitPort,
+			DIRECTUS_E2E_LOOPS_MOCK_PORT: loopsMockPort,
 			DIRECTUS_E2E_EXTENSIONS_DIR: extensionsDirectory,
 		},
 		timeoutMs: e2eOperationTimeoutMs,

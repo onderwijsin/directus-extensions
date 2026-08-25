@@ -2,3 +2,4 @@
 .agents/skills/vueuse-core-skilld/references/docs/integrations/useJwt/index.md:jwt:21
 .agents/skills/vueuse-functions/references/useJwt.md:jwt:21
 .agents/skills/vueuse-integrations-skilld/references/docs/useJwt/index.md:jwt:21
+tests/compose.e2e.yaml:generic-api-key:101

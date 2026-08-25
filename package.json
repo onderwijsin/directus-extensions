@@ -40,6 +40,7 @@
 		"format:fix": "oxfmt",
 		"typecheck": "pnpm -r --if-present typecheck",
 		"dev": "pnpm --parallel --filter './extensions/*' dev",
+		"dev:utils": "pnpm --filter @onderwijsin/directus-extension-utils dev",
 		"compose:up": "pnpm build && docker compose up -d",
 		"compose:migrate": "docker compose exec -e MIGRATIONS_PATH=/directus/migrations directus node /directus/cli.js database migrate:latest",
 		"compose:down": "docker compose down",

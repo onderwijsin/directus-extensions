@@ -126,7 +126,10 @@ const ensureField = async (
 			reason: 'field collection is required',
 		})
 	}
-	const existing = schema.collections[field.collection]?.fields[field.field]
+	const collection = field.collection
+	const existingFromSchema = schema.collections[collection]?.fields[field.field]
+	const existing =
+		existingFromSchema ?? (await attempt(() => service.readOne(collection, field.field))).data
 	if (existing) {
 		if (existing.type === field.type) {
 			logger.debug?.({
@@ -142,7 +145,7 @@ const ensureField = async (
 			actualType: existing.type,
 		})
 	}
-	const { collection, ...payload } = field
+	const { collection: _collection, ...payload } = field
 	await service.createField(collection, payload as FieldMutation)
 	logger.debug?.({
 		msg: '🛠️ Created Directus field',
