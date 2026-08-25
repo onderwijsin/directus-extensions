@@ -1,7 +1,5 @@
 import type { UserService } from './services'
 
-import { attempt } from '@onderwijsin/directus-extension-utils'
-
 export interface LoopsContactDeletedEvent {
 	contactIdentity: {
 		userId: string | null
@@ -33,12 +31,12 @@ export const disableDeletedContactSync = async (
 	const directusUserId = event.contactIdentity.userId
 	if (!directusUserId) return { directusUserId: null, updated: false }
 
-	const { data } = await attempt(() =>
-		users.readOne(directusUserId, {
-			fields: ['id'],
-		}),
-	)
-	if (!data) return { directusUserId, updated: false }
+	const records = await users.readByQuery({
+		filter: { id: { _eq: directusUserId } },
+		fields: ['id'],
+		limit: 1,
+	})
+	if (records.length === 0) return { directusUserId, updated: false }
 
 	await users.updateOne(directusUserId, { [fieldName]: false })
 
