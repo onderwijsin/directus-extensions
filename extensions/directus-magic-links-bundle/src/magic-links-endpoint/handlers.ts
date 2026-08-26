@@ -26,44 +26,41 @@ import { requestSchema, redeemSchema, type RequestPayload, type RedeemPayload } 
 
 const DEFAULT_AUTH_PROVIDER = 'default'
 
-type Services = ApiExtensionContext['services']
-type Database = ApiExtensionContext['database']
-interface RequestHandlerInput {
-	database: Database
-	getSchema: ApiExtensionContext['getSchema']
-	services: Services
-	options: MagicLinksEnv
-	secret: string
-	payload: RequestPayload
+interface BaseRequest<TPayload> {
+	payload: TPayload
 	ip: string | null
 	userAgent: string | null
+}
+
+type AuthenticatedRequest<TPayload> = BaseRequest<TPayload> & {
+	secret: string
+}
+
+interface RequestHandlerInput {
+	request: AuthenticatedRequest<RequestPayload>
+	options: MagicLinksEnv
+	context: ApiExtensionContext
 }
 
 interface RedeemHandlerInput {
-	database: Database
-	getSchema: ApiExtensionContext['getSchema']
-	services: Services
+	request: AuthenticatedRequest<RedeemPayload> & {
+		origin?: string | null
+		limiter?: Limiter | null
+	}
 	options: MagicLinksEnv
-	secret: string
-	payload: RedeemPayload
-	ip?: string | null
-	userAgent?: string | null
-	origin?: string | null
-	limiter?: Limiter | null
+	context: ApiExtensionContext
 }
 
 interface MagicLinkEmailInput {
-	database: Database
-	services: Services
+	request: BaseRequest<RequestPayload> & {
+		rawToken: string
+		expiresAt: Date
+		issuedAt: Date
+	}
 	options: MagicLinksEnv
+	context: ApiExtensionContext
 	schema: Awaited<ReturnType<ApiExtensionContext['getSchema']>>
 	user: { email: string; linkId: string }
-	payload: RequestPayload
-	rawToken: string
-	expiresAt: Date
-	issuedAt: Date
-	ip: string | null
-	userAgent: string | null
 }
 
 interface RedeemableMagicLink {
@@ -121,16 +118,16 @@ export const parseRedeemPayload = (body: unknown): RedeemPayload => {
  * @returns The generic public response.
  */
 export async function requestMagicLink(input: RequestHandlerInput) {
-	const { database, getSchema, options, payload, secret, services } = input
+	const { context, options, request } = input
+	const { payload, secret } = request
 	const rawToken = generateRawToken()
 	const tokenHash = hashToken(rawToken, secret)
 	const issuedAt = new Date()
 	const expiresAt = new Date(issuedAt.getTime() + parseDuration(options.MAGIC_LINKS_TOKEN_TTL))
 	const email = normalizeEmail(payload.email)
-	const schema = await getSchema()
-
+	const schema = await context.getSchema()
 	const transactionResult = await attempt(() =>
-		database.transaction(async (transaction) => {
+		context.database.transaction(async (transaction) => {
 			const record = await transaction('directus_users')
 				.select('id', 'email')
 				.where({ email, status: 'active', provider: DEFAULT_AUTH_PROVIDER })
@@ -144,8 +141,8 @@ export async function requestMagicLink(input: RequestHandlerInput) {
 					token_hash: tokenHash,
 					expires_at: expiresAt,
 					issued_at: issuedAt,
-					ip: input.ip,
-					user_agent: input.userAgent,
+					ip: request.ip,
+					user_agent: request.userAgent,
 					email_status: 'pending',
 				})
 				.returning('id')
@@ -162,22 +159,24 @@ export async function requestMagicLink(input: RequestHandlerInput) {
 
 	const delivery = await attempt(() =>
 		sendMagicLinkEmail({
-			database,
-			services,
+			context,
 			options,
 			schema,
 			user,
-			payload,
-			rawToken,
-			expiresAt,
-			issuedAt,
-			ip: input.ip,
-			userAgent: input.userAgent,
+			request: {
+				payload,
+				rawToken,
+				expiresAt,
+				issuedAt,
+				ip: request.ip,
+				userAgent: request.userAgent,
+			},
 		}),
 	)
 	if (delivery.error) {
 		await attempt(() =>
-			database(options.MAGIC_LINKS_COLLECTION)
+			context
+				.database(options.MAGIC_LINKS_COLLECTION)
 				.where({ id: user.linkId })
 				.update({ email_status: 'error', email_error: 'Email delivery failed' }),
 		)
@@ -192,31 +191,32 @@ export async function requestMagicLink(input: RequestHandlerInput) {
  * @returns A promise completed after transport accepts the message.
  */
 export async function sendMagicLinkEmail(input: MagicLinkEmailInput): Promise<void> {
-	const url = new URL(input.payload.redirectUrl)
-	url.searchParams.set(input.options.MAGIC_LINKS_TOKEN_QUERY_PARAMETER, input.rawToken)
-	const mail = new input.services.MailService({ knex: input.database, schema: input.schema })
+	const { context, options, request, schema, user } = input
+	const url = new URL(request.payload.redirectUrl)
+	url.searchParams.set(options.MAGIC_LINKS_TOKEN_QUERY_PARAMETER, request.rawToken)
+	const mail = new context.services.MailService({ knex: context.database, schema })
 
 	await mail.send({
-		to: input.user.email,
-		subject: input.options.MAGIC_LINKS_EMAIL_SUBJECT ?? 'Your sign-in link',
-		replyTo: input.options.MAGIC_LINKS_EMAIL_REPLY_TO ?? undefined,
-		sender: input.options.MAGIC_LINKS_EMAIL_SENDER ?? undefined,
+		to: user.email,
+		subject: options.MAGIC_LINKS_EMAIL_SUBJECT ?? 'Your sign-in link',
+		replyTo: options.MAGIC_LINKS_EMAIL_REPLY_TO ?? undefined,
+		sender: options.MAGIC_LINKS_EMAIL_SENDER ?? undefined,
 		template: {
-			name: input.options.MAGIC_LINKS_EMAIL_TEMPLATE,
+			name: options.MAGIC_LINKS_EMAIL_TEMPLATE,
 			data: {
 				url: url.toString(),
-				email: input.user.email,
-				expires_at: input.expiresAt.toISOString(),
-				issued_at: input.issuedAt.toISOString(),
-				ip: input.ip,
-				user_agent: input.userAgent,
+				email: user.email,
+				expires_at: request.expiresAt.toISOString(),
+				issued_at: request.issuedAt.toISOString(),
+				ip: request.ip,
+				user_agent: request.userAgent,
 			},
 		},
 	})
 
-	await input
-		.database(input.options.MAGIC_LINKS_COLLECTION)
-		.where({ id: input.user.linkId })
+	await context
+		.database(options.MAGIC_LINKS_COLLECTION)
+		.where({ id: user.linkId })
 		.update({ email_status: 'sent' })
 }
 
@@ -226,12 +226,13 @@ export async function sendMagicLinkEmail(input: MagicLinkEmailInput): Promise<vo
  * @returns The Directus authentication result.
  */
 export async function redeemMagicLink(input: RedeemHandlerInput) {
-	const { database, getSchema, options, payload, secret, services } = input
+	const { context, options, request } = input
+	const { limiter, origin, payload, secret } = request
 	const digest = hashToken(payload.token, secret)
-	const schema = await getSchema()
+	const schema = await context.getSchema()
 
 	const result = await attempt(() =>
-		database.transaction(async (transaction) => {
+		context.database.transaction(async (transaction) => {
 			const link = await transaction(`${options.MAGIC_LINKS_COLLECTION} as magic_links`)
 				.select(
 					'magic_links.id',
@@ -253,10 +254,10 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 			}
 
 			if (link.user_tfa_secret !== null) {
-				if (input.limiter) await input.limiter.consume(link.id)
+				if (limiter) await limiter.consume(link.id)
 				if (!payload.otp) throw new InvalidOtpError()
 
-				const tfaService = new services.TFAService({
+				const tfaService = new context.services.TFAService({
 					knex: transaction,
 					schema,
 				})
@@ -273,12 +274,12 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 				token: bootstrapToken,
 				user: link.user_id,
 				expires: new Date(Date.now() + BOOTSTRAP_SESSION_TTL_MS),
-				ip: input.ip ?? null,
-				user_agent: input.userAgent ?? null,
-				origin: input.origin ?? null,
+				ip: request.ip,
+				user_agent: request.userAgent,
+				origin: origin ?? null,
 			})
 
-			const authentication = new services.AuthenticationService({
+			const authentication = new context.services.AuthenticationService({
 				knex: transaction,
 				schema,
 				accountability: null,
@@ -294,7 +295,7 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 				.update({ redeemed_at: transaction.fn.now() })
 				.returning('id')
 			if (updated.length !== 1) throw new InvalidCredentialsError()
-			if (input.limiter && link.user_tfa_secret !== null) await input.limiter.delete(link.id)
+			if (limiter && link.user_tfa_secret !== null) await limiter.delete(link.id)
 
 			return session
 		}),

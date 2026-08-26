@@ -89,12 +89,53 @@ const createTransaction = (query: QueryFake): TransactionFake => {
 
 const getSchema = vi.fn(() => ({}))
 
-const runRequest = (input: unknown) =>
-	requestMagicLink(input as Parameters<typeof requestMagicLink>[0])
-const runRedeem = (input: unknown) =>
-	redeemMagicLink(input as Parameters<typeof redeemMagicLink>[0])
-const runSend = (input: unknown) =>
-	sendMagicLinkEmail(input as Parameters<typeof sendMagicLinkEmail>[0])
+type HandlerContext = Parameters<typeof requestMagicLink>[0]['context']
+type TestInput = Record<string, unknown>
+
+const createContext = (input: TestInput): HandlerContext =>
+	({ database: input.database, getSchema, services: input.services }) as unknown as HandlerContext
+
+const runRequest = (input: TestInput) =>
+	requestMagicLink({
+		context: createContext(input),
+		options: input.options as MagicLinksEnv,
+		request: {
+			secret: input.secret as string,
+			payload: input.payload as Parameters<typeof requestMagicLink>[0]['request']['payload'],
+			ip: input.ip as string | null,
+			userAgent: input.userAgent as string | null,
+		},
+	})
+const runRedeem = (input: TestInput) =>
+	redeemMagicLink({
+		context: createContext(input),
+		options: input.options as MagicLinksEnv,
+		request: {
+			secret: input.secret as string,
+			payload: input.payload as Parameters<typeof redeemMagicLink>[0]['request']['payload'],
+			ip: input.ip as string | null,
+			userAgent: input.userAgent as string | null,
+			origin: input.origin as string | null | undefined,
+			limiter: input.limiter as Parameters<typeof redeemMagicLink>[0]['request']['limiter'],
+		},
+	})
+const runSend = (input: TestInput) =>
+	sendMagicLinkEmail({
+		context: createContext(input),
+		options: input.options as MagicLinksEnv,
+		schema: input.schema as Parameters<typeof sendMagicLinkEmail>[0]['schema'],
+		user: input.user as { email: string; linkId: string },
+		request: {
+			payload: input.payload as Parameters<
+				typeof sendMagicLinkEmail
+			>[0]['request']['payload'],
+			rawToken: input.rawToken as string,
+			expiresAt: input.expiresAt as Date,
+			issuedAt: input.issuedAt as Date,
+			ip: input.ip as string | null,
+			userAgent: input.userAgent as string | null,
+		},
+	})
 
 describe('magic-link handlers', () => {
 	it('normalizes lookup email, persists a digest, and marks delivery sent', async () => {

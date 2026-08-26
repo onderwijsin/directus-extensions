@@ -12,15 +12,9 @@ import Redis from 'ioredis'
 
 import { parseDuration } from './helpers'
 
-type Database = ApiExtensionContext['database']
-type Services = ApiExtensionContext['services']
-type GetSchema = ApiExtensionContext['getSchema']
-
 interface CreateMagicLinkLimiterInput {
-	database: Database
-	getSchema: GetSchema
-	services: Services
 	options: MagicLinksEnv
+	context: ApiExtensionContext
 }
 
 const REDIS_NAMESPACE = 'directus:extensions:magic-links'
@@ -33,9 +27,9 @@ const REDIS_NAMESPACE = 'directus:extensions:magic-links'
 export async function createMagicLinkLimiter(
 	input: CreateMagicLinkLimiterInput,
 ): Promise<Limiter | null> {
-	const settingsService = new input.services.SettingsService({
-		knex: input.database,
-		schema: await input.getSchema(),
+	const settingsService = new input.context.services.SettingsService({
+		knex: input.context.database,
+		schema: await input.context.getSchema(),
 	})
 	const settings = await settingsService.readSingleton({
 		fields: ['auth_login_attempts'],
