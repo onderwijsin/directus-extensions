@@ -70,6 +70,7 @@ describe('Sluggernaut schema and policies', () => {
 			'id',
 			'origin',
 			'destination',
+			'type',
 			'match',
 			'specificity',
 			'start_date',

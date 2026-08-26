@@ -395,7 +395,9 @@ Optional policies are:
 
 - `Can Manage Redirects`: create, read, update, and delete access to the configured redirect
   collection.
-- `Can Read Active Redirects`: read access to active records within their optional date window.
+- `Can Read Active Redirects`: read access to active records within their optional date window. The
+  field allowlist includes `origin`, `destination`, `type`, `match`, `specificity`, `start_date`,
+  and `end_date` so consumers can serve the configured redirect status code.
 
 Policies are definitions only. Assign them to roles yourself and review whether redirect provenance
 should be visible to each role.

@@ -540,7 +540,9 @@ SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED=true
 The optional policy definitions are:
 
 - `Can Manage Redirects`: create/read/update/delete on the configured redirect collection.
-- `Can Read Active Redirects`: read active records within the configured date window.
+- `Can Read Active Redirects`: read active records within the configured date window. Its field
+  allowlist includes `origin`, `destination`, `type`, `match`, `specificity`, `start_date`, and
+  `end_date` so consumers can serve the configured redirect status code.
 
 The bundle creates policy definitions but never assigns them to roles. The hook uses system
 accountability for schema and metadata operations; item update reads retain mutation accountability.
