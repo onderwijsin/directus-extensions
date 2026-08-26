@@ -1,5 +1,12 @@
 # @onderwijsin/directus-coolify-deployments-bundle
 
+## 0.3.0
+
+### Minor Changes
+
+- 3dadbd1: Paginate Coolify application deployment history requests and fetch pages on demand in the
+  Studio module.
+
 ## 0.2.1
 
 ### Patch Changes
