@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+### Patch Changes
+
+- 05d2f09: Expose the package main entry point through the Node.js exports map.
+
 ## 0.2.0
 
 ### Minor Changes

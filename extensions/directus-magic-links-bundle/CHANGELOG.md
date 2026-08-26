@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.2
+
+### Patch Changes
+
+- ca33036: Rate-limit magic-link requests per IP with a configurable five-request-per-minute
+  default, independently from failed OTP redemption limits.
+- c428209: Start magic-link email delivery in the background so request timing does not reveal
+  whether an account exists, while retaining delivery status auditing.
+- e185c11: Align magic-link redirect allowlist configuration and request validation, and require a
+  non-empty allowlist.
+
 ## 0.2.1
 
 ### Patch Changes
