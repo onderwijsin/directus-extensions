@@ -123,8 +123,11 @@ user exists:
 
 The link uses a 256-bit random token. Only its HMAC-SHA-256 digest is stored in `token_hash`; raw
 tokens are included only in the email URL and are never logged or persisted. Existing links remain
-valid until expiry or redemption. Email delivery records transition from `pending` to `sent` or
-`error` while the endpoint retains the generic response.
+valid until expiry or redemption. After the link transaction commits, email delivery starts in the
+background so SMTP or other transport latency does not affect the generic response. Delivery records
+transition from `pending` to `sent` or `error`, keeping failures auditable without changing the
+response. This is deliberately fire-and-forget: a process shutdown can leave a record pending or
+interrupt an in-flight delivery. Request another link when delivery fails.
 
 Copy [`templates/magic-link.liquid`](templates/magic-link.liquid) into the configured
 `EMAIL_TEMPLATES_PATH` before enabling delivery. The repository's local and E2E Compose stacks mount

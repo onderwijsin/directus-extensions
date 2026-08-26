@@ -255,6 +255,48 @@ describe('magic-link handlers', () => {
 		})
 	})
 
+	it('returns before a slow email transport settles', async () => {
+		const userQuery = createQuery({ id: 'user-id', email: 'user@example.com' })
+		const transaction = createTransaction(userQuery)
+		const database = createDatabase(transaction)
+		const linkQuery = createQuery()
+		database.mockImplementation(() => linkQuery)
+		let resolveMail: (() => void) | undefined
+		const mailSend = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					resolveMail = resolve
+				}),
+		)
+
+		const result = await runRequest({
+			database,
+			getSchema,
+			services: {
+				MailService: vi.fn(function () {
+					return { send: mailSend }
+				}),
+			},
+			options,
+			secret: 'secret',
+			payload: {
+				email: 'user@example.com',
+				redirectUrl: 'https://app.example.com/auth/magic-link',
+			},
+			ip: null,
+			userAgent: null,
+		})
+
+		expect(result).toHaveProperty('message')
+		expect(mailSend).toHaveBeenCalledOnce()
+		expect(linkQuery.update).not.toHaveBeenCalled()
+
+		resolveMail?.()
+		await vi.waitFor(() => {
+			expect(linkQuery.update).toHaveBeenCalledWith({ email_status: 'sent' })
+		})
+	})
+
 	it('sends the configured template URL and metadata', async () => {
 		const database = vi.fn(() => createQuery())
 		const send = vi.fn(() => undefined)

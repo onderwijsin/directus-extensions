@@ -118,7 +118,10 @@ The endpoint returns `202` and this same response for both known and unknown add
 Only active users using the default local provider receive mail. The link token is generated with
 256 bits of cryptographic entropy, digested with HMAC-SHA-256, and stored only as `token_hash`.
 Records begin with `email_status=pending` and become `sent` or `error`; delivery failures do not
-change the generic response. Requests do not revoke earlier links.
+change the generic response. Delivery is intentionally fire-and-forget after the record transaction
+commits, so transport latency is not observable through request timing. A Directus process shutdown
+can leave a record pending or interrupt delivery; consumers should allow users to request another
+link. Requests do not revoke earlier links.
 
 ### `POST /auth/magic-links/redeem`
 

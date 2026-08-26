@@ -62,8 +62,11 @@ an eligible user or not. Unknown users do not create database records or trigger
 Invalid payloads and disallowed redirects are rejected as invalid payloads.
 
 For an eligible user, the link record is created in a transaction with `email_status=pending` and
-request metadata. Mail delivery then changes the status to `sent` or `error`; delivery failure does
-not change the generic public response.
+request metadata. After that transaction commits, mail delivery starts in a fire-and-forget
+background promise so SMTP/network latency is not part of the public response path. Delivery then
+changes the status to `sent` or `error`; delivery failure does not change the generic public
+response. A process shutdown may leave a record pending or interrupt delivery; this is accepted
+because users can request another non-business-critical magic link.
 
 ### Bootstrap Directus sessions and consume links in one transaction
 
@@ -165,6 +168,12 @@ Directus services, database transactions, and cryptographic Node APIs. The `magi
 must remain private; public clients interact only through the two endpoint routes.
 
 ## Alternatives considered
+
+- Use a durable outbox or queue: rejected for this non-business-critical email because its
+  operational and implementation complexity is not justified; users can request another link when
+  delivery fails.
+- Await delivery or add response timing padding: rejected because it preserves unnecessary transport
+  latency and fragility in the public request path.
 
 - Store raw tokens: rejected because a database read or backup would become an authentication
   credential disclosure.

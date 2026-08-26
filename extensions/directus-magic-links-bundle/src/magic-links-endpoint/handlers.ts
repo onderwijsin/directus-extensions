@@ -113,9 +113,10 @@ export const parseRedeemPayload = (body: unknown): RedeemPayload => {
 }
 
 /**
- * Creates and delivers a magic link, retaining a generic public response.
+ * Creates a magic link and starts delivery without coupling the public response to the mail
+ * transport.
  * @param input - Request operation dependencies and payload.
- * @returns The generic public response.
+ * @returns The generic public response. Delivery continues in the background for eligible users.
  */
 export async function requestMagicLink(input: RequestHandlerInput) {
 	const { context, options, request } = input
@@ -157,32 +158,41 @@ export async function requestMagicLink(input: RequestHandlerInput) {
 
 	if (!user) return GENERIC_RESPONSE
 
-	const delivery = await attempt(() =>
-		sendMagicLinkEmail({
-			context,
-			options,
-			schema,
-			user,
-			request: {
-				payload,
-				rawToken,
-				expiresAt,
-				issuedAt,
-				ip: request.ip,
-				userAgent: request.userAgent,
-			},
-		}),
-	)
-	if (delivery.error) {
+	void deliverMagicLinkEmail({
+		context,
+		options,
+		schema,
+		user,
+		request: {
+			payload,
+			rawToken,
+			expiresAt,
+			issuedAt,
+			ip: request.ip,
+			userAgent: request.userAgent,
+		},
+	})
+
+	return GENERIC_RESPONSE
+}
+
+/**
+ * Delivers a magic-link email and records failures without rejecting the request lifecycle.
+ *
+ * @param input - Email delivery dependencies and values.
+ * @returns A promise that settles after delivery and status recording complete.
+ */
+export async function deliverMagicLinkEmail(input: MagicLinkEmailInput): Promise<void> {
+	try {
+		await sendMagicLinkEmail(input)
+	} catch {
 		await attempt(() =>
-			context
-				.database(options.MAGIC_LINKS_COLLECTION)
-				.where({ id: user.linkId })
+			input.context
+				.database(input.options.MAGIC_LINKS_COLLECTION)
+				.where({ id: input.user.linkId })
 				.update({ email_status: 'error', email_error: 'Email delivery failed' }),
 		)
 	}
-
-	return GENERIC_RESPONSE
 }
 
 /**
