@@ -54,19 +54,19 @@ describe('magic-links environment schemas', () => {
 		).toBe(false)
 	})
 
-	it('requires selected transport prerequisites and matching SMTP credentials', () => {
+	it('requires selected transport prerequisites without requiring SMTP port or credentials', () => {
 		expect(
 			endpointEnvSchema.safeParse({ ...validEnvironment, EMAIL_TRANSPORT: 'sendmail' })
 				.success,
 		).toBe(true)
 		expect(
-			endpointEnvSchema.safeParse({ ...validEnvironment, EMAIL_SMTP_USER: 'user' }).success,
-		).toBe(false)
+			endpointEnvSchema.safeParse({ ...validEnvironment, EMAIL_SMTP_PORT: undefined })
+				.success,
+		).toBe(true)
 		expect(
 			endpointEnvSchema.safeParse({
 				...validEnvironment,
 				EMAIL_SMTP_USER: 'user',
-				EMAIL_SMTP_PASSWORD: 'password',
 			}).success,
 		).toBe(true)
 	})

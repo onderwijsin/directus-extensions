@@ -65,9 +65,9 @@ MAGIC_LINK_CLEANUP_CRON=0 * * * *
 ```
 
 The endpoint accepts Directus's `sendmail`, `smtp`, `mailgun`, and `ses` transports. SMTP requires
-`EMAIL_SMTP_HOST` and `EMAIL_SMTP_PORT`; Mailgun requires its API key and domain; SES requires its
-access key ID, secret access key, and region. SMTP credentials, when supplied, must be configured
-together. The bundle validates the selected transport before registering its endpoint.
+`EMAIL_SMTP_HOST`; its port, credentials, and other options are owned by Directus and the consumer.
+Mailgun requires its API key and domain; SES requires its access key ID, secret access key, and
+region. The bundle validates the selected transport before registering its endpoint.
 
 ## Schema setup
 
