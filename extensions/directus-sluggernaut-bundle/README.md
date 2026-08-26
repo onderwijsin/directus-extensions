@@ -314,9 +314,10 @@ syntax includes named parameters (`:slug`), optional parameters (`:slug?`), one 
 declared by the origin.
 
 Pattern origins may contain at most 20 slash-separated segments. Sluggernaut derives the read-only
-`specificity` and `matcher_signature` fields. Equivalent active patterns are rejected by their
-matcher signature, even when parameter names differ. Query strings, fragments, hosts, dot segments,
-and unsupported pattern syntax are rejected.
+`specificity` and `matcher_signature` fields. Matching is case-insensitive, so static segments and
+parameter suffixes are canonicalized to lowercase for collision detection. Equivalent active
+patterns are rejected by their matcher signature, even when parameter names or literal casing
+differ. Query strings, fragments, hosts, dot segments, and unsupported pattern syntax are rejected.
 
 Example pattern redirect:
 

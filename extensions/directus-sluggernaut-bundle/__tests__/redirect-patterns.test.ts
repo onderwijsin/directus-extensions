@@ -103,6 +103,12 @@ describe('pattern destination validation', () => {
 		expect(createPatternSignature(parsePatternOrigin('/foo/:id'))).toBe(
 			createPatternSignature(parsePatternOrigin('/foo/:slug')),
 		)
+		expect(createPatternSignature(parsePatternOrigin('/News/:slug'))).toBe(
+			createPatternSignature(parsePatternOrigin('/news/:id')),
+		)
+		expect(createPatternSignature(parsePatternOrigin('/Files/:name.PDF'))).toBe(
+			createPatternSignature(parsePatternOrigin('/files/:slug.pdf')),
+		)
 		expect(createPatternSignature(parsePatternOrigin('/foo/:slug?'))).not.toBe(
 			createPatternSignature(parsePatternOrigin('/foo/:slug')),
 		)

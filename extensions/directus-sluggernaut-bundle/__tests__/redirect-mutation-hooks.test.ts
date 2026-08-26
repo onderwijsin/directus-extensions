@@ -123,16 +123,16 @@ describe('direct exact redirect mutation hooks', () => {
 
 	it('rejects an active pattern equivalent to an existing active pattern', async () => {
 		const matcher_signature = derivePatternMetadata(
-			'/foo/:id',
+			'/News/:id',
 			'/articles/:id',
 		).matcher_signature
-		const existing = { ...pattern('/foo/:id', '/articles/:id', 2), matcher_signature }
+		const existing = { ...pattern('/News/:id', '/articles/:id', 2), matcher_signature }
 		const { filters } = setup([existing])
 		const create = filters.get('items.create')!
 
 		await expect(
 			create(
-				{ origin: '/foo/:slug', destination: '/articles/:slug', match: 'pattern' },
+				{ origin: '/news/:slug', destination: '/articles/:slug', match: 'pattern' },
 				{ collection: 'custom_redirects' },
 				eventContext,
 			),
