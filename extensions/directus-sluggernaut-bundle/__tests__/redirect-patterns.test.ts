@@ -25,8 +25,16 @@ describe('redirect pattern grammar', () => {
 		expect(result.normalized).toBe(value)
 	})
 
-	it('normalizes repeated slashes while preserving a deliberate trailing slash', () => {
-		expect(parsePatternOrigin('//legacy///:slug//').normalized).toBe('/legacy/:slug/')
+	it('normalizes repeated slashes and ignores a non-root trailing slash', () => {
+		const result = parsePatternOrigin('//legacy///:slug//')
+		expect(result.normalized).toBe('/legacy/:slug')
+		expect(result.trailingSlash).toBe(false)
+	})
+
+	it('keeps root paths canonical', () => {
+		const result = parseDestinationTemplate('///')
+		expect(result.normalized).toBe('/')
+		expect(result.trailingSlash).toBe(false)
 	})
 
 	it.each([
@@ -112,7 +120,7 @@ describe('pattern destination validation', () => {
 		expect(createPatternSignature(parsePatternOrigin('/foo/:slug?'))).not.toBe(
 			createPatternSignature(parsePatternOrigin('/foo/:slug')),
 		)
-		expect(createPatternSignature(parsePatternOrigin('/foo/:slug/'))).not.toBe(
+		expect(createPatternSignature(parsePatternOrigin('/foo/:slug/'))).toBe(
 			createPatternSignature(parsePatternOrigin('/foo/:slug')),
 		)
 	})
@@ -160,7 +168,7 @@ describe('pattern specificity and metadata', () => {
 	})
 
 	it('derives normalized paths, signatures, and persisted specificity together', () => {
-		expect(derivePatternMetadata('//legacy///:slug', '/articles//:slug')).toMatchObject({
+		expect(derivePatternMetadata('//legacy///:slug//', '/articles//:slug')).toMatchObject({
 			origin: '/legacy/:slug',
 			destination: '/articles/:slug',
 			matcher_signature: expect.any(String),

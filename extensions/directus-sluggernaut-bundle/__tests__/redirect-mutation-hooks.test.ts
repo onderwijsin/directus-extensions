@@ -139,6 +139,24 @@ describe('direct exact redirect mutation hooks', () => {
 		).rejects.toThrow(/already uses matcher signature/u)
 	})
 
+	it('rejects an active pattern that differs only by a trailing slash', async () => {
+		const matcher_signature = derivePatternMetadata(
+			'/news/:id/',
+			'/articles/:id',
+		).matcher_signature
+		const existing = { ...pattern('/news/:id/', '/articles/:id', 2), matcher_signature }
+		const { filters } = setup([existing])
+		const create = filters.get('items.create')!
+
+		await expect(
+			create(
+				{ origin: '/news/:slug', destination: '/articles/:slug', match: 'pattern' },
+				{ collection: 'custom_redirects' },
+				eventContext,
+			),
+		).rejects.toThrow(/already uses matcher signature/u)
+	})
+
 	it('checks equivalent patterns again when an inactive pattern is reactivated', async () => {
 		const matcher_signature = derivePatternMetadata(
 			'/foo/:id',

@@ -14,6 +14,5 @@ export function createPatternSignature(pattern: ParsedPattern): string {
 				return `w:${segment.optional ? 'optional' : 'required'}`
 			return `p:${segment.optional ? 'optional' : 'required'}:${segment.suffix.toLowerCase()}`
 		})
-		.concat(pattern.trailingSlash ? ['slash'] : [])
 		.join('|')
 }
