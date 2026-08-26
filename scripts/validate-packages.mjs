@@ -21,7 +21,9 @@ export const errors = []
  * @property {unknown} [description] - Package description.
  * @property {unknown} [license] - Package license.
  * @property {unknown} [files] - Published file list.
+ * @property {unknown} [type] - Node.js module type.
  * @property {unknown} [main] - CommonJS entry point.
+ * @property {unknown} [exports] - Node.js package export map.
  * @property {unknown} [types] - TypeScript declaration entry point.
  * @property {{access?: unknown}|undefined} [publishConfig] - Publish settings.
  * @property {{node?: unknown}|undefined} [engines] - Runtime requirements.
@@ -135,6 +137,23 @@ export async function validateMetadata(packageName, packageDirectory, manifest) 
 		report(packageName, 'must declare main')
 	} else {
 		await requirePath(packageName, packageDirectory, manifest.main.replace(/^\.\//u, ''))
+	}
+	if (manifest.type === 'module') {
+		const rootExport =
+			manifest.exports &&
+			typeof manifest.exports === 'object' &&
+			!Array.isArray(manifest.exports)
+				? manifest.exports['.']
+				: undefined
+		const rootExportTarget =
+			typeof rootExport === 'string'
+				? rootExport
+				: rootExport && typeof rootExport === 'object' && !Array.isArray(rootExport)
+					? (rootExport.import ?? rootExport.default)
+					: undefined
+		if (typeof rootExportTarget !== 'string' || rootExportTarget !== manifest.main) {
+			report(packageName, 'ESM packages must expose main through exports at .')
+		}
 	}
 	if (manifest.types !== undefined) {
 		if (typeof manifest.types !== 'string' || manifest.types.length === 0) {

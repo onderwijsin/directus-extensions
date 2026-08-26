@@ -41,6 +41,9 @@
 	],
 	"type": "module",
 	"main": "./dist/api.js",
+	"exports": {
+		".": "./dist/api.js"
+	},
 	"publishConfig": {
 		"access": "public"
 	},
