@@ -38,6 +38,19 @@ const requestStatus = async (request: () => Promise<unknown>): Promise<number> =
 	throw new Error('Expected the request to fail')
 }
 
+const requestRaw = async (
+	userClient: { getToken(): Promise<string | null> },
+	path: string,
+): Promise<unknown> => {
+	const userToken = await userClient.getToken()
+	if (!userToken) throw new Error('Expected the E2E user client to have an access token')
+	const response = await fetch(`${baseUrl}${path}`, {
+		headers: { Authorization: `Bearer ${userToken}` },
+	})
+	if (!response.ok) throw new Error(`Directus ${response.status}: ${await response.text()}`)
+	return response.json()
+}
+
 const assignPolicy = async (user: string, policy: string): Promise<void> => {
 	await client.request(
 		customEndpoint({
@@ -75,7 +88,7 @@ const deleteApplication = async (id: string | number): Promise<void> => {
 	)
 }
 
-describe('Coolify deployment endpoint middleware', () => {
+describe('Coolify deployment endpoint', () => {
 	it('rejects unauthenticated requests', async () => {
 		const response = await fetch(`${baseUrl}/coolify-deployments/applications`)
 
@@ -312,7 +325,7 @@ describe('Coolify deployment endpoint middleware', () => {
 		}
 	})
 
-	it('enforces seeded read and trigger policies for deployment routes', async () => {
+	it('enforces route policies and returns paginated deployment history', async () => {
 		const user = await client.createEphemeralUser({
 			role: { name: 'Coolify deployment policy role' },
 		})
@@ -346,14 +359,13 @@ describe('Coolify deployment endpoint middleware', () => {
 						{ id: String(directusApplicationId), name: 'E2E Coolify application' },
 					]),
 				)
+				const deploymentPath = `/coolify-deployments/applications/${encodeURIComponent(String(directusApplicationId))}/deployments`
 				expect(
 					await userClient.request(
-						customEndpoint({
-							path: `/coolify-deployments/applications/${encodeURIComponent(String(directusApplicationId))}/deployments`,
-							method: 'GET',
-						}),
+						customEndpoint({ path: deploymentPath, method: 'GET' }),
 					),
-				).toEqual({
+				).toEqual([])
+				expect(await requestRaw(userClient, deploymentPath)).toEqual({
 					data: [],
 					meta: { offset: 0, limit: 10, total: 0, hasMore: false },
 				})
