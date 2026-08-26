@@ -36,6 +36,22 @@ describe('magic-links environment schemas', () => {
 		})
 
 		expect(result.success).toBe(true)
+		if (result.success) expect(result.data.MAGIC_LINKS_REQUEST_RATE_LIMIT).toBe(5)
+	})
+
+	it('validates the request rate limit', () => {
+		expect(
+			endpointEnvSchema.parse({
+				...validEnvironment,
+				MAGIC_LINKS_REQUEST_RATE_LIMIT: '12',
+			}).MAGIC_LINKS_REQUEST_RATE_LIMIT,
+		).toBe(12)
+		expect(
+			endpointEnvSchema.safeParse({
+				...validEnvironment,
+				MAGIC_LINKS_REQUEST_RATE_LIMIT: 0,
+			}).success,
+		).toBe(false)
 	})
 
 	it('requires selected transport prerequisites and matching SMTP credentials', () => {

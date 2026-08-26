@@ -29,6 +29,7 @@ export const envSchema = sharedEnvSchema
 		SECRET: z.string().trim().min(1),
 		MAGIC_LINKS_TOKEN_SECRET: z.string().trim().min(1).optional(),
 		MAGIC_LINKS_TOKEN_TTL: durationSchema.default('15m'),
+		MAGIC_LINKS_REQUEST_RATE_LIMIT: z.coerce.number().int().positive().default(5),
 		MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: z.array(redirectUrlSchema).min(1),
 		MAGIC_LINKS_TOKEN_QUERY_PARAMETER: nameSchema.default('token'),
 		MAGIC_LINKS_EMAIL_TEMPLATE: nameSchema.default('magic-link'),

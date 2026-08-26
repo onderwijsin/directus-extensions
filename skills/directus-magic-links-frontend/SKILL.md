@@ -144,7 +144,9 @@ for the installed version; do not invent or expect a magic-links-specific `MFA_R
 - Remove the token from the URL immediately after parsing it with `history.replaceState`.
 - Keep the request response generic in user-facing copy so account existence is not disclosed.
 - Configure CORS for the frontend origin and apply CSRF protections when using cookies or sessions.
-- Rate-limit request attempts at the edge or API gateway.
+- The bundle applies a default per-IP limit of five request attempts per minute; configure
+  `MAGIC_LINKS_REQUEST_RATE_LIMIT` for a different value and add edge or API-gateway limits for
+  deployment-wide protection.
 
 ## Boundaries
 

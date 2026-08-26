@@ -96,6 +96,12 @@ point immediately before validation. Successful redemption deletes the key. This
 replicas when Redis is selected without storing raw tokens, OTPs, or account-wide state, and does
 not inherit Directus's account-suspension side effects.
 
+The public request endpoint uses a separate limiter with a default budget of five requests per IP
+per 60 seconds, configurable through `MAGIC_LINKS_REQUEST_RATE_LIMIT`. It runs before user lookup or
+email delivery, so known and unknown email addresses follow the same path. Request and redemption
+limiters use separate Redis namespaces and limiter instances, while sharing the endpoint's single
+Redis connection when Redis-backed storage is selected.
+
 The filter is only evaluated for refreshes initiated by this bundle's magic-link redemption flow.
 The redemption wraps its `AuthenticationService.refresh()` call in a Node `AsyncLocalStorage`
 context containing the linked user ID. The `auth.jwt` filter reads that context and requires the

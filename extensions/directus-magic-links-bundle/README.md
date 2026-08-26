@@ -34,12 +34,13 @@ the extension receives them; arrays therefore use Directus's array syntax.
 | `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | unset                      | Schema lock provider: `memory`, `redis`, or `fs`; otherwise uses synchronization. |
 | `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | unset                      | Optional override; otherwise uses resolved Redis settings.                        |
 | `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | unset                      | Required when the provider is `fs`.                                               |
-| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | unset                      | Failed-OTP limiter store; otherwise uses `SYNCHRONIZATION_STORE`.                 |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | unset                      | Request and failed-OTP limiter store; otherwise uses `SYNCHRONIZATION_STORE`.     |
 | `REDIS_ENABLED`                                                | `false`                    | Enables component-based Redis configuration.                                      |
 | `REDIS`                                                        | Directus setting           | Complete URL; takes precedence over components.                                   |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | unset                      | Required together when building a URL.                                            |
 | `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback | HMAC secret for token digests.                                                    |
 | `MAGIC_LINKS_TOKEN_TTL`                                        | `15m`                      | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).                                |
+| `MAGIC_LINKS_REQUEST_RATE_LIMIT`                               | `5`                        | Requests per IP per 60 seconds for the request endpoint.                          |
 | `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                   | Non-empty array of HTTPS URLs without credentials or explicit ports.              |
 | `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`                            | `token`                    | Query parameter used for the raw token.                                           |
 | `MAGIC_LINKS_COLLECTION`                                       | `magic_links`              | Magic-link collection name.                                                       |
@@ -57,6 +58,7 @@ Example:
 MAGIC_LINKS_ENABLED=true
 MAGIC_LINKS_REDIRECT_URL_ALLOWLIST=array:https://app.example.com/auth/magic-link
 MAGIC_LINKS_TOKEN_TTL=15m
+MAGIC_LINKS_REQUEST_RATE_LIMIT=5
 USE_MAGIC_LINK_CLEANUP=true
 MAGIC_LINK_CLEANUP_WINDOW=7d
 MAGIC_LINK_CLEANUP_CRON=0 * * * *
@@ -207,10 +209,13 @@ policies and does not modify the Directus Data Studio authentication flow. The e
 public request and redeem calls, but the configured magic-links collection must remain private and
 must not be exposed through public CRUD permissions.
 
-Apply rate limiting to both public routes at the edge or API gateway, especially the redeem route
-because invalid OTP attempts are not covered by Directus's login-attempt limiter. Configure CORS for
-the frontend origin. Cookie and session modes require the deployment's normal CSRF protections
-because the browser sends the refresh or session cookie automatically.
+The request endpoint applies a separate per-IP limit of 5 requests per minute by default, configured
+with `MAGIC_LINKS_REQUEST_RATE_LIMIT`. The redemption endpoint separately limits failed OTP attempts
+per magic-link using `auth_login_attempts`; the two budgets do not affect each other. Apply
+additional rate limiting to both public routes at the edge or API gateway, especially the redeem
+route because invalid OTP attempts are not covered by Directus's login-attempt limiter. Configure
+CORS for the frontend origin. Cookie and session modes require the deployment's normal CSRF
+protections because the browser sends the refresh or session cookie automatically.
 
 For the rationale and security boundaries behind these choices, see the repository decision record:
 [`Magic-link architecture and security boundaries`](../../docs/decisions/magic-links-architecture-and-security-boundaries.md).

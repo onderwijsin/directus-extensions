@@ -35,6 +35,7 @@ const options: MagicLinksEnv = {
 	MAGIC_LINKS_ENABLED: true,
 	MAGIC_LINKS_COLLECTION: 'magic_links',
 	MAGIC_LINKS_TOKEN_TTL: '15m',
+	MAGIC_LINKS_REQUEST_RATE_LIMIT: 5,
 	MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: ['https://app.example.com/auth/magic-link'],
 	MAGIC_LINKS_TOKEN_QUERY_PARAMETER: 'token',
 	MAGIC_LINKS_EMAIL_TEMPLATE: 'magic-link',
