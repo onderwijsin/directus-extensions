@@ -106,7 +106,30 @@ describe('magic-links environment schemas', () => {
 		expect(
 			endpointEnvSchema.safeParse({
 				...validEnvironment,
+				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: [
+					'https://app.example.com:8443/auth/magic-link',
+				],
+			}).success,
+		).toBe(false)
+		expect(
+			endpointEnvSchema.safeParse({
+				...validEnvironment,
 				MAGIC_LINKS_COLLECTION: 'directus_custom_links',
+			}).success,
+		).toBe(false)
+	})
+
+	it('requires a non-empty redirect allowlist', () => {
+		expect(
+			endpointEnvSchema.safeParse({
+				...validEnvironment,
+				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: undefined,
+			}).success,
+		).toBe(false)
+		expect(
+			endpointEnvSchema.safeParse({
+				...validEnvironment,
+				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: [],
 			}).success,
 		).toBe(false)
 	})

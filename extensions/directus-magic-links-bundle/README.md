@@ -40,7 +40,7 @@ the extension receives them; arrays therefore use Directus's array syntax.
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | unset                      | Required together when building a URL.                                            |
 | `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback | HMAC secret for token digests.                                                    |
 | `MAGIC_LINKS_TOKEN_TTL`                                        | `15m`                      | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).                                |
-| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                   | Non-empty array of allowed redirect URLs.                                         |
+| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                   | Non-empty array of HTTPS URLs without credentials or explicit ports.              |
 | `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`                            | `token`                    | Query parameter used for the raw token.                                           |
 | `MAGIC_LINKS_COLLECTION`                                       | `magic_links`              | Magic-link collection name.                                                       |
 | `MAGIC_LINKS_EMAIL_TEMPLATE`                                   | `magic-link`               | Directus Liquid template name.                                                    |
