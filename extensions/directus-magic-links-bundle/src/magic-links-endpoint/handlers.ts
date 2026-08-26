@@ -63,6 +63,11 @@ interface MagicLinkEmailInput {
 	user: { email: string; linkId: string }
 }
 
+interface MagicLinkEmailStatusUpdate {
+	email_status: 'sent' | 'error'
+	email_error?: string
+}
+
 interface RedeemableMagicLink {
 	id: string
 	user_id: PrimaryKey
@@ -187,12 +192,31 @@ export async function deliverMagicLinkEmail(input: MagicLinkEmailInput): Promise
 		await sendMagicLinkEmail(input)
 	} catch {
 		await attempt(() =>
-			input.context
-				.database(input.options.MAGIC_LINKS_COLLECTION)
-				.where({ id: input.user.linkId })
-				.update({ email_status: 'error', email_error: 'Email delivery failed' }),
+			updateMagicLinkEmailStatus(input, {
+				email_status: 'error',
+				email_error: 'Email delivery failed',
+			}),
 		)
 	}
+}
+
+/**
+ * Updates delivery status through Directus so data-cache entries are invalidated.
+ *
+ * @param input - Email delivery dependencies and values.
+ * @param update - Delivery status fields to persist.
+ * @returns A promise completed after the status update.
+ */
+async function updateMagicLinkEmailStatus(
+	input: MagicLinkEmailInput,
+	update: MagicLinkEmailStatusUpdate,
+): Promise<void> {
+	const items = new input.context.services.ItemsService(input.options.MAGIC_LINKS_COLLECTION, {
+		knex: input.context.database,
+		schema: input.schema,
+		accountability: null,
+	})
+	await items.updateOne(input.user.linkId, update)
 }
 
 /**
@@ -224,10 +248,7 @@ export async function sendMagicLinkEmail(input: MagicLinkEmailInput): Promise<vo
 		},
 	})
 
-	await context
-		.database(options.MAGIC_LINKS_COLLECTION)
-		.where({ id: user.linkId })
-		.update({ email_status: 'sent' })
+	await updateMagicLinkEmailStatus(input, { email_status: 'sent' })
 }
 
 /**

@@ -93,8 +93,20 @@ const getSchema = vi.fn(() => ({}))
 type HandlerContext = Parameters<typeof requestMagicLink>[0]['context']
 type TestInput = Record<string, unknown>
 
-const createContext = (input: TestInput): HandlerContext =>
-	({ database: input.database, getSchema, services: input.services }) as unknown as HandlerContext
+const createContext = (input: TestInput): HandlerContext => {
+	const inputServices =
+		typeof input.services === 'object' && input.services !== null ? input.services : {}
+	return {
+		database: input.database,
+		getSchema,
+		services: {
+			ItemsService: vi.fn(function () {
+				return { updateOne: input.itemsUpdate ?? vi.fn() }
+			}),
+			...inputServices,
+		},
+	} as unknown as HandlerContext
+}
 
 const runRequest = (input: TestInput) =>
 	requestMagicLink({
@@ -226,6 +238,7 @@ describe('magic-link handlers', () => {
 		const database = createDatabase(transaction)
 		const linkQuery = createQuery()
 		database.mockImplementation(() => linkQuery)
+		const itemsUpdate = vi.fn()
 		const mailSend = vi.fn(() => {
 			throw new Error('SMTP unavailable')
 		})
@@ -239,6 +252,7 @@ describe('magic-link handlers', () => {
 						return { send: mailSend }
 					}),
 				},
+				itemsUpdate,
 				options,
 				secret: 'secret',
 				payload: {
@@ -249,7 +263,7 @@ describe('magic-link handlers', () => {
 				userAgent: null,
 			}),
 		).resolves.toHaveProperty('message')
-		expect(linkQuery.update).toHaveBeenCalledWith({
+		expect(itemsUpdate).toHaveBeenCalledWith('link-id', {
 			email_status: 'error',
 			email_error: 'Email delivery failed',
 		})
@@ -261,6 +275,7 @@ describe('magic-link handlers', () => {
 		const database = createDatabase(transaction)
 		const linkQuery = createQuery()
 		database.mockImplementation(() => linkQuery)
+		const itemsUpdate = vi.fn()
 		let resolveMail: (() => void) | undefined
 		const mailSend = vi.fn(
 			() =>
@@ -277,6 +292,7 @@ describe('magic-link handlers', () => {
 					return { send: mailSend }
 				}),
 			},
+			itemsUpdate,
 			options,
 			secret: 'secret',
 			payload: {
@@ -289,11 +305,11 @@ describe('magic-link handlers', () => {
 
 		expect(result).toHaveProperty('message')
 		expect(mailSend).toHaveBeenCalledOnce()
-		expect(linkQuery.update).not.toHaveBeenCalled()
+		expect(itemsUpdate).not.toHaveBeenCalled()
 
 		resolveMail?.()
 		await vi.waitFor(() => {
-			expect(linkQuery.update).toHaveBeenCalledWith({ email_status: 'sent' })
+			expect(itemsUpdate).toHaveBeenCalledWith('link-id', { email_status: 'sent' })
 		})
 	})
 
