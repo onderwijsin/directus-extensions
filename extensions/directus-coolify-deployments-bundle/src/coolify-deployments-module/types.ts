@@ -20,6 +20,16 @@ export interface DeploymentSummary {
 	environmentName?: string | null
 }
 
+export interface DeploymentHistoryPage {
+	data: DeploymentSummary[]
+	meta: {
+		offset: number
+		limit: number
+		total: number
+		hasMore: boolean
+	}
+}
+
 export interface ApplicationSummary {
 	directusApplicationId: string
 	name: string

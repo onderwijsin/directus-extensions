@@ -12,6 +12,7 @@ const props = defineProps<{ directusApplicationId: string; deploymentId: string 
 const api = useCoolifyDeploymentsApi()
 const deployment = shallowRef<DeploymentSummary | null>(null)
 const loading = shallowRef(true)
+const loadingAction = shallowRef(false)
 const error = shallowRef<string | null>(null)
 let poller: ReturnType<typeof setTimeout> | undefined
 let requestInFlight = false
@@ -56,7 +57,7 @@ const load = async () => {
  * @returns Nothing.
  */
 const cancel = async () => {
-	loading.value = true
+	loadingAction.value = true
 	try {
 		await api.cancelDeployment(props.directusApplicationId, props.deploymentId)
 		await load()
@@ -64,7 +65,7 @@ const cancel = async () => {
 		error.value =
 			caughtError instanceof Error ? caughtError.message : 'Unable to cancel deployment'
 	} finally {
-		loading.value = false
+		loadingAction.value = false
 	}
 }
 watch(
@@ -124,23 +125,17 @@ onUnmounted(() => {
 					@click="load"
 					><v-icon name="refresh"
 				/></v-button>
-				<v-button v-if="active" danger :loading="loading" @click="cancel"
+				<v-button v-if="active" danger :loading="loadingAction" @click="cancel"
 					><v-icon name="cancel" /> Cancel deployment</v-button
 				>
 			</div>
 		</template>
 		<div class="page">
 			<v-notice v-if="error" type="warning">{{ error }}</v-notice>
-			<div v-if="loading" class="loading-layout">
-				<LoadingSkeleton :lines="1" />
-				<div class="metadata">
-					<LoadingSkeleton v-for="item in 6" :key="item" :lines="2" />
-				</div>
-			</div>
-			<div v-if="deployment" class="deployment-details">
+			<div class="deployment-details">
 				<div class="deployment-header">
 					<h2>Deployment Details</h2>
-					<div class="deployment-actions">
+					<div v-if="deployment" class="deployment-actions">
 						<DeploymentStatus :status="deployment.status" />
 						<v-button
 							v-if="deployment.coolifyUrl"
@@ -152,7 +147,8 @@ onUnmounted(() => {
 						/></v-button>
 					</div>
 				</div>
-				<div class="metadata-card">
+				<LoadingSkeleton v-if="loading" :lines="10" />
+				<div v-else-if="deployment" class="metadata-card">
 					<table class="metadata-table">
 						<tbody>
 							<tr>
@@ -213,10 +209,6 @@ onUnmounted(() => {
 	display: grid;
 	gap: 24px;
 	padding: var(--content-padding);
-}
-.loading-layout {
-	display: grid;
-	gap: 16px;
 }
 .deployment-details {
 	display: flex;

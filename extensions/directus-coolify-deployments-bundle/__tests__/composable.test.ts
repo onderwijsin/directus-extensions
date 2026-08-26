@@ -17,13 +17,22 @@ describe('useCoolifyDeploymentsApi', () => {
 				data: [{ directusApplicationId: 'app/1' }],
 				headers: { 'x-coolify-deployments-poll-interval': '249' },
 			})
-			.mockResolvedValueOnce({ data: [{ id: 'deployment 1' }], headers: {} })
+			.mockResolvedValueOnce({
+				data: {
+					data: [{ id: 'deployment 1' }],
+					meta: { offset: 0, limit: 10, total: 1, hasMore: false },
+				},
+				headers: {},
+			})
 			.mockResolvedValueOnce({ data: { id: 'deployment 1' }, headers: {} })
 		mocks.api.post.mockResolvedValueOnce({ data: { id: 'created' } }).mockResolvedValueOnce({})
 		const api = useCoolifyDeploymentsApi()
 
 		await expect(api.listApplications()).resolves.toEqual([{ directusApplicationId: 'app/1' }])
-		await expect(api.listDeployments('app/1')).resolves.toEqual([{ id: 'deployment 1' }])
+		await expect(api.listDeployments('app/1')).resolves.toEqual({
+			data: [{ id: 'deployment 1' }],
+			meta: { offset: 0, limit: 10, total: 1, hasMore: false },
+		})
 		await expect(api.getDeployment('app/1', 'deployment 1')).resolves.toEqual({
 			id: 'deployment 1',
 		})
@@ -33,7 +42,24 @@ describe('useCoolifyDeploymentsApi', () => {
 		expect(mocks.api.get).toHaveBeenNthCalledWith(1, '/coolify-deployments/applications')
 		expect(mocks.api.get).toHaveBeenNthCalledWith(
 			2,
-			'/coolify-deployments/applications/app%2F1/deployments',
+			'/coolify-deployments/applications/app%2F1/deployments?offset=0&limit=10',
+		)
+
+		mocks.api.get.mockResolvedValueOnce({
+			data: {
+				data: [],
+				meta: { offset: 10, limit: 10, total: 11, hasMore: false },
+			},
+			headers: {},
+		})
+		await expect(
+			api.listDeployments('app/1', { offset: 10, limit: 10 }),
+		).resolves.toMatchObject({
+			meta: { offset: 10 },
+		})
+		expect(mocks.api.get).toHaveBeenNthCalledWith(
+			4,
+			'/coolify-deployments/applications/app%2F1/deployments?offset=10&limit=10',
 		)
 		expect(mocks.api.get).toHaveBeenNthCalledWith(
 			3,

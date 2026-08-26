@@ -30,7 +30,7 @@ export type {
 	GetApplicationOptions,
 } from './types'
 
-import type { CoolifyClientContext, GetApplicationOptions } from './types'
+import type { CoolifyClientContext, DeploymentPagination, GetApplicationOptions } from './types'
 
 import {
 	getAllowedApplications as resolveAllowedApplications,
@@ -56,8 +56,6 @@ import {
 const API_PREFIX = '/api/v1'
 const CONFIGURED_APPLICATIONS_CACHE_KEY = 'coolify-deployments:configured-applications'
 const APPLICATIONS_CACHE_NAMESPACE = 'directus:extensions:coolify-deployments:applications'
-const DEPLOYMENT_PAGE_SIZE = 100
-
 /**
  * Create a typed client for Coolify's documented project, environment, application, and deployment API.
  * @param options - Validated Coolify configuration.
@@ -76,9 +74,6 @@ export function createCoolifyDeploymentClient(
 			})
 		: null
 
-	/**
-	 *
-	 */
 	/** @returns Cached enabled Coolify application records. */
 	const readConfiguredApplications = () =>
 		withCache(
@@ -299,10 +294,19 @@ export function createCoolifyDeploymentClient(
 	 * @param query - Optional pagination query.
 	 * @returns Parsed deployments.
 	 */
-	const parseDeployments = async (
+	const parseDeploymentPage = async (
 		path: string,
-		query?: { skip: number; take: number },
-	): Promise<CoolifyDeployment[]> => {
+		query: DeploymentPagination,
+	): Promise<{ count: number; deployments: CoolifyDeployment[] }> =>
+		coolifyDeploymentsResponseSchema.parse(await request(path, { query }))
+
+	/**
+	 * Parse a Coolify deployment response used by dashboard and latest-deployment reads.
+	 * @param path - Coolify deployment endpoint path.
+	 * @param query - Optional pagination query.
+	 * @returns Parsed deployments.
+	 */
+	const parseDeployments = async (path: string, query?: DeploymentPagination) => {
 		const response = await request(path, { query })
 		if (path === '/deployments') return coolifyDeploymentsListSchema.parse(response)
 		return coolifyDeploymentsResponseSchema.parse(response).deployments
@@ -310,24 +314,18 @@ export function createCoolifyDeploymentClient(
 
 	/**
 	 * @param applicationUuid - Coolify application UUID.
+	 * @param pagination - Requested provider page boundaries.
 	 * @returns Deployments for the application.
 	 */
 	const listApplicationDeployments = async (
 		applicationUuid: string,
-	): Promise<CoolifyDeployment[]> => {
+		pagination: DeploymentPagination,
+	): Promise<{ count: number; deployments: CoolifyDeployment[] }> => {
 		await assertAllowed(applicationUuid, getAllowedApplications)
-		const deployments: CoolifyDeployment[] = []
-		let skip = 0
-
-		while (true) {
-			const page = await parseDeployments(
-				`/deployments/applications/${encodeURIComponent(applicationUuid)}`,
-				{ skip, take: DEPLOYMENT_PAGE_SIZE },
-			)
-			deployments.push(...page)
-			if (page.length < DEPLOYMENT_PAGE_SIZE) return deployments
-			skip += DEPLOYMENT_PAGE_SIZE
-		}
+		return parseDeploymentPage(
+			`/deployments/applications/${encodeURIComponent(applicationUuid)}`,
+			pagination,
+		)
 	}
 
 	/**

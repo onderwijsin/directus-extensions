@@ -100,14 +100,7 @@ onUnmounted(() => {
 		></template>
 		<div class="module-page">
 			<v-notice v-if="error" type="warning">{{ error }}</v-notice>
-			<template v-if="loading">
-				<div class="skeleton-stats">
-					<LoadingSkeleton v-for="item in 4" :key="item" :lines="1" />
-				</div>
-				<LoadingSkeleton :lines="4" />
-				<LoadingSkeleton :lines="4" />
-			</template>
-			<template v-else-if="applications.length === 0">
+			<template v-if="!loading && applications.length === 0">
 				<v-info icon="rocket_launch" title="No Coolify applications configured" center>
 					<p style="margin-block-end: 1.375rem">
 						Add your first Coolify application to start deploying from Directus.
@@ -121,16 +114,21 @@ onUnmounted(() => {
 			<template v-else>
 				<section>
 					<h2>Current deployments</h2>
-					<NoDeploymentsInProgress v-if="current.length === 0" />
-					<ActiveDeploymentList
-						v-else
-						:deployments="current"
-						:application-path="deploymentSummaryPath"
-					/>
+					<LoadingSkeleton v-if="loading" :lines="4" />
+					<template v-else>
+						<NoDeploymentsInProgress v-if="current.length === 0" />
+						<ActiveDeploymentList
+							v-else
+							:deployments="current"
+							:application-path="deploymentSummaryPath"
+						/>
+					</template>
 				</section>
 				<section>
 					<h2>Recent deployments</h2>
+					<LoadingSkeleton v-if="loading" :lines="4" />
 					<DeploymentList
+						v-else
 						:deployments="recent"
 						empty-title="No recent deployments"
 						empty-copy="Deployment history will appear here when an application is deployed."
@@ -139,7 +137,9 @@ onUnmounted(() => {
 				</section>
 				<section>
 					<h2>Applications</h2>
+					<LoadingSkeleton v-if="loading" :lines="4" />
 					<ApplicationList
+						v-else
 						:applications="applications"
 						:application-path="deploymentPath"
 					/>
@@ -155,11 +155,6 @@ onUnmounted(() => {
 	gap: 32px;
 	padding: var(--content-padding);
 }
-.skeleton-stats {
-	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
-	gap: 12px;
-}
 section {
 	display: grid;
 	gap: 12px;
@@ -167,10 +162,5 @@ section {
 h2 {
 	margin: 0;
 	font-size: 18px;
-}
-@media (max-width: 700px) {
-	.skeleton-stats {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
 }
 </style>

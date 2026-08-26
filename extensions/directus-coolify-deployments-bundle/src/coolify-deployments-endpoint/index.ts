@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 
-import { ForbiddenError } from '@directus/errors'
+import { ForbiddenError, InvalidPayloadError } from '@directus/errors'
 import { defineEndpoint } from '@directus/extensions-sdk'
 import {
 	asyncHandler,
@@ -13,8 +13,15 @@ import {
 	initializePolicyCache,
 	getAccountabilityFromRequest,
 } from '@onderwijsin/directus-extension-utils/server'
+import { z } from 'zod'
 
-import { DEPLOYMENT_POLL_INTERVAL_HEADER, EXTENSION_ID, EXTENSION_NAME } from '../shared/constants'
+import {
+	APPLICATION_DEPLOYMENT_PAGE_SIZE,
+	DEPLOYMENT_POLL_INTERVAL_HEADER,
+	EXTENSION_ID,
+	EXTENSION_NAME,
+	MAX_APPLICATION_DEPLOYMENT_PAGE_SIZE,
+} from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
 import { isAssignedPolicy, requirePolicies } from './auth'
 import { envSchema } from './env.schema'
@@ -26,6 +33,16 @@ import {
 import { assertDeploymentBelongsToApplication, normalizeDeployment } from './helpers'
 import { isSameOriginRequest } from './same-origin'
 import { loadApplicationSummaries } from './summary'
+
+const deploymentPaginationSchema = z.object({
+	offset: z.coerce.number().int().nonnegative().default(0),
+	limit: z.coerce
+		.number()
+		.int()
+		.positive()
+		.max(MAX_APPLICATION_DEPLOYMENT_PAGE_SIZE)
+		.default(APPLICATION_DEPLOYMENT_PAGE_SIZE),
+})
 
 export default defineEndpoint({
 	id: 'coolify-deployments',
@@ -129,7 +146,8 @@ export default defineEndpoint({
 					next(
 						error instanceof CoolifyUpstreamError ||
 							error instanceof CoolifyDeploymentApplicationMismatchError ||
-							error instanceof ForbiddenError
+							error instanceof ForbiddenError ||
+							error instanceof InvalidPayloadError
 							? error
 							: new CoolifyUpstreamError(),
 					)
@@ -239,20 +257,33 @@ export default defineEndpoint({
 			'/applications/:id/deployments',
 			authorizeRoute(options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID),
 			handle(async (request, response) => {
+				const pagination = deploymentPaginationSchema.safeParse(request.query)
+				if (!pagination.success) {
+					throw new InvalidPayloadError({
+						reason: `Invalid deployment pagination: ${pagination.error.issues[0]?.message ?? 'invalid query'}`,
+					})
+				}
 				const application = await client.getConfiguredApplication(request.params.id ?? '', {
 					bypassCache: true,
 				})
-				const deployments = await client.listApplicationDeployments(
+				const result = await client.listApplicationDeployments(
 					application.application_uuid,
+					{ skip: pagination.data.offset, take: pagination.data.limit },
 				)
-				response.json(
-					deployments.map((deployment) => ({
+				response.json({
+					data: result.deployments.map((deployment) => ({
 						...normalizeDeployment(deployment, { COOLIFY_URL: options.COOLIFY_URL }),
 						directusApplicationId: application.directusApplicationId,
 						applicationName: application.name,
 						environmentName: application.environment_name,
 					})),
-				)
+					meta: {
+						offset: pagination.data.offset,
+						limit: pagination.data.limit,
+						total: result.count,
+						hasMore: pagination.data.offset + result.deployments.length < result.count,
+					},
+				})
 			}),
 		)
 

@@ -353,7 +353,10 @@ describe('Coolify deployment endpoint middleware', () => {
 							method: 'GET',
 						}),
 					),
-				).toEqual([])
+				).toEqual({
+					data: [],
+					meta: { offset: 0, limit: 10, total: 0, hasMore: false },
+				})
 			})
 
 			await client.withUserContext(user.id, async (userClient) => {

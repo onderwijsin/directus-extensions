@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 		listConfiguredApplication: vi.fn().mockResolvedValue([]),
 		getConfiguredApplication: vi.fn(),
 		getApplication: vi.fn(),
-		listApplicationDeployments: vi.fn().mockResolvedValue([]),
+		listApplicationDeployments: vi.fn().mockResolvedValue({ count: 0, deployments: [] }),
 		listDashboardDeployments: vi.fn().mockResolvedValue([]),
 		getLatestApplicationDeployment: vi.fn().mockResolvedValue(null),
 		getDeployment: vi.fn(),
@@ -334,6 +334,68 @@ describe('Coolify deployment endpoint orchestration', () => {
 		await route({ accountability: { user: 'user-id', admin: false } }, createResponse(), next)
 
 		await vi.waitFor(() => expect(next).toHaveBeenCalledWith(expect.any(Error)))
+	})
+
+	it('passes bounded deployment pagination to the provider client', async () => {
+		mocks.client.getConfiguredApplication.mockResolvedValue({
+			directusApplicationId: 'frontend',
+			name: 'Frontend',
+			application_uuid: 'application-1',
+			project_uuid: null,
+			project_name: null,
+			environment_uuid: null,
+			environment_name: null,
+			production_url: null,
+			enabled: true,
+			deploy_enabled: true,
+		})
+		mocks.client.listApplicationDeployments.mockResolvedValueOnce({
+			count: 101,
+			deployments: [
+				{
+					application_id: 'application-1',
+					deployment_uuid: 'deployment-21',
+					status: 'finished',
+				},
+			],
+		})
+		const router = createRouter()
+		runEndpoint(router)
+		const route = router.get.mock.calls[4]?.[2]
+		if (typeof route !== 'function') throw new Error('Expected deployment list route')
+		const response = createResponse()
+
+		await route(
+			{ params: { id: 'frontend' }, query: { offset: '20', limit: '1' } },
+			response,
+			vi.fn(),
+		)
+
+		await vi.waitFor(() =>
+			expect(mocks.client.listApplicationDeployments).toHaveBeenCalledWith('application-1', {
+				skip: 20,
+				take: 1,
+			}),
+		)
+		expect(response.json).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.any(Array),
+				meta: { offset: 20, limit: 1, total: 101, hasMore: true },
+			}),
+		)
+	})
+
+	it('rejects deployment pages above the configured maximum', async () => {
+		const router = createRouter()
+		runEndpoint(router)
+		const route = router.get.mock.calls[4]?.[2]
+		if (typeof route !== 'function') throw new Error('Expected deployment list route')
+		const next = vi.fn()
+
+		await route({ params: { id: 'frontend' }, query: { limit: '101' } }, createResponse(), next)
+
+		await vi.waitFor(() => expect(next).toHaveBeenCalledWith(expect.any(Error)))
+		expect(mocks.client.listApplicationDeployments).not.toHaveBeenCalled()
 	})
 
 	it('serves deployment detail, trigger, and cancellation routes', async () => {
