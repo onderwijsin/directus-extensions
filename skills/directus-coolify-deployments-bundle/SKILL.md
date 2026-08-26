@@ -186,12 +186,18 @@ rejects while schema startup work is locked. Administrators bypass policy assign
 | `GET`  | `/coolify-deployments/operation/applications`                            | Collection read | Minimal `{ "id", "name" }` options for enabled, deploy-enabled items.                      |
 | `GET`  | `/coolify-deployments/dashboard`                                         | Manage + Read   | One dashboard projection with applications, active/recent deployments, and trigger access. |
 | `GET`  | `/coolify-deployments/applications`                                      | Manage          | Application summary array.                                                                 |
-| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Normalized deployment array.                                                               |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Paginated `{ data, meta }` deployment history.                                             |
 | `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read            | One normalized deployment.                                                                 |
 | `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger         | `201 { "id": "deployment-uuid" }`; always forces rebuild.                                  |
 | `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger         | Cancellation result.                                                                       |
 
 `:id` is the Directus item ID, not the Coolify application UUID. URL-encode route values.
+
+Application deployment history accepts `offset` (default `0`) and `limit` (default `10`, maximum
+`100`) query parameters. The response contains the requested normalized page in `data` and
+`meta.offset`, `meta.limit`, `meta.total`, and `meta.hasMore` pagination metadata. The Studio module
+requests a new page from the endpoint when the user changes pages; it does not load the complete
+history at once.
 
 Permission check:
 
@@ -300,9 +306,10 @@ from `X-Coolify-Deployments-Poll-Interval`, and never exposes `COOLIFY_TOKEN` in
 dashboard response contains bounded active/recent deployment data, so the dashboard does not load
 full application histories. Polling is serialized, paused while the tab is hidden, preserves
 rendered data during refresh, and slows to 30 seconds when no deployment is active. The create
-permission check is cached for the Studio session. The application history route remains the
-full-history endpoint. The dashboard maps per-application Coolify results back to the configured
-application UUID before rendering them, and empty recent history is shown in a contained soft card.
+permission check is cached for the Studio session. The application history route is paginated and
+requests only the visible page. The dashboard maps per-application Coolify results back to the
+configured application UUID before rendering them, and empty recent history is shown in a contained
+soft card.
 
 ### Startup hook: `coolify-deployments-hook`
 

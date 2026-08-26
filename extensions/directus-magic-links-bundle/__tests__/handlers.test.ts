@@ -35,6 +35,7 @@ const options: MagicLinksEnv = {
 	MAGIC_LINKS_ENABLED: true,
 	MAGIC_LINKS_COLLECTION: 'magic_links',
 	MAGIC_LINKS_TOKEN_TTL: '15m',
+	MAGIC_LINKS_REQUEST_RATE_LIMIT: 5,
 	MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: ['https://app.example.com/auth/magic-link'],
 	MAGIC_LINKS_TOKEN_QUERY_PARAMETER: 'token',
 	MAGIC_LINKS_EMAIL_TEMPLATE: 'magic-link',
@@ -89,12 +90,65 @@ const createTransaction = (query: QueryFake): TransactionFake => {
 
 const getSchema = vi.fn(() => ({}))
 
-const runRequest = (input: unknown) =>
-	requestMagicLink(input as Parameters<typeof requestMagicLink>[0])
-const runRedeem = (input: unknown) =>
-	redeemMagicLink(input as Parameters<typeof redeemMagicLink>[0])
-const runSend = (input: unknown) =>
-	sendMagicLinkEmail(input as Parameters<typeof sendMagicLinkEmail>[0])
+type HandlerContext = Parameters<typeof requestMagicLink>[0]['context']
+type TestInput = Record<string, unknown>
+
+const createContext = (input: TestInput): HandlerContext => {
+	const inputServices =
+		typeof input.services === 'object' && input.services !== null ? input.services : {}
+	return {
+		database: input.database,
+		getSchema,
+		services: {
+			ItemsService: vi.fn(function () {
+				return { updateOne: input.itemsUpdate ?? vi.fn() }
+			}),
+			...inputServices,
+		},
+	} as unknown as HandlerContext
+}
+
+const runRequest = (input: TestInput) =>
+	requestMagicLink({
+		context: createContext(input),
+		options: input.options as MagicLinksEnv,
+		request: {
+			secret: input.secret as string,
+			payload: input.payload as Parameters<typeof requestMagicLink>[0]['request']['payload'],
+			ip: input.ip as string | null,
+			userAgent: input.userAgent as string | null,
+		},
+	})
+const runRedeem = (input: TestInput) =>
+	redeemMagicLink({
+		context: createContext(input),
+		options: input.options as MagicLinksEnv,
+		request: {
+			secret: input.secret as string,
+			payload: input.payload as Parameters<typeof redeemMagicLink>[0]['request']['payload'],
+			ip: input.ip as string | null,
+			userAgent: input.userAgent as string | null,
+			origin: input.origin as string | null | undefined,
+			limiter: input.limiter as Parameters<typeof redeemMagicLink>[0]['request']['limiter'],
+		},
+	})
+const runSend = (input: TestInput) =>
+	sendMagicLinkEmail({
+		context: createContext(input),
+		options: input.options as MagicLinksEnv,
+		schema: input.schema as Parameters<typeof sendMagicLinkEmail>[0]['schema'],
+		user: input.user as { email: string; linkId: string },
+		request: {
+			payload: input.payload as Parameters<
+				typeof sendMagicLinkEmail
+			>[0]['request']['payload'],
+			rawToken: input.rawToken as string,
+			expiresAt: input.expiresAt as Date,
+			issuedAt: input.issuedAt as Date,
+			ip: input.ip as string | null,
+			userAgent: input.userAgent as string | null,
+		},
+	})
 
 describe('magic-link handlers', () => {
 	it('normalizes lookup email, persists a digest, and marks delivery sent', async () => {
@@ -184,6 +238,7 @@ describe('magic-link handlers', () => {
 		const database = createDatabase(transaction)
 		const linkQuery = createQuery()
 		database.mockImplementation(() => linkQuery)
+		const itemsUpdate = vi.fn()
 		const mailSend = vi.fn(() => {
 			throw new Error('SMTP unavailable')
 		})
@@ -197,6 +252,7 @@ describe('magic-link handlers', () => {
 						return { send: mailSend }
 					}),
 				},
+				itemsUpdate,
 				options,
 				secret: 'secret',
 				payload: {
@@ -207,9 +263,53 @@ describe('magic-link handlers', () => {
 				userAgent: null,
 			}),
 		).resolves.toHaveProperty('message')
-		expect(linkQuery.update).toHaveBeenCalledWith({
+		expect(itemsUpdate).toHaveBeenCalledWith('link-id', {
 			email_status: 'error',
 			email_error: 'Email delivery failed',
+		})
+	})
+
+	it('returns before a slow email transport settles', async () => {
+		const userQuery = createQuery({ id: 'user-id', email: 'user@example.com' })
+		const transaction = createTransaction(userQuery)
+		const database = createDatabase(transaction)
+		const linkQuery = createQuery()
+		database.mockImplementation(() => linkQuery)
+		const itemsUpdate = vi.fn()
+		let resolveMail: (() => void) | undefined
+		const mailSend = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					resolveMail = resolve
+				}),
+		)
+
+		const result = await runRequest({
+			database,
+			getSchema,
+			services: {
+				MailService: vi.fn(function () {
+					return { send: mailSend }
+				}),
+			},
+			itemsUpdate,
+			options,
+			secret: 'secret',
+			payload: {
+				email: 'user@example.com',
+				redirectUrl: 'https://app.example.com/auth/magic-link',
+			},
+			ip: null,
+			userAgent: null,
+		})
+
+		expect(result).toHaveProperty('message')
+		expect(mailSend).toHaveBeenCalledOnce()
+		expect(itemsUpdate).not.toHaveBeenCalled()
+
+		resolveMail?.()
+		await vi.waitFor(() => {
+			expect(itemsUpdate).toHaveBeenCalledWith('link-id', { email_status: 'sent' })
 		})
 	})
 

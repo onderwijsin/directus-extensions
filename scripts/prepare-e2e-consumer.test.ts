@@ -55,7 +55,10 @@ describe('E2E consumer preparation script', () => {
 		)
 		expect(packageJson.dependencies[packageName]).toBe(`file:${archivePath}`)
 		expect(prepared).toEqual([join(consumerDirectory, 'extensions', 'extension')])
-		expect(await readFile(join(prepared[0], 'dist', 'index.js'), 'utf8')).toBe(
+		const [preparedExtension] = prepared
+		expect(preparedExtension).toBeDefined()
+		if (!preparedExtension) throw new Error('Expected one prepared extension')
+		expect(await readFile(join(preparedExtension, 'dist', 'index.js'), 'utf8')).toBe(
 			'export default {}',
 		)
 	})

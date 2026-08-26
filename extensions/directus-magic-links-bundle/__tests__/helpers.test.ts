@@ -37,7 +37,30 @@ describe('magic-link security helpers', () => {
 		expect(
 			isAllowedRedirectUrl('https://user:pass@app.example.com/auth/magic-link', allowlist),
 		).toBe(false)
+		expect(
+			isAllowedRedirectUrl('https://app.example.com:8443/auth/magic-link', allowlist),
+		).toBe(false)
+		expect(isAllowedRedirectUrl('http://app.example.com/auth/magic-link', allowlist)).toBe(
+			false,
+		)
 		expect(isAllowedRedirectUrl('javascript:alert(1)', allowlist)).toBe(false)
+	})
+
+	it('accepts the exact URL that passed configuration validation', async () => {
+		const { envSchema } = await import('../src/magic-links-endpoint/env.schema')
+		const environment = envSchema.parse({
+			SECRET: 'directus-secret',
+			MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: ['https://app.example.com/auth/magic-link'],
+			EMAIL_TRANSPORT: 'sendmail',
+			EMAIL_FROM: 'noreply@example.com',
+		})
+
+		expect(
+			isAllowedRedirectUrl(
+				'https://app.example.com/auth/magic-link',
+				environment.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
+			),
+		).toBe(true)
 	})
 
 	it('parses supported durations and rejects overflow', () => {

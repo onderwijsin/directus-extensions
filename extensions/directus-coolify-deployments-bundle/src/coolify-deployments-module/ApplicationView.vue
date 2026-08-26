@@ -4,6 +4,7 @@ import type { ApplicationSummary, DeploymentSummary } from './types'
 import { computed, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { APPLICATION_DEPLOYMENT_PAGE_SIZE } from '../shared/constants'
 import ApplicationStateBadge from './components/ApplicationStateBadge.vue'
 import DeploymentList from './components/DeploymentList.vue'
 import LoadingSkeleton from './components/LoadingSkeleton.vue'
@@ -15,27 +16,26 @@ const api = useCoolifyDeploymentsApi()
 const router = useRouter()
 const application = shallowRef<ApplicationSummary | null>(null)
 const deployments = shallowRef<DeploymentSummary[]>([])
-const loading = shallowRef(true)
+const loadingApplication = shallowRef(true)
+const loadingDeployments = shallowRef(true)
+const loadingAction = shallowRef(false)
 const error = shallowRef<string | null>(null)
 const showDeployConfirmation = shallowRef(false)
 const canTriggerDeployments = shallowRef(false)
 const page = shallowRef(1)
-const pageSize = 10
-const totalPages = computed(() => Math.max(1, Math.ceil(deployments.value.length / pageSize)))
-const paginatedDeployments = computed(() =>
-	deployments.value.slice((page.value - 1) * pageSize, page.value * pageSize),
+let suppressPageWatch = false
+const totalDeployments = shallowRef(0)
+const totalPages = computed(() =>
+	Math.max(1, Math.ceil(totalDeployments.value / APPLICATION_DEPLOYMENT_PAGE_SIZE)),
 )
 /**
- * Load the selected application and its deployment history.
+ * Load the selected application's details and permissions.
  * @returns Nothing.
  */
-const load = async () => {
-	loading.value = true
-	error.value = null
+const loadApplication = async () => {
+	loadingApplication.value = true
 	application.value = null
-	deployments.value = []
 	canTriggerDeployments.value = false
-	page.value = 1
 	try {
 		const dashboard = await api.getDashboard()
 		canTriggerDeployments.value = dashboard.canTriggerDeployments
@@ -43,13 +43,50 @@ const load = async () => {
 			dashboard.applications.find(
 				(item) => item.directusApplicationId === props.directusApplicationId,
 			) ?? null
-		deployments.value = await api.listDeployments(props.directusApplicationId)
 		if (!application.value) error.value = 'Application not found'
 	} catch (caughtError) {
 		error.value =
 			caughtError instanceof Error ? caughtError.message : 'Unable to load application'
 	} finally {
-		loading.value = false
+		loadingApplication.value = false
+	}
+}
+
+/**
+ * Load one page of deployment history without replacing application details.
+ * @param requestedPage - One-based history page to request.
+ * @returns Nothing.
+ */
+const loadDeployments = async (requestedPage = page.value) => {
+	loadingDeployments.value = true
+	error.value = null
+	page.value = requestedPage
+	try {
+		const history = await api.listDeployments(props.directusApplicationId, {
+			offset: (requestedPage - 1) * APPLICATION_DEPLOYMENT_PAGE_SIZE,
+			limit: APPLICATION_DEPLOYMENT_PAGE_SIZE,
+		})
+		deployments.value = history.data
+		totalDeployments.value = history.meta.total
+	} catch (caughtError) {
+		error.value =
+			caughtError instanceof Error ? caughtError.message : 'Unable to load deployment history'
+	} finally {
+		loadingDeployments.value = false
+	}
+}
+
+/**
+ * Refresh application details and the currently selected history page.
+ * @returns Nothing.
+ */
+const load = async () => {
+	suppressPageWatch = true
+	page.value = 1
+	try {
+		await Promise.all([loadApplication(), loadDeployments(1)])
+	} finally {
+		suppressPageWatch = false
 	}
 }
 
@@ -59,7 +96,7 @@ const load = async () => {
  */
 const deploy = async () => {
 	showDeployConfirmation.value = false
-	loading.value = true
+	loadingAction.value = true
 	try {
 		const deploymentId = await api.deploy(props.directusApplicationId)
 		await router.push(deploymentPath(props.directusApplicationId, deploymentId))
@@ -67,7 +104,7 @@ const deploy = async () => {
 		error.value =
 			caughtError instanceof Error ? caughtError.message : 'Unable to deploy application'
 	} finally {
-		loading.value = false
+		loadingAction.value = false
 	}
 }
 
@@ -76,6 +113,9 @@ watch(
 	() => void load(),
 	{ immediate: true },
 )
+watch(page, (value, previousValue) => {
+	if (value !== previousValue && !suppressPageWatch) void loadDeployments(value)
+})
 </script>
 
 <template>
@@ -101,14 +141,14 @@ watch(
 					icon
 					rounded
 					secondary
-					:loading="loading"
+					:loading="loadingApplication || loadingDeployments || loadingAction"
 					aria-label="Refresh application"
 					@click="load"
 					><v-icon name="refresh"
 				/></v-button>
 				<v-button
 					v-if="canTriggerDeployments"
-					:loading="loading"
+					:loading="loadingAction"
 					@click="showDeployConfirmation = true"
 				>
 					Deploy
@@ -125,7 +165,7 @@ watch(
 				</v-card-text>
 				<v-card-actions>
 					<v-button secondary @click="showDeployConfirmation = false">Cancel</v-button>
-					<v-button :loading="loading" @click="deploy">
+					<v-button :loading="loadingAction" @click="deploy">
 						<v-icon name="rocket_launch" /> Deploy
 					</v-button>
 				</v-card-actions>
@@ -133,13 +173,10 @@ watch(
 		</v-dialog>
 		<div class="page">
 			<v-notice v-if="error" type="warning">{{ error }}</v-notice>
-			<div v-if="loading" class="loading-layout">
-				<LoadingSkeleton :lines="2" />
-				<LoadingSkeleton :lines="4" />
-			</div>
-			<section v-if="application">
+			<section>
 				<h2>Application details</h2>
-				<div class="metadata-panel">
+				<LoadingSkeleton v-if="loadingApplication" :lines="4" />
+				<div v-else-if="application" class="metadata-panel">
 					<div class="metadata">
 						<div>
 							<span><v-icon name="public" small /> Application URL</span>
@@ -204,15 +241,20 @@ watch(
 					</div>
 				</div>
 			</section>
-			<section v-if="!loading">
+			<section>
 				<h2>Deployment history</h2>
-				<DeploymentList
-					:deployments="paginatedDeployments"
-					:application-path="deploymentSummaryPath"
-					empty-title="No deployments yet"
-					empty-copy="Deploy this application to create its first deployment."
-				/>
-				<v-pagination v-if="totalPages > 1" v-model="page" :length="totalPages" />
+				<div v-if="loadingDeployments" class="history-loading">
+					<LoadingSkeleton :lines="4" />
+				</div>
+				<template v-else>
+					<DeploymentList
+						:deployments="deployments"
+						:application-path="deploymentSummaryPath"
+						empty-title="No deployments yet"
+						empty-copy="Deploy this application to create its first deployment."
+					/>
+					<v-pagination v-if="totalPages > 1" v-model="page" :length="totalPages" />
+				</template>
 			</section>
 		</div>
 	</private-view>

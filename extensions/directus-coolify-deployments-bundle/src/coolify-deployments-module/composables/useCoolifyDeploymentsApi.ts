@@ -1,4 +1,9 @@
-import type { ApplicationSummary, DashboardSummary, DeploymentSummary } from '../types'
+import type {
+	ApplicationSummary,
+	DashboardSummary,
+	DeploymentHistoryPage,
+	DeploymentSummary,
+} from '../types'
 
 import { shallowRef } from 'vue'
 
@@ -6,6 +11,7 @@ import { useApi } from '@directus/extensions-sdk'
 import { attempt } from '@onderwijsin/directus-extension-utils'
 
 import {
+	APPLICATION_DEPLOYMENT_PAGE_SIZE,
 	DEFAULT_DEPLOYMENT_POLL_INTERVAL_MS,
 	DEPLOYMENT_POLL_INTERVAL_HEADER,
 } from '../../shared/constants'
@@ -109,12 +115,20 @@ export function useCoolifyDeploymentsApi() {
 	/**
 	 * Fetch deployment history for an application.
 	 * @param directusApplicationId - Stable Directus application primary key.
+	 * @param pagination - Optional zero-based offset and page size.
 	 * @returns Normalized deployments.
 	 */
-	const listDeployments = async (directusApplicationId: string): Promise<DeploymentSummary[]> =>
-		request(() =>
-			api.get<DeploymentSummary[]>(`${base}/${encode(directusApplicationId)}/deployments`),
+	const listDeployments = async (
+		directusApplicationId: string,
+		pagination: { offset?: number; limit?: number } = {},
+	): Promise<DeploymentHistoryPage> => {
+		const { offset = 0, limit = APPLICATION_DEPLOYMENT_PAGE_SIZE } = pagination
+		return request(() =>
+			api.get<DeploymentHistoryPage>(
+				`${base}/${encode(directusApplicationId)}/deployments?offset=${offset}&limit=${limit}`,
+			),
 		)
+	}
 
 	/**
 	 * Fetch one deployment.

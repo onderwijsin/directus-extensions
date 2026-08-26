@@ -46,6 +46,16 @@ export interface GetApplicationOptions {
 	bypassAllowList?: boolean
 }
 
+export interface DeploymentPagination {
+	skip: number
+	take: number
+}
+
+export interface CoolifyDeploymentPage {
+	count: number
+	deployments: CoolifyDeployment[]
+}
+
 export interface CoolifyDeploymentClient {
 	listConfiguredApplication: (options?: {
 		bypassCache?: boolean
@@ -69,7 +79,10 @@ export interface CoolifyDeploymentClient {
 		applicationUuid: string,
 		options?: GetApplicationOptions,
 	) => Promise<CoolifyApplication>
-	listApplicationDeployments: (applicationUuid: string) => Promise<CoolifyDeployment[]>
+	listApplicationDeployments: (
+		applicationUuid: string,
+		pagination: DeploymentPagination,
+	) => Promise<CoolifyDeploymentPage>
 	listDashboardDeployments: (
 		applications: DirectusCoolifyApplication[],
 	) => Promise<CoolifyDeployment[]>

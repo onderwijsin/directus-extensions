@@ -57,7 +57,7 @@ saveExact: true
 cleanupUnusedCatalogs: true
 verifyDepsBeforeRun: error
 
-minimumReleaseAge: 144
+minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@onderwijsin/*'

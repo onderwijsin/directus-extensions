@@ -15,7 +15,11 @@ import {
 	redeemMagicLink,
 	requestMagicLink,
 } from './handlers'
-import { createMagicLinkLimiter } from './rate-limiter'
+import {
+	createMagicLinksRedisClient,
+	createRedeemLimiter,
+	createRequestLimiter,
+} from './rate-limiter'
 import { sendAuthenticationResponse } from './session'
 
 /**
@@ -34,7 +38,7 @@ export default defineEndpoint({
 	 * @returns void
 	 */
 	handler: (router, context) => {
-		const { database, env, getSchema, logger, services } = context
+		const { env, logger } = context
 		const setup = extensionSetup(EXTENSION_NAME, env, logger)
 		setup.start()
 
@@ -59,31 +63,33 @@ export default defineEndpoint({
 			}),
 		)
 
-		let limiter: ReturnType<typeof createMagicLinkLimiter> | undefined
+		const redis = createMagicLinksRedisClient(options)
+		const requestLimiter = createRequestLimiter({ options, redis })
+		let redeemLimiter: ReturnType<typeof createRedeemLimiter> | undefined
 		/**
 		 * Lazily creates the limiter so runtime settings changes are observed before the first redemption.
-		 *
 		 * @returns The magic-link redemption limiter.
 		 */
-		const getLimiter = () =>
-			(limiter ??= createMagicLinkLimiter({ database, getSchema, options, services }))
+		const getRedeemLimiter = () =>
+			(redeemLimiter ??= createRedeemLimiter({ context, options, redis }))
 
 		router.post(
 			'/request',
 			asyncHandler(async (request, response) => {
+				await requestLimiter.consume(request.ip ?? 'unknown')
 				const payload = parseRequestPayload(
 					request.body,
 					options.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
 				)
 				const result = await requestMagicLink({
-					database,
-					getSchema,
-					services,
+					context,
 					options,
-					secret,
-					payload,
-					ip: request.ip ?? null,
-					userAgent: request.get('user-agent') ?? null,
+					request: {
+						secret,
+						payload,
+						ip: request.ip ?? null,
+						userAgent: request.get('user-agent') ?? null,
+					},
 				})
 				response.status(202).json(result)
 			}),
@@ -94,16 +100,16 @@ export default defineEndpoint({
 			asyncHandler(async (request, response) => {
 				const payload = parseRedeemPayload(request.body)
 				const result = await redeemMagicLink({
-					database,
-					getSchema,
-					services,
+					context,
 					options,
-					secret,
-					payload,
-					ip: request.ip ?? null,
-					userAgent: request.get('user-agent') ?? null,
-					origin: request.get('origin') ?? null,
-					limiter: await getLimiter(),
+					request: {
+						secret,
+						payload,
+						ip: request.ip ?? null,
+						userAgent: request.get('user-agent') ?? null,
+						origin: request.get('origin') ?? null,
+						limiter: await getRedeemLimiter(),
+					},
 				})
 				if (!result) throw new InvalidCredentialsError()
 				sendAuthenticationResponse(response, env, payload, result)

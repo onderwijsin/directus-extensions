@@ -62,8 +62,11 @@ an eligible user or not. Unknown users do not create database records or trigger
 Invalid payloads and disallowed redirects are rejected as invalid payloads.
 
 For an eligible user, the link record is created in a transaction with `email_status=pending` and
-request metadata. Mail delivery then changes the status to `sent` or `error`; delivery failure does
-not change the generic public response.
+request metadata. After that transaction commits, mail delivery starts in a fire-and-forget
+background promise so SMTP/network latency is not part of the public response path. Delivery then
+changes the status to `sent` or `error`; delivery failure does not change the generic public
+response. A process shutdown may leave a record pending or interrupt delivery; this is accepted
+because users can request another non-business-critical magic link.
 
 ### Bootstrap Directus sessions and consume links in one transaction
 
@@ -95,6 +98,12 @@ magic-link lifetime, and its key is only the magic-link record ID. Invalid or mi
 point immediately before validation. Successful redemption deletes the key. This coordinates across
 replicas when Redis is selected without storing raw tokens, OTPs, or account-wide state, and does
 not inherit Directus's account-suspension side effects.
+
+The public request endpoint uses a separate limiter with a default budget of five requests per IP
+per 60 seconds, configurable through `MAGIC_LINKS_REQUEST_RATE_LIMIT`. It runs before user lookup or
+email delivery, so known and unknown email addresses follow the same path. Request and redemption
+limiters use separate Redis namespaces and limiter instances, while sharing the endpoint's single
+Redis connection when Redis-backed storage is selected.
 
 The filter is only evaluated for refreshes initiated by this bundle's magic-link redemption flow.
 The redemption wraps its `AuthenticationService.refresh()` call in a Node `AsyncLocalStorage`
@@ -159,6 +168,12 @@ Directus services, database transactions, and cryptographic Node APIs. The `magi
 must remain private; public clients interact only through the two endpoint routes.
 
 ## Alternatives considered
+
+- Use a durable outbox or queue: rejected for this non-business-critical email because its
+  operational and implementation complexity is not justified; users can request another link when
+  delivery fails.
+- Await delivery or add response timing padding: rejected because it preserves unnecessary transport
+  latency and fragility in the public request path.
 
 - Store raw tokens: rejected because a database read or backup would become an authentication
   credential disclosure.

@@ -198,12 +198,18 @@ configured polling interval and return `503` while schema startup work is locked
 | `GET`  | `/coolify-deployments/operation/applications`                            | Collection read | `[ { "id": "...", "name": "Frontend" } ]`; enabled and deploy-enabled items only.                |
 | `GET`  | `/coolify-deployments/dashboard`                                         | Manage + Read   | One dashboard projection containing applications, active/recent deployments, and trigger access. |
 | `GET`  | `/coolify-deployments/applications`                                      | Manage          | Application summary array.                                                                       |
-| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Normalized deployment array.                                                                     |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Paginated `{ data, meta }` deployment history.                                                   |
 | `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read            | One normalized deployment.                                                                       |
 | `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger         | `201 { "id": "deployment-uuid" }`. Always forces rebuild.                                        |
 | `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger         | Cancellation result.                                                                             |
 
 `:id` is the stable Directus item ID, not the Coolify application UUID. URL-encode route values.
+
+Application deployment history accepts `offset` (default `0`) and `limit` (default `10`, maximum
+`100`) query parameters. The response contains the requested normalized page in `data` and
+`meta.offset`, `meta.limit`, `meta.total`, and `meta.hasMore` pagination metadata. The Studio module
+requests a new page from the endpoint when the user changes pages; it does not load the complete
+history at once.
 
 ### Permission check
 

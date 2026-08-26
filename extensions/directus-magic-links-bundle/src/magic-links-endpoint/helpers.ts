@@ -3,6 +3,8 @@ import { createHmac, randomBytes } from 'node:crypto'
 import { InternalServerError } from '@directus/errors'
 import { attemptSync } from '@onderwijsin/directus-extension-utils'
 
+import { parseAllowedRedirectUrl } from './redirect-url'
+
 const DURATION_PATTERN = /^(?<amount>\d+)(?<unit>ms|s|m|h|d|w)$/u
 
 /**
@@ -31,19 +33,15 @@ export const normalizeEmail = (email: string): string => email.trim().toLowerCas
  * @returns Whether the URL is allowed.
  */
 export const isAllowedRedirectUrl = (value: string, allowlist: string[]): boolean => {
-	const { data, error } = attemptSync(() => {
-		const url = new URL(value)
-		if (
-			!['http:', 'https:'].includes(url.protocol) ||
-			url.username !== '' ||
-			url.password !== '' ||
-			url.port !== ''
-		) {
-			return false
-		}
+	const url = parseAllowedRedirectUrl(value)
+	if (!url) return false
 
-		return allowlist.some((allowed) => new URL(allowed).toString() === url.toString())
-	})
+	const { data, error } = attemptSync(() =>
+		allowlist.some((allowed) => {
+			const allowedUrl = parseAllowedRedirectUrl(allowed)
+			return allowedUrl?.toString() === url.toString()
+		}),
+	)
 
 	if (error || !data) return false
 	return data

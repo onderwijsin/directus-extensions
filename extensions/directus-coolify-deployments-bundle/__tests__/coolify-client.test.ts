@@ -266,12 +266,17 @@ describe('Coolify deployment client', () => {
 			)
 		const client = createClient()
 
-		await expect(client.listApplicationDeployments('application-1')).resolves.toMatchObject([
-			{
-				coolifyApplicationId: 'application-1',
-				deploymentUuid: 'deployment-1',
-			},
-		])
+		await expect(
+			client.listApplicationDeployments('application-1', { skip: 0, take: 10 }),
+		).resolves.toMatchObject({
+			count: 1,
+			deployments: [
+				{
+					coolifyApplicationId: 'application-1',
+					deploymentUuid: 'deployment-1',
+				},
+			],
+		})
 		await expect(client.listRunningDeployments()).resolves.toHaveLength(1)
 		await expect(client.getDeployment('deployment-1')).resolves.toMatchObject({
 			deploymentUuid: 'deployment-1',
@@ -416,30 +421,27 @@ describe('Coolify deployment client', () => {
 		await expect(createClient().listProjects()).rejects.toBe(upstreamError)
 	})
 
-	it('fetches application deployments in pages until the final short page', async () => {
+	it('fetches only the requested application deployment page', async () => {
 		const createDeployment = (index: number) => ({
 			application_id: 'application-1',
 			deployment_uuid: `deployment-${index}`,
 			status: 'finished',
 		})
-		mocks.request
-			.mockImplementationOnce(() =>
-				jsonResponse({
-					count: 101,
-					deployments: Array.from({ length: 100 }, (_, index) => createDeployment(index)),
-				}),
-			)
-			.mockImplementationOnce(() =>
-				jsonResponse({ count: 101, deployments: [createDeployment(100)] }),
-			)
-		const deployments = await createClient().listApplicationDeployments('application-1')
-
-		expect(deployments).toHaveLength(101)
-		expect(mocks.request.mock.calls[0]?.[1]).toMatchObject({
-			query: { skip: 0, take: 100 },
+		mocks.request.mockResolvedValueOnce(
+			jsonResponse({
+				count: 101,
+				deployments: [createDeployment(100)],
+			}),
+		)
+		const result = await createClient().listApplicationDeployments('application-1', {
+			skip: 100,
+			take: 10,
 		})
-		expect(mocks.request.mock.calls[1]?.[1]).toMatchObject({
-			query: { skip: 100, take: 100 },
+
+		expect(result.deployments).toHaveLength(1)
+		expect(mocks.request).toHaveBeenCalledOnce()
+		expect(mocks.request).toHaveBeenCalledWith('/deployments/applications/application-1', {
+			query: { skip: 100, take: 10 },
 		})
 	})
 
