@@ -37,20 +37,6 @@ export const requiredEmailConfigSchema = emailConfigSchema.superRefine((options,
 				message: 'is required for smtp',
 			})
 		}
-		if (!options.EMAIL_SMTP_PORT) {
-			context.addIssue({
-				code: 'custom',
-				path: ['EMAIL_SMTP_PORT'],
-				message: 'is required for smtp',
-			})
-		}
-	}
-	if (Boolean(options.EMAIL_SMTP_USER) !== Boolean(options.EMAIL_SMTP_PASSWORD)) {
-		context.addIssue({
-			code: 'custom',
-			path: ['EMAIL_SMTP_USER'],
-			message: 'EMAIL_SMTP_USER and EMAIL_SMTP_PASSWORD must be configured together',
-		})
 	}
 	if (options.EMAIL_TRANSPORT === 'mailgun') {
 		for (const key of ['EMAIL_MAILGUN_API_KEY', 'EMAIL_MAILGUN_DOMAIN'] as const) {

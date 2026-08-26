@@ -152,7 +152,9 @@ requires valid Redis configuration.
 
 The server entrypoint also exports `emailConfigSchema`, `requiredEmailConfigSchema`, and
 `isEmailConfigured`. The base email schema supplies Directus defaults without requiring a transport;
-the required schema validates prerequisites for `sendmail`, `smtp`, `mailgun`, and `ses`.
+the required schema validates the minimum shared prerequisites for the selected transport. For SMTP,
+that means only `EMAIL_SMTP_HOST`; the SMTP port, username, password, and other transport options
+are left to Directus and the consumer to configure and validate.
 
 Wrap asynchronous endpoint handlers and middleware with `asyncHandler` so rejected promises reach
 Directus's Express 4 error handling:

@@ -23,7 +23,6 @@ describe('email configuration', () => {
 			requiredEmailConfigSchema.safeParse({
 				EMAIL_TRANSPORT: 'smtp',
 				EMAIL_SMTP_HOST: 'smtp.example.com',
-				EMAIL_SMTP_PORT: 587,
 			}).success,
 		).toBe(true)
 		expect(
@@ -43,16 +42,15 @@ describe('email configuration', () => {
 		).toBe(true)
 	})
 
-	it('rejects incomplete transport configuration without throwing from the helper', () => {
+	it('requires only an SMTP host without throwing from the helper', () => {
 		expect(requiredEmailConfigSchema.safeParse({ EMAIL_TRANSPORT: 'smtp' }).success).toBe(false)
 		expect(
 			requiredEmailConfigSchema.safeParse({
 				EMAIL_TRANSPORT: 'smtp',
 				EMAIL_SMTP_HOST: 'smtp.example.com',
-				EMAIL_SMTP_PORT: 587,
 				EMAIL_SMTP_USER: 'user',
 			}).success,
-		).toBe(false)
+		).toBe(true)
 		expect(isEmailConfigured({ EMAIL_TRANSPORT: 'mailgun' })).toBe(false)
 		expect(isEmailConfigured({ EMAIL_TRANSPORT: 'invalid' })).toBe(false)
 	})

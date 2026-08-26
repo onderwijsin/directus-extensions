@@ -211,7 +211,8 @@ Redis clients. The Redis-only cache uses the shared `directus:policies` namespac
 The same `/server` subpath exports `emailConfigSchema`, `requiredEmailConfigSchema`, and
 `isEmailConfigured`. Use the base schema for optional email settings and the required schema at an
 extension startup boundary when the selected `sendmail`, `smtp`, `mailgun`, or `ses` transport must
-be usable.
+meet the shared minimum prerequisites. For SMTP, the shared check only requires `EMAIL_SMTP_HOST`;
+Directus or the consumer owns validation of the port, credentials, and other transport options.
 
 ### Schema changes
 
