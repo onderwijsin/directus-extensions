@@ -50,6 +50,7 @@
 						"id",
 						"origin",
 						"destination",
+						"type",
 						"match",
 						"specificity",
 						"start_date",

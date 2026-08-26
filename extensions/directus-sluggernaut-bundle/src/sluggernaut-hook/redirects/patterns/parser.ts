@@ -24,9 +24,13 @@ function syntax(message: string): never {
 /**
  * Validates common path-level safety rules and normalizes repeated slashes.
  * @param value - Candidate path.
+ * @param preserveTrailingSlash - Whether a non-root trailing slash is meaningful for this path.
  * @returns Normalized path and its raw segments.
  */
-function normalizePath(value: string): {
+function normalizePath(
+	value: string,
+	preserveTrailingSlash: boolean,
+): {
 	path: string
 	trailingSlash: boolean
 	segments: string[]
@@ -44,10 +48,11 @@ function normalizePath(value: string): {
 	if (ENCODED_DOT_SEGMENT.test(value))
 		syntax('A redirect pattern must not contain encoded dot segments.')
 
-	// Empty segments are discarded to match exact-path normalization, while this separate flag
-	// preserves whether the caller explicitly supplied a trailing slash.
-	const trailingSlash = value.length > 1 && value.endsWith('/')
+	// Empty segments are discarded to match exact-path normalization. Pattern origins deliberately
+	// ignore non-root trailing slashes to mirror the frontend matcher; destination templates preserve
+	// them because they describe the target path to emit.
 	const segments = value.split('/').filter(Boolean)
+	const trailingSlash = preserveTrailingSlash && segments.length > 0 && value.endsWith('/')
 	if (segments.some((segment) => segment === '.' || segment === '..'))
 		syntax('A redirect pattern must not contain dot segments.')
 
@@ -119,7 +124,7 @@ function parseSegment(
  * @returns Parsed path structure.
  */
 function parsePath(value: string, requireDynamic: boolean): ParsedPattern {
-	const normalized = normalizePath(value)
+	const normalized = normalizePath(value, !requireDynamic)
 	const parameterNames = new Set<string>()
 	const state: { wildcard: PatternWildcardSegment | null } = { wildcard: null }
 	// Parse every segment in order while sharing capture state across the complete path.

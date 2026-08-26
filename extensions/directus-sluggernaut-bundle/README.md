@@ -313,10 +313,12 @@ syntax includes named parameters (`:slug`), optional parameters (`:slug?`), one 
 `*?`), and simple parameter suffixes such as `:name.pdf`. Destinations may interpolate only captures
 declared by the origin.
 
-Pattern origins may contain at most 20 slash-separated segments. Sluggernaut derives the read-only
-`specificity` and `matcher_signature` fields. Equivalent active patterns are rejected by their
-matcher signature, even when parameter names differ. Query strings, fragments, hosts, dot segments,
-and unsupported pattern syntax are rejected.
+Pattern origins may contain at most 20 slash-separated segments. Sluggernaut removes non-root
+trailing slashes and derives the read-only `specificity` and `matcher_signature` fields. Matching is
+case-insensitive, so static segments and parameter suffixes are canonicalized to lowercase for
+collision detection. Equivalent active patterns are rejected by their matcher signature, even when
+parameter names, literal casing, or a non-root trailing slash differ. Query strings, fragments,
+hosts, dot segments, and unsupported pattern syntax are rejected.
 
 Example pattern redirect:
 
@@ -393,7 +395,9 @@ Optional policies are:
 
 - `Can Manage Redirects`: create, read, update, and delete access to the configured redirect
   collection.
-- `Can Read Active Redirects`: read access to active records within their optional date window.
+- `Can Read Active Redirects`: read access to active records within their optional date window. The
+  field allowlist includes `origin`, `destination`, `type`, `match`, `specificity`, `start_date`,
+  and `end_date` so consumers can serve the configured redirect status code.
 
 Policies are definitions only. Assign them to roles yourself and review whether redirect provenance
 should be visible to each role.
