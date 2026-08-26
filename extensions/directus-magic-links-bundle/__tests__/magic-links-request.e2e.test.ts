@@ -24,6 +24,24 @@ interface MagicLinkRecord {
 	email_status: string
 }
 
+const readMagicLinks = (userId: string) =>
+	client.request<MagicLinkRecord[]>(
+		customEndpoint({
+			path: `/items/custom_links?filter[user][_eq]=${encodeURIComponent(userId)}&fields=token_hash,email_status`,
+			method: 'GET',
+		}),
+	)
+
+const waitForSentMagicLink = async (userId: string): Promise<MagicLinkRecord[]> => {
+	const deadline = Date.now() + 10_000
+	while (Date.now() < deadline) {
+		const links = await readMagicLinks(userId)
+		if (links.length === 1 && links[0]?.email_status === 'sent') return links
+		await new Promise((resolve) => setTimeout(resolve, 250))
+	}
+	throw new Error(`Magic link for user ${userId} was not marked sent`)
+}
+
 describe('magic-links request endpoint', () => {
 	it('delivers a link and stores only its digest', async () => {
 		const email = `magic-links-e2e-${Date.now()}@example.com`
@@ -51,12 +69,7 @@ describe('magic-links request endpoint', () => {
 					'If an account exists for this email address, a sign-in link has been sent.',
 			})
 
-			const links = await client.request<MagicLinkRecord[]>(
-				customEndpoint({
-					path: `/items/custom_links?filter[user][_eq]=${encodeURIComponent(userId)}&fields=token_hash,email_status`,
-					method: 'GET',
-				}),
-			)
+			const links = await waitForSentMagicLink(userId)
 			expect(links).toHaveLength(1)
 			expect(links[0]).toMatchObject({ email_status: 'sent' })
 			expect(links[0]?.token_hash).toMatch(/^[0-9a-f]{64}$/u)
