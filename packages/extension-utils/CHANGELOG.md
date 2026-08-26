@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+### Patch Changes
+
+- 3975cb3: Loosen SMTP email configuration validation to require only `EMAIL_SMTP_HOST`; SMTP port
+  and credentials are now left to Directus and the consumer.
+
 ## 0.2.1
 
 ### Patch Changes
