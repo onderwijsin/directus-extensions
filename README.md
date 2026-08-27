@@ -20,6 +20,7 @@ trusted, non-sandboxed runtime require a trusted self-hosted installation.
 | [`@onderwijsin/directus-coolify-deployments-bundle`](extensions/directus-coolify-deployments-bundle/README.md)           | Trigger and inspect frontend deployments through Coolify.                   |
 | [`@onderwijsin/directus-loops-bundle`](extensions/directus-loops-bundle/README.md)                                       | Synchronize Loops contact profiles and archive email campaigns in Directus. |
 | [`@onderwijsin/directus-sluggernaut-bundle`](extensions/directus-sluggernaut-bundle/README.md)                           | Field-driven slugs, permalinks, redirects, and recalculation for Directus.  |
+| [`@onderwijsin/directus-quick-copy-bundle`](extensions/directus-quick-copy-bundle/README.md)                             | Readonly copy-enabled interface and display for Directus fields.            |
 | [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.                 |
 
 The repository also contains supporting workspace packages and private infrastructure for shared

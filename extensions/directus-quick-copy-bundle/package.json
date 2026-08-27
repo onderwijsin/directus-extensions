@@ -1,0 +1,91 @@
+{
+	"name": "@onderwijsin/directus-quick-copy-bundle",
+	"version": "0.1.0",
+	"description": "Readonly Directus fields and displays with a quick copy action",
+	"keywords": [
+		"clipboard",
+		"copy",
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle"
+	],
+	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
+	"bugs": {
+		"url": "https://github.com/onderwijsin/directus-extensions/issues"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijsin.nl",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remihuigen@onderwijsin.nl",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
+		"directory": "extensions/directus-quick-copy-bundle"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"main": "./dist/api.js",
+	"exports": {
+		".": "./dist/api.js"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"add": "directus-extension add",
+		"validate": "directus-extension validate",
+		"test:unit": "vitest run --config ../../vitest.config.ts",
+		"typecheck": "vue-tsc --noEmit"
+	},
+	"dependencies": {
+		"@vueuse/core": "catalog:"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "catalog:",
+		"@types/node": "catalog:node24",
+		"@workspace/typescript-config": "workspace:*",
+		"vitest": "catalog:",
+		"vue": "catalog:",
+		"vue-tsc": "catalog:"
+	},
+	"icon": "content_copy",
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"name": "quick-copy-interface",
+				"type": "interface",
+				"source": "src/quick-copy-interface/index.ts"
+			},
+			{
+				"name": "quick-copy-display",
+				"type": "display",
+				"source": "src/quick-copy-display/index.ts"
+			}
+		],
+		"host": ">=12.2.0 <13"
+	}
+}
