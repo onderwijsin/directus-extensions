@@ -26,13 +26,23 @@ const copyValue = computed(() =>
 
 <style scoped>
 .quick-copy-display {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: 0.25rem;
 	width: 100%;
 }
 
-.quick-copy-display__value {
-	flex: 1;
+.quick-copy-display .quick-copy-button {
+	position: absolute;
+	right: 0rem;
+	top: 50%;
+	transform: translateY(-50%);
+	opacity: 0;
+	transition: opacity 0.1s ease-in;
+}
+
+.quick-copy-display:hover .quick-copy-button {
+	opacity: 1;
 }
 </style>
