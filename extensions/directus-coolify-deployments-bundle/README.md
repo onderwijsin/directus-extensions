@@ -66,19 +66,20 @@ environment values before the bundle validates them.
 
 ### Schema and policy settings
 
-| Variable                                            | Default                                | Description                                      |
-| --------------------------------------------------- | -------------------------------------- | ------------------------------------------------ |
-| `COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED`        | `true`                                 | Enables this bundle's collection schema changes. |
-| `COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR`         | `true`                                 | Aborts schema setup after an unexpected error.   |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`        | `true`                                 | Global schema gate; must also be enabled.        |
-| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`             | `true`                                 | Global policy/data seed gate.                    |
-| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | `0c9f0b1e-0a0b-4b7c-8a27-4b7a6e1f2d31` | UUID for local application CRUD/list access.     |
-| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | `2e7a4c63-1d5f-46bb-9b02-8f3c7a5d6e14` | UUID for deployment GET routes.                  |
-| `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID` | `7b3d9e20-5f61-4a8c-b274-1e6d9f0a3c58` | UUID for permission, deploy, and cancel routes.  |
+| Variable                                            | Default                                | Description                                        |
+| --------------------------------------------------- | -------------------------------------- | -------------------------------------------------- |
+| `COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED`        | `true`                                 | Enables this bundle's collection schema changes.   |
+| `COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR`         | `true`                                 | Aborts schema setup after an unexpected error.     |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`        | `true`                                 | Global schema gate; must also be enabled.          |
+| `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`             | `true`                                 | Global policy/data seed gate.                      |
+| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | `0c9f0b1e-0a0b-4b7c-8a27-4b7a6e1f2d31` | UUID for local application CRUD access.            |
+| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | `2e7a4c63-1d5f-46bb-9b02-8f3c7a5d6e14` | UUID for custom application/deployment GET routes. |
+| `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID` | `7b3d9e20-5f61-4a8c-b274-1e6d9f0a3c58` | UUID for permission, deploy, and cancel routes.    |
 
 When data seeding is enabled, the bundle creates or reconciles `Can manage Coolify applications`,
-`Can read Coolify deployments`, and `Can trigger Coolify deployments`. It does not assign policies
-to roles or users. The trigger policy intentionally has no nested collection permissions.
+`Can read Coolify app and deployment data`, and `Can trigger Coolify deployments`. It does not
+assign policies to roles or users. Only the manage policy has nested collection permissions; the
+read-data and trigger policies authorize custom endpoint capabilities.
 
 ### Cache and Redis settings
 
@@ -175,11 +176,11 @@ other direct updates to Coolify-managed metadata fields are rejected. Only `enab
 Administrators bypass custom policy-assignment checks. Other authenticated users need the relevant
 policy assigned to their user or effective role:
 
-| Policy                            | Required for                          | Nested collection permissions      |
-| --------------------------------- | ------------------------------------- | ---------------------------------- |
-| `Can manage Coolify applications` | Listing applications and local CRUD   | CRUD on the configured collection. |
-| `Can read Coolify deployments`    | Deployment GET routes                 | Read on the configured collection. |
-| `Can trigger Coolify deployments` | Permission, deploy, and cancel routes | None; it is a remote feature gate. |
+| Policy                                     | Required for                                 | Nested collection permissions            |
+| ------------------------------------------ | -------------------------------------------- | ---------------------------------------- |
+| `Can manage Coolify applications`          | Local application CRUD                       | CRUD on the configured collection.       |
+| `Can read Coolify app and deployment data` | All custom application/deployment GET routes | None; custom endpoints read server-side. |
+| `Can trigger Coolify deployments`          | Permission, deploy, and cancel routes        | None; it is a remote feature gate.       |
 
 The endpoint checks authentication, same-origin requests, policy assignment, and the local
 allow-list. Missing browser origin metadata remains supported for authenticated CLI and Flow
@@ -192,16 +193,16 @@ Express must resolve trusted proxy headers; the endpoint does not trust client-s
 Base path: `/coolify-deployments`. All routes return `X-Coolify-Deployments-Poll-Interval` with the
 configured polling interval and return `503` while schema startup work is locked.
 
-| Method | Route                                                                    | Policy          | Response                                                                                         |
-| ------ | ------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------ |
-| `GET`  | `/coolify-deployments/permissions`                                       | Trigger         | `{ "canTrigger": true }`                                                                         |
-| `GET`  | `/coolify-deployments/operation/applications`                            | Collection read | `[ { "id": "...", "name": "Frontend" } ]`; enabled and deploy-enabled items only.                |
-| `GET`  | `/coolify-deployments/dashboard`                                         | Manage + Read   | One dashboard projection containing applications, active/recent deployments, and trigger access. |
-| `GET`  | `/coolify-deployments/applications`                                      | Manage          | Application summary array.                                                                       |
-| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Paginated `{ data, meta }` deployment history.                                                   |
-| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read            | One normalized deployment.                                                                       |
-| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger         | `201 { "id": "deployment-uuid" }`. Always forces rebuild.                                        |
-| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger         | Cancellation result.                                                                             |
+| Method | Route                                                                    | Policy    | Response                                                                                         |
+| ------ | ------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------ |
+| `GET`  | `/coolify-deployments/permissions`                                       | Trigger   | `{ "canTrigger": true }`                                                                         |
+| `GET`  | `/coolify-deployments/operation/applications`                            | Read data | `[ { "id": "...", "name": "Frontend" } ]`; enabled and deploy-enabled items only.                |
+| `GET`  | `/coolify-deployments/dashboard`                                         | Read data | One dashboard projection containing applications, active/recent deployments, and trigger access. |
+| `GET`  | `/coolify-deployments/applications`                                      | Read data | Application summary array.                                                                       |
+| `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read      | Paginated `{ data, meta }` deployment history.                                                   |
+| `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read      | One normalized deployment.                                                                       |
+| `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger   | `201 { "id": "deployment-uuid" }`. Always forces rebuild.                                        |
+| `POST` | `/coolify-deployments/applications/:id/deployments/:deploymentId/cancel` | Trigger   | Cancellation result.                                                                             |
 
 `:id` is the stable Directus item ID, not the Coolify application UUID. URL-encode route values.
 
@@ -361,10 +362,10 @@ the response. Empty recent history is shown in a contained soft card.
 `Coolify Deploy` has one `Application` option backed by the custom
 `coolify-deploy-application-select` interface. The interface uses Directus' `VSelect` and loads
 `GET /coolify-deployments/operation/applications` with the authenticated Studio session. That route
-reads the configured applications collection with the current user's Directus read permissions and
-returns only enabled, deploy-enabled item IDs and names. Loading, empty, and request-error states
-are shown in the operation form. Users without read access cannot load the choices; they still need
-the trigger policy to execute the operation.
+reads the configured applications collection server-side and returns only enabled, deploy-enabled
+item IDs and names. The read-data policy authorizes this custom endpoint; it does not grant direct
+access to the configured collection. Loading, empty, and request-error states are shown in the
+operation form. Users still need the trigger policy to execute the operation.
 
 The stored value remains the Directus item ID. At execution time the operation reads the selected
 item again, rechecks both flags, and triggers a Coolify deployment for its `application_uuid`.

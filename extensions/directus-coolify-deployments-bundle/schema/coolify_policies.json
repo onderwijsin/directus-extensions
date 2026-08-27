@@ -18,22 +18,20 @@
 		},
 		{
 			"id": "2e7a4c63-1d5f-46bb-9b02-8f3c7a5d6e14",
-			"name": "Can read Coolify deployments",
+			"name": "Can read Coolify app and deployment data",
 			"icon": "visibility",
-			"description": "Can read configured Coolify applications and use GET deployment routes.",
+			"description": "Can read application and deployment data through the custom GET endpoints, without direct collection access.",
 			"enforce_tfa": false,
 			"ip_access": null,
 			"app_access": true,
 			"admin_access": false,
-			"permissions": [
-				{ "collection": "coolify_applications", "action": "read", "fields": ["*"] }
-			]
+			"permissions": []
 		},
 		{
 			"id": "7b3d9e20-5f61-4a8c-b274-1e6d9f0a3c58",
 			"name": "Can trigger Coolify deployments",
 			"icon": "play_arrow",
-			"description": "Can read Coolify deployments and use POST routes to trigger configured deployments.",
+			"description": "Can use POST routes to trigger and cancel configured deployments.",
 			"enforce_tfa": false,
 			"ip_access": null,
 			"app_access": true,

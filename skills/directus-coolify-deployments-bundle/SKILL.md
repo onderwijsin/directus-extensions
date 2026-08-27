@@ -74,13 +74,13 @@ COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS=5000
 | `COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR`         | `true`                                 | Abort behavior after unexpected schema/policy errors. |
 | `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`        | `true`                                 | Global schema gate; both gates must be enabled.       |
 | `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`             | `true`                                 | Global policy/data seed gate.                         |
-| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | `0c9f0b1e-0a0b-4b7c-8a27-4b7a6e1f2d31` | UUID for manage/list access.                          |
-| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | `2e7a4c63-1d5f-46bb-9b02-8f3c7a5d6e14` | UUID for deployment GET access.                       |
+| `COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID` | `0c9f0b1e-0a0b-4b7c-8a27-4b7a6e1f2d31` | UUID for local application CRUD access.               |
+| `COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID`    | `2e7a4c63-1d5f-46bb-9b02-8f3c7a5d6e14` | UUID for custom application/deployment GET access.    |
 | `COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID` | `7b3d9e20-5f61-4a8c-b274-1e6d9f0a3c58` | UUID for permission/deploy/cancel access.             |
 
-Data seeding creates `Can manage Coolify applications`, `Can read Coolify deployments`, and
-`Can trigger Coolify deployments`; it does not assign them to roles. The trigger policy has no
-nested collection permissions because it gates remote operations.
+Data seeding creates `Can manage Coolify applications`, `Can read Coolify app and deployment data`,
+and `Can trigger Coolify deployments`; it does not assign them to roles. Only the manage policy has
+nested collection permissions. The read-data and trigger policies gate custom endpoint operations.
 
 ### Cache and Redis
 
@@ -183,9 +183,9 @@ rejects while schema startup work is locked. Administrators bypass policy assign
 | Method | Route                                                                    | Required policy | Result                                                                                     |
 | ------ | ------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------ |
 | `GET`  | `/coolify-deployments/permissions`                                       | Trigger         | `{ "canTrigger": true }`.                                                                  |
-| `GET`  | `/coolify-deployments/operation/applications`                            | Collection read | Minimal `{ "id", "name" }` options for enabled, deploy-enabled items.                      |
-| `GET`  | `/coolify-deployments/dashboard`                                         | Manage + Read   | One dashboard projection with applications, active/recent deployments, and trigger access. |
-| `GET`  | `/coolify-deployments/applications`                                      | Manage          | Application summary array.                                                                 |
+| `GET`  | `/coolify-deployments/operation/applications`                            | Read data       | Minimal `{ "id", "name" }` options for enabled, deploy-enabled items.                      |
+| `GET`  | `/coolify-deployments/dashboard`                                         | Read data       | One dashboard projection with applications, active/recent deployments, and trigger access. |
+| `GET`  | `/coolify-deployments/applications`                                      | Read data       | Application summary array.                                                                 |
 | `GET`  | `/coolify-deployments/applications/:id/deployments`                      | Read            | Paginated `{ data, meta }` deployment history.                                             |
 | `GET`  | `/coolify-deployments/applications/:id/deployments/:deploymentId`        | Read            | One normalized deployment.                                                                 |
 | `POST` | `/coolify-deployments/applications/:id/deployments`                      | Trigger         | `201 { "id": "deployment-uuid" }`; always forces rebuild.                                  |
@@ -321,10 +321,11 @@ assign policies, refresh existing records, create Coolify resources, or persist 
 `Coolify Deploy` exposes one `Application` option using the `coolify-deploy-application-select`
 interface and Directus' `VSelect` component. Studio loads choices from
 `GET /coolify-deployments/operation/applications`; the endpoint resolves
-`COOLIFY_APPLICATIONS_COLLECTION` server-side, applies the current user's Directus read permissions,
-and returns only enabled, deploy-enabled `{ id, name }` values. The interface displays loading,
-empty, and request-error states. The stored value is still the Directus item ID, so custom
-application collection names require no client configuration.
+`COOLIFY_APPLICATIONS_COLLECTION` server-side and returns only enabled, deploy-enabled
+`{ id, name }` values. The read-data policy authorizes this custom endpoint; it does not grant
+direct access to the configured collection. The interface displays loading, empty, and request-error
+states. The stored value is still the Directus item ID, so custom application collection names
+require no client configuration.
 
 The operation re-reads the selected record when the flow runs, checks both flags again, and calls
 Coolify's deployment API with that record's `application_uuid`. User-associated executions require

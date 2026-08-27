@@ -162,14 +162,16 @@ export default defineEndpoint({
 
 		router.get(
 			'/operation/applications',
-			handle(async (request, response) => {
-				const accountability = getAccountabilityFromRequest(request)
+			authorizeRoute(options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID),
+			handle(async (_request, response) => {
 				const applications = await new services.ItemsService<{
 					id: string | number
 					name: string
 				}>(options.COOLIFY_APPLICATIONS_COLLECTION, {
 					schema: await getSchema(),
-					accountability,
+					// The endpoint policy is the authorization boundary for this
+					// projection; do not require collection-read permission as well.
+					accountability: null,
 				}).readByQuery({
 					fields: ['id', 'name'],
 					filter: {
@@ -190,10 +192,7 @@ export default defineEndpoint({
 
 		router.get(
 			'/dashboard',
-			authorizeRoute([
-				options.COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID,
-				options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID,
-			]),
+			authorizeRoute(options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID),
 			handle(async (request, response) => {
 				const configured = await client.listConfiguredApplication()
 				const applications = await loadApplicationSummaries(
@@ -244,7 +243,7 @@ export default defineEndpoint({
 
 		router.get(
 			'/applications',
-			authorizeRoute(options.COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID),
+			authorizeRoute(options.COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID),
 			handle(async (_request, response) => {
 				const configured = await client.listConfiguredApplication()
 				response.json(

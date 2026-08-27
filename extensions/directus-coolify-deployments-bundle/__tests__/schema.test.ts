@@ -88,7 +88,7 @@ describe('Coolify policies schema', () => {
 		expect(new Set(coolifyPolicies.policies.map((policy) => policy.name))).toEqual(
 			new Set([
 				'Can manage Coolify applications',
-				'Can read Coolify deployments',
+				'Can read Coolify app and deployment data',
 				'Can trigger Coolify deployments',
 			]),
 		)
@@ -97,11 +97,7 @@ describe('Coolify policies schema', () => {
 				.flatMap((policy) => policy.permissions)
 				.every((permission) => !('id' in permission)),
 		).toBe(true)
-		expect(
-			coolifyPolicies.policies
-				.flatMap((policy) => policy.permissions)
-				.every((permission) => permission.collection === 'coolify_applications'),
-		).toBe(true)
+		expect(coolifyPolicies.policies[1]?.permissions).toEqual([])
 		const triggerPolicy = coolifyPolicies.policies.find(
 			(policy) => policy.name === 'Can trigger Coolify deployments',
 		)
