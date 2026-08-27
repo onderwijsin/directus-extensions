@@ -195,7 +195,7 @@ describe('Coolify deployment endpoint', () => {
 		}
 	})
 
-	it('rejects an authenticated user without the route policy', async () => {
+	it('separates collection management from custom endpoint read access', async () => {
 		const user = await client.createEphemeralUser({
 			role: {
 				name: 'Coolify no-policy role',
@@ -215,15 +215,19 @@ describe('Coolify deployment endpoint', () => {
 			)
 			expect(status).toBe(403)
 
-			await client.request(
-				customEndpoint({
-					path: '/access',
-					method: 'POST',
-					body: JSON.stringify([
-						{ user: user.id, policy: DEFAULT_MANAGE_APPLICATIONS_POLICY_ID },
-					]),
-				}),
-			)
+			await assignPolicy(user.id, DEFAULT_MANAGE_APPLICATIONS_POLICY_ID)
+			await expect(
+				client.withUserContext(user.id, (userClient) =>
+					userClient.request(
+						customEndpoint({
+							path: '/coolify-deployments/applications',
+							method: 'GET',
+						}),
+					),
+				),
+			).rejects.toBeDefined()
+
+			await assignPolicy(user.id, DEFAULT_READ_DEPLOYMENTS_POLICY_ID)
 			await expect(
 				client.withUserContext(user.id, (userClient) =>
 					userClient.request(
@@ -234,6 +238,13 @@ describe('Coolify deployment endpoint', () => {
 					),
 				),
 			).resolves.toBeInstanceOf(Array)
+			await expect(
+				client.withUserContext(user.id, (userClient) =>
+					userClient.request(
+						customEndpoint({ path: '/items/coolify_applications', method: 'GET' }),
+					),
+				),
+			).rejects.toBeDefined()
 		} finally {
 			await user.dispose()
 		}

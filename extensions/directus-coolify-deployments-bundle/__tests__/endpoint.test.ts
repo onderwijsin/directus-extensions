@@ -300,7 +300,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 		])
 		const router = createRouter()
 		runEndpoint(router)
-		const route = router.get.mock.calls[1]?.[1]
+		const route = router.get.mock.calls[1]?.[2]
 		if (typeof route !== 'function') throw new Error('Expected application options route')
 		const response = createResponse()
 		const accountability = { user: 'user-id', admin: false }
@@ -327,7 +327,7 @@ describe('Coolify deployment endpoint orchestration', () => {
 		mocks.readByQuery.mockRejectedValueOnce(new Error('read denied'))
 		const router = createRouter()
 		runEndpoint(router)
-		const route = router.get.mock.calls[1]?.[1]
+		const route = router.get.mock.calls[1]?.[2]
 		if (typeof route !== 'function') throw new Error('Expected application options route')
 		const next = vi.fn()
 
