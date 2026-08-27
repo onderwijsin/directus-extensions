@@ -23,6 +23,7 @@ const displayValue = computed(() =>
 <style scoped>
 .quick-copy-input {
 	display: flex;
+	position: relative;
 	align-items: center;
 	gap: 0.5rem;
 	width: 100%;
@@ -30,5 +31,12 @@ const displayValue = computed(() =>
 
 .quick-copy-input :deep(.input) {
 	flex: 1;
+}
+
+.quick-copy-input .quick-copy-button {
+	position: absolute;
+	right: 0.5rem;
+	top: 50%;
+	transform: translateY(-50%);
 }
 </style>
