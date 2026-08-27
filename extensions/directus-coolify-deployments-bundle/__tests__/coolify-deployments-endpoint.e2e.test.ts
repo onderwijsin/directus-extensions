@@ -196,14 +196,14 @@ describe('Coolify deployment endpoint', () => {
 	})
 
 	it('separates collection management from custom endpoint read access', async () => {
-		const user = await client.createEphemeralUser({
+		const manageUser = await client.createEphemeralUser({
 			role: {
 				name: 'Coolify no-policy role',
 				policies: [{ name: 'Coolify API role' }],
 			},
 		})
 		try {
-			const status = await client.withUserContext(user.id, (userClient) =>
+			const status = await client.withUserContext(manageUser.id, (userClient) =>
 				requestStatus(() =>
 					userClient.request(
 						customEndpoint({
@@ -215,9 +215,9 @@ describe('Coolify deployment endpoint', () => {
 			)
 			expect(status).toBe(403)
 
-			await assignPolicy(user.id, DEFAULT_MANAGE_APPLICATIONS_POLICY_ID)
+			await assignPolicy(manageUser.id, DEFAULT_MANAGE_APPLICATIONS_POLICY_ID)
 			await expect(
-				client.withUserContext(user.id, (userClient) =>
+				client.withUserContext(manageUser.id, (userClient) =>
 					userClient.request(
 						customEndpoint({
 							path: '/coolify-deployments/applications',
@@ -226,10 +226,17 @@ describe('Coolify deployment endpoint', () => {
 					),
 				),
 			).rejects.toBeDefined()
+		} finally {
+			await manageUser.dispose()
+		}
 
-			await assignPolicy(user.id, DEFAULT_READ_DEPLOYMENTS_POLICY_ID)
+		const readUser = await client.createEphemeralUser({
+			role: { name: 'Coolify read-data role' },
+		})
+		try {
+			await assignPolicy(readUser.id, DEFAULT_READ_DEPLOYMENTS_POLICY_ID)
 			await expect(
-				client.withUserContext(user.id, (userClient) =>
+				client.withUserContext(readUser.id, (userClient) =>
 					userClient.request(
 						customEndpoint({
 							path: '/coolify-deployments/applications',
@@ -239,14 +246,14 @@ describe('Coolify deployment endpoint', () => {
 				),
 			).resolves.toBeInstanceOf(Array)
 			await expect(
-				client.withUserContext(user.id, (userClient) =>
+				client.withUserContext(readUser.id, (userClient) =>
 					userClient.request(
 						customEndpoint({ path: '/items/coolify_applications', method: 'GET' }),
 					),
 				),
 			).rejects.toBeDefined()
 		} finally {
-			await user.dispose()
+			await readUser.dispose()
 		}
 	})
 
