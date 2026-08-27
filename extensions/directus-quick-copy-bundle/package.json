@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-quick-copy-bundle",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Readonly Directus fields and displays with a quick copy action",
 	"keywords": [
 		"clipboard",
