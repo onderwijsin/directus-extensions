@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+### Patch Changes
+
+- 71aaaeb: Treat Sluggernaut redirect pattern matcher signatures as case-insensitive.
+- 6f9a7de: Normalize Sluggernaut pattern origins without non-root trailing slashes.
+- 1b69029: Expose the redirect status `type` through the optional active-redirects read policy.
+
 ## 0.2.1
 
 ### Patch Changes
