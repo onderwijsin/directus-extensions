@@ -25,33 +25,34 @@ validates only the settings it owns: schema-change and cleanup settings belong t
 token, redirect, and email settings belong to the endpoint. Directus casts values from `.env` before
 the extension receives them; arrays therefore use Directus's array syntax.
 
-| Variable                                                       | Default                    | Description                                                                       |
-| -------------------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------- |
-| `MAGIC_LINKS_ENABLED`                                          | `true`                     | Enable the bundle entries.                                                        |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | `true`                     | Global schema-change switch.                                                      |
-| `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`                           | `true`                     | Enable this bundle's schema changes.                                              |
-| `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`                            | `true`                     | Abort bundle setup after an unexpected schema error.                              |
-| `SYNCHRONIZATION_STORE`                                        | `memory`                   | Global fallback for the lock and limiter stores.                                  |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | unset                      | Schema lock provider: `memory`, `redis`, or `fs`; otherwise uses synchronization. |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | unset                      | Optional override; otherwise uses resolved Redis settings.                        |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | unset                      | Required when the provider is `fs`.                                               |
-| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | unset                      | Request and failed-OTP limiter store; otherwise uses `SYNCHRONIZATION_STORE`.     |
-| `REDIS_ENABLED`                                                | `false`                    | Enables component-based Redis configuration.                                      |
-| `REDIS`                                                        | Directus setting           | Complete URL; takes precedence over components.                                   |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | unset                      | Required together when building a URL.                                            |
-| `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback | HMAC secret for token digests.                                                    |
-| `MAGIC_LINKS_TOKEN_TTL`                                        | `15m`                      | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).                                |
-| `MAGIC_LINKS_REQUEST_RATE_LIMIT`                               | `5`                        | Requests per IP per 60 seconds for the request endpoint.                          |
-| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                   | Non-empty array of HTTP(S) URLs without credentials; explicit ports are allowed.  |
-| `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`                            | `token`                    | Query parameter used for the raw token.                                           |
-| `MAGIC_LINKS_COLLECTION`                                       | `magic_links`              | Magic-link collection name.                                                       |
-| `MAGIC_LINKS_EMAIL_TEMPLATE`                                   | `magic-link`               | Directus Liquid template name.                                                    |
-| `MAGIC_LINKS_EMAIL_SUBJECT`                                    | unset                      | Optional subject passed to the mail service.                                      |
-| `MAGIC_LINKS_EMAIL_REPLY_TO`                                   | unset                      | Optional reply-to email address.                                                  |
-| `MAGIC_LINKS_EMAIL_SENDER`                                     | unset                      | Optional sender passed to the mail service.                                       |
-| `USE_MAGIC_LINK_CLEANUP`                                       | `false`                    | Enable scheduled cleanup.                                                         |
-| `MAGIC_LINK_CLEANUP_WINDOW`                                    | `24h`                      | Retention grace period after expiry or redemption.                                |
-| `MAGIC_LINK_CLEANUP_CRON`                                      | `*/15 * * * *`             | Directus schedule expression for cleanup.                                         |
+| Variable                                                       | Default                                            | Description                                                                       |
+| -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `MAGIC_LINKS_ENABLED`                                          | `true`                                             | Enable the bundle entries.                                                        |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | `true`                                             | Global schema-change switch.                                                      |
+| `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`                           | `true`                                             | Enable this bundle's schema changes.                                              |
+| `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`                            | `true`                                             | Abort bundle setup after an unexpected schema error.                              |
+| `SYNCHRONIZATION_STORE`                                        | `memory`                                           | Global fallback for the lock and limiter stores.                                  |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | unset                                              | Schema lock provider: `memory`, `redis`, or `fs`; otherwise uses synchronization. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | unset                                              | Optional override; otherwise uses resolved Redis settings.                        |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | unset                                              | Required when the provider is `fs`.                                               |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | unset                                              | Request and failed-OTP limiter store; otherwise uses `SYNCHRONIZATION_STORE`.     |
+| `REDIS_ENABLED`                                                | `false`                                            | Enables component-based Redis configuration.                                      |
+| `REDIS`                                                        | Directus setting                                   | Complete URL; takes precedence over components.                                   |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | unset                                              | Required together when building a URL.                                            |
+| `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback                         | HMAC secret for token digests.                                                    |
+| `MAGIC_LINKS_TOKEN_TTL`                                        | `15m`                                              | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).                                |
+| `MAGIC_LINKS_REQUEST_RATE_LIMIT`                               | `5`                                                | Requests per IP per 60 seconds for the request endpoint.                          |
+| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                                           | Non-empty array of HTTP(S) URLs without credentials; explicit ports are allowed.  |
+| `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`                            | `token`                                            | Query parameter used for the raw token.                                           |
+| `MAGIC_LINKS_COLLECTION`                                       | `magic_links`                                      | Magic-link collection name.                                                       |
+| `MAGIC_LINKS_EMAIL_TEMPLATE`                                   | `magic-link`                                       | Directus Liquid template name.                                                    |
+| `MAGIC_LINKS_EMAIL_SUBJECT`                                    | `Your sign-in link`                                | Optional email subject override.                                                  |
+| `MAGIC_LINKS_EMAIL_PREVIEW_TEXT`                               | `Use this secure link to sign in to your account.` | Optional inbox preview-text override.                                             |
+| `MAGIC_LINKS_EMAIL_REPLY_TO`                                   | unset                                              | Optional reply-to email address.                                                  |
+| `MAGIC_LINKS_EMAIL_SENDER`                                     | unset                                              | Optional sender passed to the mail service.                                       |
+| `USE_MAGIC_LINK_CLEANUP`                                       | `false`                                            | Enable scheduled cleanup.                                                         |
+| `MAGIC_LINK_CLEANUP_WINDOW`                                    | `24h`                                              | Retention grace period after expiry or redemption.                                |
+| `MAGIC_LINK_CLEANUP_CRON`                                      | `*/15 * * * *`                                     | Directus schedule expression for cleanup.                                         |
 
 Example:
 
@@ -136,10 +137,13 @@ Copy [`templates/magic-link.liquid`](templates/magic-link.liquid) into the confi
 this bundle directory automatically at `/directus/templates`.
 
 The template receives `url`, `email`, `expires_at`, `issued_at`, `ip`, and `user_agent`, alongside
-Directus project variables. The included template renders a human-readable expiry, a clickable URL,
-and a neutral request-metadata callout. Configure `EMAIL_FROM` and SMTP through Directus; the
-optional `MAGIC_LINKS_EMAIL_REPLY_TO` and `MAGIC_LINKS_EMAIL_SENDER` values are passed to Directus's
-`MailService`.
+Directus project variables, plus `preview_text`. The included template renders the configured
+preview text as hidden inbox preheader content, a human-readable expiry, a clickable URL, and a
+neutral request-metadata callout. `MailService` accepts the subject, but does not have a separate
+preview-text metadata field; preview text is rendered by the Liquid template. If you use a custom
+template, render `{{ preview_text }}` near the start of the HTML body to preserve the preheader.
+Configure `EMAIL_FROM` and SMTP through Directus; the optional `MAGIC_LINKS_EMAIL_REPLY_TO` and
+`MAGIC_LINKS_EMAIL_SENDER` values are passed to Directus's `MailService`.
 
 ## Redeem endpoint
 

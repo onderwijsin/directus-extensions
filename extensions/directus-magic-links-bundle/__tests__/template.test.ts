@@ -6,6 +6,7 @@ const template = readFileSync(new URL('../templates/magic-link.liquid', import.m
 
 describe('magic-link email template', () => {
 	it('renders the link, human-readable expiry, and neutral request metadata', () => {
+		expect(template).toContain('{{ preview_text }}')
 		expect(template).toContain('href="{{url}}"')
 		expect(template).toContain('{{ expires_at | date:')
 		expect(template).toContain('{{ issued_at | date:')

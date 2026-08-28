@@ -40,6 +40,7 @@ const options: MagicLinksEnv = {
 	MAGIC_LINKS_TOKEN_QUERY_PARAMETER: 'token',
 	MAGIC_LINKS_EMAIL_TEMPLATE: 'magic-link',
 	MAGIC_LINKS_EMAIL_SUBJECT: 'Sign in',
+	MAGIC_LINKS_EMAIL_PREVIEW_TEXT: 'Use this link to sign in.',
 	MAGIC_LINKS_EMAIL_REPLY_TO: 'support@example.com',
 	MAGIC_LINKS_EMAIL_SENDER: 'Example <no-reply@example.com>',
 	EMAIL_TRANSPORT: 'smtp',
@@ -348,6 +349,7 @@ describe('magic-link handlers', () => {
 			template: {
 				name: 'magic-link',
 				data: {
+					preview_text: 'Use this link to sign in.',
 					url: 'https://app.example.com/auth/magic-link?token=raw-token',
 					email: 'user@example.com',
 					expires_at: expiresAt.toISOString(),
