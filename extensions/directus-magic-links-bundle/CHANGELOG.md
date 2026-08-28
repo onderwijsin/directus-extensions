@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+### Minor Changes
+
+- 98bacdd: Add configurable magic-link email preview text and render it as inbox preheader content
+  in the default template.
+
 ## 0.2.4
 
 ### Patch Changes
