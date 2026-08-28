@@ -34,6 +34,7 @@ export const envSchema = sharedEnvSchema
 		MAGIC_LINKS_TOKEN_QUERY_PARAMETER: nameSchema.default('token'),
 		MAGIC_LINKS_EMAIL_TEMPLATE: nameSchema.default('magic-link'),
 		MAGIC_LINKS_EMAIL_SUBJECT: z.string().trim().min(1).optional(),
+		MAGIC_LINKS_EMAIL_PREVIEW_TEXT: z.string().trim().min(1).optional(),
 		MAGIC_LINKS_EMAIL_REPLY_TO: z.email().trim().optional(),
 		MAGIC_LINKS_EMAIL_SENDER: z.string().trim().min(1).optional(),
 	})

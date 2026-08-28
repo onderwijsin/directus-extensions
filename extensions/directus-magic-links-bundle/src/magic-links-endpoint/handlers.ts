@@ -25,6 +25,8 @@ import {
 import { requestSchema, redeemSchema, type RequestPayload, type RedeemPayload } from './schema'
 
 const DEFAULT_AUTH_PROVIDER = 'default'
+const DEFAULT_EMAIL_SUBJECT = 'Your sign-in link'
+const DEFAULT_EMAIL_PREVIEW_TEXT = 'Use this secure link to sign in to your account.'
 
 interface BaseRequest<TPayload> {
 	payload: TPayload
@@ -232,12 +234,13 @@ export async function sendMagicLinkEmail(input: MagicLinkEmailInput): Promise<vo
 
 	await mail.send({
 		to: user.email,
-		subject: options.MAGIC_LINKS_EMAIL_SUBJECT ?? 'Your sign-in link',
+		subject: options.MAGIC_LINKS_EMAIL_SUBJECT ?? DEFAULT_EMAIL_SUBJECT,
 		replyTo: options.MAGIC_LINKS_EMAIL_REPLY_TO ?? undefined,
 		sender: options.MAGIC_LINKS_EMAIL_SENDER ?? undefined,
 		template: {
 			name: options.MAGIC_LINKS_EMAIL_TEMPLATE,
 			data: {
+				preview_text: options.MAGIC_LINKS_EMAIL_PREVIEW_TEXT ?? DEFAULT_EMAIL_PREVIEW_TEXT,
 				url: url.toString(),
 				email: user.email,
 				expires_at: request.expiresAt.toISOString(),

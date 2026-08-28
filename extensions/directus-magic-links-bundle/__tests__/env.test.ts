@@ -91,6 +91,16 @@ describe('magic-links environment schemas', () => {
 		).toBe(false)
 	})
 
+	it('accepts optional email subject and preview text overrides', () => {
+		const result = endpointEnvSchema.safeParse({
+			...validEnvironment,
+			MAGIC_LINKS_EMAIL_SUBJECT: 'Log in to Example',
+			MAGIC_LINKS_EMAIL_PREVIEW_TEXT: 'Your secure login link is ready.',
+		})
+
+		expect(result.success).toBe(true)
+	})
+
 	it('accepts hook-specific schema and cleanup configuration', () => {
 		const result = hookEnvSchema.safeParse({
 			MAGIC_LINKS_SCHEMA_CHANGES_ENABLED: false,
