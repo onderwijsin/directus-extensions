@@ -14,8 +14,9 @@ pnpm add @onderwijsin/directus-magic-links-bundle
 ```
 
 The bundle requires a configured Directus
-[email transport](https://directus.com/docs/configuration/email) and at least one HTTPS redirect URL
-in `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`.
+[email transport](https://directus.com/docs/configuration/email) and at least one HTTP or HTTPS
+redirect URL in `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`. Redirect URLs may include explicit ports, such
+as `http://localhost:3000/auth/magic-link`; use HTTPS in production.
 
 ## Configuration
 
@@ -41,7 +42,7 @@ the extension receives them; arrays therefore use Directus's array syntax.
 | `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback | HMAC secret for token digests.                                                    |
 | `MAGIC_LINKS_TOKEN_TTL`                                        | `15m`                      | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).                                |
 | `MAGIC_LINKS_REQUEST_RATE_LIMIT`                               | `5`                        | Requests per IP per 60 seconds for the request endpoint.                          |
-| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                   | Non-empty array of HTTPS URLs without credentials or explicit ports.              |
+| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                   | Non-empty array of HTTP(S) URLs without credentials; explicit ports are allowed.  |
 | `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`                            | `token`                    | Query parameter used for the raw token.                                           |
 | `MAGIC_LINKS_COLLECTION`                                       | `magic_links`              | Magic-link collection name.                                                       |
 | `MAGIC_LINKS_EMAIL_TEMPLATE`                                   | `magic-link`               | Directus Liquid template name.                                                    |
@@ -109,8 +110,9 @@ collection.
 ```
 
 The email is trimmed and lowercased for lookup. `redirectUrl` must exactly match the configured
-allowlist; credentials, ports, unsupported schemes, and unconfigured paths are rejected. Invalid
-payloads and redirects return a Directus `InvalidPayloadError`.
+allowlist; credentials, unsupported schemes, and unconfigured paths are rejected. HTTP URLs and
+explicit ports are supported for local development, but production deployments should use HTTPS.
+Invalid payloads and redirects return a Directus `InvalidPayloadError`.
 
 For valid requests the endpoint always returns `202`, regardless of whether an active local-provider
 user exists:

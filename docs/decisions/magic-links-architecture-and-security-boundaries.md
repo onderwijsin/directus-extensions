@@ -49,9 +49,10 @@ secret rotation intentionally invalidates existing links.
 ### Use exact redirect allowlisting
 
 The request redirect must exactly match a configured entry in `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`.
-Only HTTPS URLs without credentials or explicit ports are accepted in the configured allowlist.
-Unconfigured paths, query variants, unsupported schemes, and credential-bearing URLs are rejected
-before a link is created.
+Only HTTP(S) URLs without credentials are accepted in the configured allowlist. Explicit ports are
+allowed so local development URLs such as `http://localhost:3000` can be used; production
+deployments should use HTTPS. Unconfigured paths, query variants, unsupported schemes, and
+credential-bearing URLs are rejected before a link is created.
 
 The allowlist is a server-side trust boundary; clients cannot expand it through request data.
 
