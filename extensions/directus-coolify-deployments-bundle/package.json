@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-coolify-deployments-bundle",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "Trigger and inspect Coolify frontend deployments from Directus Studio and Flows",
 	"keywords": [
 		"coolify",

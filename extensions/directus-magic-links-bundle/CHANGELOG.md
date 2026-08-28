@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4
+
+### Patch Changes
+
+- e162802: Allow HTTP redirect URLs and explicit ports in the magic-link redirect URL allowlist.
+
 ## 0.2.3
 
 ### Patch Changes

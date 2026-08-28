@@ -1,5 +1,12 @@
 # @onderwijsin/directus-coolify-deployments-bundle
 
+## 0.3.1
+
+### Patch Changes
+
+- b2c8228: Separate Coolify collection CRUD permissions from custom application and deployment GET
+  endpoint access.
+
 ## 0.3.0
 
 ### Minor Changes
