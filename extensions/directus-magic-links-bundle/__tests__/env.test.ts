@@ -112,6 +112,18 @@ describe('magic-links environment schemas', () => {
 		)
 	})
 
+	it('accepts HTTP(S) redirect URLs with explicit ports', () => {
+		expect(
+			endpointEnvSchema.safeParse({
+				...validEnvironment,
+				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: [
+					'http://localhost:3000/auth/magic-link',
+					'https://app.example.com:8443/auth/magic-link',
+				],
+			}).success,
+		).toBe(true)
+	})
+
 	it('rejects malicious or unsafe redirect allowlists', () => {
 		expect(
 			endpointEnvSchema.safeParse({
@@ -123,7 +135,7 @@ describe('magic-links environment schemas', () => {
 			endpointEnvSchema.safeParse({
 				...validEnvironment,
 				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: [
-					'https://app.example.com:8443/auth/magic-link',
+					'https://user:pass@app.example.com/auth/magic-link',
 				],
 			}).success,
 		).toBe(false)

@@ -16,7 +16,7 @@ const redirectUrlSchema = z
 	.url()
 	.refine(
 		(value) => parseAllowedRedirectUrl(value) !== undefined,
-		'Must be an HTTPS URL without credentials or an explicit port',
+		'Must be an HTTP or HTTPS URL without credentials',
 	)
 
 /**

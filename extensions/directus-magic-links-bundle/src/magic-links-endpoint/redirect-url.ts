@@ -2,16 +2,15 @@
  * Parses a redirect URL accepted by the magic-link allowlist contract.
  *
  * @param value - URL to validate.
- * @returns The parsed URL when it is an HTTPS URL without credentials or an explicit port.
+ * @returns The parsed URL when it is an HTTP(S) URL without credentials.
  */
 export const parseAllowedRedirectUrl = (value: string): URL | undefined => {
 	try {
 		const url = new URL(value)
 		if (
-			url.protocol !== 'https:' ||
+			!['http:', 'https:'].includes(url.protocol) ||
 			url.username !== '' ||
-			url.password !== '' ||
-			url.port !== ''
+			url.password !== ''
 		) {
 			return undefined
 		}

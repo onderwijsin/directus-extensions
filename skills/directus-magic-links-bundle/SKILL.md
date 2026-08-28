@@ -15,32 +15,32 @@ Configure shared values for both entries. Schema-change and cleanup values are h
 redirect, and email values are endpoint-only. `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST` is required by
 the endpoint.
 
-| Variable                                                       | Default                    | Accepted values / purpose                                            |
-| -------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------- |
-| `MAGIC_LINKS_ENABLED`                                          | `true`                     | Boolean; disables both entries when `false`.                         |
-| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | `true`                     | Boolean global schema switch.                                        |
-| `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`                           | `true`                     | Boolean bundle schema switch.                                        |
-| `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`                            | `true`                     | Boolean setup failure policy.                                        |
-| `SYNCHRONIZATION_STORE`                                        | `memory`                   | Global fallback for the lock and limiter stores.                     |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | unset                      | `memory`, `redis`, or `fs`; otherwise uses synchronization.          |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | unset                      | Optional override; otherwise uses resolved Redis settings.           |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | unset                      | Required when the provider is `fs`.                                  |
-| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | unset                      | `memory` or `redis`; otherwise uses synchronization.                 |
-| `REDIS_ENABLED`                                                | `false`                    | Enables component-based Redis configuration.                         |
-| `REDIS`                                                        | Directus setting           | Complete URL; takes precedence over components.                      |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | unset                      | Required together when building a URL.                               |
-| `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback | Non-empty HMAC secret.                                               |
-| `MAGIC_LINKS_TOKEN_TTL`                                        | `15m`                      | Duration such as `30m` or `7d`.                                      |
-| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                   | Non-empty array of HTTPS URLs without credentials or explicit ports. |
-| `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`                            | `token`                    | Token query parameter name.                                          |
-| `MAGIC_LINKS_COLLECTION`                                       | `magic_links`              | Underscore-compatible collection name.                               |
-| `MAGIC_LINKS_EMAIL_TEMPLATE`                                   | `magic-link`               | Template name using letters, numbers, `_`, or `-`.                   |
-| `MAGIC_LINKS_EMAIL_SUBJECT`                                    | unset                      | Optional non-empty email subject.                                    |
-| `MAGIC_LINKS_EMAIL_REPLY_TO`                                   | unset                      | Optional reply-to email address.                                     |
-| `MAGIC_LINKS_EMAIL_SENDER`                                     | unset                      | Optional sender passed to Directus MailService.                      |
-| `USE_MAGIC_LINK_CLEANUP`                                       | `false`                    | Boolean scheduled-cleanup switch.                                    |
-| `MAGIC_LINK_CLEANUP_WINDOW`                                    | `24h`                      | Duration retention grace period.                                     |
-| `MAGIC_LINK_CLEANUP_CRON`                                      | `*/15 * * * *`             | Non-empty Directus cron expression.                                  |
+| Variable                                                       | Default                    | Accepted values / purpose                                                    |
+| -------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------- |
+| `MAGIC_LINKS_ENABLED`                                          | `true`                     | Boolean; disables both entries when `false`.                                 |
+| `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`                   | `true`                     | Boolean global schema switch.                                                |
+| `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED`                           | `true`                     | Boolean bundle schema switch.                                                |
+| `MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR`                            | `true`                     | Boolean setup failure policy.                                                |
+| `SYNCHRONIZATION_STORE`                                        | `memory`                   | Global fallback for the lock and limiter stores.                             |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`                            | unset                      | `memory`, `redis`, or `fs`; otherwise uses synchronization.                  |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`                           | unset                      | Optional override; otherwise uses resolved Redis settings.                   |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`                        | unset                      | Required when the provider is `fs`.                                          |
+| `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`                       | unset                      | `memory` or `redis`; otherwise uses synchronization.                         |
+| `REDIS_ENABLED`                                                | `false`                    | Enables component-based Redis configuration.                                 |
+| `REDIS`                                                        | Directus setting           | Complete URL; takes precedence over components.                              |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | unset                      | Required together when building a URL.                                       |
+| `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback | Non-empty HMAC secret.                                                       |
+| `MAGIC_LINKS_TOKEN_TTL`                                        | `15m`                      | Duration such as `30m` or `7d`.                                              |
+| `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                   | Non-empty array of HTTP(S) URLs without credentials; explicit ports allowed. |
+| `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`                            | `token`                    | Token query parameter name.                                                  |
+| `MAGIC_LINKS_COLLECTION`                                       | `magic_links`              | Underscore-compatible collection name.                                       |
+| `MAGIC_LINKS_EMAIL_TEMPLATE`                                   | `magic-link`               | Template name using letters, numbers, `_`, or `-`.                           |
+| `MAGIC_LINKS_EMAIL_SUBJECT`                                    | unset                      | Optional non-empty email subject.                                            |
+| `MAGIC_LINKS_EMAIL_REPLY_TO`                                   | unset                      | Optional reply-to email address.                                             |
+| `MAGIC_LINKS_EMAIL_SENDER`                                     | unset                      | Optional sender passed to Directus MailService.                              |
+| `USE_MAGIC_LINK_CLEANUP`                                       | `false`                    | Boolean scheduled-cleanup switch.                                            |
+| `MAGIC_LINK_CLEANUP_WINDOW`                                    | `24h`                      | Duration retention grace period.                                             |
+| `MAGIC_LINK_CLEANUP_CRON`                                      | `*/15 * * * *`             | Non-empty Directus cron expression.                                          |
 
 Example Directus environment:
 
@@ -104,8 +104,9 @@ Request body:
 ```
 
 The email is trimmed and lowercased for lookup. The redirect must exactly match an entry in
-`MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`; credentials, unexpected ports, unsupported schemes, and
-unconfigured paths are rejected with Directus `InvalidPayloadError`.
+`MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`; credentials, unsupported schemes, and unconfigured paths are
+rejected with Directus `InvalidPayloadError`. Explicit ports are supported, including local URLs
+such as `http://localhost:3000/auth/magic-link`; use HTTPS in production.
 
 The endpoint returns `202` and this same response for both known and unknown addresses:
 

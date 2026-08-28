@@ -38,11 +38,15 @@ describe('magic-link security helpers', () => {
 			isAllowedRedirectUrl('https://user:pass@app.example.com/auth/magic-link', allowlist),
 		).toBe(false)
 		expect(
-			isAllowedRedirectUrl('https://app.example.com:8443/auth/magic-link', allowlist),
-		).toBe(false)
-		expect(isAllowedRedirectUrl('http://app.example.com/auth/magic-link', allowlist)).toBe(
-			false,
-		)
+			isAllowedRedirectUrl('https://app.example.com:8443/auth/magic-link', [
+				'https://app.example.com:8443/auth/magic-link',
+			]),
+		).toBe(true)
+		expect(
+			isAllowedRedirectUrl('http://localhost:3000/auth/magic-link', [
+				'http://localhost:3000/auth/magic-link',
+			]),
+		).toBe(true)
 		expect(isAllowedRedirectUrl('javascript:alert(1)', allowlist)).toBe(false)
 	})
 
