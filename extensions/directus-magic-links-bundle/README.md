@@ -2,10 +2,10 @@
 
 Passwordless magic-link authentication for Directus frontend clients.
 
-Optional scheduled cleanup removes old expired
-and redeemed records.
+Optional scheduled cleanup removes old expired and redeemed records.
 
-> ⚠️ Magic links are only support for users with native auth provider. OAuth providers are not supported.
+> ⚠️ Magic links are only support for users with native auth provider. OAuth providers are not
+> supported.
 
 ## Installation
 
@@ -16,13 +16,14 @@ pnpm add @onderwijsin/directus-magic-links-bundle
 ```
 
 The bundle requires a configured Directus
-[email transport](https://directus.com/docs/configuration/email) and at least one
-redirect URL in `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`. Redirect URLs may include explicit ports, such
-as `http://localhost:3000/auth/magic-link`; use HTTPS in production.
+[email transport](https://directus.com/docs/configuration/email) and at least one redirect URL in
+`MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`. Redirect URLs may include explicit ports, such as
+`http://localhost:3000/auth/magic-link`; use HTTPS in production.
 
 ## Configuration
 
-The endpoint and startup hook each validate the shared environment configuration. While some of the configuration options are specific to this bundle, it also relies on common directus configuration.
+The endpoint and startup hook each validate the shared environment configuration. While some of the
+configuration options are specific to this bundle, it also relies on common directus configuration.
 
 | Variable                                                       | Default                                            | Description                                                                       |
 | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -65,10 +66,11 @@ MAGIC_LINK_CLEANUP_WINDOW=7d
 MAGIC_LINK_CLEANUP_CRON=0 * * * *
 ```
 
-The bundle uses Directus's internal `MailService` and thus accepts all of Directus's email transports: `sendmail`, `smtp`, `mailgun`, and `ses`. SMTP requires
-`EMAIL_SMTP_HOST`; its port, credentials, and other options are owned by Directus and the consumer.
-Mailgun requires its API key and domain; SES requires its access key ID, secret access key, and
-region. The bundle validates the selected transport before registering its endpoint.
+The bundle uses Directus's internal `MailService` and thus accepts all of Directus's email
+transports: `sendmail`, `smtp`, `mailgun`, and `ses`. SMTP requires `EMAIL_SMTP_HOST`; its port,
+credentials, and other options are owned by Directus and the consumer. Mailgun requires its API key
+and domain; SES requires its access key ID, secret access key, and region. The bundle validates the
+selected transport before registering its endpoint.
 
 ## Schema setup
 
@@ -77,26 +79,27 @@ collection (default: `magic_links`), fields, and relation from the package's exp
 Existing compatible schema resources are preserved. Set
 `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=false` to disable schema changes globally, or
 `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bundle. Schema setup always uses a
-lock to prevent concurrent modifications; configure `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` for multi-process deployments.
+lock to prevent concurrent modifications; configure `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` for
+multi-process deployments.
 
 The magic-link record stores a required relation to `directus_users`; the related user's current
 `email` is used for delivery and is not duplicated in the magic-links table.
 
 ## Scheduled cleanup
 
-Set `USE_MAGIC_LINK_CLEANUP=true` to register the cleanup Cron job. Each run deletes
-records whose `expires_at` or `redeemed_at` is older than `MAGIC_LINK_CLEANUP_WINDOW`; the default
-retention window is 24 hours. For example, with `MAGIC_LINK_CLEANUP_WINDOW=24h`, a link that expired
-at 10:00 is eligible for deletion after 10:00 the following day. A link is also eligible after its
+Set `USE_MAGIC_LINK_CLEANUP=true` to register the cleanup Cron job. Each run deletes records whose
+`expires_at` or `redeemed_at` is older than `MAGIC_LINK_CLEANUP_WINDOW`; the default retention
+window is 24 hours. For example, with `MAGIC_LINK_CLEANUP_WINDOW=24h`, a link that expired at 10:00
+is eligible for deletion after 10:00 the following day. A link is also eligible after its
 `redeemed_at` timestamp has passed the same window. Pending, unexpired links are not deleted.
 
 The schedule is registered by the hook entry only when `MAGIC_LINKS_ENABLED` and
 `USE_MAGIC_LINK_CLEANUP` are both enabled. Cleanup runs in a database transaction and logs its
 deleted count or failure without affecting request or redemption endpoints. In a multi-instance
-deployment that uses a process local `SYNCHRONIZATION_STORE`, each Directus process may run the schedule; concurrent cleanup runs are safe and
-idempotent, but operators should coordinate scheduling if duplicate executions are undesirable.
-Leave the feature disabled when another system owns retention for the configured magic-links
-collection.
+deployment that uses a process local `SYNCHRONIZATION_STORE`, each Directus process may run the
+schedule; concurrent cleanup runs are safe and idempotent, but operators should coordinate
+scheduling if duplicate executions are undesirable. Leave the feature disabled when another system
+owns retention for the configured magic-links collection.
 
 ## Request endpoint
 
@@ -126,25 +129,28 @@ user exists:
 The request endpoint applies a separate per-IP limit of 5 requests per minute by default, configured
 with `MAGIC_LINKS_REQUEST_RATE_LIMIT`.
 
-The link uses a 256-bit random token, added as a query parameter to the provided `redirectUrl`. The parameter that is used is configurable with `MAGIC_LINKS_TOKEN_QUERY_PARAMETER` (default is `token`). Only the token's HMAC-SHA-256 digest is stored in `token_hash`; raw
-tokens are included only in the email URL and are never logged or persisted. Existing links remain
-valid until expiry or redemption. After the link transaction commits, email delivery starts in the
-background so SMTP or other transport latency does not affect the generic response. Delivery records
-transition from `pending` to `sent` or `error`, keeping failures auditable without changing the
-response. This is deliberately fire-and-forget: a process shutdown can leave a record pending or
-interrupt an in-flight delivery. Request another link when delivery fails.
+The link uses a 256-bit random token, added as a query parameter to the provided `redirectUrl`. The
+parameter that is used is configurable with `MAGIC_LINKS_TOKEN_QUERY_PARAMETER` (default is
+`token`). Only the token's HMAC-SHA-256 digest is stored in `token_hash`; raw tokens are included
+only in the email URL and are never logged or persisted. Existing links remain valid until expiry or
+redemption. After the link transaction commits, email delivery starts in the background so SMTP or
+other transport latency does not affect the generic response. Delivery records transition from
+`pending` to `sent` or `error`, keeping failures auditable without changing the response. This is
+deliberately fire-and-forget: a process shutdown can leave a record pending or interrupt an
+in-flight delivery. Request another link when delivery fails.
 
 Copy [`templates/magic-link.liquid`](templates/magic-link.liquid) into the configured
 `EMAIL_TEMPLATES_PATH` before enabling delivery. The repository's local and E2E Compose stacks mount
 this bundle directory automatically at `/directus/templates`.
 
 The template receives `url`, `email`, `expires_at`, `issued_at`, `ip`, and `user_agent`, alongside
-Directus project variables. The included template renders a human-readable expiry, a clickable URL, and a
-neutral request-metadata callout. `MailService` accepts the subject, but does not have a separate
-preview-text metadata field; preview text is rendered by the Liquid template. If you use a custom
-template, render `{{ preview_text }}` near the start of the HTML body to preserve the preheader.
-Configure `EMAIL_FROM` and SMTP through Directus; the optional `MAGIC_LINKS_EMAIL_REPLY_TO` and
-`MAGIC_LINKS_EMAIL_SENDER` values are passed to Directus's `MailService`.
+Directus project variables. The included template renders a human-readable expiry, a clickable URL,
+and a neutral request-metadata callout. `MailService` accepts the subject, but does not have a
+separate preview-text metadata field; preview text is rendered by the Liquid template. If you use a
+custom template, render `{{ preview_text }}` near the start of the HTML body to preserve the
+preheader. Configure `EMAIL_FROM` and SMTP through Directus; the optional
+`MAGIC_LINKS_EMAIL_REPLY_TO` and `MAGIC_LINKS_EMAIL_SENDER` values are passed to Directus's
+`MailService`.
 
 ## Redeem endpoint
 
@@ -173,7 +179,8 @@ session, and uses `AuthenticationService.refresh()` to issue Directus's normal a
 before marking the link redeemed in the same transaction. For users without a personal TFA secret,
 the access-token JWT preserves Directus's role-policy `enforce_tfa` claim, so consumers can route
 the user into their TFA setup flow. This matches Directus 12.2 login behavior: only policies
-attached to the user's directly assigned role are considered for this claim (There is an [open issue](https://github.com/directus/directus/issues/28152) for this behaviour.
+attached to the user's directly assigned role are considered for this claim (There is an
+[open issue](https://github.com/directus/directus/issues/28152) for this behaviour.
 
 Invalid, expired, already redeemed, inactive, unsupported-provider, missing-OTP, and invalid-OTP
 requests return Directus's `InvalidOtpError` or generic credentials error as appropriate. When
@@ -219,8 +226,8 @@ policies and does not modify the Directus Data Studio authentication flow. The e
 public request and redeem calls, but the configured magic-links collection must remain private and
 must not be exposed through public CRUD permissions.
 
-ConfigurevCORS for the frontend origin. Cookie and session modes require the deployment's normal CSRF
-protections because the browser sends the refresh or session cookie automatically.
+ConfigurevCORS for the frontend origin. Cookie and session modes require the deployment's normal
+CSRF protections because the browser sends the refresh or session cookie automatically.
 
 For the rationale and security boundaries behind these choices, see the repository decision record:
 [`Magic-link architecture and security boundaries`](../../docs/decisions/magic-links-architecture-and-security-boundaries.md).
