@@ -5,6 +5,8 @@ Passwordless magic-link authentication for Directus frontend clients.
 Optional scheduled cleanup removes old expired
 and redeemed records.
 
+> ⚠️ Magic links are only support for users with native auth provider. OAuth providers are not supported.
+
 ## Installation
 
 Install the bundle into a Directus project:
@@ -20,7 +22,7 @@ as `http://localhost:3000/auth/magic-link`; use HTTPS in production.
 
 ## Configuration
 
-The endpoint and startup hook each validate the shared environment configuration. While some of the configuration options are specific to this bundle, it also relies on common directies configuration.
+The endpoint and startup hook each validate the shared environment configuration. While some of the configuration options are specific to this bundle, it also relies on common directus configuration.
 
 | Variable                                                       | Default                                            | Description                                                                       |
 | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -63,7 +65,7 @@ MAGIC_LINK_CLEANUP_WINDOW=7d
 MAGIC_LINK_CLEANUP_CRON=0 * * * *
 ```
 
-The endpoint accepts Directus's `sendmail`, `smtp`, `mailgun`, and `ses` transports. SMTP requires
+The bundle uses Directus's internal `MailService` and thus accepts all of Directus's email transports: `sendmail`, `smtp`, `mailgun`, and `ses`. SMTP requires
 `EMAIL_SMTP_HOST`; its port, credentials, and other options are owned by Directus and the consumer.
 Mailgun requires its API key and domain; SES requires its access key ID, secret access key, and
 region. The bundle validates the selected transport before registering its endpoint.
@@ -75,14 +77,14 @@ collection (default: `magic_links`), fields, and relation from the package's exp
 Existing compatible schema resources are preserved. Set
 `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED=false` to disable schema changes globally, or
 `MAGIC_LINKS_SCHEMA_CHANGES_ENABLED=false` to disable only this bundle. Schema setup always uses a
-lock; configure `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` for multi-process deployments.
+lock to prevent concurrent modifications; configure `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` for multi-process deployments.
 
 The magic-link record stores a required relation to `directus_users`; the related user's current
 `email` is used for delivery and is not duplicated in the magic-links table.
 
 ## Scheduled cleanup
 
-Set `USE_MAGIC_LINK_CLEANUP=true` to register the configured Directus schedule. Each run deletes
+Set `USE_MAGIC_LINK_CLEANUP=true` to register the cleanup Cron job. Each run deletes
 records whose `expires_at` or `redeemed_at` is older than `MAGIC_LINK_CLEANUP_WINDOW`; the default
 retention window is 24 hours. For example, with `MAGIC_LINK_CLEANUP_WINDOW=24h`, a link that expired
 at 10:00 is eligible for deletion after 10:00 the following day. A link is also eligible after its
@@ -91,7 +93,7 @@ at 10:00 is eligible for deletion after 10:00 the following day. A link is also 
 The schedule is registered by the hook entry only when `MAGIC_LINKS_ENABLED` and
 `USE_MAGIC_LINK_CLEANUP` are both enabled. Cleanup runs in a database transaction and logs its
 deleted count or failure without affecting request or redemption endpoints. In a multi-instance
-deployment, each Directus process may run the schedule; concurrent cleanup runs are safe and
+deployment that uses a process local `SYNCHRONIZATION_STORE`, each Directus process may run the schedule; concurrent cleanup runs are safe and
 idempotent, but operators should coordinate scheduling if duplicate executions are undesirable.
 Leave the feature disabled when another system owns retention for the configured magic-links
 collection.
