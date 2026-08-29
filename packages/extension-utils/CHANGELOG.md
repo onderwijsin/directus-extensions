@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.3
+
+### Patch Changes
+
+- 80ad3bd: Type asynchronous Express handlers with Directus request accountability.
+- f9c64fd: Allow `rejectWhileSchemaLocked` to report schema status without requiring an Express
+  continuation.
+
 ## 0.2.2
 
 ### Patch Changes

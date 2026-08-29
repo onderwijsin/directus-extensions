@@ -1,5 +1,12 @@
 # @onderwijsin/directus-coolify-deployments-bundle
 
+## 0.3.2
+
+### Patch Changes
+
+- 0c04b9f: Use Directus `PUBLIC_URL` for browser-origin validation behind reverse proxies and allow
+  consumers to disable the same-origin check explicitly.
+
 ## 0.3.1
 
 ### Patch Changes
