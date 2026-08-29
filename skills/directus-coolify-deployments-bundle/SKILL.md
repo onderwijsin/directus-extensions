@@ -49,13 +49,14 @@ eligible for installation from the Directus Marketplace.
 
 ### Core settings
 
-| Variable                               | Default                | Requirement / effect                                                                |
-| -------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------- |
-| `COOLIFY_DEPLOYMENTS_ENABLED`          | `true`                 | Boolean master switch.                                                              |
-| `COOLIFY_APPLICATIONS_COLLECTION`      | `coolify_applications` | Valid collection identifier; cannot start with `directus_`.                         |
-| `COOLIFY_URL`                          | unset                  | Absolute URL for one Coolify instance. Do not append `/api/v1`; the bundle adds it. |
-| `COOLIFY_TOKEN`                        | unset                  | Non-empty server-only token sent as a bearer token.                                 |
-| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS` | `5000`                 | Integer minimum `250`; also emitted as `X-Coolify-Deployments-Poll-Interval`.       |
+| Variable                                  | Default                | Requirement / effect                                                                |
+| ----------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------- |
+| `COOLIFY_DEPLOYMENTS_ENABLED`             | `true`                 | Boolean master switch.                                                              |
+| `COOLIFY_APPLICATIONS_COLLECTION`         | `coolify_applications` | Valid collection identifier; cannot start with `directus_`.                         |
+| `COOLIFY_URL`                             | unset                  | Absolute URL for one Coolify instance. Do not append `/api/v1`; the bundle adds it. |
+| `COOLIFY_TOKEN`                           | unset                  | Non-empty server-only token sent as a bearer token.                                 |
+| `COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED` | `true`                 | Reject browser requests from a different origin; authentication remains required.   |
+| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS`    | `5000`                 | Integer minimum `250`; also emitted as `X-Coolify-Deployments-Poll-Interval`.       |
 
 Example:
 
@@ -340,8 +341,11 @@ flow should handle a stale or disabled selection explicitly.
 
 Keep the token in secret management and use least privilege. Assign the trigger policy only to
 trusted deployers. Policy assignment honors `policy.ip_access`. Configure Express to resolve trusted
-proxy headers; the endpoint does not trust client-supplied `X-Forwarded-*` headers. Add rate
-limiting, audit logging, retries, and alerting at the consumer boundary when required.
+proxy headers; the endpoint does not trust client-supplied `X-Forwarded-*` headers. Set Directus's
+`PUBLIC_URL` to the browser-visible URL when a reverse proxy gives Express an internal host or
+protocol. Set `COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED=false` only when another trusted boundary
+enforces browser origin protection; authentication and policy checks still apply. Add rate limiting,
+audit logging, retries, and alerting at the consumer boundary when required.
 
 The server client restricts provider reads to UUIDs found in enabled local records. It fetches
 deployment history in pages of 100 and does not copy it into Directus. The cache is only a 60-second

@@ -108,14 +108,15 @@ export default defineEndpoint({
 		 */
 		router.use(
 			asyncHandler(async (request, response, next) => {
-				const accountability = hasKey(request, 'accountability')
-					? request.accountability
-					: undefined
+				const accountability = getAccountabilityFromRequest(request)
 				if (accountability === null || !hasAuthenticatedUser(accountability)) {
 					next(new ForbiddenError())
 					return
 				}
-				if (!isSameOriginRequest(request)) {
+				if (
+					options.COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED &&
+					!isSameOriginRequest(request, options.PUBLIC_URL)
+				) {
 					next(new ForbiddenError())
 					return
 				}

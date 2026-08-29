@@ -56,6 +56,21 @@ describe('isSameOriginRequest', () => {
 		).toBe(true)
 	})
 
+	it('uses the configured public URL when Express sees an internal proxy origin', () => {
+		expect(
+			isSameOriginRequest(
+				request(
+					{
+						origin: 'https://studio.example.test',
+						host: 'directus:8055',
+					},
+					'http',
+				),
+				'https://studio.example.test/',
+			),
+		).toBe(true)
+	})
+
 	it('does not trust client-supplied forwarded origin metadata', () => {
 		expect(
 			isSameOriginRequest(

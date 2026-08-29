@@ -17,6 +17,8 @@ import { coolifyEnvironmentSchema } from '../shared/coolify-client/schemas'
  * @returns The endpoint environment schema.
  */
 const endpointEnvSchema = directusStartupSchema.extend(coolifyEnvironmentSchema.shape).safeExtend({
+	PUBLIC_URL: z.url().optional(),
+	COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED: z.boolean().default(true),
 	COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: z
 		.string()
 		.trim()
