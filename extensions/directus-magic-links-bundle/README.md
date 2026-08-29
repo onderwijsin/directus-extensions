@@ -2,7 +2,7 @@
 
 Passwordless magic-link authentication for Directus frontend clients.
 
-The request and redemption endpoints are implemented. Optional scheduled cleanup removes old expired
+Optional scheduled cleanup removes old expired
 and redeemed records.
 
 ## Installation
@@ -14,7 +14,7 @@ pnpm add @onderwijsin/directus-magic-links-bundle
 ```
 
 The bundle requires a configured Directus
-[email transport](https://directus.com/docs/configuration/email) and at least one HTTP or HTTPS
+[email transport](https://directus.com/docs/configuration/email) and at least one
 redirect URL in `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`. Redirect URLs may include explicit ports, such
 as `http://localhost:3000/auth/magic-link`; use HTTPS in production.
 
