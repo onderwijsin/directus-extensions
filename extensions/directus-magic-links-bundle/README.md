@@ -20,10 +20,7 @@ as `http://localhost:3000/auth/magic-link`; use HTTPS in production.
 
 ## Configuration
 
-The endpoint and startup hook validate the shared environment configuration. Each entry also
-validates only the settings it owns: schema-change and cleanup settings belong to the hook, while
-token, redirect, and email settings belong to the endpoint. Directus casts values from `.env` before
-the extension receives them; arrays therefore use Directus's array syntax.
+The endpoint and startup hook each validate the shared environment configuration. While some of the configuration options are specific to this bundle, it also relies on common directies configuration.
 
 | Variable                                                       | Default                                            | Description                                                                       |
 | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- |
