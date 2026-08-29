@@ -190,9 +190,9 @@ export async function requestMagicLink(input: RequestHandlerInput) {
  * @returns A promise that settles after delivery and status recording complete.
  */
 export async function deliverMagicLinkEmail(input: MagicLinkEmailInput): Promise<void> {
-	try {
-		await sendMagicLinkEmail(input)
-	} catch {
+	const { error } = await attempt(() => sendMagicLinkEmail(input))
+
+	if (error) {
 		await attempt(() =>
 			updateMagicLinkEmailStatus(input, {
 				email_status: 'error',
