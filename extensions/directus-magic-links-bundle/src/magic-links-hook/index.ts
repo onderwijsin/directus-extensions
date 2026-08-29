@@ -8,7 +8,7 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import magicLinksSchema from '../../schema/directus_magic_links.json'
+import magicLinksSchema from '../../schema/magic_links.json'
 import { registerMagicLinkJwt } from './auth-jwt'
 import { registerMagicLinkCleanup } from './cleanup'
 import { EXTENSION_ID, EXTENSION_NAME } from './constants'
