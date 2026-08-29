@@ -1,10 +1,13 @@
+import type { Accountability } from '@directus/types'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
+
+import { getAccountabilityFromRequest } from './accountability'
 
 /**
  * An asynchronous Express request handler.
  */
 export type AsyncRequestHandler = (
-	request: Request,
+	request: Request & { accountability: Accountability | null },
 	response: Response,
 	next: NextFunction,
 ) => Promise<void>
@@ -19,6 +22,10 @@ export type AsyncRequestHandler = (
  */
 export function asyncHandler(handler: AsyncRequestHandler): RequestHandler {
 	return (request, response, next): void => {
-		void handler(request, response, next).catch(next)
+		const accountableRequest = Object.assign(request, {
+			accountability: getAccountabilityFromRequest(request),
+		})
+
+		void handler(accountableRequest, response, next).catch(next)
 	}
 }

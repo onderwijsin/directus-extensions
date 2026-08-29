@@ -159,6 +159,9 @@ are left to Directus and the consumer to configure and validate.
 Wrap asynchronous endpoint handlers and middleware with `asyncHandler` so rejected promises reach
 Directus's Express 4 error handling:
 
+The callback receives an Express request typed with Directus's `accountability` property, which is
+`Accountability | null`.
+
 ```ts
 router.post(
   '/route',

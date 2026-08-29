@@ -413,6 +413,9 @@ Express `RequestHandler`, invokes the asynchronous callback, and forwards reject
 Express through `next(error)`. This keeps Directus endpoint registration compatible with
 `typescript/no-misused-promises`:
 
+The callback request is typed as an Express request with Directus's `accountability` property, which
+is `Accountability | null`.
+
 ```ts
 import { asyncHandler } from '@onderwijsin/directus-extension-utils/server'
 

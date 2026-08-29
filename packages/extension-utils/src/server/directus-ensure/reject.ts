@@ -30,14 +30,14 @@ export interface RejectWhileSchemaLockedInput {
 }
 
 /**
- * Forwards an error when an extension's schema is being changed.
+ * Forwards an error when an extension's schema is being changed. If next is provided, it will be called with the error.
  * @param input - Extension identifier, startup status options, and optional error constructors.
- * @param next - Express error handler continuation.
+ * @param next - Optional Express error handler continuation.
  * @returns Whether the request was rejected.
  */
 export async function rejectWhileSchemaLocked(
 	input: RejectWhileSchemaLockedInput,
-	next: (error?: unknown) => void,
+	next?: (error?: unknown) => void,
 ): Promise<boolean> {
 	try {
 		const { isLocked } = await getDirectusStartupStatus({
@@ -46,10 +46,10 @@ export async function rejectWhileSchemaLocked(
 		})
 		if (!isLocked) return false
 
-		next(new (input.errors?.locked ?? SchemaLockedError)())
+		next?.(new (input.errors?.locked ?? SchemaLockedError)())
 		return true
 	} catch {
-		next(new (input.errors?.status ?? SchemaStatusError)())
+		next?.(new (input.errors?.status ?? SchemaStatusError)())
 		return true
 	}
 }
