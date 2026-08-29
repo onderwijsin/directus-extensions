@@ -123,7 +123,10 @@ user exists:
 }
 ```
 
-The link uses a 256-bit random token. Only its HMAC-SHA-256 digest is stored in `token_hash`; raw
+The request endpoint applies a separate per-IP limit of 5 requests per minute by default, configured
+with `MAGIC_LINKS_REQUEST_RATE_LIMIT`.
+
+The link uses a 256-bit random token, added as a query parameter to the provided `redirectUrl`. The parameter that is used is configurable with `MAGIC_LINKS_TOKEN_QUERY_PARAMETER` (default is `token`). Only the token's HMAC-SHA-256 digest is stored in `token_hash`; raw
 tokens are included only in the email URL and are never logged or persisted. Existing links remain
 valid until expiry or redemption. After the link transaction commits, email delivery starts in the
 background so SMTP or other transport latency does not affect the generic response. Delivery records
@@ -136,8 +139,7 @@ Copy [`templates/magic-link.liquid`](templates/magic-link.liquid) into the confi
 this bundle directory automatically at `/directus/templates`.
 
 The template receives `url`, `email`, `expires_at`, `issued_at`, `ip`, and `user_agent`, alongside
-Directus project variables, plus `preview_text`. The included template renders the configured
-preview text as hidden inbox preheader content, a human-readable expiry, a clickable URL, and a
+Directus project variables. The included template renders a human-readable expiry, a clickable URL, and a
 neutral request-metadata callout. `MailService` accepts the subject, but does not have a separate
 preview-text metadata field; preview text is rendered by the Liquid template. If you use a custom
 template, render `{{ preview_text }}` near the start of the HTML body to preserve the preheader.
@@ -171,7 +173,7 @@ session, and uses `AuthenticationService.refresh()` to issue Directus's normal a
 before marking the link redeemed in the same transaction. For users without a personal TFA secret,
 the access-token JWT preserves Directus's role-policy `enforce_tfa` claim, so consumers can route
 the user into their TFA setup flow. This matches Directus 12.2 login behavior: only policies
-attached to the user's directly assigned role are considered for this claim.
+attached to the user's directly assigned role are considered for this claim (There is an [open issue](https://github.com/directus/directus/issues/28152) for this behaviour.
 
 Invalid, expired, already redeemed, inactive, unsupported-provider, missing-OTP, and invalid-OTP
 requests return Directus's `InvalidOtpError` or generic credentials error as appropriate. When
@@ -217,12 +219,7 @@ policies and does not modify the Directus Data Studio authentication flow. The e
 public request and redeem calls, but the configured magic-links collection must remain private and
 must not be exposed through public CRUD permissions.
 
-The request endpoint applies a separate per-IP limit of 5 requests per minute by default, configured
-with `MAGIC_LINKS_REQUEST_RATE_LIMIT`. The redemption endpoint separately limits failed OTP attempts
-per magic-link using `auth_login_attempts`; the two budgets do not affect each other. Apply
-additional rate limiting to both public routes at the edge or API gateway, especially the redeem
-route because invalid OTP attempts are not covered by Directus's login-attempt limiter. Configure
-CORS for the frontend origin. Cookie and session modes require the deployment's normal CSRF
+ConfigurevCORS for the frontend origin. Cookie and session modes require the deployment's normal CSRF
 protections because the browser sends the refresh or session cookie automatically.
 
 For the rationale and security boundaries behind these choices, see the repository decision record:
