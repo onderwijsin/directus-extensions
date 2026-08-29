@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 		COOLIFY_URL: 'https://coolify.example.com',
 		COOLIFY_TOKEN: 'token',
 		COOLIFY_APPLICATIONS_COLLECTION: 'deployment_targets',
+		COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED: true,
 		COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: 'manage-policy',
 		COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID: 'read-policy',
 		COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: 'trigger-policy',
@@ -192,6 +193,46 @@ describe('Coolify deployment endpoint orchestration', () => {
 			next,
 		)
 		expect(next).toHaveBeenCalledWith(expect.any(Error))
+	})
+
+	it('can disable same-origin checks without disabling authentication', async () => {
+		mocks.validateExtensionOptions.mockReturnValueOnce({
+			COOLIFY_URL: 'https://coolify.example.com',
+			COOLIFY_TOKEN: 'token',
+			COOLIFY_APPLICATIONS_COLLECTION: 'deployment_targets',
+			COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED: false,
+			COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: 'manage-policy',
+			COOLIFY_DEPLOYMENTS_READ_DEPLOYMENTS_POLICY_ID: 'read-policy',
+			COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: 'trigger-policy',
+			COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS: 3000,
+		})
+		const router = createRouter()
+		runEndpoint(router)
+		const response = createResponse()
+		const next = vi.fn()
+		const middleware = router.use.mock.calls[0]?.[0]
+		if (typeof middleware !== 'function') throw new Error('Expected middleware')
+
+		middleware(
+			{
+				accountability: {
+					role: 'role-id',
+					roles: ['role-id'],
+					user: 'user-id',
+					admin: true,
+					app: true,
+					ip: null,
+				},
+				get: (header: string) =>
+					header === 'origin' ? 'https://evil.example.com' : undefined,
+				protocol: 'https',
+			},
+			response,
+			next,
+		)
+
+		await vi.waitFor(() => expect(next).toHaveBeenCalledOnce())
+		expect(next).toHaveBeenCalledWith()
 	})
 
 	it('sets the polling header and serves the provider-independent permission route', async () => {

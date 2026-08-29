@@ -56,13 +56,14 @@ environment values before the bundle validates them.
 
 ### Bundle settings
 
-| Variable                               | Default                | Description                                                                    |
-| -------------------------------------- | ---------------------- | ------------------------------------------------------------------------------ |
-| `COOLIFY_DEPLOYMENTS_ENABLED`          | `true`                 | Master switch for all bundle entries.                                          |
-| `COOLIFY_APPLICATIONS_COLLECTION`      | `coolify_applications` | Local allow-list collection. Must be a valid non-system collection name.       |
-| `COOLIFY_URL`                          | —                      | Absolute base URL of one Coolify instance, e.g. `https://coolify.example.com`. |
-| `COOLIFY_TOKEN`                        | —                      | Server-only bearer token sent to Coolify.                                      |
-| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS` | `5000`                 | Studio polling interval in milliseconds; minimum `250`.                        |
+| Variable                                  | Default                | Description                                                                    |
+| ----------------------------------------- | ---------------------- | ------------------------------------------------------------------------------ |
+| `COOLIFY_DEPLOYMENTS_ENABLED`             | `true`                 | Master switch for all bundle entries.                                          |
+| `COOLIFY_APPLICATIONS_COLLECTION`         | `coolify_applications` | Local allow-list collection. Must be a valid non-system collection name.       |
+| `COOLIFY_URL`                             | —                      | Absolute base URL of one Coolify instance, e.g. `https://coolify.example.com`. |
+| `COOLIFY_TOKEN`                           | —                      | Server-only bearer token sent to Coolify.                                      |
+| `COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED` | `true`                 | Rejects browser requests whose origin is not the Directus origin.              |
+| `COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS`    | `5000`                 | Studio polling interval in milliseconds; minimum `250`.                        |
 
 ### Schema and policy settings
 
@@ -184,9 +185,13 @@ policy assigned to their user or effective role:
 
 The endpoint checks authentication, same-origin requests, policy assignment, and the local
 allow-list. Missing browser origin metadata remains supported for authenticated CLI and Flow
-clients. Policy assignment honors Directus `policy.ip_access` restrictions. For proxy deployments,
-Express must resolve trusted proxy headers; the endpoint does not trust client-supplied
-`X-Forwarded-*` headers.
+clients. Policy assignment honors Directus `policy.ip_access` restrictions. Set Directus's
+`PUBLIC_URL` to the browser-visible Directus URL when running behind a reverse proxy; the endpoint
+uses it to validate browser origins even when Express sees an internal proxy host. Without
+`PUBLIC_URL`, Express must resolve trusted proxy headers; the endpoint does not trust
+client-supplied `X-Forwarded-*` headers. Set `COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED=false` only
+when the consumer has an equivalent trusted origin boundary elsewhere; authentication and policy
+checks remain enabled.
 
 ## API reference
 

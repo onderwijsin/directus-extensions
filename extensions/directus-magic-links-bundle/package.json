@@ -42,7 +42,7 @@
 	"main": "./dist/api.js",
 	"exports": {
 		".": "./dist/api.js",
-		"./schema": "./schema/directus_magic_links.json"
+		"./schema": "./schema/magic_links.json"
 	},
 	"publishConfig": {
 		"access": "public"

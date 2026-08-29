@@ -4,7 +4,7 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 import { describe, expect, it } from 'vitest'
 
-import magicLinksSchema from '../schema/directus_magic_links.json'
+import magicLinksSchema from '../schema/magic_links.json'
 
 describe('magic-links schema', () => {
 	it('uses the configured collection for collections, fields, and relations', () => {
