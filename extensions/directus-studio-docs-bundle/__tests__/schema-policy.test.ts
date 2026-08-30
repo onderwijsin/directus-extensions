@@ -21,7 +21,7 @@ describe('Studio Docs schema and policies', () => {
 			archive_value: true,
 			unarchive_value: false,
 		})
-		expect(collection?.fields?.[0]?.field).toBe('uuid')
+		expect(collection?.fields?.[0]?.field).toBe('id')
 		expect(collection?.fields?.[0]?.schema?.is_primary_key).toBe(true)
 		expect(definition.fields.map(({ field }) => field)).toEqual([
 			'navigation_label',

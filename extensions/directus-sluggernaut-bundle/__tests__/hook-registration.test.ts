@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 	startup: { schema: vi.fn(), data: vi.fn() },
 	ensureSchema: vi.fn(),
 	ensurePolicy: vi.fn(),
+	ensureDirectusDocumentation: vi.fn(),
 	collectionReadOne: vi.fn().mockResolvedValue({}),
 	logger: { warn: vi.fn() },
 }))
@@ -17,6 +18,7 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 	...(await importOriginal()),
 	createDirectusStartupCoordinator: () => mocks.startup,
 	ensureDirectusPolicy: mocks.ensurePolicy,
+	ensureDirectusDocumentation: mocks.ensureDirectusDocumentation,
 	ensureDirectusSchema: mocks.ensureSchema,
 	extensionSetup: () => mocks.setup,
 	validateExtensionOptions: () => ({

@@ -1,13 +1,13 @@
 import type { ApiExtensionContext, Item, SchemaOverview } from '@directus/types'
-import type { LockProvider } from '../lock'
+import type { LockProvider } from '../../lock'
 
 import { createHash } from 'node:crypto'
 
 import { z } from 'zod'
 
-import { attempt } from '../../shared/attempt'
-import { getDirectusStartupLockName } from './config'
-import { resolveDirectusLockProvider } from './operations/core'
+import { attempt } from '../../../shared/attempt'
+import { getDirectusStartupLockName } from '../config'
+import { resolveDirectusLockProvider } from './core'
 
 const COLLECTION_NAME = 'studio_docs'
 const STARTUP_ID = 'directus-studio-docs-bundle'
@@ -15,19 +15,20 @@ const INCOMING_VERSION_KEY = 'incoming'
 
 /** Article fields owned by a participating extension's documentation seed. */
 export const docsArticleSchema = z.object({
-	uuid: z.uuid(),
+	id: z.uuid(),
 	navigation_label: z.string().trim().min(1),
 	body: z.string(),
-	sort: z.number().int().default(0),
 	icon: z.string().trim().min(1).nullable().default(null),
 	archived: z.boolean().default(false),
 })
 
-/** Input accepted by `seedDocsArticle`. */
-export type DocsArticle = z.output<typeof docsArticleSchema>
+/** Input accepted by `ensureDirectusDocumentation`. */
+export type DocsArticle = z.input<typeof docsArticleSchema>
+
+type NormalizedDocsArticle = z.output<typeof docsArticleSchema>
 
 /** Options controlling one documentation article seed. */
-export interface SeedDocsArticleOptions {
+export interface EnsureDirectusDocumentationOptions {
 	/** Lock provider held by a startup coordinator, when called from startup data. */
 	lockProvider?: LockProvider
 	/** Provider configuration used when this helper owns the startup lock. */
@@ -43,9 +44,9 @@ export interface SeedDocsArticleOptions {
 }
 
 /**
- * Checks a Directus environment value for the disabled sentinel.
+ * Checks whether an environment value disables a feature.
  * @param value - Environment value to inspect.
- * @returns Whether it disables a feature.
+ * @returns Whether the value is a false sentinel.
  */
 const isFalse = (value: unknown): boolean => value === false || value === 'false'
 
@@ -54,37 +55,36 @@ const isFalse = (value: unknown): boolean => value === false || value === 'false
  * @param article - Normalized article.
  * @returns Stable seed-owned fields.
  */
-const canonicalArticle = (article: DocsArticle): Record<string, unknown> => ({
+const canonicalArticle = (article: NormalizedDocsArticle): Record<string, unknown> => ({
 	archived: article.archived,
 	body: article.body,
 	icon: article.icon,
 	navigation_label: article.navigation_label,
-	sort: article.sort,
-	uuid: article.uuid,
+	id: article.id,
 })
 
 /**
- * Creates a stable content fingerprint for an article seed.
+ * Creates a stable content fingerprint for a documentation article.
  * @param article - Normalized article.
  * @returns SHA-256 content fingerprint.
  */
-const fingerprint = (article: DocsArticle): string =>
+const fingerprint = (article: NormalizedDocsArticle): string =>
 	createHash('sha256')
 		.update(JSON.stringify(canonicalArticle(article)))
 		.digest('hex')
 
 /**
- * Validates an existing Directus item as a seeded article.
+ * Validates an existing Directus documentation item.
  * @param item - Main item returned by Directus.
  * @returns Validated article fields.
  */
-const articleFromItem = (item: Item): DocsArticle => docsArticleSchema.parse(item)
+const articleFromItem = (item: Item): NormalizedDocsArticle => docsArticleSchema.parse(item)
 
 /**
- * Builds shared options for Directus service constructors.
+ * Builds service options for Directus item and version services.
  * @param context - Directus API context.
  * @param schema - Current schema.
- * @returns Service options.
+ * @returns Service constructor options.
  */
 const itemServiceOptions = (context: ApiExtensionContext, schema: SchemaOverview) => ({
 	accountability: null,
@@ -93,17 +93,17 @@ const itemServiceOptions = (context: ApiExtensionContext, schema: SchemaOverview
 })
 
 /**
- * Seeds one extension-owned article into the fixed Studio Docs collection.
+ * Ensures one extension-owned article in the fixed Studio Docs collection.
  *
  * @param article - Stable article definition supplied by a participating extension.
  * @param context - Directus API extension context.
  * @param options - Optional gates, locking, and reconciliation behavior.
  * @returns A promise that resolves after reconciliation or a configured no-op.
  */
-export async function seedDocsArticle(
+export async function ensureDirectusDocumentation(
 	article: DocsArticle,
 	context: ApiExtensionContext,
-	options: SeedDocsArticleOptions = {},
+	options: EnsureDirectusDocumentationOptions = {},
 ): Promise<void> {
 	const seed = docsArticleSchema.parse(article)
 	if (isFalse(context.env.DIRECTUS_DOCS_ENABLED)) return
@@ -147,7 +147,7 @@ export async function seedDocsArticle(
 		const itemsService = new context.services.ItemsService(COLLECTION_NAME, {
 			...itemServiceOptions(context, schema),
 		})
-		const existingResult = await attempt(() => itemsService.readOne(seed.uuid))
+		const existingResult = await attempt(() => itemsService.readOne(seed.id))
 		if (existingResult.error || existingResult.data === null) {
 			await itemsService.createOne(seed)
 			return
@@ -156,7 +156,7 @@ export async function seedDocsArticle(
 		const existing = articleFromItem(existingResult.data)
 		if (fingerprint(existing) === fingerprint(seed)) return
 		if ((options.strategy ?? 'versioning') === 'override') {
-			await itemsService.updateOne(seed.uuid, seed)
+			await itemsService.updateOne(seed.id, seed)
 			return
 		}
 
@@ -166,18 +166,19 @@ export async function seedDocsArticle(
 		const versions = await versionsService.readByQuery({
 			filter: {
 				collection: { _eq: COLLECTION_NAME },
-				item: { _eq: seed.uuid },
+				item: { _eq: seed.id },
 				key: { _eq: INCOMING_VERSION_KEY },
 			},
 			limit: 1,
 		})
 		const incoming = versions[0]
-		if (incoming) {
-			await versionsService.save(incoming.id, seed)
+		const incomingId = incoming?.id
+		if (typeof incomingId === 'string' || typeof incomingId === 'number') {
+			await versionsService.save(incomingId, seed)
 		} else {
 			const versionId = await versionsService.createOne({
 				collection: COLLECTION_NAME,
-				item: seed.uuid,
+				item: seed.id,
 				key: INCOMING_VERSION_KEY,
 				name: 'Incoming',
 			})
@@ -186,7 +187,7 @@ export async function seedDocsArticle(
 	} catch (error) {
 		context.logger.error({
 			msg: 'Studio Docs article seed failed',
-			article: seed.uuid,
+			article: seed.id,
 			extension: options.extensionName ?? 'unknown',
 			cause: error,
 		})

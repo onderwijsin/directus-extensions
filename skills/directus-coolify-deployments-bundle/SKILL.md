@@ -377,3 +377,12 @@ unrelated collections, roles, or deployment records.
 Consumers own Coolify infrastructure, token lifecycle, deployment image, secrets, assignments,
 scheduling, retries, rate limits, audit, and alerting. The bundle owns only the Directus-facing
 integration and normalized provider data. Requests to Coolify are bounded by a 30-second timeout.
+
+## Studio Docs
+
+The hook seeds `Coolify Deployments` from `docs/coolify-deployments.json`; set
+`COOLIFY_DEPLOYMENTS_DOCS_SEED_ENABLED=false` to opt out.
+
+The bundled documentation is available in Dutch. For a translation, use `versioning`, enable
+seeding, edit and publish the translation on the main article, and reject incoming updates. Create a
+fresh translation from the Dutch source whenever it changes.

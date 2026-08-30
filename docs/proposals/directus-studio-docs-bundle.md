@@ -167,7 +167,7 @@ fields, or body while a new article is loading.
 extensions. The public shape is conceptually:
 
 ```ts
-seedDocsArticle(article, context, options?)
+ensureDirectusDocumentation(article, context, options?)
 ```
 
 The final signature should fit the existing startup helper conventions while keeping the article
@@ -199,11 +199,11 @@ The helper is intended to run from the existing generic startup data phase:
 
 ```ts
 startup.data(async ({ lockProvider }) => {
-  await seedDocsArticle(article, context, { lockProvider })
+  await ensureDirectusDocumentation(article, context, { lockProvider })
 })
 ```
 
-`seedDocsArticle()` remains public because participating extensions need a small,
+`ensureDirectusDocumentation()` remains public because participating extensions need a small,
 extension-independent way to contribute articles. The existing per-extension `startup.data()` phase
 is not by itself sufficient: a consumer’s data callback must not run until the docs bundle’s
 `ensureDirectusSchema` callback has completed. The implementation must therefore establish a
@@ -261,7 +261,7 @@ The docs bundle itself may ship a small set of articles, but its primary value i
 from other extensions. A participating extension such as Sluggernaut should:
 
 - add its extension-specific docs seed gate to its validated environment schema;
-- register one or more `startup.data()` callbacks that call `seedDocsArticle()`;
+- register one or more `startup.data()` callbacks that call `ensureDirectusDocumentation()`;
 - provide stable UUIDs and developer-owned Markdown; and
 - document that the articles appear only when the docs bundle is installed and enabled.
 
@@ -304,13 +304,14 @@ bundle must not require those projects to modify the module or bundle source.
 - Verify whether Directus extension registration and `server.start` callback execution are
   synchronous or concurrent. Treat load-order dependence as unacceptable unless it is a documented,
   deterministic contract and the bundle can be guaranteed to load first.
-- Keep `seedDocsArticle()` as the public utility and use the generic startup data registration only
-  after the cross-extension barrier is established; a new `startup.docs()` method is not required
-  unless it is the cleanest API for implementing that barrier.
+- Keep `ensureDirectusDocumentation()` as the public utility and use the generic startup data
+  registration only after the cross-extension barrier is established; a new `startup.docs()` method
+  is not required unless it is the cleanest API for implementing that barrier.
 - Implement and test collection provisioning, including versioning-enabled metadata and compatible
   existing-schema behavior.
 - Implement and test the manage/view policy definitions against the fixed collection.
-- Add `seedDocsArticle()` and its canonical fingerprint/reconciliation logic to extension-utils.
+- Add `ensureDirectusDocumentation()` and its canonical fingerprint/reconciliation logic to
+  extension-utils.
 - Add utility tests for gates, stable identity, no-op behavior, identical seeds, override strategy,
   incoming-version strategy, repeated incoming updates, and absent-collection readiness behavior.
 - Update extension-utils public exports, runtime subpaths, maintainer cookbook documentation, and
@@ -319,7 +320,7 @@ bundle must not require those projects to modify the module or bundle source.
 ### Phase 3 — Cross-extension startup integration
 
 - Add a representative `startup.data()` registration to Sluggernaut or a small test fixture
-  extension that calls `seedDocsArticle()`, using a stable article UUID.
+  extension that calls `ensureDirectusDocumentation()`, using a stable article ID UUID.
 - Test the bundle-enabled path, bundle-disabled/no-collection path, extension-specific opt-out, and
   startup ordering/barrier behavior, including concurrent extension registration if applicable.
 - Verify that the article is initially visible, that changed seeds follow the configured strategy,

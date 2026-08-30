@@ -32,6 +32,7 @@ export const envSchema = directusStartupSchema.safeExtend({
 	LOOPS_CAMPAIGN_RECIPIENTS_COLLECTION: collectionIdentifier.default('loops_campaign_recipients'),
 	LOOPS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 	LOOPS_SCHEMA_ABORT_ON_ERROR: z.boolean().default(true),
+	LOOPS_DOCS_SEED_ENABLED: z.boolean().default(true),
 	LOOPS_MANAGE_EMAIL_CAMPAIGNS_POLICY_ENABLED: z.boolean().default(true),
 	LOOPS_VIEW_EMAIL_CAMPAIGNS_POLICY_ENABLED: z.boolean().default(true),
 })

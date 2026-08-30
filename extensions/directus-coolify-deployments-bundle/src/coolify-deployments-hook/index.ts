@@ -2,6 +2,7 @@ import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
 import {
 	ensureDirectusPolicy,
 	ensureDirectusSchema,
+	ensureDirectusDocumentation,
 	validatePolicyDefinition,
 	validateSchemaDefinition,
 	createDirectusStartupCoordinator,
@@ -12,6 +13,7 @@ import {
 	registerPolicyCacheInvalidation,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import docsArticle from '../../docs/coolify-deployments.json'
 import coolifyApplicationsSchema from '../../schema/coolify_applications.json'
 import coolifyPolicies from '../../schema/coolify_policies.json'
 import {
@@ -74,6 +76,12 @@ export default defineHook((hook, context) => {
 		})
 	})
 	startup.data(async ({ lockProvider }) => {
+		await ensureDirectusDocumentation(docsArticle, context, {
+			lockProvider,
+			extensionName: EXTENSION_NAME,
+			extensionSeedEnabled: options.COOLIFY_DEPLOYMENTS_DOCS_SEED_ENABLED,
+		})
+
 		const policyDefinitions = validatePolicyDefinition(coolifyPolicies)
 		const policyIds = [
 			{

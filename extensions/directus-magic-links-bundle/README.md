@@ -231,3 +231,13 @@ CSRF protections because the browser sends the refresh or session cookie automat
 
 For the rationale and security boundaries behind these choices, see the repository decision record:
 [`Magic-link architecture and security boundaries`](../../docs/decisions/magic-links-architecture-and-security-boundaries.md).
+
+## Studio Docs
+
+The bundle seeds the `Magic Links` article from `docs/magic-links.json` when Studio Docs and data
+seeding are enabled. Set `MAGIC_LINKS_DOCS_SEED_ENABLED=false` to opt out.
+
+The bundled documentation is available in Dutch. To translate it, keep the seeding strategy on
+`versioning`, start the extension with seeding enabled, edit and publish your translation on the
+main article, and reject incoming updates. Create a fresh translation from the Dutch source when the
+documentation changes.

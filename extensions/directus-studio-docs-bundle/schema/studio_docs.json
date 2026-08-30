@@ -6,7 +6,7 @@
 			"fields": [
 				{
 					"collection": "studio_docs",
-					"field": "uuid",
+					"field": "id",
 					"type": "uuid",
 					"schema": {
 						"data_type": "uuid",

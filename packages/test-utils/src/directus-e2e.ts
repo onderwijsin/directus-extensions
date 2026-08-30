@@ -84,7 +84,17 @@ interface E2ESluggernautItem {
 	permalink_secondary: string | null
 }
 
+interface E2EDocsArticle {
+	id: string
+	navigation_label: string
+	body: string
+	sort: number
+	archived: boolean
+	icon: string | null
+}
+
 interface DirectusE2ESchema {
+	studio_docs: E2EDocsArticle[]
 	posts: E2EPost[]
 	redirects: E2ERedirect[]
 	sluggernaut_e2e: E2ESluggernautItem[]

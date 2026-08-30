@@ -12,11 +12,13 @@ import {
 	createDirectusStartupCoordinator,
 	ensureDirectusPolicy,
 	ensureDirectusSchema,
+	ensureDirectusDocumentation,
 	validatePolicyDefinition,
 	validateSchemaDefinition,
 	withCollectionIdentity,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import docsArticle from '../../docs/loops.json'
 import campaignRecipientsSchema from '../../schema/loops_campaign_recipients.json'
 import campaignsSchema from '../../schema/loops_campaigns.json'
 import directusUsersSchema from '../../schema/loops_directus_users.json'
@@ -134,6 +136,12 @@ export function registerLoopsStartup(
 	})
 
 	startup.data(async ({ lockProvider }) => {
+		await ensureDirectusDocumentation(docsArticle, context, {
+			lockProvider,
+			extensionName: 'Loops',
+			extensionSeedEnabled: options.LOOPS_DOCS_SEED_ENABLED,
+		})
+
 		const enabledPolicyIds = new Set(
 			[
 				options.LOOPS_MANAGE_EMAIL_CAMPAIGNS_POLICY_ENABLED

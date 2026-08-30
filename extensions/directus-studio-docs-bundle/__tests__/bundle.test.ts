@@ -1,7 +1,15 @@
+/* oxlint-disable typescript/no-unsafe-argument, typescript/no-unsafe-call, typescript/no-unsafe-return */
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
+	interface ModuleDefinition {
+		id: string
+		name: string
+		routes: { path: string }[]
+	}
 	const hookRegister = vi.fn()
+	const moduleDefinitions: ModuleDefinition[] = []
 	const setup = { end: vi.fn(), isEnabled: vi.fn(() => true), start: vi.fn() }
 	const startup = { schema: vi.fn(), data: vi.fn() }
 	return {
@@ -9,15 +17,27 @@ const mocks = vi.hoisted(() => {
 			hookRegister.mockImplementation(register)
 			return undefined
 		}),
-		defineModule: vi.fn((definition) => definition),
+		defineModule: vi.fn((definition: ModuleDefinition) => {
+			moduleDefinitions.push(definition)
+			return definition
+		}),
 		extensionSetup: vi.fn(() => setup),
 		createDirectusStartupCoordinator: vi.fn(() => startup),
 		ensureDirectusPolicy: vi.fn(),
 		ensureDirectusSchema: vi.fn(),
 		hookRegister,
+		moduleDefinitions,
 		startup,
 		setup,
-		validateExtensionOptions: vi.fn(),
+		validateExtensionOptions: vi.fn(() => ({
+			DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: true,
+			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+			DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED: true,
+			DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR: true,
+			DIRECTUS_DOCS_SEED_ENABLED: true,
+			DIRECTUS_DOCS_MANAGE_POLICY_ENABLED: true,
+			DIRECTUS_DOCS_VIEW_POLICY_ENABLED: true,
+		})),
 	}
 })
 
@@ -93,7 +113,8 @@ describe('Studio Docs bundle Phase 1 scaffold', () => {
 	})
 
 	it('registers the stable module and both route definitions', () => {
-		const definition = mocks.defineModule.mock.results[0]?.value
+		const definition = mocks.moduleDefinitions[0]
+		if (!definition) throw new Error('Expected module definition')
 
 		expect(definition).toMatchObject({ id: MODULE_ID, name: MODULE_NAME })
 		expect(definition.routes.map(({ path }: { path: string }) => path)).toEqual([

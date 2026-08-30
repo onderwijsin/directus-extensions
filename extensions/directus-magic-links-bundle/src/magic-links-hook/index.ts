@@ -1,6 +1,7 @@
 import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
 import {
 	ensureDirectusSchema,
+	ensureDirectusDocumentation,
 	validateSchemaDefinition,
 	createDirectusStartupCoordinator,
 	extensionSetup,
@@ -8,6 +9,7 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import docsArticle from '../../docs/magic-links.json'
 import magicLinksSchema from '../../schema/magic_links.json'
 import { registerMagicLinkJwt } from './auth-jwt'
 import { registerMagicLinkCleanup } from './cleanup'
@@ -54,6 +56,13 @@ export default defineHook((hook, context) => {
 				abortOnError: options.MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR,
 				lockProvider,
 			},
+		})
+	})
+	startup.data(async ({ lockProvider }) => {
+		await ensureDirectusDocumentation(docsArticle, context, {
+			lockProvider,
+			extensionName: 'Magic links',
+			extensionSeedEnabled: options.MAGIC_LINKS_DOCS_SEED_ENABLED,
 		})
 	})
 

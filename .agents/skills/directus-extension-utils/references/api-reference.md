@@ -459,10 +459,10 @@ Providers created from `lockProviderConfig` are disposed after the status query,
 an explicitly supplied `lockProvider` remains owned by the consumer.
 
 ```ts
-type ActionRegistrar = (
-  event: 'server.start',
-  handler: () => void,
-) => void
+interface RegisterFunctions {
+  action: (event: string, handler: ActionHandler) => void
+  init: (event: string, handler: InitHandler) => void
+}
 
 interface CreateDirectusStartupCoordinatorOptions {
   id: string
@@ -485,16 +485,47 @@ interface DirectusStartupCoordinator {
 }
 
 createDirectusStartupCoordinator(
-  action: ActionRegistrar,
+  hook: RegisterFunctions,
   logger: LoggerLike,
   options: CreateDirectusStartupCoordinatorOptions,
 ): DirectusStartupCoordinator
 ```
 
 The startup coordinator performs the global and extension-specific disabled checks, invokes one
-ordered `server.start` plan, runs all schema callbacks before data callbacks, and logs asynchronous
-setup failures without rejecting action registration. The context's held provider must be passed to
-nested ensure calls.
+ordered `app.before` schema plan and one `server.start` data plan, and logs asynchronous setup
+failures without rejecting hook registration. Directus awaits `app.before` before it can emit
+`server.start`, but independent `app.before` listeners are not ordered against one another. The
+context's held provider must be passed to nested ensure calls.
+
+`ensureDirectusDocumentation` is a server-only helper for the fixed `studio_docs` collection:
+
+```ts
+interface DocsArticle {
+  id: string
+	navigation_label: string
+	body: string
+	icon?: string | null
+  archived?: boolean
+}
+
+interface EnsureDirectusDocumentationOptions {
+  lockProvider?: LockProvider
+  extensionSeedEnabled?: boolean
+  strategy?: 'override' | 'versioning'
+  abortOnError?: boolean
+  extensionName?: string
+}
+
+ensureDirectusDocumentation(
+	article: DocsArticle,
+	context: ApiExtensionContext,
+	options?: EnsureDirectusDocumentationOptions,
+): Promise<void>
+```
+
+The helper validates stable UUID article input, honors the Docs and global data-seed gates, skips
+cleanly when `studio_docs` is unavailable, and writes changed versioning seeds to the reserved
+`incoming` version without promoting them.
 
 Schema-change configuration summary:
 

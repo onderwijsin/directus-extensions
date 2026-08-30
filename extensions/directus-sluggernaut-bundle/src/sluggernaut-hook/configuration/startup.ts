@@ -13,12 +13,14 @@ import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
 	ensureDirectusPolicy,
 	ensureDirectusSchema,
+	ensureDirectusDocumentation,
 	validatePolicyDefinition,
 	validateSchemaDefinition,
 	createDirectusStartupCoordinator,
 	withCollectionIdentity,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import docsArticle from '../../../docs/sluggernaut.json'
 import redirectPolicies from '../../../schema/policies.json'
 import redirectSchema from '../../../schema/redirects.json'
 import { EXTENSION_NAME, POLICY_IDS } from '../../shared/configuration/constants'
@@ -61,6 +63,12 @@ export function registerSluggernautStartup(
 	})
 
 	startup.data(async ({ lockProvider }) => {
+		await ensureDirectusDocumentation(docsArticle, context, {
+			lockProvider,
+			extensionName: 'Sluggernaut',
+			extensionSeedEnabled: options.SLUGGERNAUT_DOCS_SEED_ENABLED,
+		})
+
 		// Policies are optional and must not be created before their target collection exists.
 		if (
 			!options.SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED &&

@@ -207,3 +207,12 @@ sends email through Directus's configured mail transport.
 See
 [`Magic-link architecture and security boundaries`](../../docs/decisions/magic-links-architecture-and-security-boundaries.md)
 for the design rationale and explicit security boundaries.
+
+## Studio Docs
+
+The hook seeds `Magic Links` from `docs/magic-links.json`; set `MAGIC_LINKS_DOCS_SEED_ENABLED=false`
+to opt out.
+
+The bundled documentation is available in Dutch. For a translation, use `versioning`, enable
+seeding, edit and publish the translation on the main article, and reject incoming updates. Create a
+fresh translation from the Dutch source whenever it changes.

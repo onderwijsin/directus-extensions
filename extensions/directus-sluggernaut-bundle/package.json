@@ -35,6 +35,7 @@
 	"files": [
 		"dist",
 		"schema",
+		"docs",
 		"README.md",
 		"CHANGELOG.md"
 	],

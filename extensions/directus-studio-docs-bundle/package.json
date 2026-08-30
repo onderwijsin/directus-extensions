@@ -55,6 +55,7 @@
 	},
 	"dependencies": {
 		"@comark/vue": "catalog:",
+		"vue-router": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

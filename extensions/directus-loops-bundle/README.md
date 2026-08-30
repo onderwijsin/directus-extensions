@@ -250,4 +250,14 @@ trusted server-side Loops API integration separately.
 
 ## License
 
+## Studio Docs
+
+The bundle seeds the `Loops` article from `docs/loops.json` when Studio Docs and data seeding are
+enabled. Set `LOOPS_DOCS_SEED_ENABLED=false` to opt out.
+
+The bundled documentation is available in Dutch. To translate it, keep the seeding strategy on
+`versioning`, start the extension with seeding enabled, edit and publish your translation on the
+main article, and reject incoming updates. Create a fresh translation from the Dutch source when the
+documentation changes.
+
 MIT

@@ -1,9 +1,9 @@
 # @onderwijsin/directus-studio-docs-bundle
 
-An initial scaffold for an in-Studio documentation module and shared article-seeding foundation. The
-bundle targets Directus `>=12.2.0 <13` and currently registers the hook and module surfaces for the
-phased implementation. Article provisioning, policies, seeding, and Markdown rendering are planned
-for later phases.
+An in-Studio documentation module and shared article-seeding foundation. The bundle targets Directus
+`>=12.2.0 <13`, provisions its schema during startup, and provides the server-side collection and
+policy contract used by participating extensions. Article authoring and version promotion remain
+outside this bundle’s current scope.
 
 ## Installation
 
@@ -18,23 +18,23 @@ Directus Cloud environments that do not permit custom server extensions.
 
 ## Configuration
 
-The hook validates these environment variables. Defaults are enabled for the planned bundle:
+The hook validates these environment variables. Defaults are enabled:
 
-| Variable                               | Default      | Purpose                                                     |
-| -------------------------------------- | ------------ | ----------------------------------------------------------- |
-| `DIRECTUS_DOCS_ENABLED`                | `true`       | Enables the bundle lifecycle.                               |
-| `DIRECTUS_DOCS_SEED_ENABLED`           | `true`       | Planned article seeding gate.                               |
-| `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning` | Planned `override` or `versioning` reconciliation strategy. |
-| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Planned schema provisioning gate.                           |
-| `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`       | Planned schema error policy.                                |
-| `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`       | Planned manage-policy gate.                                 |
-| `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`       | Planned view-policy gate.                                   |
+| Variable                               | Default      | Purpose                                             |
+| -------------------------------------- | ------------ | --------------------------------------------------- |
+| `DIRECTUS_DOCS_ENABLED`                | `true`       | Enables the bundle lifecycle.                       |
+| `DIRECTUS_DOCS_SEED_ENABLED`           | `true`       | Article seeding gate.                               |
+| `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning` | `override` or `versioning` reconciliation strategy. |
+| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Schema provisioning gate.                           |
+| `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`       | Schema error policy.                                |
+| `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`       | Manage-policy gate.                                 |
+| `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`       | View-policy gate.                                   |
 
 The shared Directus extension startup and lock settings are also accepted by the hook. They are
 documented in the repository’s extension utilities guidance.
 
-The planned article collection is the fixed `studio_docs` collection and the Studio module is named
-`Docs`. These client-side values are constants, not environment options.
+The article collection is fixed at `studio_docs` and the Studio module is named `Docs`. These
+client-side values are constants, not environment options.
 
 ## Collection and policies
 
@@ -48,14 +48,74 @@ Schema provisioning requires both `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` and
 `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`. Policy/data provisioning additionally requires
 `DIRECTUS_DOCS_SEED_ENABLED` and `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`.
 
-## Phase-two surface
+## Startup and collection surface
 
 The bundle registers the `Docs` Studio module with an empty route and the article route contract
-`/docs/:uuid`. The module currently displays an initialization placeholder. Schema provisioning runs
-during Directus `app.before`, before `server.start` data seeds. This prevents participating
-extensions from seeding articles before the collection exists.
+`/docs/:id`. It loads unarchived articles in deterministic order, renders Markdown article bodies,
+and shows article audit metadata. Schema provisioning runs during Directus `app.before`, before
+`server.start` data seeds. This prevents participating extensions from seeding articles before the
+collection exists.
 
-The shared utility package now exposes the server-only `seedDocsArticle()` contract for
-participating extensions. It supports stable UUIDs, no-op gates, override reconciliation, and
-reserved `incoming` content versions. Markdown rendering and the complete module UI remain planned
-for a later phase.
+The shared utility package exposes the server-only `ensureDirectusDocumentation()` contract for
+participating extensions. Register it from a `startup.data()` callback after passing the complete
+hook object to `createDirectusStartupCoordinator`; the coordinator guarantees all registered schema
+callbacks have completed before data callbacks start. The helper supports stable UUIDs, no-op gates,
+override reconciliation, and reserved `incoming` content versions. Article CRUD and version
+promotion remain planned for a later phase.
+
+## Contributing articles
+
+An extension can contribute a stable article from its startup data phase:
+
+```ts
+import { ensureDirectusDocumentation } from '@onderwijsin/directus-extension-utils/server'
+
+startup.data(async ({ lockProvider }) => {
+  await ensureDirectusDocumentation(
+    {
+      id: '7b8b3a1e-38f3-4ab7-9b37-5e4c5d7f1234',
+      navigation_label: 'Getting started',
+      body: '# Getting started\n\nWrite the article in Markdown.',
+      icon: 'menu_book',
+    },
+    context,
+    { lockProvider, extensionName: 'My extension' },
+  )
+})
+```
+
+Article UUIDs are part of the contributor contract and must remain stable across releases. The
+required fields are `id`, `navigation_label`, and `body`; `icon` defaults to `null`, and `archived`
+to `false`.
+
+## Versioning and visibility
+
+The default `DIRECTUS_DOCS_SEEDING_STRATEGY=versioning` leaves the current article untouched when
+content changes. It creates or updates the reserved `incoming` content version for review and never
+promotes that version automatically. Use `override` only when deployment-time seeds are the source
+of truth and replacing the current item is intentional.
+
+The module requests and locally filters `archived=false` articles. The view policy applies the same
+filter for users assigned that policy. Draft or incoming versions are not shown by the module; a
+maintainer must review and promote versioned content through Directus.
+
+## Troubleshooting
+
+| Symptom                                      | Check                                                                                                                                                      |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `studio_docs` is missing                     | Enable `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` and `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, then restart Directus.                                     |
+| A contributed article is missing             | Check `DIRECTUS_DOCS_ENABLED`, `DIRECTUS_DOCS_SEED_ENABLED`, `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`, and the contributor’s `extensionSeedEnabled` option. |
+| A changed article is not visible immediately | With `versioning`, inspect the article’s `incoming` version and promote it after review; use `override` only when appropriate.                             |
+| Users cannot see articles                    | Assign `Can View Studio Docs` to the relevant role, or assign `Can Manage Studio Docs` to editors.                                                         |
+| Startup reports a lock skip                  | Ensure all Directus replicas use a shared Redis or filesystem lock provider when startup coordination spans processes.                                     |
+
+## Compatibility and non-goals
+
+The bundle supports Directus `>=12.2.0 <13` and requires a trusted, non-sandboxed Directus server
+runtime. It is not intended for Directus Cloud environments that do not permit custom server
+extensions.
+
+The bundle does not manage article authoring, role assignment, role membership, or automatic version
+promotion. It does not guarantee ordering between independent `app.before` listeners; its startup
+coordinator guarantees only that coordinator-managed schema work completes before `server.start`
+data work begins.

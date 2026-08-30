@@ -43,7 +43,7 @@ describe('runtime-aware exports', () => {
 				'ensureDirectusSchema',
 				'ensureDirectusPolicy',
 				'docsArticleSchema',
-				'seedDocsArticle',
+				'ensureDirectusDocumentation',
 				'processPolicyDefinition',
 				'validatePolicyDefinition',
 				'validateSchemaDefinition',

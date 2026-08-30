@@ -10,6 +10,7 @@ import {
 	deletePolicy,
 	readCollection,
 	readField,
+	readItems,
 	readPermissions,
 	readPolicy,
 	readRelationByCollection,
@@ -33,6 +34,7 @@ if (!Array.isArray(composeFiles) || composeFiles.some((file) => typeof file !== 
 
 const client = createDirectusE2EClient({ baseUrl, token, composeFiles, composeProject })
 const e2ePolicyId = '00000000-0000-4000-8000-000000000001'
+const e2eDocsArticleUuid = '8b8b3a1e-38f3-4ab7-9b37-5e4c5d7f1234'
 
 function getPermissionPolicyId(permission: {
 	policy: string | { id: string } | null
@@ -219,6 +221,32 @@ describe('Directus E2E playground', () => {
 				await client.request(deletePermission(permission.id)).catch(() => undefined)
 			}
 			await client.request(deletePolicy(e2ePolicyId)).catch(() => undefined)
+		}
+	})
+
+	it('seeds a docs article after the docs collection schema is ready', async () => {
+		try {
+			const articles = await waitForValue(
+				() =>
+					client.request(
+						readItems('studio_docs', {
+							filter: { id: { _eq: e2eDocsArticleUuid } },
+							limit: 1,
+						}),
+					),
+				(value) => value.length === 1,
+			)
+
+			expect(articles[0]).toMatchObject({
+				id: e2eDocsArticleUuid,
+				navigation_label: 'E2E startup ordering',
+				body: expect.stringContaining('# E2E startup ordering'),
+				archived: false,
+			})
+		} finally {
+			await client
+				.request(deleteItem('studio_docs', e2eDocsArticleUuid))
+				.catch(() => undefined)
 		}
 	})
 

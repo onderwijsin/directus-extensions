@@ -17,6 +17,7 @@ export const envSchema = directusStartupSchema.safeExtend({
 	SLUGGERNAUT_FIELDS_CACHE_TTL_MS: z.number().positive().default(60_000),
 	SLUGGERNAUT_SCHEMA_CHANGES_ENABLED: z.boolean().default(false),
 	SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR: z.boolean().default(true),
+	SLUGGERNAUT_DOCS_SEED_ENABLED: z.boolean().default(true),
 	SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED: z.boolean().default(false),
 	SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED: z.boolean().default(false),
 	DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
