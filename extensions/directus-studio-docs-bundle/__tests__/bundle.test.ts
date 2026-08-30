@@ -1,0 +1,95 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => {
+	const hookRegister = vi.fn()
+	const setup = { end: vi.fn(), isEnabled: vi.fn(() => true), start: vi.fn() }
+	return {
+		defineHook: vi.fn((register) => {
+			hookRegister.mockImplementation(register)
+			return undefined
+		}),
+		defineModule: vi.fn((definition) => definition),
+		extensionSetup: vi.fn(() => setup),
+		hookRegister,
+		setup,
+		validateExtensionOptions: vi.fn(),
+	}
+})
+
+vi.mock('@directus/extensions-sdk', () => ({
+	defineHook: mocks.defineHook,
+	defineModule: mocks.defineModule,
+}))
+vi.mock('@onderwijsin/directus-extension-utils/server', async () => {
+	const actual = await vi.importActual<
+		typeof import('@onderwijsin/directus-extension-utils/server')
+	>('@onderwijsin/directus-extension-utils/server')
+	return {
+		...actual,
+		extensionSetup: mocks.extensionSetup,
+		validateExtensionOptions: mocks.validateExtensionOptions,
+	}
+})
+
+import { ARTICLE_ROUTE, COLLECTION_NAME, MODULE_ID, MODULE_NAME } from '../src/shared/constants'
+import { envSchema } from '../src/studio-docs-hook/env.schema'
+import '../src/studio-docs-hook'
+import '../src/studio-docs-module'
+
+describe('Studio Docs bundle Phase 1 scaffold', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		mocks.setup.isEnabled.mockReturnValue(true)
+	})
+
+	it('provides the documented environment defaults', () => {
+		expect(envSchema.parse({})).toMatchObject({
+			DIRECTUS_DOCS_ENABLED: true,
+			DIRECTUS_DOCS_SEED_ENABLED: true,
+			DIRECTUS_DOCS_SEEDING_STRATEGY: 'versioning',
+			DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED: true,
+			DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR: true,
+			DIRECTUS_DOCS_MANAGE_POLICY_ENABLED: true,
+			DIRECTUS_DOCS_VIEW_POLICY_ENABLED: true,
+		})
+	})
+
+	it('keeps the collection and module name as client-side constants', () => {
+		expect(COLLECTION_NAME).toBe('studio_docs')
+		expect(MODULE_NAME).toBe('Docs')
+		expect(
+			envSchema.parse({ DIRECTUS_DOCS_COLLECTION: 'other_collection' }),
+		).not.toHaveProperty('DIRECTUS_DOCS_COLLECTION')
+	})
+
+	it('rejects invalid seeding strategies', () => {
+		expect(envSchema.safeParse({ DIRECTUS_DOCS_SEEDING_STRATEGY: 'replace' }).success).toBe(
+			false,
+		)
+	})
+
+	it('validates enabled hook configuration and completes setup', () => {
+		mocks.hookRegister({}, { env: {}, logger: {} })
+
+		expect(mocks.validateExtensionOptions).toHaveBeenCalledWith({}, envSchema, {})
+		expect(mocks.setup.end).toHaveBeenCalledOnce()
+	})
+
+	it('does not validate or complete disabled hook setup', () => {
+		mocks.setup.isEnabled.mockReturnValue(false)
+		mocks.hookRegister({}, { env: {}, logger: {} })
+
+		expect(mocks.validateExtensionOptions).not.toHaveBeenCalled()
+		expect(mocks.setup.end).not.toHaveBeenCalled()
+	})
+
+	it('registers the stable module and both route definitions', () => {
+		const definition = mocks.defineModule.mock.results[0]?.value
+
+		expect(definition).toMatchObject({ id: MODULE_ID, name: MODULE_NAME })
+		expect(definition.routes.map(({ path }: { path: string }) => path)).toEqual([
+			'',
+			ARTICLE_ROUTE.slice(1),
+		])
+	})
+})
