@@ -221,7 +221,8 @@ Use `directusStartupSchema` for global enablement and locking flags, then call
 portable definition. Existing compatible resources are preserved; incompatible structural resources
 are logged and left unchanged. Register the operation with `createDirectusStartupCoordinator` to
 apply the global and extension-specific disabled checks consistently and to run schema work before
-data seeds.
+data seeds. Register documentation work with `startup.documentation()` when it must remain available
+while those ordinary startup gates are disabled.
 
 Each collection definition must include a non-blank `schema.name` and the collection's primary-key
 field in its nested `fields` array. Keep that primary-key field out of the top-level `fields` array:
@@ -332,25 +333,27 @@ startup.schema(async ({ lockProvider }) => {
 })
 ```
 
-Schema callbacks always register on Directus's awaited `app.before` event, while `data` callbacks
-register on Directus's awaited `middlewares.before` event. This ensures schema preparation completes
-before data seeding begins, and data seeding completes before middleware and route setup continues.
-Init callbacks within either phase are not ordered against one another.
+Schema callbacks always register on Directus's awaited `app.before` event, while `data` and
+`documentation` callbacks register on Directus's awaited `middlewares.before` event. This ensures
+schema preparation completes before data seeding begins, and startup seeding completes before
+middleware and route setup continues. Documentation callbacks are independent of the ordinary global
+schema/data gates. Init callbacks within either phase are not ordered against one another.
 
 `ensureDirectusDocumentation(article, context, options?)` is the server-only shared contract for
 contributing articles to the fixed `studio_docs` collection. Article definitions require a stable
 UUID in the `id` field, `navigation_label`, and Markdown `body`; `icon` and `archived` have
-defaults. The helper honors the docs and global data-seed gates and supports `override` or
-`versioning` reconciliation. Versioning writes changed content to the reserved `incoming` version
-and never promotes it.
+defaults. The helper honors the docs seed gate and supports `override` or `versioning`
+reconciliation. Versioning writes changed content to the reserved `incoming` version and never
+promotes it.
 
 The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
 for callbacks guaranteed to finish within the lease duration. Nested ensures receive a borrowed
-provider and cannot release the coordinator-owned lease. Provider and callback failures are logged
-and rethrown by default after cleanup; set `abortOnError: false` only for deliberate best-effort
-startup. If renewal is lost, later callbacks are skipped and the startup failure is rethrown after
-cleanup. A `release()` result of `false` is also treated as lost ownership and never reported as a
-successful release.
+provider and cannot release the coordinator-owned lease. Documentation callbacks registered with
+`startup.documentation()` are independent of the ordinary global schema/data gates. Provider and
+callback failures are logged and rethrown by default after cleanup; set `abortOnError: false` only
+for deliberate best-effort startup. If renewal is lost, later callbacks are skipped and the startup
+failure is rethrown after cleanup. A `release()` result of `false` is also treated as lost ownership
+and never reported as a successful release.
 
 The package README and
 [maintainer API reference](../../.agents/skills/directus-extension-utils/references/api-reference.md)

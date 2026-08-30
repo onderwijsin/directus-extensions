@@ -14,9 +14,9 @@ export interface CreateDirectusStartupCoordinatorOptions {
 	name: string
 	/** Disables this extension's startup callbacks. */
 	disabled: boolean
-	/** Disables all startup callbacks through the global schema-change switch. */
+	/** Disables ordinary startup callbacks through the global schema-change switch. */
 	disabledGlobally: boolean
-	/** Disables data callbacks while still allowing schema callbacks to run. */
+	/** Disables ordinary data callbacks while still allowing schema callbacks to run. */
 	dataDisabledGlobally?: boolean
 	/** Whether callback, provider, and lost-lease failures reject startup. Defaults to true. */
 	abortOnError?: boolean
@@ -39,7 +39,10 @@ export interface DirectusStartupContext {
 export interface DirectusStartupCoordinator {
 	schema(callback: (context: DirectusStartupContext) => Promise<void>): void
 	data(callback: (context: DirectusStartupContext) => Promise<void>): void
+	documentation(callback: (context: DirectusStartupContext) => Promise<void>): void
 }
+
+type StartupPhase = 'schema' | 'data' | 'documentation'
 
 /**
  * @param lockName - Held lock name.
@@ -103,28 +106,30 @@ export function createDirectusStartupCoordinator(
 ): DirectusStartupCoordinator {
 	const schemaCallbacks: ((context: DirectusStartupContext) => Promise<void>)[] = []
 	const dataCallbacks: ((context: DirectusStartupContext) => Promise<void>)[] = []
+	const documentationCallbacks: ((context: DirectusStartupContext) => Promise<void>)[] = []
 	const lockOptions: BaseEnsureOptions = options
 
 	/**
 	 * Runs one startup phase under the coordinator lock.
 	 * @param callbacks - Registered callbacks for this phase.
-	 * @param containsData - Whether this phase is subject to the data-seed gate.
+	 * @param phase - Startup phase being executed.
 	 * @returns A promise that resolves when the phase has completed.
 	 */
 	const runCallbacks = async (
 		callbacks: ((context: DirectusStartupContext) => Promise<void>)[],
-		containsData: boolean,
+		phase: StartupPhase,
 	): Promise<void> => {
-		// Apply global and extension-level switches before resolving providers or acquiring locks.
-		if (options.disabledGlobally) {
+		const isDocumentation = phase === 'documentation'
+		// Documentation is an explicit exception to the normal extension startup gates.
+		if (!isDocumentation && options.disabledGlobally) {
 			logger.info(options.name + ' Directus startup is disabled globally')
 			return
 		}
-		if (options.disabled) {
+		if (!isDocumentation && options.disabled) {
 			logger.info(options.name + ' Directus startup is disabled for this extension')
 			return
 		}
-		if (containsData && options.dataDisabledGlobally) {
+		if (phase === 'data' && options.dataDisabledGlobally) {
 			logger.info(options.name + ' Directus data seeds are disabled globally')
 			return
 		}
@@ -239,9 +244,10 @@ export function createDirectusStartupCoordinator(
 		}
 	}
 
-	hook.init('app.before', async () => runCallbacks(schemaCallbacks, false))
+	hook.init('app.before', async () => runCallbacks(schemaCallbacks, 'schema'))
+	hook.init('middlewares.before', async () => runCallbacks(dataCallbacks, 'data'))
 	hook.init('middlewares.before', async () =>
-		runCallbacks(options.dataDisabledGlobally ? [] : dataCallbacks, true),
+		runCallbacks(documentationCallbacks, 'documentation'),
 	)
 
 	return {
@@ -255,5 +261,10 @@ export function createDirectusStartupCoordinator(
 		 * @returns Nothing.
 		 */
 		data: (callback) => dataCallbacks.push(callback),
+		/**
+		 * @param callback - Startup documentation callback.
+		 * @returns Nothing.
+		 */
+		documentation: (callback) => documentationCallbacks.push(callback),
 	}
 }

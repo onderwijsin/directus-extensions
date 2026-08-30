@@ -18,11 +18,10 @@ pnpm add @onderwijsin/directus-extension-utils
 ```
 
 `ensureDirectusDocumentation` is the server-only contract for extensions that contribute articles to
-the fixed `studio_docs` collection. It validates stable article input, honors the docs and global
-data-seed gates, and reconciles changed content using either the main item or the reserved
-`incoming` content version. Call it from a startup data callback when the bundle is responsible for
-schema provisioning; pass the complete hook registration object to the startup coordinator so its
-schema phase uses `app.before`.
+the fixed `studio_docs` collection. It validates stable article input, honors the docs seed gate,
+and reconciles changed content using either the main item or the reserved `incoming` content
+version. Call it from a startup documentation callback; the coordinator runs documentation
+independently of the ordinary extension schema and data gates.
 
 ## Import
 
@@ -368,9 +367,10 @@ name, preserves compatible policies, and idempotently creates its nested permiss
 UUID/name conflicts without modifying existing policies. Role assignments and user assignments are
 separate future seeds.
 
-Register startup work through `createDirectusStartupCoordinator`. It holds one lock, registers
-schema callbacks on `app.before`, and registers data callbacks on the awaited `middlewares.before`
-lifecycle event:
+Register startup work through `createDirectusStartupCoordinator`. It coordinates each phase with a
+lock, registers schema callbacks on `app.before`, and registers data and documentation callbacks on
+the awaited `middlewares.before` lifecycle event. Documentation callbacks are independent of the
+ordinary global schema/data gates:
 
 ```ts
 const startup = createDirectusStartupCoordinator(hook, logger, {
@@ -410,13 +410,13 @@ const startup = createDirectusStartupCoordinator(hook, logger, {
 })
 ```
 
-Contribute a stable article from a startup data callback. The helper is server-only and targets the
-fixed `studio_docs` collection owned by `@onderwijsin/directus-studio-docs-bundle`:
+Contribute a stable article from a startup documentation callback. The helper is server-only and
+targets the fixed `studio_docs` collection owned by `@onderwijsin/directus-studio-docs-bundle`:
 
 ```ts
 import { ensureDirectusDocumentation } from '@onderwijsin/directus-extension-utils/server'
 
-startup.data(async ({ lockProvider }) => {
+startup.documentation(async ({ lockProvider }) => {
   await ensureDirectusDocumentation(
     {
       id: '7b8b3a1e-38f3-4ab7-9b37-5e4c5d7f1234',
@@ -429,11 +429,13 @@ startup.data(async ({ lockProvider }) => {
 })
 ```
 
-`ensureDirectusDocumentation` honors `DIRECTUS_DOCS_ENABLED`, `DIRECTUS_DOCS_SEED_ENABLED`, and
-`DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`. Pass `extensionSeedEnabled: false` to opt out one
-contributor. Stable UUIDs in the `id` field identify the article; `icon` and `archived` have
-defaults. The default `versioning` strategy updates the reserved `incoming` version, while
-`override` replaces the main item. Incoming content is never promoted automatically.
+`ensureDirectusDocumentation` honors `DIRECTUS_DOCS_ENABLED` and `DIRECTUS_DOCS_SEED_ENABLED`.
+Documentation callbacks are not blocked by `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED` or
+`DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`; those gates continue to control ordinary extension work.
+Pass `extensionSeedEnabled: false` to opt out one contributor. Stable UUIDs in the `id` field
+identify the article; `icon` and `archived` have defaults. The default `versioning` strategy updates
+the reserved `incoming` version, while `override` replaces the main item. Incoming content is never
+promoted automatically.
 
 The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
 when every callback is guaranteed to finish within the configured lease. Nested schema and data

@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 	defineHook: vi.fn((callback: unknown) => callback),
 	filter: vi.fn<(event: string, callback: ApplicationFilter) => void>(),
 	setup: { start: vi.fn(), end: vi.fn(), isEnabled: vi.fn(() => true) },
-	startup: { schema: vi.fn(), data: vi.fn() },
+	startup: { schema: vi.fn(), data: vi.fn(), documentation: vi.fn() },
 	ensureSchema: vi.fn(),
 	ensurePolicy: vi.fn(),
 	ensureDirectusDocumentation: vi.fn(),

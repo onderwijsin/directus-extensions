@@ -483,6 +483,7 @@ interface DirectusStartupContext {
 interface DirectusStartupCoordinator {
   schema(callback: (context: DirectusStartupContext) => Promise<void>): void
   data(callback: (context: DirectusStartupContext) => Promise<void>): void
+  documentation(callback: (context: DirectusStartupContext) => Promise<void>): void
 }
 
 createDirectusStartupCoordinator(
@@ -492,13 +493,14 @@ createDirectusStartupCoordinator(
 ): DirectusStartupCoordinator
 ```
 
-The startup coordinator performs the global and extension-specific disabled checks, invokes one
-ordered `app.before` schema plan and one `middlewares.before` data plan, and logs asynchronous setup
-failures. Provider and callback failures, including lost lock ownership, reject the lifecycle
-handler by default after the lease and any owned provider are cleaned up. Set `abortOnError: false`
-for deliberate best-effort startup. Directus awaits `app.before` before it can emit
-`middlewares.before`, but independent `app.before` listeners are not ordered against one another.
-The context's held provider must be passed to nested ensure calls.
+The startup coordinator performs the global and extension-specific disabled checks for ordinary
+startup work, invokes one ordered `app.before` schema plan and one `middlewares.before` data plan,
+and invokes documentation callbacks during `middlewares.before` independently of those global
+gates. Provider and callback failures, including lost lock ownership, reject the lifecycle handler by
+default after the lease and any owned provider are cleaned up. Set `abortOnError: false` for
+deliberate best-effort startup. Directus awaits `app.before` before it can emit
+`middlewares.before`, but independent init listeners are not ordered against one another. The
+context's held provider must be passed to nested ensure calls.
 
 `ensureDirectusDocumentation` is a server-only helper for the fixed `studio_docs` collection:
 
@@ -526,9 +528,10 @@ ensureDirectusDocumentation(
 ): Promise<void>
 ```
 
-The helper validates stable UUID article input, honors the Docs and global data-seed gates, skips
-cleanly when `studio_docs` is unavailable, and writes changed versioning seeds to the reserved
-`incoming` version without promoting them.
+The helper validates stable UUID article input, honors the Docs seed gate, skips cleanly when
+`studio_docs` is unavailable, and writes changed versioning seeds to the reserved `incoming` version
+without promoting them. Register it with `startup.documentation()` when documentation should remain
+available while ordinary extension schema and data gates are disabled.
 
 Schema-change configuration summary:
 

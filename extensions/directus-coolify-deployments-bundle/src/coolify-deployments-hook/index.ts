@@ -76,13 +76,15 @@ export default defineHook((hook, context) => {
 			},
 		})
 	})
-	startup.data(async ({ lockProvider }) => {
+	startup.documentation(async ({ lockProvider }) => {
 		await ensureDirectusDocumentation(docsArticle, context, {
 			lockProvider,
 			extensionName: EXTENSION_NAME,
 			extensionSeedEnabled: options.COOLIFY_DEPLOYMENTS_DOCS_SEED_ENABLED,
 		})
+	})
 
+	startup.data(async ({ lockProvider }) => {
 		const policyDefinitions = validatePolicyDefinition(coolifyPolicies)
 		const policyIds = [
 			{
