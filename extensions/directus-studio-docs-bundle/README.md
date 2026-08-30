@@ -50,8 +50,8 @@ versioning is enabled with `archived` as the archive field. The hook can also se
 `Can Manage Studio Docs` and `Can View Studio Docs` policies. The view policy only permits
 unarchived articles; administrators must assign policies to roles.
 
-Schema provisioning requires both `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` and
-`DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`. Policy/data provisioning additionally requires
+Schema provisioning requires `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED`; it is independent of the global
+extension schema-change gate. Policy provisioning remains ordinary extension data work and requires
 `DIRECTUS_DOCS_SEED_ENABLED` and `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`.
 
 ## Startup and collection surface
@@ -64,21 +64,20 @@ extensions from seeding articles before the collection exists and ensures seedin
 middleware and route setup continues.
 
 The shared utility package exposes the server-only `ensureDirectusDocumentation()` contract for
-participating extensions. Register it from a `startup.data()` callback after passing the complete
-hook object to `createDirectusStartupCoordinator`; the coordinator guarantees all registered schema
-callbacks have completed before data callbacks start, and that data callbacks complete during
-awaited application startup. The helper supports stable UUIDs, no-op gates, override reconciliation,
-and reserved `incoming` content versions. Article CRUD and version promotion remain planned for a
-later phase.
+participating extensions. Register it from a `startup.documentation()` callback after passing the
+complete hook object to `createDirectusStartupCoordinator`; documentation callbacks run during
+awaited application startup independently of the ordinary global schema/data gates. The helper
+supports stable UUIDs, no-op gates, override reconciliation, and reserved `incoming` content
+versions. Article CRUD and version promotion remain planned for a later phase.
 
 ## Contributing articles
 
-An extension can contribute a stable article from its startup data phase:
+An extension can contribute a stable article from its startup documentation phase:
 
 ```ts
 import { ensureDirectusDocumentation } from '@onderwijsin/directus-extension-utils/server'
 
-startup.data(async ({ lockProvider }) => {
+startup.documentation(async ({ lockProvider }) => {
   await ensureDirectusDocumentation(
     {
       id: '7b8b3a1e-38f3-4ab7-9b37-5e4c5d7f1234',
@@ -109,13 +108,13 @@ maintainer must review and promote versioned content through Directus.
 
 ## Troubleshooting
 
-| Symptom                                      | Check                                                                                                                                                      |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `studio_docs` is missing                     | Enable `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` and `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, then restart Directus.                                     |
-| A contributed article is missing             | Check `DIRECTUS_DOCS_ENABLED`, `DIRECTUS_DOCS_SEED_ENABLED`, `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`, and the contributor’s `extensionSeedEnabled` option. |
-| A changed article is not visible immediately | With `versioning`, inspect the article’s `incoming` version and promote it after review; use `override` only when appropriate.                             |
-| Users cannot see articles                    | Assign `Can View Studio Docs` to the relevant role, or assign `Can Manage Studio Docs` to editors.                                                         |
-| Startup reports a lock skip                  | Ensure all Directus replicas use a shared Redis or filesystem lock provider when startup coordination spans processes.                                     |
+| Symptom                                      | Check                                                                                                                          |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `studio_docs` is missing                     | Enable `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED`, then restart Directus.                                                          |
+| A contributed article is missing             | Check `DIRECTUS_DOCS_ENABLED`, `DIRECTUS_DOCS_SEED_ENABLED`, and the contributor’s `extensionSeedEnabled` option.              |
+| A changed article is not visible immediately | With `versioning`, inspect the article’s `incoming` version and promote it after review; use `override` only when appropriate. |
+| Users cannot see articles                    | Assign `Can View Studio Docs` to the relevant role, or assign `Can Manage Studio Docs` to editors.                             |
+| Startup reports a lock skip                  | Ensure all Directus replicas use a shared Redis or filesystem lock provider when startup coordination spans processes.         |
 
 ## Compatibility and non-goals
 

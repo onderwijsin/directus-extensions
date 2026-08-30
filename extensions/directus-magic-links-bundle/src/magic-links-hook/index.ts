@@ -59,7 +59,7 @@ export default defineHook((hook, context) => {
 			},
 		})
 	})
-	startup.data(async ({ lockProvider }) => {
+	startup.documentation(async ({ lockProvider }) => {
 		await ensureDirectusDocumentation(docsArticle, context, {
 			lockProvider,
 			extensionName: 'Magic links',

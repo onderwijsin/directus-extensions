@@ -136,13 +136,15 @@ export function registerLoopsStartup(
 		})
 	})
 
-	startup.data(async ({ lockProvider }) => {
+	startup.documentation(async ({ lockProvider }) => {
 		await ensureDirectusDocumentation(docsArticle, context, {
 			lockProvider,
 			extensionName: 'Loops',
 			extensionSeedEnabled: options.LOOPS_DOCS_SEED_ENABLED,
 		})
+	})
 
+	startup.data(async ({ lockProvider }) => {
 		const enabledPolicyIds = new Set(
 			[
 				options.LOOPS_MANAGE_EMAIL_CAMPAIGNS_POLICY_ENABLED

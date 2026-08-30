@@ -913,6 +913,10 @@ describe('createDirectusStartupCoordinator', () => {
 			order.push('data')
 			return Promise.resolve()
 		})
+		startup.documentation(() => {
+			order.push('documentation')
+			return Promise.resolve()
+		})
 
 		expect(init).toHaveBeenCalledWith('app.before', expect.any(Function))
 		expect(init).toHaveBeenCalledWith('middlewares.before', expect.any(Function))
@@ -923,6 +927,8 @@ describe('createDirectusStartupCoordinator', () => {
 		await init.mock.calls[1]?.[1]?.()
 		expect(order).toEqual(['schema', 'data'])
 		expect(order).toEqual(['schema', 'data'])
+		await init.mock.calls[2]?.[1]?.()
+		expect(order).toEqual(['schema', 'data', 'documentation'])
 	})
 
 	it('runs schema callbacks before data callbacks in their lifecycle phases', async () => {
@@ -979,6 +985,32 @@ describe('createDirectusStartupCoordinator', () => {
 		expect(order).toEqual(['schema'])
 		await init.mock.calls[1]?.[1]?.()
 		expect(order).toEqual(['schema'])
+	})
+
+	it('runs documentation callbacks when ordinary startup is disabled', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
+		const order: string[] = []
+		const startup = createDirectusStartupCoordinator(createHook(action, init), createLogger(), {
+			id: 'documentation-enabled-test',
+			name: 'Documentation enabled test',
+			disabled: true,
+			disabledGlobally: true,
+			dataDisabledGlobally: true,
+		})
+
+		startup.data(() => {
+			order.push('data')
+			return Promise.resolve()
+		})
+		startup.documentation(() => {
+			order.push('documentation')
+			return Promise.resolve()
+		})
+
+		await init.mock.calls[1]?.[1]?.()
+		await init.mock.calls[2]?.[1]?.()
+		expect(order).toEqual(['documentation'])
 	})
 
 	it('does not release the coordinator lease through nested callbacks', async () => {

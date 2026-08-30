@@ -109,7 +109,6 @@ export async function ensureDirectusDocumentation(
 	const seed = docsArticleSchema.parse(article)
 	if (isFalse(context.env.DIRECTUS_DOCS_ENABLED)) return
 	if (isFalse(context.env.DIRECTUS_DOCS_SEED_ENABLED)) return
-	if (isFalse(context.env.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED)) return
 	if (options.extensionSeedEnabled === false) return
 
 	const configuredProvider = resolveDirectusLockProvider({

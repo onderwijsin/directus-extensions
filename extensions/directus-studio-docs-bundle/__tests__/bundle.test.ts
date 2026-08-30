@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => {
 	const hookRegister = vi.fn()
 	const moduleDefinitions: ModuleDefinition[] = []
 	const setup = { end: vi.fn(), isEnabled: vi.fn(() => true), start: vi.fn() }
-	const startup = { schema: vi.fn(), data: vi.fn() }
+	const startup = { schema: vi.fn(), data: vi.fn(), documentation: vi.fn() }
 	return {
 		defineHook: vi.fn((register) => {
 			hookRegister.mockImplementation(register)

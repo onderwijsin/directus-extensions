@@ -63,13 +63,15 @@ export function registerSluggernautStartup(
 		})
 	})
 
-	startup.data(async ({ lockProvider }) => {
+	startup.documentation(async ({ lockProvider }) => {
 		await ensureDirectusDocumentation(docsArticle, context, {
 			lockProvider,
 			extensionName: 'Sluggernaut',
 			extensionSeedEnabled: options.SLUGGERNAUT_DOCS_SEED_ENABLED,
 		})
+	})
 
+	startup.data(async ({ lockProvider }) => {
 		// Policies are optional and must not be created before their target collection exists.
 		if (
 			!options.SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED &&

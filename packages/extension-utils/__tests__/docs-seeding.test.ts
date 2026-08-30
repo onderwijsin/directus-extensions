@@ -65,15 +65,20 @@ describe('Studio Docs article contract', () => {
 		expect(docsArticleSchema.safeParse({ ...article, id: 'article-1' }).success).toBe(false)
 	})
 
-	it.each([
-		['bundle', { DIRECTUS_DOCS_ENABLED: false }],
-		['global', { DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: false }],
-	])('does not access Directus when %s seeding is disabled', async (_name, env) => {
-		const fixture = createContext({ env })
+	it('does not access Directus when docs seeding is disabled', async () => {
+		const fixture = createContext({ env: { DIRECTUS_DOCS_ENABLED: false } })
 
 		await ensureDirectusDocumentation(article, fixture.context)
 
 		expect(fixture.collectionsService.readOne).not.toHaveBeenCalled()
+	})
+
+	it('seeds documentation when global data seeding is disabled', async () => {
+		const fixture = createContext({ env: { DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: false } })
+
+		await ensureDirectusDocumentation(article, fixture.context)
+
+		expect(fixture.collectionsService.readOne).toHaveBeenCalledWith('studio_docs')
 	})
 
 	it('does not access Directus when the participating extension opts out', async () => {

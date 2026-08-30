@@ -38,11 +38,7 @@ export function registerStudioDocsStartup(
 	})
 
 	startup.schema(async ({ lockProvider }) => {
-		if (
-			!options.DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED ||
-			!options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED
-		)
-			return
+		if (!options.DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED) return
 
 		await ensureDirectusSchema({
 			id: EXTENSION_ID,

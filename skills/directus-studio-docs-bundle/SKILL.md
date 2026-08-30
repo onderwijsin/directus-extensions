@@ -71,21 +71,20 @@ and supports `override` or `versioning` reconciliation. In versioning mode, chan
 written to the reserved `incoming` version for maintainer review; it is never promoted
 automatically.
 
-Participating extensions can register articles from their startup data phase with the shared
-`ensureDirectusDocumentation()` utility. Schema callbacks run during `app.before`, and data
-callbacks run during the awaited `middlewares.before` phase, so the fixed collection is provisioned
-before article seeds execute and seeding completes before middleware and route setup continues. The
-utility supports stable UUIDs, global and extension-specific seed gates, override reconciliation,
-and reserved `incoming` versions for review.
+Participating extensions can register articles from their startup documentation phase with the
+shared `ensureDirectusDocumentation()` utility. Schema callbacks run during `app.before`, and
+documentation callbacks run during the awaited `middlewares.before` phase, so the fixed collection
+is provisioned before article seeds execute and seeding completes before middleware and route setup
+continues. The utility supports stable UUIDs, Docs and contributor-specific seed gates, override
+reconciliation, and reserved `incoming` versions for review.
 
 Use stable UUIDs for contributed articles. The default `versioning` strategy writes changed content
 to the reserved `incoming` version for review; `override` replaces the current item. Neither
 strategy automatically promotes a version.
 
-If the collection is missing, check both schema-change gates. If an article is missing, check the
-bundle and global data-seed gates, the contributor’s extension-specific gate, and the user’s Docs
-policy assignment. Startup coordination across replicas requires a shared Redis or filesystem lock
-provider.
+If the collection is missing, check `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED`. If an article is
+missing, check the Docs and contributor-specific seed gates and the user’s Docs policy assignment.
+Startup coordination across replicas requires a shared Redis or filesystem lock provider.
 
 The bundle does not provide article CRUD, role assignment, role membership, or automatic version
 promotion. It requires a trusted Directus `>=12.2.0 <13` server runtime and is not intended for
