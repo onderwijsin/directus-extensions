@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0
+
+### Minor Changes
+
+- ce75afb: Add a documentation startup phase that can run independently of ordinary extension schema
+  and data seeding gates.
+- d8abee8: Remove endpoint-time schema-lock rejection now that startup schema and data preparation
+  complete before requests are served.
+- a8c5590: Add the Studio Docs article seeding contract and an awaited `app.before` schema phase for
+  startup coordination.
+
+### Patch Changes
+
+- ab65f3c: Propagate startup callback and lost-lock failures after coordinator cleanup.
+
 ## 0.2.3
 
 ### Patch Changes
