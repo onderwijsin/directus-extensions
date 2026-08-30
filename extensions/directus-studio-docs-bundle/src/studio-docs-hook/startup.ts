@@ -33,6 +33,7 @@ export function registerStudioDocsStartup(
 		disabled: false,
 		disabledGlobally: false,
 		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+		abortOnError: options.DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR,
 		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 	})
 

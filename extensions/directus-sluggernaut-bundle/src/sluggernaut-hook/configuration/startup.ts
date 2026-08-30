@@ -43,6 +43,7 @@ export function registerSluggernautStartup(
 		disabled: !options.SLUGGERNAUT_SCHEMA_CHANGES_ENABLED,
 		disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
 		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+		abortOnError: options.SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR,
 		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_NAME },
 	})
 

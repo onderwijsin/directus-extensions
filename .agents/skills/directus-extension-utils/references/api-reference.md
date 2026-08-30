@@ -470,6 +470,7 @@ interface CreateDirectusStartupCoordinatorOptions {
   disabled: boolean
   disabledGlobally: boolean
   dataDisabledGlobally?: boolean
+  abortOnError?: boolean
   lockProvider?: LockProvider
   lockProviderConfig?: DirectusStartupOptions
   lockLeaseMs?: number
@@ -492,10 +493,12 @@ createDirectusStartupCoordinator(
 ```
 
 The startup coordinator performs the global and extension-specific disabled checks, invokes one
-ordered `app.before` schema plan and one `server.start` data plan, and logs asynchronous setup
-failures without rejecting hook registration. Directus awaits `app.before` before it can emit
-`server.start`, but independent `app.before` listeners are not ordered against one another. The
-context's held provider must be passed to nested ensure calls.
+ordered `app.before` schema plan and one `middlewares.before` data plan, and logs asynchronous setup
+failures. Provider and callback failures, including lost lock ownership, reject the lifecycle
+handler by default after the lease and any owned provider are cleaned up. Set `abortOnError: false`
+for deliberate best-effort startup. Directus awaits `app.before` before it can emit
+`middlewares.before`, but independent `app.before` listeners are not ordered against one another.
+The context's held provider must be passed to nested ensure calls.
 
 `ensureDirectusDocumentation` is a server-only helper for the fixed `studio_docs` collection:
 

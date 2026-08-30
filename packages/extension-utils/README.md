@@ -331,7 +331,7 @@ Schema configuration and operation options:
 | `lockProviderConfig`                                           | operation   | —                | Uses validated environment config to create a provider.                              |
 | `lockProvider`                                                 | operation   | —                | Supplies a consumer-owned provider directly.                                         |
 | `autoRenew`                                                    | coordinator | `true`           | Renews the startup lease while callbacks run.                                        |
-| `abortOnError`                                                 | operation   | `true`           | Rethrows service failures after logging them.                                        |
+| `abortOnError`                                                 | coordinator | `true`           | Rethrows provider, callback, and lost-lease failures after cleanup.                  |
 | `lockLeaseMs`                                                  | operation   | provider default | Overrides one lock acquisition lease.                                                |
 
 `ensureDirectusSchema` always coordinates the operation with a lock and returns
@@ -396,7 +396,9 @@ startup.schema(async ({ lockProvider }) => {
 ```
 
 Schema callbacks always register on Directus's awaited `app.before` lifecycle event, while data
-callbacks register on Directus's awaited `middlewares.before` lifecycle event:
+callbacks register on Directus's awaited `middlewares.before` lifecycle event. Provider and callback
+failures are logged and then rethrown by default after the coordinator releases its lease and
+disposes any provider it created. Set `abortOnError: false` only for deliberate best-effort startup.
 
 ```ts
 const startup = createDirectusStartupCoordinator(hook, logger, {
@@ -436,7 +438,9 @@ defaults. The default `versioning` strategy updates the reserved `incoming` vers
 The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
 when every callback is guaranteed to finish within the configured lease. Nested schema and data
 ensures receive a borrowed provider and cannot release the coordinator-owned lease. If renewal is
-lost, the coordinator stops before running the next callback and logs the failure.
+lost, the coordinator stops before running the next callback and logs the failure. If release
+returns `false`, ownership was lost and the coordinator reports that failure instead of claiming a
+successful release.
 
 All lock providers use the same `tryAcquire`/`isLocked`/lease contract and `defaultLeaseMs` option.
 Choose the memory provider for one process, the filesystem provider for processes sharing a

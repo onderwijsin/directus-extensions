@@ -1039,4 +1039,79 @@ describe('createDirectusStartupCoordinator', () => {
 		await init.mock.calls[0]?.[1]?.()
 		await vi.waitFor(() => expect(renew).toHaveBeenCalled())
 	})
+
+	it('rethrows callback failures after releasing the coordinator lease', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
+		const release = vi.fn(() => Promise.resolve(true))
+		const callbackError = new Error('schema callback failed')
+		const logger = createLogger()
+		const startup = createDirectusStartupCoordinator(createHook(action, init), logger, {
+			id: 'callback-failure-test',
+			name: 'Callback failure test',
+			disabled: false,
+			disabledGlobally: false,
+			lockProvider: {
+				tryAcquire: vi.fn(() =>
+					Promise.resolve({
+						name: 'directus-extension-startup:callback-failure-test',
+						token: 'token',
+						renew: vi.fn(() => Promise.resolve(true)),
+						release,
+					}),
+				),
+				isLocked: vi.fn(() => Promise.resolve(true)),
+			},
+			autoRenew: false,
+		})
+
+		startup.schema(() => Promise.reject(callbackError))
+
+		await expect(init.mock.calls[0]?.[1]?.()).rejects.toBe(callbackError)
+		expect(release).toHaveBeenCalledOnce()
+		expect(logger.error).toHaveBeenCalledWith(
+			expect.objectContaining({
+				msg: 'Callback failure test Directus startup failed',
+				cause: callbackError,
+			}),
+		)
+	})
+
+	it('reports lost lock ownership instead of successful release', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
+		const logger = createLogger()
+		const startup = createDirectusStartupCoordinator(createHook(action, init), logger, {
+			id: 'release-loss-test',
+			name: 'Release loss test',
+			disabled: false,
+			disabledGlobally: false,
+			lockProvider: {
+				tryAcquire: vi.fn(() =>
+					Promise.resolve({
+						name: 'directus-extension-startup:release-loss-test',
+						token: 'token',
+						renew: vi.fn(() => Promise.resolve(true)),
+						release: vi.fn(() => Promise.resolve(false)),
+					}),
+				),
+				isLocked: vi.fn(() => Promise.resolve(false)),
+			},
+			autoRenew: false,
+		})
+
+		startup.schema(() => Promise.resolve())
+
+		await expect(init.mock.calls[0]?.[1]?.()).rejects.toThrow(
+			'Directus startup lock ownership was lost before release',
+		)
+		expect(logger.error).toHaveBeenCalledWith(
+			expect.objectContaining({
+				msg: 'Release loss test Directus startup lock release failed',
+			}),
+		)
+		expect(logger.debug).not.toHaveBeenCalledWith(
+			expect.objectContaining({ msg: '🔓 Released Directus startup lock' }),
+		)
+	})
 })

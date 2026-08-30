@@ -346,8 +346,11 @@ and never promotes it.
 
 The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
 for callbacks guaranteed to finish within the lease duration. Nested ensures receive a borrowed
-provider and cannot release the coordinator-owned lease. If renewal is lost, later callbacks are
-skipped and the startup failure is logged.
+provider and cannot release the coordinator-owned lease. Provider and callback failures are logged
+and rethrown by default after cleanup; set `abortOnError: false` only for deliberate best-effort
+startup. If renewal is lost, later callbacks are skipped and the startup failure is rethrown after
+cleanup. A `release()` result of `false` is also treated as lost ownership and never reported as a
+successful release.
 
 The package README and
 [maintainer API reference](../../.agents/skills/directus-extension-utils/references/api-reference.md)
@@ -371,7 +374,7 @@ The shared configuration and per-operation controls are:
 | `lockProviderConfig`                                           | operation   | —                | Validated environment options for automatic provider creation.     |
 | `lockProvider`                                                 | operation   | —                | Explicit consumer-owned provider; takes precedence over config.    |
 | `autoRenew`                                                    | coordinator | `true`           | Renews the startup lease while callbacks run.                      |
-| `abortOnError`                                                 | operation   | `true`           | Keep false to log and continue after a service failure.            |
+| `abortOnError`                                                 | coordinator | `true`           | Rethrow provider, callback, and lost-lease failures after cleanup. |
 | `lockLeaseMs`                                                  | operation   | provider default | Per-acquisition lease override.                                    |
 
 The operation always acquires the configured lock. The result reports created resources by stable

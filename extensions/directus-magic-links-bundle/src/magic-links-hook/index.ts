@@ -39,6 +39,7 @@ export default defineHook((hook, context) => {
 		disabled: !options.MAGIC_LINKS_SCHEMA_CHANGES_ENABLED,
 		disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
 		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+		abortOnError: options.MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR,
 		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 	})
 	startup.schema(async ({ lockProvider }) => {

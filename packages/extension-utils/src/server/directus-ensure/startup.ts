@@ -18,6 +18,8 @@ export interface CreateDirectusStartupCoordinatorOptions {
 	disabledGlobally: boolean
 	/** Disables data callbacks while still allowing schema callbacks to run. */
 	dataDisabledGlobally?: boolean
+	/** Whether callback, provider, and lost-lease failures reject startup. Defaults to true. */
+	abortOnError?: boolean
 	/** Consumer-owned lock provider used instead of environment-based provider creation. */
 	lockProvider?: LockProvider
 	/** Validated environment configuration used to create the lock provider. */
@@ -134,6 +136,13 @@ export function createDirectusStartupCoordinator(
 				msg: options.name + ' Directus startup failed',
 				cause: providerResult.error,
 			})
+			if (options.abortOnError ?? true) {
+				throw providerResult.error instanceof Error
+					? providerResult.error
+					: new Error(options.name + ' Directus startup failed', {
+							cause: providerResult.error,
+						})
+			}
 			return
 		}
 		const configuredProvider = providerResult.data
@@ -175,11 +184,13 @@ export function createDirectusStartupCoordinator(
 			}
 			// Data callbacks are skipped entirely when global data seeding is disabled.
 		})
+		let startupError: unknown = null
 		if (startupResult.error !== null) {
 			logger.error({
 				msg: options.name + ' Directus startup failed',
 				cause: startupResult.error,
 			})
+			startupError = startupResult.error
 		} else if (!lease) {
 			logger.info({
 				msg: '⏭️ Directus startup skipped; another operation holds the lock',
@@ -195,6 +206,16 @@ export function createDirectusStartupCoordinator(
 					msg: options.name + ' Directus startup lock release failed',
 					cause: releaseResult.error,
 				})
+				startupError ??= releaseResult.error
+			} else if (releaseResult.data === false) {
+				const releaseError = new Error(
+					'Directus startup lock ownership was lost before release',
+				)
+				logger.error({
+					msg: options.name + ' Directus startup lock release failed',
+					cause: releaseError,
+				})
+				startupError ??= releaseError
 			} else {
 				logger.debug?.({
 					msg: '🔓 Released Directus startup lock',
@@ -210,6 +231,11 @@ export function createDirectusStartupCoordinator(
 					cause: disposeResult.error,
 				})
 			}
+		}
+		if (startupError !== null && (options.abortOnError ?? true)) {
+			throw startupError instanceof Error
+				? startupError
+				: new Error(options.name + ' Directus startup failed', { cause: startupError })
 		}
 	}
 
