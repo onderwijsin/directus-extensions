@@ -49,6 +49,7 @@ catalog:
   loops: 7.2.0
   ufo: 1.6.4
   '@comark/vue': 0.6.2
+  github-markdown-css: 5.9.0
 catalogs:
   node24:
     '@types/node': 24.13.3
