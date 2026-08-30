@@ -25,6 +25,7 @@
 		"lint:fix": "oxlint --fix",
 		"lint:actions": "github-actionlint -config-file .github/actionlint.yaml",
 		"validate:docs": "node scripts/validate-docs.mjs",
+		"docs:extract": "node scripts/docs-extract.mjs",
 		"test:unit": "vitest run",
 		"test:unit:coverage": "vitest run --coverage",
 		"test:integration": "EXTENSION_UTILS_INTEGRATION=1 vitest run --project test:integration",

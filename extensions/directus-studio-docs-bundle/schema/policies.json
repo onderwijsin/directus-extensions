@@ -1,0 +1,38 @@
+{
+	"policies": [
+		{
+			"id": "9c1d6f27-9c5d-4b4c-9a15-4a7d0a4a1001",
+			"name": "Can Manage Studio Docs",
+			"icon": "menu_book",
+			"description": "Can create, read, update, and delete Studio Docs articles.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{ "collection": "studio_docs", "action": "create", "fields": ["*"] },
+				{ "collection": "studio_docs", "action": "read", "fields": ["*"] },
+				{ "collection": "studio_docs", "action": "update", "fields": ["*"] },
+				{ "collection": "studio_docs", "action": "delete", "fields": ["*"] }
+			]
+		},
+		{
+			"id": "9c1d6f27-9c5d-4b4c-9a15-4a7d0a4a1002",
+			"name": "Can View Studio Docs",
+			"icon": "visibility",
+			"description": "Can read published Studio Docs articles.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{
+					"collection": "studio_docs",
+					"action": "read",
+					"permissions": { "archived": { "_eq": false } },
+					"fields": ["*"]
+				}
+			]
+		}
+	]
+}

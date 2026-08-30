@@ -569,3 +569,12 @@ accountability for schema and metadata operations; item update reads retain muta
 - The bundle does not guarantee atomic rollback for delete/archive action processing after Directus
   emits the action event.
 - The bundle is non-sandboxed and must be deployed only where trusted API extensions are allowed.
+
+## Studio Docs
+
+The hook seeds `Sluggernaut` from `docs/sluggernaut.json`; set `SLUGGERNAUT_DOCS_SEED_ENABLED=false`
+to opt out.
+
+The bundled documentation is available in Dutch. For a translation, use `versioning`, enable
+seeding, edit and publish the translation on the main article, and reject incoming updates. Create a
+fresh translation from the Dutch source whenever it changes.

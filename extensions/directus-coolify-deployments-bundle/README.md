@@ -196,7 +196,7 @@ checks remain enabled.
 ## API reference
 
 Base path: `/coolify-deployments`. All routes return `X-Coolify-Deployments-Poll-Interval` with the
-configured polling interval and return `503` while schema startup work is locked.
+configured polling interval.
 
 | Method | Route                                                                    | Policy    | Response                                                                                         |
 | ------ | ------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------ |
@@ -413,3 +413,13 @@ Consumers own Coolify infrastructure, token lifecycle, deployment image, secrets
 assignments, scheduling, retries, rate limits, audits, and alerting. The bundle owns only the
 Directus-facing integration and normalized provider data. Requests to Coolify are bounded by a
 30-second timeout.
+
+## Studio Docs
+
+The bundle seeds the `Coolify Deployments` article from `docs/coolify-deployments.json` when Studio
+Docs and data seeding are enabled. Set `COOLIFY_DEPLOYMENTS_DOCS_SEED_ENABLED=false` to opt out.
+
+The bundled documentation is available in Dutch. To translate it, keep the seeding strategy on
+`versioning`, start the extension with seeding enabled, edit and publish your translation on the
+main article, and reject incoming updates. Create a fresh translation from the Dutch source when the
+documentation changes.

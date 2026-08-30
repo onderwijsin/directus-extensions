@@ -22,13 +22,24 @@ export type ActionHandler<T = void> = (
 ) => MaybePromise<T>
 
 /**
+ * Handler for a Directus init hook.
+ *
+ * Init handlers may be asynchronous so Directus can await lifecycle barriers.
+ */
+export type InitHandler<T = void> = (
+	// oxlint-disable-next-line typescript/no-explicit-any -- Matches Directus's init metadata type.
+	meta: Record<string, any>,
+) => MaybePromise<T>
+
+/**
  * Corrected Directus register functions.
  *
- * Replaces Directus's `action` handler type so asynchronous action handlers
- * retain their actual return type.
+ * Replaces Directus's action and init handler types so asynchronous lifecycle
+ * handlers retain their actual return types.
  */
-export type RegisterFunctions = Omit<DirectusRegisterFunctions, 'action'> & {
+export type RegisterFunctions = Omit<DirectusRegisterFunctions, 'action' | 'init'> & {
 	action: <T = void>(event: string, handler: ActionHandler<T>) => void
+	init: <T = void>(event: string, handler: InitHandler<T>) => void
 }
 
 /**

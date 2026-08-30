@@ -5,6 +5,7 @@ import {
 	ensureDirectusPolicy,
 	createDirectusStartupCoordinator,
 	getDirectusStartupStatus,
+	ensureDirectusDocumentation,
 	validateSchemaDefinition,
 	type DirectusPolicyDefinition,
 	type DirectusSchemaDefinition,
@@ -12,7 +13,10 @@ import {
 
 import { runUtilitySmokeTest } from './smoke'
 
-export default defineHook(({ action }, context) => {
+const E2E_DOCS_ARTICLE_UUID = '8b8b3a1e-38f3-4ab7-9b37-5e4c5d7f1234'
+
+export default defineHook((hook, context) => {
+	const { action } = hook
 	if (context) {
 		const { database, getSchema, logger, services } = context
 		const policyDefinition: DirectusPolicyDefinition = {
@@ -71,7 +75,7 @@ export default defineHook(({ action }, context) => {
 			],
 		}
 
-		const startup = createDirectusStartupCoordinator(action, logger, {
+		const startup = createDirectusStartupCoordinator(hook, logger, {
 			id: 'e2e-playground',
 			name: 'E2E playground',
 			disabled: false,
@@ -146,6 +150,16 @@ export default defineHook(({ action }, context) => {
 				definition: policyDefinition,
 				options: { lockProvider },
 			})
+			await ensureDirectusDocumentation(
+				{
+					id: E2E_DOCS_ARTICLE_UUID,
+					navigation_label: 'E2E startup ordering',
+					body: '# E2E startup ordering\n\nThis article verifies the cross-extension startup barrier.',
+					icon: 'verified',
+				},
+				context,
+				{ lockProvider, extensionName: 'E2E playground' },
+			)
 			logger.info({
 				msg: '🧪 E2E Directus data seed scenarios completed',
 				first,

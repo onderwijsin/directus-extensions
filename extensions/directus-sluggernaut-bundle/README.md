@@ -497,3 +497,13 @@ relevant policy flag.
 - Roles and policy assignments are never changed automatically.
 - No redirect HTTP endpoint, router integration, frontend package, or external redirect service is
   installed.
+
+## Studio Docs
+
+The bundle seeds the `Sluggernaut` article from `docs/sluggernaut.json` when Studio Docs and data
+seeding are enabled. Set `SLUGGERNAUT_DOCS_SEED_ENABLED=false` to opt out.
+
+The bundled documentation is available in Dutch. To translate it, keep the seeding strategy on
+`versioning`, start the extension with seeding enabled, edit and publish your translation on the
+main article, and reject incoming updates. Create a fresh translation from the Dutch source when the
+documentation changes.

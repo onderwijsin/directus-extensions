@@ -1,6 +1,7 @@
 import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
 import {
 	ensureDirectusSchema,
+	ensureDirectusDocumentation,
 	validateSchemaDefinition,
 	createDirectusStartupCoordinator,
 	extensionSetup,
@@ -8,6 +9,7 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import docsArticle from '../../docs/magic-links.json'
 import magicLinksSchema from '../../schema/magic_links.json'
 import { registerMagicLinkJwt } from './auth-jwt'
 import { registerMagicLinkCleanup } from './cleanup'
@@ -22,7 +24,7 @@ import { envSchema } from './env.schema'
  * @returns void
  */
 export default defineHook((hook, context) => {
-	const { action, filter, schedule } = hook
+	const { filter, schedule } = hook
 	const { env, logger } = context
 	const setup = extensionSetup(EXTENSION_NAME, env, logger)
 	setup.start()
@@ -31,12 +33,13 @@ export default defineHook((hook, context) => {
 
 	const options = validateExtensionOptions(env, envSchema, logger)
 
-	const startup = createDirectusStartupCoordinator(action, logger, {
+	const startup = createDirectusStartupCoordinator(hook, logger, {
 		id: EXTENSION_ID,
 		name: 'Magic links',
 		disabled: !options.MAGIC_LINKS_SCHEMA_CHANGES_ENABLED,
 		disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
 		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+		abortOnError: options.MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR,
 		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 	})
 	startup.schema(async ({ lockProvider }) => {
@@ -54,6 +57,13 @@ export default defineHook((hook, context) => {
 				abortOnError: options.MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR,
 				lockProvider,
 			},
+		})
+	})
+	startup.data(async ({ lockProvider }) => {
+		await ensureDirectusDocumentation(docsArticle, context, {
+			lockProvider,
+			extensionName: 'Magic links',
+			extensionSeedEnabled: options.MAGIC_LINKS_DOCS_SEED_ENABLED,
 		})
 	})
 

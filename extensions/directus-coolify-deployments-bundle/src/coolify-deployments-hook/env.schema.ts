@@ -22,6 +22,7 @@ const hookEnvSchema = directusStartupSchema.extend({
 	COOLIFY_TOKEN: coolifyEnvironmentSchema.shape.COOLIFY_TOKEN,
 	COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
 	COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR: z.boolean().default(true),
+	COOLIFY_DEPLOYMENTS_DOCS_SEED_ENABLED: z.boolean().default(true),
 	COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: z
 		.uuid()
 		.default(DEFAULT_MANAGE_APPLICATIONS_POLICY_ID),

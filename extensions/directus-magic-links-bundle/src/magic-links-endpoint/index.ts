@@ -4,10 +4,9 @@ import {
 	asyncHandler,
 	extensionSetup,
 	validateExtensionOptions,
-	rejectWhileSchemaLocked,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { EXTENSION_ID, EXTENSION_NAME } from '../magic-links-hook/constants'
+import { EXTENSION_NAME } from '../magic-links-hook/constants'
 import { envSchema } from './env.schema'
 import {
 	parseRedeemPayload,
@@ -46,23 +45,6 @@ export default defineEndpoint({
 
 		const options = validateExtensionOptions(env, envSchema, logger)
 		const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? options.SECRET
-		const schemaLockOptions = {
-			lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
-		}
-
-		router.use(
-			asyncHandler(async (_request, _response, next) => {
-				const rejected = await rejectWhileSchemaLocked(
-					{
-						id: EXTENSION_ID,
-						options: schemaLockOptions,
-					},
-					next,
-				)
-				if (!rejected) next()
-			}),
-		)
-
 		const redis = createMagicLinksRedisClient(options)
 		const requestLimiter = createRequestLimiter({ options, redis })
 		let redeemLimiter: ReturnType<typeof createRedeemLimiter> | undefined

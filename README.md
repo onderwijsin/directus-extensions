@@ -22,6 +22,7 @@ trusted, non-sandboxed runtime require a trusted self-hosted installation.
 | [`@onderwijsin/directus-sluggernaut-bundle`](extensions/directus-sluggernaut-bundle/README.md)                           | Field-driven slugs, permalinks, redirects, and recalculation for Directus.  |
 | [`@onderwijsin/directus-quick-copy-bundle`](extensions/directus-quick-copy-bundle/README.md)                             | Readonly copy-enabled interface and display for Directus fields.            |
 | [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.                 |
+| [`@onderwijsin/directus-studio-docs-bundle`](extensions/directus-studio-docs-bundle/README.md)                           | In-Studio documentation bundle scaffold for Directus.                       |
 
 The repository also contains supporting workspace packages and private infrastructure for shared
 TypeScript configuration and test execution.

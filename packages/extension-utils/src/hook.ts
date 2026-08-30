@@ -2,7 +2,13 @@ import type { HookConfig } from './types'
 
 import { defineHook as defineDirectusHook } from '@directus/extensions-sdk'
 
-export type { ActionHandler, HookConfig, MaybePromise, RegisterFunctions } from './types'
+export type {
+	ActionHandler,
+	HookConfig,
+	InitHandler,
+	MaybePromise,
+	RegisterFunctions,
+} from './types'
 
 /**
  * Defines a Directus hook using corrected extension register function types.

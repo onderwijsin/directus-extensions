@@ -2,6 +2,7 @@ import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
 import {
 	ensureDirectusPolicy,
 	ensureDirectusSchema,
+	ensureDirectusDocumentation,
 	validatePolicyDefinition,
 	validateSchemaDefinition,
 	createDirectusStartupCoordinator,
@@ -12,6 +13,7 @@ import {
 	registerPolicyCacheInvalidation,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import docsArticle from '../../docs/coolify-deployments.json'
 import coolifyApplicationsSchema from '../../schema/coolify_applications.json'
 import coolifyPolicies from '../../schema/coolify_policies.json'
 import {
@@ -33,7 +35,7 @@ import { resolveCoolifyPolicyId } from './policy-ids'
  * @returns Nothing.
  */
 export default defineHook((hook, context) => {
-	const { action, filter } = hook
+	const { filter } = hook
 	const { env, logger } = context
 	const setup = extensionSetup(EXTENSION_NAME, env, logger)
 	setup.start()
@@ -48,12 +50,13 @@ export default defineHook((hook, context) => {
 		logger,
 	})
 
-	const startup = createDirectusStartupCoordinator(action, logger, {
+	const startup = createDirectusStartupCoordinator(hook, logger, {
 		id: EXTENSION_ID,
 		name: 'Coolify deployments',
 		disabled: !options.COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED,
 		disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
 		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+		abortOnError: options.COOLIFY_DEPLOYMENTS_SCHEMA_ABORT_ON_ERROR,
 		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 	})
 	startup.schema(async ({ lockProvider }) => {
@@ -74,6 +77,12 @@ export default defineHook((hook, context) => {
 		})
 	})
 	startup.data(async ({ lockProvider }) => {
+		await ensureDirectusDocumentation(docsArticle, context, {
+			lockProvider,
+			extensionName: EXTENSION_NAME,
+			extensionSeedEnabled: options.COOLIFY_DEPLOYMENTS_DOCS_SEED_ENABLED,
+		})
+
 		const policyDefinitions = validatePolicyDefinition(coolifyPolicies)
 		const policyIds = [
 			{

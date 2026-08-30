@@ -57,7 +57,7 @@ The package has one shared Directus-extension implementation and eight public im
 - `@onderwijsin/directus-extension-utils/app` — browser-safe shared surface; and
 - `@onderwijsin/directus-extension-utils/server` — common surface plus Directus-runtime utilities;
 - `@onderwijsin/directus-extension-utils/constants` — shared deployment-environment constants; and
-- `@onderwijsin/directus-extension-utils/hook` — corrected Directus hook and async action-handler types; and
+- `@onderwijsin/directus-extension-utils/hook` — corrected Directus hook and async lifecycle-handler types; and
 - `@onderwijsin/directus-extension-utils/types` — type-only corrected hook contracts; and
 - `@onderwijsin/directus-extension-utils/sentry` — explicit Sentry utilities.
 
@@ -66,7 +66,7 @@ Import common browser-safe helpers from the root or `/shared`. Always use `/serv
 `createAutoTaskHandler`, task-storage factories, marker stores, `createLogger`,
 `extensionSetup`, `validateExtensionOptions`, `directusStartupSchema`,
 `validateSchemaDefinition`, `ensureDirectusSchema`,
-`ensureDirectusPolicy`, `createDirectusStartupCoordinator`, and `asyncHandler`. Never import
+`ensureDirectusPolicy`, `ensureDirectusDocumentation`, `createDirectusStartupCoordinator`, and `asyncHandler`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
 of Node-only imports.
 
@@ -74,7 +74,7 @@ Use `/hook` for API hook entrypoints that register asynchronous action handlers.
 subpath separate prevents `@directus/extensions-sdk` from being loaded by consumers that only use
 server utilities.
 
-Use `/types` for type-only imports of `ActionHandler`, `RegisterFunctions`, and `HookConfig`. This
+Use `/types` for type-only imports of `ActionHandler`, `InitHandler`, `RegisterFunctions`, and `HookConfig`. This
 subpath contains no runtime hook adapter and does not import `@directus/extensions-sdk`.
 
 Use the server accountability helpers at Directus API boundaries when narrowing request

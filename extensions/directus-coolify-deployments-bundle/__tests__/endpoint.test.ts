@@ -3,7 +3,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-	rejectWhileSchemaLocked: vi.fn((_next: (error?: unknown) => void) => Promise.resolve(false)),
 	setup: { start: vi.fn(), end: vi.fn(), isEnabled: vi.fn(() => true) },
 	validateExtensionOptions: vi.fn(() => ({
 		COOLIFY_URL: 'https://coolify.example.com',
@@ -39,7 +38,6 @@ vi.mock('@directus/errors', () => ({
 vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) => ({
 	...(await importOriginal()),
 	extensionSetup: () => mocks.setup,
-	rejectWhileSchemaLocked: mocks.rejectWhileSchemaLocked,
 	validateExtensionOptions: mocks.validateExtensionOptions,
 }))
 vi.mock('../src/shared/coolify-client', () => ({
@@ -91,11 +89,10 @@ const createRouter = () => ({
 describe('Coolify deployment endpoint orchestration', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
-		mocks.rejectWhileSchemaLocked.mockResolvedValue(false)
 		mocks.setup.isEnabled.mockReturnValue(true)
 	})
 
-	it('applies authentication and schema readiness once as router middleware', async () => {
+	it('applies authentication and same-origin checks once as router middleware', async () => {
 		const router = createRouter()
 		runEndpoint(router)
 
@@ -134,38 +131,6 @@ describe('Coolify deployment endpoint orchestration', () => {
 			authenticatedNext,
 		)
 		await vi.waitFor(() => expect(authenticatedNext).toHaveBeenCalledOnce())
-	})
-
-	it('rejects every route while the schema is locked', async () => {
-		mocks.rejectWhileSchemaLocked.mockImplementation((next) => {
-			next(new Error('schema locked'))
-			return Promise.resolve(true)
-		})
-		const router = createRouter()
-		runEndpoint(router)
-
-		const middleware = router.use.mock.calls[0]?.[0]
-		if (typeof middleware !== 'function') throw new Error('Expected middleware')
-
-		const response = createResponse()
-		const next = vi.fn()
-		middleware(
-			{
-				accountability: {
-					role: 'role-id',
-					roles: ['role-id'],
-					user: 'user-id',
-					admin: false,
-					app: true,
-					ip: null,
-				},
-				get: () => undefined,
-				protocol: 'https',
-			},
-			response,
-			next,
-		)
-		await vi.waitFor(() => expect(next).toHaveBeenCalledWith(expect.any(Error)))
 	})
 
 	it('rejects cross-origin requests in the shared middleware', () => {

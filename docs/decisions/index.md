@@ -17,6 +17,7 @@ They are binding for the feature they cover until explicitly revisited.
 | [Use async-local mutation source context](async-local-mutation-source.md)                                          | Accepted | Sluggernaut nested redirect-history mutations             |
 | [Enforce concurrent Sluggernaut redirect integrity in the database](sluggernaut-database-integrity-constraints.md) | Accepted | Sluggernaut redirect uniqueness and consumer migrations   |
 | [Use a custom image for Garage initialization](custom-garage-init-image.md)                                        | Accepted | Local and E2E Compose Garage initialization               |
+| [Run startup schema preparation during `app.before`](startup-schema-preparation-app-before.md)                     | Accepted | Shared extension startup coordination                     |
 
 ## Create or revisit a decision
 

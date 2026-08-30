@@ -13,34 +13,37 @@ import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
 	ensureDirectusPolicy,
 	ensureDirectusSchema,
+	ensureDirectusDocumentation,
 	validatePolicyDefinition,
 	validateSchemaDefinition,
 	createDirectusStartupCoordinator,
 	withCollectionIdentity,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import docsArticle from '../../../docs/sluggernaut.json'
 import redirectPolicies from '../../../schema/policies.json'
 import redirectSchema from '../../../schema/redirects.json'
 import { EXTENSION_NAME, POLICY_IDS } from '../../shared/configuration/constants'
 
 /**
  * Registers Sluggernaut schema and policy startup coordination.
- * @param action - Directus action registration function.
+ * @param hook - Directus hook registration functions.
  * @param context - Directus hook extension context.
  * @param options - Validated extension options.
  * @returns Nothing.
  */
 export function registerSluggernautStartup(
-	action: RegisterFunctions['action'],
+	hook: RegisterFunctions,
 	context: HookExtensionContext,
 	options: SluggernautEnv,
 ): void {
-	const startup = createDirectusStartupCoordinator(action, context.logger, {
+	const startup = createDirectusStartupCoordinator(hook, context.logger, {
 		id: EXTENSION_NAME,
 		name: 'Sluggernaut',
 		disabled: !options.SLUGGERNAUT_SCHEMA_CHANGES_ENABLED,
 		disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
 		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+		abortOnError: options.SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR,
 		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_NAME },
 	})
 
@@ -61,6 +64,12 @@ export function registerSluggernautStartup(
 	})
 
 	startup.data(async ({ lockProvider }) => {
+		await ensureDirectusDocumentation(docsArticle, context, {
+			lockProvider,
+			extensionName: 'Sluggernaut',
+			extensionSeedEnabled: options.SLUGGERNAUT_DOCS_SEED_ENABLED,
+		})
+
 		// Policies are optional and must not be created before their target collection exists.
 		if (
 			!options.SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED &&

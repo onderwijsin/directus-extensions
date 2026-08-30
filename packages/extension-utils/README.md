@@ -8,7 +8,7 @@ The public surface includes:
 - runtime guards (including Directus primary-key narrowing), attempt/retry helpers, object helpers,
   MIME classification, and UUIDs;
 - server-only async Express adapters, locks, debounced auto-task handlers, task storage, logging,
-  and extension setup helpers; and
+  extension setup helpers, and the Studio Docs article seeding contract; and
 - reusable Directus extension types.
 
 ## Install
@@ -16,6 +16,13 @@ The public surface includes:
 ```sh
 pnpm add @onderwijsin/directus-extension-utils
 ```
+
+`ensureDirectusDocumentation` is the server-only contract for extensions that contribute articles to
+the fixed `studio_docs` collection. It validates stable article input, honors the docs and global
+data-seed gates, and reconciles changed content using either the main item or the reserved
+`incoming` content version. Call it from a startup data callback when the bundle is responsible for
+schema provisioning; pass the complete hook registration object to the startup coordinator so its
+schema phase uses `app.before`.
 
 ## Import
 
@@ -35,6 +42,7 @@ import {
   withCache,
   createRedisTaskHandlerStorage,
   createRedisLockProvider,
+  ensureDirectusDocumentation,
 } from '@onderwijsin/directus-extension-utils/server'
 ```
 
@@ -323,7 +331,7 @@ Schema configuration and operation options:
 | `lockProviderConfig`                                           | operation   | —                | Uses validated environment config to create a provider.                              |
 | `lockProvider`                                                 | operation   | —                | Supplies a consumer-owned provider directly.                                         |
 | `autoRenew`                                                    | coordinator | `true`           | Renews the startup lease while callbacks run.                                        |
-| `abortOnError`                                                 | operation   | `true`           | Rethrows service failures after logging them.                                        |
+| `abortOnError`                                                 | coordinator | `true`           | Rethrows provider, callback, and lost-lease failures after cleanup.                  |
 | `lockLeaseMs`                                                  | operation   | provider default | Overrides one lock acquisition lease.                                                |
 
 `ensureDirectusSchema` always coordinates the operation with a lock and returns
@@ -351,21 +359,6 @@ if (status.isLocked) {
 }
 ```
 
-Use `rejectWhileSchemaLocked` as endpoint middleware when requests must wait for startup schema
-changes to finish. Pass custom error constructors when an endpoint needs its own public error code:
-
-```ts
-import { rejectWhileSchemaLocked } from '@onderwijsin/directus-extension-utils/server'
-
-router.use((_request, _response, next) => {
-  void rejectWhileSchemaLocked({ id: 'orders', options: schemaLockOptions }, next).then(
-    (rejected) => {
-      if (!rejected) next()
-    },
-  )
-})
-```
-
 The status query must use the same provider configuration and extension identifier as the startup
 coordinator. It is read-only and disposes only providers created from configuration. Use Redis or a
 shared filesystem provider for separate processes.
@@ -375,11 +368,12 @@ name, preserves compatible policies, and idempotently creates its nested permiss
 UUID/name conflicts without modifying existing policies. Role assignments and user assignments are
 separate future seeds.
 
-Register startup work through `createDirectusStartupCoordinator`. It holds one lock and always runs
-schema callbacks before data callbacks:
+Register startup work through `createDirectusStartupCoordinator`. It holds one lock, registers
+schema callbacks on `app.before`, and registers data callbacks on the awaited `middlewares.before`
+lifecycle event:
 
 ```ts
-const startup = createDirectusStartupCoordinator(action, logger, {
+const startup = createDirectusStartupCoordinator(hook, logger, {
   id: 'orders',
   name: 'Orders',
   disabled: false,
@@ -401,10 +395,52 @@ startup.schema(async ({ lockProvider }) => {
 })
 ```
 
+Schema callbacks always register on Directus's awaited `app.before` lifecycle event, while data
+callbacks register on Directus's awaited `middlewares.before` lifecycle event. Provider and callback
+failures are logged and then rethrown by default after the coordinator releases its lease and
+disposes any provider it created. Set `abortOnError: false` only for deliberate best-effort startup.
+
+```ts
+const startup = createDirectusStartupCoordinator(hook, logger, {
+  id: 'studio-docs',
+  name: 'Studio Docs',
+  disabled: false,
+  disabledGlobally: false,
+  dataDisabledGlobally: false,
+})
+```
+
+Contribute a stable article from a startup data callback. The helper is server-only and targets the
+fixed `studio_docs` collection owned by `@onderwijsin/directus-studio-docs-bundle`:
+
+```ts
+import { ensureDirectusDocumentation } from '@onderwijsin/directus-extension-utils/server'
+
+startup.data(async ({ lockProvider }) => {
+  await ensureDirectusDocumentation(
+    {
+      id: '7b8b3a1e-38f3-4ab7-9b37-5e4c5d7f1234',
+      navigation_label: 'Getting started',
+      body: '# Getting started\n\nWrite the article in Markdown.',
+    },
+    context,
+    { lockProvider, extensionName: 'Orders' },
+  )
+})
+```
+
+`ensureDirectusDocumentation` honors `DIRECTUS_DOCS_ENABLED`, `DIRECTUS_DOCS_SEED_ENABLED`, and
+`DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`. Pass `extensionSeedEnabled: false` to opt out one
+contributor. Stable UUIDs in the `id` field identify the article; `icon` and `archived` have
+defaults. The default `versioning` strategy updates the reserved `incoming` version, while
+`override` replaces the main item. Incoming content is never promoted automatically.
+
 The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
 when every callback is guaranteed to finish within the configured lease. Nested schema and data
 ensures receive a borrowed provider and cannot release the coordinator-owned lease. If renewal is
-lost, the coordinator stops before running the next callback and logs the failure.
+lost, the coordinator stops before running the next callback and logs the failure. If release
+returns `false`, ownership was lost and the coordinator reports that failure instead of claiming a
+successful release.
 
 All lock providers use the same `tryAcquire`/`isLocked`/lease contract and `defaultLeaseMs` option.
 Choose the memory provider for one process, the filesystem provider for processes sharing a

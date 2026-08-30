@@ -12,11 +12,13 @@ import {
 	createDirectusStartupCoordinator,
 	ensureDirectusPolicy,
 	ensureDirectusSchema,
+	ensureDirectusDocumentation,
 	validatePolicyDefinition,
 	validateSchemaDefinition,
 	withCollectionIdentity,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import docsArticle from '../../docs/loops.json'
 import campaignRecipientsSchema from '../../schema/loops_campaign_recipients.json'
 import campaignsSchema from '../../schema/loops_campaigns.json'
 import directusUsersSchema from '../../schema/loops_directus_users.json'
@@ -69,22 +71,23 @@ const withSyncFieldIdentity = (
 
 /**
  * Registers Loops schema and policy startup coordination.
- * @param action - Directus action registration function.
+ * @param hook - Directus hook registration functions.
  * @param context - Directus hook extension context.
  * @param options - Validated Loops environment options.
  * @returns Nothing.
  */
 export function registerLoopsStartup(
-	action: RegisterFunctions['action'],
+	hook: RegisterFunctions,
 	context: HookExtensionContext,
 	options: LoopsEnv,
 ): void {
-	const startup = createDirectusStartupCoordinator(action, context.logger, {
+	const startup = createDirectusStartupCoordinator(hook, context.logger, {
 		id: EXTENSION_ID,
 		name: 'Loops',
 		disabled: !options.LOOPS_SCHEMA_CHANGES_ENABLED,
 		disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
 		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
+		abortOnError: options.LOOPS_SCHEMA_ABORT_ON_ERROR,
 		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 	})
 
@@ -134,6 +137,12 @@ export function registerLoopsStartup(
 	})
 
 	startup.data(async ({ lockProvider }) => {
+		await ensureDirectusDocumentation(docsArticle, context, {
+			lockProvider,
+			extensionName: 'Loops',
+			extensionSeedEnabled: options.LOOPS_DOCS_SEED_ENABLED,
+		})
+
 		const enabledPolicyIds = new Set(
 			[
 				options.LOOPS_MANAGE_EMAIL_CAMPAIGNS_POLICY_ENABLED

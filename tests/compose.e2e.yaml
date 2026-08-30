@@ -102,6 +102,11 @@ services:
       LOOPS_WEBHOOK_EVENT_ALLOWLIST: array:campaign.email.sent,contact.deleted
       LOOPS_LMX_PARSING_MODE: best_effort
       LOOPS_SYNC_ENABLED_FIELD: loops_sync_enabled
+      DIRECTUS_DOCS_ENABLED: 'true'
+      DIRECTUS_DOCS_SEED_ENABLED: 'true'
+      DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED: 'true'
+      DIRECTUS_DOCS_MANAGE_POLICY_ENABLED: 'false'
+      DIRECTUS_DOCS_VIEW_POLICY_ENABLED: 'false'
     healthcheck:
       test: ['CMD-SHELL', 'wget --spider -q http://127.0.0.1:8055/server/ping']
       interval: 5s

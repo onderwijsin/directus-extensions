@@ -89,22 +89,22 @@ only the common helper surface.
 
 ## Utility reference
 
-| Group            | Public utilities                                                                                                                                                                                                                            | Import from       |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| Guards           | `isDefined`, `isRecord`, `isArray`, `isString`, `isNonEmptyString`, `isNonBlankString`, `isNumber`, `isFiniteNumber`, `isInteger`, `isBoolean`, `isFunction`, `hasKeys`, `hasKey`                                                           | Root or `/shared` |
-| Attempts         | `attempt`, `attemptSync`, `attemptWithRetry`                                                                                                                                                                                                | Root or `/shared` |
-| Express adapters | `asyncHandler`                                                                                                                                                                                                                              | `/server`         |
-| Accountability   | `isAccountability`, `hasAuthenticatedUser`, `assertRequestWithAccountability`, `getAccountabilityFromRequest`                                                                                                                               | `/server`         |
-| Object helpers   | `keys`, `toEntries`, `fromEntries`                                                                                                                                                                                                          | Root or `/shared` |
-| MIME and IDs     | `classifyMimeType`, `isAudioMimeType`, `isVideoMimeType`, `isImageMimeType`, `isDocumentMimeType`, `uuid`, `uuidv4`                                                                                                                         | Root or `/shared` |
-| Locks            | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                                                                               | `/server`         |
-| Auto-tasks       | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                                                          | `/server`         |
-| Logging          | `createLogger`                                                                                                                                                                                                                              | `/server`         |
-| Setup            | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                            | `/server`         |
-| Cache            | `initializeCache`, `withCache`                                                                                                                                                                                                              | `/server`         |
-| Schema/data      | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `getDirectusStartupStatus`, `rejectWhileSchemaLocked`, `withCollectionIdentity` | `/server`         |
-| Constants        | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                                                                          | `/constants`      |
-| Sentry           | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                                                                            | `/sentry`         |
+| Group            | Public utilities                                                                                                                                                                                                                                | Import from       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Guards           | `isDefined`, `isRecord`, `isArray`, `isString`, `isNonEmptyString`, `isNonBlankString`, `isNumber`, `isFiniteNumber`, `isInteger`, `isBoolean`, `isFunction`, `hasKeys`, `hasKey`                                                               | Root or `/shared` |
+| Attempts         | `attempt`, `attemptSync`, `attemptWithRetry`                                                                                                                                                                                                    | Root or `/shared` |
+| Express adapters | `asyncHandler`                                                                                                                                                                                                                                  | `/server`         |
+| Accountability   | `isAccountability`, `hasAuthenticatedUser`, `assertRequestWithAccountability`, `getAccountabilityFromRequest`                                                                                                                                   | `/server`         |
+| Object helpers   | `keys`, `toEntries`, `fromEntries`                                                                                                                                                                                                              | Root or `/shared` |
+| MIME and IDs     | `classifyMimeType`, `isAudioMimeType`, `isVideoMimeType`, `isImageMimeType`, `isDocumentMimeType`, `uuid`, `uuidv4`                                                                                                                             | Root or `/shared` |
+| Locks            | `createMemoryLockProvider`, `createFsLockProvider`, `createRedisLockProvider`                                                                                                                                                                   | `/server`         |
+| Auto-tasks       | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                                                              | `/server`         |
+| Logging          | `createLogger`                                                                                                                                                                                                                                  | `/server`         |
+| Setup            | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                                | `/server`         |
+| Cache            | `initializeCache`, `withCache`                                                                                                                                                                                                                  | `/server`         |
+| Schema/data      | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `ensureDirectusDocumentation`, `getDirectusStartupStatus`, `withCollectionIdentity` | `/server`         |
+| Constants        | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                                                                              | `/constants`      |
+| Sentry           | `captureException`, `captureMessage`, `addBreadcrumb`, `setUser`                                                                                                                                                                                | `/sentry`         |
 
 ### Extension setup
 
@@ -300,8 +300,9 @@ await ensureDirectusSchema({
 })
 ```
 
-For a normal hook, use the startup coordinator. It guarantees schema callbacks complete before data
-callbacks and gives nested ensures the held lock provider:
+For a normal hook, use the startup coordinator. It runs schema callbacks during `app.before` and
+data callbacks during the awaited `middlewares.before` phase, and gives nested ensures the held lock
+provider:
 
 Policy definitions may contain nested permission definitions. Directus stores permissions as
 separate `directus_permissions` rows with generated integer IDs. `ensureDirectusPolicy` does not
@@ -309,7 +310,7 @@ require or accept stable permission IDs; it ensures rows by the natural key
 `policy + collection + action` and preserves matching existing rows.
 
 ```ts
-const startup = createDirectusStartupCoordinator(action, logger, {
+const startup = createDirectusStartupCoordinator(hook, logger, {
   id: 'orders',
   name: 'Orders',
   disabled: !options.ORDERS_SCHEMA_CHANGES_ENABLED,
@@ -331,10 +332,25 @@ startup.schema(async ({ lockProvider }) => {
 })
 ```
 
+Schema callbacks always register on Directus's awaited `app.before` event, while `data` callbacks
+register on Directus's awaited `middlewares.before` event. This ensures schema preparation completes
+before data seeding begins, and data seeding completes before middleware and route setup continues.
+Init callbacks within either phase are not ordered against one another.
+
+`ensureDirectusDocumentation(article, context, options?)` is the server-only shared contract for
+contributing articles to the fixed `studio_docs` collection. Article definitions require a stable
+UUID in the `id` field, `navigation_label`, and Markdown `body`; `icon` and `archived` have
+defaults. The helper honors the docs and global data-seed gates and supports `override` or
+`versioning` reconciliation. Versioning writes changed content to the reserved `incoming` version
+and never promotes it.
+
 The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
 for callbacks guaranteed to finish within the lease duration. Nested ensures receive a borrowed
-provider and cannot release the coordinator-owned lease. If renewal is lost, later callbacks are
-skipped and the startup failure is logged.
+provider and cannot release the coordinator-owned lease. Provider and callback failures are logged
+and rethrown by default after cleanup; set `abortOnError: false` only for deliberate best-effort
+startup. If renewal is lost, later callbacks are skipped and the startup failure is rethrown after
+cleanup. A `release()` result of `false` is also treated as lost ownership and never reported as a
+successful release.
 
 The package README and
 [maintainer API reference](../../.agents/skills/directus-extension-utils/references/api-reference.md)
@@ -358,7 +374,7 @@ The shared configuration and per-operation controls are:
 | `lockProviderConfig`                                           | operation   | —                | Validated environment options for automatic provider creation.     |
 | `lockProvider`                                                 | operation   | —                | Explicit consumer-owned provider; takes precedence over config.    |
 | `autoRenew`                                                    | coordinator | `true`           | Renews the startup lease while callbacks run.                      |
-| `abortOnError`                                                 | operation   | `true`           | Keep false to log and continue after a service failure.            |
+| `abortOnError`                                                 | coordinator | `true`           | Rethrow provider, callback, and lost-lease failures after cleanup. |
 | `lockLeaseMs`                                                  | operation   | provider default | Per-acquisition lease override.                                    |
 
 The operation always acquires the configured lock. The result reports created resources by stable

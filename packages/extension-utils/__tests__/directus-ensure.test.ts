@@ -24,6 +24,13 @@ import { createDirectusStartupCoordinator } from '../src/server/directus-ensure/
 
 type Services = ApiExtensionContext['services']
 type ActionRegistrar = (event: 'server.start', handler: () => void) => void
+type InitRegistrar = (
+	event: 'app.before' | 'middlewares.before',
+	handler: () => void | Promise<void>,
+) => void
+
+const createHook = (action: ActionRegistrar, init: InitRegistrar = vi.fn()): never =>
+	({ action, init }) as never
 
 const createLogger = () => {
 	const logger: LoggerLike = {
@@ -876,11 +883,54 @@ describe('getDirectusStartupStatus', () => {
 })
 
 describe('createDirectusStartupCoordinator', () => {
-	it('runs schema callbacks before data callbacks in registration order', async () => {
+	it('registers schema and data on awaited init lifecycle events', async () => {
 		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
+		const order: string[] = []
+		const startup = createDirectusStartupCoordinator(createHook(action, init), createLogger(), {
+			id: 'init-test',
+			name: 'Init test',
+			disabled: false,
+			disabledGlobally: false,
+			lockProvider: {
+				tryAcquire: vi.fn(() =>
+					Promise.resolve({
+						name: 'directus-extension-startup:init-test',
+						token: 'token',
+						renew: vi.fn(() => Promise.resolve(true)),
+						release: vi.fn(() => Promise.resolve(true)),
+					}),
+				),
+				isLocked: vi.fn(() => Promise.resolve(false)),
+			},
+			autoRenew: false,
+		})
+		startup.schema(() => {
+			order.push('schema')
+			return Promise.resolve()
+		})
+		startup.data(() => {
+			order.push('data')
+			return Promise.resolve()
+		})
+
+		expect(init).toHaveBeenCalledWith('app.before', expect.any(Function))
+		expect(init).toHaveBeenCalledWith('middlewares.before', expect.any(Function))
+		expect(action).not.toHaveBeenCalled()
+		await init.mock.calls[0]?.[1]?.()
+		expect(order).toEqual(['schema'])
+		expect(order).toEqual(['schema'])
+		await init.mock.calls[1]?.[1]?.()
+		expect(order).toEqual(['schema', 'data'])
+		expect(order).toEqual(['schema', 'data'])
+	})
+
+	it('runs schema callbacks before data callbacks in their lifecycle phases', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
 		const logger = createLogger()
 		const order: string[] = []
-		const startup = createDirectusStartupCoordinator(action, logger, {
+		const startup = createDirectusStartupCoordinator(createHook(action, init), logger, {
 			id: 'startup-test',
 			name: 'Test',
 			disabled: false,
@@ -899,14 +949,17 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
-		action.mock.calls[0]?.[1]?.()
-		await vi.waitFor(() => expect(order).toEqual(['schema-1', 'schema-2', 'data']))
+		await init.mock.calls[0]?.[1]?.()
+		expect(order).toEqual(['schema-1', 'schema-2'])
+		await init.mock.calls[1]?.[1]?.()
+		expect(order).toEqual(['schema-1', 'schema-2', 'data'])
 	})
 
 	it('skips data callbacks when data seeds are disabled globally', async () => {
 		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
 		const order: string[] = []
-		const startup = createDirectusStartupCoordinator(action, createLogger(), {
+		const startup = createDirectusStartupCoordinator(createHook(action, init), createLogger(), {
 			id: 'data-disabled-test',
 			name: 'Data disabled test',
 			disabled: false,
@@ -922,12 +975,15 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
-		action.mock.calls[0]?.[1]?.()
-		await vi.waitFor(() => expect(order).toEqual(['schema']))
+		await init.mock.calls[0]?.[1]?.()
+		expect(order).toEqual(['schema'])
+		await init.mock.calls[1]?.[1]?.()
+		expect(order).toEqual(['schema'])
 	})
 
 	it('does not release the coordinator lease through nested callbacks', async () => {
 		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
 		const release = vi.fn(() => Promise.resolve(true))
 		const lease = {
 			name: 'directus-extension-startup:nested-lock-test',
@@ -939,7 +995,7 @@ describe('createDirectusStartupCoordinator', () => {
 			tryAcquire: vi.fn(() => Promise.resolve(lease)),
 			isLocked: vi.fn(() => Promise.resolve(true)),
 		}
-		const startup = createDirectusStartupCoordinator(action, createLogger(), {
+		const startup = createDirectusStartupCoordinator(createHook(action, init), createLogger(), {
 			id: 'nested-lock-test',
 			name: 'Nested lock test',
 			disabled: false,
@@ -952,12 +1008,13 @@ describe('createDirectusStartupCoordinator', () => {
 			const nestedLease = await heldProvider.tryAcquire(lease.name)
 			expect(await nestedLease?.release()).toBe(false)
 		})
-		action.mock.calls[0]?.[1]?.()
+		await init.mock.calls[0]?.[1]?.()
 		await vi.waitFor(() => expect(release).toHaveBeenCalledOnce())
 	})
 
 	it('renews the coordinator lease while callbacks run', async () => {
 		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
 		const renew = vi.fn(() => Promise.resolve(true))
 		const lease = {
 			name: 'directus-extension-startup:renew-test',
@@ -969,7 +1026,7 @@ describe('createDirectusStartupCoordinator', () => {
 			tryAcquire: vi.fn(() => Promise.resolve(lease)),
 			isLocked: vi.fn(() => Promise.resolve(true)),
 		}
-		const startup = createDirectusStartupCoordinator(action, createLogger(), {
+		const startup = createDirectusStartupCoordinator(createHook(action, init), createLogger(), {
 			id: 'renew-test',
 			name: 'Renew test',
 			disabled: false,
@@ -979,7 +1036,82 @@ describe('createDirectusStartupCoordinator', () => {
 		})
 
 		startup.schema(() => new Promise((resolve) => setTimeout(resolve, 20)))
-		action.mock.calls[0]?.[1]?.()
+		await init.mock.calls[0]?.[1]?.()
 		await vi.waitFor(() => expect(renew).toHaveBeenCalled())
+	})
+
+	it('rethrows callback failures after releasing the coordinator lease', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
+		const release = vi.fn(() => Promise.resolve(true))
+		const callbackError = new Error('schema callback failed')
+		const logger = createLogger()
+		const startup = createDirectusStartupCoordinator(createHook(action, init), logger, {
+			id: 'callback-failure-test',
+			name: 'Callback failure test',
+			disabled: false,
+			disabledGlobally: false,
+			lockProvider: {
+				tryAcquire: vi.fn(() =>
+					Promise.resolve({
+						name: 'directus-extension-startup:callback-failure-test',
+						token: 'token',
+						renew: vi.fn(() => Promise.resolve(true)),
+						release,
+					}),
+				),
+				isLocked: vi.fn(() => Promise.resolve(true)),
+			},
+			autoRenew: false,
+		})
+
+		startup.schema(() => Promise.reject(callbackError))
+
+		await expect(init.mock.calls[0]?.[1]?.()).rejects.toBe(callbackError)
+		expect(release).toHaveBeenCalledOnce()
+		expect(logger.error).toHaveBeenCalledWith(
+			expect.objectContaining({
+				msg: 'Callback failure test Directus startup failed',
+				cause: callbackError,
+			}),
+		)
+	})
+
+	it('reports lost lock ownership instead of successful release', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
+		const logger = createLogger()
+		const startup = createDirectusStartupCoordinator(createHook(action, init), logger, {
+			id: 'release-loss-test',
+			name: 'Release loss test',
+			disabled: false,
+			disabledGlobally: false,
+			lockProvider: {
+				tryAcquire: vi.fn(() =>
+					Promise.resolve({
+						name: 'directus-extension-startup:release-loss-test',
+						token: 'token',
+						renew: vi.fn(() => Promise.resolve(true)),
+						release: vi.fn(() => Promise.resolve(false)),
+					}),
+				),
+				isLocked: vi.fn(() => Promise.resolve(false)),
+			},
+			autoRenew: false,
+		})
+
+		startup.schema(() => Promise.resolve())
+
+		await expect(init.mock.calls[0]?.[1]?.()).rejects.toThrow(
+			'Directus startup lock ownership was lost before release',
+		)
+		expect(logger.error).toHaveBeenCalledWith(
+			expect.objectContaining({
+				msg: 'Release loss test Directus startup lock release failed',
+			}),
+		)
+		expect(logger.debug).not.toHaveBeenCalledWith(
+			expect.objectContaining({ msg: '🔓 Released Directus startup lock' }),
+		)
 	})
 })

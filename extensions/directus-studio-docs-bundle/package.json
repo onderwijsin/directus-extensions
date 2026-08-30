@@ -1,0 +1,96 @@
+{
+	"name": "@onderwijsin/directus-studio-docs-bundle",
+	"version": "0.1.0",
+	"description": "An in-Studio documentation module and shared documentation provisioning foundation for Directus",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle",
+		"documentation"
+	],
+	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
+	"bugs": {
+		"url": "https://github.com/onderwijsin/directus-extensions/issues"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijsin.nl",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remi@onderwijsin.nl",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
+		"directory": "extensions/directus-studio-docs-bundle"
+	},
+	"files": [
+		"dist",
+		"schema",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"main": "./dist/api.js",
+	"exports": {
+		".": "./dist/api.js"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"add": "directus-extension add",
+		"validate": "directus-extension validate",
+		"test:unit": "vitest run --config ../../vitest.config.ts",
+		"typecheck": "vue-tsc --noEmit"
+	},
+	"dependencies": {
+		"@comark/vue": "catalog:",
+		"github-markdown-css": "catalog:",
+		"vue-router": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "catalog:",
+		"@directus/types": "catalog:",
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"@types/node": "catalog:node24",
+		"@workspace/typescript-config": "workspace:*",
+		"vitest": "catalog:",
+		"vue": "catalog:",
+		"vue-tsc": "catalog:"
+	},
+	"icon": "menu_book",
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"name": "studio-docs-hook",
+				"type": "hook",
+				"source": "src/studio-docs-hook/index.ts"
+			},
+			{
+				"name": "studio-docs-module",
+				"type": "module",
+				"source": "src/studio-docs-module/index.ts"
+			}
+		],
+		"host": ">=12.2.0 <13"
+	}
+}

@@ -224,3 +224,11 @@ implement a trusted server-side Loops API integration.
 - API keys and webhook secrets are server-only.
 - Loops remains authoritative for marketing relationships and mailing lists.
 - This is a documentation-only update; no Changeset is required.
+
+## Studio Docs
+
+The hook seeds `Loops` from `docs/loops.json`; set `LOOPS_DOCS_SEED_ENABLED=false` to opt out.
+
+The bundled documentation is available in Dutch. For a translation, use `versioning`, enable
+seeding, edit and publish the translation on the main article, and reject incoming updates. Create a
+fresh translation from the Dutch source whenever it changes.
