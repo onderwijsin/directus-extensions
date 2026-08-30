@@ -33,7 +33,7 @@ import { resolveCoolifyPolicyId } from './policy-ids'
  * @returns Nothing.
  */
 export default defineHook((hook, context) => {
-	const { action, filter } = hook
+	const { filter } = hook
 	const { env, logger } = context
 	const setup = extensionSetup(EXTENSION_NAME, env, logger)
 	setup.start()
@@ -48,7 +48,7 @@ export default defineHook((hook, context) => {
 		logger,
 	})
 
-	const startup = createDirectusStartupCoordinator(action, logger, {
+	const startup = createDirectusStartupCoordinator(hook, logger, {
 		id: EXTENSION_ID,
 		name: 'Coolify deployments',
 		disabled: !options.COOLIFY_DEPLOYMENTS_SCHEMA_CHANGES_ENABLED,

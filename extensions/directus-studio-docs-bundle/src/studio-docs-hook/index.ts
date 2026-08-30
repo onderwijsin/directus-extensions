@@ -6,6 +6,7 @@ import {
 
 import { EXTENSION_NAME } from '../shared/constants'
 import { envSchema } from './env.schema'
+import { registerStudioDocsStartup } from './startup'
 
 /**
  * Registers the Studio Docs server lifecycle boundary.
@@ -20,6 +21,7 @@ export default defineHook((_hook, context) => {
 
 	if (!setup.isEnabled()) return
 
-	validateExtensionOptions(context.env, envSchema, context.logger)
+	const options = validateExtensionOptions(context.env, envSchema, context.logger)
+	registerStudioDocsStartup(_hook, context, options)
 	setup.end()
 })

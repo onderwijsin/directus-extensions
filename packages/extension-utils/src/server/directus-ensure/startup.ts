@@ -1,12 +1,10 @@
+import type { RegisterFunctions } from '../../types'
 import type { LockLease, LockProvider } from '../lock'
 import type { LoggerLike } from '../logger'
 
 import { attempt } from '../../shared/attempt'
 import { getDirectusStartupLockName, type DirectusStartupOptions } from './config'
 import { resolveDirectusLockProvider, type BaseEnsureOptions } from './operations/core'
-
-/** Minimal action registration contract used by server extensions. */
-export type ActionRegistrar = (event: 'server.start', handler: () => void | Promise<void>) => void
 
 /** Options controlling startup coordination registration. */
 export interface CreateDirectusStartupCoordinatorOptions {
@@ -91,13 +89,13 @@ const createLeaseLostError = (error: unknown): Error =>
 
 /**
  * Creates a startup coordinator with one ordered, shared startup lock.
- * @param action - Directus action registrar.
+ * @param hook - Directus hook registration functions.
  * @param logger - Logger used for lifecycle and failure messages.
  * @param options - Enablement and lock configuration.
  * @returns A coordinator for registering schema and data callbacks.
  */
 export function createDirectusStartupCoordinator(
-	action: ActionRegistrar,
+	hook: RegisterFunctions,
 	logger: LoggerLike,
 	options: CreateDirectusStartupCoordinatorOptions,
 ): DirectusStartupCoordinator {
@@ -105,7 +103,16 @@ export function createDirectusStartupCoordinator(
 	const dataCallbacks: ((context: DirectusStartupContext) => Promise<void>)[] = []
 	const lockOptions: BaseEnsureOptions = options
 
-	action('server.start', async () => {
+	/**
+	 * Runs one startup phase under the coordinator lock.
+	 * @param callbacks - Registered callbacks for this phase.
+	 * @param containsData - Whether this phase is subject to the data-seed gate.
+	 * @returns A promise that resolves when the phase has completed.
+	 */
+	const runCallbacks = async (
+		callbacks: ((context: DirectusStartupContext) => Promise<void>)[],
+		containsData: boolean,
+	): Promise<void> => {
 		// Apply global and extension-level switches before resolving providers or acquiring locks.
 		if (options.disabledGlobally) {
 			logger.info(options.name + ' Directus startup is disabled globally')
@@ -115,8 +122,9 @@ export function createDirectusStartupCoordinator(
 			logger.info(options.name + ' Directus startup is disabled for this extension')
 			return
 		}
-		if (options.dataDisabledGlobally) {
+		if (containsData && options.dataDisabledGlobally) {
 			logger.info(options.name + ' Directus data seeds are disabled globally')
+			return
 		}
 
 		// Provider construction is isolated so invalid configuration is logged as startup failure.
@@ -161,18 +169,11 @@ export function createDirectusStartupCoordinator(
 
 			// Nested ensure operations receive a borrowed provider and cannot release this lease.
 			const context = { lockProvider: createHeldLockProvider(lockName, lease) }
-			// Schema work always precedes data work, preserving the startup dependency order.
-			for (const callback of schemaCallbacks) {
+			for (const callback of callbacks) {
 				await callback(context)
 				if (leaseLost) throw createLeaseLostError(renewalError)
 			}
-			if (!options.dataDisabledGlobally) {
-				// Data callbacks are skipped entirely when global data seeding is disabled.
-				for (const callback of dataCallbacks) {
-					await callback(context)
-					if (leaseLost) throw createLeaseLostError(renewalError)
-				}
-			}
+			// Data callbacks are skipped entirely when global data seeding is disabled.
 		})
 		if (startupResult.error !== null) {
 			logger.error({
@@ -210,6 +211,13 @@ export function createDirectusStartupCoordinator(
 				})
 			}
 		}
+	}
+
+	hook.init('app.before', async () => runCallbacks(schemaCallbacks, false))
+	hook.action('server.start', () => {
+		void (options.dataDisabledGlobally
+			? runCallbacks([], true)
+			: runCallbacks(dataCallbacks, true))
 	})
 
 	return {

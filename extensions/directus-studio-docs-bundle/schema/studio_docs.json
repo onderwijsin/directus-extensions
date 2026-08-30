@@ -1,0 +1,95 @@
+{
+	"collections": [
+		{
+			"collection": "studio_docs",
+			"schema": { "name": "studio_docs" },
+			"fields": [
+				{
+					"collection": "studio_docs",
+					"field": "uuid",
+					"type": "uuid",
+					"schema": {
+						"data_type": "uuid",
+						"is_primary_key": true,
+						"is_nullable": false,
+						"has_auto_increment": false
+					},
+					"meta": {
+						"hidden": true,
+						"readonly": true,
+						"special": ["uuid"],
+						"interface": "input",
+						"display": "raw"
+					}
+				}
+			],
+			"meta": {
+				"icon": "menu_book",
+				"versioning": true,
+				"archive_field": "archived",
+				"archive_app_filter": true,
+				"archive_value": true,
+				"unarchive_value": false
+			}
+		}
+	],
+	"fields": [
+		{
+			"collection": "studio_docs",
+			"field": "navigation_label",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": false },
+			"meta": { "interface": "input", "required": true }
+		},
+		{
+			"collection": "studio_docs",
+			"field": "body",
+			"type": "text",
+			"schema": { "data_type": "text", "is_nullable": false },
+			"meta": { "interface": "input-rich-text-html", "required": true }
+		},
+		{
+			"collection": "studio_docs",
+			"field": "sort",
+			"type": "integer",
+			"schema": { "data_type": "integer", "default_value": 0, "is_nullable": false },
+			"meta": { "interface": "input", "required": true }
+		},
+		{
+			"collection": "studio_docs",
+			"field": "archived",
+			"type": "boolean",
+			"schema": { "data_type": "boolean", "default_value": false, "is_nullable": false },
+			"meta": { "interface": "boolean" }
+		},
+		{
+			"collection": "studio_docs",
+			"field": "user_created",
+			"type": "uuid",
+			"schema": { "data_type": "uuid", "is_nullable": true },
+			"meta": { "special": ["user-created"], "interface": "select-dropdown-m2o" }
+		},
+		{
+			"collection": "studio_docs",
+			"field": "date_created",
+			"type": "timestamp",
+			"schema": { "data_type": "timestamp", "is_nullable": true },
+			"meta": { "special": ["date-created"], "interface": "datetime" }
+		},
+		{
+			"collection": "studio_docs",
+			"field": "date_updated",
+			"type": "timestamp",
+			"schema": { "data_type": "timestamp", "is_nullable": true },
+			"meta": { "special": ["date-updated"], "interface": "datetime" }
+		},
+		{
+			"collection": "studio_docs",
+			"field": "icon",
+			"type": "string",
+			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
+			"meta": { "interface": "select-icon", "width": "half" }
+		}
+	],
+	"relations": []
+}

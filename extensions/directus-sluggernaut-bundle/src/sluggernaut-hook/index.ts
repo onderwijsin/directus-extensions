@@ -38,7 +38,7 @@ export default defineHook((hook, context) => {
 		ttl: options.SLUGGERNAUT_FIELDS_CACHE_TTL_MS,
 	})
 
-	registerSluggernautStartup(hook.action, context, options)
+	registerSluggernautStartup(hook, context, options)
 	registerFieldCacheInvalidation(hook, fieldReader)
 	registerSluggernautItemHooks(hook, context, options, fieldReader)
 	registerDirectRedirectHooks(hook, context, options)

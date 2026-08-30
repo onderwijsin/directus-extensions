@@ -36,11 +36,26 @@ documented in the repository’s extension utilities guidance.
 The planned article collection is the fixed `studio_docs` collection and the Studio module is named
 `Docs`. These client-side values are constants, not environment options.
 
-## Phase-one surface
+## Collection and policies
+
+The hook provisions the fixed `studio_docs` collection with UUID articles, Markdown bodies,
+navigation labels, ordering, archive state, audit fields, and an optional icon. Collection
+versioning is enabled with `archived` as the archive field. The hook can also seed the unassigned
+`Can Manage Studio Docs` and `Can View Studio Docs` policies. The view policy only permits
+unarchived articles; administrators must assign policies to roles.
+
+Schema provisioning requires both `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` and
+`DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`. Policy/data provisioning additionally requires
+`DIRECTUS_DOCS_SEED_ENABLED` and `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`.
+
+## Phase-two surface
 
 The bundle registers the `Docs` Studio module with an empty route and the article route contract
-`/docs/:uuid`. The module currently displays an initialization placeholder. The hook validates the
-configuration boundary but does not yet change the schema, policies, or data.
+`/docs/:uuid`. The module currently displays an initialization placeholder. Schema provisioning runs
+during Directus `app.before`, before `server.start` data seeds. This prevents participating
+extensions from seeding articles before the collection exists.
 
-This release does not yet provide article authoring, collection provisioning, access policies,
-cross-extension seeding, version reconciliation, or Markdown rendering.
+The shared utility package now exposes the server-only `seedDocsArticle()` contract for
+participating extensions. It supports stable UUIDs, no-op gates, override reconciliation, and
+reserved `incoming` content versions. Markdown rendering and the complete module UI remain planned
+for a later phase.

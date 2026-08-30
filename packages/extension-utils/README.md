@@ -17,6 +17,13 @@ The public surface includes:
 pnpm add @onderwijsin/directus-extension-utils
 ```
 
+`seedDocsArticle` is the server-only contract for extensions that contribute articles to the fixed
+`studio_docs` collection. It validates stable article input, honors the docs and global data-seed
+gates, and reconciles changed content using either the main item or the reserved `incoming` content
+version. Call it from a startup data callback when the bundle is responsible for schema
+provisioning; pass the complete hook registration object to the startup coordinator so its schema
+phase uses `app.before`.
+
 ## Import
 
 Use the root entry point for common helpers:
@@ -375,11 +382,11 @@ name, preserves compatible policies, and idempotently creates its nested permiss
 UUID/name conflicts without modifying existing policies. Role assignments and user assignments are
 separate future seeds.
 
-Register startup work through `createDirectusStartupCoordinator`. It holds one lock and always runs
-schema callbacks before data callbacks:
+Register startup work through `createDirectusStartupCoordinator`. It holds one lock, registers
+schema callbacks on `app.before`, and registers data callbacks on `server.start`:
 
 ```ts
-const startup = createDirectusStartupCoordinator(action, logger, {
+const startup = createDirectusStartupCoordinator(hook, logger, {
   id: 'orders',
   name: 'Orders',
   disabled: false,
@@ -398,6 +405,19 @@ startup.schema(async ({ lockProvider }) => {
     definition: ordersDefinition,
     options: { lockProvider },
   })
+})
+```
+
+Schema callbacks always register on Directus's awaited `app.before` lifecycle event, while data
+callbacks remain on `server.start`:
+
+```ts
+const startup = createDirectusStartupCoordinator(hook, logger, {
+  id: 'studio-docs',
+  name: 'Studio Docs',
+  disabled: false,
+  disabledGlobally: false,
+  dataDisabledGlobally: false,
 })
 ```
 

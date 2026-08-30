@@ -12,7 +12,8 @@ import {
 
 import { runUtilitySmokeTest } from './smoke'
 
-export default defineHook(({ action }, context) => {
+export default defineHook((hook, context) => {
+	const { action } = hook
 	if (context) {
 		const { database, getSchema, logger, services } = context
 		const policyDefinition: DirectusPolicyDefinition = {
@@ -71,7 +72,7 @@ export default defineHook(({ action }, context) => {
 			],
 		}
 
-		const startup = createDirectusStartupCoordinator(action, logger, {
+		const startup = createDirectusStartupCoordinator(hook, logger, {
 			id: 'e2e-playground',
 			name: 'E2E playground',
 			disabled: false,

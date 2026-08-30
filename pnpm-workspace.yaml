@@ -48,6 +48,7 @@ catalog:
   ofetch: 1.5.1
   loops: 7.2.0
   ufo: 1.6.4
+  '@comark/vue': 0.6.2
 catalogs:
   node24:
     '@types/node': 24.13.3

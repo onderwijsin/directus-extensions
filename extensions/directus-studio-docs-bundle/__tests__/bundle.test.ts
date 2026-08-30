@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => {
 	const hookRegister = vi.fn()
 	const setup = { end: vi.fn(), isEnabled: vi.fn(() => true), start: vi.fn() }
+	const startup = { schema: vi.fn(), data: vi.fn() }
 	return {
 		defineHook: vi.fn((register) => {
 			hookRegister.mockImplementation(register)
@@ -10,7 +11,11 @@ const mocks = vi.hoisted(() => {
 		}),
 		defineModule: vi.fn((definition) => definition),
 		extensionSetup: vi.fn(() => setup),
+		createDirectusStartupCoordinator: vi.fn(() => startup),
+		ensureDirectusPolicy: vi.fn(),
+		ensureDirectusSchema: vi.fn(),
 		hookRegister,
+		startup,
 		setup,
 		validateExtensionOptions: vi.fn(),
 	}
@@ -26,7 +31,10 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async () => {
 	>('@onderwijsin/directus-extension-utils/server')
 	return {
 		...actual,
+		createDirectusStartupCoordinator: mocks.createDirectusStartupCoordinator,
 		extensionSetup: mocks.extensionSetup,
+		ensureDirectusPolicy: mocks.ensureDirectusPolicy,
+		ensureDirectusSchema: mocks.ensureDirectusSchema,
 		validateExtensionOptions: mocks.validateExtensionOptions,
 	}
 })
@@ -69,15 +77,16 @@ describe('Studio Docs bundle Phase 1 scaffold', () => {
 	})
 
 	it('validates enabled hook configuration and completes setup', () => {
-		mocks.hookRegister({}, { env: {}, logger: {} })
+		mocks.hookRegister({ action: vi.fn(), init: vi.fn() }, { env: {}, logger: {} })
 
 		expect(mocks.validateExtensionOptions).toHaveBeenCalledWith({}, envSchema, {})
 		expect(mocks.setup.end).toHaveBeenCalledOnce()
+		expect(mocks.createDirectusStartupCoordinator).toHaveBeenCalledOnce()
 	})
 
 	it('does not validate or complete disabled hook setup', () => {
 		mocks.setup.isEnabled.mockReturnValue(false)
-		mocks.hookRegister({}, { env: {}, logger: {} })
+		mocks.hookRegister({ action: vi.fn(), init: vi.fn() }, { env: {}, logger: {} })
 
 		expect(mocks.validateExtensionOptions).not.toHaveBeenCalled()
 		expect(mocks.setup.end).not.toHaveBeenCalled()

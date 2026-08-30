@@ -34,7 +34,7 @@ The published bundle contains:
 - a hook extension for schema, policy, and article startup provisioning; and
 - a Studio module extension for reading the published articles.
 
-The default collection name is `studio_docs` and is configurable through `DIRECTUS_DOCS_COLLECTION`.
+The collection name is the fixed client-side constant `studio_docs`.
 
 The bundle is enabled by default when installed, subject to the repository’s normal extension setup
 lifecycle. Configuration should be validated at the hook entrypoint with Zod and documented in both
@@ -42,17 +42,15 @@ the package README and its consumer skill.
 
 Proposed options:
 
-| Variable                               | Default       | Meaning                                                                             |
-| -------------------------------------- | ------------- | ----------------------------------------------------------------------------------- |
-| `DIRECTUS_DOCS_ENABLED`                | `true`        | Enables the documentation bundle, including its Studio module and startup behavior. |
-| `DIRECTUS_DOCS_COLLECTION`             | `studio_docs` | Collection used for articles.                                                       |
-| `DIRECTUS_DOCS_SEED_ENABLED`           | `true`        | Enables article seeding from this bundle and participating extensions.              |
-| `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning`  | Accepts `override` or `versioning`; controls handling of changed seeded articles.   |
-| `DIRECTUS_DOCS_MODULE_NAME`            | `Docs`        | Public name shown for the Studio module.                                            |
-| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`        | Controls collection schema provisioning.                                            |
-| `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`        | Controls whether an unexpected schema/policy provisioning error aborts startup.     |
-| `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`        | Controls seeding of the manage policy.                                              |
-| `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`        | Controls seeding of the view policy.                                                |
+| Variable                               | Default      | Meaning                                                                             |
+| -------------------------------------- | ------------ | ----------------------------------------------------------------------------------- |
+| `DIRECTUS_DOCS_ENABLED`                | `true`       | Enables the documentation bundle, including its Studio module and startup behavior. |
+| `DIRECTUS_DOCS_SEED_ENABLED`           | `true`       | Enables article seeding from this bundle and participating extensions.              |
+| `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning` | Accepts `override` or `versioning`; controls handling of changed seeded articles.   |
+| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Controls collection schema provisioning.                                            |
+| `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`       | Controls whether an unexpected schema/policy provisioning error aborts startup.     |
+| `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`       | Controls seeding of the manage policy.                                              |
+| `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`       | Controls seeding of the view policy.                                                |
 
 The existing global startup gates and lock-provider settings remain applicable. Docs seeding has two
 gates: `DIRECTUS_DOCS_SEED_ENABLED` must be true and `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED` must be
@@ -61,7 +59,7 @@ setting.
 
 ### 2. Collection provisioning
 
-The hook provisions the configured collection with the following logical fields:
+The hook provisions the fixed `studio_docs` collection with the following logical fields:
 
 | Field              | Required behavior                                                                                                                       |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -106,25 +104,25 @@ identity adapter.
 
 The hook seeds these policies, subject to their individual configuration gates:
 
-- `Can Manage Studio Docs`: full CRUD access to the configured docs collection, including access
-  required to review and promote content versions in the normal collection editor;
-- `Can View Studio Docs`: read access to the configured docs collection with a filter for the
+- `Can Manage Studio Docs`: full CRUD access to the fixed docs collection, including access required
+  to review and promote content versions in the normal collection editor;
+- `Can View Studio Docs`: read access to the fixed docs collection with a filter for the
   non-archived state. It does not grant access to version-management behavior.
 
 Policies are not assigned automatically to roles or users. Administrators decide which roles receive
 them. The module must continue to rely on Directus accountability and permissions; it must not use
 elevated server-side reads to expose articles to a Studio user who lacks the view policy.
 
-The policy definitions should be parameterized with `DIRECTUS_DOCS_COLLECTION` and seeded through
-the shared `ensureDirectusPolicy` path. The view policy filters the archive field to its unarchived
+The policy definitions should use the fixed `studio_docs` collection name and be seeded through the
+shared `ensureDirectusPolicy` path. The view policy filters the archive field to its unarchived
 value. It does not filter versions: the module always reads the main version. Content versioning is
 available through the normal collection editor only, and therefore only to users with the manage
 policy.
 
 ### 4. Studio module
 
-The module is registered with a stable public module id and the configurable public name from
-`DIRECTUS_DOCS_MODULE_NAME`, which defaults to `Docs`. Its route contract is:
+The module is registered with a stable public module id and the fixed public name `Docs`. Its route
+contract is:
 
 ```text
 /docs/:uuid
@@ -137,7 +135,7 @@ empty state rather than attempting to navigate to an invalid UUID.
 
 The module navigation:
 
-- loads visible articles from the configured collection;
+- loads visible articles from the fixed `studio_docs` collection;
 - excludes archived articles using the configured archive field/value;
 - excludes non-published/draft content by reading the main version only;
 - orders articles by ascending `sort`, with a deterministic tie-breaker;
@@ -187,8 +185,8 @@ definition independent of Directus service constructors. An article definition c
 ```
 
 Seeded articles must provide a stable UUID. The helper normalizes defaults, validates the boundary
-input, resolves the configured collection, and writes only the article fields owned by the seed. It
-must not modify `date_created` or `date_updated` directly.
+input, resolves the fixed `studio_docs` collection, and writes only the article fields owned by the
+seed. It must not modify `date_created` or `date_updated` directly.
 
 The helper is a no-op when `DIRECTUS_DOCS_ENABLED=false`, `DIRECTUS_DOCS_SEED_ENABLED=false`, or the
 global `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED=false` gate is active. Participating extensions may
@@ -311,7 +309,7 @@ bundle must not require those projects to modify the module or bundle source.
   unless it is the cleanest API for implementing that barrier.
 - Implement and test collection provisioning, including versioning-enabled metadata and compatible
   existing-schema behavior.
-- Implement and test the manage/view policy definitions and configured collection substitution.
+- Implement and test the manage/view policy definitions against the fixed collection.
 - Add `seedDocsArticle()` and its canonical fingerprint/reconciliation logic to extension-utils.
 - Add utility tests for gates, stable identity, no-op behavior, identical seeds, override strategy,
   incoming-version strategy, repeated incoming updates, and absent-collection readiness behavior.
@@ -357,8 +355,8 @@ bundle must not require those projects to modify the module or bundle source.
 These implementation details should be verified during Phase 1 or Phase 2, using official Directus
 documentation and a small local verification where necessary:
 
-1. The cross-extension startup barrier that guarantees the docs collection schema exists before any
-   participating extension seeds data. The preferred direction is a shared schema phase followed by
-   a shared data phase; load-order dependence requires explicit evidence that Directus makes
-   registration and execution synchronous and deterministic.
+1. The cross-extension startup barrier is resolved by registering schema callbacks through the
+   shared startup coordinator's `init('app.before')` path while retaining data callbacks on
+   `server.start`. Directus awaits `app.before` before it can emit `server.start`; extension load
+   order and ordering between `app.before` listeners remain intentionally unsupported assumptions.
 2. Comark’s raw-HTML and link-safety behavior under the default `Markdown` renderer.

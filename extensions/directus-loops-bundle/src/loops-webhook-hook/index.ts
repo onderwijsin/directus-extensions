@@ -31,7 +31,7 @@ export default defineHook((hook, context) => {
 
 	const options = validateExtensionOptions(env, envSchema, logger)
 
-	registerLoopsStartup(action, context, options)
+	registerLoopsStartup(hook, context, options)
 
 	if (options.LOOPS_SYNC_ENABLED && options.LOOPS_API_KEY) {
 		const loops = createLoopsClient(options)

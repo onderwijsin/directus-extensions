@@ -22,7 +22,7 @@ import { envSchema } from './env.schema'
  * @returns void
  */
 export default defineHook((hook, context) => {
-	const { action, filter, schedule } = hook
+	const { filter, schedule } = hook
 	const { env, logger } = context
 	const setup = extensionSetup(EXTENSION_NAME, env, logger)
 	setup.start()
@@ -31,7 +31,7 @@ export default defineHook((hook, context) => {
 
 	const options = validateExtensionOptions(env, envSchema, logger)
 
-	const startup = createDirectusStartupCoordinator(action, logger, {
+	const startup = createDirectusStartupCoordinator(hook, logger, {
 		id: EXTENSION_ID,
 		name: 'Magic links',
 		disabled: !options.MAGIC_LINKS_SCHEMA_CHANGES_ENABLED,

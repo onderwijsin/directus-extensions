@@ -300,8 +300,8 @@ await ensureDirectusSchema({
 })
 ```
 
-For a normal hook, use the startup coordinator. It guarantees schema callbacks complete before data
-callbacks and gives nested ensures the held lock provider:
+For a normal hook, use the startup coordinator. It runs schema callbacks during `app.before` and
+data callbacks during `server.start`, and gives nested ensures the held lock provider:
 
 Policy definitions may contain nested permission definitions. Directus stores permissions as
 separate `directus_permissions` rows with generated integer IDs. `ensureDirectusPolicy` does not
@@ -309,7 +309,7 @@ require or accept stable permission IDs; it ensures rows by the natural key
 `policy + collection + action` and preserves matching existing rows.
 
 ```ts
-const startup = createDirectusStartupCoordinator(action, logger, {
+const startup = createDirectusStartupCoordinator(hook, logger, {
   id: 'orders',
   name: 'Orders',
   disabled: !options.ORDERS_SCHEMA_CHANGES_ENABLED,
@@ -330,6 +330,16 @@ startup.schema(async ({ lockProvider }) => {
   })
 })
 ```
+
+Schema callbacks always register on Directus's awaited `app.before` event, while `data` callbacks
+remain on `server.start`. This ensures schema preparation completes before any `server.start` data
+callback can begin; `app.before` callbacks themselves are not ordered against one another.
+
+`seedDocsArticle(article, context, options?)` is the server-only shared contract for contributing
+articles to the fixed `studio_docs` collection. Article definitions require a stable UUID,
+`navigation_label`, and Markdown `body`; `sort`, `icon`, and `archived` have defaults. The helper
+honors the docs and global data-seed gates and supports `override` or `versioning` reconciliation.
+Versioning writes changed content to the reserved `incoming` version and never promotes it.
 
 The coordinator renews its startup lease by default while callbacks run. Set `autoRenew: false` only
 for callbacks guaranteed to finish within the lease duration. Nested ensures receive a borrowed

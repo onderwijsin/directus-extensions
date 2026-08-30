@@ -32,6 +32,7 @@
 	},
 	"files": [
 		"dist",
+		"schema",
 		"README.md",
 		"CHANGELOG.md"
 	],
@@ -58,6 +59,7 @@
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",
+		"@directus/types": "catalog:",
 		"@onderwijsin/directus-extension-utils": "workspace:*",
 		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",

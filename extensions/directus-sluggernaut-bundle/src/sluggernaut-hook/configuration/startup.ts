@@ -25,17 +25,17 @@ import { EXTENSION_NAME, POLICY_IDS } from '../../shared/configuration/constants
 
 /**
  * Registers Sluggernaut schema and policy startup coordination.
- * @param action - Directus action registration function.
+ * @param hook - Directus hook registration functions.
  * @param context - Directus hook extension context.
  * @param options - Validated extension options.
  * @returns Nothing.
  */
 export function registerSluggernautStartup(
-	action: RegisterFunctions['action'],
+	hook: RegisterFunctions,
 	context: HookExtensionContext,
 	options: SluggernautEnv,
 ): void {
-	const startup = createDirectusStartupCoordinator(action, context.logger, {
+	const startup = createDirectusStartupCoordinator(hook, context.logger, {
 		id: EXTENSION_NAME,
 		name: 'Sluggernaut',
 		disabled: !options.SLUGGERNAUT_SCHEMA_CHANGES_ENABLED,
