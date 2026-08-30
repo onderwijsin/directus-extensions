@@ -1,5 +1,11 @@
 # @onderwijsin/directus-loops-bundle
 
+## 0.3.0
+
+### Minor Changes
+
+- 5a7b9bc: Seed a bundled Loops Studio Docs article, with an opt-out environment flag.
+
 ## 0.2.1
 
 ### Patch Changes

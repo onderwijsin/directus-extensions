@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- 5a7b9bc: Seed a bundled Magic Links Studio Docs article, with an opt-out environment flag.
+
+### Patch Changes
+
+- d8abee8: Remove endpoint-time schema-lock rejection now that startup schema and data preparation
+  complete before requests are served.
+
 ## 0.3.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-magic-links-bundle",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Passwordless magic-link authentication for Directus frontend clients",
 	"keywords": [
 		"directus",

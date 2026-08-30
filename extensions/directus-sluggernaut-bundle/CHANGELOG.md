@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+### Minor Changes
+
+- 5a7b9bc: Seed a bundled Sluggernaut Studio Docs article, with an opt-out environment flag.
+
 ## 0.2.2
 
 ### Patch Changes
