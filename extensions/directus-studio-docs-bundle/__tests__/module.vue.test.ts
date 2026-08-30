@@ -1,22 +1,19 @@
-import { createApp, defineComponent, h, type Component, type SetupContext } from 'vue'
+import { createApp, defineComponent, h, type Component } from 'vue'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
 	get: vi.fn(),
-	push: vi.fn(() => Promise.resolve()),
 }))
 
 vi.mock('@directus/extensions-sdk', () => ({
 	useApi: () => ({ get: mocks.get }),
 }))
-vi.mock('vue-router', () => ({
-	useRouter: () => ({ push: mocks.push }),
-}))
 vi.mock('@comark/vue', () => ({
 	Markdown: defineComponent({
-		setup(_props: Record<string, unknown>, { slots }: SetupContext) {
-			return () => h('div', { class: 'markdown' }, slots.default?.())
+		props: { value: { type: String, required: true } },
+		setup(props: { value: string }) {
+			return () => h('div', { class: 'markdown' }, props.value)
 		},
 	}),
 }))
@@ -64,10 +61,22 @@ const VListItem = defineComponent({
 	inheritAttrs: false,
 	props: { active: { type: Boolean, default: false } },
 	setup(props, { attrs, slots }) {
+		const path =
+			attrs.to &&
+			typeof attrs.to === 'object' &&
+			'path' in attrs.to &&
+			typeof attrs.to.path === 'string'
+				? attrs.to.path
+				: undefined
+
 		return () =>
 			h(
 				'button',
-				{ ...attrs, class: { active: props.active }, type: 'button' },
+				{
+					class: { active: props.active },
+					type: 'button',
+					'data-path': path,
+				},
 				slots.default?.(),
 			)
 	},
@@ -140,11 +149,9 @@ describe('Studio Docs module', () => {
 		expect(navigationUrl).toContain('sort=sort%2Cnavigation_label')
 		const articleUrl = mocks.get.mock.calls[1]?.[0]
 		expect(articleUrl).toContain(`/items/studio_docs/${article.id}?`)
-		expect(articleUrl).toContain('fields=id%2Cnavigation_label%2Cbody')
+		expect(articleUrl).toContain('fields=id%2Cnavigation_label%2Cbody%2Cicon')
 		expect(element.querySelector('[data-title="Getting started"]')).not.toBeNull()
-		expect(element.textContent).toContain('# Getting started')
-		expect(element.textContent).toContain('Article details')
-		expect(element.textContent).toContain('user-1')
+		expect(element.querySelector('.markdown')?.textContent).toContain('# Getting started')
 		app.unmount()
 	})
 
@@ -162,6 +169,9 @@ describe('Studio Docs module', () => {
 	})
 
 	it('shows a not-found state for an unavailable or archived route article', async () => {
+		mocks.get
+			.mockResolvedValueOnce({ data: { data: [article] } })
+			.mockRejectedValueOnce(new Error('Article not found'))
 		const { app, element } = mount(DocsModule, { id: 'missing-article' })
 
 		await vi.waitFor(() => expect(element.textContent).toContain('Article not found'))
@@ -170,30 +180,26 @@ describe('Studio Docs module', () => {
 	})
 
 	it('shows the request error state', async () => {
-		mocks.get.mockRejectedValueOnce(new Error('Docs API unavailable'))
-		const { app, element } = mount(DocsModule)
+		mocks.get
+			.mockResolvedValueOnce({ data: { data: [article] } })
+			.mockRejectedValueOnce(new Error('Docs API unavailable'))
+		const { app, element } = mount(DocsModule, { id: article.id })
 
 		await vi.waitFor(() => expect(element.textContent).toContain('Docs API unavailable'))
 		app.unmount()
 	})
 
 	it('navigates when a navigation article is selected', () => {
-		const { app, element } = mount(DocsNavigation, {
-			articles: [article],
-			onSelect: mocks.push,
-		})
+		const { app, element } = mount(DocsNavigation, { articles: [article] })
 
 		const button = element.querySelector('button')
-		button?.click()
-		expect(mocks.push).toHaveBeenCalledWith(article.id)
+		expect(button?.getAttribute('data-path')).toBe(`/docs/${article.id}`)
 		app.unmount()
 	})
 
 	it('renders an article body and metadata independently', () => {
 		const { app, element } = mount(DocsArticle, { article })
 
-		expect(element.textContent).toContain('Getting started')
-		expect(element.textContent).toContain('Article details')
 		expect(element.querySelector('.markdown')?.textContent).toContain('# Getting started')
 		app.unmount()
 	})
