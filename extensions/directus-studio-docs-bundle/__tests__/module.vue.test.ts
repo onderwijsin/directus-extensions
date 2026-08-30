@@ -150,6 +150,7 @@ describe('Studio Docs module', () => {
 		const articleUrl = mocks.get.mock.calls[1]?.[0]
 		expect(articleUrl).toContain(`/items/studio_docs/${article.id}?`)
 		expect(articleUrl).toContain('fields=id%2Cnavigation_label%2Cbody%2Cicon')
+		expect(articleUrl).toContain('filter%5Barchived%5D%5B_eq%5D=false')
 		expect(element.querySelector('[data-title="Getting started"]')).not.toBeNull()
 		expect(element.querySelector('.markdown')?.textContent).toContain('# Getting started')
 		app.unmount()

@@ -20,21 +20,27 @@ Directus Cloud environments that do not permit custom server extensions.
 
 The hook validates these environment variables. Defaults are enabled:
 
-| Variable                               | Default      | Purpose                                             |
-| -------------------------------------- | ------------ | --------------------------------------------------- |
-| `DIRECTUS_DOCS_ENABLED`                | `true`       | Enables the bundle lifecycle.                       |
-| `DIRECTUS_DOCS_SEED_ENABLED`           | `true`       | Article seeding gate.                               |
-| `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning` | `override` or `versioning` reconciliation strategy. |
-| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Schema provisioning gate.                           |
-| `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`       | Schema error policy.                                |
-| `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`       | Manage-policy gate.                                 |
-| `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`       | View-policy gate.                                   |
+| Variable                               | Default      | Purpose                                                                                                                                      |
+| -------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DIRECTUS_DOCS_ENABLED`                | `true`       | Enables server-side provisioning and seeding. The client-side module remains registered because it cannot read server environment variables. |
+| `DIRECTUS_DOCS_SEED_ENABLED`           | `true`       | Article seeding gate.                                                                                                                        |
+| `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning` | `override` or `versioning` reconciliation strategy.                                                                                          |
+| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Schema provisioning gate.                                                                                                                    |
+| `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`       | Schema error policy.                                                                                                                         |
+| `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`       | Manage-policy gate.                                                                                                                          |
+| `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`       | View-policy gate.                                                                                                                            |
 
 The shared Directus extension startup and lock settings are also accepted by the hook. They are
 documented in the repository’s extension utilities guidance.
 
 The article collection is fixed at `studio_docs` and the Studio module is named `Docs`. These
 client-side values are constants, not environment options.
+
+`DIRECTUS_DOCS_ENABLED=false` disables the server-side hook, including schema and policy/data
+provisioning. It does not hide or unregister the Studio module: app extensions run in the browser
+and cannot read the server environment directly. If the module is still installed while this switch
+is off, it remains visible but cannot load articles unless the collection and permissions are
+provided by another mechanism.
 
 ## Collection and policies
 

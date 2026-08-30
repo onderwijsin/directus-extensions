@@ -24,21 +24,27 @@ does not provide a Directus Cloud-compatible serverless alternative.
 The hook validates the following values. Directus supplies booleans according to its normal
 environment parsing rules.
 
-| Variable                               | Default      | Accepted values / behavior            |
-| -------------------------------------- | ------------ | ------------------------------------- |
-| `DIRECTUS_DOCS_ENABLED`                | `true`       | Boolean master switch.                |
-| `DIRECTUS_DOCS_SEED_ENABLED`           | `true`       | Boolean gate for article seeding.     |
-| `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning` | `override` or `versioning`.           |
-| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Boolean gate for schema provisioning. |
-| `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`       | Boolean schema error behavior.        |
-| `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`       | Boolean manage-policy gate.           |
-| `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`       | Boolean view-policy gate.             |
+| Variable                               | Default      | Accepted values / behavior                                                                                                                |
+| -------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `DIRECTUS_DOCS_ENABLED`                | `true`       | Server-side provisioning and seeding gate. The client-side module remains registered because it cannot read server environment variables. |
+| `DIRECTUS_DOCS_SEED_ENABLED`           | `true`       | Boolean gate for article seeding.                                                                                                         |
+| `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning` | `override` or `versioning`.                                                                                                               |
+| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Boolean gate for schema provisioning.                                                                                                     |
+| `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`       | Boolean schema error behavior.                                                                                                            |
+| `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`       | Boolean manage-policy gate.                                                                                                               |
+| `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`       | Boolean view-policy gate.                                                                                                                 |
 
 The hook also accepts the shared startup, synchronization, and lock-provider configuration used by
 the repository’s Directus extension utilities.
 
 The article collection is fixed at `studio_docs`, and the module name is fixed at `Docs`. Neither
 value is configurable through the environment because they are used by the client-side module.
+
+`DIRECTUS_DOCS_ENABLED=false` disables the server-side hook, including schema and policy/data
+provisioning. It does not hide or unregister the Studio module: app extensions run in the browser
+and cannot read the server environment directly. If the module remains installed while this switch
+is off, it remains visible but cannot load articles unless the collection and permissions are
+provided by another mechanism.
 
 ## Current module surface
 

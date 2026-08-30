@@ -19,7 +19,10 @@ export function useDocsArticle() {
 	 * @returns The requested article.
 	 */
 	const getArticle = async (id: string): Promise<StudioDocsArticle> => {
-		const query = new URLSearchParams({ fields: articleFields })
+		const query = new URLSearchParams({
+			fields: articleFields,
+			'filter[archived][_eq]': 'false',
+		})
 		const response = await api.get<{ data: StudioDocsArticle }>(
 			`/items/${COLLECTION_NAME}/${encodeURIComponent(id)}?${query.toString()}`,
 		)

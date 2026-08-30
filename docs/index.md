@@ -28,11 +28,6 @@ article that matches the work, then follow its linked source-of-truth documents 
 - **Official references:** Directus-specific facts must be checked against the official Directus
   documentation and MCP rather than inferred from local code.
 
-## Proposals
-
-- [`directus-studio-docs-bundle`](proposals/directus-studio-docs-bundle.md): proposed internal
-  Studio documentation bundle, shared article seeding contract, and phased implementation plan.
-
 If implementation and documentation disagree, verify the implementation, decide which source is
 authoritative, and reconcile both in the same change. Use `pnpm validate:docs` for the automated
 consumer-documentation coverage check.
