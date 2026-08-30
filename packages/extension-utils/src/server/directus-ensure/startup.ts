@@ -214,11 +214,9 @@ export function createDirectusStartupCoordinator(
 	}
 
 	hook.init('app.before', async () => runCallbacks(schemaCallbacks, false))
-	hook.action('server.start', () => {
-		void (options.dataDisabledGlobally
-			? runCallbacks([], true)
-			: runCallbacks(dataCallbacks, true))
-	})
+	hook.init('middlewares.before', async () =>
+		runCallbacks(options.dataDisabledGlobally ? [] : dataCallbacks, true),
+	)
 
 	return {
 		/**

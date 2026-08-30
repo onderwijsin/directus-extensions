@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 
 import { attempt } from '../../../shared/attempt'
+import { isNumber, isString } from '../../../shared/guards'
 import { getDirectusStartupLockName } from '../config'
 import { resolveDirectusLockProvider } from './core'
 
@@ -128,7 +129,7 @@ export async function ensureDirectusDocumentation(
 		return
 	}
 
-	try {
+	const operationResult = await attempt(async () => {
 		const schema = await context.getSchema()
 		const collectionsService = new context.services.CollectionsService({
 			accountability: null,
@@ -173,7 +174,7 @@ export async function ensureDirectusDocumentation(
 		})
 		const incoming = versions[0]
 		const incomingId = incoming?.id
-		if (typeof incomingId === 'string' || typeof incomingId === 'number') {
+		if (isString(incomingId) || isNumber(incomingId)) {
 			await versionsService.save(incomingId, seed)
 		} else {
 			const versionId = await versionsService.createOne({
@@ -184,16 +185,22 @@ export async function ensureDirectusDocumentation(
 			})
 			await versionsService.save(versionId, seed)
 		}
-	} catch (error) {
+	})
+
+	if (operationResult.error !== null) {
 		context.logger.error({
 			msg: 'Studio Docs article seed failed',
 			article: seed.id,
 			extension: options.extensionName ?? 'unknown',
-			cause: error,
+			cause: operationResult.error,
 		})
-		if (options.abortOnError ?? true) throw error
-	} finally {
-		if (lease) await lease.release()
-		if (!options.lockProvider) await configuredProvider.dispose()
+	}
+
+	if (lease) await lease.release()
+	if (!options.lockProvider) await configuredProvider.dispose()
+	if (operationResult.error !== null && (options.abortOnError ?? true)) {
+		throw operationResult.error instanceof Error
+			? operationResult.error
+			: new Error('Studio Docs article seed failed', { cause: operationResult.error })
 	}
 }

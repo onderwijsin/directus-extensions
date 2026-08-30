@@ -196,7 +196,7 @@ checks remain enabled.
 ## API reference
 
 Base path: `/coolify-deployments`. All routes return `X-Coolify-Deployments-Poll-Interval` with the
-configured polling interval and return `503` while schema startup work is locked.
+configured polling interval.
 
 | Method | Route                                                                    | Policy    | Response                                                                                         |
 | ------ | ------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------ |

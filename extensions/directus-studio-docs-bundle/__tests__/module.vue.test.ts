@@ -55,6 +55,39 @@ const VIcon = defineComponent({
 		return () => h('span', { 'data-icon': props.name })
 	},
 })
+const VList = defineComponent({
+	setup(_props, { slots }) {
+		return () => h('ul', { class: 'v-list' }, slots.default?.())
+	},
+})
+const VListItem = defineComponent({
+	inheritAttrs: false,
+	props: { active: { type: Boolean, default: false } },
+	setup(props, { attrs, slots }) {
+		return () =>
+			h(
+				'button',
+				{ ...attrs, class: { active: props.active }, type: 'button' },
+				slots.default?.(),
+			)
+	},
+})
+const VListItemIcon = defineComponent({
+	setup(_props, { slots }) {
+		return () => h('span', { class: 'v-list-item-icon' }, slots.default?.())
+	},
+})
+const VListItemContent = defineComponent({
+	setup(_props, { slots }) {
+		return () => h('span', { class: 'v-list-item-content' }, slots.default?.())
+	},
+})
+const VTextOverflow = defineComponent({
+	props: { text: { type: String, required: true } },
+	setup(props) {
+		return () => h('span', { class: 'v-text-overflow' }, props.text)
+	},
+})
 const VNotice = defineComponent({
 	setup(_props, { slots }) {
 		return () => h('p', { class: 'notice' }, slots.default?.())
@@ -74,6 +107,11 @@ function mount(component: Component, props: Record<string, unknown> = {}) {
 	app.component('private-view', PrivateView)
 	app.component('v-button', VButton)
 	app.component('v-icon', VIcon)
+	app.component('v-list', VList)
+	app.component('v-list-item', VListItem)
+	app.component('v-list-item-icon', VListItemIcon)
+	app.component('v-list-item-content', VListItemContent)
+	app.component('v-text-overflow', VTextOverflow)
 	app.component('v-notice', VNotice)
 	app.component('v-info', VInfo)
 	app.mount(element)
@@ -89,13 +127,20 @@ describe('Studio Docs module', () => {
 	})
 
 	it('loads visible articles, renders Markdown, and shows audit details', async () => {
+		mocks.get
+			.mockResolvedValueOnce({ data: { data: [article] } })
+			.mockResolvedValueOnce({ data: { data: article } })
 		const { app, element } = mount(DocsModule, { id: article.id })
 
 		await vi.waitFor(() => expect(element.querySelector('.markdown')).not.toBeNull())
 		expect(mocks.get).toHaveBeenCalledWith(expect.stringContaining('/items/studio_docs?'))
-		const requestUrl = mocks.get.mock.calls[0]?.[0]
-		expect(requestUrl).toContain('filter%5Barchived%5D%5B_eq%5D=false')
-		expect(requestUrl).toContain('sort=sort%2Cnavigation_label')
+		const navigationUrl = mocks.get.mock.calls[0]?.[0]
+		expect(navigationUrl).toContain('fields=id%2Cnavigation_label%2Cicon')
+		expect(navigationUrl).toContain('filter%5Barchived%5D%5B_eq%5D=false')
+		expect(navigationUrl).toContain('sort=sort%2Cnavigation_label')
+		const articleUrl = mocks.get.mock.calls[1]?.[0]
+		expect(articleUrl).toContain(`/items/studio_docs/${article.id}?`)
+		expect(articleUrl).toContain('fields=id%2Cnavigation_label%2Cbody')
 		expect(element.querySelector('[data-title="Getting started"]')).not.toBeNull()
 		expect(element.textContent).toContain('# Getting started')
 		expect(element.textContent).toContain('Article details')
@@ -106,7 +151,7 @@ describe('Studio Docs module', () => {
 	it('shows the empty state when no unarchived articles are returned', async () => {
 		mocks.get.mockResolvedValueOnce({
 			data: {
-				data: [{ ...article, archived: true }],
+				data: [],
 			},
 		})
 		const { app, element } = mount(DocsModule)

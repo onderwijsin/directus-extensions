@@ -1,23 +1,22 @@
 <script setup lang="ts">
-import type { StudioDocsArticle } from './types'
+import type { StudioDocsArticle, StudioDocsNavigationArticle } from './types'
 
-import { computed, onMounted, shallowRef } from 'vue'
+import { onMounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 
 import DocsArticle from './components/DocsArticle.vue'
 import DocsNavigation from './components/DocsNavigation.vue'
-import { useStudioDocsApi } from './composables/useStudioDocsApi'
+import { useDocsArticle } from './composables/useDocsArticle'
+import { useDocsNavigation } from './composables/useDocsNavigation'
 
 const props = defineProps<{ id?: string }>()
 const router = useRouter()
-const api = useStudioDocsApi()
-const articles = shallowRef<StudioDocsArticle[]>([])
+const navigationApi = useDocsNavigation()
+const articleApi = useDocsArticle()
+const articles = shallowRef<StudioDocsNavigationArticle[]>([])
+const selectedArticle = shallowRef<StudioDocsArticle | null>(null)
 const loading = shallowRef(true)
 const error = shallowRef<string | null>(null)
-const selectedArticle = computed(() =>
-	props.id ? (articles.value.find((article) => article.id === props.id) ?? null) : null,
-)
-
 /**
  * Loads the visible article navigation and current article data.
  * @returns Nothing.
@@ -25,7 +24,12 @@ const selectedArticle = computed(() =>
 const load = async (): Promise<void> => {
 	loading.value = true
 	try {
-		articles.value = (await api.listArticles()).filter((article) => !article.archived)
+		articles.value = await navigationApi.listArticles()
+		const selectedNavigationArticle = props.id
+			? articles.value.find((article) => article.id === props.id)
+			: undefined
+		selectedArticle.value =
+			selectedNavigationArticle && props.id ? await articleApi.getArticle(props.id) : null
 		error.value = null
 	} catch (caughtError) {
 		error.value =

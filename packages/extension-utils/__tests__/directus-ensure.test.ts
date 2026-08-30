@@ -24,7 +24,10 @@ import { createDirectusStartupCoordinator } from '../src/server/directus-ensure/
 
 type Services = ApiExtensionContext['services']
 type ActionRegistrar = (event: 'server.start', handler: () => void) => void
-type InitRegistrar = (event: 'app.before', handler: () => void) => void
+type InitRegistrar = (
+	event: 'app.before' | 'middlewares.before',
+	handler: () => void | Promise<void>,
+) => void
 
 const createHook = (action: ActionRegistrar, init: InitRegistrar = vi.fn()): never =>
 	({ action, init }) as never
@@ -880,7 +883,7 @@ describe('getDirectusStartupStatus', () => {
 })
 
 describe('createDirectusStartupCoordinator', () => {
-	it('registers schema on app.before and data on server.start', async () => {
+	it('registers schema and data on awaited init lifecycle events', async () => {
 		const action = vi.fn<ActionRegistrar>()
 		const init = vi.fn<InitRegistrar>()
 		const order: string[] = []
@@ -912,12 +915,13 @@ describe('createDirectusStartupCoordinator', () => {
 		})
 
 		expect(init).toHaveBeenCalledWith('app.before', expect.any(Function))
-		expect(action).toHaveBeenCalledWith('server.start', expect.any(Function))
-		init.mock.calls[0]?.[1]?.()
-		await vi.waitFor(() => expect(order).toEqual(['schema']))
+		expect(init).toHaveBeenCalledWith('middlewares.before', expect.any(Function))
+		expect(action).not.toHaveBeenCalled()
+		await init.mock.calls[0]?.[1]?.()
 		expect(order).toEqual(['schema'])
-		action.mock.calls[0]?.[1]?.()
-		await vi.waitFor(() => expect(order).toEqual(['schema', 'data']))
+		expect(order).toEqual(['schema'])
+		await init.mock.calls[1]?.[1]?.()
+		expect(order).toEqual(['schema', 'data'])
 		expect(order).toEqual(['schema', 'data'])
 	})
 
@@ -945,10 +949,10 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
-		init.mock.calls[0]?.[1]?.()
-		await vi.waitFor(() => expect(order).toEqual(['schema-1', 'schema-2']))
-		action.mock.calls[0]?.[1]?.()
-		await vi.waitFor(() => expect(order).toEqual(['schema-1', 'schema-2', 'data']))
+		await init.mock.calls[0]?.[1]?.()
+		expect(order).toEqual(['schema-1', 'schema-2'])
+		await init.mock.calls[1]?.[1]?.()
+		expect(order).toEqual(['schema-1', 'schema-2', 'data'])
 	})
 
 	it('skips data callbacks when data seeds are disabled globally', async () => {
@@ -971,10 +975,10 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
-		init.mock.calls[0]?.[1]?.()
-		await vi.waitFor(() => expect(order).toEqual(['schema']))
-		action.mock.calls[0]?.[1]?.()
-		await vi.waitFor(() => expect(order).toEqual(['schema']))
+		await init.mock.calls[0]?.[1]?.()
+		expect(order).toEqual(['schema'])
+		await init.mock.calls[1]?.[1]?.()
+		expect(order).toEqual(['schema'])
 	})
 
 	it('does not release the coordinator lease through nested callbacks', async () => {
@@ -1004,7 +1008,7 @@ describe('createDirectusStartupCoordinator', () => {
 			const nestedLease = await heldProvider.tryAcquire(lease.name)
 			expect(await nestedLease?.release()).toBe(false)
 		})
-		init.mock.calls[0]?.[1]?.()
+		await init.mock.calls[0]?.[1]?.()
 		await vi.waitFor(() => expect(release).toHaveBeenCalledOnce())
 	})
 
@@ -1032,7 +1036,7 @@ describe('createDirectusStartupCoordinator', () => {
 		})
 
 		startup.schema(() => new Promise((resolve) => setTimeout(resolve, 20)))
-		init.mock.calls[0]?.[1]?.()
+		await init.mock.calls[0]?.[1]?.()
 		await vi.waitFor(() => expect(renew).toHaveBeenCalled())
 	})
 })

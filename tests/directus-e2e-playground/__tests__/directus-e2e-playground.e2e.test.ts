@@ -137,19 +137,6 @@ async function expectUtilityResults() {
 	)
 }
 
-async function waitForValue<T>(read: () => Promise<T>, matches: (value: T) => boolean): Promise<T> {
-	for (let attempt = 0; attempt < 60; attempt += 1) {
-		try {
-			const value = await read()
-			if (matches(value)) return value
-		} catch {
-			// The startup coordinator may still be creating the resource.
-		}
-		await new Promise((resolve) => setTimeout(resolve, 500))
-	}
-	throw new Error('Timed out waiting for the Directus ensure resource')
-}
-
 describe('Directus E2E playground', () => {
 	it('ensures a live collection, field, and relation idempotently', async () => {
 		try {
@@ -183,10 +170,7 @@ describe('Directus E2E playground', () => {
 
 	it('seeds a policy and linked permissions idempotently', async () => {
 		try {
-			const policies = await waitForValue(
-				() => client.request(readPolicy(e2ePolicyId)),
-				(value) => value.id === e2ePolicyId,
-			)
+			const policies = await client.request(readPolicy(e2ePolicyId))
 			expect(policies).toMatchObject({ id: e2ePolicyId, name: 'E2E playground policy' })
 
 			const output = await client.waitForLog(/directus-e2e-playground: policy-seed /u)
@@ -224,17 +208,13 @@ describe('Directus E2E playground', () => {
 		}
 	})
 
-	it('seeds a docs article after the docs collection schema is ready', async () => {
+	it('seeds a docs article during awaited startup', async () => {
 		try {
-			const articles = await waitForValue(
-				() =>
-					client.request(
-						readItems('studio_docs', {
-							filter: { id: { _eq: e2eDocsArticleUuid } },
-							limit: 1,
-						}),
-					),
-				(value) => value.length === 1,
+			const articles = await client.request(
+				readItems('studio_docs', {
+					filter: { id: { _eq: e2eDocsArticleUuid } },
+					limit: 1,
+				}),
 			)
 
 			expect(articles[0]).toMatchObject({

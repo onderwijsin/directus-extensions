@@ -50,7 +50,8 @@ The stable Studio module id is `docs`, and its current route contract is:
 
 The module loads unarchived articles in deterministic order, renders Markdown article bodies, and
 shows article audit metadata. The hook provisions the fixed `studio_docs` collection during
-`app.before`, and can seed the two unassigned policies during `server.start`.
+`app.before`, and can seed the two unassigned policies during the awaited `middlewares.before`
+lifecycle phase.
 
 Schema provisioning requires both `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` and
 `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`. Policy/data seeding also requires
@@ -66,9 +67,10 @@ automatically.
 
 Participating extensions can register articles from their startup data phase with the shared
 `ensureDirectusDocumentation()` utility. Schema callbacks run during `app.before`, and data
-callbacks run during `server.start`, so the fixed collection is provisioned before article seeds
-execute. The utility supports stable UUIDs, global and extension-specific seed gates, override
-reconciliation, and reserved `incoming` versions for review.
+callbacks run during the awaited `middlewares.before` phase, so the fixed collection is provisioned
+before article seeds execute and seeding completes before middleware and route setup continues. The
+utility supports stable UUIDs, global and extension-specific seed gates, override reconciliation,
+and reserved `incoming` versions for review.
 
 Use stable UUIDs for contributed articles. The default `versioning` strategy writes changed content
 to the reserved `incoming` version for review; `override` replaces the current item. Neither

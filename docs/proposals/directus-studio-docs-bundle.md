@@ -301,9 +301,9 @@ bundle must not require those projects to modify the module or bundle source.
 - Resolve and implement a cross-extension startup barrier: all schema ensures must complete before
   any docs data seed can execute. Prefer a shared schema phase followed by a shared data phase
   across startup coordinators; do not use bounded retries as the correctness mechanism.
-- Verify whether Directus extension registration and `server.start` callback execution are
-  synchronous or concurrent. Treat load-order dependence as unacceptable unless it is a documented,
-  deterministic contract and the bundle can be guaranteed to load first.
+- Verify whether Directus extension registration and startup callback execution are synchronous or
+  concurrent. Treat load-order dependence as unacceptable unless it is a documented, deterministic
+  contract and the bundle can be guaranteed to load first.
 - Keep `ensureDirectusDocumentation()` as the public utility and use the generic startup data
   registration only after the cross-extension barrier is established; a new `startup.docs()` method
   is not required unless it is the cleanest API for implementing that barrier.
@@ -357,7 +357,9 @@ These implementation details should be verified during Phase 1 or Phase 2, using
 documentation and a small local verification where necessary:
 
 1. The cross-extension startup barrier is resolved by registering schema callbacks through the
-   shared startup coordinator's `init('app.before')` path while retaining data callbacks on
-   `server.start`. Directus awaits `app.before` before it can emit `server.start`; extension load
-   order and ordering between `app.before` listeners remain intentionally unsupported assumptions.
+   shared startup coordinator's `init('app.before')` path and data callbacks through the following
+   awaited `init('middlewares.before')` path. This is the earliest lifecycle phase after schema
+   changes have been applied, while `app.after` is later and follows route registration. Extension
+   load order and ordering between independent init listeners remain intentionally unsupported
+   assumptions.
 2. Comark’s raw-HTML and link-safety behavior under the default `Markdown` renderer.

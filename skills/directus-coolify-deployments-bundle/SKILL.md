@@ -178,8 +178,8 @@ may be changed without re-enrichment.
 ### Endpoint: `coolify-deployments-endpoint`
 
 Base path: `/coolify-deployments`. Every route requires an authenticated Directus user, rejects a
-cross-origin browser request, permits clients without origin metadata, sets the polling header, and
-rejects while schema startup work is locked. Administrators bypass policy assignment checks.
+cross-origin browser request, permits clients without origin metadata, and sets the polling header.
+Administrators bypass policy assignment checks.
 
 | Method | Route                                                                    | Required policy | Result                                                                                     |
 | ------ | ------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------ |

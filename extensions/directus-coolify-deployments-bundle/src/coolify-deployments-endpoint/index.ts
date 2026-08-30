@@ -18,18 +18,13 @@ import { z } from 'zod'
 import {
 	APPLICATION_DEPLOYMENT_PAGE_SIZE,
 	DEPLOYMENT_POLL_INTERVAL_HEADER,
-	EXTENSION_ID,
 	EXTENSION_NAME,
 	MAX_APPLICATION_DEPLOYMENT_PAGE_SIZE,
 } from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
 import { isAssignedPolicy, requirePolicies } from './auth'
 import { envSchema } from './env.schema'
-import {
-	CoolifyDeploymentApplicationMismatchError,
-	CoolifyUpstreamError,
-	rejectWhileSchemaLocked,
-} from './errors'
+import { CoolifyDeploymentApplicationMismatchError, CoolifyUpstreamError } from './errors'
 import { assertDeploymentBelongsToApplication, normalizeDeployment } from './helpers'
 import { isSameOriginRequest } from './same-origin'
 import { loadApplicationSummaries } from './summary'
@@ -70,10 +65,6 @@ export default defineEndpoint({
 			getSchema,
 			logger,
 		})
-		const schemaLockOptions = {
-			lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
-		}
-
 		/**
 		 * Creates route middleware for one or more effective Directus policies.
 		 * @param policies - Policy IDs required by the route.
@@ -100,39 +91,36 @@ export default defineEndpoint({
 			})
 
 		/**
-		 * Apply authentication, origin, and schema readiness checks to every route.
+		 * Apply authentication and origin checks to every route.
 		 * @param request - Directus request.
 		 * @param _response - Directus response.
 		 * @param next - Express middleware continuation.
 		 * @returns Nothing.
 		 */
-		router.use(
-			asyncHandler(async (request, response, next) => {
-				const accountability = getAccountabilityFromRequest(request)
-				if (accountability === null || !hasAuthenticatedUser(accountability)) {
-					next(new ForbiddenError())
-					return
-				}
-				if (
-					options.COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED &&
-					!isSameOriginRequest(request, options.PUBLIC_URL)
-				) {
-					next(new ForbiddenError())
-					return
-				}
+		router.use((request, response, next) => {
+			const accountability = getAccountabilityFromRequest(request)
+			if (accountability === null || !hasAuthenticatedUser(accountability)) {
+				next(new ForbiddenError())
+				return
+			}
+			if (
+				options.COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED &&
+				!isSameOriginRequest(request, options.PUBLIC_URL)
+			) {
+				next(new ForbiddenError())
+				return
+			}
 
-				response.setHeader(
-					DEPLOYMENT_POLL_INTERVAL_HEADER,
-					String(options.COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS),
-				)
-				response.setHeader(
-					'X-Coolify-Deployments-Applications-Collection',
-					options.COOLIFY_APPLICATIONS_COLLECTION,
-				)
-				const locked = await rejectWhileSchemaLocked(schemaLockOptions, next)
-				if (!locked) next()
-			}),
-		)
+			response.setHeader(
+				DEPLOYMENT_POLL_INTERVAL_HEADER,
+				String(options.COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS),
+			)
+			response.setHeader(
+				'X-Coolify-Deployments-Applications-Collection',
+				options.COOLIFY_APPLICATIONS_COLLECTION,
+			)
+			next()
+		})
 
 		/**
 		 * Wrap provider operations and expose only safe upstream errors.

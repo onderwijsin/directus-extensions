@@ -52,16 +52,18 @@ Schema provisioning requires both `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` and
 
 The bundle registers the `Docs` Studio module with an empty route and the article route contract
 `/docs/:id`. It loads unarchived articles in deterministic order, renders Markdown article bodies,
-and shows article audit metadata. Schema provisioning runs during Directus `app.before`, before
-`server.start` data seeds. This prevents participating extensions from seeding articles before the
-collection exists.
+and shows article audit metadata. Schema provisioning runs during Directus `app.before`, and data
+seeding runs during the following awaited `middlewares.before` phase. This prevents participating
+extensions from seeding articles before the collection exists and ensures seeding completes before
+middleware and route setup continues.
 
 The shared utility package exposes the server-only `ensureDirectusDocumentation()` contract for
 participating extensions. Register it from a `startup.data()` callback after passing the complete
 hook object to `createDirectusStartupCoordinator`; the coordinator guarantees all registered schema
-callbacks have completed before data callbacks start. The helper supports stable UUIDs, no-op gates,
-override reconciliation, and reserved `incoming` content versions. Article CRUD and version
-promotion remain planned for a later phase.
+callbacks have completed before data callbacks start, and that data callbacks complete during
+awaited application startup. The helper supports stable UUIDs, no-op gates, override reconciliation,
+and reserved `incoming` content versions. Article CRUD and version promotion remain planned for a
+later phase.
 
 ## Contributing articles
 
@@ -116,6 +118,6 @@ runtime. It is not intended for Directus Cloud environments that do not permit c
 extensions.
 
 The bundle does not manage article authoring, role assignment, role membership, or automatic version
-promotion. It does not guarantee ordering between independent `app.before` listeners; its startup
-coordinator guarantees only that coordinator-managed schema work completes before `server.start`
-data work begins.
+promotion. It does not guarantee ordering between independent init listeners; its startup
+coordinator guarantees that coordinator-managed schema work completes before data work begins, and
+that data work completes during awaited startup before Directus serves requests.
