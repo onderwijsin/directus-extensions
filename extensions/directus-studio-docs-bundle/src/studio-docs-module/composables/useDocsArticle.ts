@@ -4,17 +4,7 @@ import { useApi } from '@directus/extensions-sdk'
 
 import { COLLECTION_NAME } from '../../shared/constants'
 
-const articleFields = [
-	'id',
-	'navigation_label',
-	'body',
-	'sort',
-	'archived',
-	'icon',
-	'user_created',
-	'date_created',
-	'date_updated',
-].join(',')
+const articleFields = ['id', 'navigation_label', 'body', 'icon'].join(',')
 
 /**
  * Provides the documentation article request.

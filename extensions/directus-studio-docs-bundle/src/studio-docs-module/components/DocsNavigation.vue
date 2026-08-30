@@ -2,10 +2,6 @@
 import type { StudioDocsNavigationArticle } from '../types'
 
 defineProps<{ articles: StudioDocsNavigationArticle[]; selectedId?: string }>()
-
-const emit = defineEmits<{
-	select: [id: string]
-}>()
 </script>
 
 <template>
@@ -15,7 +11,7 @@ const emit = defineEmits<{
 				v-for="article in articles"
 				:key="article.id"
 				:active="article.id === selectedId"
-				@click="emit('select', article.id)"
+				:to="{ path: `/docs/${encodeURIComponent(article.id)}` }"
 			>
 				<v-list-item-icon v-if="article.icon">
 					<v-icon :name="article.icon" />

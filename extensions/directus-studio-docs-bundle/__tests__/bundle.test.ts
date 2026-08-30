@@ -59,7 +59,7 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async () => {
 	}
 })
 
-import { ARTICLE_ROUTE, COLLECTION_NAME, MODULE_ID, MODULE_NAME } from '../src/shared/constants'
+import { COLLECTION_NAME, MODULE_ID, MODULE_NAME } from '../src/shared/constants'
 import { envSchema } from '../src/studio-docs-hook/env.schema'
 import '../src/studio-docs-hook'
 import '../src/studio-docs-module'
@@ -117,9 +117,6 @@ describe('Studio Docs bundle Phase 1 scaffold', () => {
 		if (!definition) throw new Error('Expected module definition')
 
 		expect(definition).toMatchObject({ id: MODULE_ID, name: MODULE_NAME })
-		expect(definition.routes.map(({ path }: { path: string }) => path)).toEqual([
-			'',
-			ARTICLE_ROUTE.slice(1),
-		])
+		expect(definition.routes.map(({ path }: { path: string }) => path)).toEqual(['', ':id'])
 	})
 })

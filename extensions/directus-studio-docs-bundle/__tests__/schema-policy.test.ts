@@ -28,7 +28,6 @@ describe('Studio Docs schema and policies', () => {
 			'body',
 			'sort',
 			'archived',
-			'user_created',
 			'date_created',
 			'date_updated',
 			'icon',

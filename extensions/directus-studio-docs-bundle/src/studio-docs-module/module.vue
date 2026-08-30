@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { StudioDocsArticle, StudioDocsNavigationArticle } from './types'
 
-import { onMounted, shallowRef } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, shallowRef, watch } from 'vue'
+
+import { attempt } from '@onderwijsin/directus-extension-utils'
 
 import DocsArticle from './components/DocsArticle.vue'
 import DocsNavigation from './components/DocsNavigation.vue'
@@ -10,11 +11,10 @@ import { useDocsArticle } from './composables/useDocsArticle'
 import { useDocsNavigation } from './composables/useDocsNavigation'
 
 const props = defineProps<{ id?: string }>()
-const router = useRouter()
 const navigationApi = useDocsNavigation()
 const articleApi = useDocsArticle()
-const articles = shallowRef<StudioDocsNavigationArticle[]>([])
-const selectedArticle = shallowRef<StudioDocsArticle | null>(null)
+const navigation = shallowRef<StudioDocsNavigationArticle[]>([])
+const article = shallowRef<StudioDocsArticle | null>(null)
 const loading = shallowRef(true)
 const error = shallowRef<string | null>(null)
 /**
@@ -23,36 +23,36 @@ const error = shallowRef<string | null>(null)
  */
 const load = async (): Promise<void> => {
 	loading.value = true
-	try {
-		articles.value = await navigationApi.listArticles()
-		const selectedNavigationArticle = props.id
-			? articles.value.find((article) => article.id === props.id)
-			: undefined
-		selectedArticle.value =
-			selectedNavigationArticle && props.id ? await articleApi.getArticle(props.id) : null
-		error.value = null
-	} catch (caughtError) {
-		error.value =
-			caughtError instanceof Error ? caughtError.message : 'Unable to load documentation'
-	} finally {
-		loading.value = false
-	}
-}
+	error.value = null
+	const { data: navigationData } = await attempt(() => navigationApi.listArticles())
+	navigation.value = navigationData ?? []
 
-/**
- * Navigates to a selected article without mutating the loaded article state.
- * @param id - Stable article identifier.
- * @returns Nothing.
- */
-const selectArticle = (id: string): void => {
-	void router.push(`/docs/${encodeURIComponent(id)}`)
+	if (!props.id) {
+		article.value = null
+		loading.value = false
+		return
+	}
+
+	const { data: articleData, error: articleError } = await attempt(() =>
+		articleApi.getArticle(props.id!),
+	)
+	article.value = articleData ?? null
+	if (articleError) {
+		error.value =
+			articleError instanceof Error ? articleError.message : 'Unable to load article'
+	}
+	loading.value = false
 }
 
 onMounted(() => void load())
+watch(
+	() => props.id,
+	() => void load(),
+)
 </script>
 
 <template>
-	<private-view :title="selectedArticle?.navigation_label ?? 'Docs'">
+	<private-view :title="article?.navigation_label ?? 'Docs'">
 		<template #actions>
 			<v-button
 				icon
@@ -65,11 +65,17 @@ onMounted(() => void load())
 				<v-icon name="refresh" />
 			</v-button>
 		</template>
-		<div class="studio-docs-page">
+		<template #title-outer:prepend>
+			<v-icon :name="article?.icon ?? 'menu_book'" />
+		</template>
+		<template #navigation>
+			<DocsNavigation :articles="navigation" :selected-id="props.id" />
+		</template>
+		<main class="container">
 			<v-notice v-if="error" type="warning">{{ error }}</v-notice>
-			<div v-if="loading" class="loading-state" role="status">Loading documentation…</div>
+			<div v-if="loading" role="status"></div>
 			<v-info
-				v-else-if="articles.length === 0"
+				v-else-if="navigation.length === 0"
 				icon="menu_book"
 				title="No documentation available"
 				center
@@ -77,47 +83,31 @@ onMounted(() => void load())
 				Documentation articles will appear here when they are published.
 			</v-info>
 			<div v-else class="docs-layout">
-				<DocsNavigation
-					:articles="articles"
-					:selected-id="props.id"
-					@select="selectArticle"
-				/>
 				<v-info
-					v-if="props.id && !selectedArticle"
+					v-if="props.id && !article"
 					icon="error_outline"
 					title="Article not found"
 					center
 				>
 					This documentation article is unavailable or archived.
 				</v-info>
-				<DocsArticle v-else-if="selectedArticle" :article="selectedArticle" />
+				<DocsArticle v-else-if="article" :article="article" />
 				<v-info v-else icon="menu_book" title="Choose an article" center>
 					Select an article from the navigation.
 				</v-info>
 			</div>
-		</div>
+		</main>
 	</private-view>
 </template>
 
 <style scoped>
-.studio-docs-page {
-	display: grid;
-	gap: 24px;
+.container {
 	padding: var(--content-padding);
-}
-.docs-layout {
-	display: grid;
-	grid-template-columns: 220px minmax(0, 1fr);
-	gap: 40px;
-}
-.loading-state {
-	padding: 48px;
-	color: var(--theme--foreground-subdued);
-	text-align: center;
-}
-@media (max-width: 800px) {
-	.docs-layout {
-		grid-template-columns: 1fr;
+	width: 100%;
+	max-width: 1024px;
+
+	& > div + * {
+		margin-bottom: var(--content-padding);
 	}
 }
 </style>

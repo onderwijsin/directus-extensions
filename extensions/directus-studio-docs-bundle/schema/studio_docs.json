@@ -29,7 +29,8 @@
 				"archive_field": "archived",
 				"archive_app_filter": true,
 				"archive_value": true,
-				"unarchive_value": false
+				"unarchive_value": false,
+				"sort_field": "sort"
 			}
 		}
 	],
@@ -39,56 +40,55 @@
 			"field": "navigation_label",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": false },
-			"meta": { "interface": "input", "required": true }
+			"meta": { "required": true, "sort": 2, "width": "half" }
 		},
 		{
 			"collection": "studio_docs",
 			"field": "body",
 			"type": "text",
 			"schema": { "data_type": "text", "is_nullable": false },
-			"meta": { "interface": "input-rich-text-html", "required": true }
+			"meta": {
+				"interface": "input-rich-text-md",
+				"options": { "placeholder": "Enter you documentation content here..." },
+				"required": true,
+				"sort": 4,
+				"translations": [{ "language": "en-US", "translation": "Content" }]
+			}
 		},
 		{
 			"collection": "studio_docs",
 			"field": "sort",
 			"type": "integer",
-			"schema": { "data_type": "integer", "default_value": 0, "is_nullable": false },
-			"meta": { "interface": "input", "required": true }
+			"schema": { "data_type": "integer" },
+			"meta": { "hidden": true, "sort": 5 }
 		},
 		{
 			"collection": "studio_docs",
 			"field": "archived",
 			"type": "boolean",
 			"schema": { "data_type": "boolean", "default_value": false, "is_nullable": false },
-			"meta": { "interface": "boolean" }
-		},
-		{
-			"collection": "studio_docs",
-			"field": "user_created",
-			"type": "uuid",
-			"schema": { "data_type": "uuid", "is_nullable": true },
-			"meta": { "special": ["user-created"], "interface": "select-dropdown-m2o" }
+			"meta": { "hidden": true }
 		},
 		{
 			"collection": "studio_docs",
 			"field": "date_created",
 			"type": "timestamp",
 			"schema": { "data_type": "timestamp", "is_nullable": true },
-			"meta": { "special": ["date-created"], "interface": "datetime" }
+			"meta": { "readonly": true, "sort": 8, "special": ["date-created"], "width": "half" }
 		},
 		{
 			"collection": "studio_docs",
 			"field": "date_updated",
 			"type": "timestamp",
 			"schema": { "data_type": "timestamp", "is_nullable": true },
-			"meta": { "special": ["date-updated"], "interface": "datetime" }
+			"meta": { "readonly": true, "sort": 9, "special": ["date-updated"], "width": "half" }
 		},
 		{
 			"collection": "studio_docs",
 			"field": "icon",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
-			"meta": { "interface": "select-icon", "width": "half" }
+			"meta": { "interface": "select-icon", "sort": 3, "width": "half" }
 		}
 	],
 	"relations": []
