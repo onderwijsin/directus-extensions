@@ -131,12 +131,12 @@ issuance.
 This refresh-based flow does not inherit Directus's login-attempt limiter. Directus does not expose
 that internal limiter as a reusable extension API, and the extension must verify the magic-link OTP
 before it can create the bootstrap session. The bundle therefore applies its own redemption-specific
-limiter to failed or missing OTP attempts, keyed by the magic-link record ID and using the configured
-`auth_login_attempts` budget. The limiter uses process-local memory by default or Directus's existing
-Redis connection when `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE=redis`, which coordinates attempts
-across replicas when Redis is selected. A `null` `auth_login_attempts` setting disables this
-limiter. Deployment or API-gateway rate limits may still be added as defense in depth, but they are
-not required to provide the bundle's redemption-attempt bound.
+limiter to failed or missing OTP attempts, keyed by the magic-link record ID and using the
+configured `auth_login_attempts` budget. The limiter uses process-local memory by default or
+Directus's existing Redis connection when `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE=redis`, which
+coordinates attempts across replicas when Redis is selected. A `null` `auth_login_attempts` setting
+disables this limiter. Deployment or API-gateway rate limits may still be added as defense in depth,
+but they are not required to provide the bundle's redemption-attempt bound.
 
 Only after refresh succeeds does the extension atomically set `redeemed_at`, defensively requiring
 the link to remain unredeemed. The lookup, TFA verification, bootstrap insert, refresh, and
@@ -163,9 +163,8 @@ immediately and keep it out of browser history, analytics, logs, and third-party
 The extension uses Directus's `MailService` and its configured SMTP transport. `EMAIL_FROM`, SMTP
 credentials, CORS, and additional edge protections remain deployment or Directus concerns. The
 bundle owns the request and failed-OTP redemption limiters described above; deployments may add
-their own limits for defense in depth. The extension supports optional
-`MAGIC_LINKS_EMAIL_REPLY_TO` and `MAGIC_LINKS_EMAIL_SENDER` values, but does not replace Directus
-mail configuration.
+their own limits for defense in depth. The extension supports optional `MAGIC_LINKS_EMAIL_REPLY_TO`
+and `MAGIC_LINKS_EMAIL_SENDER` values, but does not replace Directus mail configuration.
 
 The extension requires a trusted, non-sandboxed Directus runtime because it uses normal server-side
 Directus services, database transactions, and cryptographic Node APIs. The `magic_links` collection

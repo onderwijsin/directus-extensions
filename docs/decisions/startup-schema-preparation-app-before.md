@@ -95,9 +95,9 @@ Costs and limitations:
   all existing consumers must pass the complete hook object.
 - Multiple listeners within an init phase remain concurrent with one another. This decision does not
   establish ordering between independent `app.before` or `middlewares.before` listeners.
-- Documentation callbacks are not ordered against data callbacks or other
-  `middlewares.before` listeners; they are separated for gating and ownership, not for a new global
-  lifecycle ordering guarantee.
+- Documentation callbacks are not ordered against data callbacks or other `middlewares.before`
+  listeners; they are separated for gating and ownership, not for a new global lifecycle ordering
+  guarantee.
 - Directus logs init-handler failures and continues application startup. This decision provides an
   ordering and completion barrier, not a general fail-fast guarantee. Deployments that require
   preparation to succeed before Directus starts should perform that preparation outside the
