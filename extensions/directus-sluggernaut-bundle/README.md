@@ -500,10 +500,11 @@ relevant policy flag.
 
 ## Studio Docs
 
-The bundle seeds the `Sluggernaut` article from `docs/sluggernaut.json` when Studio Docs and data
-seeding are enabled. Set `SLUGGERNAUT_DOCS_SEED_ENABLED=false` to opt out.
+The bundle seeds the `Sluggernaut` articles from `docs/slugs-and-permalinks.json` and
+`docs/redirects.json` when Studio Docs and data seeding are enabled. Set
+`SLUGGERNAUT_DOCS_SEED_ENABLED=false` to opt out.
 
 The bundled documentation is available in Dutch. To translate it, keep the seeding strategy on
-`versioning`, start the extension with seeding enabled, edit and publish your translation on the
-main article, and reject incoming updates. Create a fresh translation from the Dutch source when the
-documentation changes.
+`versioning`, start the extension with seeding enabled, edit and publish the translations on the
+bundled articles, and reject incoming updates. Create fresh translations from the Dutch sources
+whenever the documentation changes.

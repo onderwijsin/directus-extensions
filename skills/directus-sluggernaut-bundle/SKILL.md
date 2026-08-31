@@ -572,9 +572,9 @@ accountability for schema and metadata operations; item update reads retain muta
 
 ## Studio Docs
 
-The hook seeds `Sluggernaut` from `docs/sluggernaut.json`; set `SLUGGERNAUT_DOCS_SEED_ENABLED=false`
-to opt out.
+The hook seeds `Sluggernaut` from `docs/slugs-and-permalinks.json` and `docs/redirects.json`; set
+`SLUGGERNAUT_DOCS_SEED_ENABLED=false` to opt out.
 
 The bundled documentation is available in Dutch. For a translation, use `versioning`, enable
-seeding, edit and publish the translation on the main article, and reject incoming updates. Create a
-fresh translation from the Dutch source whenever it changes.
+seeding, edit and publish the translations on the bundled articles, and reject incoming updates.
+Create fresh translations from the Dutch sources whenever they change.
