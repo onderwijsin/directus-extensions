@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- a3862c8: Treat exact redirect paths with and without trailing slashes as the same identity and add
+  optional persisted redirect trailing-slash normalization.
+
+### Patch Changes
+
+- 027a227: respect readonly interface mode by hiding the unlock button
+
 ## 0.3.0
 
 ### Minor Changes
