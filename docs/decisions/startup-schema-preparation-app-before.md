@@ -42,6 +42,9 @@ created:
 
 - All `startup.schema()` callbacks run from one `hook.init('app.before', ...)` handler.
 - All `startup.data()` callbacks run from one `hook.init('middlewares.before', ...)` handler.
+- All `startup.documentation()` callbacks run from a separate `hook.init('middlewares.before', ...)`
+  handler. Documentation callbacks are a distinct coordinator group, but do not introduce a new
+  Directus lifecycle phase.
 - The coordinator accepts the complete `RegisterFunctions` object rather than only an action
   registrar, so it can register both lifecycle handlers.
 - Schema callbacks run under the existing coordinator lock and are awaited in registration order
@@ -69,8 +72,11 @@ before another. Extensions must continue to use the coordinator for schema-depen
 - **Use an external entrypoint or migration before Directus starts:** Not selected for this
   coordinator. An external preparation phase could provide fail-fast startup semantics, but it would
   add deployment-specific orchestration beyond the extension contract.
-- **Add a new coordinator API such as `startup.docs()`:** Rejected because separate schema and data
-  phases already express the dependency without introducing another public registration concept.
+- **Keep documentation callbacks in the ordinary data callback group:** Rejected because
+  documentation seeding must remain available when ordinary schema or data startup is disabled.
+  `startup.documentation()` is therefore a separate coordinator registration group, while still
+  using the existing awaited `middlewares.before` lifecycle phase rather than adding a new Directus
+  lifecycle phase.
 
 ## Consequences
 
@@ -80,6 +86,7 @@ Positive consequences:
 - Coordinator-managed data seeding is complete before Directus proceeds to serve requests.
 - Extensions no longer need to coordinate schema readiness through load order or timing assumptions.
 - Existing schema and data callbacks keep their lock ownership, feature gates, and error reporting.
+- Documentation callbacks remain independently available while ordinary startup gates are disabled.
 - The lifecycle contract is explicit in the coordinator API and its documentation.
 
 Costs and limitations:
@@ -88,6 +95,9 @@ Costs and limitations:
   all existing consumers must pass the complete hook object.
 - Multiple listeners within an init phase remain concurrent with one another. This decision does not
   establish ordering between independent `app.before` or `middlewares.before` listeners.
+- Documentation callbacks are not ordered against data callbacks or other `middlewares.before`
+  listeners; they are separated for gating and ownership, not for a new global lifecycle ordering
+  guarantee.
 - Directus logs init-handler failures and continues application startup. This decision provides an
   ordering and completion barrier, not a general fail-fast guarantee. Deployments that require
   preparation to succeed before Directus starts should perform that preparation outside the

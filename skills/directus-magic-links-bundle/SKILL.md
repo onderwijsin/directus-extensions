@@ -165,10 +165,11 @@ secret and is only suitable for UI/navigation state; server-side authentication 
 remain authoritative.
 
 The redemption limiter is separate from Directus's native account-suspension behavior and is scoped
-to the magic-link record ID. Apply rate limiting to both public routes at the edge or API gateway as
-an additional deployment control. When the per-link budget is exhausted, Directus returns its
-standard `HitRateLimitError` response with HTTP status `429`; stop retrying that link and use a new
-link after expiry or the application's normal sign-in flow.
+to the linked user's ID. Rotating a magic link does not reset the user's failed-OTP budget, and a
+successful redemption clears it. Apply rate limiting to both public routes at the edge or API
+gateway as an additional deployment control. When the per-user budget is exhausted, Directus returns
+its standard `HitRateLimitError` response with HTTP status `429`; stop retrying the user's links
+until the budget expires or use the application's normal sign-in flow.
 
 The endpoint accepts public requests, but the configured magic-links collection remains private. Do
 not grant public CRUD permissions to that collection. Configure CORS and CSRF protections according

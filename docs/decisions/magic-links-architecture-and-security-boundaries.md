@@ -95,10 +95,11 @@ The bundle uses `@directus/memory`'s `createLimiter` for failed OTP attempts. Th
 `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` setting selects process-local `memory` storage or
 Redis-backed storage using Directus's existing `REDIS` connection. The limiter reads
 `directus_settings.auth_login_attempts`; a `null` value disables it. Its duration is the configured
-magic-link lifetime, and its key is only the magic-link record ID. Invalid or missing OTPs consume a
-point immediately before validation. Successful redemption deletes the key. This coordinates across
-replicas when Redis is selected without storing raw tokens, OTPs, or account-wide state, and does
-not inherit Directus's account-suspension side effects.
+magic-link lifetime, and its key is the linked Directus user ID. Invalid or missing OTPs consume a
+point immediately before validation. Successful redemption deletes the user's key, so requesting a
+new link cannot reset the failed-OTP budget. This coordinates across replicas when Redis is selected
+without storing raw tokens, OTPs, or account-wide state, and does not inherit Directus's
+account-suspension side effects.
 
 The public request endpoint uses a separate limiter with a default budget of five requests per IP
 per 60 seconds, configurable through `MAGIC_LINKS_REQUEST_RATE_LIMIT`. It runs before user lookup or
@@ -130,10 +131,13 @@ issuance.
 
 This refresh-based flow does not inherit Directus's login-attempt limiter. Directus does not expose
 that internal limiter as a reusable extension API, and the extension must verify the magic-link OTP
-before it can create the bootstrap session. Invalid OTP attempts therefore leave the link retryable
-and are not bounded by Directus's normal failed-login policy. Until a redemption-specific limiter is
-implemented, consumers must apply edge or API-gateway rate limits to both public routes. A
-distributed limiter using `createKv` is tracked as backlog work.
+before it can create the bootstrap session. The bundle therefore applies its own redemption-specific
+limiter to failed or missing OTP attempts, keyed by the magic-link record ID and using the
+configured `auth_login_attempts` budget. The limiter uses process-local memory by default or
+Directus's existing Redis connection when `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE=redis`, which
+coordinates attempts across replicas when Redis is selected. A `null` `auth_login_attempts` setting
+disables this limiter. Deployment or API-gateway rate limits may still be added as defense in depth,
+but they are not required to provide the bundle's redemption-attempt bound.
 
 Only after refresh succeeds does the extension atomically set `redeemed_at`, defensively requiring
 the link to remain unredeemed. The lookup, TFA verification, bootstrap insert, refresh, and
@@ -158,11 +162,10 @@ immediately and keep it out of browser history, analytics, logs, and third-party
 ### Delegate mail and runtime security to Directus and the deployment
 
 The extension uses Directus's `MailService` and its configured SMTP transport. `EMAIL_FROM`, SMTP
-credentials, CORS, rate limiting, and edge protections remain deployment or Directus concerns. In
-particular, deployment rate limits are currently required for redemption because Directus's internal
-login-attempt limiter is not inherited by the refresh-based magic-link flow. The extension supports
-optional `MAGIC_LINKS_EMAIL_REPLY_TO` and `MAGIC_LINKS_EMAIL_SENDER` values, but does not replace
-Directus mail configuration.
+credentials, CORS, and additional edge protections remain deployment or Directus concerns. The
+bundle owns the request and failed-OTP redemption limiters described above; deployments may add
+their own limits for defense in depth. The extension supports optional `MAGIC_LINKS_EMAIL_REPLY_TO`
+and `MAGIC_LINKS_EMAIL_SENDER` values, but does not replace Directus mail configuration.
 
 The extension requires a trusted, non-sandboxed Directus runtime because it uses normal server-side
 Directus services, database transactions, and cryptographic Node APIs. The `magic_links` collection
