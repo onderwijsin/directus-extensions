@@ -56,7 +56,7 @@ export default defineInterface({
 					},
 					note: 'The locale determines the character set used for the slug',
 				},
-				schema: { default_value: 'en' },
+				schema: { default_value: 'nl' },
 			},
 			{
 				field: 'lowercase',
