@@ -20,7 +20,8 @@ import {
 	withCollectionIdentity,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import docsArticle from '../../../docs/sluggernaut.json'
+import redirectArticles from '../../../docs/redirects.json'
+import slugsArticles from '../../../docs/slugs-and-permalinks.json'
 import redirectPolicies from '../../../schema/policies.json'
 import redirectSchema from '../../../schema/redirects.json'
 import { EXTENSION_NAME, POLICY_IDS } from '../../shared/configuration/constants'
@@ -64,7 +65,12 @@ export function registerSluggernautStartup(
 	})
 
 	startup.documentation(async ({ lockProvider }) => {
-		await ensureDirectusDocumentation(docsArticle, context, {
+		await ensureDirectusDocumentation(slugsArticles, context, {
+			lockProvider,
+			extensionName: 'Sluggernaut',
+			extensionSeedEnabled: options.SLUGGERNAUT_DOCS_SEED_ENABLED,
+		})
+		await ensureDirectusDocumentation(redirectArticles, context, {
 			lockProvider,
 			extensionName: 'Sluggernaut',
 			extensionSeedEnabled: options.SLUGGERNAUT_DOCS_SEED_ENABLED,
