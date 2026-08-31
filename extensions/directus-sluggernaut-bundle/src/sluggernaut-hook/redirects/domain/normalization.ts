@@ -1,4 +1,5 @@
 import { isNonBlankString } from '@onderwijsin/directus-extension-utils'
+import { withoutTrailingSlash } from 'ufo'
 
 import { sluggernautValidationError } from '../../../shared/errors'
 import { containsControlCharacter, normalizePermalink } from '../../../shared/values/normalization'
@@ -35,6 +36,15 @@ function requireString(value: unknown, field: string): string {
 export function normalizeExactRedirectOrigin(value: unknown): string {
 	const input = requireString(value, 'origin')
 	return normalizePermalink(input) ?? '/'
+}
+
+/** Returns the identity representation used when comparing exact redirect paths.
+ * @param value - Normalized or raw path.
+ * @returns Slash-insensitive path identity.
+ */
+export function compareExactRedirectPath(value: string): string {
+	const normalized = normalizePermalink(value) ?? '/'
+	return normalized === '/' ? '/' : withoutTrailingSlash(normalized)
 }
 
 /** Classifies and validates an exact redirect destination.
@@ -77,4 +87,15 @@ export function normalizeExactRedirectDestination(value: unknown): ExactRedirect
 	}
 
 	return { kind: 'path', value: normalizePermalink(input) ?? '/' }
+}
+
+/** Returns the identity representation used when comparing an exact redirect destination.
+ * @param value - Raw destination.
+ * @returns Classified destination with a slash-insensitive path value.
+ */
+export function compareExactRedirectDestination(value: unknown): ExactRedirectDestination {
+	const destination = normalizeExactRedirectDestination(value)
+	return destination.kind === 'path'
+		? { kind: 'path', value: compareExactRedirectPath(destination.value) }
+		: destination
 }
