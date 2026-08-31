@@ -7,7 +7,7 @@
 			"description": "Can create, read, update, and delete Studio Docs articles.",
 			"enforce_tfa": false,
 			"ip_access": null,
-			"app_access": true,
+			"app_access": false,
 			"admin_access": false,
 			"permissions": [
 				{ "collection": "studio_docs", "action": "create", "fields": ["*"] },
@@ -23,7 +23,7 @@
 			"description": "Can read published Studio Docs articles.",
 			"enforce_tfa": false,
 			"ip_access": null,
-			"app_access": true,
+			"app_access": false,
 			"admin_access": false,
 			"permissions": [
 				{

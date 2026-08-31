@@ -61,7 +61,8 @@ lifecycle phase.
 
 Schema provisioning requires both `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` and
 `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`. Policy/data seeding also requires
-`DIRECTUS_DOCS_SEED_ENABLED` and `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`.
+`DIRECTUS_DOCS_SEED_ENABLED` and `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`. The seeded policies grant
+collection permissions only; neither grants Directus Data Studio access.
 
 ## Not included yet
 
