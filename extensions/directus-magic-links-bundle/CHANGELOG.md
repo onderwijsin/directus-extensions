@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+### Patch Changes
+
+- b95df81: Scope magic-link TFA attempt limits to the linked user and clear the user's failed-OTP
+  budget after successful redemption.
+
 ## 0.4.0
 
 ### Minor Changes
