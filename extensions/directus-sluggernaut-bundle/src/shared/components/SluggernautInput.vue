@@ -64,7 +64,7 @@ function handleChange(value: string | number | null): void {
 			<CopyButton v-if="!!value" :value="value" />
 		</div>
 		<v-button
-			v-if="!nonEditable"
+			v-if="!nonEditable && !disabled"
 			secondary
 			icon
 			class="sluggernaut-input__lock-button"

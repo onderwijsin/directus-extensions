@@ -18,7 +18,7 @@ describe('Sluggernaut interface option contracts', () => {
 		expect(options).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ field: 'sourceFields', required: true }),
-				expect.objectContaining({ field: 'locale', schema: { default_value: 'en' } }),
+				expect.objectContaining({ field: 'locale', schema: { default_value: 'nl' } }),
 				expect.objectContaining({ field: 'lowercase', schema: { default_value: true } }),
 				expect.objectContaining({
 					field: 'updateOnSourceChange',
