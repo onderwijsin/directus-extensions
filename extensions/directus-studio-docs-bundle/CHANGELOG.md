@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+### Patch Changes
+
+- a689a36: Respect the global schema-change disable switch during Studio Docs provisioning.
+- ea76771: Prevent the seeded Studio Docs policies from granting Directus Data Studio access.
+
 ## 0.2.0
 
 ### Minor Changes
