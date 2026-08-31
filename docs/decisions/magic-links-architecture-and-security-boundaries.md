@@ -95,10 +95,11 @@ The bundle uses `@directus/memory`'s `createLimiter` for failed OTP attempts. Th
 `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` setting selects process-local `memory` storage or
 Redis-backed storage using Directus's existing `REDIS` connection. The limiter reads
 `directus_settings.auth_login_attempts`; a `null` value disables it. Its duration is the configured
-magic-link lifetime, and its key is only the magic-link record ID. Invalid or missing OTPs consume a
-point immediately before validation. Successful redemption deletes the key. This coordinates across
-replicas when Redis is selected without storing raw tokens, OTPs, or account-wide state, and does
-not inherit Directus's account-suspension side effects.
+magic-link lifetime, and its key is the linked Directus user ID. Invalid or missing OTPs consume a
+point immediately before validation. Successful redemption deletes the user's key, so requesting a
+new link cannot reset the failed-OTP budget. This coordinates across replicas when Redis is selected
+without storing raw tokens, OTPs, or account-wide state, and does not inherit Directus's
+account-suspension side effects.
 
 The public request endpoint uses a separate limiter with a default budget of five requests per IP
 per 60 seconds, configurable through `MAGIC_LINKS_REQUEST_RATE_LIMIT`. It runs before user lookup or
