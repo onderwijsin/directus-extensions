@@ -442,9 +442,7 @@ describe('magic-links redeem endpoint', () => {
 			const responses = []
 			for (let attempt = 0; attempt < 4; attempt += 1) {
 				const currentToken =
-					attempt === 3
-						? `magic-links-rate-limit-rotated-token-${Date.now()}`
-						: token
+					attempt === 3 ? `magic-links-rate-limit-rotated-token-${Date.now()}` : token
 				if (attempt === 3) await createMagicLink(user.id, currentToken)
 				responses.push(
 					await fetch(`${baseUrl}/auth/magic-links/redeem`, {

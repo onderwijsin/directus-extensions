@@ -189,11 +189,10 @@ successful redemption clears that user's budget. Requesting a new magic link doe
 budget. The budget uses the same maximum as Directus login attempts and expires with the configured
 magic-link lifetime. OTP failures roll back the transaction, so the link can be retried until the
 budget is exhausted; other failed authentication leaves the link unredeemed as well. Set
-`DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE=redis` and configure
-Directus's resolved Redis configuration for coordination across Directus replicas. A complete
-`REDIS` URL takes precedence over component values; component configuration requires
-`REDIS_ENABLED=true` (or `SYNCHRONIZATION_STORE=redis`) and all four Redis component variables.
-`auth_login_attempts=null` disables this limiter.
+`DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE=redis` and configure Directus's resolved Redis configuration
+for coordination across Directus replicas. A complete `REDIS` URL takes precedence over component
+values; component configuration requires `REDIS_ENABLED=true` (or `SYNCHRONIZATION_STORE=redis`) and
+all four Redis component variables. `auth_login_attempts=null` disables this limiter.
 
 When the per-user budget is exhausted, Directus returns its standard `HitRateLimitError` response
 with HTTP status `429`; stop retrying the user's links until the budget expires or use the
@@ -205,8 +204,8 @@ the server remains authoritative for authentication and OTP validation. The JWT 
 without the Directus signing secret, but must not be treated as trusted input for authorization.
 
 The redemption limiter is separate from Directus's account-suspension behavior: it bounds OTP
-attempts per user and does not suspend the user. Apply rate limiting to both public
-routes at the edge or API gateway as an additional deployment control.
+attempts per user and does not suspend the user. Apply rate limiting to both public routes at the
+edge or API gateway as an additional deployment control.
 
 Clients should remove the token from the browser URL immediately after reading it, avoid analytics
 and application logs containing the token, and follow Directus's normal rules for storing returned
