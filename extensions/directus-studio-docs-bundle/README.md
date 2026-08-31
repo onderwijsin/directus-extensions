@@ -48,7 +48,8 @@ The hook provisions the fixed `studio_docs` collection with UUID articles, Markd
 navigation labels, ordering, archive state, audit fields, and an optional icon. Collection
 versioning is enabled with `archived` as the archive field. The hook can also seed the unassigned
 `Can Manage Studio Docs` and `Can View Studio Docs` policies. The view policy only permits
-unarchived articles; administrators must assign policies to roles.
+unarchived articles. Neither policy grants Directus Data Studio access; administrators must assign
+policies to roles.
 
 Schema provisioning requires `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED`; it is independent of the global
 extension schema-change gate. Policy provisioning remains ordinary extension data work and requires
