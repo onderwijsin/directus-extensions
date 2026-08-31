@@ -20,6 +20,18 @@ describe('Sluggernaut configuration boundaries', () => {
 			}).success,
 		).toBe(true)
 		expect(envSchema.parse({}).SLUGGERNAUT_THROW_ON_PROCESSING_ERROR).toBe(true)
+		expect(envSchema.parse({}).SLUGGERNAUT_NORMALIZE_REDIRECTS).toBeUndefined()
+		expect(
+			envSchema.parse({ SLUGGERNAUT_NORMALIZE_REDIRECTS: 'trailing-slash' })
+				.SLUGGERNAUT_NORMALIZE_REDIRECTS,
+		).toBe('trailing-slash')
+		expect(
+			envSchema.parse({ SLUGGERNAUT_NORMALIZE_REDIRECTS: 'no-trailing-slash' })
+				.SLUGGERNAUT_NORMALIZE_REDIRECTS,
+		).toBe('no-trailing-slash')
+		expect(envSchema.safeParse({ SLUGGERNAUT_NORMALIZE_REDIRECTS: 'invalid' }).success).toBe(
+			false,
+		)
 		for (const value of ['', 'redirects-name', '1redirects', 'redirects/name']) {
 			expect(envSchema.safeParse({ SLUGGERNAUT_REDIRECTS_COLLECTION: value }).success).toBe(
 				false,

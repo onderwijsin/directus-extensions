@@ -246,6 +246,17 @@ describe('exact redirect domain', () => {
 		expect(() => validateExactRedirect(exact('/a', '/a'))).toThrow(/point to itself/)
 	})
 
+	it('treats trailing-slash variants as the same exact redirect identity', () => {
+		expect(() => validateExactRedirect(exact('/old', '/old/'))).toThrow(/point to itself/)
+		expect(() =>
+			validateRelevantExactRedirectGraph(
+				[exact('/old', '/new-1')],
+				[exact('/old/', '/new-2', 2)],
+				new Set(['/old', '/new-1']),
+			),
+		).toThrow(/Multiple active exact redirects/)
+	})
+
 	it('detects graph-affecting transitions while ignoring operational changes', () => {
 		const previous = exact('/a', '/b', 1)
 		expect(requiresExactIntegrityLookup(previous, { ...previous, is_active: true })).toBe(false)

@@ -3,7 +3,7 @@ import type { RedirectState } from './state'
 
 import { isString, attemptSync } from '@onderwijsin/directus-extension-utils'
 
-import { normalizeExactRedirectDestination, normalizeExactRedirectOrigin } from './normalization'
+import { compareExactRedirectDestination, compareExactRedirectPath } from './normalization'
 
 const STRUCTURAL_FIELDS = [
 	'origin',
@@ -31,7 +31,7 @@ function equivalentStructuralValue(
 ): boolean {
 	if (field === 'origin' && isString(left) && isString(right)) {
 		const { data, error } = attemptSync(
-			() => normalizeExactRedirectOrigin(left) === normalizeExactRedirectOrigin(right),
+			() => compareExactRedirectPath(left) === compareExactRedirectPath(right),
 		)
 		if (error) return left === right
 		return !!data
@@ -39,8 +39,8 @@ function equivalentStructuralValue(
 	if (field === 'destination' && isString(left) && isString(right)) {
 		const { data, error } = attemptSync(
 			() =>
-				normalizeExactRedirectDestination(left).value ===
-				normalizeExactRedirectDestination(right).value,
+				compareExactRedirectDestination(left).value ===
+				compareExactRedirectDestination(right).value,
 		)
 		if (error) return left === right
 		return !!data

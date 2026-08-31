@@ -76,6 +76,27 @@ const pattern = (origin: string, destination: string, id = 1, is_active = true):
 })
 
 describe('direct exact redirect mutation hooks', () => {
+	it('normalizes persisted redirect paths only when configured', async () => {
+		const context = setup()
+		await expect(
+			validateDirectRedirectMutation({
+				context: context.context,
+				collection: 'custom_redirects',
+				eventContext,
+				payload: { origin: '/old', destination: '/new' },
+				normalizeRedirects: 'trailing-slash',
+			}),
+		).resolves.toMatchObject({ origin: '/old/', destination: '/new/' })
+		await expect(
+			validateDirectRedirectMutation({
+				context: context.context,
+				collection: 'custom_redirects',
+				eventContext,
+				payload: { origin: '/old/', destination: '/new/' },
+				normalizeRedirects: 'no-trailing-slash',
+			}),
+		).resolves.toMatchObject({ origin: '/old', destination: '/new' })
+	})
 	it('validates pattern creates and derives metadata while clearing ownership fields', async () => {
 		const context = setup()
 		await expect(
@@ -428,8 +449,13 @@ describe('direct exact redirect mutation hooks', () => {
 		)
 		expect(ItemsService).toHaveBeenCalledOnce()
 		expect(readByQuery).toHaveBeenCalledTimes(2)
-		expect(readByQuery.mock.calls[0]?.[0].filter._and[2].origin._in).toEqual(['/a', '/b'])
-		expect(readByQuery.mock.calls[1]?.[0].filter._and[2].origin._in).toEqual(['/c'])
+		expect(readByQuery.mock.calls[0]?.[0].filter._and[2].origin._in).toEqual([
+			'/a',
+			'/a/',
+			'/b',
+			'/b/',
+		])
+		expect(readByQuery.mock.calls[1]?.[0].filter._and[2].origin._in).toEqual(['/c', '/c/'])
 	})
 
 	it('persists normalized origin and internal destination paths', async () => {
@@ -562,7 +588,7 @@ describe('direct exact redirect mutation hooks', () => {
 		expect(readByQuery.mock.calls[1]?.[0].filter._and[2].origin._in).toEqual(
 			expect.arrayContaining(['/a', '/c', '/target']),
 		)
-		expect(readByQuery.mock.calls[2]?.[0].filter._and[2].origin._in).toEqual(['/end'])
+		expect(readByQuery.mock.calls[2]?.[0].filter._and[2].origin._in).toEqual(['/end', '/end/'])
 	})
 
 	it('rejects duplicate origins introduced within one updateMany mutation', async () => {
@@ -642,7 +668,12 @@ describe('direct exact redirect mutation hooks', () => {
 		)
 
 		expect(readByQuery).toHaveBeenCalledOnce()
-		expect(readByQuery.mock.calls[0]?.[0].filter._and[2].origin._in).toEqual(['/a', '/new'])
+		expect(readByQuery.mock.calls[0]?.[0].filter._and[2].origin._in).toEqual([
+			'/a',
+			'/a/',
+			'/new',
+			'/new/',
+		])
 	})
 
 	it('transfers external structural edits but preserves ownership for operational and internal edits', async () => {
@@ -711,7 +742,10 @@ describe('direct exact redirect mutation hooks', () => {
 			},
 		})
 		expect(external.readByQuery).toHaveBeenCalledTimes(1)
-		expect(external.readByQuery.mock.calls[0]?.[0].filter._and[2].origin._in).toEqual(['/a'])
+		expect(external.readByQuery.mock.calls[0]?.[0].filter._and[2].origin._in).toEqual([
+			'/a',
+			'/a/',
+		])
 
 		const inactive = setup()
 		await validateDirectRedirectMutation({

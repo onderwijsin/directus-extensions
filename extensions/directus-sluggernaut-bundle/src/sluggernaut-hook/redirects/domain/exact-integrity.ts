@@ -6,6 +6,8 @@ import { sluggernautIntegrityError, sluggernautValidationError } from '../../../
 import {
 	normalizeExactRedirectDestination,
 	normalizeExactRedirectOrigin,
+	compareExactRedirectDestination,
+	compareExactRedirectPath,
 	type ExactRedirectDestination,
 } from './normalization'
 
@@ -66,7 +68,11 @@ export function validateExactRedirect(record: ExactRedirectInput): ValidatedExac
 		throw sluggernautValidationError('A redirect active state must be boolean.')
 	const origin = normalizeExactRedirectOrigin(record.origin)
 	const destination = normalizeExactRedirectDestination(record.destination)
-	if (record.is_active && destination.kind === 'path' && origin === destination.value) {
+	if (
+		record.is_active &&
+		destination.kind === 'path' &&
+		compareExactRedirectPath(origin) === compareExactRedirectPath(destination.value)
+	) {
 		throw sluggernautIntegrityError('An exact redirect must not point to itself.')
 	}
 	return { id: record.id, origin, destination, match: 'exact', is_active: record.is_active }
@@ -83,10 +89,10 @@ export function requiresExactIntegrityLookup(
 ): boolean {
 	if (!participatesInActiveExactGraph(proposed)) return false
 	if (previous === null || !participatesInActiveExactGraph(previous)) return true
-	const previousOrigin = normalizeExactRedirectOrigin(previous.origin)
-	const proposedOrigin = normalizeExactRedirectOrigin(proposed.origin)
-	const previousDestination = normalizeExactRedirectDestination(previous.destination)
-	const proposedDestination = normalizeExactRedirectDestination(proposed.destination)
+	const previousOrigin = compareExactRedirectPath(normalizeExactRedirectOrigin(previous.origin))
+	const proposedOrigin = compareExactRedirectPath(normalizeExactRedirectOrigin(proposed.origin))
+	const previousDestination = compareExactRedirectDestination(previous.destination)
+	const proposedDestination = compareExactRedirectDestination(proposed.destination)
 	return (
 		previousOrigin !== proposedOrigin ||
 		previousDestination.kind !== proposedDestination.kind ||
@@ -127,17 +133,25 @@ export function deriveExactGraphFrontier(
 	const candidateRecords = candidates
 		.filter(participatesInActiveExactGraph)
 		.map(validateExactRedirect)
-	const relevantOrigins = new Set(candidateRecords.map((record) => record.origin))
+	const relevantOrigins = new Set(
+		candidateRecords.map((record) => compareExactRedirectPath(record.origin)),
+	)
 	for (const record of candidateRecords) {
-		if (record.destination.kind === 'path') relevantOrigins.add(record.destination.value)
+		if (record.destination.kind === 'path')
+			relevantOrigins.add(compareExactRedirectPath(record.destination.value))
 	}
 	let expanded = true
 	while (expanded) {
 		expanded = false
 		for (const record of normalized) {
-			if (!relevantOrigins.has(record.origin) || record.destination.kind !== 'path') continue
-			if (!relevantOrigins.has(record.destination.value)) {
-				relevantOrigins.add(record.destination.value)
+			if (
+				!relevantOrigins.has(compareExactRedirectPath(record.origin)) ||
+				record.destination.kind !== 'path'
+			)
+				continue
+			const destination = compareExactRedirectPath(record.destination.value)
+			if (!relevantOrigins.has(destination)) {
+				relevantOrigins.add(destination)
 				expanded = true
 			}
 		}
@@ -175,41 +189,45 @@ export function validateRelevantExactRedirectGraph(
 	for (const candidate of candidates
 		.filter(participatesInActiveExactGraph)
 		.map(validateExactRedirect)) {
-		if (candidateOrigins.has(candidate.origin)) {
+		const origin = compareExactRedirectPath(candidate.origin)
+		if (candidateOrigins.has(origin)) {
 			throw sluggernautIntegrityError(
 				`Multiple active exact candidates use origin "${candidate.origin}".`,
 			)
 		}
-		candidateOrigins.add(candidate.origin)
+		candidateOrigins.add(origin)
 	}
 	const origins = new Map<string, ValidatedExactRedirect>()
 	for (const record of active) {
-		const previous = origins.get(record.origin)
+		const origin = compareExactRedirectPath(record.origin)
+		const previous = origins.get(origin)
 		if (isDefined(previous) && recordKey(previous) !== recordKey(record)) {
 			throw sluggernautIntegrityError(
 				`Multiple active exact redirects use origin "${record.origin}".`,
 			)
 		}
-		origins.set(record.origin, record)
+		origins.set(origin, record)
 	}
 	const unresolvedOrigins = new Set<string>()
 	for (const start of active) {
-		if (!fetchedOrigins.has(start.origin)) unresolvedOrigins.add(start.origin)
+		if (!fetchedOrigins.has(compareExactRedirectPath(start.origin)))
+			unresolvedOrigins.add(compareExactRedirectPath(start.origin))
 	}
 	for (const start of active) {
 		const visited = new Set<string>()
 		let current: ValidatedExactRedirect | undefined = start
 		while (current?.destination.kind === 'path') {
-			if (visited.has(current.origin))
+			const currentOrigin = compareExactRedirectPath(current.origin)
+			if (visited.has(currentOrigin))
 				throw sluggernautIntegrityError('Active exact redirects must not contain a cycle.')
-			visited.add(current.origin)
+			visited.add(currentOrigin)
 			if (
-				!origins.has(current.destination.value) &&
-				!fetchedOrigins.has(current.destination.value)
+				!origins.has(compareExactRedirectPath(current.destination.value)) &&
+				!fetchedOrigins.has(compareExactRedirectPath(current.destination.value))
 			) {
-				unresolvedOrigins.add(current.destination.value)
+				unresolvedOrigins.add(compareExactRedirectPath(current.destination.value))
 			}
-			current = origins.get(current.destination.value)
+			current = origins.get(compareExactRedirectPath(current.destination.value))
 		}
 	}
 	if (unresolvedOrigins.size > 0) {

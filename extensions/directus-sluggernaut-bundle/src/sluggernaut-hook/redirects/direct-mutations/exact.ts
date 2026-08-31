@@ -12,12 +12,14 @@ import {
 	isRecord,
 	hasKey,
 } from '@onderwijsin/directus-extension-utils'
+import { withTrailingSlash } from 'ufo'
 
 import {
 	sluggernautIntegrityError,
 	sluggernautInternalError,
 	sluggernautValidationError,
 } from '../../../shared/errors'
+import { applyTrailingSlash } from '../../../shared/values/normalization'
 import {
 	deriveExactGraphFrontier,
 	materializeRedirectState,
@@ -45,18 +47,29 @@ import { exactInput, isExact, isPattern } from './state'
  * Applies normalized path values to fields explicitly supplied by the caller.
  * @param payload - Original Directus mutation payload.
  * @param validated - Validated and normalized exact redirect.
+ * @param normalizeRedirects - Optional persistence trailing-slash policy.
  * @returns Payload with normalized path fields.
  */
 function normalizedExactPayload(
 	payload: Partial<RedirectMutationInput>,
 	validated: ReturnType<typeof validateExactRedirect>,
+	normalizeRedirects?: SluggernautEnv['SLUGGERNAUT_NORMALIZE_REDIRECTS'],
 ): Partial<RedirectMutationInput> {
 	const result = { ...payload }
+	/**
+	 * Applies the configured persistence policy to one validated path.
+	 * @param value - Validated redirect path.
+	 * @returns Persisted path.
+	 */
+	const normalizePath = (value: string): string =>
+		normalizeRedirects === undefined
+			? value
+			: applyTrailingSlash(value, normalizeRedirects === 'trailing-slash')
 	// Normalize only fields the caller supplied; omitted fields already came from the complete
 	// materialized state and must not be copied back into Directus by this filter.
-	if (hasKey(payload, 'origin')) result.origin = validated.origin
+	if (hasKey(payload, 'origin')) result.origin = normalizePath(validated.origin)
 	if (hasKey(payload, 'destination') && validated.destination.kind === 'path') {
-		result.destination = validated.destination.value
+		result.destination = normalizePath(validated.destination.value)
 	}
 	// Exact redirects cannot carry pattern metadata. Clear it whenever matching-related fields are
 	// touched so stale values cannot survive an exact/pattern mode transition.
@@ -75,15 +88,37 @@ function normalizedExactPayload(
  * Applies normalized pattern paths, derived metadata, and manual ownership to a payload.
  * @param payload - Original Directus mutation payload.
  * @param state - Complete resulting redirect state.
+ * @param normalizeRedirects - Optional persistence trailing-slash policy.
  * @returns Payload with normalized paths and derived metadata.
  */
 function normalizedPatternPayload(
 	payload: Partial<RedirectMutationInput>,
 	state: RedirectState | Partial<RedirectMutationInput>,
+	normalizeRedirects?: SluggernautEnv['SLUGGERNAUT_NORMALIZE_REDIRECTS'],
 ): Partial<RedirectMutationInput> {
 	// Pattern metadata is derived from the complete resulting state, not from the partial payload.
 	// This makes operational updates safe even when origin and destination were omitted.
-	const metadata = patternMetadata(state)
+	const normalizedState =
+		normalizeRedirects === undefined
+			? state
+			: {
+					...state,
+					origin:
+						typeof state.origin === 'string'
+							? applyTrailingSlash(
+									state.origin,
+									normalizeRedirects === 'trailing-slash',
+								)
+							: state.origin,
+					destination:
+						typeof state.destination === 'string'
+							? applyTrailingSlash(
+									state.destination,
+									normalizeRedirects === 'trailing-slash',
+								)
+							: state.destination,
+				}
+	const metadata = patternMetadata(normalizedState)
 	return {
 		...payload,
 		// Normalize paths only when they were part of this mutation; metadata always describes the
@@ -158,7 +193,14 @@ async function validateGraph(
 				_and: [
 					{ match: { _eq: 'exact' } },
 					{ is_active: { _eq: true } },
-					{ origin: { _in: frontier.requestedOrigins } },
+					{
+						origin: {
+							_in: frontier.requestedOrigins.flatMap((origin) => [
+								origin,
+								withTrailingSlash(origin),
+							]),
+						},
+					},
 				],
 			},
 			fields: [...GRAPH_FIELDS],
@@ -231,8 +273,9 @@ async function validateDirectRedirectUpdateMany(input: {
 	payload: Partial<RedirectMutationInput>
 	keys: readonly PrimaryKey[]
 	maxDepth?: number
+	normalizeRedirects?: SluggernautEnv['SLUGGERNAUT_NORMALIZE_REDIRECTS']
 }): Promise<RedirectMutationPayload> {
-	const { context, collection, eventContext, payload, keys, maxDepth } = input
+	const { context, collection, eventContext, payload, keys, maxDepth, normalizeRedirects } = input
 	// Resolve all targets before validating anything. A shared update payload can produce different
 	// complete records depending on each target's current matcher and ownership state.
 	const service = await createRedirectService(context, collection, eventContext.database)
@@ -283,7 +326,11 @@ async function validateDirectRedirectUpdateMany(input: {
 	const normalizedPayload = exactCandidates.reduce(
 		(result, candidate) =>
 			isExact(candidate)
-				? normalizedExactPayload(result, validateExactRedirect(candidate))
+				? normalizedExactPayload(
+						result,
+						validateExactRedirect(candidate),
+						normalizeRedirects,
+					)
 				: result,
 		payload,
 	)
@@ -292,7 +339,7 @@ async function validateDirectRedirectUpdateMany(input: {
 		const firstState = patternStates[0]
 		if (firstState === undefined)
 			throw sluggernautValidationError('Bulk pattern update has no resulting pattern state.')
-		patternPayload = normalizedPatternPayload(normalizedPayload, firstState)
+		patternPayload = normalizedPatternPayload(normalizedPayload, firstState, normalizeRedirects)
 	}
 
 	// Internal history writes already have graph coordination in the canonical planner. External
@@ -349,8 +396,9 @@ export async function validateDirectRedirectMutation(input: {
 	existing?: Redirect
 	service?: RedirectService
 	maxDepth?: number
+	normalizeRedirects?: SluggernautEnv['SLUGGERNAUT_NORMALIZE_REDIRECTS']
 }): Promise<RedirectMutationPayload> {
-	const { context, collection, eventContext, payload, existing } = input
+	const { context, collection, eventContext, payload, existing, normalizeRedirects } = input
 	const result = await attempt(async () => {
 		// 1. Complete the proposed state before applying any policy. This preserves omitted fields,
 		//    explicit nulls, and falsey values exactly as Directus supplied them.
@@ -376,7 +424,7 @@ export async function validateDirectRedirectMutation(input: {
 				? input.service
 				: await createRedirectService(context, collection, eventContext.database)
 			await validatePatternIntegrity(patternService, [{ state: proposed, id: existing?.id }])
-			return normalizedPatternPayload(payload, proposed)
+			return normalizedPatternPayload(payload, proposed, normalizeRedirects)
 		}
 		const exactProposed = exactInput(proposed)
 		if (!isExact(exactProposed))
@@ -385,7 +433,7 @@ export async function validateDirectRedirectMutation(input: {
 		// 3. Validate the candidate locally before any database lookup. This catches malformed
 		//    origins/destinations and self-loops at the smallest possible boundary.
 		const validated = validateExactRedirect(exactProposed)
-		const normalizedPayload = normalizedExactPayload(payload, validated)
+		const normalizedPayload = normalizedExactPayload(payload, validated, normalizeRedirects)
 
 		// Automatic history already resolves structural graphs through its planner and transaction-
 		// local reads. Re-running frontier preflight here would reject concurrent planner writes against
@@ -470,6 +518,7 @@ export function registerDirectRedirectHooks(
 					payload,
 					keys,
 					maxDepth: options.SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH,
+					normalizeRedirects: options.SLUGGERNAUT_NORMALIZE_REDIRECTS,
 				})
 			// A single key still needs a persisted read because partial updates must be validated against
 			// the complete current redirect state.
@@ -490,6 +539,7 @@ export function registerDirectRedirectHooks(
 				existing,
 				service,
 				maxDepth: options.SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH,
+				normalizeRedirects: options.SLUGGERNAUT_NORMALIZE_REDIRECTS,
 			})
 		})
 		if (result.error !== null)
