@@ -27,4 +27,7 @@ behavior, or future maintenance and cannot be explained adequately in an impleme
 update the index.
 
 When revisiting a record, preserve the old rationale in git history, state the compatibility impact,
-and update every affected implementation and consumer document in the same change.
+and update every affected implementation and consumer document in the same change. If an
+implementation change invalidates or supersedes part of an Accepted decision, amend that decision
+record or add a clearly linked superseding record in the same pull request. Accepted records are not
+exhaustive changelogs, but they must not materially contradict the current implementation.
