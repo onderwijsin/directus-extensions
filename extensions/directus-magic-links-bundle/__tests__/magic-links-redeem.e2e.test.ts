@@ -441,11 +441,16 @@ describe('magic-links redeem endpoint', () => {
 			await createMagicLink(user.id, token)
 			const responses = []
 			for (let attempt = 0; attempt < 4; attempt += 1) {
+				const currentToken =
+					attempt === 3
+						? `magic-links-rate-limit-rotated-token-${Date.now()}`
+						: token
+				if (attempt === 3) await createMagicLink(user.id, currentToken)
 				responses.push(
 					await fetch(`${baseUrl}/auth/magic-links/redeem`, {
 						method: 'POST',
 						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify({ token, otp: '000000', mode: 'json' }),
+						body: JSON.stringify({ token: currentToken, otp: '000000', mode: 'json' }),
 					}),
 				)
 			}

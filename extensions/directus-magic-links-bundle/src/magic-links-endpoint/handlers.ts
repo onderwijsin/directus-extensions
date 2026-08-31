@@ -288,7 +288,7 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 			}
 
 			if (link.user_tfa_secret !== null) {
-				if (limiter) await limiter.consume(link.id)
+				if (limiter) await limiter.consume(String(link.user_id))
 				if (!payload.otp) throw new InvalidOtpError()
 
 				const tfaService = new context.services.TFAService({
@@ -329,7 +329,7 @@ export async function redeemMagicLink(input: RedeemHandlerInput) {
 				.update({ redeemed_at: transaction.fn.now() })
 				.returning('id')
 			if (updated.length !== 1) throw new InvalidCredentialsError()
-			if (limiter && link.user_tfa_secret !== null) await limiter.delete(link.id)
+			if (limiter && link.user_tfa_secret !== null) await limiter.delete(String(link.user_id))
 
 			return session
 		}),

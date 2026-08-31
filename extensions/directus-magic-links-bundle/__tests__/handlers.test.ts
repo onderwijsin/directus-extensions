@@ -543,8 +543,39 @@ describe('magic-link handlers', () => {
 			payload: { token: 'raw-token', otp: '123456', mode: 'json' },
 		})
 
-		expect(consume).toHaveBeenCalledWith('link-id')
-		expect(deleteKey).toHaveBeenCalledWith('link-id')
+		expect(consume).toHaveBeenCalledWith('user-id')
+		expect(deleteKey).toHaveBeenCalledWith('user-id')
+	})
+
+	it('shares the OTP budget across links for the same user', async () => {
+		const linkQuery = createQuery({
+			id: 'new-link-id',
+			user_id: 'user-id',
+			user_status: 'active',
+			user_provider: 'default',
+			user_tfa_secret: 'tfa-secret',
+		})
+		const consume = vi.fn().mockResolvedValue(undefined)
+		const limiter = { consume, delete: vi.fn().mockResolvedValue(undefined) }
+
+		await expect(
+			runRedeem({
+				database: createDatabase(createTransaction(linkQuery)),
+				getSchema,
+				services: {
+					TFAService: vi.fn(function () {
+						return { verifyOTP: vi.fn(() => false) }
+					}),
+					AuthenticationService: vi.fn(),
+				},
+				options,
+				secret: 'secret',
+				limiter,
+				payload: { token: 'new-token', otp: 'wrong', mode: 'json' },
+			}),
+		).rejects.toBeInstanceOf(InvalidOtpError)
+
+		expect(consume).toHaveBeenCalledWith('user-id')
 	})
 
 	it('stops OTP validation after the limiter rejects a repeated attempt', async () => {

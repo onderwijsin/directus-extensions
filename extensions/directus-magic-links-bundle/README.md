@@ -184,19 +184,20 @@ attached to the user's directly assigned role are considered for this claim (The
 
 Invalid, expired, already redeemed, inactive, unsupported-provider, missing-OTP, and invalid-OTP
 requests return Directus's `InvalidOtpError` or generic credentials error as appropriate. When
-`auth_login_attempts` is configured, missing or invalid OTP attempts consume a per-link budget;
-successful redemption clears that budget. The budget uses the same maximum as Directus login
-attempts and expires with the configured magic-link lifetime. OTP failures roll back the
-transaction, so the link can be retried until the budget is exhausted; other failed authentication
-leaves the link unredeemed as well. Set `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE=redis` and configure
+`auth_login_attempts` is configured, missing or invalid OTP attempts consume a per-user budget;
+successful redemption clears that user's budget. Requesting a new magic link does not reset the
+budget. The budget uses the same maximum as Directus login attempts and expires with the configured
+magic-link lifetime. OTP failures roll back the transaction, so the link can be retried until the
+budget is exhausted; other failed authentication leaves the link unredeemed as well. Set
+`DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE=redis` and configure
 Directus's resolved Redis configuration for coordination across Directus replicas. A complete
 `REDIS` URL takes precedence over component values; component configuration requires
 `REDIS_ENABLED=true` (or `SYNCHRONIZATION_STORE=redis`) and all four Redis component variables.
 `auth_login_attempts=null` disables this limiter.
 
-When the per-link budget is exhausted, Directus returns its standard `HitRateLimitError` response
-with HTTP status `429`; stop retrying that link and use a new link after expiry or the application's
-normal sign-in flow.
+When the per-user budget is exhausted, Directus returns its standard `HitRateLimitError` response
+with HTTP status `429`; stop retrying the user's links until the budget expires or use the
+application's normal sign-in flow.
 
 When `enforce_tfa` is `true`, decode the access-token JWT payload client-side and route the
 authenticated user into the application's TFA setup flow. JWT decoding is only a UI/navigation hint;
@@ -204,7 +205,7 @@ the server remains authoritative for authentication and OTP validation. The JWT 
 without the Directus signing secret, but must not be treated as trusted input for authorization.
 
 The redemption limiter is separate from Directus's account-suspension behavior: it bounds OTP
-attempts per magic-link credential and does not suspend the user. Apply rate limiting to both public
+attempts per user and does not suspend the user. Apply rate limiting to both public
 routes at the edge or API gateway as an additional deployment control.
 
 Clients should remove the token from the browser URL immediately after reading it, avoid analytics
