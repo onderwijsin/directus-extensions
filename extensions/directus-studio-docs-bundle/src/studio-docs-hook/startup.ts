@@ -30,16 +30,14 @@ export function registerStudioDocsStartup(
 	const startup = createDirectusStartupCoordinator(hook, context.logger, {
 		id: EXTENSION_ID,
 		name: 'Studio Docs',
-		disabled: false,
-		disabledGlobally: false,
+		disabled: !options.DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED,
+		disabledGlobally: !options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED,
 		dataDisabledGlobally: !options.DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED,
 		abortOnError: options.DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR,
 		lockProviderConfig: { ...options, DIRECTUS_EXTENSION_ID: EXTENSION_ID },
 	})
 
 	startup.schema(async ({ lockProvider }) => {
-		if (!options.DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED) return
-
 		await ensureDirectusSchema({
 			id: EXTENSION_ID,
 			database: context.database,
