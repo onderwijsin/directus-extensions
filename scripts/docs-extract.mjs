@@ -1,9 +1,8 @@
 /**
  * Extracts Studio Docs articles from a running Directus instance into their mapped package files.
  *
- * Use `pnpm docs:extract`. Configure `DIRECTUS_DOCS_URL` and either
- * `DIRECTUS_DOCS_TOKEN` or `DIRECTUS_DOCS_EMAIL`/`DIRECTUS_DOCS_PASSWORD` when the defaults do
- * not match the local instance.
+ * Use `pnpm docs:extract`. Configure `DIRECTUS_DOCS_URL` when the default does not match the
+ * local instance. The root `.env` file must contain `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
@@ -122,31 +121,40 @@ async function requestJson(url, token) {
  */
 export async function extractDocs() {
 	const map = await loadArticleMap()
+	try {
+		process.loadEnvFile(resolve(root, '.env'))
+	} catch (error) {
+		if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+			throw new Error(
+				'Unable to load the root .env file; create it with ADMIN_EMAIL and ADMIN_PASSWORD',
+			)
+		}
+		throw error
+	}
 	const baseUrl = (
 		process.env.DIRECTUS_DOCS_URL ??
 		process.env.DIRECTUS_URL ??
+		process.env.PUBLIC_URL ??
 		'http://localhost:8055'
 	).replace(/\/$/u, '')
-	let token = process.env.DIRECTUS_DOCS_TOKEN ?? process.env.DIRECTUS_TOKEN
-
-	if (!token && process.env.DIRECTUS_DOCS_EMAIL && process.env.DIRECTUS_DOCS_PASSWORD) {
-		const response = await fetch(`${baseUrl}/auth/login`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				email: process.env.DIRECTUS_DOCS_EMAIL,
-				password: process.env.DIRECTUS_DOCS_PASSWORD,
-			}),
-		})
-		const body = await response.json().catch(() => null)
-		if (!response.ok || typeof body?.data?.access_token !== 'string') {
-			throw new Error(
-				`Directus login failed with ${response.status}: ${JSON.stringify(body)}`,
-			)
-		}
-		token = body.data.access_token
+	const email = process.env.ADMIN_EMAIL
+	const password = process.env.ADMIN_PASSWORD
+	if (!email || !password) {
+		throw new Error('Set ADMIN_EMAIL and ADMIN_PASSWORD in the root .env file')
 	}
-	if (!token) throw new Error('Set DIRECTUS_DOCS_TOKEN before extracting Studio Docs articles')
+
+	const loginResponse = await fetch(`${baseUrl}/auth/login`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ email, password }),
+	})
+	const loginBody = await loginResponse.json().catch(() => null)
+	if (!loginResponse.ok || typeof loginBody?.data?.access_token !== 'string') {
+		throw new Error(
+			`Directus login failed with ${loginResponse.status}: ${JSON.stringify(loginBody)}`,
+		)
+	}
+	const token = loginBody.data.access_token
 
 	log(`📚 Extracting Studio Docs articles from ${baseUrl}`)
 	const query = new URLSearchParams({
