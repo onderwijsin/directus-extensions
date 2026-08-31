@@ -29,7 +29,7 @@ environment parsing rules.
 | `DIRECTUS_DOCS_ENABLED`                | `true`       | Server-side provisioning and seeding gate. The client-side module remains registered because it cannot read server environment variables. |
 | `DIRECTUS_DOCS_SEED_ENABLED`           | `true`       | Boolean gate for article seeding.                                                                                                         |
 | `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning` | `override` or `versioning`.                                                                                                               |
-| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Boolean gate for schema provisioning.                                                                                                     |
+| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Boolean gate for schema provisioning; requires the global schema gate too.                                                                |
 | `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`       | Boolean schema error behavior.                                                                                                            |
 | `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`       | Boolean manage-policy gate.                                                                                                               |
 | `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`       | Boolean view-policy gate.                                                                                                                 |
@@ -83,9 +83,9 @@ Use stable UUIDs for contributed articles. The default `versioning` strategy wri
 to the reserved `incoming` version for review; `override` replaces the current item. Neither
 strategy automatically promotes a version.
 
-If the collection is missing, check `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED`. If an article is
-missing, check the Docs and contributor-specific seed gates and the user’s Docs policy assignment.
-Startup coordination across replicas requires a shared Redis or filesystem lock provider.
+If the collection is missing, check both schema-change switches. If an article is missing, check the
+Docs and contributor-specific seed gates and the user’s Docs policy assignment. Startup coordination
+across replicas requires a shared Redis or filesystem lock provider.
 
 The bundle does not provide article CRUD, role assignment, role membership, or automatic version
 promotion. It requires a trusted Directus `>=12.2.0 <13` server runtime and is not intended for

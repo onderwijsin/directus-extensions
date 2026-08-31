@@ -104,6 +104,30 @@ describe('Studio Docs bundle Phase 1 scaffold', () => {
 		expect(mocks.createDirectusStartupCoordinator).toHaveBeenCalledOnce()
 	})
 
+	it('passes the global schema disable switch to startup coordination', () => {
+		mocks.validateExtensionOptions.mockReturnValueOnce({
+			DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: false,
+			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: false,
+			DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED: true,
+			DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR: true,
+			DIRECTUS_DOCS_SEED_ENABLED: true,
+			DIRECTUS_DOCS_MANAGE_POLICY_ENABLED: true,
+			DIRECTUS_DOCS_VIEW_POLICY_ENABLED: true,
+		})
+
+		mocks.hookRegister({ action: vi.fn(), init: vi.fn() }, { env: {}, logger: {} })
+
+		expect(mocks.createDirectusStartupCoordinator).toHaveBeenCalledWith(
+			expect.anything(),
+			{},
+			expect.objectContaining({
+				disabled: false,
+				disabledGlobally: true,
+				dataDisabledGlobally: true,
+			}),
+		)
+	})
+
 	it('does not validate or complete disabled hook setup', () => {
 		mocks.setup.isEnabled.mockReturnValue(false)
 		mocks.hookRegister({ action: vi.fn(), init: vi.fn() }, { env: {}, logger: {} })

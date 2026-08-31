@@ -25,7 +25,7 @@ The hook validates these environment variables. Defaults are enabled:
 | `DIRECTUS_DOCS_ENABLED`                | `true`       | Enables server-side provisioning and seeding. The client-side module remains registered because it cannot read server environment variables. |
 | `DIRECTUS_DOCS_SEED_ENABLED`           | `true`       | Article seeding gate.                                                                                                                        |
 | `DIRECTUS_DOCS_SEEDING_STRATEGY`       | `versioning` | `override` or `versioning` reconciliation strategy.                                                                                          |
-| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Schema provisioning gate.                                                                                                                    |
+| `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` | `true`       | Schema provisioning gate; requires the global schema gate too.                                                                               |
 | `DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR`  | `true`       | Schema error policy.                                                                                                                         |
 | `DIRECTUS_DOCS_MANAGE_POLICY_ENABLED`  | `true`       | Manage-policy gate.                                                                                                                          |
 | `DIRECTUS_DOCS_VIEW_POLICY_ENABLED`    | `true`       | View-policy gate.                                                                                                                            |
@@ -51,9 +51,10 @@ versioning is enabled with `archived` as the archive field. The hook can also se
 unarchived articles. Neither policy grants Directus Data Studio access; administrators must assign
 policies to roles.
 
-Schema provisioning requires `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED`; it is independent of the global
-extension schema-change gate. Policy provisioning remains ordinary extension data work and requires
-`DIRECTUS_DOCS_SEED_ENABLED` and `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`.
+Schema provisioning requires both `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED` and
+`DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`; the global switch is authoritative. Policy
+provisioning remains ordinary extension data work and requires `DIRECTUS_DOCS_SEED_ENABLED` and
+`DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`.
 
 ## Startup and collection surface
 
@@ -111,7 +112,7 @@ maintainer must review and promote versioned content through Directus.
 
 | Symptom                                      | Check                                                                                                                          |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `studio_docs` is missing                     | Enable `DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED`, then restart Directus.                                                          |
+| `studio_docs` is missing                     | Enable both schema-change switches, then restart Directus.                                                                     |
 | A contributed article is missing             | Check `DIRECTUS_DOCS_ENABLED`, `DIRECTUS_DOCS_SEED_ENABLED`, and the contributor’s `extensionSeedEnabled` option.              |
 | A changed article is not visible immediately | With `versioning`, inspect the article’s `incoming` version and promote it after review; use `override` only when appropriate. |
 | Users cannot see articles                    | Assign `Can View Studio Docs` to the relevant role, or assign `Can Manage Studio Docs` to editors.                             |
