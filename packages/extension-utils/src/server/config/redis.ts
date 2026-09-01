@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { defineExtensionOptionsShape, type ExtensionOptionsShapeBuilder } from '../schema-builder'
+
 const nonBlankStringSchema = z.string().trim().min(1)
 
 export const redisUrlSchema = nonBlankStringSchema.refine((value) => {
@@ -29,6 +31,16 @@ export const redisConfigSchema = z.object({
 })
 
 export type RedisConfig = z.output<typeof redisConfigSchema>
+
+/**
+ * Defines extension options that include the shared Redis configuration.
+ *
+ * @param builder - Builds extension-specific fields with the package-owned Zod runtime.
+ * @returns An opaque definition accepted by `validateExtensionOptions`.
+ */
+export const defineRedisConfigSchema = <const Shape extends z.ZodRawShape>(
+	builder: ExtensionOptionsShapeBuilder<Shape>,
+) => defineExtensionOptionsShape(redisConfigSchema, builder)
 
 /**
  * Resolves Directus Redis environment values to a connection URL.

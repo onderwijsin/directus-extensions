@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { defineExtensionOptionsShape, type ExtensionOptionsShapeBuilder } from '../schema-builder'
 import { redisConfigSchema } from './redis'
 
 /** Directus synchronization backends used as the global extension fallback. */
@@ -14,3 +15,13 @@ export const synchronizationConfigSchema = z
 
 export type SynchronizationConfig = z.output<typeof synchronizationConfigSchema>
 export type SynchronizationStore = z.output<typeof synchronizationStoreSchema>
+
+/**
+ * Defines extension options that include the shared synchronization configuration.
+ *
+ * @param builder - Builds extension-specific fields with the package-owned Zod runtime.
+ * @returns An opaque definition accepted by `validateExtensionOptions`.
+ */
+export const defineSynchronizationConfigSchema = <const Shape extends z.ZodRawShape>(
+	builder: ExtensionOptionsShapeBuilder<Shape>,
+) => defineExtensionOptionsShape(synchronizationConfigSchema, builder)

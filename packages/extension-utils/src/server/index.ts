@@ -8,5 +8,11 @@ export * from './directus-ensure'
 export * from './setup'
 export * from './accountability'
 export * from './policies'
+export {
+	defineExtensionOptionsSchema,
+	type ExtensionOptionsDefinition,
+	type ExtensionOptionsSchemaBuilder,
+	type ExtensionOptionsShapeBuilder,
+} from './schema-builder'
 export { default as createLogger } from './logger'
 export type { Logger, LoggerLike } from './logger'

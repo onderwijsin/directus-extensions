@@ -17,6 +17,11 @@ The public surface includes:
 pnpm add @onderwijsin/directus-extension-utils
 ```
 
+The server utilities use their own Zod runtime dependency. Consumers do not need to install or align
+Zod when defining extension options through the package's schema builders. An extension may use
+another Zod version for unrelated validation, but must not combine schemas from that runtime with
+the legacy raw schemas exported by this package.
+
 `ensureDirectusDocumentation` is the server-only contract for extensions that contribute articles to
 the fixed `studio_docs` collection. It validates stable article input, honors the docs seed gate,
 and reconciles changed content using either the main item or the reserved `incoming` content
@@ -146,6 +151,16 @@ The related public types are `CacheEnv`, `CacheOptions` (`ttl`, a finite positiv
 `WithCacheOptions` (`cache` plus `key`), `CollectionInput`, and
 `CollectionCacheInvalidationOptions`.
 
+Use `defineCacheConfigSchema` when adding extension-specific fields to the shared cache settings:
+
+```ts
+import { defineCacheConfigSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineCacheConfigSchema((z) => ({
+  CATALOG_CACHE_NAMESPACE: z.string().default('catalog'),
+}))
+```
+
 Publishable extensions must provide an explicit extension-specific `CacheOptions.namespace` for
 extension-owned caches. Use separate subsystem namespaces when targeted invalidation is useful.
 `CacheOptions.namespace` isolates Redis keys and makes `clear()` namespace-scoped. Local caches have
@@ -157,11 +172,12 @@ uses `memory`, even though `initializeCache` maps memory to the library's local 
 must be finite and positive. Policy caching is the exception: it deliberately ignores memory and
 requires valid Redis configuration.
 
-The server entrypoint also exports `emailConfigSchema`, `requiredEmailConfigSchema`, and
-`isEmailConfigured`. The base email schema supplies Directus defaults without requiring a transport;
-the required schema validates the minimum shared prerequisites for the selected transport. For SMTP,
-that means only `EMAIL_SMTP_HOST`; the SMTP port, username, password, and other transport options
-are left to Directus and the consumer to configure and validate.
+The server entrypoint also exports `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and
+`isEmailConfigured`. The optional builder supplies Directus defaults without requiring a transport;
+the required builder validates the minimum shared prerequisites for the selected transport. For
+SMTP, that means only `EMAIL_SMTP_HOST`; the SMTP port, username, password, and other transport
+options are left to Directus and the consumer to configure and validate. The corresponding raw
+schemas remain available for backward compatibility.
 
 Wrap asynchronous endpoint handlers and middleware with `asyncHandler` so rejected promises reach
 Directus's Express 4 error handling:
@@ -249,6 +265,23 @@ the corresponding console methods.
 The `/app` and `/shared` entry points expose the common browser-safe surface. Do not import locks,
 tasks, task storage, logging, or setup helpers from those paths.
 
+### Zod-safe extension options
+
+Define ordinary extension options with `defineExtensionOptionsSchema`. The callback receives the Zod
+runtime owned by extension-utils and returns an opaque definition rather than a Zod schema:
+
+```ts
+// env.schema.ts
+import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema((z) =>
+  z.object({
+    CATALOG_ENABLED: z.boolean().default(true),
+    CATALOG_URL: z.url(),
+  }),
+)
+```
+
 Use `/server` setup helpers at an API extension boundary:
 
 ```ts
@@ -266,23 +299,33 @@ const options = validateExtensionOptions(env, envSchema, logger)
 setup.end()
 ```
 
+Schema definitions created by these builders are intentionally opaque: do not call `.parse()`,
+`.safeParse()`, `.extend()`, or `.safeExtend()` on them. Define every field inside the callback and
+use `validateExtensionOptions` to obtain the inferred, validated output. The specialized builders
+`defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`,
+`defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and `defineDirectusStartupSchema` add
+their shared configuration before validation.
+
+For backward compatibility, `validateExtensionOptions` still accepts a raw Zod schema and the
+package still exports its raw shared schemas. That path is version-sensitive when a consumer
+combines schemas from another Zod runtime; use builders for new code.
+
 For extensions that modify Directus schema, compose the entrypoint environment schema with the
 shared server-side schema-change settings:
 
 ```ts
-import { directusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
-import { z } from 'zod'
+import { defineDirectusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
 
-const envSchema = directusStartupSchema.extend({
+const envSchema = defineDirectusStartupSchema((z) => ({
   MY_EXTENSION_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
-})
+}))
 ```
 
-`directusStartupSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to
-`true`, and supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`memory`, `redis`, or `fs`). When unset,
-the lock provider falls back to `SYNCHRONIZATION_STORE`. `redis` uses
-`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` when set, otherwise the resolved Directus Redis configuration;
-`fs` requires `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. It also exposes the shared
+The builder validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to `true`, and
+supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`memory`, `redis`, or `fs`). When unset, the lock
+provider falls back to `SYNCHRONIZATION_STORE`. `redis` uses `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`
+when set, otherwise the resolved Directus Redis configuration; `fs` requires
+`DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. It also exposes the shared
 `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` setting. When unset, it falls back to
 `SYNCHRONIZATION_STORE`.
 
@@ -310,8 +353,9 @@ natural key `policy + collection + action`; matching existing rows are preserved
 updated.
 
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
-`validateExtensionOptions` parses a complete extension environment with Zod, logs validation
-details, and throws when the configuration is invalid.
+`validateExtensionOptions` materializes package-owned schema definitions, parses a complete
+extension environment with Zod, logs validation details, and throws when the configuration is
+invalid.
 
 Schema configuration and operation options:
 
