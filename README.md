@@ -21,6 +21,7 @@ trusted, non-sandboxed runtime require a trusted self-hosted installation.
 | [`@onderwijsin/directus-loops-bundle`](extensions/directus-loops-bundle/README.md)                                       | Synchronize Loops contact profiles and archive email campaigns in Directus. |
 | [`@onderwijsin/directus-sluggernaut-bundle`](extensions/directus-sluggernaut-bundle/README.md)                           | Field-driven slugs, permalinks, redirects, and recalculation for Directus.  |
 | [`@onderwijsin/directus-quick-copy-bundle`](extensions/directus-quick-copy-bundle/README.md)                             | Readonly copy-enabled interface and display for Directus fields.            |
+| [`@onderwijsin/directus-markdown-editor`](extensions/directus-markdown-editor/README.md)                                 | Directus-native Tiptap editor for Markdown and generic MDC content.         |
 | [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.                 |
 | [`@onderwijsin/directus-studio-docs-bundle`](extensions/directus-studio-docs-bundle/README.md)                           | In-Studio documentation bundle scaffold for Directus.                       |
 
