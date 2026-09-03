@@ -34,13 +34,14 @@ theme: dark
 Component names are data and do not need to be registered in the editor. The consuming Nuxt
 application remains responsible for rendering those names through its own MDC/Comark setup.
 
-The current POC includes a small formatting toolbar, undo/redo, read-only/disabled behavior, and
-safe external value resynchronization. The toolbar also includes a **Component** menu for inserting
-arbitrary block or inline MDC nodes. Configure the interface's optional **Component metadata URL**
-with a public JSON endpoint to populate project component choices and basic controls for enum,
-boolean, number, and text props. The endpoint must return an array of objects, or an object with a
-`components` array; each object requires `name` and may include `label`, `description`, `props`, and
-`slots`. Invalid responses are rejected without preventing generic component insertion.
+The current POC is intentionally a bare editing surface with read-only/disabled behavior and safe
+external value resynchronization. It has no toolbar, component insertion menu, source panel, or
+block actions yet.
+
+The interface retains an optional **Component metadata URL** configuration for the upcoming UI. It
+accepts an array of objects, or an object with a `components` array; each object requires `name` and
+may include `label`, `description`, `props`, and `slots`. The temporary **Use mock component
+metadata** option remains available for that future UI.
 
 Project metadata is validated at the browser boundary. For example:
 
@@ -57,7 +58,5 @@ Project metadata is validated at the browser boundary. For example:
 }
 ```
 
-The editor also provides a guarded source fallback: if visual parsing would change the initial
-Markdown, source editing is required and the original value is not overwritten automatically.
-Selecting a generic MDC block exposes duplicate and delete actions. Drag handles and Directus media
-selection are not part of this release yet.
+Source fallback, block actions, drag handles, and Directus media selection are deferred to a
+separate UI/UX implementation session.

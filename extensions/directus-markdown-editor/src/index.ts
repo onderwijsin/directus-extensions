@@ -24,6 +24,16 @@ export default defineInterface({
 				note: 'Optional JSON URL containing the project components available in the editor.',
 			},
 		},
+		{
+			field: 'useMockMetadata',
+			name: 'Use mock component metadata',
+			type: 'boolean',
+			meta: {
+				width: 'half',
+				note: 'Temporary test fixture with Hero, Callout, and Icon components; bypasses the metadata URL.',
+			},
+			schema: { default_value: false },
+		},
 	],
 	types: ['text', 'string'],
 	group: 'standard',

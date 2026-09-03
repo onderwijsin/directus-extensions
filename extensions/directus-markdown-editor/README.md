@@ -5,10 +5,10 @@ canonical value: Markdown in a Directus `text` field. Tiptap JSON is only used w
 
 ## Status
 
-This release proves the POC 1/2/3 boundary: ordinary Markdown, a Directus-hosted Tiptap editor,
-generic MDC blocks, generic inline MDC nodes, named slots, nested delimiter handling, YAML props,
-undo/redo, external value synchronization, source safety fallback, MDC block duplication/deletion,
-and a small formatting toolbar. It does not yet provide drag handles or Directus file selection.
+This release proves the content and integration boundary: ordinary Markdown, a Directus-hosted
+Tiptap editor, generic MDC blocks, generic inline MDC nodes, named slots, nested delimiter handling,
+YAML props, and external value synchronization. The editor intentionally has no authoring UI yet; it
+is a bare editing surface for validating the content model.
 
 ## Install
 
@@ -24,12 +24,12 @@ preserve their delimiter depth during round-trips.
 
 Tiptap 3.31.0 and `@tiptap/markdown` are pinned together because the Markdown package is beta.
 
-The toolbar includes a **Component** insertion menu. Without configuration it accepts arbitrary
-block or inline names for testing. Set the interface option **Component metadata URL** to a public
-JSON endpoint to show project component choices, descriptions, slots, and basic prop controls. The
-endpoint may return either an array of component metadata objects or `{ "components": [...] }`.
-Invalid responses are rejected and shown as `Metadata unavailable`; generic name entry remains
-available.
+The interface configuration retains **Component metadata URL** for the upcoming authoring UI. It
+accepts either an array of component metadata objects or `{ "components": [...] }`; responses are
+validated before use.
+
+For local testing, **Use mock component metadata** remains available as a temporary configuration
+fixture for the upcoming authoring UI.
 
 A component metadata object has this shape:
 
@@ -45,6 +45,5 @@ A component metadata object has this shape:
 }
 ```
 
-When visual parsing would change the initial Markdown, the interface opens a source editor and
-requires an explicit **Apply Markdown** action. Selected MDC blocks expose duplicate and delete
-actions in the toolbar, so unknown syntax is not overwritten accidentally.
+Authoring controls, source fallback UI, drag handles, and Directus file selection are intentionally
+deferred to a separate UI/UX implementation session.

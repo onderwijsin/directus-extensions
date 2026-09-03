@@ -412,6 +412,9 @@ importers:
       '@tiptap/vue-3':
         specifier: 'catalog:'
         version: 3.31.0(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.0(@tiptap/pm@3.31.0))(@tiptap/pm@3.31.0)(vue@3.5.24(typescript@5.9.3))
+      ofetch:
+        specifier: 'catalog:'
+        version: 1.5.1
       yaml:
         specifier: 'catalog:'
         version: 2.9.0

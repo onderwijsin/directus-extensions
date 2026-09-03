@@ -60,6 +60,7 @@
 		"@tiptap/markdown": "catalog:",
 		"@tiptap/starter-kit": "catalog:",
 		"@tiptap/vue-3": "catalog:",
+		"ofetch": "catalog:",
 		"yaml": "catalog:",
 		"zod": "catalog:"
 	},
