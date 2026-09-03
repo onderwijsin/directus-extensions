@@ -235,6 +235,9 @@ watch(
 }
 
 .markdown-editor__toolbar-row {
+	position: sticky;
+	top: 0;
+	z-index: 5;
 	display: flex;
 	align-items: center;
 	min-width: 0;

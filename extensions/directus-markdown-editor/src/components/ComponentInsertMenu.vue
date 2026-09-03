@@ -8,6 +8,7 @@ import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 import DirectusButton from '../ui/DirectusButton.vue'
 import DirectusIcon from '../ui/DirectusIcon.vue'
 import DirectusInput from '../ui/DirectusInput.vue'
+import DirectusList from '../ui/DirectusList.vue'
 import DirectusMenu from '../ui/DirectusMenu.vue'
 import ComponentPropsDrawer from './ComponentPropsDrawer.vue'
 
@@ -79,6 +80,8 @@ const filteredComponents = computed(
 	},
 )
 
+const componentItems = computed(() => filteredComponents.value)
+
 /**
  * Editor callback.
  * @param component Parameter value.
@@ -88,6 +91,16 @@ function choose(component: ComponentMetadata) {
 	editExisting.value = false
 	selected.value = component
 	drawerOpen.value = true
+}
+
+/**
+ * Choose a component from the Directus list.
+ * @param name The selected component name.
+ * @returns Nothing.
+ */
+function chooseByName(name: string) {
+	const component = props.components.find((candidate) => candidate.name === name)
+	if (component) choose(component)
 }
 const selectedBlock = computed(
 	/**
@@ -190,7 +203,7 @@ onBeforeUnmount(() =>
 	<div class="component-insert-menu">
 		<div class="component-insert-menu__toolbar-group">
 			<div class="component-insert-menu__separator" aria-hidden="true" />
-			<DirectusMenu v-model="menuOpen">
+			<DirectusMenu v-model="menuOpen" placement="bottom-end">
 				<template #activator>
 					<DirectusButton
 						class="component-insert-menu__button"
@@ -203,21 +216,14 @@ onBeforeUnmount(() =>
 					</DirectusButton>
 				</template>
 				<div class="component-insert-menu__content">
-					<DirectusInput
-						v-model="query"
-						label="Find component"
-						placeholder="Search components…"
-					/>
-					<button
-						v-for="component in filteredComponents"
-						:key="component.name"
-						type="button"
-						class="component-insert-menu__item"
-						@click="choose(component)"
-					>
-						<strong>{{ component.label }}</strong>
-						<small>{{ component.description }}</small>
-					</button>
+					<div @click.stop @mousedown.stop>
+						<DirectusInput
+							v-model="query"
+							label="Find component"
+							placeholder="Search components…"
+						/>
+					</div>
+					<DirectusList :items="componentItems" @select="chooseByName" />
 					<div v-if="!filteredComponents.length" class="component-insert-menu__empty">
 						No components
 					</div>
@@ -263,20 +269,6 @@ onBeforeUnmount(() =>
 .component-insert-menu__button {
 	margin-inline-end: 0;
 }
-.component-insert-menu__item {
-	display: grid;
-	gap: 0.125rem;
-	padding: 0.5rem;
-	border: 0;
-	border-radius: 0.25rem;
-	background: transparent;
-	text-align: start;
-	cursor: pointer;
-}
-.component-insert-menu__item:hover {
-	background: var(--theme--background-subdued, #f0f2f5);
-}
-.component-insert-menu__item small,
 .component-insert-menu__empty {
 	color: var(--theme--foreground-subdued, #8b98a5);
 }
