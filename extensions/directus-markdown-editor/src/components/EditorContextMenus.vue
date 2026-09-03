@@ -15,7 +15,7 @@ import DirectusIcon from '../ui/DirectusIcon.vue'
 const props = defineProps<{ editor: Editor; commands: EditorCommand[]; disabled?: boolean }>()
 const emit = defineEmits<{ openLink: [] }>()
 const revision = ref(0)
-let dragHandleNode: { node: ProseMirrorNode; pos: number } | null = null
+const dragHandleHeight = 24
 const contextualCommands =
 	/**
 	 * Editor callback.
@@ -98,34 +98,26 @@ function updateDragHandleNode(nodeChange: {
 }) {
 	const { node, editor } = nodeChange
 	const domNode = node ? editor.view.nodeDOM(nodeChange.pos) : null
-	const isMdcNode =
-		node?.type.name.startsWith('mdc') ||
-		(domNode instanceof HTMLElement && domNode.closest('[data-mdc-node-view]') !== null)
-	if (!isMdcNode) {
-		dragHandleNode = null
+	const mdcElement =
+		domNode instanceof HTMLElement
+			? (domNode.closest<HTMLElement>('.mdc-block-view') ??
+				domNode.closest<HTMLElement>('[data-mdc-node-view]'))
+			: null
+	const isMdcNode = node?.type.name.startsWith('mdc') || mdcElement !== null
+	const dragHandle = editor.view.dom.parentElement?.querySelector<HTMLElement>(
+		'.markdown-editor__drag-handle',
+	)
+	if (!node || !(domNode instanceof HTMLElement)) {
+		dragHandle?.style.removeProperty('transform')
+		dragHandle?.removeAttribute('data-mdc-node')
 		return
 	}
-	dragHandleNode = node ? { node, pos: nodeChange.pos } : null
-}
-
-/**
- * Return a virtual reference that places MDC handles one rem below the node top.
- * @returns The virtual reference for an MDC node, or null for regular nodes.
- */
-function getDragHandleReference() {
-	if (!dragHandleNode) return null
-	const domNode = props.editor.view.nodeDOM(dragHandleNode.pos)
-	if (!(domNode instanceof HTMLElement)) return null
-	const rect = domNode.getBoundingClientRect()
-	const handleHalfHeight = 12
-	const top = rect.top + 16 + handleHalfHeight
-	return {
-		/**
-		 * Return the virtual reference bounds.
-		 * @returns The reference rectangle.
-		 */
-		getBoundingClientRect: () => new DOMRect(rect.left, top, 0, 0),
-	}
+	if (!dragHandle) return
+	const rect = (mdcElement ?? domNode).getBoundingClientRect()
+	const offset = isMdcNode ? 8 : Math.max(0, (rect.height - dragHandleHeight) / 2)
+	dragHandle.style.transform = `translateY(${offset}px)`
+	if (isMdcNode) dragHandle.setAttribute('data-mdc-node', 'true')
+	else dragHandle.removeAttribute('data-mdc-node')
 }
 </script>
 
@@ -173,8 +165,7 @@ function getDragHandleReference() {
 	<DragHandle
 		v-if="!disabled"
 		:editor="editor"
-		:compute-position-config="{ placement: 'left' }"
-		:get-referenced-virtual-element="getDragHandleReference"
+		:compute-position-config="{ placement: 'left-start' }"
 		:on-node-change="updateDragHandleNode"
 		class="markdown-editor__drag-handle"
 	>

@@ -46,6 +46,40 @@ describe('editor commands', () => {
 		editor.destroy()
 	})
 
+	it('keeps quote and list Enter behavior while clearing marks', () => {
+		const quoteEditor = new Editor({
+			extensions: [StarterKit, ClearMarksOnEnter],
+			content: '<blockquote><p><strong>Quote</strong></p></blockquote>',
+		})
+		quoteEditor.commands.setTextSelection({ from: 9, to: 9 })
+
+		expect(quoteEditor.commands.keyboardShortcut('Enter')).toBe(true)
+		expect(quoteEditor.getHTML()).toContain(
+			'<blockquote><p><strong>Quote</strong></p><p></p></blockquote>',
+		)
+		expect(quoteEditor.isActive('bold')).toBe(false)
+		quoteEditor.commands.keyboardShortcut('Enter')
+		expect(quoteEditor.getHTML()).toContain('</blockquote><p></p>')
+		quoteEditor.destroy()
+
+		const listEditor = new Editor({
+			extensions: [StarterKit, ClearMarksOnEnter],
+			content: '<ul><li><p><strong>Item</strong></p></li></ul>',
+		})
+		listEditor.commands.setTextSelection({ from: 8, to: 8 })
+
+		expect(listEditor.commands.keyboardShortcut('Enter')).toBe(true)
+		expect(listEditor.getHTML()).toContain(
+			'<ul><li><p><strong>Item</strong></p></li><li><p></p></li></ul>',
+		)
+		expect(listEditor.isActive('bold')).toBe(false)
+		listEditor.commands.keyboardShortcut('Enter')
+		expect(listEditor.getHTML()).toContain(
+			'<ul><li><p><strong>Item</strong></p></li></ul><p></p>',
+		)
+		listEditor.destroy()
+	})
+
 	it('edits a selected link and rejects unsafe URLs', () => {
 		const editor = createEditor('<p>Hello world</p>')
 		editor.commands.setTextSelection({ from: 1, to: 6 })

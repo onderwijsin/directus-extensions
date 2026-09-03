@@ -11,9 +11,17 @@ export const ClearMarksOnEnter = Extension.create({
 	addKeyboardShortcuts() {
 		return {
 			Enter: /**
-			 * Split the current block without preserving inline marks.
+			 * Preserve Tiptap's block, list, and code Enter behavior while clearing
+			 * inline marks on a newly created text block.
 			 * @returns Whether the block was split.
-			 */ () => this.editor.commands.splitBlock({ keepMarks: false }),
+			 */ () =>
+				this.editor.commands.first(({ commands }) => [
+					() => commands.newlineInCode(),
+					() => commands.createParagraphNear(),
+					() => commands.splitListItem('listItem'),
+					() => commands.liftEmptyBlock(),
+					() => commands.splitBlock({ keepMarks: false }),
+				]),
 		}
 	},
 })
