@@ -1,14 +1,25 @@
-import type { JSONContent, MarkdownToken } from '@tiptap/core'
+import type { JSONContent, MarkdownToken, NodeViewProps } from '@tiptap/core'
 import type { MarkdownParseHelpers, MarkdownRendererHelpers } from '@tiptap/core'
+import type { Component } from 'vue'
 
 import { Node } from '@tiptap/core'
+import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 
+import MdcBlockView from '../components/MdcBlockView.vue'
+import MdcInlineView from '../components/MdcInlineView.vue'
+import MdcSlotView from '../components/MdcSlotView.vue'
 import { parseMdcAttributes, serializeMdcAttributes } from './attributes'
+const mdcNodeView =
+	/**
+	 * Editor callback.
+	 * @param component Parameter value.
+	 * @returns Callback result.
+	 */
+	(component: Component) => VueNodeViewRenderer(component as Component<NodeViewProps>)
 
 // The callbacks in a Tiptap extension config are documented by the public Tiptap types.
 // Their signatures are intentionally kept inline with that config so the extension remains portable.
-// oxlint-disable jsdoc-js/require-jsdoc
 
 type MdcToken = MarkdownToken & {
 	name?: string
@@ -28,9 +39,9 @@ type MdcNode = JSONContent & {
 }
 
 /**
- * Parse the YAML props form accepted inside MDC blocks.
- * @param source YAML document.
- * @returns Object props, or `undefined` for invalid/non-object YAML.
+ * Editor callback.
+ * @param source Parameter value.
+ * @returns Callback result.
  */
 function parseYamlProps(source: string): Record<string, unknown> | undefined {
 	try {
@@ -43,10 +54,10 @@ function parseYamlProps(source: string): Record<string, unknown> | undefined {
 }
 
 /**
- * Convert a parsed MDC token into a generic block node.
- * @param token Parsed MDC token.
- * @param helpers Tiptap Markdown parse helpers.
- * @returns Generic MDC block JSON.
+ * Editor callback.
+ * @param token Parameter value.
+ * @param helpers Parameter value.
+ * @returns Callback result.
  */
 function parseBlockToken(token: MdcToken, helpers: MarkdownParseHelpers) {
 	return helpers.createNode(
@@ -62,10 +73,10 @@ function parseBlockToken(token: MdcToken, helpers: MarkdownParseHelpers) {
 }
 
 /**
- * Find the matching same-depth MDC closing delimiter.
- * @param source MDC body source.
- * @param depth Opening delimiter depth.
- * @returns Offset and length of the closing line, or `-1`.
+ * Editor callback.
+ * @param source Parameter value.
+ * @param depth Parameter value.
+ * @returns Callback result.
  */
 function findClosingLine(source: string, depth: number): number {
 	const lines = source.split('\n')
@@ -78,10 +89,10 @@ function findClosingLine(source: string, depth: number): number {
 }
 
 /**
- * Convert a named MDC slot token into an editable block node.
- * @param token Parsed slot token.
- * @param helpers Tiptap Markdown parse helpers.
- * @returns Generic MDC slot JSON.
+ * Editor callback.
+ * @param token Parameter value.
+ * @param helpers Parameter value.
+ * @returns Callback result.
  */
 function parseSlotToken(token: MarkdownToken, helpers: MarkdownParseHelpers) {
 	return helpers.createNode(
@@ -97,25 +108,60 @@ export const MdcSlot = Node.create({
 	group: 'block',
 	content: 'block*',
 	defining: true,
-	addAttributes: () => ({ name: { default: 'default' } }),
-	parseHTML: () => [{ tag: 'div[data-mdc-slot]' }],
-	renderHTML: ({ node, HTMLAttributes }) => [
+	addNodeView: /**
+	 * Editor callback.
+	 * @returns Callback result.
+	 */ () => mdcNodeView(MdcSlotView),
+
+	addAttributes: /**
+	 * Editor callback.
+	 * @returns Callback result.
+	 */ () => ({ name: { default: 'default' } }),
+
+	parseHTML: /**
+	 * Editor callback.
+	 * @returns Callback result.
+	 */ () => [{ tag: 'div[data-mdc-slot]' }],
+
+	renderHTML: /**
+	 * Editor callback.
+	 * @param { node, HTMLAttributes } Parameter value.
+	 * @returns Callback result.
+	 */ ({ node, HTMLAttributes }) => [
 		'div',
 		{ ...HTMLAttributes, 'data-mdc-slot': node.attrs.name },
 		0,
 	],
 	markdownTokenName: 'mdcSlot',
-	parseMarkdown: (token, helpers) => parseSlotToken(token, helpers),
+
+	parseMarkdown: /**
+	 * Editor callback.
+	 * @param token Parameter value.
+	 * @param helpers Parameter value.
+	 * @returns Callback result.
+	 */ (token, helpers) => parseSlotToken(token, helpers),
 	markdownTokenizer: {
 		name: 'mdcSlot',
 		level: 'block' as const,
-		start: (source: string) => source.search(/^#[\w-]+\s*$/mu),
-		tokenize: (source: string, _tokens: MarkdownToken[], lexer) => {
+
+		start: /**
+		 * Editor callback.
+		 * @param source Parameter value.
+		 * @returns Callback result.
+		 */ (source: string) => source.search(/^#[\w-]+\s*$/mu),
+
+		tokenize: /**
+		 * Editor callback.
+		 * @param source Parameter value.
+		 * @param _tokens Parameter value.
+		 * @param lexer Parameter value.
+		 * @returns Callback result.
+		 */ (source: string, _tokens: MarkdownToken[], lexer) => {
 			const opening = /^#([\w-]+)\s*\n/u.exec(source)
 			if (!opening?.[1]) return undefined
 			const remainder = source.slice(opening[0].length)
-			const nextSlot = /^#[\w-]+\s*$/mu.exec(remainder)
-			const contentEnd = nextSlot?.index ?? remainder.length
+			const nextBoundary = /^(?:#[\w-]+|:{2,})\s*$/mu.exec(remainder)
+			const contentEnd = nextBoundary?.index ?? remainder.length
 			const contentSource = remainder.slice(0, contentEnd)
 			const raw = source.slice(0, opening[0].length + contentEnd)
 			return {
@@ -126,8 +172,14 @@ export const MdcSlot = Node.create({
 			}
 		},
 	},
-	renderMarkdown: (node: MdcNode, helpers: MarkdownRendererHelpers) =>
-		`#${typeof node.attrs?.name === 'string' ? node.attrs.name : 'default'}\n${helpers.renderChildren(node.content ?? [])}`,
+
+	renderMarkdown: /**
+	 * Editor callback.
+	 * @param node Parameter value.
+	 * @param helpers Parameter value.
+	 * @returns Callback result.
+	 */ (node: MdcNode, helpers: MarkdownRendererHelpers) =>
+		`#${typeof node.attrs?.name === 'string' ? node.attrs.name : 'default'}\n${helpers.renderChildren(node.content ?? [])}\n`,
 })
 
 /** Generic block MDC support. Component names are data, not extensions. */
@@ -137,25 +189,60 @@ export const MdcBlock = Node.create({
 	content: 'block*',
 	defining: true,
 	isolating: true,
-	addAttributes: () => ({
+	addNodeView: /**
+	 * Editor callback.
+	 * @returns Callback result.
+	 */ () => mdcNodeView(MdcBlockView),
+
+	addAttributes: /**
+	 * Editor callback.
+	 * @returns Callback result.
+	 */ () => ({
 		name: { default: 'unknown' },
 		props: { default: {} },
 		depth: { default: 2 },
 		propsFormat: { default: 'inline' },
 	}),
-	parseHTML: () => [{ tag: 'div[data-mdc-block]' }],
-	renderHTML: ({ node, HTMLAttributes }) => [
+
+	parseHTML: /**
+	 * Editor callback.
+	 * @returns Callback result.
+	 */ () => [{ tag: 'div[data-mdc-block]' }],
+
+	renderHTML: /**
+	 * Editor callback.
+	 * @param { node, HTMLAttributes } Parameter value.
+	 * @returns Callback result.
+	 */ ({ node, HTMLAttributes }) => [
 		'div',
 		{ ...HTMLAttributes, 'data-mdc-block': node.attrs.name },
 		0,
 	],
 	markdownTokenName: 'mdcBlock',
-	parseMarkdown: (token, helpers) => parseBlockToken(token as MdcToken, helpers),
+
+	parseMarkdown: /**
+	 * Editor callback.
+	 * @param token Parameter value.
+	 * @param helpers Parameter value.
+	 * @returns Callback result.
+	 */ (token, helpers) => parseBlockToken(token as MdcToken, helpers),
 	markdownTokenizer: {
 		name: 'mdcBlock',
 		level: 'block' as const,
-		start: (source: string) => source.search(/^::+[\w-]+/mu),
-		tokenize: (source: string, _tokens: MarkdownToken[], lexer) => {
+
+		start: /**
+		 * Editor callback.
+		 * @param source Parameter value.
+		 * @returns Callback result.
+		 */ (source: string) => source.search(/^::+[\w-]+/mu),
+
+		tokenize: /**
+		 * Editor callback.
+		 * @param source Parameter value.
+		 * @param _tokens Parameter value.
+		 * @param lexer Parameter value.
+		 * @returns Callback result.
+		 */ (source: string, _tokens: MarkdownToken[], lexer) => {
 			const opening = /^(::+)([\w-]+)(?:\{([^\n}]*)\})?\s*\n/u.exec(source)
 			if (!opening) return undefined
 			const delimiter = opening[1]
@@ -184,7 +271,13 @@ export const MdcBlock = Node.create({
 			}
 		},
 	},
-	renderMarkdown: (node: MdcNode, helpers: MarkdownRendererHelpers) => {
+
+	renderMarkdown: /**
+	 * Editor callback.
+	 * @param node Parameter value.
+	 * @param helpers Parameter value.
+	 * @returns Callback result.
+	 */ (node: MdcNode, helpers: MarkdownRendererHelpers) => {
 		const name = typeof node.attrs?.name === 'string' ? node.attrs.name : 'unknown'
 		const depth = Math.max(2, Number(node.attrs?.depth ?? 2))
 		const delimiter = ':'.repeat(depth)
@@ -204,15 +297,37 @@ export const MdcInline = Node.create({
 	inline: true,
 	atom: true,
 	selectable: true,
-	addAttributes: () => ({ name: { default: 'unknown' }, props: { default: {} } }),
-	parseHTML: () => [{ tag: 'span[data-mdc-inline]' }],
-	renderHTML: ({ node, HTMLAttributes }) => [
+	addNodeView: /**
+	 * Editor callback.
+	 * @returns Callback result.
+	 */ () => mdcNodeView(MdcInlineView),
+
+	addAttributes: /**
+	 * Editor callback.
+	 * @returns Callback result.
+	 */ () => ({ name: { default: 'unknown' }, props: { default: {} } }),
+
+	parseHTML: /**
+	 * Editor callback.
+	 * @returns Callback result.
+	 */ () => [{ tag: 'span[data-mdc-inline]' }],
+
+	renderHTML: /**
+	 * Editor callback.
+	 * @param { node, HTMLAttributes } Parameter value.
+	 * @returns Callback result.
+	 */ ({ node, HTMLAttributes }) => [
 		'span',
 		{ ...HTMLAttributes, 'data-mdc-inline': node.attrs.name },
 		`:${typeof node.attrs.name === 'string' ? node.attrs.name : 'unknown'}`,
 	],
 	markdownTokenName: 'mdcInline',
-	parseMarkdown: (token) => ({
+
+	parseMarkdown: /**
+	 * Editor callback.
+	 * @param token Parameter value.
+	 * @returns Callback result.
+	 */ (token) => ({
 		type: 'mdcInline',
 		attrs: {
 			name: (token as MdcToken).name ?? 'unknown',
@@ -223,7 +338,12 @@ export const MdcInline = Node.create({
 		name: 'mdcInline',
 		level: 'inline' as const,
 		start: ':',
-		tokenize: (source: string) => {
+
+		tokenize: /**
+		 * Editor callback.
+		 * @param source Parameter value.
+		 * @returns Callback result.
+		 */ (source: string) => {
 			const match = /^:([\w-]+)(?:\{([^}]*)\})?/u.exec(source)
 			if (!match) return undefined
 			return {
@@ -234,7 +354,12 @@ export const MdcInline = Node.create({
 			}
 		},
 	},
-	renderMarkdown: (node: MdcNode) => {
+
+	renderMarkdown: /**
+	 * Editor callback.
+	 * @param node Parameter value.
+	 * @returns Callback result.
+	 */ (node: MdcNode) => {
 		const name = typeof node.attrs?.name === 'string' ? node.attrs.name : 'unknown'
 		return `:${name}${serializeMdcAttributes(node.attrs?.props)}`
 	},

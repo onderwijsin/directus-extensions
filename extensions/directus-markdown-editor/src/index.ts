@@ -3,7 +3,6 @@ import { defineInterface } from '@directus/extensions-sdk'
 import MarkdownEditor from './MarkdownEditor.vue'
 
 // Directus option factories are extension registration metadata, not public API functions.
-// oxlint-disable jsdoc/require-returns
 /** Register the Directus-native Markdown/MDC editor interface. */
 export default defineInterface({
 	id: 'markdown-editor',
@@ -12,7 +11,7 @@ export default defineInterface({
 	description: 'Edit portable Markdown with generic MDC components.',
 	component: MarkdownEditor,
 	/**
-	 *
+	 * @returns Interface option definitions.
 	 */
 	options: () => [
 		{
@@ -32,7 +31,7 @@ export default defineInterface({
 				width: 'half',
 				note: 'Temporary test fixture with Hero, Callout, and Icon components; bypasses the metadata URL.',
 			},
-			schema: { default_value: false },
+			schema: { default_value: true },
 		},
 	],
 	types: ['text', 'string'],

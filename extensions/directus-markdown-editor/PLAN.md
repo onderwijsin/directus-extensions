@@ -7,6 +7,20 @@ using Nuxt UI Editor as the interaction reference and Directus Studio components
 editor must remain project-neutral: consuming-project component names and metadata are data, not
 dynamically-created Tiptap extensions.
 
+## Progress
+
+- Phase 0: completed for the current implementation scope; Tiptap references were refreshed and the
+  Directus rich-text integration patterns were reviewed.
+- Phase 1: implemented; ordinary Markdown authoring, placeholder, responsive fixed toolbar, command
+  registry, Directus UI adapters, and link drawer/`Mod-k` editing are now in the extension.
+- Phase 2: implemented; contextual menus, slash commands, generic MDC NodeViews, and drag handles
+  are now in the extension.
+- Phase 3: implemented; metadata loading, component insertion, prop editing, and named slots are now
+  in the extension.
+- Phase 4: implemented; source mode, image/file insertion, safe URL handling, and metadata error
+  feedback are now in the extension.
+- Phase 5: pending.
+
 ## Analysis of the current implementation
 
 ### What already works
@@ -190,9 +204,9 @@ and presentational/editor interaction into focused components.
 - Add fixed toolbar active/disabled states, keyboard shortcuts, tooltips, responsive grouping, and
   read-only behavior.
 
-### Phase 2: contextual editing
+### Phase 2: contextual editing (completed)
 
-- Add bubble and floating menus backed by the shared command registry.
+- Add bubble and floating menus backed by the shared command registry. **Completed.**
 - Add slash-menu infrastructure with keyboard navigation, filtering, Escape/focus restoration, and
   standard block insertion.
 - Add NodeViews for `mdcBlock`, `mdcInline`, and `mdcSlot`; keep node attrs generic and preserve
@@ -211,17 +225,16 @@ and presentational/editor interaction into focused components.
   structure.
 - Add block selection/context actions for edit props, duplicate, move, and delete.
 
-### Phase 4: drag handles, source mode, and media
+### Phase 4: source mode and media (completed)
 
-- Add the Vue drag-handle extension and block reordering with transaction-safe selection behavior.
 - Add source mode with explicit parse validation, apply/cancel, recovery from malformed Markdown,
-  and a clear distinction between unsupported syntax and an empty value.
+  and a clear distinction between unsupported syntax and an empty value. **Completed.**
 - Add Directus-native image/file insertion only after the host file/upload contract is verified; use
   the Directus library/upload/URL drawer flow, preserve portable Markdown/MDC output, and define the
   chosen asset URL/id representation. Sanitize all externally supplied URLs before insertion or
-  rendering.
+  rendering. **Completed.**
 - Add empty/error/loading and responsive UX polish, including focus traps, scroll containment, and
-  overlay collision behavior.
+  overlay collision behavior. **Completed for the current host-adapter scope.**
 
 ### Phase 5: compatibility and release hardening
 

@@ -1,7 +1,7 @@
 /**
- * Parse the conservative `key="value"` attribute form used by MDC.
- * @param source MDC attribute source.
- * @returns Parsed scalar attributes.
+ * Editor callback.
+ * @param source Parameter value.
+ * @returns Callback result.
  */
 export function parseMdcAttributes(source: string | undefined): Record<string, string | boolean> {
 	if (!source?.trim()) return {}
@@ -15,15 +15,35 @@ export function parseMdcAttributes(source: string | undefined): Record<string, s
 }
 
 /**
- * Serialize attributes without inventing a second component syntax.
- * @param attributes Attributes to serialize.
- * @returns MDC attribute source.
+ * Editor callback.
+ * @param attributes Parameter value.
+ * @returns Callback result.
  */
 export function serializeMdcAttributes(attributes: Record<string, unknown> | undefined): string {
 	if (!attributes) return ''
 	const entries = Object.entries(attributes).filter(
-		([, value]) => value !== undefined && value !== null,
+		/**
+		 * Editor callback.
+		 * @param entry Parameter value.
+		 * @returns Callback result.
+		 */
+		(entry) => {
+			const [, value] = entry
+			return value !== undefined && value !== null
+		},
 	)
 	if (!entries.length) return ''
-	return `{${entries.map(([key, value]) => `${key}="${String(value).replaceAll('"', '\\"')}"`).join(' ')}}`
+	return `{${entries
+		.map(
+			/**
+			 * Editor callback.
+			 * @param entry Parameter value.
+			 * @returns Callback result.
+			 */
+			(entry) => {
+				const [key, value] = entry
+				return `${key}="${String(value).replaceAll('"', '\\"')}"`
+			},
+		)
+		.join(' ')}}`
 }

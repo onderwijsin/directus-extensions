@@ -34,9 +34,12 @@ theme: dark
 Component names are data and do not need to be registered in the editor. The consuming Nuxt
 application remains responsible for rendering those names through its own MDC/Comark setup.
 
-The current POC is intentionally a bare editing surface with read-only/disabled behavior and safe
-external value resynchronization. It has no toolbar, component insertion menu, source panel, or
-block actions yet.
+The current Phase 4 editor provides read-only/disabled behavior, safe external value
+resynchronization, a responsive Markdown formatting toolbar, contextual bubble/floating menus,
+keyboard-first slash commands, generic MDC NodeViews, drag handles, undo/redo, headings/lists/
+blockquote controls, metadata-driven component insertion and prop editing, explicit Markdown source
+mode, unified image/video media insertion, and Directus-native link editing through the link button
+or `Mod-k`.
 
 The interface retains an optional **Component metadata URL** configuration for the upcoming UI. It
 accepts an array of objects, or an object with a `components` array; each object requires `name` and
@@ -58,5 +61,7 @@ Project metadata is validated at the browser boundary. For example:
 }
 ```
 
-Source fallback, block actions, drag handles, and Directus media selection are deferred to a
-separate UI/UX implementation session.
+Source mode blocks lossy normalization until explicitly accepted. Image URLs accept HTTP(S),
+relative paths, and Directus `/assets/{id}` paths; unsafe executable/data protocols are rejected.
+Rich media, image transformations/captions, and advanced unsupported-content recovery remain
+deferred.

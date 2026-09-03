@@ -31,8 +31,9 @@ enables the local reload loop.
 The local development image is the regular Directus image. Hardened deployment images are a separate
 deployment concern and do not change the local edit/build/reload workflow.
 
-Directus uses Redis-backed data caching and synchronization, a 200 MB upload limit, TUS uploads,
-local-development CORS and CSP settings, HSTS, and `MARKETPLACE_TRUST=sandbox`. These defaults keep
+Directus uses Redis-backed data caching and synchronization, a 200 MB upload limit,
+local-development CORS and CSP settings, HSTS, and `MARKETPLACE_TRUST=sandbox`. TUS uploads are
+disabled by default; set `TUS_ENABLED=true` when resumable uploads are required. These defaults keep
 the local runtime explicit and easy to override.
 
 ## Environment files and defaults

@@ -11,16 +11,21 @@ is an internal editing representation and must not be stored.
 
 ## Current implementation
 
-The current POC is a bare editing surface. Its Vue component only:
+The current implementation provides a focused authoring surface. Its Vue component:
 
 - initializes Tiptap 3 with `@tiptap/vue-3`;
 - initializes content from the Directus field value as Markdown;
 - serializes editor updates back to Markdown through the Directus `input` event;
 - re-synchronizes external value changes without emitting phantom updates; and
-- respects Directus disabled/read-only state.
+- respects Directus disabled/read-only state;
+- provides a responsive fixed toolbar for common Markdown formatting, lists, headings, blockquotes,
+  horizontal rules, undo/redo, and clear formatting;
+- provides a Directus-native link drawer and `Mod-k` shortcut; and
+- provides a placeholder and accessible editor attributes.
 
-There is intentionally no toolbar, insertion menu, source panel, drag handle, context menu, or other
-presentation layer. UI/UX will be added separately after the content boundary is stable.
+Metadata-driven component insertion and prop editing, explicit Markdown source mode, and an image
+drawer are supported. Directus file selection is used when `VUpload` is available from the host;
+selected files are stored as portable `/assets/{id}` URLs.
 
 ## Content model
 
@@ -72,8 +77,9 @@ Metadata is validated with Zod and normalized by `src/component-meta/`. A compon
 name, label, description, props, and slot names. Metadata changes must not change the Tiptap schema:
 all project components continue to use the generic MDC nodes.
 
-The current bare editor does not render metadata. The loader and configuration are retained so the
-future UI can add project-specific menus and controls without changing the content model.
+The Phase 4 editor loads metadata through a cancellable browser composable. Loading failures leave
+ordinary Markdown editing available and disable component insertion until metadata is available.
+Metadata remains UI data and does not change the Tiptap schema.
 
 ## Frontend integration
 
@@ -105,11 +111,8 @@ compatibility target in tests.
 
 ## Deferred work
 
-The following belong to later UI/UX work and are not part of the current bare POC:
+The following belong to later UI/UX work and are not part of Phase 4:
 
-- bubble and floating toolbars;
-- slash commands and metadata-driven insertion;
-- drag handles and block reordering;
-- block context actions and prop drawers;
-- source-mode presentation and unsupported-content controls; and
-- Directus-native image/file selection.
+- advanced block context actions and prop drawers;
+- source-mode comparison and richer unsupported-content recovery; and
+- image transformations, captions, and media/video selection.

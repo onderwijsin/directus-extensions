@@ -8,9 +8,7 @@ export const mockComponentMetadata: ComponentMetadata[] = [
 		name: 'Hero',
 		label: 'Hero',
 		description: 'A prominent introduction block.',
-		props: {
-			theme: { type: 'string', values: ['light', 'dark'], default: 'light' },
-		},
+		props: { theme: { type: 'string', values: ['light', 'dark'], default: 'light' } },
 		slots: ['title', 'description'],
 	},
 	{

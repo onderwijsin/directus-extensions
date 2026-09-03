@@ -89,7 +89,7 @@ services:
 
       # Files
       FILES_MAX_UPLOAD_SIZE: ${FILES_MAX_UPLOAD_SIZE:-200mb}
-      TUS_ENABLED: ${TUS_ENABLED:-true}
+      TUS_ENABLED: ${TUS_ENABLED:-false}
       STORAGE_LOCATIONS: bucket
       STORAGE_BUCKET_DRIVER: s3
       STORAGE_BUCKET_KEY: ${GARAGE_ACCESS_KEY_ID:-directus}
