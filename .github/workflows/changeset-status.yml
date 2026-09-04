@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Generate Changeset status
         id: changesets
-        uses: changesets/action/pr-status@72b60a2c449090fd1871c5578768a32a76011a9d # v2.1.0
+        uses: changesets/action/pr-status@198f833dd7d863100ea6e28967bc9a9fdefadb0a # v2.1.0
 
   changeset_comment:
     needs: changeset_status
