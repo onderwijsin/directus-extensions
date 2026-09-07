@@ -15,6 +15,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { bundledLanguages, getSingletonHighlighter } from 'shiki'
 
 import CodeBlockView from '../components/CodeBlockView.vue'
+import { codeLanguageOptions } from './code-languages'
 import { createVueNodeView } from './node-view'
 
 interface CodeBlockInfo {
@@ -39,6 +40,14 @@ let activeHighlighter: MarkdownHighlighter | undefined
 function isBundledLanguage(language: string): language is BundledLanguage {
 	return language in bundledLanguages
 }
+
+const configuredLanguages = codeLanguageOptions
+	.map((option) => option.value)
+	.filter(isBundledLanguage)
+const highlighterPromise = getSingletonHighlighter({
+	themes: ['github-light', 'github-dark'],
+	langs: configuredLanguages,
+})
 
 /**
  * Resolve unknown code metadata to a Shiki-supported language.
@@ -102,15 +111,16 @@ function createDecorations(doc: ProseMirrorNode): DecorationSet {
  * @returns The configured shared Shiki highlighter.
  */
 async function loadHighlighter(doc: ProseMirrorNode): Promise<MarkdownHighlighter> {
+	const highlighter = await highlighterPromise
 	const languages = new Set<BundledLanguage>()
 	for (const block of findChildren(doc, (node) => node.type.name === 'codeBlock')) {
 		const language = block.node.attrs.language
 		if (typeof language === 'string' && isBundledLanguage(language)) languages.add(language)
 	}
-	return getSingletonHighlighter({
-		themes: ['github-light', 'github-dark'],
-		langs: [...languages],
-	})
+	const loadedLanguages = new Set(highlighter.getLoadedLanguages())
+	const missingLanguages = [...languages].filter((language) => !loadedLanguages.has(language))
+	if (missingLanguages.length > 0) await highlighter.loadLanguage(...missingLanguages)
+	return highlighter
 }
 
 /**

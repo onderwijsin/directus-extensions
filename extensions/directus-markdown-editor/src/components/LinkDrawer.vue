@@ -61,6 +61,7 @@ function save() {
  * @returns Callback result.
  */
 function unlink() {
+	if (props.disabled) return
 	props.editor.chain().focus().setTextSelection(range.value).unsetLink().run()
 	open.value = false
 }
@@ -81,8 +82,9 @@ function unlink() {
 				label="URL"
 				placeholder="https://example.com"
 				autofocus
+				:disabled="disabled"
 			/>
-			<VInput v-model="selection.text" placeholder="Link text" />
+			<VInput v-model="selection.text" placeholder="Link text" :disabled="disabled" />
 		</div>
 
 		<template #actions>

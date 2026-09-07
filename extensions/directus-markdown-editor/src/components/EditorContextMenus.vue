@@ -83,6 +83,7 @@ function updateDragHandleNode(change: {
 }
 
 function selectHoveredBlock(): boolean {
+	if (props.disabled || !props.editor.isEditable) return false
 	const position = hoveredPosition.value
 	if (position === null) return false
 	return props.editor.chain().focus().setNodeSelection(position).run()
@@ -99,6 +100,7 @@ function handleBlockMenuState(open: boolean) {
 }
 
 function prepareInsertionPoint(): boolean {
+	if (props.disabled || !props.editor.isEditable) return false
 	const position = hoveredPosition.value
 	if (position === null) return false
 	const node = props.editor.state.doc.nodeAt(position)
@@ -119,6 +121,7 @@ function insert(command: EditorCommand) {
 }
 
 function openComponentInsert() {
+	if (props.disabled || !props.editor.isEditable) return
 	if (!prepareInsertionPoint()) return
 	insertMenuOpen.value = false
 	emit('openComponents')
@@ -155,7 +158,7 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 			ghost
 			class="editor-bubble-menu__button"
 			:active="command.isActive(editor)"
-			:disabled="command.isDisabled(editor)"
+			:disabled="disabled || !editor.isEditable || command.isDisabled(editor)"
 			:tooltip="command.label"
 			:aria-label="command.label"
 			@mousedown.prevent
@@ -168,6 +171,7 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 			small
 			ghost
 			class="editor-bubble-menu__button"
+			:disabled="disabled || !editor.isEditable"
 			aria-label="Edit link"
 			tooltip="Edit link"
 			@mousedown.prevent
@@ -180,6 +184,7 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 			small
 			ghost
 			class="editor-bubble-menu__button"
+			:disabled="disabled || !editor.isEditable"
 			aria-label="Remove link"
 			tooltip="Remove link"
 			@mousedown.prevent

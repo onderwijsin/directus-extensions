@@ -176,7 +176,10 @@ describe('Markdown editor interface', () => {
 	})
 
 	it('propagates disabled state to the editor and toolbar', async () => {
-		const { element } = mountEditor('Read only', true)
+		const { element } = mountEditor(
+			'```ts\nconst locked = true\n```\n\n::Callout{tone="warning"}\n#default\nLocked\n::',
+			true,
+		)
 		await nextTick()
 		await nextTick()
 
@@ -184,6 +187,27 @@ describe('Markdown editor interface', () => {
 			'false',
 		)
 		expect(element.querySelector('[aria-label="Bold"]')?.hasAttribute('disabled')).toBe(true)
+		for (const label of [
+			'Code language',
+			'Code filename or path',
+			'Make code block collapsible',
+			'Component actions',
+			'Edit link',
+			'Insert image',
+			'Insert video',
+			'Insert component',
+			'Edit Markdown source',
+		]) {
+			expect(element.querySelector(`[aria-label="${label}"]`)?.hasAttribute('disabled')).toBe(
+				true,
+			)
+		}
+
+		element
+			.querySelector('[aria-label="Insert component"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		expect(element.querySelector('[role="dialog"][aria-label="Insert component"]')).toBeNull()
 	})
 
 	it('loads Shiki while locked and refreshes when a draft becomes editable', async () => {

@@ -77,8 +77,29 @@ onBeforeUnmount(() => themeObserver?.disconnect())
  * @returns Nothing.
  */
 function openMediaDrawer(type: 'image' | 'video') {
+	if (props.disabled || editor.value?.isEditable !== true) return
 	mediaDrawerType.value = type
 	mediaDrawerOpen.value = true
+}
+
+/** @returns Whether editor-owned controls may open or mutate content. */
+function canInteract() {
+	return !props.disabled && editor.value?.isEditable === true
+}
+
+/** @returns Nothing. */
+function openLinkDrawer() {
+	if (canInteract()) linkDrawerOpen.value = true
+}
+
+/** @returns Nothing. */
+function openSourceDrawer() {
+	if (canInteract()) sourceDrawerOpen.value = true
+}
+
+/** @returns Nothing. */
+function openComponentInsert() {
+	if (canInteract()) componentInsertOpen.value = true
 }
 
 /**
@@ -133,7 +154,7 @@ if (isEditorToolEnabled(enabledTools.value, 'link'))
 			 * Editor callback.
 			 * @returns Callback result.
 			 */
-			() => (linkDrawerOpen.value = true),
+			openLinkDrawer,
 		),
 	)
 
@@ -158,8 +179,9 @@ const editor = useEditor({
 		 * @returns Whether the click was handled.
 		 */ (_view, position, event) => {
 			if (!(event.target instanceof HTMLElement) || !event.target.closest('a')) return false
+			if (!canInteract()) return false
 			editor.value?.chain().focus().setTextSelection(position).run()
-			linkDrawerOpen.value = true
+			openLinkDrawer()
 			return true
 		},
 		handleDoubleClickOn: /**
@@ -170,6 +192,7 @@ const editor = useEditor({
 		 * @param nodePosition The node document position.
 		 * @returns Whether the double-click was handled.
 		 */ (_view, _position, node, nodePosition) => {
+			if (!canInteract()) return false
 			if (node.type.name !== 'image' || !isEditorToolEnabled(enabledTools.value, 'image')) {
 				return false
 			}
@@ -205,6 +228,12 @@ watch(
 		const [instance, disabled] = values
 		if (!instance) return
 		instance.setEditable(!disabled)
+		if (disabled) {
+			linkDrawerOpen.value = false
+			mediaDrawerOpen.value = false
+			sourceDrawerOpen.value = false
+			componentInsertOpen.value = false
+		}
 		void refreshCodeHighlighting(instance).catch(() => undefined)
 	},
 	{ immediate: true, flush: 'post' },
@@ -252,11 +281,11 @@ watch(
 					:commands="commands"
 					:enabled-tools="enabledTools"
 					:disabled="disabled"
-					@open-link="linkDrawerOpen = true"
+					@open-link="openLinkDrawer"
 					@open-image="openMediaDrawer('image')"
 					@open-media="openMediaDrawer('video')"
-					@open-source="sourceDrawerOpen = true"
-					@open-components="componentInsertOpen = true"
+					@open-source="openSourceDrawer"
+					@open-components="openComponentInsert"
 				/>
 			</div>
 			<p
@@ -271,8 +300,8 @@ watch(
 				:commands="commands"
 				:enabled-tools="enabledTools"
 				:disabled="disabled"
-				@open-link="linkDrawerOpen = true"
-				@open-components="componentInsertOpen = true"
+				@open-link="openLinkDrawer"
+				@open-components="openComponentInsert"
 			/>
 			<EditorTableMenu :editor="editor" :commands="commands" :disabled="disabled" />
 			<div class="markdown-editor__canvas">

@@ -4,9 +4,11 @@ import { computed } from 'vue'
 
 import { NodeViewContent, NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 
+import { useEditorEditable } from '../composables/useEditorEditable'
 import { codeLanguageOptions } from '../editor/code-languages'
 
 const props = defineProps(nodeViewProps)
+const editable = useEditorEditable(props.editor)
 const language = computed(() =>
 	typeof props.node.attrs.language === 'string' ? props.node.attrs.language : '',
 )
@@ -25,14 +27,17 @@ const collapseTooltip = computed(() =>
 )
 
 function updateLanguage(value: string | number | null) {
+	if (!editable.value) return
 	props.updateAttributes({ language: typeof value === 'string' ? value : null })
 }
 
 function updateFilename(value: string | null) {
+	if (!editable.value) return
 	props.updateAttributes({ filename: value?.trim() || null })
 }
 
 function updateCollapse(value: boolean) {
+	if (!editable.value) return
 	props.updateAttributes({ collapse: value })
 }
 </script>
@@ -44,6 +49,7 @@ function updateCollapse(value: boolean) {
 				<VSelect
 					:model-value="language"
 					:items="codeLanguageOptions"
+					:disabled="!editable"
 					show-deselect
 					@update:model-value="updateLanguage"
 				>
@@ -55,6 +61,7 @@ function updateCollapse(value: boolean) {
 							readonly
 							clickable
 							:active="active"
+							:disabled="!editable"
 							placeholder="Language"
 							aria-label="Code language"
 							@click="toggle"
@@ -67,6 +74,7 @@ function updateCollapse(value: boolean) {
 			<div class="code-block__filename">
 				<VInput
 					:model-value="filename"
+					:disabled="!editable"
 					small
 					full-width
 					placeholder="Filename"
@@ -79,12 +87,14 @@ function updateCollapse(value: boolean) {
 				small
 				ghost
 				class="code-block__collapse"
+				:disabled="!editable"
 				:tooltip="collapseTooltip"
 				:aria-label="collapseTooltip"
 				:aria-pressed="collapse"
 				@click="updateCollapse(!collapse)"
-				><VIcon :name="collapseIcon"
-			/></VButton>
+			>
+				<VIcon :name="collapseIcon" />
+			</VButton>
 		</div>
 		<pre class="code-block__pre"><NodeViewContent as="code" /></pre>
 	</NodeViewWrapper>
@@ -116,6 +126,17 @@ function updateCollapse(value: boolean) {
 
 .code-block__collapse {
 	flex: 0 0 auto;
+}
+
+.markdown-editor
+	.ProseMirror
+	.code-block.shiki
+	.code-block__settings
+	.code-block__collapse
+	button.ghost
+	span.content,
+.markdown-editor .ProseMirror .code-block.shiki .code-block__collapse span.v-icon {
+	background-color: transparent !important;
 }
 
 .code-block__pre {

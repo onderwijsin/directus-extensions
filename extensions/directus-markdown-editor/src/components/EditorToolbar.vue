@@ -3,7 +3,7 @@
 import type { Editor } from '@tiptap/core'
 import type { EditorCommand } from '../editor/commands'
 
-import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
 import {
 	editorToolbarConfig,
@@ -62,6 +62,17 @@ function refresh() {
 
 onMounted(() => props.editor.on('transaction', refresh))
 onBeforeUnmount(() => props.editor.off('transaction', refresh))
+watch(
+	() => props.disabled,
+	/**
+	 * Close the overflow menu when Directus locks the interface.
+	 * @param disabled Whether the interface is locked.
+	 * @returns Nothing.
+	 */
+	(disabled) => {
+		if (disabled) overflowOpen.value = false
+	},
+)
 
 function isDisabled(command: EditorCommand) {
 	return props.disabled || !props.editor.isEditable || command.isDisabled(props.editor)
@@ -88,6 +99,14 @@ function openVideo() {
 
 function openComponents() {
 	if (!isToolDisabled('component')) emit('openComponents')
+}
+
+function openSource() {
+	if (!isDisabledForEditing()) emit('openSource')
+}
+
+function isDisabledForEditing() {
+	return props.disabled || !props.editor.isEditable
 }
 
 function execute(command: EditorCommand) {
@@ -190,7 +209,7 @@ function tooltip(command: EditorCommand) {
 						small
 						ghost
 						class="editor-toolbar__ghost-button"
-						:disabled="disabled"
+						:disabled="isDisabledForEditing()"
 						tooltip="More editor actions"
 						aria-label="More editor actions"
 						@click.stop="overflowOpen = !overflowOpen"
@@ -248,10 +267,10 @@ function tooltip(command: EditorCommand) {
 				small
 				ghost
 				class="editor-toolbar__ghost-button"
-				:disabled="disabled"
+				:disabled="isDisabledForEditing()"
 				tooltip="Edit Markdown source"
 				aria-label="Edit Markdown source"
-				@click="emit('openSource')"
+				@click="openSource"
 				><VIcon name="code"
 			/></VButton>
 		</div>

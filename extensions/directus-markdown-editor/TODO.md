@@ -56,3 +56,8 @@ Other To do's:
   vertical align in slightly off. Also, the settings icon only renders on hover, which can be
   confusing. I think we shoudl drop the settings icon entirely, and just open the component drawer
   directly when the component is clicked.
+- Check whether all UI controls on custom components are disabled when the interface is non editable
+  (eg in published view)
+
+- more editor actions is disabled?? (Since we worked on input disbaled states when the interface is
+  non-editable)

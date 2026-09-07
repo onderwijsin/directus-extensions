@@ -47,6 +47,7 @@ watch(
  * @returns Nothing.
  */
 function onFileSelect(value: unknown) {
+	if (props.disabled) return
 	if (Array.isArray(value)) {
 		onFileSelect(value[0])
 		return
@@ -100,6 +101,7 @@ function remove() {
 	>
 		<div class="media-drawer__content">
 			<VUpload
+				:disabled="disabled"
 				:multiple="false"
 				from-library
 				from-url

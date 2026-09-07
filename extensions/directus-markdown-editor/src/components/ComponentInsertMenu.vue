@@ -3,7 +3,7 @@
 import type { Editor } from '@tiptap/core'
 import type { ComponentMetadata } from '../component-meta/schema'
 
-import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
 import ComponentPropsDrawer from './ComponentPropsDrawer.vue'
 
@@ -32,6 +32,7 @@ const filteredComponents = computed(() => {
 })
 
 function choose(component: ComponentMetadata) {
+	if (props.disabled || !props.editor.isEditable) return
 	selected.value = component
 	initialProps.value = undefined
 	editExisting.value = false
@@ -41,6 +42,7 @@ function choose(component: ComponentMetadata) {
 }
 
 function editComponentFromNodeView(event: Event) {
+	if (props.disabled || !props.editor.isEditable) return
 	if (!(event instanceof CustomEvent) || typeof event.detail?.name !== 'string') return
 	const known = props.components.find((candidate) => candidate.name === event.detail.name)
 	const rawProps =
@@ -70,6 +72,20 @@ onMounted(() => {
 onBeforeUnmount(() =>
 	editorDom?.removeEventListener('markdown-editor-edit-component', editComponentFromNodeView),
 )
+
+watch(
+	() => props.disabled,
+	/**
+	 * Close component authoring UI when Directus locks the interface.
+	 * @param disabled Whether the interface is locked.
+	 * @returns Nothing.
+	 */
+	(disabled) => {
+		if (!disabled) return
+		open.value = false
+		propsDrawerOpen.value = false
+	},
+)
 </script>
 
 <template>
@@ -83,6 +99,7 @@ onBeforeUnmount(() =>
 						autofocus
 						placeholder="Search components…"
 						aria-label="Search components"
+						:disabled="disabled"
 						><template #prepend><VIcon name="search" /></template
 					></VInput>
 				</div>
@@ -99,6 +116,7 @@ onBeforeUnmount(() =>
 						v-for="component in filteredComponents"
 						:key="component.name"
 						clickable
+						:disabled="disabled"
 						@click="choose(component)"
 					>
 						<VListItemContent style="padding: 0.5rem 0">

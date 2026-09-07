@@ -2,11 +2,14 @@
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
 import { NodeViewWrapper } from '@tiptap/vue-3'
 
+import { useEditorEditable } from '../composables/useEditorEditable'
 import { mdcNodeViewProps } from './mdcNodeViewProps'
 
 const props = defineProps(mdcNodeViewProps)
+const editable = useEditorEditable(props.editor)
 
 function editComponent() {
+	if (!editable.value) return
 	if (typeof props.getPos !== 'function') return
 	const position = props.getPos()
 	if (typeof position !== 'number') return
@@ -29,6 +32,7 @@ function editComponent() {
 		<button
 			type="button"
 			class="mdc-inline__button"
+			:disabled="!editable"
 			:aria-label="`Configure ${props.node.attrs.name} component`"
 			@click="editComponent"
 		>
@@ -60,6 +64,10 @@ function editComponent() {
 .mdc-inline__button:hover,
 .ProseMirror-selectednode .mdc-inline__button {
 	background: color-mix(in srgb, var(--theme--primary, #6644ff) 14%, transparent);
+}
+.mdc-inline__button:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
 }
 .mdc-inline__settings {
 	opacity: 0;

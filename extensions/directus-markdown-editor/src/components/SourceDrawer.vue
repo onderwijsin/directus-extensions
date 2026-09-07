@@ -91,6 +91,7 @@ function apply() {
 			<textarea
 				v-model="source"
 				class="source-drawer__textarea"
+				:disabled="disabled"
 				spellcheck="false"
 				aria-label="Markdown source"
 				@input="validate"
@@ -101,6 +102,7 @@ function apply() {
 				syntax.
 				<VCheckbox
 					v-model="acceptNormalization"
+					:disabled="disabled"
 					label="I understand and want to apply the normalized result."
 				/>
 			</VNotice>

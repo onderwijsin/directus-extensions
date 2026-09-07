@@ -1,12 +1,14 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
-import { computed, shallowRef } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/vue-3'
 
+import { useEditorEditable } from '../composables/useEditorEditable'
 import { mdcNodeViewProps } from './mdcNodeViewProps'
 
 const props = defineProps(mdcNodeViewProps)
+const editable = useEditorEditable(props.editor)
 const menuOpen = shallowRef(false)
 const componentName = computed(() =>
 	typeof props.node.attrs.name === 'string' ? props.node.attrs.name : 'Unknown component',
@@ -15,8 +17,12 @@ const componentProps = computed(() => {
 	const value = props.node.attrs.props
 	return value && typeof value === 'object' ? Object.entries(value) : []
 })
+watch(editable, (value) => {
+	if (!value) menuOpen.value = false
+})
 
 function selectComponent() {
+	if (!editable.value) return false
 	if (typeof props.getPos !== 'function') return false
 	const position = props.getPos()
 	if (typeof position !== 'number') return false
@@ -39,6 +45,7 @@ function editComponent() {
 }
 
 function duplicateComponent() {
+	if (!editable.value) return
 	if (typeof props.getPos !== 'function') return
 	const position = props.getPos()
 	if (typeof position !== 'number') return
@@ -51,6 +58,7 @@ function duplicateComponent() {
 }
 
 function deleteComponent() {
+	if (!editable.value) return
 	if (!selectComponent()) return
 	props.editor.chain().deleteSelection().run()
 	menuOpen.value = false
@@ -71,6 +79,7 @@ function deleteComponent() {
 							icon
 							small
 							ghost
+							:disabled="!editable"
 							aria-label="Component actions"
 							title="Component actions"
 							@mousedown.stop.prevent
