@@ -4,17 +4,28 @@ import { computed } from 'vue'
 
 import { NodeViewContent, NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 
+import { codeLanguageOptions } from '../editor/code-languages'
+
 const props = defineProps(nodeViewProps)
 const language = computed(() =>
 	typeof props.node.attrs.language === 'string' ? props.node.attrs.language : '',
+)
+const languageLabel = computed(
+	() =>
+		codeLanguageOptions.find((option) => option.value === language.value)?.text ??
+		language.value,
 )
 const filename = computed(() =>
 	typeof props.node.attrs.filename === 'string' ? props.node.attrs.filename : '',
 )
 const collapse = computed(() => props.node.attrs.collapse === true)
+const collapseIcon = computed(() => (collapse.value ? 'expand_content' : 'collapse_content'))
+const collapseTooltip = computed(() =>
+	collapse.value ? 'Keep code block expanded' : 'Make code block collapsible',
+)
 
-function updateLanguage(value: string | null) {
-	props.updateAttributes({ language: value?.trim() || null })
+function updateLanguage(value: string | number | null) {
+	props.updateAttributes({ language: typeof value === 'string' ? value : null })
 }
 
 function updateFilename(value: string | null) {
@@ -29,27 +40,51 @@ function updateCollapse(value: boolean) {
 <template>
 	<NodeViewWrapper class="code-block" :class="{ 'is-collapsible': collapse }">
 		<div class="code-block__settings" contenteditable="false">
-			<VInput
-				class="code-block__language"
-				:model-value="language"
+			<div class="code-block__language">
+				<VSelect
+					:model-value="language"
+					:items="codeLanguageOptions"
+					show-deselect
+					@update:model-value="updateLanguage"
+				>
+					<template #preview="{ toggle, active }">
+						<VInput
+							:model-value="languageLabel"
+							small
+							full-width
+							readonly
+							clickable
+							:active="active"
+							placeholder="Language"
+							aria-label="Code language"
+							@click="toggle"
+							@keydown:enter="toggle"
+							@keydown:space="toggle"
+						/>
+					</template>
+				</VSelect>
+			</div>
+			<div class="code-block__filename">
+				<VInput
+					:model-value="filename"
+					small
+					full-width
+					placeholder="Filename"
+					aria-label="Code filename or path"
+					@update:model-value="updateFilename"
+				/>
+			</div>
+			<VButton
+				icon
 				small
-				placeholder="Language"
-				aria-label="Code language"
-				@update:model-value="updateLanguage"
-			/>
-			<VInput
-				class="code-block__filename"
-				:model-value="filename"
-				small
-				placeholder="Filename or path (optional)"
-				aria-label="Code filename or path"
-				@update:model-value="updateFilename"
-			/>
-			<VCheckbox
-				:model-value="collapse"
-				label="Collapsible"
-				@update:model-value="updateCollapse"
-			/>
+				ghost
+				class="code-block__collapse"
+				:tooltip="collapseTooltip"
+				:aria-label="collapseTooltip"
+				:aria-pressed="collapse"
+				@click="updateCollapse(!collapse)"
+				><VIcon :name="collapseIcon"
+			/></VButton>
 		</div>
 		<pre class="code-block__pre"><NodeViewContent as="code" /></pre>
 	</NodeViewWrapper>
@@ -65,7 +100,8 @@ function updateCollapse(value: boolean) {
 }
 
 .code-block__settings {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.5rem;
@@ -73,29 +109,17 @@ function updateCollapse(value: boolean) {
 	background: var(--theme--background-subdued, #f7f8f9);
 }
 
-.code-block__language {
-	flex: 0 0 8rem;
+.code-block__language,
+.code-block__filename {
+	min-width: 0;
 }
 
-.code-block__filename {
-	flex: 1 1 14rem;
-	min-width: 8rem;
+.code-block__collapse {
+	flex: 0 0 auto;
 }
 
 .code-block__pre {
 	margin: 0;
 	border-radius: 0;
-}
-
-@media (max-width: 40rem) {
-	.code-block__settings {
-		align-items: stretch;
-		flex-wrap: wrap;
-	}
-
-	.code-block__language,
-	.code-block__filename {
-		flex: 1 1 10rem;
-	}
 }
 </style>

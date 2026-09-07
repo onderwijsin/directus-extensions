@@ -159,6 +159,8 @@ export function createSlashExtension(
 					char: '/',
 					allowSpaces: true,
 					startOfLine: true,
+					allow: ({ state, range }) =>
+						state.doc.resolve(range.from).parent.type.name !== 'codeBlock',
 					items: ({ query }: { query: string }) =>
 						filterSlashItems(
 							createSlashItems(getComponents(), actions, getEnabledTools()),

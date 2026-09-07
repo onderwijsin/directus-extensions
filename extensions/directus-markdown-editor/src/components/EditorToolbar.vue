@@ -5,7 +5,12 @@ import type { EditorCommand } from '../editor/commands'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
-import { editorToolbarConfig, isEditorToolEnabled, resolveCommands } from '../editor/commands'
+import {
+	editorToolbarConfig,
+	isCodeBlockToolDisabled,
+	isEditorToolEnabled,
+	resolveCommands,
+} from '../editor/commands'
 
 const props = defineProps<{
 	editor: Editor
@@ -60,6 +65,29 @@ onBeforeUnmount(() => props.editor.off('transaction', refresh))
 
 function isDisabled(command: EditorCommand) {
 	return props.disabled || !props.editor.isEditable || command.isDisabled(props.editor)
+}
+
+function isToolDisabled(toolId: string) {
+	void revision.value
+	return (
+		props.disabled || !props.editor.isEditable || isCodeBlockToolDisabled(props.editor, toolId)
+	)
+}
+
+function openLink() {
+	if (!isToolDisabled('link')) emit('openLink')
+}
+
+function openImage() {
+	if (!isToolDisabled('image')) emit('openImage')
+}
+
+function openVideo() {
+	if (!isToolDisabled('video')) emit('openMedia')
+}
+
+function openComponents() {
+	if (!isToolDisabled('component')) emit('openComponents')
 }
 
 function execute(command: EditorCommand) {
@@ -120,10 +148,10 @@ function tooltip(command: EditorCommand) {
 				small
 				ghost
 				class="editor-toolbar__ghost-button"
-				:disabled="disabled"
+				:disabled="isToolDisabled('link')"
 				tooltip="Edit link · ⌘/Ctrl-K"
 				aria-label="Edit link"
-				@click="emit('openLink')"
+				@click="openLink"
 				><VIcon name="link"
 			/></VButton>
 			<VButton
@@ -132,10 +160,10 @@ function tooltip(command: EditorCommand) {
 				small
 				ghost
 				class="editor-toolbar__ghost-button"
-				:disabled="disabled"
+				:disabled="isToolDisabled('image')"
 				tooltip="Insert image"
 				aria-label="Insert image"
-				@click="emit('openImage')"
+				@click="openImage"
 				><VIcon name="image"
 			/></VButton>
 			<VButton
@@ -144,10 +172,10 @@ function tooltip(command: EditorCommand) {
 				small
 				ghost
 				class="editor-toolbar__ghost-button"
-				:disabled="disabled"
+				:disabled="isToolDisabled('video')"
 				tooltip="Insert video"
 				aria-label="Insert video"
-				@click="emit('openMedia')"
+				@click="openVideo"
 				><VIcon name="movie"
 			/></VButton>
 			<VMenu
@@ -208,10 +236,10 @@ function tooltip(command: EditorCommand) {
 				small
 				ghost
 				class="editor-toolbar__ghost-button"
-				:disabled="disabled"
+				:disabled="isToolDisabled('component')"
 				tooltip="Insert component"
 				aria-label="Insert component"
-				@click="emit('openComponents')"
+				@click="openComponents"
 				><VIcon name="widgets"
 			/></VButton>
 			<VButton

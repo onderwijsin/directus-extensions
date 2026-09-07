@@ -44,7 +44,7 @@ export function createEditorExtensions(
 		TableCell,
 		Image.configure({ allowBase64: false }),
 		Video,
-		MarkdownCodeBlock,
+		MarkdownCodeBlock.configure({ enableTabIndentation: true }),
 		MdcBlock,
 		MdcInline,
 		MdcSlot,

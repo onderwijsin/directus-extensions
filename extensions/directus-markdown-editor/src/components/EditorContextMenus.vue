@@ -141,7 +141,10 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 		class="editor-bubble-menu"
 		:should-show="
 			({ editor: currentEditor, state }) =>
-				!disabled && !currentEditor.isActive('table') && !state.selection.empty
+				!disabled &&
+				!currentEditor.isActive('table') &&
+				!currentEditor.isActive('codeBlock') &&
+				!state.selection.empty
 		"
 	>
 		<VButton

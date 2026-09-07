@@ -46,9 +46,15 @@ block menu supports duplicate, move up, move down, and delete. MDC block and inl
 their identity and settings while keeping their content and named slots editable.
 
 Tiptap 3.31.0 and `@tiptap/markdown` are pinned together because the Markdown package is beta.
-Fenced code is highlighted with Shiki and exposes editable language, optional filename/path, and
-collapsible settings. Filenames use Nuxt Content fence metadata such as `ts [app/nuxt.config.ts]`,
-while collapsible blocks use a `::code-collapse` wrapper.
+Fenced code is highlighted with Shiki's `github-light` and `github-dark` themes and exposes a
+searchable select containing common general-purpose languages, web-development formats, and
+data/configuration file types, plus optional filename/path metadata and a collapsible icon toggle.
+Highlighting initializes in both read-only and editable item modes and refreshes when Directus opens
+a draft without requiring a page reload. Tab and Shift-Tab indent and outdent code while the cursor
+remains in the block, and Enter preserves the current line's indentation. Filenames use Nuxt Content
+fence metadata such as `ts [app/nuxt.config.ts]`, while collapsible blocks use a `::code-collapse`
+wrapper. Formatting and insertion actions that cannot produce valid code-block content are disabled
+while a code block is active.
 
 The interface configuration retains **Component metadata URL** for the authoring UI. It accepts
 either an array of component metadata objects or `{ "components": [...] }`; responses are validated

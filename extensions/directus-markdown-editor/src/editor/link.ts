@@ -44,6 +44,12 @@ export function saveLinkSelection(
 	selection: LinkSelection,
 	range: LinkRange,
 ): boolean {
+	if (
+		editor.state.doc.resolve(range.from).parent.type.name === 'codeBlock' ||
+		editor.state.doc.resolve(range.to).parent.type.name === 'codeBlock'
+	) {
+		return false
+	}
 	const url = selection.url.trim()
 	if (!url || !isSafeLink(url)) return false
 
@@ -65,18 +71,19 @@ export function createLinkShortcut(onTrigger: () => void) {
 	return Extension.create({
 		name: 'markdownEditorLinkShortcut',
 
-		addKeyboardShortcuts: /**
-		 * Editor callback.
-		 * @returns Callback result.
-		 */ () => ({
-			'Mod-k': /**
-			 * Editor callback.
-			 * @returns Callback result.
-			 */ () => {
-				onTrigger()
-				return true
-			},
-		}),
+		/** @returns The code-block-aware link shortcut. */
+		addKeyboardShortcuts() {
+			return {
+				'Mod-k': /**
+				 * Editor callback.
+				 * @returns Callback result.
+				 */ () => {
+					if (this.editor.isActive('codeBlock')) return false
+					onTrigger()
+					return true
+				},
+			}
+		},
 	})
 }
 

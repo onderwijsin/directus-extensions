@@ -1,4 +1,5 @@
 import type {
+	Editor,
 	JSONContent,
 	MarkdownParseHelpers,
 	MarkdownRendererHelpers,
@@ -67,10 +68,13 @@ function serializeStyles(styles: Record<string, string>): string {
 function createDecorations(doc: ProseMirrorNode): DecorationSet {
 	if (!activeHighlighter) return DecorationSet.empty
 	const decorations: Decoration[] = []
+	const loadedLanguages = new Set(activeHighlighter.getLoadedLanguages())
 	for (const block of findChildren(doc, (node) => node.type.name === 'codeBlock')) {
 		let position = block.pos + 1
+		const language = resolveLanguage(block.node.attrs.language)
+		if (language !== 'plaintext' && !loadedLanguages.has(language)) continue
 		const result = activeHighlighter.codeToTokens(block.node.textContent, {
-			lang: resolveLanguage(block.node.attrs.language),
+			lang: language,
 			themes: { light: 'github-light', dark: 'github-dark' },
 		})
 		decorations.push(
@@ -107,6 +111,18 @@ async function loadHighlighter(doc: ProseMirrorNode): Promise<MarkdownHighlighte
 		themes: ['github-light', 'github-dark'],
 		langs: [...languages],
 	})
+}
+
+/**
+ * Load and apply Shiki highlighting independently of the editor's editable state.
+ * @param editor Editor whose current document should be highlighted.
+ * @returns A promise that resolves after highlighting has refreshed.
+ */
+export async function refreshCodeHighlighting(editor: Editor): Promise<void> {
+	const highlighter = await loadHighlighter(editor.state.doc)
+	if (editor.isDestroyed) return
+	activeHighlighter = highlighter
+	editor.view.dispatch(editor.state.tr.setMeta(shikiPluginKey, true))
 }
 
 /**
@@ -244,6 +260,23 @@ export const MarkdownCodeBlock = CodeBlock.extend({
 	/** @returns A Vue node-view renderer for editable code blocks. */
 	addNodeView() {
 		return createVueNodeView(CodeBlockView)
+	},
+
+	/** @returns Code-block shortcuts with indentation preserved across new lines. */
+	addKeyboardShortcuts() {
+		return {
+			...this.parent?.(),
+			/** @returns Whether the shortcut inserted an indented new line. */
+			Enter: () => {
+				const { $from, empty } = this.editor.state.selection
+				if (!empty || $from.parent.type !== this.type) return false
+				const textBeforeCursor = $from.parent.textBetween(0, $from.parentOffset)
+				const currentLine = textBeforeCursor.slice(textBeforeCursor.lastIndexOf('\n') + 1)
+				const indentation = /^\s*/u.exec(currentLine)?.[0] ?? ''
+				if (!indentation || currentLine.trim().length === 0) return false
+				return this.editor.commands.insertContent(`\n${indentation}`)
+			},
+		}
 	},
 
 	/**

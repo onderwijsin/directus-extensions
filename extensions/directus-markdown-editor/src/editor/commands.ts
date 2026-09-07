@@ -123,8 +123,36 @@ export const slashMenuGroups: EditorCommandGroupConfig[] = [
 	},
 ]
 
+const codeBlockDisabledToolIds = new Set([
+	'blockquote',
+	'bullet-list',
+	'clear-formatting',
+	'component',
+	'hard-break',
+	'horizontal-rule',
+	'image',
+	'insert-table',
+	'link',
+	'ordered-list',
+	'video',
+])
+
+/**
+ * Determine whether an editor action is incompatible with the active code block.
+ * @param editor Active editor instance.
+ * @param toolId Command or interface-tool identifier.
+ * @returns Whether the action must be disabled.
+ */
+export function isCodeBlockToolDisabled(editor: Editor, toolId: string): boolean {
+	return editor.isActive('codeBlock') && codeBlockDisabledToolIds.has(toolId)
+}
+
 function command(config: EditorCommand): EditorCommand {
-	return config
+	return {
+		...config,
+		isDisabled: (editor) =>
+			isCodeBlockToolDisabled(editor, config.id) || config.isDisabled(editor),
+	}
 }
 
 function markCommand(config: {

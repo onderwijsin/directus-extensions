@@ -2,10 +2,12 @@
 import { Editor } from '@tiptap/core'
 import { Markdown } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
+import { bundledLanguages } from 'shiki'
 import { describe, expect, it, vi } from 'vitest'
 
 import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp } from '../src/editor/block'
 import { parseCodeBlockInfo } from '../src/editor/code-block'
+import { codeLanguageOptions } from '../src/editor/code-languages'
 import {
 	createEditorCommands,
 	editorTableToolbarConfig,
@@ -87,6 +89,32 @@ describe('editor commands', () => {
 		expect(codeBlock?.config.addProseMirrorPlugins).toBeTypeOf('function')
 	})
 
+	it('offers a focused set of common and web-development languages', () => {
+		expect(codeLanguageOptions.length).toBeGreaterThan(50)
+		expect(codeLanguageOptions.length).toBeLessThan(100)
+		expect(codeLanguageOptions).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ value: 'c' }),
+				expect.objectContaining({ value: 'cpp' }),
+				expect.objectContaining({ value: 'python' }),
+				expect.objectContaining({ value: 'php' }),
+				expect.objectContaining({ value: 'ts' }),
+				expect.objectContaining({ value: 'vue' }),
+				expect.objectContaining({ value: 'astro' }),
+				expect.objectContaining({ value: 'dockerfile' }),
+				expect.objectContaining({ value: 'graphql' }),
+				expect.objectContaining({ value: 'mdx' }),
+				expect.objectContaining({ value: 'prisma' }),
+				expect.objectContaining({ value: 'svelte' }),
+			]),
+		)
+		for (const option of codeLanguageOptions) {
+			expect(
+				option.value === 'plaintext' || Object.hasOwn(bundledLanguages, option.value),
+			).toBe(true)
+		}
+	})
+
 	it('parses and serializes Nuxt Content code metadata', () => {
 		expect(parseCodeBlockInfo('ts [app/nuxt.config.ts]')).toEqual({
 			language: 'ts',
@@ -120,6 +148,57 @@ describe('editor commands', () => {
 			attrs: { language: 'css', filename: 'app.css', collapse: true },
 		})
 		expect(editor.getMarkdown()).toBe(source)
+		editor.destroy()
+	})
+
+	it('indents code blocks with Tab and keeps incompatible actions disabled', () => {
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: '```ts\nconst enabled = true\n```',
+			contentType: 'markdown',
+		})
+		editor.commands.setTextSelection(1)
+
+		expect(editor.commands.keyboardShortcut('Tab')).toBe(true)
+		expect(editor.getMarkdown()).toContain('\n    const enabled = true\n')
+
+		const commands = createEditorCommands()
+		for (const id of [
+			'blockquote',
+			'bullet-list',
+			'ordered-list',
+			'horizontal-rule',
+			'hard-break',
+			'insert-table',
+			'clear-formatting',
+		]) {
+			expect(commands.find((command) => command.id === id)?.isDisabled(editor)).toBe(true)
+		}
+		expect(commands.find((command) => command.id === 'paragraph')?.isDisabled(editor)).toBe(
+			false,
+		)
+		expect(
+			saveLinkSelection(
+				editor,
+				{ url: 'https://example.com', title: 'Example', text: 'const' },
+				{ from: 1, to: 6 },
+			),
+		).toBe(false)
+		editor.destroy()
+	})
+
+	it('preserves the current code indentation after Enter', () => {
+		const code = '    const enabled = true'
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: `\`\`\`ts\n${code}\n\`\`\``,
+			contentType: 'markdown',
+		})
+		editor.commands.setTextSelection(code.length + 1)
+
+		expect(editor.commands.keyboardShortcut('Enter')).toBe(true)
+		expect(editor.state.selection.$from.parent.textContent).toBe(`${code}\n    `)
+
 		editor.destroy()
 	})
 

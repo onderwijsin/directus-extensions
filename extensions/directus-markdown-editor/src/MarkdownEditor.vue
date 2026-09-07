@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Directus/Vue template callbacks are intentionally local and do not need public API JSDoc.
-import { computed, shallowRef, toRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, shallowRef, toRef, watch } from 'vue'
 
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 
@@ -12,6 +12,7 @@ import LinkDrawer from './components/LinkDrawer.vue'
 import MediaDrawer from './components/MediaDrawer.vue'
 import SourceDrawer from './components/SourceDrawer.vue'
 import { useComponentMetadata } from './composables/useComponentMetadata'
+import { refreshCodeHighlighting } from './editor/code-block'
 import { createEditorCommands, filterEditorCommands, isEditorToolEnabled } from './editor/commands'
 import { createEditorExtensions } from './editor/extensions'
 import { createLinkShortcut } from './editor/link'
@@ -39,7 +40,36 @@ const mediaDrawerType = shallowRef<'image' | 'video'>('image')
 const sourceDrawerOpen = shallowRef(false)
 const componentInsertOpen = shallowRef(false)
 const lastEmittedValue = shallowRef<string>()
+const darkMode = shallowRef(false)
 const enabledTools = computed(() => props.tools ?? props.options?.tools)
+let themeObserver: MutationObserver | undefined
+
+/**
+ * Mirror the Directus shell theme onto this editor instance.
+ * @returns Nothing.
+ */
+function updateDarkMode() {
+	darkMode.value =
+		document.body.classList.contains('dark') ||
+		document.documentElement.classList.contains('dark') ||
+		document.body.dataset.theme === 'dark' ||
+		document.documentElement.dataset.theme === 'dark'
+}
+
+onMounted(() => {
+	updateDarkMode()
+	themeObserver = new MutationObserver(updateDarkMode)
+	themeObserver.observe(document.body, {
+		attributes: true,
+		attributeFilter: ['class', 'data-theme'],
+	})
+	themeObserver.observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: ['class', 'data-theme'],
+	})
+})
+
+onBeforeUnmount(() => themeObserver?.disconnect())
 
 /**
  * Open the shared media drawer in the requested mode.
@@ -165,18 +195,19 @@ const editor = useEditor({
 const commands = computed(() => filterEditorCommands(createEditorCommands(), enabledTools.value))
 
 watch(
+	[editor, () => props.disabled],
 	/**
-	 * Editor callback.
-	 * @returns Callback result.
+	 * Keep editability and syntax highlighting synchronized across Directus version modes.
+	 * @param values Current editor instance and disabled state.
+	 * @returns Nothing.
 	 */
-	() => props.disabled,
-
-	/**
-	 * Editor callback.
-	 * @param disabled Parameter value.
-	 * @returns Callback result.
-	 */
-	(disabled) => editor.value?.setEditable(!disabled),
+	(values) => {
+		const [instance, disabled] = values
+		if (!instance) return
+		instance.setEditable(!disabled)
+		void refreshCodeHighlighting(instance).catch(() => undefined)
+	},
+	{ immediate: true, flush: 'post' },
 )
 watch(
 	/**
@@ -213,7 +244,7 @@ watch(
 </script>
 
 <template>
-	<div class="markdown-editor" :class="{ 'is-disabled': disabled }">
+	<div class="markdown-editor" :class="{ 'is-disabled': disabled, 'is-dark': darkMode }">
 		<template v-if="editor">
 			<div class="markdown-editor__toolbar-row">
 				<EditorToolbar
@@ -433,6 +464,11 @@ watch(
 	background: none;
 }
 
+:deep(.ProseMirror .code-block__pre) {
+	margin-block: 0;
+	border-radius: 0;
+}
+
 :deep(.ProseMirror .tableWrapper) {
 	margin-block: 1.5rem;
 	overflow-x: auto;
@@ -484,21 +520,19 @@ watch(
 
 :deep(.ProseMirror pre.shiki),
 :deep(.ProseMirror .code-block.shiki .code-block__pre) {
-	background: var(--shiki-light-bg, var(--theme--background-normal, #f0f2f5)) !important;
+	color: #24292e !important;
+	background: #fff !important;
 }
 
-:global(html.dark) .markdown-editor :deep(.ProseMirror pre.shiki),
-:global(html.dark) .markdown-editor :deep(.ProseMirror pre.shiki span),
-:global(html.dark) .markdown-editor :deep(.ProseMirror .code-block.shiki .code-block__pre),
-:global(html.dark) .markdown-editor :deep(.ProseMirror .code-block.shiki span),
-:global([data-theme='dark']) .markdown-editor :deep(.ProseMirror pre.shiki),
-:global([data-theme='dark']) .markdown-editor :deep(.ProseMirror pre.shiki span),
-:global([data-theme='dark'])
-	.markdown-editor
-	:deep(.ProseMirror .code-block.shiki .code-block__pre),
-:global([data-theme='dark']) .markdown-editor :deep(.ProseMirror .code-block.shiki span) {
-	color: var(--shiki-dark) !important;
-	background-color: var(--shiki-dark-bg, var(--theme--background-normal, #1f2430)) !important;
+.markdown-editor.is-dark :deep(.ProseMirror pre.shiki),
+.markdown-editor.is-dark :deep(.ProseMirror pre.shiki span),
+.markdown-editor.is-dark :deep(.ProseMirror .code-block.shiki .code-block__pre),
+.markdown-editor.is-dark :deep(.ProseMirror .code-block.shiki span) {
+	color: var(--shiki-dark, #e1e4e8) !important;
+	background-color: var(--shiki-dark-bg, #24292e) !important;
+	font-style: var(--shiki-dark-font-style) !important;
+	font-weight: var(--shiki-dark-font-weight) !important;
+	text-decoration: var(--shiki-dark-text-decoration) !important;
 }
 
 :deep(.ProseMirror img) {

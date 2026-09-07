@@ -1,8 +1,9 @@
-Focussing on the code editor
+The code block:
 
-- Im not seeing shiki styles / synatx highlighting?
-- Hitting enter (once) does not create a new line in the code block. Hitting enter twice does insert
-  a new blank node below the code block
+- Im not seeing shiki styles / syntax highlighting? That was the whole point of using Shiki in the
+  first place.
+- There is a weird bug where the latest character of the language input gets cut off or not
+  registered properly.
 - The language input should be a select interface (with search, directus UI supports this i
   believe). Make sure all common languages and file types are represented, especially in web dev
   environments (so long as shiki supports them / Nuxt Ui can highlight them)
@@ -12,7 +13,7 @@ Focussing on the code editor
 - The code editor shoudl support tab indents... Currently a tab just focusses on the next tabbable
   element on page
 
-Other things:
+Other To do's:
 
 - disabling a configured tool should also disable its keyboard shortcut. Currently configuration
   removes its UI and slash-menu entry, but Tiptap’s native shortcut may remain active.
@@ -51,3 +52,7 @@ Other things:
   mimic the behavior from directus's rich html input interface, which also has a full screen mode.
   The only thing i would change is that when full screen is active, the button icon shoudl be
   inverted!
+- Im not sure what makes the sample icon component render inline (as opposed to block). But its
+  vertical align in slightly off. Also, the settings icon only renders on hover, which can be
+  confusing. I think we shoudl drop the settings icon entirely, and just open the component drawer
+  directly when the component is clicked.

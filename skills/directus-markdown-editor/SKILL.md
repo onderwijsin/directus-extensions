@@ -45,9 +45,15 @@ Configure **Available editor tools** to expose all controls or a field-specific 
 multiselect includes **All tools** and **Deselect all**, and the selected tools consistently govern
 the toolbar, slash menu, contextual controls, and insertion actions.
 
-Code blocks use Shiki highlighting and store Nuxt Content-compatible metadata. A filename/path is
-written after the language (`ts [app/nuxt.config.ts]`); enabling **Collapsible** wraps the fence in
-`::code-collapse` and `::` delimiters.
+Code blocks use Shiki's `github-light` and `github-dark` themes and store Nuxt Content-compatible
+metadata. The searchable language select contains common general-purpose languages, web-development
+formats, and data/configuration file types. A filename/path is written after the language
+(`ts [app/nuxt.config.ts]`); enabling the collapsible icon toggle wraps the fence in
+`::code-collapse` and `::` delimiters. Tab and Shift-Tab indent and outdent code without moving
+focus, and Enter preserves the current line's indentation. While a code block is active,
+incompatible formatting and insertion actions are disabled. Shiki highlighting initializes in
+read-only item views and refreshes when Directus switches the same interface instance into editable
+draft mode.
 
 Slash commands can be found by their display label or alternate names (`text`, `h1`–`h6`, `ul`,
 `ol`, `quote`, `separator`, `line break`, `grid`, and similar terms). They support Arrow Up/Down,

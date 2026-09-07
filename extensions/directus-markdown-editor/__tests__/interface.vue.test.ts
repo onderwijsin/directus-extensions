@@ -24,8 +24,10 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 		'VSelect',
 		defineComponent({
 			props: ['modelValue', 'items'],
+			emits: ['update:modelValue'],
+			setup: () => ({ toggle: () => undefined }),
 			template:
-				'<select :value="modelValue"><option v-for="item in items" :key="item.value" :value="item.value">{{ item.text }}</option></select>',
+				'<div><slot name="preview" :toggle="toggle" :active="false" /><select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><option v-for="item in items" :key="item.value" :value="item.value">{{ item.text }}</option></select></div>',
 		}),
 	)
 	app.component(
@@ -80,10 +82,16 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 
 function mountEditor(initialValue = '# Hello', disabled = false, tools?: string[]) {
 	const value = shallowRef<string | null>(initialValue)
+	const disabledValue = shallowRef(disabled)
 	const input = vi.fn()
 	const root = defineComponent({
 		setup: () => () =>
-			h(MarkdownEditor, { value: value.value, disabled, tools, onInput: input }),
+			h(MarkdownEditor, {
+				value: value.value,
+				disabled: disabledValue.value,
+				tools,
+				onInput: input,
+			}),
 	})
 	const element = document.createElement('div')
 	document.body.appendChild(element)
@@ -91,10 +99,14 @@ function mountEditor(initialValue = '# Hello', disabled = false, tools?: string[
 	registerDirectusPrimitives(app)
 	app.mount(element)
 	mounted.push({ app, element })
-	return { element, value, input }
+	return { element, value, disabled: disabledValue, input }
 }
 
 afterEach(() => {
+	document.body.classList.remove('dark')
+	document.body.removeAttribute('data-theme')
+	document.documentElement.classList.remove('dark')
+	document.documentElement.removeAttribute('data-theme')
 	for (const entry of mounted.splice(0)) {
 		entry.app.unmount()
 		entry.element.remove()
@@ -174,6 +186,28 @@ describe('Markdown editor interface', () => {
 		expect(element.querySelector('[aria-label="Bold"]')?.hasAttribute('disabled')).toBe(true)
 	})
 
+	it('loads Shiki while locked and refreshes when a draft becomes editable', async () => {
+		const { element, disabled } = mountEditor('```ts\nconst enabled = true\n```', true)
+
+		await vi.waitFor(
+			() => {
+				expect(
+					element.querySelector('[role="textbox"]')?.getAttribute('contenteditable'),
+				).toBe('false')
+				expect(element.querySelector('.code-block.shiki code span')).not.toBeNull()
+			},
+			{ timeout: 5000 },
+		)
+
+		disabled.value = false
+		await vi.waitFor(() => {
+			expect(element.querySelector('[role="textbox"]')?.getAttribute('contenteditable')).toBe(
+				'true',
+			)
+			expect(element.querySelector('.code-block.shiki code span')).not.toBeNull()
+		})
+	})
+
 	it('opens the metadata-driven component picker from the toolbar', async () => {
 		const { element } = mountEditor()
 		await Promise.resolve()
@@ -229,24 +263,66 @@ describe('Markdown editor interface', () => {
 	})
 
 	it('renders Shiki code with editable language, filename, and collapse settings', async () => {
-		const { element } = mountEditor(
+		document.body.classList.add('dark')
+		const { element, input } = mountEditor(
 			'::code-collapse\n\n```ts [app/nuxt.config.ts]\nconst enabled = true\n```\n\n::',
 		)
 		await nextTick()
 		await nextTick()
+		expect(element.querySelector('.markdown-editor')?.classList.contains('is-dark')).toBe(true)
+		document.body.classList.remove('dark')
+		await vi.waitFor(() => {
+			expect(element.querySelector('.markdown-editor')?.classList.contains('is-dark')).toBe(
+				false,
+			)
+		})
 
 		expect(element.querySelector<HTMLInputElement>('[aria-label="Code language"]')?.value).toBe(
-			'ts',
+			'TypeScript',
 		)
 		expect(
 			element.querySelector<HTMLInputElement>('[aria-label="Code filename or path"]')?.value,
 		).toBe('app/nuxt.config.ts')
-		expect(element.textContent).toContain('Collapsible')
+		expect(element.querySelector('[aria-label="Keep code block expanded"]')).not.toBeNull()
+		expect(element.querySelector('[data-icon="expand_content"]')).not.toBeNull()
+		for (const label of [
+			'Blockquote',
+			'Edit link',
+			'Insert image',
+			'Insert video',
+			'Insert component',
+		]) {
+			expect(element.querySelector(`[aria-label="${label}"]`)?.hasAttribute('disabled')).toBe(
+				true,
+			)
+		}
+		expect(
+			element.querySelector('[aria-label="Edit Markdown source"]')?.hasAttribute('disabled'),
+		).toBe(false)
 		await vi.waitFor(
 			() => {
 				expect(element.querySelector('.code-block.shiki')).not.toBeNull()
+				const token = element.querySelector('.code-block.shiki code span')
+				expect(token instanceof HTMLElement ? token.style.color : '').not.toBe('')
 			},
 			{ timeout: 5000 },
 		)
+
+		const languageSelect = element.querySelector('.code-block__language select')
+		expect(languageSelect).toBeInstanceOf(HTMLSelectElement)
+		if (!(languageSelect instanceof HTMLSelectElement)) return
+		expect(languageSelect.options.length).toBeGreaterThan(50)
+		expect(languageSelect.options.length).toBeLessThan(100)
+		languageSelect.value = 'python'
+		languageSelect.dispatchEvent(new Event('change', { bubbles: true }))
+		await nextTick()
+
+		expect(input.mock.lastCall?.[0]).toContain(
+			'```python [app/nuxt.config.ts]\nconst enabled = true\n```',
+		)
+		await vi.waitFor(() => {
+			const token = element.querySelector('.code-block.shiki code span')
+			expect(token instanceof HTMLElement ? token.style.color : '').not.toBe('')
+		})
 	})
 })
