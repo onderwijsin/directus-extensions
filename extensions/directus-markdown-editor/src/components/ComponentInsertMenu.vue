@@ -1,15 +1,10 @@
 <script setup lang="ts">
+/* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
 import type { Editor } from '@tiptap/core'
 import type { ComponentMetadata } from '../component-meta/schema'
 
-// Component selection is metadata-driven; it never creates dynamic Tiptap extensions.
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
-import DirectusButton from '../ui/DirectusButton.vue'
-import DirectusIcon from '../ui/DirectusIcon.vue'
-import DirectusInput from '../ui/DirectusInput.vue'
-import DirectusList from '../ui/DirectusList.vue'
-import DirectusMenu from '../ui/DirectusMenu.vue'
 import ComponentPropsDrawer from './ComponentPropsDrawer.vue'
 
 const props = defineProps<{
@@ -18,258 +13,142 @@ const props = defineProps<{
 	loading?: boolean
 	disabled?: boolean
 }>()
+const open = defineModel<boolean>({ default: false })
 const query = shallowRef('')
 const selected = shallowRef<ComponentMetadata | null>(null)
-const drawerOpen = shallowRef(false)
+const propsDrawerOpen = shallowRef(false)
 const editExisting = shallowRef(false)
-const revision = shallowRef(0)
-const menuOpen = shallowRef(false)
-interface SelectedBlockNode {
-	type: { name: string }
-	attrs: { name?: unknown; props?: Record<string, unknown> }
-}
+const initialProps = shallowRef<Record<string, unknown> | undefined>()
+const targetNodeType = shallowRef<'mdcBlock' | 'mdcInline'>('mdcBlock')
 
-/**
- * Editor callback.
- * @param value Parameter value.
- * @returns Callback result.
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
+const filteredComponents = computed(() => {
+	const terms = query.value.trim().toLocaleLowerCase().split(/\s+/u).filter(Boolean)
+	if (terms.length === 0) return props.components
+	return props.components.filter((component) => {
+		const haystack =
+			`${component.name} ${component.label} ${component.description ?? ''}`.toLocaleLowerCase()
+		return terms.every((term) => haystack.includes(term))
+	})
+})
 
-/**
- * Editor callback.
- * @param node Parameter value.
- * @returns Callback result.
- */
-function isSelectedBlockNode(node: unknown): node is SelectedBlockNode {
-	if (!node || typeof node !== 'object' || !('type' in node) || !('attrs' in node)) return false
-	const type = node.type
-	const attrs = node.attrs
-	return (
-		type !== null &&
-		type !== undefined &&
-		type instanceof Object &&
-		'name' in type &&
-		type.name === 'mdcBlock' &&
-		attrs !== null &&
-		attrs !== undefined &&
-		attrs instanceof Object &&
-		(!('props' in attrs) || isRecord(attrs.props))
-	)
-}
-const filteredComponents = computed(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => {
-		const needle = query.value.trim().toLowerCase()
-		return props.components.filter(
-			/**
-			 * Editor callback.
-			 * @param component Parameter value.
-			 * @returns Callback result.
-			 */
-			(component) =>
-				`${component.name} ${component.label} ${component.description ?? ''}`
-					.toLowerCase()
-					.includes(needle),
-		)
-	},
-)
-
-const componentItems = computed(() => filteredComponents.value)
-
-/**
- * Editor callback.
- * @param component Parameter value.
- * @returns Callback result.
- */
 function choose(component: ComponentMetadata) {
+	selected.value = component
+	initialProps.value = undefined
 	editExisting.value = false
-	selected.value = component
-	drawerOpen.value = true
+	targetNodeType.value = component.slots.length === 0 ? 'mdcInline' : 'mdcBlock'
+	open.value = false
+	propsDrawerOpen.value = true
 }
 
-/**
- * Choose a component from the Directus list.
- * @param name The selected component name.
- * @returns Nothing.
- */
-function chooseByName(name: string) {
-	const component = props.components.find((candidate) => candidate.name === name)
-	if (component) choose(component)
-}
-const selectedBlock = computed(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => {
-		void revision.value
-		const selection = props.editor.state.selection
-		if (!('node' in selection)) return null
-		const node = selection.node
-		if (!isSelectedBlockNode(node)) return null
-		return (
-			props.components.find(
-				/**
-				 * Editor callback.
-				 * @param component Parameter value.
-				 * @returns Callback result.
-				 */
-				(component) => component.name === node.attrs.name,
-			) ?? null
-		)
-	},
-)
-const selectedBlockProps = computed(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => {
-		void revision.value
-		const selection = props.editor.state.selection
-		if (!('node' in selection)) return undefined
-		const node = selection.node
-		return isSelectedBlockNode(node) ? node.attrs.props : undefined
-	},
-)
-
-/**
- * Editor callback.
- * @returns Callback result.
- */
-function editSelected() {
-	if (!selectedBlock.value) return
-	selected.value = selectedBlock.value
-	editExisting.value = true
-	drawerOpen.value = true
-}
-
-/**
- * Open the settings drawer for a component node-view action.
- * @param event The node-view edit event.
- * @returns Nothing.
- */
 function editComponentFromNodeView(event: Event) {
-	if (!(event instanceof CustomEvent)) return
-	const name = event.detail?.name
-	if (typeof name !== 'string') return
-	const component = props.components.find((candidate) => candidate.name === name)
-	if (!component) return
+	if (!(event instanceof CustomEvent) || typeof event.detail?.name !== 'string') return
+	const known = props.components.find((candidate) => candidate.name === event.detail.name)
+	const rawProps =
+		event.detail.props && typeof event.detail.props === 'object' ? event.detail.props : {}
+	const component = known ?? {
+		name: event.detail.name,
+		label: event.detail.name,
+		description:
+			'This component is not present in the configured metadata. Existing properties are preserved.',
+		props: Object.fromEntries(
+			Object.keys(rawProps).map((name) => [name, { name, type: 'string' }]),
+		),
+		slots: [],
+	}
 	selected.value = component
+	initialProps.value = rawProps
+	targetNodeType.value = event.detail.nodeType === 'mdcInline' ? 'mdcInline' : 'mdcBlock'
 	editExisting.value = true
-	drawerOpen.value = true
+	propsDrawerOpen.value = true
 }
-const refresh =
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => (revision.value += 1)
-onMounted(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => props.editor.on('transaction', refresh),
-)
-onMounted(() =>
-	props.editor.view.dom.addEventListener(
-		'markdown-editor-edit-component',
-		editComponentFromNodeView,
-	),
-)
-onBeforeUnmount(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => props.editor.off('transaction', refresh),
-)
+
+let editorDom: HTMLElement | undefined
+onMounted(() => {
+	editorDom = props.editor.view.dom
+	editorDom.addEventListener('markdown-editor-edit-component', editComponentFromNodeView)
+})
 onBeforeUnmount(() =>
-	props.editor.view.dom.removeEventListener(
-		'markdown-editor-edit-component',
-		editComponentFromNodeView,
-	),
+	editorDom?.removeEventListener('markdown-editor-edit-component', editComponentFromNodeView),
 )
 </script>
 
 <template>
-	<div class="component-insert-menu">
-		<div class="component-insert-menu__toolbar-group">
-			<div class="component-insert-menu__separator" aria-hidden="true" />
-			<DirectusMenu v-model="menuOpen" placement="bottom-end">
-				<template #activator>
-					<DirectusButton
-						class="component-insert-menu__button"
-						:disabled="disabled || loading"
-						tooltip="Insert component"
-						aria-label="Insert component"
-						@click.stop="menuOpen = !menuOpen"
-					>
-						<template #icon><DirectusIcon name="widgets" /></template>
-					</DirectusButton>
-				</template>
-				<div class="component-insert-menu__content">
-					<div @click.stop @mousedown.stop>
-						<DirectusInput
-							v-model="query"
-							label="Find component"
-							placeholder="Search components…"
-						/>
-					</div>
-					<DirectusList :items="componentItems" @select="chooseByName" />
-					<div v-if="!filteredComponents.length" class="component-insert-menu__empty">
-						No components
-					</div>
+	<VDialog v-model="open" persistent>
+		<VCard class="component-picker" role="dialog" aria-label="Insert component">
+			<VCardTitle>Insert component</VCardTitle>
+			<VCardText class="component-picker__body">
+				<div class="component-picker__search">
+					<VInput
+						v-model="query"
+						autofocus
+						placeholder="Search components…"
+						aria-label="Search components"
+						><template #prepend><VIcon name="search" /></template
+					></VInput>
 				</div>
-			</DirectusMenu>
-		</div>
-		<DirectusButton
-			v-if="selectedBlock"
-			:key="revision"
-			label="Edit component"
-			:disabled="disabled"
-			tooltip="Edit component properties"
-			@click="editSelected"
-		/>
-		<ComponentPropsDrawer
-			v-model:open="drawerOpen"
-			:editor="editor"
-			:component="selected"
-			:disabled="disabled"
-			:edit-existing="editExisting"
-			:initial-props="selectedBlockProps"
-		/>
-	</div>
+
+				<VProgressCircular v-if="loading" indeterminate class="component-picker__loading" />
+				<VNotice v-else-if="components.length === 0" type="info"
+					>No component metadata is available.</VNotice
+				>
+				<VNotice v-else-if="filteredComponents.length === 0" type="info"
+					>No components match “{{ query }}”.</VNotice
+				>
+				<VList v-else class="component-picker__list">
+					<VListItem
+						v-for="component in filteredComponents"
+						:key="component.name"
+						clickable
+						@click="choose(component)"
+					>
+						<VListItemContent style="padding: 0.5rem 0">
+							<div class="component-picker__label">{{ component.label }}</div>
+							<div v-if="component.description" class="component-picker__description">
+								{{ component.description }}
+							</div>
+						</VListItemContent>
+					</VListItem>
+				</VList>
+			</VCardText>
+			<VCardActions><VButton secondary @click="open = false">Cancel</VButton></VCardActions>
+		</VCard>
+	</VDialog>
+
+	<ComponentPropsDrawer
+		v-model:open="propsDrawerOpen"
+		:editor="editor"
+		:component="selected"
+		:disabled="disabled"
+		:edit-existing="editExisting"
+		:initial-props="initialProps"
+		:target-node-type="targetNodeType"
+	/>
 </template>
 
 <style scoped>
-.component-insert-menu__content {
-	display: grid;
-	min-width: 16rem;
-	gap: 0.25rem;
-	padding: 0.5rem;
+.component-picker {
+	width: min(38rem, calc(100vw - 2rem));
 }
-.component-insert-menu__toolbar-group {
-	display: flex;
-	align-items: center;
-	gap: 0.125rem;
+.component-picker__body {
+	gap: 1rem;
+	min-height: 18rem;
 }
-.component-insert-menu__separator {
-	block-size: 1.25rem;
-	margin-inline: 0.125rem;
-	border-inline-end: 1px solid var(--theme--border-color, #d3dce3);
+.component-picker__search {
+	margin-bottom: 1rem;
 }
-.component-insert-menu__button {
-	margin-inline-end: 0;
+.component-picker__loading {
+	place-self: center;
 }
-.component-insert-menu__empty {
+.component-picker__list {
+	max-height: 22rem;
+	overflow-y: auto;
+}
+.component-picker__label {
+	font-weight: 600;
+}
+.component-picker__description {
+	margin-block-start: 0.125rem;
 	color: var(--theme--foreground-subdued, #8b98a5);
+	font-size: 0.75rem;
 }
 </style>

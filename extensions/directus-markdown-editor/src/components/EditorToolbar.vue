@@ -1,175 +1,232 @@
 <script setup lang="ts">
-// Directus/Vue template callbacks are intentionally local and do not need public API JSDoc.
+/* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
 import type { Editor } from '@tiptap/core'
 import type { EditorCommand } from '../editor/commands'
 
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
-import DirectusButton from '../ui/DirectusButton.vue'
-import DirectusIcon from '../ui/DirectusIcon.vue'
-import DirectusMenu from '../ui/DirectusMenu.vue'
+import { editorToolbarConfig, isEditorToolEnabled, resolveCommands } from '../editor/commands'
 
 const props = defineProps<{
 	editor: Editor
 	commands: EditorCommand[]
+	enabledTools?: string[] | null
 	disabled?: boolean
 }>()
-const emit = defineEmits<{ openLink: []; openImage: []; openMedia: []; openSource: [] }>()
+const emit = defineEmits<{
+	openLink: []
+	openImage: []
+	openMedia: []
+	openSource: []
+	openComponents: []
+}>()
 
-const container = ref<HTMLElement | null>(null)
-const availableWidth = ref(Number.POSITIVE_INFINITY)
-
-const visibleCount = computed(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => {
-		if (!Number.isFinite(availableWidth.value)) return props.commands.length
-		return Math.max(1, Math.floor((availableWidth.value - 44) / 38))
-	},
+const revision = shallowRef(0)
+const overflowOpen = shallowRef(false)
+const blockCommands = computed(() =>
+	resolveCommands(props.commands, editorToolbarConfig.blockTypeCommandIds),
 )
-const visibleCommands = computed(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => props.commands.slice(0, visibleCount.value),
+const actionCommands = computed(() =>
+	resolveCommands(props.commands, editorToolbarConfig.groups.flat()),
 )
-const overflowCommands = computed(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => props.commands.slice(visibleCount.value),
+const overflowCommands = computed(() =>
+	resolveCommands(props.commands, editorToolbarConfig.overflowCommandIds),
 )
-
-let observer: ResizeObserver | undefined
-onMounted(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => {
-		if (!container.value || typeof ResizeObserver === 'undefined') return
-		observer = new ResizeObserver(
-			/**
-			 * Editor callback.
-			 * @param entries Parameter value.
-			 * @returns Callback result.
-			 */
-			(entries) => {
-				const [entry] = entries
-				if (entry) availableWidth.value = entry.contentRect.width
-			},
-		)
-		observer.observe(container.value)
-	},
+const specialCommands = computed(() =>
+	resolveCommands(props.commands, editorToolbarConfig.specialCommandIds),
 )
-onUnmounted(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => observer?.disconnect(),
+const linkEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'link'))
+const imageEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'image'))
+const videoEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'video'))
+const componentsEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'component'))
+const sourceEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'source'))
+const activeBlockCommand = computed(() => {
+	void revision.value
+	return (
+		blockCommands.value.find((command) => command.isActive(props.editor)) ??
+		blockCommands.value[0]
+	)
+})
+const blockItems = computed(() =>
+	blockCommands.value.map((command) => ({ text: command.label, value: command.id })),
 )
 
-/**
- * Editor callback.
- * @param command Parameter value.
- * @returns Callback result.
- */
+function refresh() {
+	revision.value += 1
+}
+
+onMounted(() => props.editor.on('transaction', refresh))
+onBeforeUnmount(() => props.editor.off('transaction', refresh))
+
 function isDisabled(command: EditorCommand) {
 	return props.disabled || !props.editor.isEditable || command.isDisabled(props.editor)
 }
 
-/**
- * Editor callback.
- * @param command Parameter value.
- * @returns Callback result.
- */
 function execute(command: EditorCommand) {
-	if (isDisabled(command)) return
-	command.execute(props.editor)
+	if (!isDisabled(command)) command.execute(props.editor)
 }
 
-/**
- * Editor callback.
- * @param command Parameter value.
- * @returns Callback result.
- */
+function executeOverflow(command: EditorCommand) {
+	execute(command)
+	overflowOpen.value = false
+}
+
+function selectBlockType(id: string) {
+	const selected = blockCommands.value.find((command) => command.id === id)
+	if (selected) execute(selected)
+}
+
 function shortcut(command: EditorCommand) {
 	return command.shortcut?.replace('Mod', '⌘/Ctrl')
+}
+
+function tooltip(command: EditorCommand) {
+	return [command.label, shortcut(command)].filter(Boolean).join(' · ')
 }
 </script>
 
 <template>
-	<div ref="container" class="editor-toolbar" role="toolbar" aria-label="Text formatting">
-		<div class="editor-toolbar__main">
-			<DirectusButton
-				v-for="command in visibleCommands"
-				:key="command.id"
+	<div class="editor-toolbar" role="toolbar" aria-label="Text formatting">
+		<VSelect
+			class="editor-toolbar__block-select"
+			inline
+			label
+			:items="blockItems"
+			:model-value="activeBlockCommand?.id"
+			:disabled="disabled || !editor.isEditable"
+			aria-label="Block type"
+			@update:model-value="selectBlockType"
+		/>
+
+		<div class="editor-toolbar__group editor-toolbar__action-group">
+			<VButton
+				v-for="command in actionCommands"
+				:key="`${command.id}-${revision}`"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
 				:active="command.isActive(editor)"
 				:disabled="isDisabled(command)"
-				:tooltip="[command.label, shortcut(command)].filter(Boolean).join(' · ')"
+				:tooltip="tooltip(command)"
 				:aria-label="command.label"
 				@click="execute(command)"
 			>
-				<template #icon><DirectusIcon :name="command.icon" /></template>
-			</DirectusButton>
-			<DirectusButton
-				:disabled="disabled || !editor.isEditable"
+				<VIcon :name="command.icon" />
+			</VButton>
+			<VButton
+				v-if="linkEnabled"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
+				:disabled="disabled"
 				tooltip="Edit link · ⌘/Ctrl-K"
 				aria-label="Edit link"
 				@click="emit('openLink')"
-			>
-				<template #icon><DirectusIcon name="link" /></template>
-			</DirectusButton>
-			<DirectusButton
+				><VIcon name="link"
+			/></VButton>
+			<VButton
+				v-if="imageEnabled"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
+				:disabled="disabled"
 				tooltip="Insert image"
 				aria-label="Insert image"
 				@click="emit('openImage')"
-			>
-				<template #icon><DirectusIcon name="image" /></template>
-			</DirectusButton>
-			<DirectusButton
+				><VIcon name="image"
+			/></VButton>
+			<VButton
+				v-if="videoEnabled"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
+				:disabled="disabled"
 				tooltip="Insert video"
 				aria-label="Insert video"
 				@click="emit('openMedia')"
+				><VIcon name="movie"
+			/></VButton>
+			<VMenu
+				v-if="overflowCommands.length"
+				v-model="overflowOpen"
+				placement="bottom-end"
+				show-arrow
 			>
-				<template #icon><DirectusIcon name="movie" /></template>
-			</DirectusButton>
-			<DirectusButton
+				<template #activator>
+					<VButton
+						icon
+						small
+						ghost
+						class="editor-toolbar__ghost-button"
+						:disabled="disabled"
+						tooltip="More editor actions"
+						aria-label="More editor actions"
+						@click.stop="overflowOpen = !overflowOpen"
+						><VIcon name="more_horiz"
+					/></VButton>
+				</template>
+				<VList class="editor-toolbar__overflow-list">
+					<VListItem
+						v-for="command in overflowCommands"
+						:key="`${command.id}-${revision}`"
+						clickable
+						:disabled="isDisabled(command)"
+						:active="command.isActive(editor)"
+						@click="executeOverflow(command)"
+					>
+						<VListItemIcon><VIcon :name="command.icon" /></VListItemIcon>
+						<VListItemContent>{{ command.label }}</VListItemContent>
+					</VListItem>
+				</VList>
+			</VMenu>
+		</div>
+
+		<div class="editor-toolbar__spacer" aria-hidden="true" />
+
+		<div class="editor-toolbar__group editor-toolbar__special-group">
+			<VButton
+				v-for="command in specialCommands"
+				:key="`${command.id}-${revision}`"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
+				:disabled="isDisabled(command)"
+				:tooltip="tooltip(command)"
+				:aria-label="command.label"
+				@click="execute(command)"
+			>
+				<VIcon :name="command.icon" />
+			</VButton>
+			<VButton
+				v-if="componentsEnabled"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
+				:disabled="disabled"
+				tooltip="Insert component"
+				aria-label="Insert component"
+				@click="emit('openComponents')"
+				><VIcon name="widgets"
+			/></VButton>
+			<VButton
+				v-if="sourceEnabled"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
+				:disabled="disabled"
 				tooltip="Edit Markdown source"
 				aria-label="Edit Markdown source"
 				@click="emit('openSource')"
-			>
-				<template #icon><DirectusIcon name="code" /></template>
-			</DirectusButton>
+				><VIcon name="code"
+			/></VButton>
 		</div>
-
-		<DirectusMenu v-if="overflowCommands.length" class="editor-toolbar__overflow">
-			<template #activator="{ toggle }">
-				<DirectusButton
-					:disabled="disabled || !editor.isEditable"
-					:tooltip="'More formatting'"
-					aria-label="More formatting"
-					@click.stop="toggle"
-				>
-					<template #icon><DirectusIcon name="more_horiz" /></template>
-				</DirectusButton>
-			</template>
-			<div class="editor-toolbar__menu">
-				<DirectusButton
-					v-for="command in overflowCommands"
-					:key="command.id"
-					:label="command.label"
-					:active="command.isActive(editor)"
-					:disabled="isDisabled(command)"
-					@click="execute(command)"
-				/>
-			</div>
-		</DirectusMenu>
 	</div>
 </template>
 
@@ -179,27 +236,50 @@ function shortcut(command: EditorCommand) {
 	align-items: center;
 	gap: 0.25rem;
 	min-width: 0;
-	padding: 0.25rem;
-	border-block-end: 1px solid var(--theme--form--field--input--border-color, #d3dce3);
+	padding: 0.375rem;
+	overflow-x: auto;
 	background: var(--theme--form--field--input--background-subdued, #f5f7f8);
 }
 
-.editor-toolbar__main {
+.editor-toolbar__block-select {
+	flex: 0 0 auto;
+	min-width: 0;
+	max-width: 8rem;
+}
+
+.editor-toolbar__group {
 	display: flex;
-	flex: 1 1 auto;
 	align-items: center;
 	gap: 0.125rem;
-	min-width: 0;
-	overflow: hidden;
+	padding-inline-start: 0.25rem;
+	border-inline-start: 1px solid var(--theme--border-color, #d3dce3);
 }
 
-.editor-toolbar__overflow {
-	flex: 0 0 auto;
+.editor-toolbar__spacer {
+	flex: 1 1 2rem;
 }
 
-.editor-toolbar__menu {
-	display: grid;
-	gap: 0.125rem;
-	padding: 0.25rem;
+.editor-toolbar__special-group {
+	padding-inline-start: 0.375rem;
+}
+
+.editor-toolbar__ghost-button {
+	--v-button-background-color: transparent;
+	--v-button-background-color-hover: var(--theme--background-normal, #eceff1);
+	--v-button-color-hover: var(--theme--foreground, #1f2937);
+}
+
+.editor-toolbar__overflow-list {
+	min-width: 14rem;
+}
+
+@media (max-width: 48rem) {
+	.editor-toolbar__block-select {
+		max-width: 7rem;
+	}
+
+	.editor-toolbar__spacer {
+		flex-basis: 0.5rem;
+	}
 }
 </style>

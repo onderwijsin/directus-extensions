@@ -12,14 +12,18 @@ dynamically-created Tiptap extensions.
 - Phase 0: completed for the current implementation scope; Tiptap references were refreshed and the
   Directus rich-text integration patterns were reviewed.
 - Phase 1: implemented; ordinary Markdown authoring, placeholder, responsive fixed toolbar, command
-  registry, Directus UI adapters, and link drawer/`Mod-k` editing are now in the extension.
+  registry, direct use of Directus UI primitives, and link drawer/`Mod-k` editing are now in the
+  extension.
 - Phase 2: implemented; contextual menus, slash commands, generic MDC NodeViews, and drag handles
   are now in the extension.
 - Phase 3: implemented; metadata loading, component insertion, prop editing, and named slots are now
   in the extension.
 - Phase 4: implemented; source mode, image/file insertion, safe URL handling, and metadata error
   feedback are now in the extension.
-- Phase 5: pending.
+- Phase 5: implemented for the interface package; focused component tests, package validation, and
+  packed Directus verification cover the release surface.
+- The field-level tool multiselect, lifecycle-safe Shiki code blocks, and MDC slot-exit/save
+  regressions are implemented and covered by focused tests.
 
 ## Analysis of the current implementation
 
@@ -31,33 +35,26 @@ dynamically-created Tiptap extensions.
   Markdown, and the three generic MDC nodes.
 - `src/markdown/` isolates the Markdown/MDC codec. It currently supports ordinary Markdown, generic
   block and inline MDC, named slots, nested delimiter depths, and YAML block props.
-- `src/component-meta/` validates and normalizes metadata with Zod and has a temporary fixture, but
-  no UI consumes it yet.
-- Codec and metadata boundaries have focused unit coverage in `__tests__/markdown.test.ts`.
-- `SPEC.md`, the package README, the consumer skill, and the existing Changeset document the POC
-  contract and explicitly defer authoring UI.
+- `src/component-meta/` validates and normalizes metadata with Zod; the slash menu, component
+  picker, MDC views, and settings drawer consume its normalized model.
+- Codec, metadata, command, block-operation, slash-menu, and full-interface behavior have focused
+  unit and Vue component coverage.
+- `SPEC.md`, the package README, the consumer skill, and Changesets document the complete authoring
+  contract.
 
-### Current gaps and risks
+### Remaining risks
 
-- `MarkdownEditor.vue` is a single bare surface: there is no toolbar, placeholder, bubble/floating
-  menu, slash menu, NodeView, drag handle, block menu, prop editor, source mode, loading state, or
-  metadata error state.
-- Generic MDC nodes render as plain `div`/`span` elements. They preserve data, but do not expose
-  component identity, slot boundaries, props, unsupported-content status, or useful editing
-  affordances.
-- `metadataUrl` and `useMockMetadata` are registered options but are not loaded from the interface.
-  The loader needs cancellation, stale-request protection, and an explicit UI state for malformed or
-  unavailable metadata.
-- The parser contract needs regression tests before UI work: the implementation expects a block
-  opening line followed by a newline, while examples in `SPEC.md` also show compact one-line MDC.
-  Slot syntax, closing delimiters, escaped attributes, and malformed/unsupported blocks need clear
-  normalization rules.
+- Compact one-line MDC remains a normalization edge case: the implementation expects a block opening
+  line followed by a newline, while examples in `SPEC.md` also show compact forms. Future codec
+  changes need focused fixtures for closing delimiters, escaped attributes, and malformed or
+  unsupported blocks.
 - `@tiptap/markdown` is beta and is pinned with the rest of Tiptap. Every new Tiptap package must
   use the same exact catalog version; dependency additions require catalog and lockfile changes.
-- Directus UI primitives are internal app components registered globally (`VButton`, `VMenu`,
-  `VDialog`, `VInput`, `VSelect`, `VList`, `VListItem`, `VCard`, `VUpload`, `VTooltip` via the
-  tooltip directive, and related components). The extension does not currently import Directus app
-  internals. A small host-UI adapter must validate this runtime boundary before relying on it.
+- Directus UI primitives are app components registered globally (`VButton`, `VMenu`, `VDialog`,
+  `VInput`, `VSelect`, `VList`, `VListItem`, `VCard`, `VUpload`, `VTooltip` via the tooltip
+  directive, and related components). The extension does not currently import Directus app
+  internals. The extension uses those global primitives directly and does not ship wrappers or
+  fallback implementations.
 - The interface is non-sandboxed and targets Directus `>=12.2.0 <13`; browser-only UI and any
   Directus host APIs must stay within that compatibility boundary.
 
@@ -93,10 +90,9 @@ state propagation, and an extensible command model rather than toolbar-specific 
 - `VUpload`/`VImage` and the existing Directus file flows for a later image/media insertion path.
 - `VIcon` and the Directus icon vocabulary for consistent editor controls.
 
-The plan should prefer these primitives through local editor wrappers. It should not import private
-Directus source paths into the published package unless a supported extension API is established. If
-globally registered components are unavailable in a supported Directus host, stop and resolve that
-compatibility decision before building the UI around them.
+The interface uses these globally registered primitives directly. It does not import private
+Directus source paths or maintain a parallel wrapper/fallback layer. If a primitive changes in a
+future supported Directus host, treat that as a host compatibility decision.
 
 ### Directus rich-text interface reference
 
@@ -133,52 +129,46 @@ and presentational/editor interaction into focused components.
 
 ### Component map
 
-- `MarkdownEditor.vue`: Directus value contract, editor construction, options, and feature
-  composition. Emits the existing `input` event and preserves disabled behavior.
-- `components/EditorCanvas.vue`: editor content shell, placeholder, editor attributes, focus
-  styling, and NodeView registration surface.
-- `components/EditorToolbar.vue`: fixed formatting toolbar and undo/redo controls, built with local
-  wrappers around Directus buttons, menus, icons, and tooltip behavior.
-- `components/EditorBubbleMenu.vue`: selection-scoped inline formatting/link menu using Tiptap
-  BubbleMenu and the same command registry as the fixed toolbar.
-- `components/EditorFloatingMenu.vue`: empty-paragraph block insertion affordance using Tiptap
-  FloatingMenu.
-- `components/EditorSlashMenu.vue`: `/` suggestion plugin with keyboard navigation, standard block
-  commands, and metadata-driven component insertion.
-- `components/EditorBlockNodeView.vue`: visual MDC block container showing component label/name,
+- `MarkdownEditor.vue`: Directus value contract, editor construction, content shell, placeholder,
+  editor attributes, focus styling, options, and feature composition. It emits the existing `input`
+  event and preserves disabled behavior.
+- `components/EditorToolbar.vue`: configuration-driven formatting toolbar and undo/redo controls,
+  built directly with Directus buttons, selects, menus, lists, and icons.
+- `components/EditorContextMenus.vue`: selection-scoped formatting, block insertion, drag handling,
+  and block actions using the same command registry as the fixed toolbar.
+- `components/SlashMenu.vue`: `/` suggestion UI with keyboard navigation, standard block commands,
+  aliases, grouping, and metadata-driven component insertion.
+- `components/MdcBlockView.vue`: visual MDC block container showing component label/name,
   unsupported status, slot content, and block actions while preserving generic node attributes.
-- `components/EditorInlineNodeView.vue`: compact atomic inline component chip with accessible label,
+- `components/MdcInlineView.vue`: compact atomic inline component chip with accessible label,
   edit/remove actions, and unknown-component treatment.
-- `components/EditorSlotNodeView.vue`: named slot boundary with slot label and editable content.
-- `components/EditorDragHandle.vue`: block hover/drag affordance and context-menu trigger, based on
-  Tiptap’s Vue drag-handle extension.
-- `components/EditorBlockMenu.vue`: duplicate, convert, move, delete, and edit-props actions for the
-  selected block, using `VMenu`/`VList` primitives.
-- `components/ComponentInsertMenu.vue`: searchable metadata-driven component picker shared by slash,
-  floating, and explicit insert controls.
-- `components/ComponentPropsDialog.vue`: metadata-driven prop form and slot-aware insertion/editing,
-  using `VDialog`, `VInput`, `VSelect`, `VCheckbox`, `VCard`, and `VNotice` as appropriate.
-- `components/EditorSourceMode.vue`: optional raw Markdown/MDC editor with parse/serialize status,
-  explicit apply/cancel behavior, and an unsupported-content warning.
-- `components/ImageDrawer.vue`: Directus-native file/library/URL selection and image attributes,
+- `components/MdcSlotView.vue`: named slot boundary with slot label and editable content.
+- `components/CodeBlockView.vue`: editable Shiki code surface for language, optional filename/path,
+  and Nuxt Content-compatible collapse metadata.
+- `components/ComponentInsertMenu.vue`: searchable metadata-driven component picker shared by the
+  toolbar, block insertion control, and MDC NodeView settings actions.
+- `components/ComponentPropsDrawer.vue`: metadata-driven prop form and slot-aware insertion/editing,
+  using `VDrawer`, `VInput`, `VSelect`, `VCheckbox`, and `VNotice` as appropriate.
+- `components/SourceDrawer.vue`: raw Markdown/MDC editor with parse/serialize status, explicit
+  apply/cancel behavior, and an unsupported-content warning.
+- `components/MediaDrawer.vue`: Directus-native file/library/URL selection for images and video,
   implemented only after the Markdown image representation is agreed; follows the Directus rich-text
   composable/drawer pattern rather than embedding a picker in the toolbar.
 - `components/LinkDrawer.vue`: typed link selection/editing form opened by toolbar, bubble menu, and
   `Mod-k`; follows Directus’s save/unlink/focus behavior while serializing through the Markdown link
   mark.
-- `composables/useEditorCommands.ts`: typed command registry shared by toolbar, menus, shortcuts,
-  and block actions; each action exposes active, disabled, and execute behavior.
+- `editor/commands.ts`: typed command registry shared by toolbar, menus, shortcuts, and block
+  insertion; each action exposes active, disabled, and execute behavior and maps to the field-level
+  tool configuration.
 - `composables/useComponentMetadata.ts`: cancellable metadata loading, normalized state, filtering,
   and error/loading status.
-- `composables/useEditorSelection.ts`: selection and selected-node state, position tracking, and
-  overlay anchoring without putting DOM calculations in the root component.
-- `composables/useMdcInsertion.ts`: safe construction of generic MDC nodes from metadata and
-  insertion/edit transactions that preserve attrs, delimiter depth, props format, and slot
-  structure.
-- `composables/useImage.ts` and `composables/useLink.ts`: selection snapshots, insert-versus-edit
-  state, cancellation, and save-time position re-resolution for Directus drawers.
-- `ui/`: local adapter components for Directus global primitives, with a documented
-  fallback/compatibility strategy and no dependency on private Directus source imports.
+- `editor/block.ts`: top-level block duplication, movement, and deletion transactions.
+- `editor/insertion.ts`: safe construction of generic MDC nodes from metadata and insertion/edit
+  transactions that preserve attrs, delimiter depth, props format, and slot structure.
+- `editor/media.ts` and `editor/link.ts`: validation, selection snapshots, insert-versus-edit state,
+  cancellation, and save-time position re-resolution for Directus drawers.
+- Directus UI primitives are referenced by their globally registered component names; no local
+  adapter layer or private Directus source import is required.
 
 ## Implementation phases
 
@@ -206,14 +196,15 @@ and presentational/editor interaction into focused components.
 
 ### Phase 2: contextual editing (completed)
 
-- Add bubble and floating menus backed by the shared command registry. **Completed.**
+- Add bubble and block insertion menus backed by the shared command registry. **Completed.**
 - Add slash-menu infrastructure with keyboard navigation, filtering, Escape/focus restoration, and
-  standard block insertion.
+  standard block insertion. **Completed.**
 - Add NodeViews for `mdcBlock`, `mdcInline`, and `mdcSlot`; keep node attrs generic and preserve
-  Markdown serialization as the only persisted output.
+  Markdown serialization as the only persisted output. **Completed.**
 - Add visible unsupported/unknown component treatment without silently rewriting content.
+  **Completed.**
 
-### Phase 3: metadata-driven component authoring
+### Phase 3: metadata-driven component authoring (completed)
 
 - Load metadata from `metadataUrl` or the mock fixture through `useComponentMetadata`; cancel stale
   requests, expose loading/error/empty states, and never let metadata alter the Tiptap schema.
@@ -225,6 +216,8 @@ and presentational/editor interaction into focused components.
   structure.
 - Add block selection/context actions for edit props, duplicate, move, and delete.
 
+All Phase 3 items are implemented.
+
 ### Phase 4: source mode and media (completed)
 
 - Add source mode with explicit parse validation, apply/cancel, recovery from malformed Markdown,
@@ -234,7 +227,7 @@ and presentational/editor interaction into focused components.
   chosen asset URL/id representation. Sanitize all externally supplied URLs before insertion or
   rendering. **Completed.**
 - Add empty/error/loading and responsive UX polish, including focus traps, scroll containment, and
-  overlay collision behavior. **Completed for the current host-adapter scope.**
+  overlay collision behavior. **Completed for the supported Directus host scope.**
 
 ### Phase 5: compatibility and release hardening
 
@@ -276,16 +269,15 @@ corepack pnpm validate:packages
 Add the packed Directus E2E workflow when loading or runtime integration changes. Do not claim a
 gate passed when it was skipped or blocked.
 
-## Compatibility decisions to settle before implementation
+## Compatibility decisions
 
-1. Are the required Directus components guaranteed as global components for the supported Directus
-   range, or does this extension need a supported host adapter/registration mechanism?
-2. Is source mode part of the first polished release or a later opt-in feature?
-3. What portable representation should images use in Markdown/MDC: Directus file IDs, asset URLs, or
-   a configurable project-specific form?
-4. Should metadata errors leave component insertion disabled, or allow manual generic component
-   names with an explicit unsupported state?
-5. Which MDC syntaxes are officially accepted when the current parser and `SPEC.md` examples differ?
-
-Until these are resolved, preserve the existing persisted Markdown/MDC contract and do not introduce
-new dependencies, public options, or syntax that would create an unreviewed compatibility change.
+1. Directus `>=12.2.0 <13` supplies the required globally registered UI primitives. The extension
+   consumes them directly and does not ship adapters.
+2. Source mode is part of the polished release and guards lossy normalization explicitly.
+3. Directus file selections persist as portable `/assets/{id}` paths; safe HTTP(S) and relative URLs
+   remain accepted.
+4. Metadata errors leave normal Markdown editing available and component insertion without choices;
+   already-persisted unknown components remain editable as generic nodes.
+5. The tested codec behavior is authoritative where compact examples remain ambiguous. Parser
+   normalization rules should continue to gain regression fixtures without changing persisted syntax
+   casually.

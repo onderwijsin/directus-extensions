@@ -4,9 +4,6 @@ import type { Editor } from '@tiptap/core'
 // Applying source is explicit and guarded against lossy normalization.
 import { computed, shallowRef, watch } from 'vue'
 
-import DirectusButton from '../ui/DirectusButton.vue'
-import DirectusDrawer from '../ui/DirectusDrawer.vue'
-
 const props = defineProps<{ editor: Editor; disabled?: boolean }>()
 const open = defineModel<boolean>({ default: false })
 const source = shallowRef('')
@@ -82,10 +79,11 @@ function apply() {
 </script>
 
 <template>
-	<DirectusDrawer
-		v-model="open"
+	<VDrawer
+		:model-value="open"
 		title="Edit Markdown"
 		icon="code"
+		@update:model-value="open = $event"
 		@cancel="open = false"
 		@apply="apply"
 	>
@@ -97,26 +95,27 @@ function apply() {
 				aria-label="Markdown source"
 				@input="validate"
 			/>
-			<p v-if="parseError" class="source-drawer__error">{{ parseError }}</p>
-			<div v-else-if="hasLoss" class="source-drawer__warning" role="alert">
+			<VNotice v-if="parseError" type="danger">{{ parseError }}</VNotice>
+			<VNotice v-else-if="hasLoss" type="warning">
 				The editor cannot represent this source exactly. Applying it may normalize or remove
 				syntax.
-				<label
-					><input v-model="acceptNormalization" type="checkbox" /> I understand and want
-					to apply the normalized result.</label
-				>
-			</div>
+				<VCheckbox
+					v-model="acceptNormalization"
+					label="I understand and want to apply the normalized result."
+				/>
+			</VNotice>
 		</div>
 		<template #actions:primary
-			><DirectusButton label="Apply source" primary :disabled="!canApply" @click="apply"
-		/></template>
-	</DirectusDrawer>
+			><VButton :disabled="!canApply" small @click="apply">Apply source</VButton></template
+		>
+	</VDrawer>
 </template>
 
 <style scoped>
 .source-drawer {
 	display: grid;
 	gap: 0.75rem;
+	padding: var(--content-padding, 1.125rem);
 }
 .source-drawer__textarea {
 	min-height: 24rem;

@@ -3,14 +3,9 @@ import type { Editor } from '@tiptap/core'
 import type { ComponentMetadata } from '../component-meta/schema'
 
 // Metadata has already crossed the Zod boundary before it reaches this form.
-import { reactive, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 
 import { insertComponent } from '../editor/insertion'
-import DirectusButton from '../ui/DirectusButton.vue'
-import DirectusCheckbox from '../ui/DirectusCheckbox.vue'
-import DirectusDrawer from '../ui/DirectusDrawer.vue'
-import DirectusInput from '../ui/DirectusInput.vue'
-import DirectusSelect from '../ui/DirectusSelect.vue'
 
 const props = defineProps<{
 	editor: Editor
@@ -18,9 +13,22 @@ const props = defineProps<{
 	disabled?: boolean
 	editExisting?: boolean
 	initialProps?: Record<string, unknown>
+	targetNodeType?: 'mdcBlock' | 'mdcInline'
 }>()
 const open = defineModel<boolean>('open', { default: false })
 const form = reactive<Record<string, unknown>>({})
+const missingRequired = computed(() => {
+	if (!props.component) return []
+	return Object.entries(props.component.props)
+		.filter(
+			([name, definition]) =>
+				definition.required && (form[name] === '' || form[name] === undefined),
+		)
+		.map(([name]) => name)
+})
+const canSave = computed(
+	() => Boolean(props.component) && !props.disabled && missingRequired.value.length === 0,
+)
 
 /**
  * Editor callback.
@@ -81,12 +89,12 @@ function setTextValue(name: string, value: string) {
  * @returns Callback result.
  */
 function save() {
-	if (!props.component || props.disabled) return
+	if (!props.component || !canSave.value) return
 	if (props.editExisting)
 		props.editor
 			.chain()
 			.focus()
-			.updateAttributes('mdcBlock', { props: { ...form } })
+			.updateAttributes(props.targetNodeType ?? 'mdcBlock', { props: { ...form } })
 			.run()
 	else insertComponent(props.editor, props.component, { ...form })
 	open.value = false
@@ -104,16 +112,26 @@ function remove() {
 </script>
 
 <template>
-	<DirectusDrawer
-		v-model="open"
+	<VDrawer
+		:model-value="open"
 		:title="component ? `Configure ${component.label}` : 'Configure component'"
+		icon="tune"
+		@update:model-value="open = $event"
 		@cancel="open = false"
 		@apply="save"
 	>
 		<div v-if="component" class="component-props-form">
-			<p v-if="component.description" class="component-props-form__description">
-				{{ component.description }}
-			</p>
+			<header class="component-props-form__header">
+				<div class="component-props-form__identity">
+					<VIcon name="widgets" />
+					<div>
+						<strong>{{ component.label }}</strong>
+					</div>
+				</div>
+			</header>
+			<VNotice v-if="missingRequired.length" type="warning"
+				>Complete the required fields: {{ missingRequired.join(', ') }}.</VNotice
+			>
 			<div
 				v-for="(definition, name) in component.props"
 				:key="name"
@@ -122,58 +140,65 @@ function remove() {
 				<label :for="`component-prop-${name}`"
 					>{{ definition.name ?? name }}<span v-if="definition.required"> *</span></label
 				>
-				<DirectusSelect
+				<VSelect
 					v-if="definition.values?.length"
 					:model-value="textValue(name)"
 					:items="definition.values.map((value) => ({ text: value, value }))"
+					:disabled="disabled"
 					@update:model-value="setTextValue(name, $event)"
 				/>
-				<DirectusCheckbox
+				<VCheckbox
 					v-else-if="definition.type === 'boolean'"
 					:model-value="form[name] === true"
 					:label="definition.description ?? name"
+					:disabled="disabled"
 					@update:model-value="form[name] = $event"
 				/>
-				<DirectusInput
+				<VInput
 					v-else
 					:id="`component-prop-${name}`"
-					:value="textValue(name)"
-					:label="definition.description ?? name"
+					:model-value="textValue(name)"
+					:placeholder="definition.description"
+					:disabled="disabled"
 					@update:model-value="setTextValue(name, $event)"
 				/>
 			</div>
-			<div v-if="component.slots.length" class="component-props-form__slots">
-				Slots: {{ component.slots.join(', ') }}
-			</div>
 		</div>
 		<template #actions>
-			<DirectusButton
-				v-if="editExisting"
-				label="Delete"
-				:disabled="disabled"
-				@click="remove"
-			/>
+			<VButton v-if="editExisting" secondary small :disabled="disabled" @click="remove"
+				>Delete</VButton
+			>
 		</template>
 		<template #actions:primary>
-			<DirectusButton
-				:label="editExisting ? 'Apply' : 'Insert'"
-				primary
-				:disabled="disabled || !component"
-				@click="save"
-			/>
+			<VButton :disabled="!canSave" small @click="save">{{
+				editExisting ? 'Apply' : 'Insert'
+			}}</VButton>
 		</template>
-	</DirectusDrawer>
+	</VDrawer>
 </template>
 
 <style scoped>
 .component-props-form {
 	display: grid;
 	gap: 1rem;
+	padding: var(--content-padding, 1.125rem);
 }
-.component-props-form__description,
-.component-props-form__slots {
-	margin: 0;
+.component-props-form__header {
+	padding-block-end: 0.75rem;
+	border-block-end: 1px solid var(--theme--border-color-subdued, #edf0f2);
+}
+.component-props-form__identity {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+.component-props-form__identity > div {
+	display: grid;
+	gap: 0.125rem;
+}
+.component-props-form__identity code {
 	color: var(--theme--foreground-subdued, #8b98a5);
+	font-size: 0.75rem;
 }
 .component-props-form__field {
 	display: grid;

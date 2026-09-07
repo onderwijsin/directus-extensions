@@ -1,3 +1,4 @@
+/* eslint-disable jsdoc-js/require-jsdoc -- Suggestion lifecycle callbacks are private Tiptap integration details. */
 import type { Editor, Range } from '@tiptap/core'
 import type { ComponentMetadata } from '../component-meta/schema'
 
@@ -6,118 +7,121 @@ import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from '@
 import { VueRenderer } from '@tiptap/vue-3'
 
 import SlashMenu from '../components/SlashMenu.vue'
+import {
+	createEditorCommands,
+	filterEditorCommands,
+	isEditorToolEnabled,
+	resolveCommands,
+	slashMenuGroups,
+} from './commands'
 import { insertComponent } from './insertion'
+
+export interface SlashMenuActions {
+	openImage?: () => void
+	openVideo?: () => void
+}
 
 export interface SlashItem {
 	id: string
 	label: string
 	description: string
 	icon: string
-	command: (editor: Editor) => void
+	group: string
+	aliases: string[]
+	command: (editor: Editor) => boolean
 }
 
-const items: SlashItem[] = [
-	{
-		id: 'paragraph',
-		label: 'Paragraph',
-		description: 'Start with plain text',
-		icon: '¶',
-
-		command: /**
-		 * Editor callback.
-		 * @param editor Parameter value.
-		 * @returns Callback result.
-		 */ (editor) => editor.commands.setParagraph(),
-	},
-	{
-		id: 'heading-1',
-		label: 'Heading 1',
-		description: 'Large section heading',
-		icon: 'H1',
-
-		command: /**
-		 * Editor callback.
-		 * @param editor Parameter value.
-		 * @returns Callback result.
-		 */ (editor) => editor.commands.toggleHeading({ level: 1 }),
-	},
-	{
-		id: 'heading-2',
-		label: 'Heading 2',
-		description: 'Medium section heading',
-		icon: 'H2',
-
-		command: /**
-		 * Editor callback.
-		 * @param editor Parameter value.
-		 * @returns Callback result.
-		 */ (editor) => editor.commands.toggleHeading({ level: 2 }),
-	},
-	{
-		id: 'bullet-list',
-		label: 'Bullet list',
-		description: 'Create a simple list',
-		icon: '•',
-
-		command: /**
-		 * Editor callback.
-		 * @param editor Parameter value.
-		 * @returns Callback result.
-		 */ (editor) => editor.commands.toggleBulletList(),
-	},
-	{
-		id: 'ordered-list',
-		label: 'Numbered list',
-		description: 'Create a numbered list',
-		icon: '1.',
-
-		command: /**
-		 * Editor callback.
-		 * @param editor Parameter value.
-		 * @returns Callback result.
-		 */ (editor) => editor.commands.toggleOrderedList(),
-	},
-	{
-		id: 'blockquote',
-		label: 'Blockquote',
-		description: 'Highlight a quotation',
-		icon: '“',
-
-		command: /**
-		 * Editor callback.
-		 * @param editor Parameter value.
-		 * @returns Callback result.
-		 */ (editor) => editor.commands.toggleBlockquote(),
-	},
-	{
-		id: 'horizontal-rule',
-		label: 'Divider',
-		description: 'Separate sections',
-		icon: '—',
-
-		command: /**
-		 * Editor callback.
-		 * @param editor Parameter value.
-		 * @returns Callback result.
-		 */ (editor) => editor.commands.setHorizontalRule(),
-	},
-]
+/**
+ * Create all slash-menu items from the shared command catalog and component metadata.
+ * @param components Available component metadata.
+ * @param actions External editor actions.
+ * @param enabledTools Selected interface tools.
+ * @returns Ordered slash-menu items.
+ */
+export function createSlashItems(
+	components: ComponentMetadata[],
+	actions: SlashMenuActions = {},
+	enabledTools?: readonly string[] | null,
+): SlashItem[] {
+	const commands = filterEditorCommands(createEditorCommands(), enabledTools)
+	const configured = slashMenuGroups.flatMap((group) =>
+		resolveCommands(commands, group.commandIds).map((item) => ({
+			id: item.id,
+			label: item.label,
+			description: item.description,
+			icon: item.icon,
+			group: group.label,
+			aliases: item.aliases,
+			command: item.execute,
+		})),
+	)
+	const componentItems = isEditorToolEnabled(enabledTools, 'component')
+		? components.map((component) => ({
+				id: `component:${component.name}`,
+				label: component.label,
+				description: component.description ?? `Insert the ${component.label} component`,
+				icon: 'widgets',
+				group: 'Components',
+				aliases: [component.name, 'component', 'mdc', 'block'],
+				command: (editor: Editor) => insertComponent(editor, component),
+			}))
+		: []
+	const mediaItems: SlashItem[] = [
+		{
+			id: 'insert-image',
+			label: 'Image',
+			description: 'Insert an image from Directus or a URL',
+			icon: 'image',
+			group: 'Insert',
+			aliases: ['photo', 'picture', 'asset', 'upload'],
+			command: () => {
+				actions.openImage?.()
+				return Boolean(actions.openImage)
+			},
+		},
+		{
+			id: 'insert-video',
+			label: 'Video',
+			description: 'Insert video media from Directus or a URL',
+			icon: 'movie',
+			group: 'Insert',
+			aliases: ['media', 'movie', 'clip', 'asset', 'upload'],
+			command: () => {
+				actions.openVideo?.()
+				return Boolean(actions.openVideo)
+			},
+		},
+	].filter((item) =>
+		isEditorToolEnabled(enabledTools, item.id === 'insert-image' ? 'image' : 'video'),
+	)
+	return [...configured, ...mediaItems, ...componentItems]
+}
 
 /**
- * Editor callback.
- * @param renderer Parameter value.
- * @param clientRect Parameter value.
- * @returns Callback result.
+ * Filter slash items across labels, ids, descriptions, groups, and alternate names.
+ * @param items Available slash-menu items.
+ * @param query User-entered query.
+ * @returns Matching slash-menu items.
  */
+export function filterSlashItems(items: SlashItem[], query: string): SlashItem[] {
+	const terms = query.trim().toLocaleLowerCase().split(/\s+/u).filter(Boolean)
+	if (terms.length === 0) return items
+	return items.filter((item) => {
+		const haystack = [item.label, item.id, item.description, item.group, ...item.aliases]
+			.join(' ')
+			.toLocaleLowerCase()
+		return terms.every((term) => haystack.includes(term))
+	})
+}
+
 function positionRenderer(renderer: VueRenderer, clientRect?: (() => DOMRect | null) | null) {
 	const element = renderer.element
 	const rect = clientRect?.()
 	if (!(element instanceof HTMLElement) || !rect) return
-	const offsetParent = element.offsetParent
-	const parentRect = offsetParent?.getBoundingClientRect()
+	const parentRect = element.offsetParent?.getBoundingClientRect()
 	element.style.position = 'absolute'
-	element.style.left = `${rect.left - (parentRect?.left ?? 0) + (offsetParent?.scrollLeft ?? window.scrollX)}px`
-	element.style.top = `${rect.bottom - (parentRect?.top ?? 0) + (offsetParent?.scrollTop ?? window.scrollY) + 6}px`
+	element.style.left = `${rect.left - (parentRect?.left ?? 0) + (element.offsetParent?.scrollLeft ?? window.scrollX)}px`
+	element.style.top = `${rect.bottom - (parentRect?.top ?? 0) + (element.offsetParent?.scrollTop ?? window.scrollY) + 6}px`
 	element.style.zIndex = '1000'
 }
 
@@ -125,11 +129,6 @@ interface SlashMenuRenderer {
 	onKeyDown: (event: KeyboardEvent) => boolean
 }
 
-/**
- * Editor callback.
- * @param value Parameter value.
- * @returns Callback result.
- */
 function isSlashMenuRenderer(value: unknown): value is SlashMenuRenderer {
 	return (
 		value !== null &&
@@ -140,84 +139,32 @@ function isSlashMenuRenderer(value: unknown): value is SlashMenuRenderer {
 }
 
 /**
- * Editor callback.
- * @param renderer Parameter value.
- * @param event Parameter value.
- * @returns Callback result.
- */
-function handleRendererKeyDown(renderer: VueRenderer | undefined, event: KeyboardEvent): boolean {
-	const component = renderer?.ref
-	return isSlashMenuRenderer(component) ? component.onKeyDown(event) : false
-}
-
-/**
- * Editor callback.
- * @param getComponents Parameter value.
- * @returns Callback result.
+ * Create the Tiptap slash suggestion extension.
+ * @param getComponents Resolve the latest component metadata.
+ * @param actions External editor actions.
+ * @param getEnabledTools Resolve the current interface tool selection.
+ * @returns Tiptap extension.
  */
 export function createSlashExtension(
-	getComponents: () => ComponentMetadata[] /**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */ = () => [],
+	getComponents: () => ComponentMetadata[] = () => [],
+	actions: SlashMenuActions = {},
+	getEnabledTools: () => readonly string[] | null | undefined = () => undefined,
 ) {
 	return Extension.create({
 		name: 'slashMenu',
-
-		/**
-		 * Editor callback.
-		 * @returns Callback result.
-		 */
 		addProseMirrorPlugins() {
 			return [
 				Suggestion<SlashItem, SlashItem>({
 					editor: this.editor,
 					char: '/',
-					allowSpaces: false,
-
-					items: /**
-					 * Editor callback.
-					 * @param { query } Parameter value.
-					 * @returns Callback result.
-					 */ ({ query }: { query: string }) =>
-						[
-							...items,
-							...getComponents().map(
-								/**
-								 * Editor callback.
-								 * @param component Parameter value.
-								 * @returns Callback result.
-								 */
-								(component) => ({
-									id: `component:${component.name}`,
-									label: component.label,
-									description: component.description ?? 'Insert component',
-									icon: '◈',
-
-									command: /**
-									 * Editor callback.
-									 * @param editor Parameter value.
-									 * @returns Callback result.
-									 */ (editor: Editor) => insertComponent(editor, component),
-								}),
-							),
-						].filter(
-							/**
-							 * Editor callback.
-							 * @param item Parameter value.
-							 * @returns Callback result.
-							 */
-							(item) =>
-								`${item.label} ${item.id}`
-									.toLowerCase()
-									.includes(query.toLowerCase()),
+					allowSpaces: true,
+					startOfLine: true,
+					items: ({ query }: { query: string }) =>
+						filterSlashItems(
+							createSlashItems(getComponents(), actions, getEnabledTools()),
+							query,
 						),
-
-					command: /**
-					 * Editor callback.
-					 * @param { editor, range, props } Parameter value.
-					 * @returns Callback result.
-					 */ ({
+					command: ({
 						editor,
 						range,
 						props,
@@ -229,18 +176,10 @@ export function createSlashExtension(
 						editor.chain().focus().deleteRange(range).run()
 						props.command(editor)
 					},
-
-					render: /**
-					 * Editor callback.
-					 * @returns Callback result.
-					 */ () => {
+					render: () => {
 						let renderer: VueRenderer | undefined
 						return {
-							onStart: /**
-							 * Editor callback.
-							 * @param props Parameter value.
-							 * @returns Callback result.
-							 */ (props: SuggestionProps<SlashItem, SlashItem>) => {
+							onStart: (props: SuggestionProps<SlashItem, SlashItem>) => {
 								renderer = new VueRenderer(SlashMenu, {
 									editor: props.editor,
 									props: {
@@ -249,19 +188,12 @@ export function createSlashExtension(
 										command: props.command,
 									},
 								})
-								if (renderer.element) {
-									const editorRoot =
-										props.editor.view.dom.closest('.markdown-editor')
-									;(editorRoot ?? document.body).appendChild(renderer.element)
-								}
+								const root = props.editor.view.dom.closest('.markdown-editor')
+								if (renderer.element)
+									(root ?? document.body).appendChild(renderer.element)
 								positionRenderer(renderer, props.clientRect)
 							},
-
-							onUpdate: /**
-							 * Editor callback.
-							 * @param props Parameter value.
-							 * @returns Callback result.
-							 */ (props: SuggestionProps<SlashItem, SlashItem>) => {
+							onUpdate: (props: SuggestionProps<SlashItem, SlashItem>) => {
 								renderer?.updateProps({
 									items: props.items,
 									query: props.query,
@@ -269,20 +201,14 @@ export function createSlashExtension(
 								})
 								if (renderer) positionRenderer(renderer, props.clientRect)
 							},
-
-							onKeyDown: /**
-							 * Editor callback.
-							 * @param { event } Parameter value.
-							 * @returns Callback result.
-							 */ ({ event }: SuggestionKeyDownProps) =>
-								handleRendererKeyDown(renderer, event),
-
-							onExit: /**
-							 * Editor callback.
-							 * @returns Callback result.
-							 */ () => {
-								if (renderer?.element?.parentNode)
-									renderer.element.parentNode.removeChild(renderer.element)
+							onKeyDown: ({ event }: SuggestionKeyDownProps) => {
+								const component = renderer?.ref
+								return isSlashMenuRenderer(component)
+									? component.onKeyDown(event)
+									: false
+							},
+							onExit: () => {
+								renderer?.element?.remove()
 								renderer?.destroy()
 								renderer = undefined
 							},

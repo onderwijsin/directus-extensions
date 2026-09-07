@@ -22,6 +22,11 @@ The current implementation provides a focused authoring surface. Its Vue compone
   horizontal rules, undo/redo, and clear formatting;
 - provides a Directus-native link drawer and `Mod-k` shortcut; and
 - provides a placeholder and accessible editor attributes.
+- uses one typed command catalog to configure the toolbar, slash menu, and block insertion menu;
+- exposes alias-aware, grouped slash commands with complete keyboard navigation;
+- provides a `+` insertion control before the drag handle and block duplicate/move/delete actions;
+- uses globally registered Directus UI primitives directly, without local fallback wrappers; and
+- renders polished MDC block, inline, and slot views with metadata-driven settings.
 
 Metadata-driven component insertion and prop editing, explicit Markdown source mode, and an image
 drawer are supported. Directus file selection is used when `VUpload` is available from the host;
@@ -68,8 +73,10 @@ The codec is isolated under `src/markdown/` and tested independently from Vue an
 
 ## Component metadata
 
-The interface retains two configuration options for the future authoring UI:
+The interface exposes three configuration options:
 
+- `tools` — a Directus multiselect controlling the toolbar, slash menu, context menus, and insertion
+  actions, with all tools enabled by default;
 - `metadataUrl` — a public JSON endpoint containing project component metadata;
 - `useMockMetadata` — a temporary fixture containing Hero, Callout, and Icon metadata.
 
@@ -77,9 +84,9 @@ Metadata is validated with Zod and normalized by `src/component-meta/`. A compon
 name, label, description, props, and slot names. Metadata changes must not change the Tiptap schema:
 all project components continue to use the generic MDC nodes.
 
-The Phase 4 editor loads metadata through a cancellable browser composable. Loading failures leave
-ordinary Markdown editing available and disable component insertion until metadata is available.
-Metadata remains UI data and does not change the Tiptap schema.
+The editor loads metadata through a cancellable browser composable. Loading failures leave ordinary
+Markdown editing available and disable component insertion until metadata is available. Metadata
+remains UI data and does not change the Tiptap schema.
 
 ## Frontend integration
 
@@ -111,8 +118,7 @@ compatibility target in tests.
 
 ## Deferred work
 
-The following belong to later UI/UX work and are not part of Phase 4:
+The following remain outside the current release:
 
-- advanced block context actions and prop drawers;
 - source-mode comparison and richer unsupported-content recovery; and
 - image transformations, captions, and media/video selection.

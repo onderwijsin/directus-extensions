@@ -1,4 +1,39 @@
+import type { Editor } from '@tiptap/core'
+
 import { Extension } from '@tiptap/core'
+import { TextSelection } from '@tiptap/pm/state'
+
+/**
+ * Exit an MDC slot when Enter is pressed in its trailing empty paragraph.
+ * @param editor Active Tiptap editor.
+ * @returns Whether the cursor was moved below the containing component.
+ */
+function exitMdcSlot(editor: Editor): boolean {
+	const { $from, empty } = editor.state.selection
+	if (!empty || $from.parent.type.name !== 'paragraph' || $from.parent.content.size > 0)
+		return false
+	const slotDepth = $from.depth - 1
+	const blockDepth = slotDepth - 1
+	if (
+		slotDepth < 1 ||
+		blockDepth < 1 ||
+		$from.node(slotDepth).type.name !== 'mdcSlot' ||
+		$from.node(blockDepth).type.name !== 'mdcBlock'
+	) {
+		return false
+	}
+
+	const emptyBlockFrom = $from.before($from.depth)
+	const emptyBlockTo = $from.after($from.depth)
+	const componentEnd = $from.after(blockDepth)
+	return editor.commands.command(({ dispatch, tr }) => {
+		tr.delete(emptyBlockFrom, emptyBlockTo)
+		const paragraphStart = tr.mapping.map(componentEnd)
+		tr.setSelection(TextSelection.near(tr.doc.resolve(paragraphStart + 1)))
+		dispatch?.(tr)
+		return true
+	})
+}
 
 /** Start every new text block without carrying inline formatting forward. */
 export const ClearMarksOnEnter = Extension.create({
@@ -16,6 +51,7 @@ export const ClearMarksOnEnter = Extension.create({
 			 * @returns Whether the block was split.
 			 */ () =>
 				this.editor.commands.first(({ commands }) => [
+					() => exitMdcSlot(this.editor),
 					() => commands.newlineInCode(),
 					() => commands.createParagraphNear(),
 					() => commands.splitListItem('listItem'),

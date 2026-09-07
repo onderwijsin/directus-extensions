@@ -1,22 +1,15 @@
-import type { JSONContent, MarkdownToken, NodeViewProps } from '@tiptap/core'
+import type { JSONContent, MarkdownToken } from '@tiptap/core'
 import type { MarkdownParseHelpers, MarkdownRendererHelpers } from '@tiptap/core'
-import type { Component } from 'vue'
 
 import { Node } from '@tiptap/core'
-import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 
 import MdcBlockView from '../components/MdcBlockView.vue'
 import MdcInlineView from '../components/MdcInlineView.vue'
 import MdcSlotView from '../components/MdcSlotView.vue'
+import { parseCodeBlockToken } from '../editor/code-block'
+import { createVueNodeView } from '../editor/node-view'
 import { parseMdcAttributes, serializeMdcAttributes } from './attributes'
-const mdcNodeView =
-	/**
-	 * Editor callback.
-	 * @param component Parameter value.
-	 * @returns Callback result.
-	 */
-	(component: Component) => VueNodeViewRenderer(component as Component<NodeViewProps>)
 
 // The callbacks in a Tiptap extension config are documented by the public Tiptap types.
 // Their signatures are intentionally kept inline with that config so the extension remains portable.
@@ -60,6 +53,10 @@ function parseYamlProps(source: string): Record<string, unknown> | undefined {
  * @returns Callback result.
  */
 function parseBlockToken(token: MdcToken, helpers: MarkdownParseHelpers) {
+	if (token.name === 'code-collapse') {
+		const codeToken = token.tokens?.find((child) => child.type === 'code')
+		if (codeToken) return parseCodeBlockToken(codeToken, helpers, true)
+	}
 	return helpers.createNode(
 		'mdcBlock',
 		{
@@ -111,7 +108,7 @@ export const MdcSlot = Node.create({
 	addNodeView: /**
 	 * Editor callback.
 	 * @returns Callback result.
-	 */ () => mdcNodeView(MdcSlotView),
+	 */ () => createVueNodeView(MdcSlotView),
 
 	addAttributes: /**
 	 * Editor callback.
@@ -192,7 +189,7 @@ export const MdcBlock = Node.create({
 	addNodeView: /**
 	 * Editor callback.
 	 * @returns Callback result.
-	 */ () => mdcNodeView(MdcBlockView),
+	 */ () => createVueNodeView(MdcBlockView),
 
 	addAttributes: /**
 	 * Editor callback.
@@ -300,7 +297,7 @@ export const MdcInline = Node.create({
 	addNodeView: /**
 	 * Editor callback.
 	 * @returns Callback result.
-	 */ () => mdcNodeView(MdcInlineView),
+	 */ () => createVueNodeView(MdcInlineView),
 
 	addAttributes: /**
 	 * Editor callback.

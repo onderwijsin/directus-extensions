@@ -66,6 +66,7 @@ export default defineConfig({
 					environment: 'node',
 					include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
 					exclude: [
+						'.reference/**',
 						'**/node_modules/**',
 						'**/dist/**',
 						'**/coverage/**',
@@ -81,7 +82,12 @@ export default defineConfig({
 				test: {
 					name: 'vue',
 					environment: 'happy-dom',
-					exclude: ['**/node_modules/**', '**/dist/**', '**/coverage/**'],
+					exclude: [
+						'.reference/**',
+						'**/node_modules/**',
+						'**/dist/**',
+						'**/coverage/**',
+					],
 					include: [
 						'**/*.dom.{test,spec}.{js,jsx,ts,tsx}',
 						'**/*.vue.{test,spec}.{js,jsx,ts,tsx}',

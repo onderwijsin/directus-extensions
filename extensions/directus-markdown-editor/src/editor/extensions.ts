@@ -7,37 +7,51 @@ import StarterKit from '@tiptap/starter-kit'
 
 import { MdcBlock, MdcInline, MdcSlot } from '../markdown'
 import { Video } from '../markdown/video'
+import { MarkdownCodeBlock } from './code-block'
 import { ClearMarksOnEnter } from './enter'
 import { Placeholder } from './placeholder'
 import { createSlashExtension } from './slash'
 
+/** Actions delegated by editor extensions to the surrounding interface. */
+export interface EditorExtensionActions {
+	openImage?: () => void
+	openVideo?: () => void
+}
+
 /**
  * Editor callback.
- * @param getComponents Parameter value.
+ * @param getComponents Resolves the configured MDC components.
+ * @param actions Actions that open interface-owned insertion flows.
+ * @param getEnabledTools Resolves the configured editor tools.
  * @returns Callback result.
  */
 export function createEditorExtensions(
-	getComponents: () => ComponentMetadata[] /**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */ = () => [],
+	getComponents: () => ComponentMetadata[] = () => [],
+	actions: EditorExtensionActions = {},
+	getEnabledTools: () => readonly string[] | null | undefined = () => undefined,
 ) {
 	return [
-		StarterKit,
+		StarterKit.configure({ codeBlock: false }),
 		ClearMarksOnEnter,
-		Table.configure({ resizable: false }),
+		Table.configure({
+			resizable: true,
+			cellMinWidth: 80,
+			lastColumnResizable: true,
+			allowTableNodeSelection: true,
+		}),
 		TableRow,
 		TableHeader,
 		TableCell,
 		Image.configure({ allowBase64: false }),
 		Video,
+		MarkdownCodeBlock,
 		MdcBlock,
 		MdcInline,
 		MdcSlot,
 		Placeholder.configure({
 			placeholder: 'Start writing…',
 		}),
-		createSlashExtension(getComponents),
+		createSlashExtension(getComponents, actions, getEnabledTools),
 		Markdown,
 	]
 }

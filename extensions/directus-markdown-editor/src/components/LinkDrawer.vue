@@ -10,9 +10,6 @@ import {
 	type LinkRange,
 	type LinkSelection,
 } from '../editor/link'
-import DirectusButton from '../ui/DirectusButton.vue'
-import DirectusDrawer from '../ui/DirectusDrawer.vue'
-import DirectusInput from '../ui/DirectusInput.vue'
 
 const props = defineProps<{ editor: Editor; disabled?: boolean }>()
 const open = defineModel<boolean>({ default: false })
@@ -70,45 +67,39 @@ function unlink() {
 </script>
 
 <template>
-	<DirectusDrawer
-		v-model="open"
+	<VDrawer
+		:model-value="open"
 		title="Edit link"
 		icon="link"
+		@update:model-value="open = $event"
 		@cancel="open = false"
 		@apply="save"
 	>
 		<div class="link-drawer__form">
-			<DirectusInput
+			<VInput
 				v-model="selection.url"
 				label="URL"
 				placeholder="https://example.com"
 				autofocus
 			/>
-			<DirectusInput v-model="selection.text" label="Display text" placeholder="Link text" />
-			<DirectusInput
-				v-model="selection.title"
-				label="Tooltip"
-				placeholder="Optional tooltip"
-			/>
+			<VInput v-model="selection.text" placeholder="Link text" />
 		</div>
 
 		<template #actions>
-			<DirectusButton v-if="editing" label="Unlink" :disabled="disabled" @click="unlink" />
+			<VButton v-if="editing" secondary small :disabled="disabled" @click="unlink"
+				>Unlink</VButton
+			>
 		</template>
 		<template #actions:primary>
-			<DirectusButton
-				label="Save link"
-				primary
-				:disabled="!saveable || disabled"
-				@click="save"
-			/>
+			<VButton :disabled="!saveable || disabled" small @click="save">Save link</VButton>
 		</template>
-	</DirectusDrawer>
+	</VDrawer>
 </template>
 
 <style scoped>
 .link-drawer__form {
 	display: grid;
 	gap: 1rem;
+	padding: var(--content-padding, 1.125rem);
 }
 </style>

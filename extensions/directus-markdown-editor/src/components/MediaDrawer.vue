@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
 
-import { computed, ref, watch } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 
 import { directusAssetUrl, sanitizeImageUrl } from '../editor/media'
-import DirectusButton from '../ui/DirectusButton.vue'
-import DirectusDrawer from '../ui/DirectusDrawer.vue'
-import DirectusUpload from '../ui/DirectusUpload.vue'
 
 const props = defineProps<{
 	editor: Editor
@@ -16,7 +13,7 @@ const props = defineProps<{
 const open = defineModel<boolean>({ default: false })
 const activeTab = ref('image')
 const source = ref('')
-const editing = computed(() => Boolean(source.value))
+const editing = shallowRef(false)
 const canApply = computed(() => Boolean(sanitizeImageUrl(source.value)))
 const drawerTitle = computed(() =>
 	activeTab.value === 'image' ? 'Add/Edit Image' : 'Add/Edit Media',
@@ -38,7 +35,8 @@ watch(
 				? 'image'
 				: (props.initialType ?? 'image')
 		const nodeType = activeTab.value
-		const attrs = props.editor.isActive(nodeType) ? props.editor.getAttributes(nodeType) : {}
+		editing.value = props.editor.isActive(nodeType)
+		const attrs = editing.value ? props.editor.getAttributes(nodeType) : {}
 		source.value = typeof attrs.src === 'string' ? attrs.src : ''
 	},
 )
@@ -49,6 +47,10 @@ watch(
  * @returns Nothing.
  */
 function onFileSelect(value: unknown) {
+	if (Array.isArray(value)) {
+		onFileSelect(value[0])
+		return
+	}
 	if (!value || typeof value !== 'object' || !('id' in value)) return
 	const id = value.id
 	if (typeof id !== 'string') return
@@ -81,43 +83,45 @@ function save() {
  * @returns Nothing.
  */
 function remove() {
-	if (!editing.value || props.disabled) return
+	if (!editing.value || props.disabled || !props.editor.isActive(activeTab.value)) return
 	props.editor.chain().focus().deleteSelection().run()
 	open.value = false
 }
 </script>
 
 <template>
-	<DirectusDrawer
-		v-model="open"
+	<VDrawer
+		:model-value="open"
 		:title="drawerTitle"
 		icon="slideshow"
+		@update:model-value="open = $event"
 		@cancel="open = false"
 		@apply="save"
 	>
 		<div class="media-drawer__content">
-			<DirectusUpload
+			<VUpload
+				:multiple="false"
+				from-library
+				from-url
 				:accept="activeTab === 'video' ? 'video/*' : 'image/*'"
-				@select="onFileSelect"
+				@input="onFileSelect"
 			/>
 		</div>
 		<template #actions>
-			<DirectusButton v-if="editing" label="Delete" :disabled="disabled" @click="remove" />
+			<VButton v-if="editing" secondary small :disabled="disabled" @click="remove"
+				>Delete</VButton
+			>
 		</template>
 		<template #actions:primary>
-			<DirectusButton
-				:label="saveLabel"
-				primary
-				:disabled="disabled || !canApply"
-				@click="save"
-			/>
+			<VButton :disabled="disabled || !canApply" small @click="save">{{ saveLabel }}</VButton>
 		</template>
-	</DirectusDrawer>
+	</VDrawer>
 </template>
 
 <style scoped>
 .media-drawer__content {
 	min-width: 0;
 	min-height: 14rem;
+	padding: var(--content-padding, 1.125rem);
 }
 </style>

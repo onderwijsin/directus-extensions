@@ -8,8 +8,10 @@ const props = defineProps(mdcNodeViewProps)
 
 <template>
 	<NodeViewWrapper class="mdc-slot-view" data-mdc-node-view>
-		<div class="mdc-slot-view__label">#{{ props.node.attrs.name }}</div>
-		<NodeViewContent class="mdc-slot-view__content" />
+		<div class="mdc-slot-view__label" contenteditable="false">
+			<VIcon name="tag" small />#{{ props.node.attrs.name }}
+		</div>
+		<NodeViewContent class="mdc-slot-view__content" tabindex="0" />
 	</NodeViewWrapper>
 </template>
 
@@ -21,6 +23,9 @@ const props = defineProps(mdcNodeViewProps)
 }
 
 .mdc-slot-view__label {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
 	margin-block-end: 0.25rem;
 	font-size: 0.6875rem;
 	font-weight: 600;

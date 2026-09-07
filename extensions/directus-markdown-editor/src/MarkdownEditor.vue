@@ -1,31 +1,45 @@
 <script setup lang="ts">
 // Directus/Vue template callbacks are intentionally local and do not need public API JSDoc.
-import { ref, toRef, watch } from 'vue'
+import { computed, shallowRef, toRef, watch } from 'vue'
 
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 
 import ComponentInsertMenu from './components/ComponentInsertMenu.vue'
 import EditorContextMenus from './components/EditorContextMenus.vue'
+import EditorTableMenu from './components/EditorTableMenu.vue'
 import EditorToolbar from './components/EditorToolbar.vue'
 import LinkDrawer from './components/LinkDrawer.vue'
 import MediaDrawer from './components/MediaDrawer.vue'
 import SourceDrawer from './components/SourceDrawer.vue'
 import { useComponentMetadata } from './composables/useComponentMetadata'
-import { createEditorCommands } from './editor/commands'
+import { createEditorCommands, filterEditorCommands, isEditorToolEnabled } from './editor/commands'
 import { createEditorExtensions } from './editor/extensions'
 import { createLinkShortcut } from './editor/link'
 
-const props = defineProps<{
-	value?: string | null
-	disabled?: boolean
-	options?: { metadataUrl?: string | null; useMockMetadata?: boolean }
-}>()
+const props = withDefaults(
+	defineProps<{
+		value?: string | null
+		disabled?: boolean
+		metadataUrl?: string | null
+		useMockMetadata?: boolean
+		tools?: string[] | null
+		options?: {
+			metadataUrl?: string | null
+			useMockMetadata?: boolean
+			tools?: string[] | null
+		}
+	}>(),
+	{ useMockMetadata: true },
+)
 const emit = defineEmits<{ input: [value: string] }>()
-const syncing = ref(false)
-const linkDrawerOpen = ref(false)
-const mediaDrawerOpen = ref(false)
-const mediaDrawerType = ref<'image' | 'video'>('image')
-const sourceDrawerOpen = ref(false)
+const syncing = shallowRef(false)
+const linkDrawerOpen = shallowRef(false)
+const mediaDrawerOpen = shallowRef(false)
+const mediaDrawerType = shallowRef<'image' | 'video'>('image')
+const sourceDrawerOpen = shallowRef(false)
+const componentInsertOpen = shallowRef(false)
+const lastEmittedValue = shallowRef<string>()
+const enabledTools = computed(() => props.tools ?? props.options?.tools)
 
 /**
  * Open the shared media drawer in the requested mode.
@@ -36,20 +50,37 @@ function openMediaDrawer(type: 'image' | 'video') {
 	mediaDrawerType.value = type
 	mediaDrawerOpen.value = true
 }
+
+/**
+ * Open the media drawer for image insertion.
+ * @returns Nothing.
+ */
+function openImageDrawer() {
+	openMediaDrawer('image')
+}
+
+/**
+ * Open the media drawer for video insertion.
+ * @returns Nothing.
+ */
+function openVideoDrawer() {
+	openMediaDrawer('video')
+}
+
 const metadata = useComponentMetadata({
 	metadataUrl: toRef(
 		/**
 		 * Editor callback.
 		 * @returns Callback result.
 		 */
-		() => props.options?.metadataUrl,
+		() => props.metadataUrl ?? props.options?.metadataUrl,
 	),
 	useMockMetadata: toRef(
 		/**
 		 * Editor callback.
 		 * @returns Callback result.
 		 */
-		() => props.options?.useMockMetadata ?? true,
+		() => props.useMockMetadata ?? props.options?.useMockMetadata ?? true,
 	),
 })
 
@@ -59,21 +90,28 @@ const extensions = createEditorExtensions(
 	 * @returns Callback result.
 	 */
 	() => metadata.components.value,
+	{
+		openImage: openImageDrawer,
+		openVideo: openVideoDrawer,
+	},
+	() => enabledTools.value,
 )
-extensions.push(
-	createLinkShortcut(
-		/**
-		 * Editor callback.
-		 * @returns Callback result.
-		 */
-		() => (linkDrawerOpen.value = true),
-	),
-)
+if (isEditorToolEnabled(enabledTools.value, 'link'))
+	extensions.push(
+		createLinkShortcut(
+			/**
+			 * Editor callback.
+			 * @returns Callback result.
+			 */
+			() => (linkDrawerOpen.value = true),
+		),
+	)
 
 const editor = useEditor({
 	content: props.value ?? '',
 	extensions,
 	contentType: 'markdown',
+	editable: !props.disabled,
 	editorProps: {
 		attributes: {
 			role: 'textbox',
@@ -102,29 +140,29 @@ const editor = useEditor({
 		 * @param nodePosition The node document position.
 		 * @returns Whether the double-click was handled.
 		 */ (_view, _position, node, nodePosition) => {
-			if (node.type.name !== 'image') return false
+			if (node.type.name !== 'image' || !isEditorToolEnabled(enabledTools.value, 'image')) {
+				return false
+			}
 			editor.value?.commands.setNodeSelection(nodePosition)
 			openMediaDrawer('image')
 			return true
 		},
 	},
 
-	onCreate: /**
-	 * Editor callback.
-	 * @param { editor: instance } Parameter value.
-	 * @returns Callback result.
-	 */ ({ editor: instance }) => instance.setEditable(!props.disabled),
-
 	onUpdate: /**
 	 * Editor callback.
 	 * @param { editor: instance, transaction } Parameter value.
 	 * @returns Callback result.
 	 */ ({ editor: instance, transaction }) => {
-		if (!syncing.value && transaction.docChanged) emit('input', instance.getMarkdown())
+		if (!syncing.value && transaction.docChanged) {
+			const value = instance.getMarkdown()
+			lastEmittedValue.value = value
+			emit('input', value)
+		}
 	},
 })
 
-const commands = createEditorCommands()
+const commands = computed(() => filterEditorCommands(createEditorCommands(), enabledTools.value))
 
 watch(
 	/**
@@ -154,11 +192,23 @@ watch(
 	 */
 	(value) => {
 		const instance = editor.value
-		if (!instance || value === instance.getMarkdown()) return
+		if (!instance || instance.isDestroyed) return
+		if (value === lastEmittedValue.value) {
+			lastEmittedValue.value = undefined
+			return
+		}
+		if (value === instance.getMarkdown()) return
 		syncing.value = true
-		instance.commands.setContent(value ?? '', { contentType: 'markdown', emitUpdate: false })
-		syncing.value = false
+		try {
+			instance.commands.setContent(value ?? '', {
+				contentType: 'markdown',
+				emitUpdate: false,
+			})
+		} finally {
+			syncing.value = false
+		}
 	},
+	{ flush: 'post' },
 )
 </script>
 
@@ -169,17 +219,13 @@ watch(
 				<EditorToolbar
 					:editor="editor"
 					:commands="commands"
+					:enabled-tools="enabledTools"
 					:disabled="disabled"
 					@open-link="linkDrawerOpen = true"
 					@open-image="openMediaDrawer('image')"
 					@open-media="openMediaDrawer('video')"
 					@open-source="sourceDrawerOpen = true"
-				/>
-				<ComponentInsertMenu
-					:editor="editor"
-					:components="metadata.components.value"
-					:loading="metadata.state.value === 'loading'"
-					:disabled="disabled"
+					@open-components="componentInsertOpen = true"
 				/>
 			</div>
 			<p
@@ -192,20 +238,45 @@ watch(
 			<EditorContextMenus
 				:editor="editor"
 				:commands="commands"
+				:enabled-tools="enabledTools"
 				:disabled="disabled"
 				@open-link="linkDrawerOpen = true"
+				@open-components="componentInsertOpen = true"
 			/>
+			<EditorTableMenu :editor="editor" :commands="commands" :disabled="disabled" />
 			<div class="markdown-editor__canvas">
 				<EditorContent :editor="editor" />
 			</div>
-			<LinkDrawer v-model="linkDrawerOpen" :editor="editor" :disabled="disabled" />
+			<LinkDrawer
+				v-if="isEditorToolEnabled(enabledTools, 'link')"
+				v-model="linkDrawerOpen"
+				:editor="editor"
+				:disabled="disabled"
+			/>
 			<MediaDrawer
+				v-if="
+					isEditorToolEnabled(enabledTools, 'image') ||
+					isEditorToolEnabled(enabledTools, 'video')
+				"
 				v-model="mediaDrawerOpen"
 				:editor="editor"
 				:disabled="disabled"
 				:initial-type="mediaDrawerType"
 			/>
-			<SourceDrawer v-model="sourceDrawerOpen" :editor="editor" :disabled="disabled" />
+			<SourceDrawer
+				v-if="isEditorToolEnabled(enabledTools, 'source')"
+				v-model="sourceDrawerOpen"
+				:editor="editor"
+				:disabled="disabled"
+			/>
+			<ComponentInsertMenu
+				v-if="isEditorToolEnabled(enabledTools, 'component')"
+				v-model="componentInsertOpen"
+				:editor="editor"
+				:components="metadata.components.value"
+				:loading="metadata.state.value === 'loading'"
+				:disabled="disabled"
+			/>
 		</template>
 	</div>
 </template>
@@ -231,7 +302,7 @@ watch(
 .markdown-editor__canvas {
 	min-height: 12rem;
 	padding-block: 1rem;
-	padding-inline: 2rem;
+	padding-inline: 3rem;
 }
 
 .markdown-editor__toolbar-row {
@@ -248,11 +319,6 @@ watch(
 .markdown-editor__toolbar-row :deep(.editor-toolbar) {
 	flex: 1 1 auto;
 	border-block-end: 0;
-}
-
-.markdown-editor__toolbar-row :deep(.component-insert-menu) {
-	flex: 0 0 auto;
-	padding-inline-end: 0.25rem;
 }
 
 :deep(.ProseMirror) {
@@ -367,6 +433,74 @@ watch(
 	background: none;
 }
 
+:deep(.ProseMirror .tableWrapper) {
+	margin-block: 1.5rem;
+	overflow-x: auto;
+}
+
+:deep(.ProseMirror table) {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+:deep(.ProseMirror th),
+:deep(.ProseMirror td) {
+	position: relative;
+	min-width: 5rem;
+	padding: 0.5rem 0.625rem;
+	border: 1px solid var(--theme--border-color, #d3dce3);
+	vertical-align: top;
+}
+
+:deep(.ProseMirror th) {
+	background: var(--theme--background-subdued, #f0f2f5);
+	font-weight: 700;
+}
+
+:deep(.ProseMirror .selectedCell::after) {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	background: color-mix(in srgb, var(--theme--primary, #6644ff) 14%, transparent);
+	pointer-events: none;
+	content: '';
+}
+
+:deep(.ProseMirror .column-resize-handle) {
+	position: absolute;
+	top: -1px;
+	right: -2px;
+	bottom: -1px;
+	z-index: 2;
+	width: 4px;
+	background: var(--theme--primary, #6644ff);
+	pointer-events: none;
+}
+
+:deep(.ProseMirror.resize-cursor) {
+	cursor: col-resize;
+}
+
+:deep(.ProseMirror pre.shiki),
+:deep(.ProseMirror .code-block.shiki .code-block__pre) {
+	background: var(--shiki-light-bg, var(--theme--background-normal, #f0f2f5)) !important;
+}
+
+:global(html.dark) .markdown-editor :deep(.ProseMirror pre.shiki),
+:global(html.dark) .markdown-editor :deep(.ProseMirror pre.shiki span),
+:global(html.dark) .markdown-editor :deep(.ProseMirror .code-block.shiki .code-block__pre),
+:global(html.dark) .markdown-editor :deep(.ProseMirror .code-block.shiki span),
+:global([data-theme='dark']) .markdown-editor :deep(.ProseMirror pre.shiki),
+:global([data-theme='dark']) .markdown-editor :deep(.ProseMirror pre.shiki span),
+:global([data-theme='dark'])
+	.markdown-editor
+	:deep(.ProseMirror .code-block.shiki .code-block__pre),
+:global([data-theme='dark']) .markdown-editor :deep(.ProseMirror .code-block.shiki span) {
+	color: var(--shiki-dark) !important;
+	background-color: var(--shiki-dark-bg, var(--theme--background-normal, #1f2430)) !important;
+}
+
 :deep(.ProseMirror img) {
 	max-inline-size: 100%;
 	height: auto;
@@ -400,33 +534,6 @@ watch(
 	padding-inline-start: 1em;
 	border-inline-start: 2px solid var(--editor-border);
 	color: var(--theme--foreground-subdued, #64748b);
-}
-
-:deep(.ProseMirror table) {
-	inline-size: 100%;
-	margin-block: 1.5em;
-	border-collapse: collapse;
-	table-layout: fixed;
-}
-
-:deep(.ProseMirror th),
-:deep(.ProseMirror td) {
-	position: relative;
-	padding: 0.3125rem;
-	border: 0.0625rem solid var(--editor-border);
-	vertical-align: top;
-	box-sizing: border-box;
-}
-
-:deep(.ProseMirror th) {
-	background: var(--theme--background-subdued, #f0f2f5);
-	font-weight: 700;
-	text-align: start;
-}
-
-:deep(.ProseMirror .tableWrapper) {
-	margin-block: 1.5em;
-	overflow-x: auto;
 }
 
 .is-disabled {
