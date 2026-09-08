@@ -8,13 +8,19 @@ interface MarkdownEditorOption {
 	field: string
 	name: string
 	type: 'json' | 'string' | 'boolean'
+	required?: boolean
 	meta: {
 		width: 'full' | 'half'
 		interface?: string
 		note: string
+		conditions?: {
+			rule: Record<string, { _eq: boolean }>
+			hidden: boolean
+		}[]
 		options?: {
-			allowNone: boolean
-			choices: { text: string; value: string }[]
+			allowNone?: boolean
+			choices?: { text: string; value: string }[]
+			language?: string
 		}
 	}
 	schema?: { default_value: string[] | boolean }
@@ -45,23 +51,48 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			schema: { default_value: ['all'] },
 		},
 		{
+			field: 'useStaticComponentMeta',
+			name: 'Use static component metadata',
+			type: 'boolean',
+			meta: {
+				width: 'half',
+				interface: 'checkbox',
+				note: 'Use component metadata stored directly in this interface configuration.',
+			},
+			schema: { default_value: false },
+		},
+		{
 			field: 'metadataUrl',
 			name: 'Component metadata URL',
 			type: 'string',
 			meta: {
 				width: 'full',
 				note: 'Optional JSON URL containing the project components available in the editor.',
+				conditions: [
+					{
+						rule: { useStaticComponentMeta: { _eq: true } },
+						hidden: true,
+					},
+				],
 			},
 		},
 		{
-			field: 'useMockMetadata',
-			name: 'Use mock component metadata',
-			type: 'boolean',
+			field: 'staticComponentMeta',
+			name: 'Static component metadata',
+			type: 'json',
+			required: true,
 			meta: {
-				width: 'half',
-				note: 'Temporary test fixture with Hero, Callout, and Icon components; bypasses the metadata URL.',
+				width: 'full',
+				interface: 'input-code',
+				note: 'JSON component metadata using the same shape accepted by the remote component metadata endpoint.',
+				conditions: [
+					{
+						rule: { useStaticComponentMeta: { _eq: false } },
+						hidden: true,
+					},
+				],
+				options: { language: 'json' },
 			},
-			schema: { default_value: true },
 		},
 	]
 }

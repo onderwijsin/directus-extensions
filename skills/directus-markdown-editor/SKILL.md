@@ -72,10 +72,17 @@ controls stay behind the sticky toolbar. The table toolbar preserves its table s
 row, column, header, merge, split, and delete actions run; deletion supports both cell-active and
 node-selected tables.
 
-The interface retains an optional **Component metadata URL** configuration for the component UI. It
-accepts an array of objects, or an object with a `components` array; each object requires `name` and
-may include `label`, `description`, `props`, and `slots`. The temporary **Use mock component
-metadata** option remains available for local authoring and integration testing.
+Choose one component metadata source in the interface configuration:
+
+| Option                        | Default | Behavior                                                                                          |
+| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| Use static component metadata | `false` | When disabled, the editor uses **Component metadata URL**. When enabled, it uses the static JSON. |
+| Component metadata URL        | unset   | Optional public JSON endpoint, shown only while static metadata mode is disabled.                 |
+| Static component metadata     | unset   | Required JSON value, shown only while static metadata mode is enabled.                            |
+
+Both metadata sources accept an array of objects or an object with a `components` array; each object
+requires `name` and may include `label`, `description`, `props`, and `slots`. The editor validates
+either source using the same boundary. Static mode does not make a metadata HTTP request.
 
 Project metadata is validated at the browser boundary. For example:
 

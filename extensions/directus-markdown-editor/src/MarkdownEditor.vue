@@ -24,15 +24,17 @@ const props = withDefaults(
 		value?: string | null
 		disabled?: boolean
 		metadataUrl?: string | null
-		useMockMetadata?: boolean
+		useStaticComponentMeta?: boolean
+		staticComponentMeta?: unknown
 		tools?: string[] | null
 		options?: {
 			metadataUrl?: string | null
-			useMockMetadata?: boolean
+			useStaticComponentMeta?: boolean
+			staticComponentMeta?: unknown
 			tools?: string[] | null
 		}
 	}>(),
-	{ useMockMetadata: true },
+	{ useStaticComponentMeta: undefined },
 )
 const emit = defineEmits<{ input: [value: string] }>()
 const syncing = shallowRef(false)
@@ -178,12 +180,19 @@ const metadata = useComponentMetadata({
 		 */
 		() => props.metadataUrl ?? props.options?.metadataUrl,
 	),
-	useMockMetadata: toRef(
+	useStaticComponentMeta: toRef(
 		/**
 		 * Editor callback.
 		 * @returns Callback result.
 		 */
-		() => props.useMockMetadata ?? props.options?.useMockMetadata ?? true,
+		() => props.useStaticComponentMeta ?? props.options?.useStaticComponentMeta ?? false,
+	),
+	staticComponentMeta: toRef(
+		/**
+		 * Editor callback.
+		 * @returns Callback result.
+		 */
+		() => props.staticComponentMeta ?? props.options?.staticComponentMeta,
 	),
 })
 

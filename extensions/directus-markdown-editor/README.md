@@ -71,12 +71,11 @@ line's indentation. Filenames use Nuxt Content fence metadata such as `ts [app/n
 while collapsible blocks use a `::code-collapse` wrapper. Formatting and insertion actions that
 cannot produce valid code-block content are disabled while a code block is active.
 
-The interface configuration retains **Component metadata URL** for the authoring UI. It accepts
-either an array of component metadata objects or `{ "components": [...] }`; responses are validated
-before use.
-
-For local testing, **Use mock component metadata** remains available as a temporary configuration
-fixture for local component authoring.
+Component metadata can come from one of two interface configuration sources. By default, **Use
+static component metadata** is disabled and **Component metadata URL** loads the metadata from a
+public JSON endpoint. Enable **Use static component metadata** to configure the required **Static
+component metadata** JSON value directly and disable URL loading. Both sources accept an array of
+component metadata objects or `{ "components": [...] }` and are validated before use.
 
 A component metadata object has this shape:
 
@@ -89,6 +88,23 @@ A component metadata object has this shape:
     "tone": { "type": "'info' | 'warning'", "values": ["info", "warning"] }
   },
   "slots": ["default"]
+}
+```
+
+For example, the equivalent static option value can wrap the same component in a `components` array:
+
+```json
+{
+  "components": [
+    {
+      "name": "Callout",
+      "label": "Callout",
+      "props": {
+        "tone": { "type": "'info' | 'warning'", "values": ["info", "warning"] }
+      },
+      "slots": ["default"]
+    }
+  ]
 }
 ```
 

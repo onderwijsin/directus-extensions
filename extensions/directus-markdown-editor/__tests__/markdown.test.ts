@@ -2,7 +2,6 @@ import { MarkdownManager } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 import { describe, expect, it } from 'vitest'
 
-import { loadComponentMetadata, mockComponentMetadata } from '../src/component-meta/loader'
 import { normalizeComponentMetadata } from '../src/component-meta/schema'
 import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown'
 import { parseMdcAttributes, serializeMdcAttributes } from '../src/markdown/attributes'
@@ -134,12 +133,6 @@ describe('generic MDC Markdown boundary', () => {
 })
 
 describe('component metadata boundary', () => {
-	it('loads the temporary fixture without a URL request', async () => {
-		await expect(loadComponentMetadata(undefined, undefined, true)).resolves.toEqual(
-			mockComponentMetadata,
-		)
-	})
-
 	it('normalizes component metadata for the editor menu', () => {
 		const components = normalizeComponentMetadata({
 			components: [

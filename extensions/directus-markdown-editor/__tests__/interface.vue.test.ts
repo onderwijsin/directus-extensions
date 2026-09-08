@@ -106,7 +106,19 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 	app.component('VChip', defineComponent({ template: '<span><slot /></span>' }))
 }
 
-function mountEditor(initialValue = '# Hello', disabled = false, tools?: string[]) {
+function mountEditor(
+	initialValue = '# Hello',
+	disabled = false,
+	tools?: string[],
+	metadataOptions?: {
+		useStaticComponentMeta?: boolean
+		staticComponentMeta?: unknown
+		options?: {
+			useStaticComponentMeta?: boolean
+			staticComponentMeta?: unknown
+		}
+	},
+) {
 	const value = shallowRef<string | null>(initialValue)
 	const disabledValue = shallowRef(disabled)
 	const input = vi.fn()
@@ -116,6 +128,7 @@ function mountEditor(initialValue = '# Hello', disabled = false, tools?: string[
 				value: value.value,
 				disabled: disabledValue.value,
 				tools,
+				...metadataOptions,
 				onInput: input,
 			}),
 	})
@@ -160,6 +173,39 @@ describe('Markdown editor interface', () => {
 				{ text: 'Full screen', value: 'fullscreen' },
 			]),
 		)
+	})
+
+	it('configures static and URL component metadata as mutually exclusive sources', () => {
+		const options = createMarkdownEditorOptions()
+		const useStatic = options.find((option) => option.field === 'useStaticComponentMeta')
+		const metadataUrl = options.find((option) => option.field === 'metadataUrl')
+		const staticMetadata = options.find((option) => option.field === 'staticComponentMeta')
+
+		expect(useStatic).toMatchObject({
+			type: 'boolean',
+			meta: { interface: 'checkbox' },
+			schema: { default_value: false },
+		})
+		expect(metadataUrl?.meta.conditions).toEqual([
+			{
+				rule: { useStaticComponentMeta: { _eq: true } },
+				hidden: true,
+			},
+		])
+		expect(staticMetadata).toMatchObject({
+			type: 'json',
+			required: true,
+			meta: {
+				interface: 'input-code',
+				options: { language: 'json' },
+				conditions: [
+					{
+						rule: { useStaticComponentMeta: { _eq: false } },
+						hidden: true,
+					},
+				],
+			},
+		})
 	})
 
 	it('renders Markdown and the complete Directus-native toolbar', async () => {
@@ -371,7 +417,10 @@ describe('Markdown editor interface', () => {
 	})
 
 	it('opens the metadata-driven component picker from the toolbar', async () => {
-		const { element } = mountEditor()
+		const { element } = mountEditor('# Hello', false, undefined, {
+			useStaticComponentMeta: true,
+			staticComponentMeta: [{ name: 'Hero' }, { name: 'Callout' }],
+		})
 		await Promise.resolve()
 		await nextTick()
 		await nextTick()
@@ -383,6 +432,24 @@ describe('Markdown editor interface', () => {
 		expect(element.textContent).toContain('Insert component')
 		expect(element.textContent).toContain('Hero')
 		expect(element.textContent).toContain('Callout')
+	})
+
+	it('resolves static component metadata from nested interface options', async () => {
+		const { element } = mountEditor('# Hello', false, undefined, {
+			options: {
+				useStaticComponentMeta: true,
+				staticComponentMeta: [{ name: 'NestedComponent' }],
+			},
+		})
+		await Promise.resolve()
+		await nextTick()
+
+		element
+			.querySelector('[aria-label="Insert component"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+
+		expect(element.textContent).toContain('NestedComponent')
 	})
 
 	it('renders persisted MDC as a polished component view and opens its settings', async () => {
