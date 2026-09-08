@@ -115,16 +115,16 @@ Source mode refuses lossy changes until the editor user explicitly accepts norma
 insertion accepts HTTP(S), relative asset paths, and Directus file selections stored as
 `/assets/{id}`. Unsafe `javascript:`, `data:`, and `vbscript:` URLs are rejected.
 
-## Directus record references
+## Directus item references
 
-Record references are disabled by default. Enable **Use record references** on an interface and
-configure at least one **Reference collection** to let authors link to records that the current
-Studio user is allowed to read. Add **Reference** to **Available editor tools** (or keep **All
-tools**) to expose insertion. The toolbar action appears directly after Link. Authors can also type
-a bare `@` after whitespace or at the start of a text block, follow the inline Enter hint, and press
-Enter. Reference is also available from the block `+` insert menu. Existing references remain
-editable when the insertion tool is hidden; disabling **Use record references** removes all
-Reference-specific behavior while preserving the underlying MDC Markdown.
+Item references are disabled by default. Enable **Use item references** on an interface and
+configure at least one **Reference collection** to let authors link to items that the current Studio
+user is allowed to read. Add **Reference** to **Available editor tools** (or keep **All tools**) to
+expose insertion. The toolbar action appears directly after Link. Authors can also type a bare `@`
+after whitespace or at the start of a text block, follow the inline Enter hint, and press Enter.
+Reference is also available from the block `+` insert menu. Existing references remain editable when
+the insertion tool is hidden; disabling **Use item references** removes all Reference-specific
+behavior while preserving the underlying MDC Markdown.
 
 Configure collections as JSON:
 
@@ -146,7 +146,7 @@ Configure collections as JSON:
 
 | Option                  | Default  | Behavior                                                                                             |
 | ----------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| Use record references   | `false`  | Authoritative capability gate for record lookup, editing, and integrity checks.                      |
+| Use item references     | `false`  | Authoritative capability gate for item lookup, editing, and integrity checks.                        |
 | Reference collections   | unset    | Required non-empty JSON array when enabled. Collection names must be unique.                         |
 | Reference snapshot mode | `detect` | `snapshot` checks availability, `detect` reports stale snapshots, and `sync` refreshes them on load. |
 | `collection`            | required | Directus collection to search.                                                                       |
@@ -182,8 +182,11 @@ frontend MDC component should render `text ?? label` and may use the Material/Di
 The document-level integrity check runs after hydration and complete external value replacement, not
 after every keystroke and not from individual node views. It reports malformed references,
 unconfigured collections, unavailable sources, stale snapshots in `detect` mode, and transient
-verification failures. Authors can refresh, replace, or remove affected occurrences. `sync` updates
-only changed `label` and `data` values in the editor; this can mark the Directus field dirty but
-never saves the item automatically. `snapshot` still verifies source availability but skips normal
-snapshot comparison. Relational projections, reverse-document lookup, server-side full-document
-scanning, cascade cleanup, and frontend rendering are outside the V1 contract.
+verification failures in a table with row-level actions. Authors can refresh, replace, or remove
+affected occurrences; resolving the last issue leaves a success state that must be closed before
+editing continues. Integrity checks are not mounted for Directus comparison views, so a published
+side containing an old snapshot cannot interrupt the pre-publish diff. `sync` updates only changed
+`label` and `data` values in the editor; this can mark the Directus field dirty but never saves the
+item automatically. `snapshot` still verifies source availability but skips normal snapshot
+comparison. Relational projections, reverse-document lookup, server-side full-document scanning,
+cascade cleanup, and frontend rendering are outside the V1 contract.

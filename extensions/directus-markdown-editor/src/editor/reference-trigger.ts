@@ -84,7 +84,7 @@ export function createReferenceTrigger(open: (position: number) => void, isEnabl
 										() => {
 											const hint = document.createElement('span')
 											hint.className = 'reference-trigger__hint'
-											hint.textContent = 'Hit enter to mention a record'
+											hint.textContent = "Hit 'enter' to reference an item"
 											hint.contentEditable = 'false'
 											hint.setAttribute('aria-hidden', 'true')
 											return hint

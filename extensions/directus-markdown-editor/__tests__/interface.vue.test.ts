@@ -113,6 +113,9 @@ function mountEditor(
 	metadataOptions?: {
 		useStaticComponentMeta?: boolean
 		staticComponentMeta?: unknown
+		useReferences?: boolean
+		referenceCollections?: unknown
+		comparisonMode?: boolean
 		options?: {
 			useStaticComponentMeta?: boolean
 			staticComponentMeta?: unknown
@@ -211,6 +214,7 @@ describe('Markdown editor interface', () => {
 	it('configures opt-in references with conditional collections and detect mode by default', () => {
 		const options = createMarkdownEditorOptions()
 		expect(options.find((option) => option.field === 'useReferences')).toMatchObject({
+			name: 'Use item references',
 			type: 'boolean',
 			schema: { default_value: false },
 		})
@@ -225,6 +229,19 @@ describe('Markdown editor interface', () => {
 		expect(
 			options.find((option) => option.field === 'tools')?.meta.options?.choices,
 		).toContainEqual({ text: 'Reference', value: 'reference' })
+	})
+
+	it('does not mount Reference integrity reporting in a Directus comparison view', async () => {
+		const { element } = mountEditor('# Comparison', true, undefined, {
+			useReferences: true,
+			referenceCollections: [],
+			comparisonMode: true,
+		})
+		await nextTick()
+		await nextTick()
+
+		expect(element.querySelector('.reference-configuration-error')).toBeNull()
+		expect(element.querySelector('[aria-label="Reference report"]')).toBeNull()
 	})
 
 	it('renders Markdown and the complete Directus-native toolbar', async () => {

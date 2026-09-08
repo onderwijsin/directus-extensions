@@ -1,17 +1,37 @@
 // @vitest-environment happy-dom
 
-import { createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
+import type { ReferenceOccurrence } from '../src/reference/editor'
+
+import { computed, createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
 
 import { Editor } from '@tiptap/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import EditorContextMenus from '../src/components/EditorContextMenus.vue'
+import ReferenceController from '../src/components/ReferenceController.vue'
 import ReferenceDrawer from '../src/components/ReferenceDrawer.vue'
 import ReferencePicker from '../src/components/ReferencePicker.vue'
+import ReferenceReport from '../src/components/ReferenceReport.vue'
 import { createEditorExtensions } from '../src/editor/extensions'
 
+const directusMocks = vi.hoisted(() => ({ get: vi.fn() }))
+
 vi.mock('@directus/extensions-sdk', () => ({
+	useApi: () => ({ get: directusMocks.get }),
 	useExtensions: () => ({ interfaces: shallowRef([]) }),
+	useStores: () => ({
+		useFieldsStore: () => ({
+			getFieldsForCollection: () => [
+				{
+					field: 'id',
+					type: 'integer',
+					schema: { is_primary_key: true },
+					meta: null,
+				},
+				{ field: 'title', type: 'string', schema: {}, meta: null },
+			],
+		}),
+	}),
 }))
 
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement }[] = []
@@ -61,7 +81,24 @@ function registerPrimitives(app: ReturnType<typeof createApp>) {
 	)
 	app.component(
 		'VMenu',
-		defineComponent({ template: '<div><slot name="activator" /><slot /></div>' }),
+		defineComponent({
+			props: { modelValue: { type: Boolean, default: undefined } },
+			emits: ['update:modelValue'],
+			setup(props, { emit }) {
+				const localValue = shallowRef(false)
+				const active = computed(() => props.modelValue ?? localValue.value)
+				return {
+					active,
+					toggle: () => {
+						const nextActive = !active.value
+						localValue.value = nextActive
+						emit('update:modelValue', nextActive)
+					},
+				}
+			},
+			template:
+				'<div><slot name="activator" :toggle="toggle" /><div v-if="active"><slot /></div></div>',
+		}),
 	)
 	app.component('DragHandle', defineComponent({ template: '<div><slot /></div>' }))
 }
@@ -141,7 +178,7 @@ describe('Reference interface', () => {
 		expect(row?.querySelector('.reference-picker__collection')?.textContent).toBe('articles')
 	})
 
-	it('offers Reference but hides unavailable Components in the drag-handle insert menu', () => {
+	it('keeps the drag-handle menus mutually exclusive and hides unavailable Components', async () => {
 		const editor = new Editor({ extensions: createEditorExtensions() })
 		editors.push(editor)
 		const element = mount(EditorContextMenus, {
@@ -152,11 +189,22 @@ describe('Reference interface', () => {
 			componentsAvailable: false,
 		})
 
+		element
+			.querySelector('[aria-label="Insert block"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
 		expect(element.textContent).toContain('Reference')
 		expect(element.textContent).not.toContain('Component')
+
+		element
+			.querySelector('[aria-label="Drag or open block actions"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		expect(element.textContent).toContain('Duplicate')
+		expect(element.textContent).not.toContain('Reference')
 	})
 
-	it('shows source data and keeps refresh with the drawer actions', () => {
+	it('shows a compact source summary and keeps evenly-spaced drawer actions', () => {
 		const element = mount(ReferenceDrawer, {
 			modelValue: true,
 			reference: {
@@ -167,13 +215,93 @@ describe('Reference interface', () => {
 			},
 		})
 
-		expect(element.querySelector('[aria-label="Source record"]')?.textContent).toContain(
+		expect(element.querySelector('[aria-label="Source item"]')?.textContent).toContain(
 			'A useful article',
 		)
-		expect(element.querySelector('.reference-drawer__source-data')?.textContent).toContain(
-			'slug',
-		)
+		expect(element.querySelector('.reference-drawer__source-data')).toBeNull()
+		expect(element.textContent).not.toContain('Source record')
 		expect(element.textContent).not.toContain('Presentation')
-		expect(element.querySelector('header')?.textContent).toContain('Refresh source')
+		expect(element.querySelector('header')?.textContent).toContain('Refresh')
+	})
+
+	it('shows loading on the item refresh action', () => {
+		const element = mount(ReferenceDrawer, {
+			modelValue: true,
+			refreshing: true,
+			reference: {
+				collection: 'articles',
+				item: 7,
+				label: 'A useful article',
+				data: {},
+			},
+		})
+
+		expect(element.querySelector('[aria-label="Refresh item"]')?.hasAttribute('loading')).toBe(
+			true,
+		)
+	})
+
+	it('renders report issues as a table and resolved issues as a success state', () => {
+		const occurrence: ReferenceOccurrence = {
+			key: '1:0',
+			position: 1,
+			rawProps: {},
+			reference: { collection: 'articles', item: 7, label: 'Article seven', data: {} },
+			current: { collection: 'articles', item: 7, label: 'Updated seven', data: {} },
+			state: 'outdated',
+		}
+		const table = mount(ReferenceReport, { modelValue: true, occurrences: [occurrence] })
+
+		expect(table.querySelector('table')).not.toBeNull()
+		expect(table.querySelector('th')?.textContent).toBe('Item')
+		expect(table.querySelector('[aria-label="Refresh reference"]')).not.toBeNull()
+		expect(table.querySelector('[aria-label="Replace reference"]')).not.toBeNull()
+		expect(table.querySelector('[aria-label="Remove reference"]')).not.toBeNull()
+
+		const success = mount(ReferenceReport, { modelValue: true, occurrences: [] })
+		expect(success.querySelector('[role="status"]')?.textContent).toContain(
+			'All references are resolved',
+		)
+		expect(success.textContent).toContain('continue editing the item')
+	})
+
+	it('replaces a stale reference through the picker and returns to report success', async () => {
+		directusMocks.get.mockResolvedValue({ data: { data: [{ id: 7, title: 'Current item' }] } })
+		const editor = new Editor({
+			content: ':Reference{collection="articles" :item="7" label="Stale item" :data="{}"}',
+			contentType: 'markdown',
+			extensions: createEditorExtensions(),
+		})
+		editors.push(editor)
+		const element = mount(ReferenceController, {
+			editor,
+			collections: [{ collection: 'articles', displayField: 'title' }],
+			mode: 'detect',
+		})
+		await vi.waitFor(() => {
+			expect(element.querySelector('[aria-label="Replace reference"]')).not.toBeNull()
+		})
+
+		element
+			.querySelector('[aria-label="Replace reference"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		expect(element.querySelector('[aria-label="Reference report"]')).toBeNull()
+		const input = element.querySelector('[aria-label="Search items"]')
+		if (!(input instanceof HTMLInputElement)) throw new Error('Expected item search input.')
+		input.value = 'Current'
+		input.dispatchEvent(new Event('input', { bubbles: true }))
+		await new Promise((resolve) => window.setTimeout(resolve, 225))
+		await nextTick()
+		element
+			.querySelector('.reference-picker__result')
+			?.closest('button')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+
+		expect(editor.getMarkdown()).toContain('label="Current item"')
+		expect(element.querySelector('[role="status"]')?.textContent).toContain(
+			'All references are resolved',
+		)
 	})
 })

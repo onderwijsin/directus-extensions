@@ -1,6 +1,6 @@
 import type { ResolvedReferenceCollectionConfig, ReferenceProps } from './schema'
 
-import { recordToReference } from './schema'
+import { itemToReference } from './schema'
 
 export interface ReferenceSearchResult {
 	reference: ReferenceProps
@@ -14,19 +14,19 @@ export interface ReferenceApiClient {
 }
 
 /**
- * Extract record objects from a Directus Axios response.
+ * Extract item objects from a Directus Axios response.
  * @param response Unknown response.
- * @returns Record objects, or an empty array for an invalid response.
+ * @returns Item objects, or an empty array for an invalid response.
  */
-function responseRecords(response: unknown): Record<string, unknown>[] | undefined {
+function responseItems(response: unknown): Record<string, unknown>[] | undefined {
 	if (!response || typeof response !== 'object') return undefined
 	const body = Reflect.get(response, 'data')
 	if (!body || typeof body !== 'object') return undefined
 	const data = Reflect.get(body, 'data')
 	if (!Array.isArray(data)) return undefined
 	return data.filter(
-		(record): record is Record<string, unknown> =>
-			Boolean(record) && typeof record === 'object',
+		(sourceItem): sourceItem is Record<string, unknown> =>
+			Boolean(sourceItem) && typeof sourceItem === 'object',
 	)
 }
 
@@ -96,12 +96,12 @@ function matchRank(label: string, query: string) {
 }
 
 /**
- * Search configured collections independently and return five deterministically ranked records.
+ * Search configured collections independently and return five deterministically ranked items.
  * @param api Authenticated Studio API client.
  * @param collections Resolved searchable collections.
  * @param query Author search query.
  * @param signal Optional cancellation signal.
- * @returns Ranked accessible records.
+ * @returns Ranked accessible items.
  */
 export async function searchReferences(
 	api: ReferenceApiClient,
@@ -114,8 +114,8 @@ export async function searchReferences(
 	const searches = collections.map(async (config) => {
 		try {
 			const response = await api.get(searchUrl(config, term), { signal })
-			return (responseRecords(response) ?? []).flatMap((record, apiOrder) => {
-				const reference = recordToReference(record, config)
+			return (responseItems(response) ?? []).flatMap((sourceItem, apiOrder) => {
+				const reference = itemToReference(sourceItem, config)
 				return reference
 					? [{ reference, config, rank: matchRank(reference.label, term), apiOrder }]
 					: []
@@ -137,7 +137,7 @@ export async function searchReferences(
 }
 
 export interface ReferenceResolution {
-	records: Map<string, ReferenceProps>
+	items: Map<string, ReferenceProps>
 	unavailableItems: Set<string>
 	verificationErrorItems: Set<string>
 }
@@ -148,7 +148,7 @@ export interface ReferenceResolution {
  * @param config Resolved collection configuration.
  * @param items Referenced primary-key values.
  * @param signal Optional cancellation signal.
- * @returns Resolved records and per-item unavailable/error classifications.
+ * @returns Resolved items and per-item unavailable/error classifications.
  */
 export async function resolveReferences(
 	api: ReferenceApiClient,
@@ -156,7 +156,7 @@ export async function resolveReferences(
 	items: (string | number)[],
 	signal?: AbortSignal,
 ): Promise<ReferenceResolution> {
-	const records = new Map<string, ReferenceProps>()
+	const resolvedItems = new Map<string, ReferenceProps>()
 	const unavailableItems = new Set<string>()
 	const verificationErrorItems = new Set<string>()
 	for (let offset = 0; offset < items.length; offset += 100) {
@@ -171,14 +171,14 @@ export async function resolveReferences(
 				`/items/${encodeURIComponent(config.collection)}?${parameters.toString()}`,
 				{ signal },
 			)
-			const returnedRecords = responseRecords(response)
-			if (!returnedRecords) {
+			const returnedItems = responseItems(response)
+			if (!returnedItems) {
 				for (const item of chunk) verificationErrorItems.add(String(item))
 				continue
 			}
-			for (const record of returnedRecords) {
-				const reference = recordToReference(record, config)
-				if (reference) records.set(String(reference.item), reference)
+			for (const sourceItem of returnedItems) {
+				const reference = itemToReference(sourceItem, config)
+				if (reference) resolvedItems.set(String(reference.item), reference)
 			}
 		} catch (error) {
 			const status = referenceErrorStatus(error)
@@ -187,5 +187,5 @@ export async function resolveReferences(
 			for (const item of chunk) target.add(String(item))
 		}
 	}
-	return { records, unavailableItems, verificationErrorItems }
+	return { items: resolvedItems, unavailableItems, verificationErrorItems }
 }

@@ -331,8 +331,10 @@ function tooltip(command: EditorCommand) {
 
 .editor-toolbar__block-select {
 	flex: 0 0 auto;
+	flex-shrink: 0;
 	min-width: 0;
 	max-width: 8rem;
+	white-space: nowrap;
 }
 
 .editor-toolbar__group {

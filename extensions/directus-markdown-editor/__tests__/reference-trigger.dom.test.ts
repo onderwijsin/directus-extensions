@@ -37,7 +37,7 @@ describe('Reference @ trigger', () => {
 		expect(trigger?.textContent).toBe('@')
 		expect(trigger?.hasAttribute('data-reference-trigger')).toBe(true)
 		expect(editor.view.dom.querySelector('.reference-trigger__hint')?.textContent).toBe(
-			'Hit enter to mention a record',
+			"Hit 'enter' to reference an item",
 		)
 		editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
 		expect(openReference).toHaveBeenCalledOnce()

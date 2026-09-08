@@ -33,6 +33,7 @@ const props = withDefaults(
 		useReferences?: boolean
 		referenceCollections?: unknown
 		referenceSnapshotMode?: ReferenceSnapshotMode
+		comparisonMode?: boolean
 		options?: {
 			metadataUrl?: string | null
 			useStaticComponentMeta?: boolean
@@ -472,7 +473,7 @@ watch(
 				:insertion-enabled="componentInsertionEnabled"
 			/>
 			<ReferenceController
-				v-if="referencesEnabled"
+				v-if="referencesEnabled && !comparisonMode"
 				:editor="editor"
 				:collections="referenceCollections"
 				:mode="referenceSnapshotMode"
@@ -630,6 +631,8 @@ watch(
 }
 
 :deep(.ProseMirror .reference-trigger__hint) {
+	position: relative;
+	inset-block-start: 2px;
 	margin-inline-start: 0.375rem;
 	color: var(--theme--foreground-subdued, #8b98a5);
 	font-weight: 400;

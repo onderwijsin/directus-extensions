@@ -63,12 +63,12 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 		},
 		{
 			field: 'useReferences',
-			name: 'Use record references',
+			name: 'Use item references',
 			type: 'boolean',
 			meta: {
 				width: 'half',
 				interface: 'checkbox',
-				note: 'Allow authors to insert permission-aware references to configured Directus records.',
+				note: 'Allow authors to insert permission-aware references to configured Directus items.',
 			},
 			schema: { default_value: false },
 		},

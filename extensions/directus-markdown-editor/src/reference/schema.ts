@@ -194,26 +194,28 @@ function displayLabel(value: unknown, item: string | number): string {
 }
 
 /**
- * Build the persisted, source-owned snapshot from one permission-filtered Directus record.
- * @param record Directus record returned with the configured projection.
+ * Build the persisted, source-owned snapshot from one permission-filtered Directus item.
+ * @param sourceItem Directus item returned with the configured projection.
  * @param config Resolved collection configuration.
  * @returns A canonical Reference snapshot, or undefined for an invalid primary key.
  */
-export function recordToReference(
-	record: Record<string, unknown>,
+export function itemToReference(
+	sourceItem: Record<string, unknown>,
 	config: ResolvedReferenceCollectionConfig,
 ): ReferenceProps | undefined {
-	const item = record[config.primaryKeyField]
+	const item = sourceItem[config.primaryKeyField]
 	if (typeof item !== 'string' && typeof item !== 'number') return undefined
 	if (
-		![config.displayField, ...config.dataFields].every((field) => Object.hasOwn(record, field))
+		![config.displayField, ...config.dataFields].every((field) =>
+			Object.hasOwn(sourceItem, field),
+		)
 	) {
 		return undefined
 	}
-	const rawLabel = record[config.displayField]
+	const rawLabel = sourceItem[config.displayField]
 	const label = displayLabel(rawLabel, item)
 	const data: Record<string, unknown> = {}
-	for (const field of config.dataFields) data[field] = record[field]
+	for (const field of config.dataFields) data[field] = sourceItem[field]
 	const parsed = ReferencePropsSchema.safeParse({
 		collection: config.collection,
 		item,

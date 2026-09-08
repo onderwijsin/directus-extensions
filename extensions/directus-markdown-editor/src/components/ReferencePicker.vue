@@ -99,20 +99,20 @@ function handleKeydown(event: KeyboardEvent) {
 <template>
 	<VDialog v-model="open" persistent>
 		<VCard class="reference-picker" role="dialog" aria-label="Insert reference">
-			<VCardTitle>Select a record</VCardTitle>
+			<VCardTitle>Select an item</VCardTitle>
 			<VCardText>
 				<VInput
 					v-model="query"
 					autofocus
-					placeholder="Search records…"
-					aria-label="Search records"
+					placeholder="Search items…"
+					aria-label="Search items"
 					:disabled="disabled"
 					@keydown="handleKeydown"
 					><template #prepend><VIcon name="search" /></template
 				></VInput>
 				<VProgressCircular v-if="loading" indeterminate class="reference-picker__loading" />
 				<VNotice v-else-if="normalizedQuery && results.length === 0" type="info"
-					>No accessible records match “{{ normalizedQuery }}”.</VNotice
+					>No accessible items match “{{ normalizedQuery }}”.</VNotice
 				>
 				<VList v-else-if="results.length" class="reference-picker__list">
 					<VListItem

@@ -106,13 +106,13 @@ relative paths, and Directus `/assets/{id}` paths; unsafe executable/data protoc
 Rich media, image transformations/captions, and advanced unsupported-content recovery remain
 deferred.
 
-## Configure record references
+## Configure item references
 
 References are an opt-in authoring capability. Configure the interface as follows:
 
 | Interface option        | Default  | Required and operational behavior                                                                    |
 | ----------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| Use record references   | `false`  | Enables the picker, persisted-node editor, and document integrity controller.                        |
+| Use item references     | `false`  | Enables the picker, persisted-node editor, and document integrity controller.                        |
 | Reference collections   | unset    | Required non-empty JSON array when enabled; each collection may appear once.                         |
 | Reference snapshot mode | `detect` | `snapshot` verifies availability, `detect` reports changes, `sync` refreshes changed snapshots.      |
 | Available editor tools  | `all`    | Include `reference` for toolbar and bare-`@` insertion. This does not govern editing existing nodes. |
@@ -137,7 +137,7 @@ Use direct field names only:
 
 `collection` and `displayField` are required. `searchFields` defaults to the display field and must
 contain only Directus `string` or `text` fields. `dataFields` defaults to an empty list and controls
-the complete projected snapshot—no full record is copied implicitly. Repeated field names are
+the complete projected snapshot—no full item is copied implicitly. Repeated field names are
 de-duplicated in order. The editor uses Directus field metadata to discover primary keys, including
 keys not named `id`, and disables only invalid collection configurations. V1 rejects nested paths,
 wildcards, relational aliases, foreign-key fields, and relation traversal.
@@ -147,8 +147,8 @@ Authors can use the Reference toolbar button immediately after Link, choose Refe
 inline Enter hint. The latter intentionally ignores email addresses. Search starts only after a
 query, searches every valid collection independently, and shows up to five ranked results. Hiding
 the `reference` editor tool removes all insertion paths while leaving persisted Reference nodes
-editable. Turning off **Use record references** unmounts all Reference-specific behavior, but
-generic MDC parsing keeps stored nodes intact.
+editable. Turning off **Use item references** unmounts all Reference-specific behavior, but generic
+MDC parsing keeps stored nodes intact.
 
 The persisted frontend contract is ordinary MDC:
 
@@ -181,7 +181,8 @@ It de-duplicates source resolution while retaining occurrence-specific repair ac
   field dirty, but it never calls the item update API or saves automatically.
 
 Malformed external Reference nodes remain generic selectable MDC atoms instead of being discarded.
-The integrity report can replace or remove malformed, unconfigured, and unavailable occurrences;
-transient verification errors offer retry only. The extension does not provide frontend rendering,
-relational projection, reverse indexing, Directus update/delete hooks, cascade cleanup, or a
-server-side document scanner.
+The integrity report presents affected items in a table and can replace or remove malformed,
+unconfigured, and unavailable occurrences; transient verification errors offer retry only. It
+retains a success state after the last issue is resolved and is suppressed entirely when Directus
+renders a comparison view. The extension does not provide frontend rendering, relational projection,
+reverse indexing, Directus update/delete hooks, cascade cleanup, or a server-side document scanner.

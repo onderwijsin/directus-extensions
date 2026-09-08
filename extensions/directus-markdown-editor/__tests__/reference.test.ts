@@ -8,7 +8,7 @@ import { scanReferences } from '../src/reference/editor'
 import {
 	isReferenceSnapshotCurrent,
 	parseReferenceProps,
-	recordToReference,
+	itemToReference,
 	resolveReferenceCollections,
 } from '../src/reference/schema'
 
@@ -94,7 +94,7 @@ describe('Reference configuration and snapshots', () => {
 
 	it('creates only configured snapshot data and falls back to the source ID for an empty label', () => {
 		expect(
-			recordToReference(
+			itemToReference(
 				{ key: 12, title: '', slug: 'twelve', body: 'ignored' },
 				resolvedConfig(),
 			),

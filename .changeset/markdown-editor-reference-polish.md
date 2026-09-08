@@ -2,5 +2,6 @@
 '@onderwijsin/directus-markdown-editor': patch
 ---
 
-Polish Reference insertion, search, and editing while gracefully hiding unavailable Component
-insertion actions and restoring blank-block placeholders.
+Polish Reference insertion, search, editing, and integrity reporting; suppress reports in Directus
+comparison views; gracefully hide unavailable Component insertion actions; and restore blank-block
+placeholders.

@@ -112,16 +112,18 @@ function selectBlock(position: number | null): boolean {
 }
 
 function setInsertMenuState(open: boolean) {
+	if (open) blockMenuOpen.value = false
 	insertMenuOpen.value = open
 	if (open) insertMenuPosition.value = hoveredPosition.value
-	props.editor.commands.setMeta('lockDragHandle', open)
+	props.editor.commands.setMeta('lockDragHandle', insertMenuOpen.value || blockMenuOpen.value)
 	if (open) selectBlock(insertMenuPosition.value)
 }
 
 function setBlockMenuState(open: boolean) {
+	if (open) insertMenuOpen.value = false
 	blockMenuOpen.value = open
 	if (open) blockMenuPosition.value = hoveredPosition.value
-	props.editor.commands.setMeta('lockDragHandle', open)
+	props.editor.commands.setMeta('lockDragHandle', insertMenuOpen.value || blockMenuOpen.value)
 	if (open) selectBlock(blockMenuPosition.value)
 }
 
@@ -178,6 +180,8 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 		:should-show="
 			({ editor: currentEditor, state }) =>
 				!disabled &&
+				!insertMenuOpen &&
+				!blockMenuOpen &&
 				!currentEditor.isActive('table') &&
 				!currentEditor.isActive('codeBlock') &&
 				!state.selection.empty

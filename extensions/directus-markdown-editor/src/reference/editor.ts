@@ -112,7 +112,7 @@ export function removeReferenceAt(editor: Editor, position: number): boolean {
 /**
  * Collect all Reference atoms while retaining malformed raw props and occurrence positions.
  * @param document ProseMirror document.
- * @returns Occurrence-oriented Reference records.
+ * @returns Occurrence-oriented References.
  */
 export function collectReferenceOccurrences(document: ProseMirrorNode): ReferenceOccurrence[] {
 	const occurrences: ReferenceOccurrence[] = []
@@ -183,7 +183,7 @@ export async function scanReferences(
 				occurrence.state = 'not_available'
 				continue
 			}
-			const current = resolution.records.get(itemKey)
+			const current = resolution.items.get(itemKey)
 			if (!current) {
 				occurrence.state = 'not_available'
 				continue

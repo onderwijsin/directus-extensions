@@ -52,6 +52,8 @@ const selectedPosition = shallowRef<number>()
 const selectedReference = shallowRef<ReferenceProps>()
 const bookmark = shallowRef<ReferenceBookmark>()
 const pickerPurpose = shallowRef<'insert' | 'replace'>('insert')
+const pickerReturnSurface = shallowRef<'drawer' | 'report'>()
+const refreshingSelectedSource = shallowRef(false)
 let controller: AbortController | undefined
 let editorDom: HTMLElement | undefined
 
@@ -64,6 +66,7 @@ function openPickerAt(nextBookmark: ReferenceBookmark) {
 	if (!props.insertionEnabled || props.disabled || !props.editor.isEditable) return
 	bookmark.value = nextBookmark
 	pickerPurpose.value = 'insert'
+	pickerReturnSurface.value = undefined
 	pickerOpen.value = true
 }
 
@@ -130,24 +133,31 @@ function applyPresentation(presentation: { text?: string; icon?: string }) {
 
 function changeSource() {
 	pickerPurpose.value = 'replace'
+	pickerReturnSurface.value = 'drawer'
+	drawerOpen.value = false
 	pickerOpen.value = true
 }
 
 async function refreshSelectedSource() {
 	const position = selectedPosition.value
 	const reference = selectedReference.value
-	if (position === undefined || !reference) return
+	if (refreshingSelectedSource.value || position === undefined || !reference) return
 	const config = configuration.value.collections.find(
 		(collection) => collection.collection === reference.collection,
 	)
 	if (!config) return
-	const result = await resolveReferences(apiClient, config, [reference.item])
-	const current = result.records.get(String(reference.item))
-	if (!current) return
-	const next = { ...reference, label: current.label, data: current.data }
-	if (updateReferenceAt(props.editor, position, next)) {
-		selectedReference.value = next
-		report.value = report.value.filter((entry) => entry.position !== position)
+	refreshingSelectedSource.value = true
+	try {
+		const result = await resolveReferences(apiClient, config, [reference.item])
+		const current = result.items.get(String(reference.item))
+		if (!current) return
+		const next = { ...reference, label: current.label, data: current.data }
+		if (updateReferenceAt(props.editor, position, next)) {
+			selectedReference.value = next
+			report.value = report.value.filter((entry) => entry.position !== position)
+		}
+	} finally {
+		refreshingSelectedSource.value = false
 	}
 }
 
@@ -188,6 +198,8 @@ function replace(occurrence: ReferenceOccurrence) {
 	selectedPosition.value = occurrence.position
 	selectedReference.value = occurrence.reference
 	pickerPurpose.value = 'replace'
+	pickerReturnSurface.value = 'report'
+	reportOpen.value = false
 	pickerOpen.value = true
 }
 
@@ -204,7 +216,9 @@ function remove(occurrence: ReferenceOccurrence) {
 }
 
 async function scan() {
+	if (props.disabled) return
 	controller?.abort()
+	const keepReportOpen = reportOpen.value
 	const request = new AbortController()
 	controller = request
 	const result = await scanReferences(
@@ -219,7 +233,7 @@ async function scan() {
 	const actionable = result.occurrences.some((entry) =>
 		['malformed', 'unconfigured', 'not_available', 'outdated'].includes(entry.state),
 	)
-	reportOpen.value = actionable
+	reportOpen.value = actionable || keepReportOpen
 }
 
 onMounted(() => {
@@ -241,11 +255,23 @@ watch(
 watch(
 	() => props.disabled,
 	(disabled) => {
-		if (!disabled) return
-		pickerOpen.value = false
-		drawerOpen.value = false
+		if (disabled) {
+			controller?.abort()
+			pickerOpen.value = false
+			drawerOpen.value = false
+			reportOpen.value = false
+			return
+		}
+		void scan()
 	},
 )
+watch(pickerOpen, (isOpen) => {
+	if (isOpen) return
+	const surface = pickerReturnSurface.value
+	pickerReturnSurface.value = undefined
+	if (surface === 'drawer' && selectedReference.value) drawerOpen.value = true
+	if (surface === 'report') reportOpen.value = true
+})
 </script>
 
 <template>
@@ -276,6 +302,7 @@ watch(
 		v-model="drawerOpen"
 		:reference="selectedReference"
 		:disabled="disabled"
+		:refreshing="refreshingSelectedSource"
 		@apply="applyPresentation"
 		@change-source="changeSource"
 		@refresh-source="refreshSelectedSource"
