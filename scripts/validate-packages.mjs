@@ -12,6 +12,7 @@ import { join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
 const packageRoots = ['extensions', 'packages']
+const packedFileMaxBuffer = 32 * 1024 * 1024
 export const errors = []
 
 /**
@@ -371,7 +372,10 @@ export function validatePackedPackage(packageName, manifest, outputDirectory) {
 			/^package\/dist\/.*\.(?:c|m)?js$/u.test(entry),
 		)) {
 			// Generated JavaScript must not contain a private workspace dependency reference.
-			const output = execFileSync('tar', ['-xOf', archive, file], { encoding: 'utf8' })
+			const output = execFileSync('tar', ['-xOf', archive, file], {
+				encoding: 'utf8',
+				maxBuffer: packedFileMaxBuffer,
+			})
 			if (output.includes('@workspace/test-utils')) {
 				report(
 					packageName,

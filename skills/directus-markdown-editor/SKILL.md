@@ -39,11 +39,14 @@ configuration-driven Markdown toolbar, contextual bubble controls, an alias-awar
 menu, polished generic MDC NodeViews, a `+` insert control followed by a drag handle, block
 duplicate/move/delete actions, headings 1–6, lists, blockquotes, fenced code, tables, hard breaks,
 metadata-driven component insertion and prop editing, explicit Markdown source mode, image/video
-media insertion, and Directus-native link editing through the link button or `Mod-k`.
+media insertion, and Directus-native link editing through the link button or `Mod-k`. The final
+toolbar action enters a viewport-filling full-screen mode, switches to an exit icon while active,
+and closes on Escape.
 
 Configure **Available editor tools** to expose all controls or a field-specific subset. Its
 multiselect includes **All tools** and **Deselect all**, and the selected tools consistently govern
-the toolbar, slash menu, contextual controls, and insertion actions.
+the toolbar, slash menu, contextual controls, insertion actions, and native Tiptap shortcuts. **Full
+screen** is an independently selectable tool.
 
 Code blocks use Shiki's `github-light` and `github-dark` themes and store Nuxt Content-compatible
 metadata. The searchable language select contains common general-purpose languages, web-development
@@ -59,6 +62,12 @@ Slash commands can be found by their display label or alternate names (`text`, `
 `ol`, `quote`, `separator`, `line break`, `grid`, and similar terms). They support Arrow Up/Down,
 Home, End, Enter, and Escape. The UI uses Directus Studio's globally registered primitives directly;
 there is no bundled fallback component layer.
+
+Empty named component slots are preserved when backspacing, and exiting a trailing empty slot
+creates and focuses a paragraph directly after the component. Opening another editor overlay closes
+an active slash menu. Inline components open their property drawer directly when clicked. Block
+controls stay behind the sticky toolbar, and the table toolbar deletes both cell-active and
+node-selected tables.
 
 The interface retains an optional **Component metadata URL** configuration for the component UI. It
 accepts an array of objects, or an object with a `components` array; each object requires `name` and

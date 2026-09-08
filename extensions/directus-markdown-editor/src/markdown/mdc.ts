@@ -92,10 +92,11 @@ function findClosingLine(source: string, depth: number): number {
  * @returns Callback result.
  */
 function parseSlotToken(token: MarkdownToken, helpers: MarkdownParseHelpers) {
+	const content = helpers.parseChildren(token.tokens ?? [])
 	return helpers.createNode(
 		'mdcSlot',
 		{ name: (token as MarkdownToken & { name?: string }).name ?? 'default' },
-		helpers.parseChildren(token.tokens ?? []),
+		content.length > 0 ? content : [{ type: 'paragraph' }],
 	)
 }
 
@@ -103,8 +104,9 @@ function parseSlotToken(token: MarkdownToken, helpers: MarkdownParseHelpers) {
 export const MdcSlot = Node.create({
 	name: 'mdcSlot',
 	group: 'block',
-	content: 'block*',
+	content: 'block+',
 	defining: true,
+	isolating: true,
 	addNodeView: /**
 	 * Editor callback.
 	 * @returns Callback result.

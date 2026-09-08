@@ -5,6 +5,8 @@ import type { ComponentMetadata } from '../component-meta/schema'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
+import { exitSuggestion } from '@tiptap/suggestion'
+
 import ComponentPropsDrawer from './ComponentPropsDrawer.vue'
 
 const props = defineProps<{
@@ -44,6 +46,7 @@ function choose(component: ComponentMetadata) {
 function editComponentFromNodeView(event: Event) {
 	if (props.disabled || !props.editor.isEditable) return
 	if (!(event instanceof CustomEvent) || typeof event.detail?.name !== 'string') return
+	exitSuggestion(props.editor.view)
 	const known = props.components.find((candidate) => candidate.name === event.detail.name)
 	const rawProps =
 		event.detail.props && typeof event.detail.props === 'object' ? event.detail.props : {}

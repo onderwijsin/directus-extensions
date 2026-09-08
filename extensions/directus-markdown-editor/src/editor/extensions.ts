@@ -10,6 +10,7 @@ import { Video } from '../markdown/video'
 import { MarkdownCodeBlock } from './code-block'
 import { ClearMarksOnEnter } from './enter'
 import { Placeholder } from './placeholder'
+import { createConfiguredShortcutGuard } from './shortcuts'
 import { createSlashExtension } from './slash'
 
 /** Actions delegated by editor extensions to the surrounding interface. */
@@ -31,6 +32,7 @@ export function createEditorExtensions(
 	getEnabledTools: () => readonly string[] | null | undefined = () => undefined,
 ) {
 	return [
+		createConfiguredShortcutGuard(getEnabledTools),
 		StarterKit.configure({ codeBlock: false }),
 		ClearMarksOnEnter,
 		Table.configure({

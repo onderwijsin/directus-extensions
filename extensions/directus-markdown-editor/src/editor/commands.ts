@@ -1,6 +1,8 @@
 /* eslint-disable jsdoc-js/require-jsdoc -- Command callbacks are private registry implementation details. */
 import type { Editor } from '@tiptap/core'
 
+import { NodeSelection } from '@tiptap/pm/state'
+
 export type EditorCommandGroup = 'history' | 'text' | 'structure' | 'insert' | 'table'
 
 export interface EditorCommand {
@@ -37,6 +39,20 @@ export interface EditorToolOption {
 	text: string
 	value: string
 	commandIds: string[]
+}
+
+function hasSelectedTable(editor: Editor) {
+	const selection = editor.state.selection
+	return selection instanceof NodeSelection && selection.node.type.name === 'table'
+}
+
+function canDeleteTable(editor: Editor) {
+	return hasSelectedTable(editor) || editor.can().deleteTable()
+}
+
+function deleteTable(editor: Editor) {
+	if (hasSelectedTable(editor)) return editor.chain().focus().deleteSelection().run()
+	return editor.chain().focus().deleteTable().run()
 }
 
 export const editorTableToolbarConfig: EditorTableToolbarConfig = {
@@ -79,6 +95,7 @@ export const editorToolOptions: EditorToolOption[] = [
 	{ text: 'Undo / redo', value: 'history', commandIds: ['undo', 'redo'] },
 	{ text: 'Component insert', value: 'component', commandIds: [] },
 	{ text: 'Edit source', value: 'source', commandIds: [] },
+	{ text: 'Full screen', value: 'fullscreen', commandIds: [] },
 ]
 
 export const editorToolbarConfig: EditorToolbarConfig = {
@@ -495,8 +512,8 @@ export function createEditorCommands(): EditorCommand[] {
 			group: 'table',
 			aliases: ['remove table'],
 			isActive: () => false,
-			isDisabled: (editor) => !editor.can().deleteTable(),
-			execute: (editor) => editor.chain().focus().deleteTable().run(),
+			isDisabled: (editor) => !canDeleteTable(editor),
+			execute: deleteTable,
 		}),
 		command({
 			id: 'clear-formatting',

@@ -38,7 +38,6 @@ function editComponent() {
 		>
 			<VIcon name="widgets" small />
 			<span>{{ props.node.attrs.name }}</span>
-			<VIcon name="tune" small class="mdc-inline__settings" />
 		</button>
 	</NodeViewWrapper>
 </template>
@@ -46,7 +45,7 @@ function editComponent() {
 <style scoped>
 .mdc-inline {
 	display: inline-flex;
-	vertical-align: baseline;
+	vertical-align: middle;
 }
 .mdc-inline__button {
 	display: inline-flex;
@@ -68,13 +67,5 @@ function editComponent() {
 .mdc-inline__button:disabled {
 	cursor: not-allowed;
 	opacity: 0.6;
-}
-.mdc-inline__settings {
-	opacity: 0;
-	transition: opacity 120ms ease;
-}
-.mdc-inline__button:hover .mdc-inline__settings,
-.mdc-inline__button:focus .mdc-inline__settings {
-	opacity: 1;
 }
 </style>

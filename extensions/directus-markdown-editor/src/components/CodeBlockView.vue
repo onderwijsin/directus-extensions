@@ -126,16 +126,12 @@ function updateCollapse(value: boolean) {
 
 .code-block__collapse {
 	flex: 0 0 auto;
+	--v-button-background-color: transparent;
+	--v-button-background-color-disabled: transparent;
 }
 
-.markdown-editor
-	.ProseMirror
-	.code-block.shiki
-	.code-block__settings
-	.code-block__collapse
-	button.ghost
-	span.content,
-.markdown-editor .ProseMirror .code-block.shiki .code-block__collapse span.v-icon {
+.code-block__collapse :deep(.content),
+.code-block__collapse :deep(.v-icon) {
 	background-color: transparent !important;
 }
 

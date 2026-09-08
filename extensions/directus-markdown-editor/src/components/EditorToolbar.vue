@@ -17,6 +17,7 @@ const props = defineProps<{
 	commands: EditorCommand[]
 	enabledTools?: string[] | null
 	disabled?: boolean
+	fullscreen?: boolean
 }>()
 const emit = defineEmits<{
 	openLink: []
@@ -24,6 +25,7 @@ const emit = defineEmits<{
 	openMedia: []
 	openSource: []
 	openComponents: []
+	toggleFullscreen: []
 }>()
 
 const revision = shallowRef(0)
@@ -45,6 +47,7 @@ const imageEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'ima
 const videoEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'video'))
 const componentsEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'component'))
 const sourceEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'source'))
+const fullscreenEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'fullscreen'))
 const activeBlockCommand = computed(() => {
 	void revision.value
 	return (
@@ -75,14 +78,12 @@ watch(
 )
 
 function isDisabled(command: EditorCommand) {
-	return props.disabled || !props.editor.isEditable || command.isDisabled(props.editor)
+	return props.disabled || command.isDisabled(props.editor)
 }
 
 function isToolDisabled(toolId: string) {
 	void revision.value
-	return (
-		props.disabled || !props.editor.isEditable || isCodeBlockToolDisabled(props.editor, toolId)
-	)
+	return props.disabled || isCodeBlockToolDisabled(props.editor, toolId)
 }
 
 function openLink() {
@@ -106,7 +107,7 @@ function openSource() {
 }
 
 function isDisabledForEditing() {
-	return props.disabled || !props.editor.isEditable
+	return props.disabled
 }
 
 function execute(command: EditorCommand) {
@@ -140,7 +141,7 @@ function tooltip(command: EditorCommand) {
 			label
 			:items="blockItems"
 			:model-value="activeBlockCommand?.id"
-			:disabled="disabled || !editor.isEditable"
+			:disabled="disabled"
 			aria-label="Block type"
 			@update:model-value="selectBlockType"
 		/>
@@ -202,17 +203,19 @@ function tooltip(command: EditorCommand) {
 				v-model="overflowOpen"
 				placement="bottom-end"
 				show-arrow
+				:disabled="disabled"
 			>
-				<template #activator>
+				<template #activator="{ toggle }">
 					<VButton
 						icon
 						small
 						ghost
 						class="editor-toolbar__ghost-button"
+						:active="overflowOpen"
 						:disabled="isDisabledForEditing()"
 						tooltip="More editor actions"
 						aria-label="More editor actions"
-						@click.stop="overflowOpen = !overflowOpen"
+						@click.stop="toggle"
 						><VIcon name="more_horiz"
 					/></VButton>
 				</template>
@@ -272,6 +275,20 @@ function tooltip(command: EditorCommand) {
 				aria-label="Edit Markdown source"
 				@click="openSource"
 				><VIcon name="code"
+			/></VButton>
+			<VButton
+				v-if="fullscreenEnabled"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
+				:active="fullscreen"
+				:disabled="isDisabledForEditing()"
+				:tooltip="fullscreen ? 'Exit full screen' : 'Full screen'"
+				:aria-label="fullscreen ? 'Exit full screen' : 'Full screen'"
+				:aria-pressed="fullscreen"
+				@click="emit('toggleFullscreen')"
+				><VIcon :name="fullscreen ? 'fullscreen_exit' : 'fullscreen'"
 			/></VButton>
 		</div>
 	</div>

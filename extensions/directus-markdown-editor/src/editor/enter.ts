@@ -23,13 +23,17 @@ function exitMdcSlot(editor: Editor): boolean {
 		return false
 	}
 
-	const emptyBlockFrom = $from.before($from.depth)
-	const emptyBlockTo = $from.after($from.depth)
 	const componentEnd = $from.after(blockDepth)
 	return editor.commands.command(({ dispatch, tr }) => {
-		tr.delete(emptyBlockFrom, emptyBlockTo)
-		const paragraphStart = tr.mapping.map(componentEnd)
-		tr.setSelection(TextSelection.near(tr.doc.resolve(paragraphStart + 1)))
+		const nextNode = tr.doc.nodeAt(componentEnd)
+		const nextIsEmptyParagraph =
+			nextNode?.type.name === 'paragraph' && nextNode.content.size === 0
+		if (!nextIsEmptyParagraph) {
+			const paragraph = editor.schema.nodes.paragraph?.create()
+			if (!paragraph) return false
+			tr.insert(componentEnd, paragraph)
+		}
+		tr.setSelection(TextSelection.create(tr.doc, componentEnd + 1))
 		dispatch?.(tr)
 		return true
 	})
@@ -49,15 +53,16 @@ export const ClearMarksOnEnter = Extension.create({
 			 * Preserve Tiptap's block, list, and code Enter behavior while clearing
 			 * inline marks on a newly created text block.
 			 * @returns Whether the block was split.
-			 */ () =>
-				this.editor.commands.first(({ commands }) => [
-					() => exitMdcSlot(this.editor),
+			 */ () => {
+				if (exitMdcSlot(this.editor)) return true
+				return this.editor.commands.first(({ commands }) => [
 					() => commands.newlineInCode(),
 					() => commands.createParagraphNear(),
 					() => commands.splitListItem('listItem'),
 					() => commands.liftEmptyBlock(),
 					() => commands.splitBlock({ keepMarks: false }),
-				]),
+				])
+			},
 		}
 	},
 })

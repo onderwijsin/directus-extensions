@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
+import { computed, createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -13,7 +13,7 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 		'VButton',
 		defineComponent({
 			inheritAttrs: false,
-			template: '<button v-bind="$attrs"><slot /></button>',
+			template: '<button v-bind="$attrs"><span class="content"><slot /></span></button>',
 		}),
 	)
 	app.component(
@@ -32,7 +32,28 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 	)
 	app.component(
 		'VMenu',
-		defineComponent({ template: '<div><slot name="activator" /><div><slot /></div></div>' }),
+		defineComponent({
+			props: {
+				modelValue: { type: Boolean, default: undefined },
+				disabled: Boolean,
+			},
+			emits: ['update:modelValue'],
+			setup(props, { emit }) {
+				const localValue = shallowRef(false)
+				const active = computed(() => props.modelValue ?? localValue.value)
+				return {
+					active,
+					toggle: () => {
+						if (props.disabled) return
+						const nextActive = !active.value
+						localValue.value = nextActive
+						emit('update:modelValue', nextActive)
+					},
+				}
+			},
+			template:
+				'<div><slot name="activator" :toggle="toggle" /><div v-if="active"><slot /></div></div>',
+		}),
 	)
 	app.component('VList', defineComponent({ template: '<div><slot /></div>' }))
 	app.component(
@@ -131,6 +152,7 @@ describe('Markdown editor interface', () => {
 				{ text: 'All tools', value: 'all' },
 				{ text: 'Heading 1', value: 'heading-1' },
 				{ text: 'Edit source', value: 'source' },
+				{ text: 'Full screen', value: 'fullscreen' },
 			]),
 		)
 	})
@@ -146,8 +168,17 @@ describe('Markdown editor interface', () => {
 		expect(element.querySelector('[aria-label="Bold"]')).not.toBeNull()
 		expect(element.querySelector('[aria-label="Insert component"]')).not.toBeNull()
 		expect(element.querySelector('[aria-label="Edit Markdown source"]')).not.toBeNull()
+		expect(element.querySelector('[aria-label="Full screen"]')).not.toBeNull()
+		expect(
+			element.querySelector('[aria-label="More editor actions"]')?.hasAttribute('disabled'),
+		).toBe(false)
 		expect(element.querySelector('.editor-toolbar__action-group')).not.toBeNull()
 		expect(element.querySelector('.editor-toolbar__special-group')).not.toBeNull()
+		expect(
+			element
+				.querySelector('.editor-block-controls')
+				?.parentElement?.classList.contains('editor-block-controls-layer'),
+		).toBe(true)
 	})
 
 	it('only renders tools enabled by the interface configuration', async () => {
@@ -160,6 +191,7 @@ describe('Markdown editor interface', () => {
 		expect(element.querySelector('[aria-label="Italic"]')).toBeNull()
 		expect(element.querySelector('[aria-label="Insert image"]')).toBeNull()
 		expect(element.querySelector('[aria-label="Insert component"]')).toBeNull()
+		expect(element.querySelector('[aria-label="Full screen"]')).toBeNull()
 	})
 
 	it('re-synchronizes an external Markdown value without emitting an input update', async () => {
@@ -176,8 +208,8 @@ describe('Markdown editor interface', () => {
 	})
 
 	it('propagates disabled state to the editor and toolbar', async () => {
-		const { element } = mountEditor(
-			'```ts\nconst locked = true\n```\n\n::Callout{tone="warning"}\n#default\nLocked\n::',
+		const { element, disabled } = mountEditor(
+			'```ts\nconst locked = true\n```\n\n::Callout{tone="warning"}\n#default\nLocked :Icon{name="lock"}\n::',
 			true,
 		)
 		await nextTick()
@@ -192,11 +224,14 @@ describe('Markdown editor interface', () => {
 			'Code filename or path',
 			'Make code block collapsible',
 			'Component actions',
+			'Configure Icon component',
 			'Edit link',
 			'Insert image',
 			'Insert video',
 			'Insert component',
 			'Edit Markdown source',
+			'More editor actions',
+			'Full screen',
 		]) {
 			expect(element.querySelector(`[aria-label="${label}"]`)?.hasAttribute('disabled')).toBe(
 				true,
@@ -208,6 +243,43 @@ describe('Markdown editor interface', () => {
 			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 		await nextTick()
 		expect(element.querySelector('[role="dialog"][aria-label="Insert component"]')).toBeNull()
+
+		disabled.value = false
+		await nextTick()
+		await nextTick()
+
+		expect(element.querySelector('[role="textbox"]')?.getAttribute('contenteditable')).toBe(
+			'true',
+		)
+		expect(
+			element.querySelector('[aria-label="More editor actions"]')?.hasAttribute('disabled'),
+		).toBe(false)
+
+		element
+			.querySelector('[aria-label="More editor actions"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		expect(element.textContent).toContain('Divider')
+	})
+
+	it('toggles full screen with an inverted icon and exits on Escape', async () => {
+		const { element } = mountEditor()
+		await nextTick()
+		await nextTick()
+		const editor = element.querySelector('.markdown-editor')
+
+		element
+			.querySelector('[aria-label="Full screen"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		expect(editor?.classList.contains('is-fullscreen')).toBe(true)
+		expect(
+			element.querySelector('[aria-label="Exit full screen"] [data-icon="fullscreen_exit"]'),
+		).not.toBeNull()
+
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+		await nextTick()
+		expect(editor?.classList.contains('is-fullscreen')).toBe(false)
 	})
 
 	it('loads Shiki while locked and refreshes when a draft becomes editable', async () => {
@@ -260,6 +332,10 @@ describe('Markdown editor interface', () => {
 		expect(element.querySelector('.mdc-slot-view__content')?.getAttribute('tabindex')).toBe('0')
 		expect(element.textContent).not.toContain('Apply')
 
+		element
+			.querySelector('[aria-label="Component actions"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
 		const settings = [...element.querySelectorAll('button')].find(
 			(button) => button.textContent?.trim() === 'Settings',
 		)
@@ -270,6 +346,19 @@ describe('Markdown editor interface', () => {
 		expect(element.textContent).toContain('warning')
 		expect(element.textContent).not.toContain('Highlighted supporting content.')
 		expect(element.textContent).not.toContain('Slots:')
+	})
+
+	it('opens an inline component directly without a separate settings icon', async () => {
+		const { element } = mountEditor('Before :Icon{name="check"} after')
+		await nextTick()
+		await nextTick()
+
+		const component = element.querySelector('[aria-label="Configure Icon component"]')
+		expect(component).not.toBeNull()
+		expect(component?.querySelector('[data-icon="tune"]')).toBeNull()
+		component?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		expect(element.textContent).toContain('Apply')
 	})
 
 	it('replaces mounted MDC node views safely when Directus supplies a saved value', async () => {
@@ -294,6 +383,19 @@ describe('Markdown editor interface', () => {
 		await nextTick()
 		await nextTick()
 		expect(element.querySelector('.markdown-editor')?.classList.contains('is-dark')).toBe(true)
+		await vi.waitFor(
+			() => {
+				expect(element.querySelector('.code-block.shiki')).not.toBeNull()
+				const token = element.querySelector('.code-block.shiki code span')
+				expect(token instanceof HTMLElement ? token.style.color : '').not.toBe('')
+			},
+			{ timeout: 5000 },
+		)
+		const collapseContent = element.querySelector(
+			'[aria-label="Keep code block expanded"] span.content',
+		)
+		expect(collapseContent).toBeInstanceOf(HTMLElement)
+
 		document.body.classList.remove('dark')
 		await vi.waitFor(() => {
 			expect(element.querySelector('.markdown-editor')?.classList.contains('is-dark')).toBe(
@@ -323,15 +425,6 @@ describe('Markdown editor interface', () => {
 		expect(
 			element.querySelector('[aria-label="Edit Markdown source"]')?.hasAttribute('disabled'),
 		).toBe(false)
-		await vi.waitFor(
-			() => {
-				expect(element.querySelector('.code-block.shiki')).not.toBeNull()
-				const token = element.querySelector('.code-block.shiki code span')
-				expect(token instanceof HTMLElement ? token.style.color : '').not.toBe('')
-			},
-			{ timeout: 5000 },
-		)
-
 		const languageSelect = element.querySelector('.code-block__language select')
 		expect(languageSelect).toBeInstanceOf(HTMLSelectElement)
 		if (!(languageSelect instanceof HTMLSelectElement)) return

@@ -4,7 +4,7 @@ import type { Editor } from '@tiptap/core'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { EditorCommand } from '../editor/commands'
 
-import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
 import { DragHandle } from '@tiptap/extension-drag-handle-vue-3'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
@@ -23,6 +23,8 @@ const revision = shallowRef(0)
 const hoveredPosition = shallowRef<number | null>(null)
 const insertMenuOpen = shallowRef(false)
 const blockMenuOpen = shallowRef(false)
+const dragHandleLayer = shallowRef<HTMLElement | null>(null)
+const topAlignedNodeTypes = new Set(['codeBlock', 'image', 'mdcBlock', 'table', 'video'])
 
 const inlineCommands = computed(() =>
 	resolveCommands(props.commands, ['bold', 'italic', 'strike', 'code']),
@@ -46,8 +48,18 @@ function refresh() {
 	revision.value += 1
 }
 
-onMounted(() => props.editor.on('transaction', refresh))
-onBeforeUnmount(() => props.editor.off('transaction', refresh))
+onMounted(async () => {
+	props.editor.on('transaction', refresh)
+	await nextTick()
+	dragHandleLayer.value =
+		props.editor.view.dom.parentElement?.querySelector<HTMLElement>('.editor-block-controls')
+			?.parentElement ?? null
+	if (dragHandleLayer.value) dragHandleLayer.value.classList.add('editor-block-controls-layer')
+})
+onBeforeUnmount(() => {
+	props.editor.off('transaction', refresh)
+	dragHandleLayer.value?.classList.remove('editor-block-controls-layer')
+})
 
 function execute(command: EditorCommand) {
 	if (!props.disabled && !command.isDisabled(props.editor)) command.execute(props.editor)
@@ -71,9 +83,10 @@ function updateDragHandleNode(change: {
 		rail?.style.removeProperty('transform')
 		return
 	}
-	const isComponent =
-		change.node?.type.name.startsWith('mdc') || nodeDom.closest('[data-mdc-node-view]') !== null
-	if (isComponent) {
+	const isTopAligned =
+		topAlignedNodeTypes.has(change.node?.type.name ?? '') ||
+		nodeDom.closest('[data-mdc-node-view]') !== null
+	if (isTopAligned) {
 		rail.style.removeProperty('transform')
 		return
 	}

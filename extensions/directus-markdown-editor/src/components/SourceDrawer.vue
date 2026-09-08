@@ -125,6 +125,7 @@ function apply() {
 	padding: 0.75rem;
 	border: 1px solid var(--theme--form--field--input--border-color, #d3dce3);
 	border-radius: 0.25rem;
+	background: transparent;
 	font:
 		0.8125rem/1.5 ui-monospace,
 		SFMono-Regular,

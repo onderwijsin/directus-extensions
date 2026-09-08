@@ -65,9 +65,10 @@ export function saveLinkSelection(
 /**
  * Editor callback.
  * @param onTrigger Parameter value.
+ * @param isEnabled Resolve whether link editing is enabled.
  * @returns Callback result.
  */
-export function createLinkShortcut(onTrigger: () => void) {
+export function createLinkShortcut(onTrigger: () => void, isEnabled: () => boolean = () => true) {
 	return Extension.create({
 		name: 'markdownEditorLinkShortcut',
 
@@ -78,6 +79,7 @@ export function createLinkShortcut(onTrigger: () => void) {
 				 * Editor callback.
 				 * @returns Callback result.
 				 */ () => {
+					if (!isEnabled()) return true
 					if (this.editor.isActive('codeBlock')) return false
 					onTrigger()
 					return true

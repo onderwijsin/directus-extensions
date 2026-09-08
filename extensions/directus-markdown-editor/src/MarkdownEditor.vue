@@ -2,6 +2,7 @@
 // Directus/Vue template callbacks are intentionally local and do not need public API JSDoc.
 import { computed, onBeforeUnmount, onMounted, shallowRef, toRef, watch } from 'vue'
 
+import { exitSuggestion } from '@tiptap/suggestion'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 
 import ComponentInsertMenu from './components/ComponentInsertMenu.vue'
@@ -39,6 +40,7 @@ const mediaDrawerOpen = shallowRef(false)
 const mediaDrawerType = shallowRef<'image' | 'video'>('image')
 const sourceDrawerOpen = shallowRef(false)
 const componentInsertOpen = shallowRef(false)
+const fullscreen = shallowRef(false)
 const lastEmittedValue = shallowRef<string>()
 const darkMode = shallowRef(false)
 const enabledTools = computed(() => props.tools ?? props.options?.tools)
@@ -67,9 +69,13 @@ onMounted(() => {
 		attributes: true,
 		attributeFilter: ['class', 'data-theme'],
 	})
+	window.addEventListener('keydown', handleEscape)
 })
 
-onBeforeUnmount(() => themeObserver?.disconnect())
+onBeforeUnmount(() => {
+	themeObserver?.disconnect()
+	window.removeEventListener('keydown', handleEscape)
+})
 
 /**
  * Open the shared media drawer in the requested mode.
@@ -78,6 +84,7 @@ onBeforeUnmount(() => themeObserver?.disconnect())
  */
 function openMediaDrawer(type: 'image' | 'video') {
 	if (props.disabled || editor.value?.isEditable !== true) return
+	dismissSlashMenu()
 	mediaDrawerType.value = type
 	mediaDrawerOpen.value = true
 }
@@ -87,19 +94,63 @@ function canInteract() {
 	return !props.disabled && editor.value?.isEditable === true
 }
 
+/**
+ * Dismiss the slash suggestion before opening another editor surface.
+ * @returns Nothing.
+ */
+function dismissSlashMenu() {
+	const instance = editor.value
+	if (instance && !instance.isDestroyed) exitSuggestion(instance.view)
+}
+
+/**
+ * Dismiss slash suggestions when another editor control is activated.
+ * @param event Pointer event from the editor surface.
+ * @returns Nothing.
+ */
+function handleEditorPointerDown(event: PointerEvent) {
+	if (!(event.target instanceof Element) || event.target.closest('.slash-menu')) return
+	dismissSlashMenu()
+}
+
 /** @returns Nothing. */
 function openLinkDrawer() {
-	if (canInteract()) linkDrawerOpen.value = true
+	if (!canInteract()) return
+	dismissSlashMenu()
+	linkDrawerOpen.value = true
 }
 
 /** @returns Nothing. */
 function openSourceDrawer() {
-	if (canInteract()) sourceDrawerOpen.value = true
+	if (!canInteract()) return
+	dismissSlashMenu()
+	sourceDrawerOpen.value = true
 }
 
 /** @returns Nothing. */
 function openComponentInsert() {
-	if (canInteract()) componentInsertOpen.value = true
+	if (!canInteract()) return
+	dismissSlashMenu()
+	componentInsertOpen.value = true
+}
+
+/**
+ * Toggle the editor's viewport-filling mode.
+ * @returns Nothing.
+ */
+function toggleFullscreen() {
+	if (!canInteract()) return
+	dismissSlashMenu()
+	fullscreen.value = !fullscreen.value
+}
+
+/**
+ * Exit full screen when Escape is pressed anywhere in the viewport.
+ * @param event Keyboard event from the viewport.
+ * @returns Nothing.
+ */
+function handleEscape(event: KeyboardEvent) {
+	if (event.key === 'Escape' && fullscreen.value) fullscreen.value = false
 }
 
 /**
@@ -147,16 +198,16 @@ const extensions = createEditorExtensions(
 	},
 	() => enabledTools.value,
 )
-if (isEditorToolEnabled(enabledTools.value, 'link'))
-	extensions.push(
-		createLinkShortcut(
-			/**
-			 * Editor callback.
-			 * @returns Callback result.
-			 */
-			openLinkDrawer,
-		),
-	)
+extensions.push(
+	createLinkShortcut(
+		/**
+		 * Editor callback.
+		 * @returns Callback result.
+		 */
+		openLinkDrawer,
+		() => isEditorToolEnabled(enabledTools.value, 'link'),
+	),
+)
 
 const editor = useEditor({
 	content: props.value ?? '',
@@ -233,6 +284,7 @@ watch(
 			mediaDrawerOpen.value = false
 			sourceDrawerOpen.value = false
 			componentInsertOpen.value = false
+			fullscreen.value = false
 		}
 		void refreshCodeHighlighting(instance).catch(() => undefined)
 	},
@@ -273,7 +325,11 @@ watch(
 </script>
 
 <template>
-	<div class="markdown-editor" :class="{ 'is-disabled': disabled, 'is-dark': darkMode }">
+	<div
+		class="markdown-editor"
+		:class="{ 'is-disabled': disabled, 'is-dark': darkMode, 'is-fullscreen': fullscreen }"
+		@pointerdown.capture="handleEditorPointerDown"
+	>
 		<template v-if="editor">
 			<div class="markdown-editor__toolbar-row">
 				<EditorToolbar
@@ -281,11 +337,13 @@ watch(
 					:commands="commands"
 					:enabled-tools="enabledTools"
 					:disabled="disabled"
+					:fullscreen="fullscreen"
 					@open-link="openLinkDrawer"
 					@open-image="openMediaDrawer('image')"
 					@open-media="openMediaDrawer('video')"
 					@open-source="openSourceDrawer"
 					@open-components="openComponentInsert"
+					@toggle-fullscreen="toggleFullscreen"
 				/>
 			</div>
 			<p
@@ -359,6 +417,21 @@ watch(
 	background: var(--theme--form--field--input--background, white);
 }
 
+.markdown-editor.is-fullscreen {
+	position: fixed;
+	inset: 0;
+	z-index: 490;
+	display: flex;
+	flex-direction: column;
+	border-radius: 0;
+}
+
+.markdown-editor.is-fullscreen .markdown-editor__canvas {
+	flex: 1;
+	min-block-size: 0;
+	overflow: auto;
+}
+
 .markdown-editor__canvas {
 	min-height: 12rem;
 	padding-block: 1rem;
@@ -379,6 +452,10 @@ watch(
 .markdown-editor__toolbar-row :deep(.editor-toolbar) {
 	flex: 1 1 auto;
 	border-block-end: 0;
+}
+
+:deep(.editor-block-controls-layer) {
+	z-index: 4 !important;
 }
 
 :deep(.ProseMirror) {
@@ -554,9 +631,9 @@ watch(
 }
 
 .markdown-editor.is-dark :deep(.ProseMirror pre.shiki),
-.markdown-editor.is-dark :deep(.ProseMirror pre.shiki span),
+.markdown-editor.is-dark :deep(.ProseMirror pre.shiki code span),
 .markdown-editor.is-dark :deep(.ProseMirror .code-block.shiki .code-block__pre),
-.markdown-editor.is-dark :deep(.ProseMirror .code-block.shiki span) {
+.markdown-editor.is-dark :deep(.ProseMirror .code-block.shiki .code-block__pre code span) {
 	color: var(--shiki-dark, #e1e4e8) !important;
 	background-color: var(--shiki-dark-bg, #24292e) !important;
 	font-style: var(--shiki-dark-font-style) !important;

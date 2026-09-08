@@ -20,7 +20,7 @@ import {
 import { ClearMarksOnEnter } from '../src/editor/enter'
 import { createEditorExtensions } from '../src/editor/extensions'
 import { insertComponent } from '../src/editor/insertion'
-import { readLinkSelection, saveLinkSelection } from '../src/editor/link'
+import { createLinkShortcut, readLinkSelection, saveLinkSelection } from '../src/editor/link'
 import { directusAssetUrl, sanitizeImageUrl } from '../src/editor/media'
 import { createSlashItems, filterSlashItems } from '../src/editor/slash'
 import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown'
@@ -71,12 +71,31 @@ describe('editor commands', () => {
 		const editor = new Editor({ extensions: createEditorExtensions() })
 		expect(editor.commands.insertTable({ rows: 2, cols: 2, withHeaderRow: true })).toBe(true)
 		const addRow = createEditorCommands().find((command) => command.id === 'add-row-after')
+		const deleteTable = createEditorCommands().find((command) => command.id === 'delete-table')
 		expect(addRow).toBeDefined()
-		if (!addRow) return
+		expect(deleteTable).toBeDefined()
+		if (!addRow || !deleteTable) return
 
 		expect(addRow.isDisabled(editor)).toBe(false)
 		expect(addRow.execute(editor)).toBe(true)
 		expect(editor.getJSON().content?.[0]?.content).toHaveLength(3)
+		expect(deleteTable.isDisabled(editor)).toBe(false)
+		expect(deleteTable.execute(editor)).toBe(true)
+		expect(editor.getJSON().content?.some((node) => node.type === 'table')).toBe(false)
+		editor.destroy()
+	})
+
+	it('deletes a node-selected table from the dedicated table toolbar catalog', () => {
+		const editor = new Editor({ extensions: createEditorExtensions() })
+		expect(editor.commands.insertTable({ rows: 2, cols: 2, withHeaderRow: true })).toBe(true)
+		expect(editor.commands.setNodeSelection(0)).toBe(true)
+		const deleteTable = createEditorCommands().find((command) => command.id === 'delete-table')
+		expect(deleteTable).toBeDefined()
+		if (!deleteTable) return
+
+		expect(deleteTable.isDisabled(editor)).toBe(false)
+		expect(deleteTable.execute(editor)).toBe(true)
+		expect(editor.getJSON().content?.some((node) => node.type === 'table')).toBe(false)
 		editor.destroy()
 	})
 
@@ -202,6 +221,38 @@ describe('editor commands', () => {
 		editor.destroy()
 	})
 
+	it('blocks native Tiptap shortcuts for tools disabled by configuration', () => {
+		const editor = new Editor({
+			extensions: createEditorExtensions(
+				() => [],
+				{},
+				() => ['paragraph'],
+			),
+			content: '<p>Shortcut</p>',
+		})
+		editor.commands.selectAll()
+
+		expect(editor.commands.keyboardShortcut('Mod-b')).toBe(true)
+		expect(editor.getHTML()).toBe('<p>Shortcut</p>')
+		expect(editor.commands.keyboardShortcut('Mod-Alt-1')).toBe(true)
+		expect(editor.getHTML()).toBe('<p>Shortcut</p>')
+		expect(editor.commands.keyboardShortcut('Mod-Alt-c')).toBe(true)
+		expect(editor.getHTML()).toBe('<p>Shortcut</p>')
+		editor.destroy()
+	})
+
+	it('consumes the link shortcut when link editing is disabled', () => {
+		const onTrigger = vi.fn()
+		const editor = new Editor({
+			extensions: [StarterKit, createLinkShortcut(onTrigger, () => false)],
+			content: '<p>Link</p>',
+		})
+
+		expect(editor.commands.keyboardShortcut('Mod-k')).toBe(true)
+		expect(onTrigger).not.toHaveBeenCalled()
+		editor.destroy()
+	})
+
 	it('executes formatting commands and exposes active state', () => {
 		const editor = createEditor()
 		const bold = createEditorCommands().find((command) => command.id === 'bold')
@@ -311,12 +362,105 @@ describe('editor commands', () => {
 				content: [
 					{
 						type: 'mdcSlot',
-						content: [{ type: 'paragraph', content: [{ text: 'Content' }] }],
+						content: [
+							{ type: 'paragraph', content: [{ text: 'Content' }] },
+							{ type: 'paragraph' },
+						],
 					},
 				],
 			},
 			{ type: 'paragraph' },
 		])
+		editor.destroy()
+	})
+
+	it('inserts a top-level paragraph before a complex node when exiting an MDC slot', () => {
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: {
+				type: 'doc',
+				content: [
+					{
+						type: 'mdcBlock',
+						attrs: { name: 'Hero', props: {}, depth: 2, propsFormat: 'inline' },
+						content: [
+							{
+								type: 'mdcSlot',
+								attrs: { name: 'title' },
+								content: [{ type: 'paragraph' }],
+							},
+						],
+					},
+					{
+						type: 'table',
+						content: [
+							{
+								type: 'tableRow',
+								content: [
+									{
+										type: 'tableCell',
+										content: [{ type: 'paragraph' }],
+									},
+								],
+							},
+						],
+					},
+				],
+			},
+		})
+		let slotParagraphPosition: number | undefined
+		editor.state.doc.descendants((node, position, parent) => {
+			if (node.type.name === 'paragraph' && parent?.type.name === 'mdcSlot') {
+				slotParagraphPosition = position
+			}
+		})
+		expect(slotParagraphPosition).toBeDefined()
+		if (slotParagraphPosition === undefined) return
+		editor.commands.setTextSelection(slotParagraphPosition + 1)
+
+		expect(
+			editor.view.dom.dispatchEvent(
+				new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+			),
+		).toBe(false)
+		expect(
+			editor
+				.getJSON()
+				.content?.map((node) => node.type)
+				.slice(0, 3),
+		).toEqual(['mdcBlock', 'paragraph', 'table'])
+		expect(editor.state.selection.$from.parent.type.name).toBe('paragraph')
+		expect(editor.state.selection.$from.depth).toBe(1)
+		editor.destroy()
+	})
+
+	it('keeps an empty MDC slot when Backspace is pressed inside it', () => {
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: '::Hero\n#title\n\n::',
+			contentType: 'markdown',
+		})
+		let slotParagraphPosition: number | undefined
+		editor.state.doc.descendants((node, position, parent) => {
+			if (node.type.name === 'paragraph' && parent?.type.name === 'mdcSlot') {
+				slotParagraphPosition = position
+			}
+		})
+		expect(slotParagraphPosition).toBeDefined()
+		if (slotParagraphPosition === undefined) return
+		editor.commands.setTextSelection(slotParagraphPosition + 1)
+		editor.commands.keyboardShortcut('Backspace')
+
+		expect(editor.getJSON().content?.[0]).toMatchObject({
+			type: 'mdcBlock',
+			content: [
+				{
+					type: 'mdcSlot',
+					attrs: { name: 'title' },
+					content: [{ type: 'paragraph' }],
+				},
+			],
+		})
 		editor.destroy()
 	})
 
@@ -408,6 +552,19 @@ describe('editor commands', () => {
 		})
 
 		expect(editor.getMarkdown()).toContain('#title\nMy hero\n#description')
+		editor.destroy()
+	})
+
+	it('serializes empty MDC slots exactly once', () => {
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: '::Hero\n#title\n#description\n\n::',
+			contentType: 'markdown',
+		})
+		const markdown = editor.getMarkdown()
+
+		expect(markdown.match(/^#title$/gmu)).toHaveLength(1)
+		expect(markdown.match(/^#description$/gmu)).toHaveLength(1)
 		editor.destroy()
 	})
 

@@ -9,8 +9,9 @@ This release provides the content boundary and the authoring UI: ordinary Markdo
 Directus-hosted Tiptap editor, generic MDC blocks, generic inline MDC nodes, named slots, nested
 delimiter handling, YAML props, metadata-driven component insertion and prop editing, source mode,
 safe image/video file insertion, external value synchronization, a responsive formatting toolbar,
-and Directus-native link editing. The interface uses Directus Studio's globally registered UI
-primitives directly and does not ship a parallel wrapper or fallback component library.
+full-screen editing, and Directus-native link editing. The interface uses Directus Studio's globally
+registered UI primitives directly and does not ship a parallel wrapper or fallback component
+library.
 
 ## Install
 
@@ -30,11 +31,13 @@ The configuration-driven toolbar includes undo/redo, a paragraph and heading-lev
 marks, lists, blockquotes, fenced code blocks, horizontal rules, hard breaks, table insertion and
 row/column operations, links, images, video, MDC components, source mode, and clear formatting. The
 same command catalog powers the slash menu and block insertion controls so capabilities do not drift
-between surfaces.
+between surfaces. Full-screen mode is the final toolbar action, uses an exit icon while active, and
+can be closed with Escape.
 
 Use **Available editor tools** to expose all tools or a selected subset for a field. The Directus
 multiselect includes a one-click **All tools** choice and **Deselect all** action; toolbar,
-slash-menu, context-menu, and insertion visibility derive from the same selection.
+slash-menu, context-menu, insertion visibility, and native keyboard shortcuts derive from the same
+selection. The **Full screen** action can also be enabled or disabled per field.
 
 Type `/` at the start of a block to search grouped commands and configured MDC components. Every
 built-in command includes alternate search names, such as `text`, `h1`, `quote`, `ul`, `ol`,
@@ -42,8 +45,12 @@ built-in command includes alternate search names, such as `text`, `h1`, `quote`,
 leaving the editor.
 
 Hover a block to reveal the polished `+` insert control followed by its drag handle. The adjacent
-block menu supports duplicate, move up, move down, and delete. MDC block and inline views expose
-their identity and settings while keeping their content and named slots editable.
+block menu supports duplicate, move up, move down, and delete, and its controls remain behind the
+sticky toolbar while scrolling. The table toolbar can delete a table from either a cell selection or
+a selected table node. MDC block and inline views expose their identity and settings while keeping
+their content and named slots editable. Slot structures cannot be removed by backspacing their empty
+content, and pressing Enter in a trailing empty slot paragraph creates and focuses a paragraph
+directly after the component. Activating another editor overlay dismisses the slash menu.
 
 Tiptap 3.31.0 and `@tiptap/markdown` are pinned together because the Markdown package is beta.
 Fenced code is highlighted with Shiki's `github-light` and `github-dark` themes and exposes a

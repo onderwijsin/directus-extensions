@@ -26,7 +26,9 @@ The current implementation provides a focused authoring surface. Its Vue compone
 - exposes alias-aware, grouped slash commands with complete keyboard navigation;
 - provides a `+` insertion control before the drag handle and block duplicate/move/delete actions;
 - uses globally registered Directus UI primitives directly, without local fallback wrappers; and
-- renders polished MDC block, inline, and slot views with metadata-driven settings.
+- renders polished MDC block, inline, and slot views with metadata-driven settings;
+- suppresses native keyboard shortcuts for tools disabled by field configuration; and
+- provides a configurable full-screen mode that exits with Escape.
 
 Metadata-driven component insertion and prop editing, explicit Markdown source mode, and an image
 drawer are supported. Directus file selection is used when `VUpload` is available from the host;
@@ -76,9 +78,12 @@ The codec is isolated under `src/markdown/` and tested independently from Vue an
 The interface exposes three configuration options:
 
 - `tools` — a Directus multiselect controlling the toolbar, slash menu, context menus, and insertion
-  actions, with all tools enabled by default;
+  actions, native shortcuts, and full-screen availability, with all tools enabled by default;
 - `metadataUrl` — a public JSON endpoint containing project component metadata;
 - `useMockMetadata` — a temporary fixture containing Hero, Callout, and Icon metadata.
+
+Named slots always retain editable block content, including when empty. Exiting a trailing empty
+slot creates and focuses a top-level paragraph immediately after its component.
 
 Metadata is validated with Zod and normalized by `src/component-meta/`. A component may provide a
 name, label, description, props, and slot names. Metadata changes must not change the Tiptap schema:
