@@ -17,3 +17,6 @@
       available space within the viewport. Eg, if the current line where '/' is triggered in near
       the bottom of the viewport, the context menu shoudl align to bottom, so that its visible
       (instead of out of view)
+
+- [ ] We have a failing test:
+      `extensions/directus-markdown-editor/__tests__/reference-ui.vue.test.ts > Reference interface > keeps the drag-handle menus mutually exclusive and hides unavailable Components`
