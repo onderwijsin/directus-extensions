@@ -5,7 +5,7 @@
 	"keywords": [
 		"directus",
 		"directus-extension",
-		"directus-extension-bundle",
+		"directus-extension-interface",
 		"markdown",
 		"mdc",
 		"tiptap"
@@ -38,9 +38,9 @@
 		"CHANGELOG.md"
 	],
 	"type": "module",
-	"main": "./dist/api.js",
+	"main": "./dist/index.js",
 	"exports": {
-		".": "./dist/api.js"
+		".": "./dist/index.js"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -85,18 +85,9 @@
 		"node": ">=24.10.0"
 	},
 	"directus:extension": {
-		"type": "bundle",
-		"path": {
-			"app": "dist/app.js",
-			"api": "dist/api.js"
-		},
-		"entries": [
-			{
-				"name": "markdown-editor",
-				"type": "interface",
-				"source": "src/index.ts"
-			}
-		],
+		"type": "interface",
+		"path": "dist/index.js",
+		"source": "src/index.ts",
 		"host": ">=12.2.0 <13"
 	}
 }

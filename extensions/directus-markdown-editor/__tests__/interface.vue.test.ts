@@ -238,6 +238,28 @@ describe('Markdown editor interface', () => {
 		expect(element.querySelector('[aria-label="Full screen"]')).toBeNull()
 	})
 
+	it('keeps persisted component settings functional when component insertion is hidden', async () => {
+		const { element } = mountEditor('::Callout{tone="warning"}\n#default\nContent\n::', false, [
+			'paragraph',
+		])
+		await nextTick()
+		await nextTick()
+
+		expect(element.querySelector('[aria-label="Insert component"]')).toBeNull()
+		element
+			.querySelector('[aria-label="Component actions"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		const settings = [...element.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Settings',
+		)
+		settings?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+
+		expect(element.textContent).toContain('Apply')
+		expect(element.textContent).toContain('warning')
+	})
+
 	it('re-synchronizes an external Markdown value without emitting an input update', async () => {
 		const { element, value, input } = mountEditor('Initial')
 		await nextTick()

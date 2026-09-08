@@ -16,17 +16,19 @@ The current implementation provides a focused authoring surface. Its Vue compone
 - initializes Tiptap 3 with `@tiptap/vue-3`;
 - initializes content from the Directus field value as Markdown;
 - serializes editor updates back to Markdown through the Directus `input` event;
-- re-synchronizes external value changes without emitting phantom updates; and
+- re-synchronizes external value changes without emitting phantom updates while retaining a valid
+  cursor position;
 - respects Directus disabled/read-only state;
 - provides a responsive fixed toolbar for common Markdown formatting, lists, headings, blockquotes,
   horizontal rules, undo/redo, and clear formatting;
-- provides a Directus-native link drawer and `Mod-k` shortcut; and
-- provides a placeholder and accessible editor attributes.
+- provides a Directus-native link drawer and `Mod-k` shortcut;
+- provides a placeholder and accessible editor attributes;
 - uses one typed command catalog to configure the toolbar, slash menu, and block insertion menu;
 - exposes alias-aware, grouped slash commands with complete keyboard navigation;
 - provides a `+` insertion control before the drag handle and block duplicate/move/delete actions;
 - uses globally registered Directus UI primitives directly, without local fallback wrappers; and
-- renders polished MDC block, inline, and slot views with metadata-driven settings;
+- renders polished MDC block, inline, and slot views with metadata-driven settings, even when new
+  component insertion is hidden;
 - suppresses native keyboard shortcuts for tools disabled by field configuration; and
 - provides a configurable full-screen mode that exits with Escape.
 
@@ -69,7 +71,9 @@ Markdown → Tiptap → Markdown → Tiptap → Markdown
 
 Round-trips must stabilize after normalization, without content loss. Byte-for-byte Markdown
 preservation is not required when formatting choices are harmless. Semantic compatibility with
-Comark/Nuxt Content is the frontend compatibility target.
+Comark/Nuxt Content is the frontend compatibility target. Block components use canonical multiline
+syntax. Attribute strings preserve escapes, and shorthand or dynamic attributes preserve boolean,
+number, array, and object values.
 
 The codec is isolated under `src/markdown/` and tested independently from Vue and Directus.
 
@@ -91,7 +95,8 @@ all project components continue to use the generic MDC nodes.
 
 The editor loads metadata through a cancellable browser composable. Loading failures leave ordinary
 Markdown editing available and disable component insertion until metadata is available. Metadata
-remains UI data and does not change the Tiptap schema.
+remains UI data and does not change the Tiptap schema. Disabling component insertion only hides new
+insertion entry points; settings for persisted components remain available.
 
 ## Frontend integration
 

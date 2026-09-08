@@ -9,12 +9,18 @@ import { exitSuggestion } from '@tiptap/suggestion'
 
 import ComponentPropsDrawer from './ComponentPropsDrawer.vue'
 
-const props = defineProps<{
-	editor: Editor
-	components: ComponentMetadata[]
-	loading?: boolean
-	disabled?: boolean
-}>()
+const props = withDefaults(
+	defineProps<{
+		editor: Editor
+		components: ComponentMetadata[]
+		loading?: boolean
+		disabled?: boolean
+		insertionEnabled?: boolean
+	}>(),
+	{
+		insertionEnabled: true,
+	},
+)
 const open = defineModel<boolean>({ default: false })
 const query = shallowRef('')
 const selected = shallowRef<ComponentMetadata | null>(null)
@@ -34,7 +40,7 @@ const filteredComponents = computed(() => {
 })
 
 function choose(component: ComponentMetadata) {
-	if (props.disabled || !props.editor.isEditable) return
+	if (!props.insertionEnabled || props.disabled || !props.editor.isEditable) return
 	selected.value = component
 	initialProps.value = undefined
 	editExisting.value = false
@@ -77,22 +83,24 @@ onBeforeUnmount(() =>
 )
 
 watch(
-	() => props.disabled,
+	() => [props.disabled, props.insertionEnabled],
 	/**
-	 * Close component authoring UI when Directus locks the interface.
-	 * @param disabled Whether the interface is locked.
+	 * Close insertion UI when Directus locks the interface or hides component insertion.
+	 * Existing component editing remains available through the mounted node-view controller.
+	 * @param values Current disabled and component-insertion states.
 	 * @returns Nothing.
 	 */
-	(disabled) => {
-		if (!disabled) return
+	(values) => {
+		const [disabled, insertionEnabled] = values
+		if (!disabled && insertionEnabled) return
 		open.value = false
-		propsDrawerOpen.value = false
+		if (disabled) propsDrawerOpen.value = false
 	},
 )
 </script>
 
 <template>
-	<VDialog v-model="open" persistent>
+	<VDialog v-if="insertionEnabled" v-model="open" persistent>
 		<VCard class="component-picker" role="dialog" aria-label="Insert component">
 			<VCardTitle>Insert component</VCardTitle>
 			<VCardText class="component-picker__body">

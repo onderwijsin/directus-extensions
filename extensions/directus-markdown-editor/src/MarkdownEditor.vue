@@ -17,6 +17,7 @@ import { refreshCodeHighlighting } from './editor/code-block'
 import { createEditorCommands, filterEditorCommands, isEditorToolEnabled } from './editor/commands'
 import { createEditorExtensions } from './editor/extensions'
 import { createLinkShortcut } from './editor/link'
+import { synchronizeEditorMarkdown } from './editor/synchronization'
 
 const props = withDefaults(
 	defineProps<{
@@ -309,13 +310,9 @@ watch(
 			lastEmittedValue.value = undefined
 			return
 		}
-		if (value === instance.getMarkdown()) return
 		syncing.value = true
 		try {
-			instance.commands.setContent(value ?? '', {
-				contentType: 'markdown',
-				emitUpdate: false,
-			})
+			synchronizeEditorMarkdown(instance, value ?? '')
 		} finally {
 			syncing.value = false
 		}
@@ -387,13 +384,14 @@ watch(
 				:editor="editor"
 				:disabled="disabled"
 			/>
+			<!-- Keep the controller mounted so persisted nodes remain editable when insertion is hidden. -->
 			<ComponentInsertMenu
-				v-if="isEditorToolEnabled(enabledTools, 'component')"
 				v-model="componentInsertOpen"
 				:editor="editor"
 				:components="metadata.components.value"
 				:loading="metadata.state.value === 'loading'"
 				:disabled="disabled"
+				:insertion-enabled="isEditorToolEnabled(enabledTools, 'component')"
 			/>
 		</template>
 	</div>

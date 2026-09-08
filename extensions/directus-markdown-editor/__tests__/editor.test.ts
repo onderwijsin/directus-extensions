@@ -2,7 +2,6 @@
 import { Editor } from '@tiptap/core'
 import { Markdown } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
-import { bundledLanguages } from 'shiki'
 import { describe, expect, it, vi } from 'vitest'
 
 import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp } from '../src/editor/block'
@@ -19,10 +18,12 @@ import {
 } from '../src/editor/commands'
 import { ClearMarksOnEnter } from '../src/editor/enter'
 import { createEditorExtensions } from '../src/editor/extensions'
+import { isSupportedCodeLanguage } from '../src/editor/highlighter'
 import { insertComponent } from '../src/editor/insertion'
 import { createLinkShortcut, readLinkSelection, saveLinkSelection } from '../src/editor/link'
 import { directusAssetUrl, sanitizeImageUrl } from '../src/editor/media'
 import { createSlashItems, filterSlashItems } from '../src/editor/slash'
+import { synchronizeEditorMarkdown } from '../src/editor/synchronization'
 import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown'
 
 function createEditor(content = '<p>Hello world</p>') {
@@ -128,10 +129,27 @@ describe('editor commands', () => {
 			]),
 		)
 		for (const option of codeLanguageOptions) {
-			expect(
-				option.value === 'plaintext' || Object.hasOwn(bundledLanguages, option.value),
-			).toBe(true)
+			expect(option.value === 'plaintext' || isSupportedCodeLanguage(option.value)).toBe(true)
 		}
+	})
+
+	it('preserves and safely clamps the cursor while synchronizing external Markdown', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, Markdown],
+			content: 'A sufficiently long paragraph.',
+			contentType: 'markdown',
+		})
+		editor.commands.setTextSelection(10)
+
+		expect(synchronizeEditorMarkdown(editor, 'An updated sufficiently long paragraph.')).toBe(
+			true,
+		)
+		expect(editor.state.selection.from).toBe(10)
+		expect(synchronizeEditorMarkdown(editor, 'Hi')).toBe(true)
+		expect(editor.state.selection.from).toBe(editor.state.doc.content.size - 1)
+		expect(synchronizeEditorMarkdown(editor, 'Hi')).toBe(false)
+
+		editor.destroy()
 	})
 
 	it('parses and serializes Nuxt Content code metadata', () => {

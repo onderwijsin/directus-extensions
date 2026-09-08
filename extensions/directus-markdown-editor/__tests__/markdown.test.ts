@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { loadComponentMetadata, mockComponentMetadata } from '../src/component-meta/loader'
 import { normalizeComponentMetadata } from '../src/component-meta/schema'
 import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown'
+import { parseMdcAttributes, serializeMdcAttributes } from '../src/markdown/attributes'
 
 function manager() {
 	return new MarkdownManager({ extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot] })
@@ -42,6 +43,29 @@ describe('generic MDC Markdown boundary', () => {
 			],
 		})
 		expect(markdown.serialize(json)).toBe('Status :icon{name="check"} confirmed.')
+	})
+
+	it('round-trips escaped strings and typed dynamic properties', () => {
+		const properties = {
+			title: 'He said "hello" beside a \\ and a } brace.\nThen left.',
+			controlCharacter: 'before\u0001after',
+			required: true,
+			disabled: false,
+			count: 3,
+			items: ['one', 'two'],
+		}
+		const serialized = serializeMdcAttributes(properties)
+		const attributeSource = serialized.slice(1, -1)
+
+		expect(parseMdcAttributes(attributeSource)).toEqual(properties)
+
+		const markdown = manager()
+		const source = `::callout${serialized}\nContent\n::`
+		const json = markdown.parse(source)
+		expect(json.content?.[0]?.attrs?.props).toEqual(properties)
+		expect(markdown.serialize(markdown.parse(markdown.serialize(json)))).toBe(
+			markdown.serialize(json),
+		)
 	})
 
 	it('keeps unknown component names as generic data', () => {

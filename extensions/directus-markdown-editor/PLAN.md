@@ -44,10 +44,9 @@ dynamically-created Tiptap extensions.
 
 ### Remaining risks
 
-- Compact one-line MDC remains a normalization edge case: the implementation expects a block opening
-  line followed by a newline, while examples in `SPEC.md` also show compact forms. Future codec
-  changes need focused fixtures for closing delimiters, escaped attributes, and malformed or
-  unsupported blocks.
+- Block components intentionally use canonical multiline MDC. Compact one-line blocks remain
+  unsupported and must not be introduced in consumer examples. Future codec changes still need
+  focused fixtures for malformed or otherwise unsupported blocks.
 - `@tiptap/markdown` is beta and is pinned with the rest of Tiptap. Every new Tiptap package must
   use the same exact catalog version; dependency additions require catalog and lockfile changes.
 - Directus UI primitives are app components registered globally (`VButton`, `VMenu`, `VDialog`,

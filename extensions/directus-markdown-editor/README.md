@@ -20,10 +20,15 @@ the **Markdown (MDC)** interface to a `text` field. No Nuxt UI Editor, Nuxt Stud
 Comark runtime dependency is required. This is a non-sandboxed app extension and should be loaded
 only in a trusted self-hosted Directus installation.
 
-The editor supports the generic forms `::name{key="value"}` with Markdown block content,
-`:name{key="value"}` for inline components, named slots such as `#description`, and MDC YAML props
-between `---` delimiters. Unknown names are intentionally retained as generic nodes. Nested blocks
-preserve their delimiter depth during round-trips.
+The editor supports multiline block components, inline components such as `:name{key="value"}`,
+named slots, and MDC YAML props between `---` delimiters. Attribute strings round-trip escaped
+quotes and backslashes; shorthand booleans and dynamic JSON bindings preserve their value types.
+Unknown names are intentionally retained as generic nodes, and nested blocks preserve their
+delimiter depth during round-trips.
+
+```md
+::callout{tone="warning"} Some **rich text**. ::
+```
 
 ## Authoring controls
 
@@ -37,7 +42,8 @@ can be closed with Escape.
 Use **Available editor tools** to expose all tools or a selected subset for a field. The Directus
 multiselect includes a one-click **All tools** choice and **Deselect all** action; toolbar,
 slash-menu, context-menu, insertion visibility, and native keyboard shortcuts derive from the same
-selection. The **Full screen** action can also be enabled or disabled per field.
+selection. The **Full screen** action can also be enabled or disabled per field. Hiding component
+insertion does not disable the settings controls of components already stored in the field.
 
 Type `/` at the start of a block to search grouped commands and configured MDC components. Every
 built-in command includes alternate search names, such as `text`, `h1`, `quote`, `ul`, `ol`,
@@ -57,12 +63,13 @@ Tiptap 3.31.0 and `@tiptap/markdown` are pinned together because the Markdown pa
 Fenced code is highlighted with Shiki's `github-light` and `github-dark` themes and exposes a
 searchable select containing common general-purpose languages, web-development formats, and
 data/configuration file types, plus optional filename/path metadata and a collapsible icon toggle.
-Highlighting initializes in both read-only and editable item modes and refreshes when Directus opens
-a draft without requiring a page reload. Tab and Shift-Tab indent and outdent code while the cursor
-remains in the block, and Enter preserves the current line's indentation. Filenames use Nuxt Content
-fence metadata such as `ts [app/nuxt.config.ts]`, while collapsible blocks use a `::code-collapse`
-wrapper. Formatting and insertion actions that cannot produce valid code-block content are disabled
-while a code block is active.
+The editor excludes Shiki's complete grammar registry and loads only grammars used by the current
+document into its shared highlighter. Highlighting initializes in both read-only and editable item
+modes and refreshes when Directus opens a draft without requiring a page reload. Tab and Shift-Tab
+indent and outdent code while the cursor remains in the block, and Enter preserves the current
+line's indentation. Filenames use Nuxt Content fence metadata such as `ts [app/nuxt.config.ts]`,
+while collapsible blocks use a `::code-collapse` wrapper. Formatting and insertion actions that
+cannot produce valid code-block content are disabled while a code block is active.
 
 The interface configuration retains **Component metadata URL** for the authoring UI. It accepts
 either an array of component metadata objects or `{ "components": [...] }`; responses are validated

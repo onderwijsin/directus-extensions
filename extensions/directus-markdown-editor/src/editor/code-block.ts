@@ -6,16 +6,19 @@ import type {
 	MarkdownToken,
 } from '@tiptap/core'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
-import type { BundledLanguage } from 'shiki'
+import type { HighlighterCore } from 'shiki/types'
 
 import { findChildren } from '@tiptap/core'
 import CodeBlock from '@tiptap/extension-code-block'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
-import { bundledLanguages, getSingletonHighlighter } from 'shiki'
 
 import CodeBlockView from '../components/CodeBlockView.vue'
-import { codeLanguageOptions } from './code-languages'
+import {
+	isSupportedCodeLanguage,
+	loadCodeHighlighter,
+	type SupportedCodeLanguage,
+} from './highlighter'
 import { createVueNodeView } from './node-view'
 
 interface CodeBlockInfo {
@@ -27,35 +30,18 @@ type CodeBlockNode = JSONContent & {
 	attrs?: { language?: unknown; filename?: unknown; collapse?: unknown }
 }
 
-type MarkdownHighlighter = Awaited<ReturnType<typeof getSingletonHighlighter>>
-
 const shikiPluginKey = new PluginKey<DecorationSet>('markdownEditorShiki')
-let activeHighlighter: MarkdownHighlighter | undefined
-
-/**
- * Check whether Shiki bundles a language identifier.
- * @param language Language identifier to check.
- * @returns Whether Shiki bundles the language.
- */
-function isBundledLanguage(language: string): language is BundledLanguage {
-	return language in bundledLanguages
-}
-
-const configuredLanguages = codeLanguageOptions
-	.map((option) => option.value)
-	.filter(isBundledLanguage)
-const highlighterPromise = getSingletonHighlighter({
-	themes: ['github-light', 'github-dark'],
-	langs: configuredLanguages,
-})
+let activeHighlighter: HighlighterCore | undefined
 
 /**
  * Resolve unknown code metadata to a Shiki-supported language.
  * @param language Code-block language metadata.
  * @returns A bundled language or the plain-text fallback.
  */
-function resolveLanguage(language: unknown): BundledLanguage | 'plaintext' {
-	return typeof language === 'string' && isBundledLanguage(language) ? language : 'plaintext'
+function resolveLanguage(language: unknown): SupportedCodeLanguage | 'plaintext' {
+	return typeof language === 'string' && isSupportedCodeLanguage(language)
+		? language
+		: 'plaintext'
 }
 
 /**
@@ -110,17 +96,15 @@ function createDecorations(doc: ProseMirrorNode): DecorationSet {
  * @param doc ProseMirror document whose languages should be loaded.
  * @returns The configured shared Shiki highlighter.
  */
-async function loadHighlighter(doc: ProseMirrorNode): Promise<MarkdownHighlighter> {
-	const highlighter = await highlighterPromise
-	const languages = new Set<BundledLanguage>()
+async function loadHighlighter(doc: ProseMirrorNode): Promise<HighlighterCore> {
+	const languages = new Set<SupportedCodeLanguage>()
 	for (const block of findChildren(doc, (node) => node.type.name === 'codeBlock')) {
 		const language = block.node.attrs.language
-		if (typeof language === 'string' && isBundledLanguage(language)) languages.add(language)
+		if (typeof language === 'string' && isSupportedCodeLanguage(language)) {
+			languages.add(language)
+		}
 	}
-	const loadedLanguages = new Set(highlighter.getLoadedLanguages())
-	const missingLanguages = [...languages].filter((language) => !loadedLanguages.has(language))
-	if (missingLanguages.length > 0) await highlighter.loadLanguage(...missingLanguages)
-	return highlighter
+	return loadCodeHighlighter(languages)
 }
 
 /**

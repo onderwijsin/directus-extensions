@@ -9,8 +9,7 @@ Install `@onderwijsin/directus-markdown-editor` in a Directus instance compatibl
 then restart or reload extensions. Configure a Directus `text` field with the **Markdown (MDC)**
 interface. The field value is MDC Markdown; do not create a second Tiptap JSON field.
 
-This is a non-sandboxed app extension. Deploy it only in a trusted self-hosted Directus
-installation; it is not a general Marketplace-compatible package.
+This is a non-sandboxed app extension. Deploy it only in a trusted Directus installation.
 
 The interface supports ordinary Markdown plus generic block syntax such as:
 
@@ -18,8 +17,9 @@ The interface supports ordinary Markdown plus generic block syntax such as:
 ::callout{tone="warning"} Some **rich text**. ::
 ```
 
-and generic inline syntax such as `:icon{name="check"}`. Named slots and MDC YAML props are also
-supported:
+and generic inline syntax such as `:icon{name="check"}`. String attributes preserve escaped quotes
+and backslashes, while shorthand booleans and dynamic JSON bindings retain their value types. Named
+slots and MDC YAML props are also supported:
 
 ```md
 ::hero
@@ -46,7 +46,8 @@ and closes on Escape.
 Configure **Available editor tools** to expose all controls or a field-specific subset. Its
 multiselect includes **All tools** and **Deselect all**, and the selected tools consistently govern
 the toolbar, slash menu, contextual controls, insertion actions, and native Tiptap shortcuts. **Full
-screen** is an independently selectable tool.
+screen** is an independently selectable tool. Hiding component insertion leaves the settings
+controls for already-persisted components active.
 
 Code blocks use Shiki's `github-light` and `github-dark` themes and store Nuxt Content-compatible
 metadata. The searchable language select contains common general-purpose languages, web-development
@@ -56,7 +57,8 @@ formats, and data/configuration file types. A filename/path is written after the
 focus, and Enter preserves the current line's indentation. While a code block is active,
 incompatible formatting and insertion actions are disabled. Shiki highlighting initializes in
 read-only item views and refreshes when Directus switches the same interface instance into editable
-draft mode.
+draft mode. The complete Shiki grammar registry is excluded; the shared highlighter loads only the
+supported grammars used by the current document.
 
 Slash commands can be found by their display label or alternate names (`text`, `h1`–`h6`, `ul`,
 `ol`, `quote`, `separator`, `line break`, `grid`, and similar terms). They support Arrow Up/Down,

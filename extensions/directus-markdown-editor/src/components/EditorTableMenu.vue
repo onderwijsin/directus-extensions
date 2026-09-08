@@ -36,6 +36,7 @@ function shouldShow(element: HTMLElement) {
 	const menuHasFocus = element.contains(document.activeElement)
 	return (
 		!props.disabled &&
+		!props.editor.isDestroyed &&
 		(props.editor.view.hasFocus() || menuHasFocus) &&
 		props.editor.isActive('table')
 	)

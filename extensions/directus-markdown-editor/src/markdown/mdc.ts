@@ -9,7 +9,7 @@ import MdcInlineView from '../components/MdcInlineView.vue'
 import MdcSlotView from '../components/MdcSlotView.vue'
 import { parseCodeBlockToken } from '../editor/code-block'
 import { createVueNodeView } from '../editor/node-view'
-import { parseMdcAttributes, serializeMdcAttributes } from './attributes'
+import { parseMdcAttributes, readMdcAttributeBlock, serializeMdcAttributes } from './attributes'
 
 // The callbacks in a Tiptap extension config are documented by the public Tiptap types.
 // Their signatures are intentionally kept inline with that config so the extension remains portable.
@@ -17,7 +17,7 @@ import { parseMdcAttributes, serializeMdcAttributes } from './attributes'
 type MdcToken = MarkdownToken & {
 	name?: string
 	depth?: number
-	attributes?: Record<string, string | boolean>
+	attributes?: Record<string, unknown>
 	propsFormat?: 'inline' | 'yaml'
 }
 
@@ -32,9 +32,9 @@ type MdcNode = JSONContent & {
 }
 
 /**
- * Editor callback.
- * @param source Parameter value.
- * @returns Callback result.
+ * Parse an MDC YAML property block when its root value is an object.
+ * @param source YAML source between MDC frontmatter delimiters.
+ * @returns Parsed component properties, or undefined for invalid/non-object YAML.
  */
 function parseYamlProps(source: string): Record<string, unknown> | undefined {
 	try {
@@ -47,10 +47,10 @@ function parseYamlProps(source: string): Record<string, unknown> | undefined {
 }
 
 /**
- * Editor callback.
- * @param token Parameter value.
- * @param helpers Parameter value.
- * @returns Callback result.
+ * Convert a tokenized MDC block, including the code-collapse convention, to editor content.
+ * @param token Token produced by the MDC block tokenizer.
+ * @param helpers Tiptap Markdown parsing helpers.
+ * @returns The corresponding editor node.
  */
 function parseBlockToken(token: MdcToken, helpers: MarkdownParseHelpers) {
 	if (token.name === 'code-collapse') {
@@ -70,10 +70,10 @@ function parseBlockToken(token: MdcToken, helpers: MarkdownParseHelpers) {
 }
 
 /**
- * Editor callback.
- * @param source Parameter value.
- * @param depth Parameter value.
- * @returns Callback result.
+ * Locate the closing delimiter for a block at the current nesting depth.
+ * @param source Markdown following the block opening line.
+ * @param depth Required delimiter length.
+ * @returns Source offset of the closing line, or -1 when no closing line exists.
  */
 function findClosingLine(source: string, depth: number): number {
 	const lines = source.split('\n')
@@ -86,10 +86,10 @@ function findClosingLine(source: string, depth: number): number {
 }
 
 /**
- * Editor callback.
- * @param token Parameter value.
- * @param helpers Parameter value.
- * @returns Callback result.
+ * Convert a named slot token to a non-empty block node.
+ * @param token Token produced by the named-slot tokenizer.
+ * @param helpers Tiptap Markdown parsing helpers.
+ * @returns A slot node containing at least one editable paragraph.
  */
 function parseSlotToken(token: MarkdownToken, helpers: MarkdownParseHelpers) {
 	const content = helpers.parseChildren(token.tokens ?? [])
@@ -242,19 +242,25 @@ export const MdcBlock = Node.create({
 		 * @param lexer Parameter value.
 		 * @returns Callback result.
 		 */ (source: string, _tokens: MarkdownToken[], lexer) => {
-			const opening = /^(::+)([\w-]+)(?:\{([^\n}]*)\})?\s*\n/u.exec(source)
+			const opening = /^(::+)([\w-]+)/u.exec(source)
 			if (!opening) return undefined
 			const delimiter = opening[1]
 			if (!delimiter) return undefined
+			const remainder = source.slice(opening[0].length)
+			const attributeBlock = readMdcAttributeBlock(remainder)
+			const lineEnding = /^[\t ]*\n/u.exec(remainder.slice(attributeBlock?.length ?? 0))
+			if (!lineEnding) return undefined
+			const openingLength =
+				opening[0].length + (attributeBlock?.length ?? 0) + lineEnding[0].length
 			const depth = delimiter.length
-			const closingEnd = findClosingLine(source.slice(opening[0].length), depth)
+			const closingEnd = findClosingLine(source.slice(openingLength), depth)
 			if (closingEnd < 0) return undefined
-			const inner = source.slice(opening[0].length, opening[0].length + closingEnd)
+			const inner = source.slice(openingLength, openingLength + closingEnd)
 			const closingLine = /^:{2,}\s*(?:\n|$)/u.exec(
-				source.slice(opening[0].length + closingEnd),
+				source.slice(openingLength + closingEnd),
 			)?.[0]
 			if (!closingLine) return undefined
-			const raw = source.slice(0, opening[0].length + closingEnd + closingLine.length)
+			const raw = source.slice(0, openingLength + closingEnd + closingLine.length)
 			const yamlBlock = /^---\n([\s\S]*?)\n---(?:\n|$)/u.exec(inner)
 			const yamlProps = yamlBlock ? parseYamlProps(yamlBlock[1] ?? '') : undefined
 			if (yamlBlock && !yamlProps) return undefined
@@ -264,7 +270,7 @@ export const MdcBlock = Node.create({
 				raw,
 				name: opening[2],
 				depth,
-				attributes: yamlProps ?? parseMdcAttributes(opening[3]),
+				attributes: yamlProps ?? parseMdcAttributes(attributeBlock?.source),
 				propsFormat: yamlProps ? 'yaml' : 'inline',
 				tokens: lexer.blockTokens(contentSource),
 			}
@@ -343,13 +349,14 @@ export const MdcInline = Node.create({
 		 * @param source Parameter value.
 		 * @returns Callback result.
 		 */ (source: string) => {
-			const match = /^:([\w-]+)(?:\{([^}]*)\})?/u.exec(source)
+			const match = /^:([\w-]+)/u.exec(source)
 			if (!match) return undefined
+			const attributeBlock = readMdcAttributeBlock(source.slice(match[0].length))
 			return {
 				type: 'mdcInline',
-				raw: match[0],
+				raw: source.slice(0, match[0].length + (attributeBlock?.length ?? 0)),
 				name: match[1],
-				attributes: parseMdcAttributes(match[2]),
+				attributes: parseMdcAttributes(attributeBlock?.source),
 			}
 		},
 	},
