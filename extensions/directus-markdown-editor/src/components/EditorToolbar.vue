@@ -19,6 +19,7 @@ const props = defineProps<{
 	disabled?: boolean
 	fullscreen?: boolean
 	referencesEnabled?: boolean
+	componentsAvailable?: boolean
 }>()
 const emit = defineEmits<{
 	openLink: []
@@ -50,7 +51,9 @@ const referenceEnabled = computed(
 )
 const imageEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'image'))
 const videoEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'video'))
-const componentsEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'component'))
+const componentsEnabled = computed(
+	() => props.componentsAvailable && isEditorToolEnabled(props.enabledTools, 'component'),
+)
 const sourceEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'source'))
 const fullscreenEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'fullscreen'))
 const activeBlockCommand = computed(() => {
@@ -108,7 +111,7 @@ function openVideo() {
 }
 
 function openComponents() {
-	if (!isToolDisabled('component')) emit('openComponents')
+	if (componentsEnabled.value && !isToolDisabled('component')) emit('openComponents')
 }
 
 function openSource() {

@@ -237,7 +237,8 @@ describe('Markdown editor interface', () => {
 		expect(element.querySelector('[role="toolbar"]')).not.toBeNull()
 		expect(element.querySelector('[aria-label="Block type"]')).not.toBeNull()
 		expect(element.querySelector('[aria-label="Bold"]')).not.toBeNull()
-		expect(element.querySelector('[aria-label="Insert component"]')).not.toBeNull()
+		expect(element.querySelector('[aria-label="Insert component"]')).toBeNull()
+		expect(element.querySelector('.markdown-editor__metadata-error')).toBeNull()
 		expect(element.querySelector('[aria-label="Edit Markdown source"]')).not.toBeNull()
 		expect(element.querySelector('[aria-label="Full screen"]')).not.toBeNull()
 		expect(
@@ -342,6 +343,8 @@ describe('Markdown editor interface', () => {
 		const { element, disabled } = mountEditor(
 			'```ts\nconst locked = true\n```\n\n::Callout{tone="warning"}\n#default\nLocked :Icon{name="lock"}\n::',
 			true,
+			undefined,
+			{ useStaticComponentMeta: true, staticComponentMeta: [{ name: 'Callout' }] },
 		)
 		await nextTick()
 		await nextTick()
@@ -563,17 +566,12 @@ describe('Markdown editor interface', () => {
 		).toBe('app/nuxt.config.ts')
 		expect(element.querySelector('[aria-label="Keep code block expanded"]')).not.toBeNull()
 		expect(element.querySelector('[data-icon="expand_content"]')).not.toBeNull()
-		for (const label of [
-			'Blockquote',
-			'Edit link',
-			'Insert image',
-			'Insert video',
-			'Insert component',
-		]) {
+		for (const label of ['Blockquote', 'Edit link', 'Insert image', 'Insert video']) {
 			expect(element.querySelector(`[aria-label="${label}"]`)?.hasAttribute('disabled')).toBe(
 				true,
 			)
 		}
+		expect(element.querySelector('[aria-label="Insert component"]')).toBeNull()
 		expect(
 			element.querySelector('[aria-label="Edit Markdown source"]')?.hasAttribute('disabled'),
 		).toBe(false)

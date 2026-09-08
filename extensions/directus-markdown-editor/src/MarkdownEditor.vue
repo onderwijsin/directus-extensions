@@ -188,7 +188,7 @@ function openSourceDrawer() {
 
 /** @returns Nothing. */
 function openComponentInsert() {
-	if (!canInteract()) return
+	if (!canInteract() || !componentInsertionEnabled.value) return
 	dismissSlashMenu()
 	componentInsertOpen.value = true
 }
@@ -251,6 +251,9 @@ const metadata = useComponentMetadata({
 		() => props.staticComponentMeta ?? props.options?.staticComponentMeta,
 	),
 })
+const componentInsertionEnabled = computed(
+	() => metadata.hasComponents.value && isEditorToolEnabled(enabledTools.value, 'component'),
+)
 
 const extensions = createEditorExtensions(
 	/**
@@ -405,6 +408,7 @@ watch(
 					:disabled="disabled"
 					:fullscreen="fullscreen"
 					:references-enabled="referencesEnabled"
+					:components-available="metadata.hasComponents.value"
 					@open-link="openLinkDrawer"
 					@open-reference="openReferencePicker"
 					@open-image="openMediaDrawer('image')"
@@ -426,8 +430,11 @@ watch(
 				:commands="commands"
 				:enabled-tools="enabledTools"
 				:disabled="disabled"
+				:references-enabled="referencesEnabled"
+				:components-available="metadata.hasComponents.value"
 				@open-link="openLinkDrawer"
 				@open-components="openComponentInsert"
+				@open-reference="openReferencePicker"
 			/>
 			<EditorTableMenu :editor="editor" :commands="commands" :disabled="disabled" />
 			<div class="markdown-editor__canvas">
@@ -462,7 +469,7 @@ watch(
 				:components="metadata.components.value"
 				:loading="metadata.state.value === 'loading'"
 				:disabled="disabled"
-				:insertion-enabled="isEditorToolEnabled(enabledTools, 'component')"
+				:insertion-enabled="componentInsertionEnabled"
 			/>
 			<ReferenceController
 				v-if="referencesEnabled"
@@ -618,8 +625,15 @@ watch(
 }
 
 :deep(.ProseMirror .reference-trigger) {
-	color: var(--theme--primary, #6644ff);
+	color: var(--theme--primary, #6644ff) !important;
 	font-weight: 700;
+}
+
+:deep(.ProseMirror .reference-trigger__hint) {
+	margin-inline-start: 0.375rem;
+	color: var(--theme--foreground-subdued, #8b98a5);
+	font-weight: 400;
+	pointer-events: none;
 }
 
 :deep(.ProseMirror strong),
@@ -733,7 +747,7 @@ watch(
 	background: var(--editor-border);
 }
 
-:deep(.ProseMirror p.is-editor-empty:first-child::before) {
+:deep(.ProseMirror .is-editor-empty::before) {
 	float: left;
 	height: 0;
 	color: var(--theme--foreground-subdued, #8b98a5);

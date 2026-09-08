@@ -17,8 +17,10 @@ const props = defineProps<{
 	commands: EditorCommand[]
 	enabledTools?: string[] | null
 	disabled?: boolean
+	referencesEnabled?: boolean
+	componentsAvailable?: boolean
 }>()
-const emit = defineEmits<{ openLink: []; openComponents: [] }>()
+const emit = defineEmits<{ openLink: []; openComponents: []; openReference: [] }>()
 const revision = shallowRef(0)
 const hoveredPosition = shallowRef<number | null>(null)
 const insertMenuPosition = shallowRef<number | null>(null)
@@ -145,10 +147,17 @@ function insert(command: EditorCommand) {
 }
 
 function openComponentInsert() {
-	if (props.disabled || !props.editor.isEditable) return
+	if (!props.componentsAvailable || props.disabled || !props.editor.isEditable) return
 	if (!prepareInsertionPoint()) return
 	setInsertMenuState(false)
 	emit('openComponents')
+}
+
+function openReferenceInsert() {
+	if (!props.referencesEnabled || props.disabled || !props.editor.isEditable) return
+	if (!prepareInsertionPoint()) return
+	setInsertMenuState(false)
+	emit('openReference')
 }
 
 function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
@@ -253,13 +262,26 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 						><VListItemIcon><VIcon :name="command.icon" /></VListItemIcon
 						><VListItemContent>{{ command.label }}</VListItemContent></VListItem
 					>
-					<VDivider />
+					<VDivider
+						v-if="
+							(componentsAvailable &&
+								isEditorToolEnabled(enabledTools, 'component')) ||
+							(referencesEnabled && isEditorToolEnabled(enabledTools, 'reference'))
+						"
+					/>
 					<VListItem
-						v-if="isEditorToolEnabled(enabledTools, 'component')"
+						v-if="componentsAvailable && isEditorToolEnabled(enabledTools, 'component')"
 						clickable
 						@click="openComponentInsert"
 						><VListItemIcon><VIcon name="widgets" /></VListItemIcon
 						><VListItemContent>Component</VListItemContent></VListItem
+					>
+					<VListItem
+						v-if="referencesEnabled && isEditorToolEnabled(enabledTools, 'reference')"
+						clickable
+						@click="openReferenceInsert"
+						><VListItemIcon><VIcon name="alternate_email" /></VListItemIcon
+						><VListItemContent>Reference</VListItemContent></VListItem
 					>
 				</VList>
 			</VMenu>

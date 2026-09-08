@@ -82,7 +82,9 @@ Choose one component metadata source in the interface configuration:
 
 Both metadata sources accept an array of objects or an object with a `components` array; each object
 requires `name` and may include `label`, `description`, `props`, and `slots`. The editor validates
-either source using the same boundary. Static mode does not make a metadata HTTP request.
+either source using the same boundary. Static mode does not make a metadata HTTP request. When
+neither source supplies metadata, Component insertion stays hidden without affecting persisted MDC
+component editing.
 
 Project metadata is validated at the browser boundary. For example:
 
@@ -140,12 +142,13 @@ de-duplicated in order. The editor uses Directus field metadata to discover prim
 keys not named `id`, and disables only invalid collection configurations. V1 rejects nested paths,
 wildcards, relational aliases, foreign-key fields, and relation traversal.
 
-Authors can use the Reference toolbar button immediately after Link or type a bare `@` at the start
-of a text block/after whitespace and press Enter. The latter intentionally ignores email addresses.
-Search starts only after a query, searches every valid collection independently, and shows up to
-five ranked results. Hiding the `reference` editor tool removes both insertion paths while leaving
-persisted Reference nodes editable. Turning off **Use record references** unmounts all
-Reference-specific behavior, but generic MDC parsing keeps stored nodes intact.
+Authors can use the Reference toolbar button immediately after Link, choose Reference from the block
+`+` insert menu, or type a bare `@` at the start of a text block/after whitespace and follow the
+inline Enter hint. The latter intentionally ignores email addresses. Search starts only after a
+query, searches every valid collection independently, and shows up to five ranked results. Hiding
+the `reference` editor tool removes all insertion paths while leaving persisted Reference nodes
+editable. Turning off **Use record references** unmounts all Reference-specific behavior, but
+generic MDC parsing keeps stored nodes intact.
 
 The persisted frontend contract is ordinary MDC:
 

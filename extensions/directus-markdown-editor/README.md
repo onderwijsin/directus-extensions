@@ -51,13 +51,14 @@ built-in command includes alternate search names, such as `text`, `h1`, `quote`,
 leaving the editor.
 
 Hover a block to reveal the polished `+` insert control followed by its drag handle. The adjacent
-block menu supports duplicate, move up, move down, and delete, and its controls remain behind the
-sticky toolbar while scrolling. The table toolbar preserves its active table selection while running
-row, column, header, merge, split, and delete actions; deletion supports both a cell selection and a
-selected table node. MDC block and inline views expose their identity while keeping their content
-and named slots editable. Slot structures cannot be removed by backspacing their empty content, and
-pressing Enter in a trailing empty slot paragraph creates and focuses a paragraph directly after the
-component. Activating another editor overlay dismisses the slash menu.
+insert menu includes configured Components and opt-in References alongside the shared block
+commands. The block menu supports duplicate, move up, move down, and delete, and its controls remain
+behind the sticky toolbar while scrolling. The table toolbar preserves its active table selection
+while running row, column, header, merge, split, and delete actions; deletion supports both a cell
+selection and a selected table node. MDC block and inline views expose their identity while keeping
+their content and named slots editable. Slot structures cannot be removed by backspacing their empty
+content, and pressing Enter in a trailing empty slot paragraph creates and focuses a paragraph
+directly after the component. Activating another editor overlay dismisses the slash menu.
 
 Tiptap 3.31.0 and `@tiptap/markdown` are pinned together because the Markdown package is beta.
 Fenced code is highlighted with Shiki's `github-light` and `github-dark` themes and exposes a
@@ -75,7 +76,9 @@ Component metadata can come from one of two interface configuration sources. By 
 static component metadata** is disabled and **Component metadata URL** loads the metadata from a
 public JSON endpoint. Enable **Use static component metadata** to configure the required **Static
 component metadata** JSON value directly and disable URL loading. Both sources accept an array of
-component metadata objects or `{ "components": [...] }` and are validated before use.
+component metadata objects or `{ "components": [...] }` and are validated before use. If neither
+source supplies metadata, Component insertion actions stay hidden while persisted MDC components
+remain editable.
 
 A component metadata object has this shape:
 
@@ -118,8 +121,9 @@ Record references are disabled by default. Enable **Use record references** on a
 configure at least one **Reference collection** to let authors link to records that the current
 Studio user is allowed to read. Add **Reference** to **Available editor tools** (or keep **All
 tools**) to expose insertion. The toolbar action appears directly after Link. Authors can also type
-a bare `@` after whitespace or at the start of a text block and press Enter. Existing references
-remain editable when the insertion tool is hidden; disabling **Use record references** removes all
+a bare `@` after whitespace or at the start of a text block, follow the inline Enter hint, and press
+Enter. Reference is also available from the block `+` insert menu. Existing references remain
+editable when the insertion tool is hidden; disabling **Use record references** removes all
 Reference-specific behavior while preserving the underlying MDC Markdown.
 
 Configure collections as JSON:

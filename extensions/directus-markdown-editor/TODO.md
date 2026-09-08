@@ -22,3 +22,15 @@
 - [ ] the is a bug in the search input. If i input a single character, and then backspace, it errors
       with `TypeError: Cannot read properties of null (reading 'trim')`. This does not seem to
       happen in component in sert modal search
+
+---
+
+- [ ] If the drag handle menu is opened, the drag handle insert menu shoudl close, and vice versa.
+
+- [ ] If the drag handle menu is foxused, or if the drag handle insert menu is focused, the bubble
+      toolbar is displayed (as if text is selected). It should not be displayed in this case.
+
+- [ ] In the reference feature, rename 'record' for 'item'. Record is not a common Directus term or
+      user-friendly. Item is more intuitive for users.
+
+- [ ] Add a loading state to the reference refresh button

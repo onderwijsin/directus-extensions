@@ -33,10 +33,32 @@ describe('Reference @ trigger', () => {
 	it('consumes an eligible bare @ on Enter and opens at the deleted position', () => {
 		const { editor, openReference } = createReferenceEditor()
 		editor.chain().focus().insertContent('@').run()
-		expect(editor.view.dom.querySelector('.reference-trigger')?.textContent).toBe('@')
+		const trigger = editor.view.dom.querySelector('.reference-trigger')
+		expect(trigger?.textContent).toBe('@')
+		expect(trigger?.hasAttribute('data-reference-trigger')).toBe(true)
+		expect(editor.view.dom.querySelector('.reference-trigger__hint')?.textContent).toBe(
+			'Hit enter to mention a record',
+		)
 		editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
 		expect(openReference).toHaveBeenCalledOnce()
 		expect(editor.getText()).toBe('')
+	})
+
+	it('decorates a selected blank block with the editor hint', () => {
+		const { editor } = createReferenceEditor()
+		editor.commands.setContent({
+			type: 'doc',
+			content: [
+				{ type: 'paragraph', content: [{ type: 'text', text: 'First' }] },
+				{ type: 'paragraph' },
+			],
+		})
+		editor.commands.setTextSelection(8)
+
+		const paragraphs = editor.view.dom.querySelectorAll('p')
+		expect(paragraphs[1]?.getAttribute('data-placeholder')).toBe(
+			"Start writing or type '/' for commands",
+		)
 	})
 
 	it('does not trigger for an email address', () => {

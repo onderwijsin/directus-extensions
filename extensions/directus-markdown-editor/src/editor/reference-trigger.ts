@@ -77,7 +77,20 @@ export function createReferenceTrigger(open: (position: number) => void, isEnabl
 							? DecorationSet.create(state.doc, [
 									Decoration.inline(candidate.position, candidate.position + 1, {
 										class: 'reference-trigger',
+										'data-reference-trigger': '',
 									}),
+									Decoration.widget(
+										candidate.position + 1,
+										() => {
+											const hint = document.createElement('span')
+											hint.className = 'reference-trigger__hint'
+											hint.textContent = 'Hit enter to mention a record'
+											hint.contentEditable = 'false'
+											hint.setAttribute('aria-hidden', 'true')
+											return hint
+										},
+										{ key: 'reference-trigger-hint', side: 1 },
+									),
 								])
 							: DecorationSet.empty
 					},

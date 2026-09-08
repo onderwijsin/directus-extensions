@@ -3,7 +3,7 @@
 import type { ReferenceApiClient, ReferenceSearchResult } from '../reference/api'
 import type { ResolvedReferenceCollectionConfig } from '../reference/schema'
 
-import { onBeforeUnmount, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 
 import { searchReferences } from '../reference/api'
 
@@ -14,7 +14,8 @@ const props = defineProps<{
 }>()
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ select: [result: ReferenceSearchResult] }>()
-const query = shallowRef('')
+const query = shallowRef<string | null>('')
+const normalizedQuery = computed(() => query.value?.trim() ?? '')
 const results = shallowRef<ReferenceSearchResult[]>([])
 const loading = shallowRef(false)
 const activeIndex = shallowRef(0)
@@ -54,11 +55,11 @@ watch(open, (isOpen) => {
 	if (!isOpen) resetSearch()
 })
 
-watch(query, (term) => {
+watch(normalizedQuery, (term) => {
 	if (timer) clearTimeout(timer)
 	controller?.abort()
 	results.value = []
-	if (!open.value || !term.trim()) {
+	if (!open.value || !term) {
 		loading.value = false
 		return
 	}
@@ -110,8 +111,8 @@ function handleKeydown(event: KeyboardEvent) {
 					><template #prepend><VIcon name="search" /></template
 				></VInput>
 				<VProgressCircular v-if="loading" indeterminate class="reference-picker__loading" />
-				<VNotice v-else-if="query.trim() && results.length === 0" type="info"
-					>No accessible records match “{{ query }}”.</VNotice
+				<VNotice v-else-if="normalizedQuery && results.length === 0" type="info"
+					>No accessible records match “{{ normalizedQuery }}”.</VNotice
 				>
 				<VList v-else-if="results.length" class="reference-picker__list">
 					<VListItem
@@ -122,9 +123,15 @@ function handleKeydown(event: KeyboardEvent) {
 						:disabled="disabled"
 						@click="choose(result)"
 					>
-						<VListItemContent class="reference-picker__result">
-							<strong>{{ result.reference.label }}</strong>
-							<VChip x-small>{{ result.reference.collection }}</VChip>
+						<VListItemContent>
+							<span class="reference-picker__result">
+								<strong class="reference-picker__label">{{
+									result.reference.label
+								}}</strong>
+								<VChip x-small class="reference-picker__collection">{{
+									result.reference.collection
+								}}</VChip>
+							</span>
 						</VListItemContent>
 					</VListItem>
 				</VList>
@@ -147,10 +154,21 @@ function handleKeydown(event: KeyboardEvent) {
 	overflow-y: auto;
 }
 .reference-picker__result {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
 	justify-content: space-between;
+	width: 100%;
+	min-width: 0;
 	gap: 1rem;
 	padding-block: 0.5rem;
+}
+.reference-picker__label {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.reference-picker__collection {
+	flex: 0 0 auto;
 }
 </style>
