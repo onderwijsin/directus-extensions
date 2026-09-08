@@ -208,6 +208,25 @@ describe('Markdown editor interface', () => {
 		})
 	})
 
+	it('configures opt-in references with conditional collections and detect mode by default', () => {
+		const options = createMarkdownEditorOptions()
+		expect(options.find((option) => option.field === 'useReferences')).toMatchObject({
+			type: 'boolean',
+			schema: { default_value: false },
+		})
+		expect(options.find((option) => option.field === 'referenceCollections')).toMatchObject({
+			type: 'json',
+			required: true,
+			meta: { conditions: [{ rule: { useReferences: { _eq: false } }, hidden: true }] },
+		})
+		expect(options.find((option) => option.field === 'referenceSnapshotMode')).toMatchObject({
+			schema: { default_value: 'detect' },
+		})
+		expect(
+			options.find((option) => option.field === 'tools')?.meta.options?.choices,
+		).toContainEqual({ text: 'Reference', value: 'reference' })
+	})
+
 	it('renders Markdown and the complete Directus-native toolbar', async () => {
 		const { element } = mountEditor()
 		await nextTick()

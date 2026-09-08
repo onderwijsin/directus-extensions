@@ -42,7 +42,9 @@ export interface ComponentMetadata {
 export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[] {
 	const result = MetadataResponseSchema.safeParse(payload)
 	if (!result.success) throw new Error('Component metadata has an unsupported shape.')
-	const components = Array.isArray(result.data) ? result.data : result.data.components
+	const components = (Array.isArray(result.data) ? result.data : result.data.components).filter(
+		(component) => component.name !== 'Reference',
+	)
 	return components.map(
 		/**
 		 * Editor callback.

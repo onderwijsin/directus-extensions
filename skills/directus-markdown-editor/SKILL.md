@@ -103,3 +103,82 @@ Source mode blocks lossy normalization until explicitly accepted. Image URLs acc
 relative paths, and Directus `/assets/{id}` paths; unsafe executable/data protocols are rejected.
 Rich media, image transformations/captions, and advanced unsupported-content recovery remain
 deferred.
+
+## Configure record references
+
+References are an opt-in authoring capability. Configure the interface as follows:
+
+| Interface option        | Default  | Required and operational behavior                                                                    |
+| ----------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| Use record references   | `false`  | Enables the picker, persisted-node editor, and document integrity controller.                        |
+| Reference collections   | unset    | Required non-empty JSON array when enabled; each collection may appear once.                         |
+| Reference snapshot mode | `detect` | `snapshot` verifies availability, `detect` reports changes, `sync` refreshes changed snapshots.      |
+| Available editor tools  | `all`    | Include `reference` for toolbar and bare-`@` insertion. This does not govern editing existing nodes. |
+
+Use direct field names only:
+
+```json
+[
+  {
+    "collection": "articles",
+    "displayField": "title",
+    "searchFields": ["title", "slug"],
+    "dataFields": ["slug", "status", "category"]
+  },
+  {
+    "collection": "programs",
+    "displayField": "name",
+    "dataFields": ["slug", "type"]
+  }
+]
+```
+
+`collection` and `displayField` are required. `searchFields` defaults to the display field and must
+contain only Directus `string` or `text` fields. `dataFields` defaults to an empty list and controls
+the complete projected snapshot—no full record is copied implicitly. Repeated field names are
+de-duplicated in order. The editor uses Directus field metadata to discover primary keys, including
+keys not named `id`, and disables only invalid collection configurations. V1 rejects nested paths,
+wildcards, relational aliases, foreign-key fields, and relation traversal.
+
+Authors can use the Reference toolbar button immediately after Link or type a bare `@` at the start
+of a text block/after whitespace and press Enter. The latter intentionally ignores email addresses.
+Search starts only after a query, searches every valid collection independently, and shows up to
+five ranked results. Hiding the `reference` editor tool removes both insertion paths while leaving
+persisted Reference nodes editable. Turning off **Use record references** unmounts all
+Reference-specific behavior, but generic MDC parsing keeps stored nodes intact.
+
+The persisted frontend contract is ordinary MDC:
+
+```md
+:Reference{collection="articles" item="article-7" label="Becoming a teacher" text="this article"
+icon="school" :data="{\"slug\":\"becoming-a-teacher\"}"}
+```
+
+New nodes require `collection`, `item`, `label`, and object `data`. `item` remains string or
+numeric. An empty source display value falls back to `String(item)`. Optional `text` and `icon` are
+omitted when blank. Consumer renderers should display `text ?? label`; `icon` is a Directus/Material
+icon name. `label` and `data` belong to the source snapshot, while `text` and `icon` belong to the
+author and survive refresh, sync, and source replacement. `Reference` is a reserved built-in name
+and cannot also be inserted through project component metadata.
+
+All reads use the current Studio user's authenticated `useApi()` client. Grant authors read access
+only to the configured collections and projected fields they should discover. Search and integrity
+requests never request `*` or expand relations. A `403`, `404`, or absent result is reported as
+“source not available” because Directus cannot reliably distinguish removal from permission denial
+in this authoring context. Unexpected/network failures are non-destructive verification errors.
+
+The editor scans once after document hydration and after a complete external Markdown replacement.
+It de-duplicates source resolution while retaining occurrence-specific repair actions:
+
+- `snapshot`: verify source availability; compare snapshots only after explicit refresh or source
+  replacement.
+- `detect`: compare current `label`/`data`, report stale occurrences, and offer Refresh, Replace,
+  Remove, and Refresh all outdated.
+- `sync`: update stale `label`/`data` in the editor in a consolidated transaction. This can make the
+  field dirty, but it never calls the item update API or saves automatically.
+
+Malformed external Reference nodes remain generic selectable MDC atoms instead of being discarded.
+The integrity report can replace or remove malformed, unconfigured, and unavailable occurrences;
+transient verification errors offer retry only. The extension does not provide frontend rendering,
+relational projection, reverse indexing, Directus update/delete hooks, cascade cleanup, or a
+server-side document scanner.

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ReferenceSnapshotMode } from './reference/schema'
+
 // Directus/Vue template callbacks are intentionally local and do not need public API JSDoc.
 import { computed, onBeforeUnmount, onMounted, shallowRef, toRef, watch } from 'vue'
 
@@ -11,6 +13,7 @@ import EditorTableMenu from './components/EditorTableMenu.vue'
 import EditorToolbar from './components/EditorToolbar.vue'
 import LinkDrawer from './components/LinkDrawer.vue'
 import MediaDrawer from './components/MediaDrawer.vue'
+import ReferenceController from './components/ReferenceController.vue'
 import SourceDrawer from './components/SourceDrawer.vue'
 import { useComponentMetadata } from './composables/useComponentMetadata'
 import { refreshCodeHighlighting } from './editor/code-block'
@@ -27,11 +30,17 @@ const props = withDefaults(
 		useStaticComponentMeta?: boolean
 		staticComponentMeta?: unknown
 		tools?: string[] | null
+		useReferences?: boolean
+		referenceCollections?: unknown
+		referenceSnapshotMode?: ReferenceSnapshotMode
 		options?: {
 			metadataUrl?: string | null
 			useStaticComponentMeta?: boolean
 			staticComponentMeta?: unknown
 			tools?: string[] | null
+			useReferences?: boolean
+			referenceCollections?: unknown
+			referenceSnapshotMode?: ReferenceSnapshotMode
 		}
 	}>(),
 	{ useStaticComponentMeta: undefined },
@@ -44,9 +53,19 @@ const mediaDrawerType = shallowRef<'image' | 'video'>('image')
 const sourceDrawerOpen = shallowRef(false)
 const componentInsertOpen = shallowRef(false)
 const fullscreen = shallowRef(false)
+const referenceScanRevision = shallowRef(0)
 const lastEmittedValue = shallowRef<string>()
 const darkMode = shallowRef(false)
 const enabledTools = computed(() => props.tools ?? props.options?.tools)
+const referencesEnabled = computed(
+	() => props.useReferences ?? props.options?.useReferences ?? false,
+)
+const referenceCollections = computed(
+	() => props.referenceCollections ?? props.options?.referenceCollections,
+)
+const referenceSnapshotMode = computed(
+	() => props.referenceSnapshotMode ?? props.options?.referenceSnapshotMode ?? 'detect',
+)
 let themeObserver: MutationObserver | undefined
 
 /**
@@ -121,6 +140,43 @@ function openLinkDrawer() {
 	if (!canInteract()) return
 	dismissSlashMenu()
 	linkDrawerOpen.value = true
+}
+
+/**
+ * Open the shared Reference picker at a captured selection.
+ * @param from Selection start.
+ * @param to Selection end.
+ * @returns Nothing.
+ */
+function dispatchReferencePicker(from: number, to: number) {
+	const instance = editor.value
+	if (!instance || instance.isDestroyed || !canInteract()) return
+	dismissSlashMenu()
+	instance.view.dom.dispatchEvent(
+		new CustomEvent('markdown-editor-open-reference', {
+			bubbles: true,
+			detail: { from, to },
+		}),
+	)
+}
+
+/**
+ * Open Reference insertion from the current toolbar selection.
+ * @returns Nothing.
+ */
+function openReferencePicker() {
+	const instance = editor.value
+	if (!instance) return
+	dispatchReferencePicker(instance.state.selection.from, instance.state.selection.to)
+}
+
+/**
+ * Open Reference insertion where the bare trigger was consumed.
+ * @param position Trigger position.
+ * @returns Nothing.
+ */
+function openReferenceFromTrigger(position: number) {
+	dispatchReferencePicker(position, position)
 }
 
 /** @returns Nothing. */
@@ -205,6 +261,9 @@ const extensions = createEditorExtensions(
 	{
 		openImage: openImageDrawer,
 		openVideo: openVideoDrawer,
+		...(referencesEnabled.value
+			? { openReference: openReferenceFromTrigger, canOpenReference: canInteract }
+			: {}),
 	},
 	() => enabledTools.value,
 )
@@ -322,6 +381,7 @@ watch(
 		syncing.value = true
 		try {
 			synchronizeEditorMarkdown(instance, value ?? '')
+			referenceScanRevision.value += 1
 		} finally {
 			syncing.value = false
 		}
@@ -344,7 +404,9 @@ watch(
 					:enabled-tools="enabledTools"
 					:disabled="disabled"
 					:fullscreen="fullscreen"
+					:references-enabled="referencesEnabled"
 					@open-link="openLinkDrawer"
+					@open-reference="openReferencePicker"
 					@open-image="openMediaDrawer('image')"
 					@open-media="openMediaDrawer('video')"
 					@open-source="openSourceDrawer"
@@ -401,6 +463,15 @@ watch(
 				:loading="metadata.state.value === 'loading'"
 				:disabled="disabled"
 				:insertion-enabled="isEditorToolEnabled(enabledTools, 'component')"
+			/>
+			<ReferenceController
+				v-if="referencesEnabled"
+				:editor="editor"
+				:collections="referenceCollections"
+				:mode="referenceSnapshotMode"
+				:disabled="disabled"
+				:insertion-enabled="isEditorToolEnabled(enabledTools, 'reference')"
+				:scan-revision="referenceScanRevision"
 			/>
 		</template>
 	</div>
@@ -544,6 +615,11 @@ watch(
 	color: var(--theme--primary-accent, var(--theme--primary, #6644ff));
 	text-decoration: underline;
 	cursor: pointer;
+}
+
+:deep(.ProseMirror .reference-trigger) {
+	color: var(--theme--primary, #6644ff);
+	font-weight: 700;
 }
 
 :deep(.ProseMirror strong),

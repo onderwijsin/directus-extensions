@@ -111,3 +111,75 @@ For example, the equivalent static option value can wrap the same component in a
 Source mode refuses lossy changes until the editor user explicitly accepts normalization. Image
 insertion accepts HTTP(S), relative asset paths, and Directus file selections stored as
 `/assets/{id}`. Unsafe `javascript:`, `data:`, and `vbscript:` URLs are rejected.
+
+## Directus record references
+
+Record references are disabled by default. Enable **Use record references** on an interface and
+configure at least one **Reference collection** to let authors link to records that the current
+Studio user is allowed to read. Add **Reference** to **Available editor tools** (or keep **All
+tools**) to expose insertion. The toolbar action appears directly after Link. Authors can also type
+a bare `@` after whitespace or at the start of a text block and press Enter. Existing references
+remain editable when the insertion tool is hidden; disabling **Use record references** removes all
+Reference-specific behavior while preserving the underlying MDC Markdown.
+
+Configure collections as JSON:
+
+```json
+[
+  {
+    "collection": "articles",
+    "displayField": "title",
+    "searchFields": ["title", "slug"],
+    "dataFields": ["slug", "status", "category"]
+  },
+  {
+    "collection": "programs",
+    "displayField": "name",
+    "dataFields": ["slug", "type"]
+  }
+]
+```
+
+| Option                  | Default  | Behavior                                                                                             |
+| ----------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| Use record references   | `false`  | Authoritative capability gate for record lookup, editing, and integrity checks.                      |
+| Reference collections   | unset    | Required non-empty JSON array when enabled. Collection names must be unique.                         |
+| Reference snapshot mode | `detect` | `snapshot` checks availability, `detect` reports stale snapshots, and `sync` refreshes them on load. |
+| `collection`            | required | Directus collection to search.                                                                       |
+| `displayField`          | required | Direct field used for the source label.                                                              |
+| `searchFields`          | display  | Direct `string`/`text` fields searched with case-insensitive containment.                            |
+| `dataFields`            | `[]`     | Direct fields copied into the persisted source snapshot.                                             |
+
+The editor discovers each collection's actual primary key from Directus metadata and does not assume
+an `id` field. V1 accepts only direct, top-level, non-relational fields. Nested paths, wildcards,
+aliases backed by relationships, and M2O/O2M/M2M/M2A traversal are rejected without breaking
+ordinary Markdown editing. Repeated configured field names are de-duplicated in their original
+order.
+
+Picker and integrity requests use the authenticated Studio API session and request only configured
+fields plus the primary key. Directus collection and field permissions therefore determine what an
+author can find and verify. A missing item and an item hidden by permissions are deliberately shown
+as the same “source not available” state. The extension does not use an admin token, privileged
+endpoint, reverse index, deletion hook, or automatic item save.
+
+References persist as ordinary inline MDC and continue to use the generic MDC parser and renderer:
+
+```md
+Read :Reference{collection="articles" item="article-7" label="Becoming a teacher" text="this
+article" icon="school" :data="{\"slug\":\"becoming-a-teacher\"}"}.
+```
+
+`collection`, `item`, `label`, and `data` are required for new references. `item` retains a string
+or numeric primary-key value. `label` and `data` are source-owned snapshots; optional `text` and
+`icon` are author-owned presentation and are never overwritten by refresh or synchronization. A
+frontend MDC component should render `text ?? label` and may use the Material/Directus icon name.
+`Reference` is reserved and is omitted from generic component metadata and insertion.
+
+The document-level integrity check runs after hydration and complete external value replacement, not
+after every keystroke and not from individual node views. It reports malformed references,
+unconfigured collections, unavailable sources, stale snapshots in `detect` mode, and transient
+verification failures. Authors can refresh, replace, or remove affected occurrences. `sync` updates
+only changed `label` and `data` values in the editor; this can mark the Directus field dirty but
+never saves the item automatically. `snapshot` still verifies source availability but skips normal
+snapshot comparison. Relational projections, reverse-document lookup, server-side full-document
+scanning, cascade cleanup, and frontend rendering are outside the V1 contract.

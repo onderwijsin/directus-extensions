@@ -18,9 +18,11 @@ const props = defineProps<{
 	enabledTools?: string[] | null
 	disabled?: boolean
 	fullscreen?: boolean
+	referencesEnabled?: boolean
 }>()
 const emit = defineEmits<{
 	openLink: []
+	openReference: []
 	openImage: []
 	openMedia: []
 	openSource: []
@@ -43,6 +45,9 @@ const specialCommands = computed(() =>
 	resolveCommands(props.commands, editorToolbarConfig.specialCommandIds),
 )
 const linkEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'link'))
+const referenceEnabled = computed(
+	() => props.referencesEnabled && isEditorToolEnabled(props.enabledTools, 'reference'),
+)
 const imageEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'image'))
 const videoEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'video'))
 const componentsEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'component'))
@@ -88,6 +93,10 @@ function isToolDisabled(toolId: string) {
 
 function openLink() {
 	if (!isToolDisabled('link')) emit('openLink')
+}
+
+function openReference() {
+	if (!isToolDisabled('reference')) emit('openReference')
 }
 
 function openImage() {
@@ -173,6 +182,18 @@ function tooltip(command: EditorCommand) {
 				aria-label="Edit link"
 				@click="openLink"
 				><VIcon name="link"
+			/></VButton>
+			<VButton
+				v-if="referenceEnabled"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
+				:disabled="isToolDisabled('reference')"
+				tooltip="Insert reference"
+				aria-label="Insert reference"
+				@click="openReference"
+				><VIcon name="alternate_email"
 			/></VButton>
 			<VButton
 				v-if="imageEnabled"

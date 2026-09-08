@@ -95,6 +95,7 @@ export const editorToolOptions: EditorToolOption[] = [
 	{ text: 'Image', value: 'image', commandIds: [] },
 	{ text: 'Video / media', value: 'video', commandIds: [] },
 	{ text: 'Link insert', value: 'link', commandIds: [] },
+	{ text: 'Reference', value: 'reference', commandIds: [] },
 	{ text: 'Divider', value: 'horizontal-rule', commandIds: ['horizontal-rule'] },
 	{ text: 'Hard break', value: 'hard-break', commandIds: ['hard-break'] },
 	{
@@ -162,6 +163,7 @@ const codeBlockDisabledToolIds = new Set([
 	'insert-table',
 	'link',
 	'ordered-list',
+	'reference',
 	'video',
 ])
 

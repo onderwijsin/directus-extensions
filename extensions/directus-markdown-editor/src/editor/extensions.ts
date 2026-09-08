@@ -8,8 +8,10 @@ import StarterKit from '@tiptap/starter-kit'
 import { MdcBlock, MdcInline, MdcSlot } from '../markdown'
 import { Video } from '../markdown/video'
 import { MarkdownCodeBlock } from './code-block'
+import { isEditorToolEnabled } from './commands'
 import { ClearMarksOnEnter } from './enter'
 import { Placeholder } from './placeholder'
+import { createReferenceTrigger } from './reference-trigger'
 import { createConfiguredShortcutGuard } from './shortcuts'
 import { createSlashExtension } from './slash'
 
@@ -17,6 +19,8 @@ import { createSlashExtension } from './slash'
 export interface EditorExtensionActions {
 	openImage?: () => void
 	openVideo?: () => void
+	openReference?: (position: number) => void
+	canOpenReference?: () => boolean
 }
 
 /**
@@ -53,6 +57,16 @@ export function createEditorExtensions(
 		Placeholder.configure({
 			placeholder: 'Start writing…',
 		}),
+		...(actions.openReference
+			? [
+					createReferenceTrigger(
+						actions.openReference,
+						() =>
+							isEditorToolEnabled(getEnabledTools(), 'reference') &&
+							(actions.canOpenReference?.() ?? true),
+					),
+				]
+			: []),
 		createSlashExtension(getComponents, actions, getEnabledTools),
 		Markdown,
 	]

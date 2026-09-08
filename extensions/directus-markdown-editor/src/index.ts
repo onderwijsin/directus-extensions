@@ -23,7 +23,7 @@ interface MarkdownEditorOption {
 			language?: string
 		}
 	}
-	schema?: { default_value: string[] | boolean }
+	schema?: { default_value: string[] | boolean | string }
 }
 
 /**
@@ -60,6 +60,49 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 				note: 'Use component metadata stored directly in this interface configuration.',
 			},
 			schema: { default_value: false },
+		},
+		{
+			field: 'useReferences',
+			name: 'Use record references',
+			type: 'boolean',
+			meta: {
+				width: 'half',
+				interface: 'checkbox',
+				note: 'Allow authors to insert permission-aware references to configured Directus records.',
+			},
+			schema: { default_value: false },
+		},
+		{
+			field: 'referenceCollections',
+			name: 'Reference collections',
+			type: 'json',
+			required: true,
+			meta: {
+				width: 'full',
+				interface: 'input-code',
+				note: 'JSON array, for example [{"collection":"articles","displayField":"title","searchFields":["title","slug"],"dataFields":["slug"]}].',
+				conditions: [{ rule: { useReferences: { _eq: false } }, hidden: true }],
+				options: { language: 'json' },
+			},
+		},
+		{
+			field: 'referenceSnapshotMode',
+			name: 'Reference snapshot mode',
+			type: 'string',
+			meta: {
+				width: 'full',
+				interface: 'select-dropdown',
+				note: 'Choose whether source snapshots are stored, checked, or synchronized when a document loads.',
+				conditions: [{ rule: { useReferences: { _eq: false } }, hidden: true }],
+				options: {
+					choices: [
+						{ text: 'Snapshot only', value: 'snapshot' },
+						{ text: 'Detect source changes', value: 'detect' },
+						{ text: 'Synchronize on load', value: 'sync' },
+					],
+				},
+			},
+			schema: { default_value: 'detect' },
 		},
 		{
 			field: 'metadataUrl',
