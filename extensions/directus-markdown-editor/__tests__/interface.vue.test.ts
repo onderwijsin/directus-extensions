@@ -1,8 +1,13 @@
 // @vitest-environment happy-dom
+
 import { computed, createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
 
+import { Editor } from '@tiptap/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import EditorTableMenu from '../src/components/EditorTableMenu.vue'
+import { createEditorCommands } from '../src/editor/commands'
+import { createEditorExtensions } from '../src/editor/extensions'
 import { createMarkdownEditorOptions } from '../src/index'
 import MarkdownEditor from '../src/MarkdownEditor.vue'
 
@@ -161,6 +166,7 @@ describe('Markdown editor interface', () => {
 		const { element } = mountEditor()
 		await nextTick()
 		await nextTick()
+		await new Promise((resolve) => window.setTimeout(resolve))
 
 		expect(element.querySelector('[role="textbox"]')?.textContent).toBe('Hello')
 		expect(element.querySelector('[role="toolbar"]')).not.toBeNull()
@@ -174,11 +180,49 @@ describe('Markdown editor interface', () => {
 		).toBe(false)
 		expect(element.querySelector('.editor-toolbar__action-group')).not.toBeNull()
 		expect(element.querySelector('.editor-toolbar__special-group')).not.toBeNull()
-		expect(
-			element
-				.querySelector('.editor-block-controls')
-				?.parentElement?.classList.contains('editor-block-controls-layer'),
-		).toBe(true)
+		const dragHandleLayer = element.querySelector('.editor-block-controls')?.parentElement
+		expect(dragHandleLayer instanceof HTMLElement && dragHandleLayer.style.zIndex).toBe('1')
+	})
+
+	it('keeps table actions mounted while a bubble-menu button receives focus', async () => {
+		const editorHost = document.createElement('div')
+		const menuHost = document.createElement('div')
+		document.body.append(editorHost, menuHost)
+		const editor = new Editor({ element: editorHost, extensions: createEditorExtensions() })
+		const app = createApp(
+			defineComponent({
+				setup: () => () =>
+					h(EditorTableMenu, {
+						editor,
+						commands: createEditorCommands(),
+					}),
+			}),
+		)
+		registerDirectusPrimitives(app)
+
+		try {
+			expect(editor.commands.insertTable({ rows: 2, cols: 2, withHeaderRow: true })).toBe(
+				true,
+			)
+			editor.view.focus()
+			app.mount(menuHost)
+			await nextTick()
+
+			const addRowButton = document.querySelector('[aria-label="Add row below"]')
+			expect(addRowButton).toBeInstanceOf(HTMLButtonElement)
+			if (!(addRowButton instanceof HTMLButtonElement)) return
+			addRowButton.focus()
+			await nextTick()
+
+			expect(addRowButton.isConnected).toBe(true)
+			addRowButton.click()
+			expect(editor.getJSON().content?.[0]?.content).toHaveLength(3)
+		} finally {
+			app.unmount()
+			editor.destroy()
+			editorHost.remove()
+			menuHost.remove()
+		}
 	})
 
 	it('only renders tools enabled by the interface configuration', async () => {

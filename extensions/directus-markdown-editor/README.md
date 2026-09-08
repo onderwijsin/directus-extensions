@@ -46,11 +46,12 @@ leaving the editor.
 
 Hover a block to reveal the polished `+` insert control followed by its drag handle. The adjacent
 block menu supports duplicate, move up, move down, and delete, and its controls remain behind the
-sticky toolbar while scrolling. The table toolbar can delete a table from either a cell selection or
-a selected table node. MDC block and inline views expose their identity and settings while keeping
-their content and named slots editable. Slot structures cannot be removed by backspacing their empty
-content, and pressing Enter in a trailing empty slot paragraph creates and focuses a paragraph
-directly after the component. Activating another editor overlay dismisses the slash menu.
+sticky toolbar while scrolling. The table toolbar preserves its active table selection while running
+row, column, header, merge, split, and delete actions; deletion supports both a cell selection and a
+selected table node. MDC block and inline views expose their identity while keeping their content
+and named slots editable. Slot structures cannot be removed by backspacing their empty content, and
+pressing Enter in a trailing empty slot paragraph creates and focuses a paragraph directly after the
+component. Activating another editor overlay dismisses the slash menu.
 
 Tiptap 3.31.0 and `@tiptap/markdown` are pinned together because the Markdown package is beta.
 Fenced code is highlighted with Shiki's `github-light` and `github-dark` themes and exposes a

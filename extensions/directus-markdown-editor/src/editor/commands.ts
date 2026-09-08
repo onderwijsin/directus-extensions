@@ -41,18 +41,29 @@ export interface EditorToolOption {
 	commandIds: string[]
 }
 
-function hasSelectedTable(editor: Editor) {
+function selectedTableRange(editor: Editor): { from: number; to: number } | null {
 	const selection = editor.state.selection
-	return selection instanceof NodeSelection && selection.node.type.name === 'table'
+	if (selection instanceof NodeSelection && selection.node.type.name === 'table') {
+		return { from: selection.from, to: selection.to }
+	}
+	for (let depth = selection.$from.depth; depth > 0; depth -= 1) {
+		if (selection.$from.node(depth).type.name === 'table') {
+			return { from: selection.$from.before(depth), to: selection.$from.after(depth) }
+		}
+	}
+	return null
 }
 
 function canDeleteTable(editor: Editor) {
-	return hasSelectedTable(editor) || editor.can().deleteTable()
+	return selectedTableRange(editor) !== null
 }
 
 function deleteTable(editor: Editor) {
-	if (hasSelectedTable(editor)) return editor.chain().focus().deleteSelection().run()
-	return editor.chain().focus().deleteTable().run()
+	const range = selectedTableRange(editor)
+	if (!range) return false
+	editor.view.dispatch(editor.state.tr.delete(range.from, range.to).scrollIntoView())
+	editor.view.focus()
+	return true
 }
 
 export const editorTableToolbarConfig: EditorTableToolbarConfig = {

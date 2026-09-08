@@ -454,10 +454,6 @@ watch(
 	border-block-end: 0;
 }
 
-:deep(.editor-block-controls-layer) {
-	z-index: 4 !important;
-}
-
 :deep(.ProseMirror) {
 	min-height: 10rem;
 	padding: 1.125rem;

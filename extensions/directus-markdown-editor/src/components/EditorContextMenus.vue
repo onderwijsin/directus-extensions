@@ -21,10 +21,12 @@ const props = defineProps<{
 const emit = defineEmits<{ openLink: []; openComponents: [] }>()
 const revision = shallowRef(0)
 const hoveredPosition = shallowRef<number | null>(null)
+const insertMenuPosition = shallowRef<number | null>(null)
+const blockMenuPosition = shallowRef<number | null>(null)
 const insertMenuOpen = shallowRef(false)
 const blockMenuOpen = shallowRef(false)
-const dragHandleLayer = shallowRef<HTMLElement | null>(null)
 const topAlignedNodeTypes = new Set(['codeBlock', 'image', 'mdcBlock', 'table', 'video'])
+let dragHandleLayerTimer: number | null = null
 
 const inlineCommands = computed(() =>
 	resolveCommands(props.commands, ['bold', 'italic', 'strike', 'code']),
@@ -51,15 +53,20 @@ function refresh() {
 onMounted(async () => {
 	props.editor.on('transaction', refresh)
 	await nextTick()
-	dragHandleLayer.value =
-		props.editor.view.dom.parentElement?.querySelector<HTMLElement>('.editor-block-controls')
-			?.parentElement ?? null
-	if (dragHandleLayer.value) dragHandleLayer.value.classList.add('editor-block-controls-layer')
+	dragHandleLayerTimer = window.setTimeout(lowerDragHandleLayer)
 })
 onBeforeUnmount(() => {
 	props.editor.off('transaction', refresh)
-	dragHandleLayer.value?.classList.remove('editor-block-controls-layer')
+	if (dragHandleLayerTimer !== null) window.clearTimeout(dragHandleLayerTimer)
 })
+
+function lowerDragHandleLayer() {
+	const layer =
+		props.editor.view.dom.parentElement?.querySelector<HTMLElement>(
+			'.editor-block-controls',
+		)?.parentElement
+	if (layer && layer.style.zIndex !== '1') layer.style.zIndex = '1'
+}
 
 function execute(command: EditorCommand) {
 	if (!props.disabled && !command.isDisabled(props.editor)) command.execute(props.editor)
@@ -74,6 +81,7 @@ function updateDragHandleNode(change: {
 	editor: Pick<Editor, 'state' | 'view'>
 	pos: number
 }) {
+	lowerDragHandleLayer()
 	hoveredPosition.value = change.node ? change.pos : null
 	const rail = change.editor.view.dom
 		.closest('.markdown-editor')
@@ -95,26 +103,29 @@ function updateDragHandleNode(change: {
 	rail.style.transform = `translateY(${(nodeHeight - railHeight) / 2}px)`
 }
 
-function selectHoveredBlock(): boolean {
+function selectBlock(position: number | null): boolean {
 	if (props.disabled || !props.editor.isEditable) return false
-	const position = hoveredPosition.value
 	if (position === null) return false
 	return props.editor.chain().focus().setNodeSelection(position).run()
 }
 
-function handleInsertMenuState(open: boolean) {
+function setInsertMenuState(open: boolean) {
+	insertMenuOpen.value = open
+	if (open) insertMenuPosition.value = hoveredPosition.value
 	props.editor.commands.setMeta('lockDragHandle', open)
-	if (open) selectHoveredBlock()
+	if (open) selectBlock(insertMenuPosition.value)
 }
 
-function handleBlockMenuState(open: boolean) {
+function setBlockMenuState(open: boolean) {
+	blockMenuOpen.value = open
+	if (open) blockMenuPosition.value = hoveredPosition.value
 	props.editor.commands.setMeta('lockDragHandle', open)
-	if (open) selectHoveredBlock()
+	if (open) selectBlock(blockMenuPosition.value)
 }
 
 function prepareInsertionPoint(): boolean {
 	if (props.disabled || !props.editor.isEditable) return false
-	const position = hoveredPosition.value
+	const position = insertMenuPosition.value ?? hoveredPosition.value
 	if (position === null) return false
 	const node = props.editor.state.doc.nodeAt(position)
 	if (!node) return false
@@ -130,24 +141,24 @@ function prepareInsertionPoint(): boolean {
 function insert(command: EditorCommand) {
 	if (!prepareInsertionPoint()) return
 	execute(command)
-	insertMenuOpen.value = false
+	setInsertMenuState(false)
 }
 
 function openComponentInsert() {
 	if (props.disabled || !props.editor.isEditable) return
 	if (!prepareInsertionPoint()) return
-	insertMenuOpen.value = false
+	setInsertMenuState(false)
 	emit('openComponents')
 }
 
 function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
-	const position = hoveredPosition.value
+	const position = blockMenuPosition.value ?? hoveredPosition.value
 	if (position === null || props.disabled) return
 	if (action === 'duplicate') duplicateBlock(props.editor, position)
 	if (action === 'up') moveBlockUp(props.editor, position)
 	if (action === 'down') moveBlockDown(props.editor, position)
 	if (action === 'delete') deleteBlock(props.editor, position)
-	blockMenuOpen.value = false
+	setBlockMenuState(false)
 }
 </script>
 
@@ -215,10 +226,10 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 	>
 		<div class="editor-block-controls__rail">
 			<VMenu
-				v-model="insertMenuOpen"
+				:model-value="insertMenuOpen"
 				placement="bottom-start"
 				show-arrow
-				@update:model-value="handleInsertMenuState"
+				@update:model-value="setInsertMenuState"
 			>
 				<template #activator>
 					<VButton
@@ -229,7 +240,7 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 						aria-label="Insert block"
 						tooltip="Insert block"
 						@mousedown.stop
-						@click.stop="insertMenuOpen = !insertMenuOpen"
+						@click.stop="setInsertMenuState(!insertMenuOpen)"
 						><VIcon name="add"
 					/></VButton>
 				</template>
@@ -254,10 +265,10 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 			</VMenu>
 
 			<VMenu
-				v-model="blockMenuOpen"
+				:model-value="blockMenuOpen"
 				placement="bottom-start"
 				show-arrow
-				@update:model-value="handleBlockMenuState"
+				@update:model-value="setBlockMenuState"
 			>
 				<template #activator>
 					<VButton
@@ -267,7 +278,7 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 						class="editor-block-controls__button editor-block-controls__drag"
 						aria-label="Drag or open block actions"
 						tooltip="Drag or open block actions"
-						@click.stop="blockMenuOpen = !blockMenuOpen"
+						@click.stop="setBlockMenuState(!blockMenuOpen)"
 						><VIcon name="drag_indicator"
 					/></VButton>
 				</template>
@@ -300,6 +311,7 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 
 <style scoped>
 .editor-bubble-menu {
+	z-index: 2;
 	display: flex;
 	gap: 0.125rem;
 	padding: 0.25rem;

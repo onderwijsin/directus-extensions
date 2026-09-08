@@ -32,6 +32,15 @@ function execute(command: EditorCommand) {
 	if (!isDisabled(command)) command.execute(props.editor)
 }
 
+function shouldShow(element: HTMLElement) {
+	const menuHasFocus = element.contains(document.activeElement)
+	return (
+		!props.disabled &&
+		(props.editor.view.hasFocus() || menuHasFocus) &&
+		props.editor.isActive('table')
+	)
+}
+
 onMounted(() => props.editor.on('transaction', refresh))
 onBeforeUnmount(() => props.editor.off('transaction', refresh))
 </script>
@@ -41,10 +50,8 @@ onBeforeUnmount(() => props.editor.off('transaction', refresh))
 		:editor="editor"
 		plugin-key="tableBubbleMenu"
 		class="editor-table-menu"
-		:should-show="
-			({ editor: currentEditor, view }) =>
-				!disabled && view.hasFocus() && currentEditor.isActive('table')
-		"
+		:data-editor-revision="revision"
+		:should-show="({ element }) => shouldShow(element)"
 	>
 		<div
 			v-for="(group, groupIndex) in groups"
@@ -53,7 +60,7 @@ onBeforeUnmount(() => props.editor.off('transaction', refresh))
 		>
 			<VButton
 				v-for="command in group"
-				:key="`${command.id}-${revision}`"
+				:key="command.id"
 				icon
 				small
 				ghost
@@ -74,6 +81,7 @@ onBeforeUnmount(() => props.editor.off('transaction', refresh))
 
 <style scoped>
 .editor-table-menu {
+	z-index: 2;
 	display: flex;
 	align-items: center;
 	gap: 0.125rem;

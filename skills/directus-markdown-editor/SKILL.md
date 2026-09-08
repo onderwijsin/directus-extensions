@@ -66,7 +66,8 @@ there is no bundled fallback component layer.
 Empty named component slots are preserved when backspacing, and exiting a trailing empty slot
 creates and focuses a paragraph directly after the component. Opening another editor overlay closes
 an active slash menu. Inline components open their property drawer directly when clicked. Block
-controls stay behind the sticky toolbar, and the table toolbar deletes both cell-active and
+controls stay behind the sticky toolbar. The table toolbar preserves its table selection while its
+row, column, header, merge, split, and delete actions run; deletion supports both cell-active and
 node-selected tables.
 
 The interface retains an optional **Component metadata URL** configuration for the component UI. It
