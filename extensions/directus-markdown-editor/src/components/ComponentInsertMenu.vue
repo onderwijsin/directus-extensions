@@ -75,14 +75,22 @@ function editComponentFromNodeView(event: Event) {
 	propsDrawerOpen.value = true
 }
 
+function insertComponentFromSlashMenu(event: Event) {
+	if (!(event instanceof CustomEvent) || typeof event.detail?.name !== 'string') return
+	const component = props.components.find((candidate) => candidate.name === event.detail.name)
+	if (component) choose(component)
+}
+
 let editorDom: HTMLElement | undefined
 onMounted(() => {
 	editorDom = props.editor.view.dom
 	editorDom.addEventListener('markdown-editor-edit-component', editComponentFromNodeView)
+	editorDom.addEventListener('markdown-editor-insert-component', insertComponentFromSlashMenu)
 })
-onBeforeUnmount(() =>
-	editorDom?.removeEventListener('markdown-editor-edit-component', editComponentFromNodeView),
-)
+onBeforeUnmount(() => {
+	editorDom?.removeEventListener('markdown-editor-edit-component', editComponentFromNodeView)
+	editorDom?.removeEventListener('markdown-editor-insert-component', insertComponentFromSlashMenu)
+})
 
 watch(
 	() => [props.disabled, props.insertionEnabled],

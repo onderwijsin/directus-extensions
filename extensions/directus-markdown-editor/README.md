@@ -97,8 +97,14 @@ A component metadata object has this shape:
 ```
 
 `nodeType` is required and accepts `"block"` or `"inline"`. It controls whether newly inserted
-components use block (`::Component`) or inline (`:Component`) MDC syntax independently of their
-slots. Existing Markdown keeps its parsed node type when metadata changes or properties are edited.
+components without slots use block (`::Component`) or inline (`:Component`) MDC syntax. Components
+with slots always insert as blocks so their content regions remain editable. Existing Markdown keeps
+its parsed node type when metadata changes or properties are edited.
+
+Slash-menu insertion opens the props drawer when required values still need author input. Otherwise,
+declared prop defaults are applied immediately. Empty inline components serialize with an empty
+attribute delimiter (for example, `:Icon{}`), preventing adjacent text from becoming part of the
+component name.
 
 For example, the equivalent static option value can wrap the same component in a `components` array:
 

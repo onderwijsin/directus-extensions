@@ -104,10 +104,14 @@ Project metadata is validated at the browser boundary. For example:
 }
 ```
 
-`nodeType` is an insertion hint: `inline` creates `:Component` and `block` creates `::Component`. It
-is independent from `slots`; an inline component may expose slots and a block component may have
-none. Metadata changes affect future insertion only. Existing parsed components and property edits
-preserve their current inline or block representation.
+`nodeType` is an insertion hint: `inline` creates `:Component` and `block` creates `::Component`
+when the component has no slots. Components with slots always insert as blocks so their content
+regions remain editable. Metadata changes affect future insertion only. Existing parsed components
+and property edits preserve their current inline or block representation.
+
+Slash-menu insertion opens the props drawer when required values still need author input; otherwise
+it applies declared prop defaults immediately. Empty inline components serialize with an explicit
+empty attribute delimiter such as `:Icon{}` so adjacent text cannot be parsed as part of the name.
 
 Source mode blocks lossy normalization until explicitly accepted. Image URLs accept HTTP(S),
 relative paths, and Directus `/assets/{id}` paths; unsafe executable/data protocols are rejected.

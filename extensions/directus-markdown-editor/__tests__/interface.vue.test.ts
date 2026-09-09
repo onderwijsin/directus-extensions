@@ -479,6 +479,53 @@ describe('Markdown editor interface', () => {
 		expect(element.textContent).toContain('Callout')
 	})
 
+	it('opens required prop collection for a component selected through the slash flow', async () => {
+		const { element } = mountEditor('# Hello', false, undefined, {
+			useStaticComponentMeta: true,
+			staticComponentMeta: [
+				{
+					name: 'Icon',
+					nodeType: 'inline',
+					props: {
+						name: { type: 'string', required: true },
+						mode: { type: 'string', default: 'svg' },
+					},
+					slots: [],
+				},
+			],
+		})
+		await Promise.resolve()
+		await nextTick()
+		await nextTick()
+
+		element.querySelector('[role="textbox"]')?.dispatchEvent(
+			new CustomEvent('markdown-editor-insert-component', {
+				detail: { name: 'Icon' },
+			}),
+		)
+		await nextTick()
+
+		expect(element.textContent).toContain('Complete the required fields: name.')
+		expect(element.textContent).toContain('Insert')
+	})
+
+	it.each(['::Button\n::', '::Button{tone="primary"}\n::'])(
+		'does not render an empty content container for a slotless block component',
+		async (markdown) => {
+			const { element } = mountEditor(markdown)
+			await nextTick()
+			await nextTick()
+
+			expect(element.querySelector('.mdc-block')).not.toBeNull()
+			expect(element.querySelector('.mdc-block__content')).toBeNull()
+			if (markdown.includes('tone')) {
+				expect(element.querySelector('.mdc-block__props')?.textContent).toContain(
+					'tone="primary"',
+				)
+			}
+		},
+	)
+
 	it('resolves static component metadata from nested interface options', async () => {
 		const { element } = mountEditor('# Hello', false, undefined, {
 			options: {

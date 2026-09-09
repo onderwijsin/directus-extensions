@@ -44,6 +44,26 @@ describe('generic MDC Markdown boundary', () => {
 		expect(markdown.serialize(json)).toBe('Status :icon{name="check"} confirmed.')
 	})
 
+	it('delimits an empty inline component from adjacent identifier text', () => {
+		const markdown = manager()
+		const document = {
+			type: 'doc',
+			content: [
+				{
+					type: 'paragraph',
+					content: [
+						{ type: 'mdcInline', attrs: { name: 'Icon', props: {} } },
+						{ type: 'text', text: 'a' },
+					],
+				},
+			],
+		}
+		const output = markdown.serialize(document)
+
+		expect(output).toBe(':Icon{}a')
+		expect(markdown.parse(output)).toMatchObject(document)
+	})
+
 	it('round-trips escaped strings and typed dynamic properties', () => {
 		const properties = {
 			title: 'He said "hello" beside a \\ and a } brace.\nThen left.',

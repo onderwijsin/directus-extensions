@@ -367,6 +367,6 @@ export const MdcInline = Node.create({
 	 * @returns Callback result.
 	 */ (node: MdcNode) => {
 		const name = typeof node.attrs?.name === 'string' ? node.attrs.name : 'unknown'
-		return `:${name}${serializeMdcAttributes(node.attrs?.props)}`
+		return `:${name}${serializeMdcAttributes(node.attrs?.props) || '{}'}`
 	},
 })

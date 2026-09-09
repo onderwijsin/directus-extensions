@@ -14,11 +14,12 @@ import {
 	resolveCommands,
 	slashMenuGroups,
 } from './commands'
-import { insertComponent } from './insertion'
+import { componentRequiresProps, insertComponent, resolveComponentDefaultProps } from './insertion'
 
 export interface SlashMenuActions {
 	openImage?: () => void
 	openVideo?: () => void
+	openComponent?: (component: ComponentMetadata) => void
 }
 
 export interface SlashItem {
@@ -63,7 +64,17 @@ export function createSlashItems(
 				icon: 'widgets',
 				group: 'Components',
 				aliases: [component.name, 'component', 'mdc', 'block'],
-				command: (editor: Editor) => insertComponent(editor, component),
+				command: (editor: Editor) => {
+					if (componentRequiresProps(component)) {
+						actions.openComponent?.(component)
+						return Boolean(actions.openComponent)
+					}
+					return insertComponent(
+						editor,
+						component,
+						resolveComponentDefaultProps(component),
+					)
+				},
 			}))
 		: []
 	const mediaItems: SlashItem[] = [

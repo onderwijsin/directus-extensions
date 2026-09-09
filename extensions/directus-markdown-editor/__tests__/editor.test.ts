@@ -19,7 +19,13 @@ import {
 import { ClearMarksOnEnter } from '../src/editor/enter'
 import { createEditorExtensions } from '../src/editor/extensions'
 import { isSupportedCodeLanguage } from '../src/editor/highlighter'
-import { insertComponent, resolveComponentNodeType, updateComponent } from '../src/editor/insertion'
+import {
+	componentRequiresProps,
+	insertComponent,
+	resolveComponentDefaultProps,
+	resolveComponentNodeType,
+	updateComponent,
+} from '../src/editor/insertion'
 import { createLinkShortcut, readLinkSelection, saveLinkSelection } from '../src/editor/link'
 import { directusAssetUrl, sanitizeImageUrl } from '../src/editor/media'
 import { createSlashItems, filterSlashItems } from '../src/editor/slash'
@@ -538,10 +544,10 @@ describe('editor commands', () => {
 
 	it.each([
 		{
-			label: 'inline metadata with slots',
+			label: 'inline metadata with slots forced to block',
 			nodeType: 'inline' as const,
 			slots: ['title'],
-			expectedNodeType: 'mdcInline',
+			expectedNodeType: 'mdcBlock',
 		},
 		{
 			label: 'block metadata without slots',
@@ -571,6 +577,43 @@ describe('editor commands', () => {
 				: document.content?.find((node) => node.type === 'mdcBlock')
 		expect(inserted).toMatchObject({ type: expectedNodeType, attrs: { name: 'Component' } })
 		editor.destroy()
+	})
+
+	it('adds a typing separator after a newly inserted inline component', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+		})
+
+		insertComponent(editor, {
+			name: 'Icon',
+			label: 'Icon',
+			nodeType: 'inline',
+			props: {},
+			slots: [],
+		})
+
+		expect(editor.getJSON().content?.[0]?.content).toMatchObject([
+			{ type: 'mdcInline', attrs: { name: 'Icon' } },
+			{ type: 'text', text: ' ' },
+		])
+		editor.destroy()
+	})
+
+	it('resolves explicit defaults and required prop collection for slash insertion', () => {
+		const component = {
+			name: 'Icon',
+			label: 'Icon',
+			nodeType: 'inline' as const,
+			props: {
+				name: { type: 'string', required: true },
+				mode: { type: 'string', default: 'svg' },
+				size: { type: 'string' },
+			},
+			slots: [],
+		}
+
+		expect(componentRequiresProps(component)).toBe(true)
+		expect(resolveComponentDefaultProps(component)).toEqual({ mode: 'svg' })
 	})
 
 	it.each([
@@ -611,6 +654,50 @@ describe('editor commands', () => {
 			editor.destroy()
 		},
 	)
+
+	it('opens prop collection instead of inserting a slash component with missing required props', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+		})
+		const openComponent = vi.fn()
+		const component = {
+			name: 'Icon',
+			label: 'Icon',
+			nodeType: 'inline' as const,
+			props: { name: { type: 'string', required: true }, mode: { default: 'svg' } },
+			slots: [],
+		}
+		const item = createSlashItems([component], { openComponent }).find(
+			(item) => item.id === 'component:Icon',
+		)
+
+		expect(item?.command(editor)).toBe(true)
+		expect(openComponent).toHaveBeenCalledWith(component)
+		expect(editor.getJSON().content).toEqual([{ type: 'paragraph' }])
+		editor.destroy()
+	})
+
+	it('applies component defaults during direct slash insertion', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+		})
+		const item = createSlashItems([
+			{
+				name: 'Icon',
+				label: 'Icon',
+				nodeType: 'inline',
+				props: { mode: { default: 'svg' } },
+				slots: [],
+			},
+		]).find((item) => item.id === 'component:Icon')
+
+		expect(item?.command(editor)).toBe(true)
+		expect(editor.getJSON().content?.[0]?.content?.[0]).toMatchObject({
+			type: 'mdcInline',
+			attrs: { name: 'Icon', props: { mode: 'svg' } },
+		})
+		editor.destroy()
+	})
 
 	it.each([
 		{ nodeType: 'inline' as const, expectedNodeType: 'mdcInline' },

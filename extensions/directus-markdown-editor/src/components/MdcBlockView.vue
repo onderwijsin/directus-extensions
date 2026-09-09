@@ -110,7 +110,7 @@ function deleteComponent() {
 				>{{ name }}={{ JSON.stringify(value) }}</code
 			>
 		</div>
-		<NodeViewContent class="mdc-block__content" />
+		<NodeViewContent v-if="props.node.content.size > 0" class="mdc-block__content" />
 	</NodeViewWrapper>
 </template>
 
@@ -170,7 +170,7 @@ function deleteComponent() {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.375rem;
-	padding: 0.5rem 0.75rem 0;
+	padding: 0.5rem 0.75rem;
 }
 .mdc-block__props code {
 	padding: 0.125rem 0.375rem;

@@ -197,6 +197,20 @@ function openComponentInsert() {
 }
 
 /**
+ * Open component prop collection from a slash-menu insertion.
+ * @param component Component selected from the slash menu.
+ * @returns Nothing.
+ */
+function openComponentFromSlash(component: { name: string }) {
+	if (!editor.value) return
+	editor.value.view.dom.dispatchEvent(
+		new CustomEvent('markdown-editor-insert-component', {
+			detail: { name: component.name },
+		}),
+	)
+}
+
+/**
  * Toggle the editor's viewport-filling mode.
  * @returns Nothing.
  */
@@ -267,6 +281,7 @@ const extensions = createEditorExtensions(
 	{
 		openImage: openImageDrawer,
 		openVideo: openVideoDrawer,
+		openComponent: openComponentFromSlash,
 		...(referencesEnabled.value
 			? { openReference: openReferenceFromTrigger, canOpenReference: canInteract }
 			: {}),

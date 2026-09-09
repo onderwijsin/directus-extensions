@@ -19,6 +19,7 @@ import { createSlashExtension } from './slash'
 export interface EditorExtensionActions {
 	openImage?: () => void
 	openVideo?: () => void
+	openComponent?: (component: ComponentMetadata) => void
 	openReference?: (position: number) => void
 	canOpenReference?: () => boolean
 }
