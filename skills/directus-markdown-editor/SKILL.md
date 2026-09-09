@@ -178,7 +178,10 @@ archived items from insertion and replacement search, and reports a readable exi
 removal but no refresh, and `sync` leaves their stored label and data untouched. Archive detection
 runs in every snapshot mode and is separate from snapshot freshness. Collections without Directus
 archive metadata continue normally; an unknown configured archive field produces a non-fatal
-warning. A permission-hidden archived item is **Unavailable**, not guessed to be archived.
+warning. A permission-hidden archived item is **Unavailable**, not guessed to be archived. Inline
+archived References use warning styling, while unavailable References use error styling. In the
+integrity report, every status chip provides its explanation as a tooltip rather than persistent row
+text.
 
 The editor scans once after document hydration and after a complete external Markdown replacement.
 It de-duplicates source resolution while retaining occurrence-specific repair actions:

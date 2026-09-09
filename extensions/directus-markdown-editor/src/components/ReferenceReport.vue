@@ -21,6 +21,28 @@ function statusLabel(state: ReferenceOccurrence['state']) {
 	return 'Invalid'
 }
 
+function statusDescription(state: ReferenceOccurrence['state']) {
+	if (state === 'archived') return 'This referenced item has been archived in Directus.'
+	if (state === 'not_available') {
+		return 'This item may have been removed or you may no longer have access to it.'
+	}
+	if (state === 'verification_error') {
+		return 'The referenced item could not be verified. Check your connection and try again.'
+	}
+	if (state === 'unconfigured') {
+		return 'This reference belongs to a collection that is not configured for this field.'
+	}
+	if (state === 'outdated') {
+		return 'The referenced item has changed since your last edit and can be refreshed.'
+	}
+	if (state === 'malformed') return 'This reference contains invalid source data.'
+	return 'This reference is valid.'
+}
+
+function statusTooltipId(occurrence: ReferenceOccurrence) {
+	return `reference-status-${occurrence.key.replaceAll(/[^a-zA-Z0-9_-]/gu, '-')}`
+}
+
 function statusClass(state: ReferenceOccurrence['state']) {
 	return {
 		'reference-report__status--warning': state === 'outdated' || state === 'archived',
@@ -89,20 +111,21 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 									</td>
 									<td>{{ occurrenceCollection(occurrence) }}</td>
 									<td>
-										<VChip
-											x-small
-											class="reference-report__status"
-											:class="statusClass(occurrence.state)"
-											>{{ statusLabel(occurrence.state) }}</VChip
-										>
-										<small v-if="occurrence.state === 'not_available'"
-											>This item may have been removed or you may no longer
-											have access to it.</small
-										>
-										<small v-if="occurrence.state === 'archived'"
-											>This referenced item has been archived in
-											Directus.</small
-										>
+										<span class="reference-report__status-tooltip" tabindex="0">
+											<VChip
+												x-small
+												class="reference-report__status"
+												:class="statusClass(occurrence.state)"
+												:aria-describedby="statusTooltipId(occurrence)"
+												>{{ statusLabel(occurrence.state) }}</VChip
+											>
+											<span
+												:id="statusTooltipId(occurrence)"
+												class="reference-report__status-hint"
+												role="tooltip"
+												>{{ statusDescription(occurrence.state) }}</span
+											>
+										</span>
 									</td>
 									<td>
 										<div class="reference-report__actions">
@@ -248,6 +271,40 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 	font-size: 0.6875rem;
 	font-weight: 600;
 }
+.reference-report__status-tooltip {
+	position: relative;
+	display: inline-flex;
+	outline: none;
+}
+.reference-report__status-hint {
+	position: absolute;
+	z-index: 1;
+	inset-block-end: calc(100% + 0.375rem);
+	inset-inline-start: 50%;
+	width: max-content;
+	max-width: min(20rem, 70vw);
+	padding: 0.375rem 0.5rem;
+	border-radius: var(--theme--border-radius, 0.25rem);
+	background: var(--theme--foreground, #263238);
+	color: var(--theme--background, #fff);
+	font-size: 0.75rem;
+	font-weight: 400;
+	line-height: 1.4;
+	pointer-events: none;
+	opacity: 0;
+	visibility: hidden;
+	transform: translate(-50%, 0.125rem);
+	transition:
+		opacity 100ms ease,
+		transform 100ms ease,
+		visibility 100ms ease;
+}
+.reference-report__status-tooltip:hover .reference-report__status-hint,
+.reference-report__status-tooltip:focus-visible .reference-report__status-hint {
+	opacity: 1;
+	visibility: visible;
+	transform: translate(-50%, 0);
+}
 .reference-report__status--warning {
 	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 18%, transparent);
 	color: var(--theme--warning-foreground, #7a5b00);
@@ -255,11 +312,6 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 .reference-report__status--danger {
 	background: color-mix(in srgb, var(--theme--danger, #cc3a3a) 12%, transparent);
 	color: var(--theme--danger, #cc3a3a);
-}
-.reference-report__table small {
-	display: block;
-	max-width: 30rem;
-	color: var(--theme--foreground-subdued, #8b98a5);
 }
 .reference-report__actions {
 	display: flex;

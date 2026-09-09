@@ -1,7 +1,9 @@
 <script setup lang="ts">
+/* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
+import type { ReferenceIntegrityState } from '../reference/editor'
+
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
-/* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
 import { NodeViewWrapper } from '@tiptap/vue-3'
 
 import { useEditorEditable } from '../composables/useEditorEditable'
@@ -11,21 +13,26 @@ import { mdcNodeViewProps } from './mdcNodeViewProps'
 
 const props = defineProps(mdcNodeViewProps)
 const editable = useEditorEditable(props.editor)
-const referenceArchived = shallowRef(false)
+const referenceProblemState = shallowRef<ReferenceIntegrityState>()
+
+function setReferenceProblemState(value: unknown) {
+	referenceProblemState.value =
+		value === 'archived' || value === 'not_available' ? value : undefined
+}
 
 function updateReferenceIntegrity(event: Event) {
 	if (!(event instanceof CustomEvent) || !(event.detail instanceof Map)) return
 	if (typeof props.getPos !== 'function') return
 	const position = props.getPos()
 	if (typeof position !== 'number') return
-	referenceArchived.value = event.detail.get(position) === 'archived'
+	setReferenceProblemState(event.detail.get(position))
 }
 
 onMounted(() => {
 	if (typeof props.getPos === 'function') {
 		const position = props.getPos()
 		if (typeof position === 'number') {
-			referenceArchived.value = getEditorReferenceState(props.editor, position) === 'archived'
+			setReferenceProblemState(getEditorReferenceState(props.editor, position))
 		}
 	}
 	props.editor.view.dom.addEventListener(
@@ -76,7 +83,8 @@ const reference = computed(() =>
 			:class="{
 				'mdc-inline__button--reference': reference?.success,
 				'mdc-inline__button--invalid': reference && !reference.success,
-				'mdc-inline__button--archived': referenceArchived,
+				'mdc-inline__button--archived': referenceProblemState === 'archived',
+				'mdc-inline__button--unavailable': referenceProblemState === 'not_available',
 			}"
 			:disabled="!editable"
 			:aria-label="
@@ -85,20 +93,24 @@ const reference = computed(() =>
 					: `Configure ${props.node.attrs.name} component`
 			"
 			:title="
-				referenceArchived
+				referenceProblemState === 'archived'
 					? 'Referenced item is archived'
-					: reference?.success
-						? `${reference.data.collection} · ${reference.data.item}`
-						: undefined
+					: referenceProblemState === 'not_available'
+						? 'Referenced item is unavailable'
+						: reference?.success
+							? `${reference.data.collection} · ${reference.data.item}`
+							: undefined
 			"
 			@click="editComponent"
 		>
 			<VIcon
 				:name="
 					reference?.success
-						? referenceArchived
+						? referenceProblemState === 'archived'
 							? 'archive'
-							: reference.data.icon || 'alternate_email'
+							: referenceProblemState === 'not_available'
+								? 'error'
+								: reference.data.icon || 'alternate_email'
 						: reference
 							? 'warning'
 							: 'widgets'
@@ -143,6 +155,11 @@ const reference = computed(() =>
 	border-color: var(--theme--warning, #f2c94c);
 	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 12%, transparent);
 	color: var(--theme--warning-foreground, #7a5b00);
+}
+.mdc-inline__button--unavailable {
+	border-color: var(--theme--danger, #cc3a3a);
+	background: color-mix(in srgb, var(--theme--danger, #cc3a3a) 12%, transparent);
+	color: var(--theme--danger, #cc3a3a);
 }
 .mdc-inline__button:disabled {
 	cursor: not-allowed;

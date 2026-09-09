@@ -177,6 +177,10 @@ archive detection, while collection metadata that names an unknown archive field
 non-fatal configuration warning. Items hidden by permissions remain **Unavailable** because the
 editor cannot infer their archive state.
 
+Archived Reference atoms use a warning treatment, while unavailable atoms use the error treatment.
+The integrity report keeps its status rows compact and exposes a descriptive hint for every status
+through the status chip tooltip.
+
 References persist as ordinary inline MDC and continue to use the generic MDC parser and renderer:
 
 ```md

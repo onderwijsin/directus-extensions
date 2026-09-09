@@ -466,10 +466,44 @@ describe('Reference interface', () => {
 			],
 		})
 		expect(report.querySelector('.reference-report__status')?.textContent).toBe('Archived')
-		expect(report.textContent).toContain('archived in Directus')
+		expect(report.querySelector('[role="tooltip"]')?.textContent).toContain(
+			'archived in Directus',
+		)
 		expect(report.querySelector('[aria-label="Refresh reference"]')).toBeNull()
 		expect(report.querySelector('[aria-label="Replace reference"]')).not.toBeNull()
 		expect(report.querySelector('[aria-label="Remove reference"]')).not.toBeNull()
+	})
+
+	it.each([
+		['outdated', 'changed since your last edit'],
+		['archived', 'archived in Directus'],
+		['not_available', 'removed or you may no longer have access'],
+		['verification_error', 'could not be verified'],
+		['unconfigured', 'not configured for this field'],
+		['malformed', 'invalid source data'],
+	] as const)('provides the %s report hint as a tooltip', (state, hint) => {
+		const reference = { collection: 'articles', item: 7, label: 'Article', data: {} }
+		const report = mount(ReferenceReport, {
+			modelValue: true,
+			occurrences: [
+				{
+					key: '1:0',
+					position: 1,
+					rawProps: reference,
+					reference,
+					state,
+					sourceState: state === 'archived' ? 'archived' : 'available',
+					snapshotState: state === 'outdated' ? 'outdated' : 'unchecked',
+				},
+			],
+		})
+		const chip = report.querySelector('.reference-report__status')
+		const tooltip = report.querySelector('[role="tooltip"]')
+		expect(tooltip?.textContent).toContain(hint)
+		expect(chip?.getAttribute('aria-describedby')).toBe(tooltip?.id)
+		expect(
+			report.querySelector('.reference-report__status-tooltip')?.getAttribute('tabindex'),
+		).toBe('0')
 	})
 
 	it('replaces a stale reference through the picker and returns to report success', async () => {
