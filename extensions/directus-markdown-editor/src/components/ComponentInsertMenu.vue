@@ -5,7 +5,7 @@ import type { ComponentMetadata } from '../component-meta/schema'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
-import { fromEntries, isRecord, isString, keys } from '@onderwijsin/directus-extension-utils'
+import { fromEntries, isRecord, isString } from '@onderwijsin/directus-extension-utils'
 import { exitSuggestion } from '@tiptap/suggestion'
 
 import { resolveComponentNodeType } from '../editor/insertion'
@@ -63,7 +63,7 @@ function editComponentFromNodeView(event: Event) {
 		nodeType: event.detail.nodeType === 'mdcInline' ? 'inline' : 'block',
 		description:
 			'This component is not present in the configured metadata. Existing properties are preserved.',
-		props: fromEntries(keys(rawProps).map((name) => [name, { name, type: 'string' }])),
+		props: fromEntries(Object.keys(rawProps).map((name) => [name, { name, type: 'string' }])),
 		slots: [],
 	}
 	selected.value = component

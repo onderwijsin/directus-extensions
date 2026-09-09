@@ -5,7 +5,7 @@ import type { ComponentMetadata } from '../component-meta/schema'
 // Metadata has already crossed the Zod boundary before it reaches this form.
 import { computed, reactive, watch } from 'vue'
 
-import { isRecord, isString, keys, toEntries } from '@onderwijsin/directus-extension-utils'
+import { isString, keys, toEntries } from '@onderwijsin/directus-extension-utils'
 
 import { insertComponent, updateComponent } from '../editor/insertion'
 
@@ -49,12 +49,7 @@ function resetForm(component: ComponentMetadata | null) {
 }
 
 watch(
-	/**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */
-	() => [open.value, props.component],
-
+	[open, () => props.component],
 	/**
 	 * Editor callback.
 	 * @param values Parameter value.
@@ -62,7 +57,7 @@ watch(
 	 */
 	(values) => {
 		const [isOpen, component] = values
-		if (isOpen === true && component && isRecord(component)) resetForm(component)
+		if (isOpen && component) resetForm(component)
 	},
 )
 
