@@ -62,8 +62,9 @@ supported grammars used by the current document.
 
 Slash commands can be found by their display label or alternate names (`text`, `h1`–`h6`, `ul`,
 `ol`, `quote`, `separator`, `line break`, `grid`, and similar terms). They support Arrow Up/Down,
-Home, End, Enter, and Escape. The UI uses Directus Studio's globally registered primitives directly;
-there is no bundled fallback component layer.
+Home, End, Enter, and Escape, and the menu flips above the cursor when the viewport lacks room
+below. The UI uses Directus Studio's globally registered primitives directly; there is no bundled
+fallback component layer.
 
 Empty named component slots are preserved when backspacing, and exiting a trailing empty slot
 creates and focuses a paragraph directly after the component. Opening another editor overlay closes
@@ -181,8 +182,9 @@ It de-duplicates source resolution while retaining occurrence-specific repair ac
   field dirty, but it never calls the item update API or saves automatically.
 
 Malformed external Reference nodes remain generic selectable MDC atoms instead of being discarded.
-The integrity report presents affected items in a table and can replace or remove malformed,
-unconfigured, and unavailable occurrences; transient verification errors offer retry only. It
-retains a success state after the last issue is resolved and is suppressed entirely when Directus
-renders a comparison view. The extension does not provide frontend rendering, relational projection,
-reverse indexing, Directus update/delete hooks, cascade cleanup, or a server-side document scanner.
+The integrity report presents affected items in a responsive, status-coded table and can replace or
+remove malformed, unconfigured, and unavailable occurrences; transient verification errors offer
+retry only. It retains a success state after the last issue is resolved and is suppressed entirely
+when Directus renders a comparison view. The extension does not provide frontend rendering,
+relational projection, reverse indexing, Directus update/delete hooks, cascade cleanup, or a
+server-side document scanner.

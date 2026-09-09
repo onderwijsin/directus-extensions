@@ -45,7 +45,8 @@ slash-menu, context-menu, insertion visibility, and native keyboard shortcuts de
 selection. The **Full screen** action can also be enabled or disabled per field. Hiding component
 insertion does not disable the settings controls of components already stored in the field.
 
-Type `/` at the start of a block to search grouped commands and configured MDC components. Every
+Type `/` at the start of a block to search grouped commands and configured MDC components. The menu
+automatically opens above the cursor when there is not enough viewport space below it. Every
 built-in command includes alternate search names, such as `text`, `h1`, `quote`, `ul`, `ol`,
 `separator`, `line break`, and `grid`. Use Arrow Up/Down, Home, End, Enter, and Escape without
 leaving the editor.
@@ -182,11 +183,12 @@ frontend MDC component should render `text ?? label` and may use the Material/Di
 The document-level integrity check runs after hydration and complete external value replacement, not
 after every keystroke and not from individual node views. It reports malformed references,
 unconfigured collections, unavailable sources, stale snapshots in `detect` mode, and transient
-verification failures in a table with row-level actions. Authors can refresh, replace, or remove
-affected occurrences; resolving the last issue leaves a success state that must be closed before
-editing continues. Integrity checks are not mounted for Directus comparison views, so a published
-side containing an old snapshot cannot interrupt the pre-publish diff. `sync` updates only changed
-`label` and `data` values in the editor; this can mark the Directus field dirty but never saves the
-item automatically. `snapshot` still verifies source availability but skips normal snapshot
-comparison. Relational projections, reverse-document lookup, server-side full-document scanning,
-cascade cleanup, and frontend rendering are outside the V1 contract.
+verification failures in a responsive, status-coded table with row-level actions. Authors can
+refresh, replace, or remove affected occurrences; resolving the last issue leaves a success state
+that must be closed before editing continues. Integrity checks are not mounted for Directus
+comparison views, so a published side containing an old snapshot cannot interrupt the pre-publish
+diff. `sync` updates only changed `label` and `data` values in the editor; this can mark the
+Directus field dirty but never saves the item automatically. `snapshot` still verifies source
+availability but skips normal snapshot comparison. Relational projections, reverse-document lookup,
+server-side full-document scanning, cascade cleanup, and frontend rendering are outside the V1
+contract.

@@ -7,6 +7,7 @@ import type { EditorCommand } from '../editor/commands'
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
 import { DragHandle } from '@tiptap/extension-drag-handle-vue-3'
+import { TextSelection } from '@tiptap/pm/state'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 
 import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp } from '../editor/block'
@@ -184,6 +185,7 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 				!blockMenuOpen &&
 				!currentEditor.isActive('table') &&
 				!currentEditor.isActive('codeBlock') &&
+				state.selection instanceof TextSelection &&
 				!state.selection.empty
 		"
 	>

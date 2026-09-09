@@ -34,6 +34,11 @@ vi.mock('@directus/extensions-sdk', () => ({
 	}),
 }))
 
+vi.mock('@tiptap/extension-drag-handle-vue-3', async () => {
+	const { defineComponent } = await import('vue')
+	return { DragHandle: defineComponent({ template: '<div><slot /></div>' }) }
+})
+
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement }[] = []
 const editors: Editor[] = []
 
@@ -100,7 +105,6 @@ function registerPrimitives(app: ReturnType<typeof createApp>) {
 				'<div><slot name="activator" :toggle="toggle" /><div v-if="active"><slot /></div></div>',
 		}),
 	)
-	app.component('DragHandle', defineComponent({ template: '<div><slot /></div>' }))
 }
 
 function mount(component: Parameters<typeof h>[0], props: Record<string, unknown>) {
@@ -257,6 +261,10 @@ describe('Reference interface', () => {
 		expect(table.querySelector('[aria-label="Refresh reference"]')).not.toBeNull()
 		expect(table.querySelector('[aria-label="Replace reference"]')).not.toBeNull()
 		expect(table.querySelector('[aria-label="Remove reference"]')).not.toBeNull()
+		expect(table.querySelector('.reference-report__status')?.textContent).toBe(
+			'Snapshot outdated',
+		)
+		expect(table.querySelector('.reference-report__status--warning')).not.toBeNull()
 
 		const success = mount(ReferenceReport, { modelValue: true, occurrences: [] })
 		expect(success.querySelector('[role="status"]')?.textContent).toContain(

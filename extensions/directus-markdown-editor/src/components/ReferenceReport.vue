@@ -20,6 +20,13 @@ function statusLabel(state: ReferenceOccurrence['state']) {
 	return 'Malformed reference'
 }
 
+function statusClass(state: ReferenceOccurrence['state']) {
+	return {
+		'reference-report__status--warning': state === 'outdated',
+		'reference-report__status--danger': state !== 'outdated',
+	}
+}
+
 function rawProperty(
 	occurrence: ReferenceOccurrence,
 	property: string,
@@ -73,7 +80,12 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 									</td>
 									<td>{{ occurrenceCollection(occurrence) }}</td>
 									<td>
-										<span>{{ statusLabel(occurrence.state) }}</span>
+										<VChip
+											x-small
+											class="reference-report__status"
+											:class="statusClass(occurrence.state)"
+											>{{ statusLabel(occurrence.state) }}</VChip
+										>
 										<small v-if="occurrence.state === 'not_available'"
 											>This item may have been removed or you may no longer
 											have access to it.</small
@@ -152,7 +164,12 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 
 <style scoped>
 .reference-report {
-	width: min(64rem, calc(100vw - 2rem));
+	width: calc(100vw - 2rem);
+}
+@media (min-width: 769px) {
+	.reference-report {
+		width: 75vw;
+	}
 }
 .reference-report__attention > p {
 	margin-block: 0 1rem;
@@ -183,6 +200,21 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 	text-align: end;
 	white-space: nowrap;
 }
+.reference-report__table td {
+	font-size: 0.75rem;
+}
+.reference-report__status {
+	font-size: 0.6875rem;
+	font-weight: 600;
+}
+.reference-report__status--warning {
+	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 18%, transparent);
+	color: var(--theme--warning-foreground, #7a5b00);
+}
+.reference-report__status--danger {
+	background: color-mix(in srgb, var(--theme--danger, #cc3a3a) 12%, transparent);
+	color: var(--theme--danger, #cc3a3a);
+}
 .reference-report__table small {
 	display: block;
 	max-width: 30rem;
@@ -196,8 +228,10 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 }
 .reference-report__success {
 	display: grid;
+	align-content: center;
 	place-items: center;
-	gap: 0.5rem;
+	column-gap: 0.5rem;
+	row-gap: 0.125rem;
 	min-height: 16rem;
 	padding: 2rem;
 	text-align: center;
@@ -208,6 +242,9 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 .reference-report__success p {
 	margin: 0;
 	color: var(--theme--foreground-subdued, #8b98a5);
+}
+.reference-report__success :deep(.v-icon) + strong {
+	margin-block-start: 0.375rem;
 }
 .visually-hidden {
 	position: absolute;

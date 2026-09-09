@@ -114,17 +114,6 @@ export function filterSlashItems(items: SlashItem[], query: string): SlashItem[]
 	})
 }
 
-function positionRenderer(renderer: VueRenderer, clientRect?: (() => DOMRect | null) | null) {
-	const element = renderer.element
-	const rect = clientRect?.()
-	if (!(element instanceof HTMLElement) || !rect) return
-	const parentRect = element.offsetParent?.getBoundingClientRect()
-	element.style.position = 'absolute'
-	element.style.left = `${rect.left - (parentRect?.left ?? 0) + (element.offsetParent?.scrollLeft ?? window.scrollX)}px`
-	element.style.top = `${rect.bottom - (parentRect?.top ?? 0) + (element.offsetParent?.scrollTop ?? window.scrollY) + 6}px`
-	element.style.zIndex = '1000'
-}
-
 interface SlashMenuRenderer {
 	onKeyDown: (event: KeyboardEvent) => boolean
 }
@@ -159,6 +148,9 @@ export function createSlashExtension(
 					char: '/',
 					allowSpaces: true,
 					startOfLine: true,
+					placement: 'bottom-start',
+					offset: { mainAxis: 6 },
+					flip: true,
 					allow: ({ state, range }) =>
 						state.doc.resolve(range.from).parent.type.name !== 'codeBlock',
 					items: ({ query }: { query: string }) =>
@@ -180,6 +172,7 @@ export function createSlashExtension(
 					},
 					render: () => {
 						let renderer: VueRenderer | undefined
+						let unmount: (() => void) | undefined
 						return {
 							onStart: (props: SuggestionProps<SlashItem, SlashItem>) => {
 								renderer = new VueRenderer(SlashMenu, {
@@ -190,10 +183,9 @@ export function createSlashExtension(
 										command: props.command,
 									},
 								})
-								const root = props.editor.view.dom.closest('.markdown-editor')
-								if (renderer.element)
-									(root ?? document.body).appendChild(renderer.element)
-								positionRenderer(renderer, props.clientRect)
+								if (renderer.element instanceof HTMLElement) {
+									unmount = props.mount(renderer.element)
+								}
 							},
 							onUpdate: (props: SuggestionProps<SlashItem, SlashItem>) => {
 								renderer?.updateProps({
@@ -201,7 +193,6 @@ export function createSlashExtension(
 									query: props.query,
 									command: props.command,
 								})
-								if (renderer) positionRenderer(renderer, props.clientRect)
 							},
 							onKeyDown: ({ event }: SuggestionKeyDownProps) => {
 								const component = renderer?.ref
@@ -210,8 +201,9 @@ export function createSlashExtension(
 									: false
 							},
 							onExit: () => {
-								renderer?.element?.remove()
+								unmount?.()
 								renderer?.destroy()
+								unmount = undefined
 								renderer = undefined
 							},
 						}

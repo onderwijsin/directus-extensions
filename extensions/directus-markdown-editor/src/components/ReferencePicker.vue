@@ -149,6 +149,11 @@ function handleKeydown(event: KeyboardEvent) {
 	display: block;
 	margin: 2rem auto;
 }
+.reference-picker :deep(.v-input) + :deep(.v-notice),
+.reference-picker :deep(.v-input) + .reference-picker__loading,
+.reference-picker :deep(.v-input) + .reference-picker__list {
+	margin-block-start: 1rem;
+}
 .reference-picker__list {
 	max-height: 22rem;
 	overflow-y: auto;
