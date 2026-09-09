@@ -107,8 +107,9 @@ defineExpose({ onKeyDown })
 
 <style scoped>
 .slash-menu {
+	z-index: 1000;
 	width: min(22rem, calc(100vw - 2rem));
-	max-height: min(30rem, 60vh);
+	max-height: 48dvh;
 	padding: 0.375rem;
 	overflow-y: auto;
 	border: 1px solid var(--theme--border-color, #d3dce3);

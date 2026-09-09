@@ -55,6 +55,8 @@ const sourceDrawerOpen = shallowRef(false)
 const componentInsertOpen = shallowRef(false)
 const fullscreen = shallowRef(false)
 const referenceScanRevision = shallowRef(0)
+const referenceNeedsAttention = shallowRef(false)
+const referenceReportOpen = shallowRef(false)
 const lastEmittedValue = shallowRef<string>()
 const darkMode = shallowRef(false)
 const enabledTools = computed(() => props.tools ?? props.options?.tools)
@@ -363,6 +365,11 @@ watch(
 	},
 	{ immediate: true, flush: 'post' },
 )
+watch([referencesEnabled, () => props.comparisonMode], ([enabled, comparisonMode]) => {
+	if (enabled && !comparisonMode) return
+	referenceNeedsAttention.value = false
+	referenceReportOpen.value = false
+})
 watch(
 	/**
 	 * Editor callback.
@@ -421,11 +428,19 @@ watch(
 			</div>
 			<p
 				v-if="metadata.state.value === 'error'"
-				class="markdown-editor__metadata-error"
+				class="markdown-editor__notice-bar markdown-editor__notice-bar--danger"
 				role="alert"
 			>
 				Component metadata could not be loaded. Markdown editing is still available.
 			</p>
+			<div
+				v-if="referencesEnabled && !comparisonMode && referenceNeedsAttention"
+				class="markdown-editor__notice-bar"
+				role="status"
+			>
+				<span>Some item references need attention.</span>
+				<VButton x-small secondary @click="referenceReportOpen = true">Show report</VButton>
+			</div>
 			<EditorContextMenus
 				:editor="editor"
 				:commands="commands"
@@ -480,6 +495,8 @@ watch(
 				:disabled="disabled"
 				:insertion-enabled="isEditorToolEnabled(enabledTools, 'reference')"
 				:scan-revision="referenceScanRevision"
+				v-model:report-open="referenceReportOpen"
+				@attention-change="referenceNeedsAttention = $event"
 			/>
 		</template>
 	</div>
@@ -538,6 +555,22 @@ watch(
 .markdown-editor__toolbar-row :deep(.editor-toolbar) {
 	flex: 1 1 auto;
 	border-block-end: 0;
+}
+
+.markdown-editor__notice-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.5rem 1rem;
+	border-block-end: 1px solid var(--theme--border-color-subdued, #edf0f2);
+	color: var(--theme--foreground-subdued, #8b98a5);
+	font-size: 0.75rem;
+}
+.markdown-editor__notice-bar--danger {
+	margin: 0;
+	color: var(--theme--danger, #e35169);
+	font-size: 0.8rem;
 }
 
 :deep(.ProseMirror) {
@@ -774,13 +807,5 @@ watch(
 
 .is-disabled {
 	opacity: 0.72;
-}
-
-.markdown-editor__metadata-error {
-	margin: 0;
-	padding: 0.5rem 1rem;
-	border-block-end: 1px solid var(--theme--border-color, #d3dce3);
-	color: var(--theme--danger, #e35169);
-	font-size: 0.8rem;
 }
 </style>

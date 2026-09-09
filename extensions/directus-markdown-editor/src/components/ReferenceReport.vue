@@ -13,11 +13,11 @@ const emit = defineEmits<{
 }>()
 
 function statusLabel(state: ReferenceOccurrence['state']) {
-	if (state === 'not_available') return 'Source not available'
-	if (state === 'verification_error') return 'Could not verify'
-	if (state === 'unconfigured') return 'Collection not configured'
-	if (state === 'outdated') return 'Snapshot outdated'
-	return 'Malformed reference'
+	if (state === 'not_available') return 'Unavailable'
+	if (state === 'verification_error') return 'Verification failed'
+	if (state === 'unconfigured') return 'Not configured'
+	if (state === 'outdated') return 'Outdated'
+	return 'Invalid'
 }
 
 function statusClass(state: ReferenceOccurrence['state']) {
@@ -60,7 +60,10 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 			<VCardTitle>Reference report</VCardTitle>
 			<VCardText>
 				<div v-if="occurrences.length" class="reference-report__attention">
-					<p>Some references in this item need attention.</p>
+					<p>
+						Some references in this item need attention, because the item that is being
+						referenced has changed since your last edit.
+					</p>
 					<div class="reference-report__table-wrap">
 						<table class="reference-report__table">
 							<thead>
@@ -165,10 +168,12 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 <style scoped>
 .reference-report {
 	width: calc(100vw - 2rem);
+	max-width: calc(100vw - 2rem);
 }
 @media (min-width: 769px) {
 	.reference-report {
-		width: 75vw;
+		width: 75vw !important;
+		max-width: 75vw !important;
 	}
 }
 .reference-report__attention > p {

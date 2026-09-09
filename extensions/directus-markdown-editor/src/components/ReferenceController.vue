@@ -33,6 +33,8 @@ const props = withDefaults(
 	}>(),
 	{ mode: 'detect', insertionEnabled: true, scanRevision: 0 },
 )
+const reportOpen = defineModel<boolean>('reportOpen', { default: false })
+const emit = defineEmits<{ attentionChange: [needsAttention: boolean] }>()
 const api = useApi()
 const stores = useStores()
 const fieldsStore = stores.useFieldsStore()
@@ -46,7 +48,6 @@ const apiClient = {
 }
 const pickerOpen = shallowRef(false)
 const drawerOpen = shallowRef(false)
-const reportOpen = shallowRef(false)
 const report = shallowRef<ReferenceOccurrence[]>([])
 const selectedPosition = shallowRef<number>()
 const selectedReference = shallowRef<ReferenceProps>()
@@ -58,8 +59,19 @@ let controller: AbortController | undefined
 let editorDom: HTMLElement | undefined
 
 const reportEntries = computed(() => report.value.filter((entry) => entry.state !== 'valid'))
-const hasVerificationErrors = computed(() =>
-	report.value.some((entry) => entry.state === 'verification_error'),
+const selectedStatus = computed(
+	() =>
+		report.value.find((entry) => {
+			if (entry.position === selectedPosition.value) return true
+			const reference = entry.reference
+			const selected = selectedReference.value
+			return (
+				reference !== undefined &&
+				selected !== undefined &&
+				reference.collection === selected.collection &&
+				String(reference.item) === String(selected.item)
+			)
+		})?.state,
 )
 
 function openPickerAt(nextBookmark: ReferenceBookmark) {
@@ -218,7 +230,6 @@ function remove(occurrence: ReferenceOccurrence) {
 async function scan() {
 	if (props.disabled) return
 	controller?.abort()
-	const keepReportOpen = reportOpen.value
 	const request = new AbortController()
 	controller = request
 	const result = await scanReferences(
@@ -230,10 +241,6 @@ async function scan() {
 	)
 	if (request.signal.aborted) return
 	report.value = result.occurrences
-	const actionable = result.occurrences.some((entry) =>
-		['malformed', 'unconfigured', 'not_available', 'outdated'].includes(entry.state),
-	)
-	reportOpen.value = actionable || keepReportOpen
 }
 
 onMounted(() => {
@@ -252,11 +259,13 @@ watch(
 	() => props.scanRevision,
 	() => void scan(),
 )
+watch(reportEntries, (entries) => emit('attentionChange', entries.length > 0), { immediate: true })
 watch(
 	() => props.disabled,
 	(disabled) => {
 		if (disabled) {
 			controller?.abort()
+			report.value = []
 			pickerOpen.value = false
 			drawerOpen.value = false
 			reportOpen.value = false
@@ -283,14 +292,6 @@ watch(pickerOpen, (isOpen) => {
 	>
 		{{ error }}
 	</p>
-	<div
-		v-if="hasVerificationErrors && !reportOpen"
-		class="reference-verification-notice"
-		role="status"
-	>
-		<span>Some references could not be verified. Check your connection and retry.</span>
-		<VButton x-small secondary @click="scan">Retry</VButton>
-	</div>
 	<ReferencePicker
 		v-model="pickerOpen"
 		:api="apiClient"
@@ -301,6 +302,7 @@ watch(pickerOpen, (isOpen) => {
 	<ReferenceDrawer
 		v-model="drawerOpen"
 		:reference="selectedReference"
+		:status="selectedStatus"
 		:disabled="disabled"
 		:refreshing="refreshingSelectedSource"
 		@apply="applyPresentation"
@@ -326,15 +328,6 @@ watch(pickerOpen, (isOpen) => {
 	padding: 0.5rem 1rem;
 	background: var(--theme--danger-background, #fff2f2);
 	color: var(--theme--danger, #e35169);
-	font-size: 0.75rem;
-}
-.reference-verification-notice {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 1rem;
-	padding: 0.5rem 1rem;
-	color: var(--theme--foreground-subdued, #8b98a5);
 	font-size: 0.75rem;
 }
 </style>

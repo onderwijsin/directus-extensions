@@ -245,6 +245,23 @@ describe('Reference interface', () => {
 		)
 	})
 
+	it('warns in the drawer when the referenced item is outdated', () => {
+		const element = mount(ReferenceDrawer, {
+			modelValue: true,
+			status: 'outdated',
+			reference: {
+				collection: 'articles',
+				item: 7,
+				label: 'A useful article',
+				data: {},
+			},
+		})
+
+		expect(element.querySelector('.reference-drawer__notice')?.textContent).toContain(
+			'has changed since your last edit',
+		)
+	})
+
 	it('renders report issues as a table and resolved issues as a success state', () => {
 		const occurrence: ReferenceOccurrence = {
 			key: '1:0',
@@ -261,9 +278,7 @@ describe('Reference interface', () => {
 		expect(table.querySelector('[aria-label="Refresh reference"]')).not.toBeNull()
 		expect(table.querySelector('[aria-label="Replace reference"]')).not.toBeNull()
 		expect(table.querySelector('[aria-label="Remove reference"]')).not.toBeNull()
-		expect(table.querySelector('.reference-report__status')?.textContent).toBe(
-			'Snapshot outdated',
-		)
+		expect(table.querySelector('.reference-report__status')?.textContent).toBe('Outdated')
 		expect(table.querySelector('.reference-report__status--warning')).not.toBeNull()
 
 		const success = mount(ReferenceReport, { modelValue: true, occurrences: [] })
@@ -281,14 +296,46 @@ describe('Reference interface', () => {
 			extensions: createEditorExtensions(),
 		})
 		editors.push(editor)
-		const element = mount(ReferenceController, {
-			editor,
-			collections: [{ collection: 'articles', displayField: 'title' }],
-			mode: 'detect',
+		const Host = defineComponent({
+			setup() {
+				const reportOpen = shallowRef(false)
+				const needsAttention = shallowRef(false)
+				function setReportOpen(value: boolean) {
+					reportOpen.value = value
+				}
+				function setNeedsAttention(value: boolean) {
+					needsAttention.value = value
+				}
+				return () =>
+					h('div', [
+						needsAttention.value
+							? h(
+									'button',
+									{ class: 'show-report', onClick: () => setReportOpen(true) },
+									'Show report',
+								)
+							: undefined,
+						h(ReferenceController, {
+							editor,
+							collections: [{ collection: 'articles', displayField: 'title' }],
+							mode: 'detect',
+							reportOpen: reportOpen.value,
+							'onUpdate:reportOpen': setReportOpen,
+							onAttentionChange: setNeedsAttention,
+						}),
+					])
+			},
 		})
+		const element = mount(Host, {})
 		await vi.waitFor(() => {
-			expect(element.querySelector('[aria-label="Replace reference"]')).not.toBeNull()
+			expect(element.querySelector('.show-report')).not.toBeNull()
 		})
+		expect(element.querySelector('[aria-label="Reference report"]')).toBeNull()
+		element
+			.querySelector('.show-report')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		expect(element.querySelector('[aria-label="Replace reference"]')).not.toBeNull()
 
 		element
 			.querySelector('[aria-label="Replace reference"]')

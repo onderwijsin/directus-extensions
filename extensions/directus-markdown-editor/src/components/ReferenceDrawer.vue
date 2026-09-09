@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
+import type { ReferenceIntegrityState } from '../reference/editor'
 import type { ReferenceProps } from '../reference/schema'
 
 import { computed, reactive, watch } from 'vue'
@@ -8,6 +9,7 @@ import { useExtensions } from '@directus/extensions-sdk'
 
 const props = defineProps<{
 	reference?: ReferenceProps
+	status?: ReferenceIntegrityState
 	disabled?: boolean
 	refreshing?: boolean
 }>()
@@ -54,6 +56,10 @@ function setIcon(value: unknown) {
 		@apply="apply"
 	>
 		<div v-if="reference" class="reference-drawer">
+			<VNotice v-if="status === 'outdated'" type="warning" class="reference-drawer__notice">
+				The referenced item has changed since your last edit. Refresh to use its latest
+				content.
+			</VNotice>
 			<section class="reference-drawer__source" aria-label="Source item">
 				<div class="reference-drawer__source-icon" aria-hidden="true">
 					<VIcon name="database" />
@@ -132,6 +138,9 @@ function setIcon(value: unknown) {
 	padding-block-end: 1.25rem;
 	border-block-end: 1px solid
 		var(--theme--border-color-subdued, var(--theme--border-color, #d3dce3));
+}
+.reference-drawer__notice {
+	margin: 0;
 }
 .reference-drawer__source-icon {
 	display: grid;

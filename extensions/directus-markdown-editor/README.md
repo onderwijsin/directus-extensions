@@ -46,10 +46,10 @@ selection. The **Full screen** action can also be enabled or disabled per field.
 insertion does not disable the settings controls of components already stored in the field.
 
 Type `/` at the start of a block to search grouped commands and configured MDC components. The menu
-automatically opens above the cursor when there is not enough viewport space below it. Every
-built-in command includes alternate search names, such as `text`, `h1`, `quote`, `ul`, `ol`,
-`separator`, `line break`, and `grid`. Use Arrow Up/Down, Home, End, Enter, and Escape without
-leaving the editor.
+stays above the sticky toolbar, scrolls within a 48dvh maximum height, and automatically opens above
+the cursor when there is not enough viewport space below it. Every built-in command includes
+alternate search names, such as `text`, `h1`, `quote`, `ul`, `ol`, `separator`, `line break`, and
+`grid`. Use Arrow Up/Down, Home, End, Enter, and Escape without leaving the editor.
 
 Hover a block to reveal the polished `+` insert control followed by its drag handle. The adjacent
 insert menu includes configured Components and opt-in References alongside the shared block
@@ -185,10 +185,12 @@ after every keystroke and not from individual node views. It reports malformed r
 unconfigured collections, unavailable sources, stale snapshots in `detect` mode, and transient
 verification failures in a responsive, status-coded table with row-level actions. Authors can
 refresh, replace, or remove affected occurrences; resolving the last issue leaves a success state
-that must be closed before editing continues. Integrity checks are not mounted for Directus
-comparison views, so a published side containing an old snapshot cannot interrupt the pre-publish
-diff. `sync` updates only changed `label` and `data` values in the editor; this can mark the
-Directus field dirty but never saves the item automatically. `snapshot` still verifies source
-availability but skips normal snapshot comparison. Relational projections, reverse-document lookup,
-server-side full-document scanning, cascade cleanup, and frontend rendering are outside the V1
-contract.
+that must be closed before editing continues. Integrity results never open the report automatically:
+the sub-toolbar notice remains visible and its **Show report** action is the only entry point.
+Opening an outdated Reference also shows its changed status in the drawer. Integrity checks are not
+mounted for Directus comparison views, so a published side containing an old snapshot cannot
+interrupt the pre-publish diff. `sync` updates only changed `label` and `data` values in the editor;
+this can mark the Directus field dirty but never saves the item automatically. `snapshot` still
+verifies source availability but skips normal snapshot comparison. Relational projections,
+reverse-document lookup, server-side full-document scanning, cascade cleanup, and frontend rendering
+are outside the V1 contract.
