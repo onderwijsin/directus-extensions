@@ -65,11 +65,11 @@ describe('component metadata sources', () => {
 	it.each([
 		{
 			label: 'array payload',
-			payload: [{ name: 'Hero', slots: ['title'] }],
+			payload: [{ name: 'Hero', nodeType: 'block', slots: ['title'] }],
 		},
 		{
 			label: 'components object payload',
-			payload: { components: [{ name: 'Callout', label: 'Callout' }] },
+			payload: { components: [{ name: 'Callout', label: 'Callout', nodeType: 'inline' }] },
 		},
 	])('normalizes valid static metadata from a $label', async ({ payload }) => {
 		const metadata = mountMetadata({
@@ -101,7 +101,7 @@ describe('component metadata sources', () => {
 	})
 
 	it('loads and normalizes remote metadata when static mode is disabled', async () => {
-		fetchMetadata.mockResolvedValue({ components: [{ name: 'Remote' }] })
+		fetchMetadata.mockResolvedValue({ components: [{ name: 'Remote', nodeType: 'inline' }] })
 		const metadata = mountMetadata({
 			metadataUrl: shallowRef('https://example.com/components.json'),
 			useStaticComponentMeta: shallowRef(false),
@@ -111,13 +111,13 @@ describe('component metadata sources', () => {
 
 		expect(fetchMetadata).toHaveBeenCalledOnce()
 		expect(metadata.state.value).toBe('ready')
-		expect(metadata.components.value).toMatchObject([{ name: 'Remote' }])
+		expect(metadata.components.value).toMatchObject([{ name: 'Remote', nodeType: 'inline' }])
 	})
 
 	it('switches from URL metadata to static metadata without another request', async () => {
-		fetchMetadata.mockResolvedValue([{ name: 'Remote' }])
+		fetchMetadata.mockResolvedValue([{ name: 'Remote', nodeType: 'inline' }])
 		const useStaticComponentMeta = shallowRef(false)
-		const staticComponentMeta = shallowRef<unknown>([{ name: 'Static' }])
+		const staticComponentMeta = shallowRef<unknown>([{ name: 'Static', nodeType: 'block' }])
 		const metadata = mountMetadata({
 			metadataUrl: shallowRef('https://example.com/components.json'),
 			useStaticComponentMeta,
@@ -129,17 +129,17 @@ describe('component metadata sources', () => {
 		await flushMetadata()
 
 		expect(fetchMetadata).toHaveBeenCalledOnce()
-		expect(metadata.components.value).toMatchObject([{ name: 'Static' }])
+		expect(metadata.components.value).toMatchObject([{ name: 'Static', nodeType: 'block' }])
 	})
 
 	it('switches from static metadata to URL metadata', async () => {
-		fetchMetadata.mockResolvedValue([{ name: 'Remote' }])
+		fetchMetadata.mockResolvedValue([{ name: 'Remote', nodeType: 'inline' }])
 		const useStaticComponentMeta = shallowRef(true)
 		const metadataUrl = shallowRef('https://example.com/components.json')
 		const metadata = mountMetadata({
 			metadataUrl,
 			useStaticComponentMeta,
-			staticComponentMeta: shallowRef([{ name: 'Static' }]),
+			staticComponentMeta: shallowRef([{ name: 'Static', nodeType: 'block' }]),
 		})
 		await flushMetadata()
 
@@ -154,7 +154,7 @@ describe('component metadata sources', () => {
 		const firstRequest = deferred<unknown>()
 		fetchMetadata
 			.mockImplementationOnce(() => firstRequest.promise)
-			.mockResolvedValueOnce([{ name: 'Current' }])
+			.mockResolvedValueOnce([{ name: 'Current', nodeType: 'block' }])
 		const metadataUrl: Ref<string | undefined> = shallowRef('https://example.com/first.json')
 		const metadata = mountMetadata({
 			metadataUrl,
@@ -167,10 +167,10 @@ describe('component metadata sources', () => {
 		await flushMetadata()
 
 		expect(firstSignal?.aborted).toBe(true)
-		expect(metadata.components.value).toMatchObject([{ name: 'Current' }])
+		expect(metadata.components.value).toMatchObject([{ name: 'Current', nodeType: 'block' }])
 
-		firstRequest.resolve([{ name: 'Stale' }])
+		firstRequest.resolve([{ name: 'Stale', nodeType: 'inline' }])
 		await flushMetadata()
-		expect(metadata.components.value).toMatchObject([{ name: 'Current' }])
+		expect(metadata.components.value).toMatchObject([{ name: 'Current', nodeType: 'block' }])
 	})
 })

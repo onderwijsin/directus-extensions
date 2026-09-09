@@ -19,7 +19,7 @@ import {
 import { ClearMarksOnEnter } from '../src/editor/enter'
 import { createEditorExtensions } from '../src/editor/extensions'
 import { isSupportedCodeLanguage } from '../src/editor/highlighter'
-import { insertComponent } from '../src/editor/insertion'
+import { insertComponent, resolveComponentNodeType, updateComponent } from '../src/editor/insertion'
 import { createLinkShortcut, readLinkSelection, saveLinkSelection } from '../src/editor/link'
 import { directusAssetUrl, sanitizeImageUrl } from '../src/editor/media'
 import { createSlashItems, filterSlashItems } from '../src/editor/slash'
@@ -514,6 +514,7 @@ describe('editor commands', () => {
 			insertComponent(editor, {
 				name: 'Hero',
 				label: 'Hero',
+				nodeType: 'block',
 				props: {},
 				slots: ['title', 'description'],
 			}),
@@ -534,6 +535,106 @@ describe('editor commands', () => {
 		})
 		editor.destroy()
 	})
+
+	it.each([
+		{
+			label: 'inline metadata with slots',
+			nodeType: 'inline' as const,
+			slots: ['title'],
+			expectedNodeType: 'mdcInline',
+		},
+		{
+			label: 'block metadata without slots',
+			nodeType: 'block' as const,
+			slots: [],
+			expectedNodeType: 'mdcBlock',
+		},
+	])('uses nodeType for $label insertion', ({ nodeType, slots, expectedNodeType }) => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+		})
+		editor.commands.setContent('<p>Before</p>')
+
+		expect(
+			insertComponent(editor, {
+				name: 'Component',
+				label: 'Component',
+				nodeType,
+				props: {},
+				slots,
+			}),
+		).toBe(true)
+		const document = editor.getJSON()
+		const inserted =
+			expectedNodeType === 'mdcInline'
+				? document.content?.[0]?.content?.[1]
+				: document.content?.find((node) => node.type === 'mdcBlock')
+		expect(inserted).toMatchObject({ type: expectedNodeType, attrs: { name: 'Component' } })
+		editor.destroy()
+	})
+
+	it.each([
+		{
+			markdown: ':Badge{tone="warning"}',
+			currentNodeType: 'mdcInline' as const,
+			metadataNodeType: 'block' as const,
+			selectionPosition: 1,
+			expectedSyntax: ':Badge{tone="success"}',
+		},
+		{
+			markdown: '::Badge{tone="warning"}\n::',
+			currentNodeType: 'mdcBlock' as const,
+			metadataNodeType: 'inline' as const,
+			selectionPosition: 0,
+			expectedSyntax: '::Badge{tone="success"}',
+		},
+	])(
+		'preserves an existing $currentNodeType when metadata now says $metadataNodeType',
+		({ markdown, currentNodeType, metadataNodeType, selectionPosition, expectedSyntax }) => {
+			const editor = new Editor({
+				extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+				content: markdown,
+				contentType: 'markdown',
+			})
+			const metadata = {
+				name: 'Badge',
+				label: 'Badge',
+				nodeType: metadataNodeType,
+				props: {},
+				slots: [],
+			}
+
+			expect(resolveComponentNodeType(metadata)).not.toBe(currentNodeType)
+			editor.commands.setNodeSelection(selectionPosition)
+			expect(updateComponent(editor, currentNodeType, { tone: 'success' })).toBe(true)
+			expect(editor.getMarkdown()).toContain(expectedSyntax)
+			editor.destroy()
+		},
+	)
+
+	it.each([
+		{ nodeType: 'inline' as const, expectedNodeType: 'mdcInline' },
+		{ nodeType: 'block' as const, expectedNodeType: 'mdcBlock' },
+	])(
+		'uses nodeType for slash-menu $nodeType component insertion',
+		({ nodeType, expectedNodeType }) => {
+			const editor = new Editor({
+				extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+			})
+			const componentItem = createSlashItems([
+				{ name: 'Component', label: 'Component', nodeType, props: {}, slots: [] },
+			]).find((item) => item.id === 'component:Component')
+
+			expect(componentItem?.command(editor)).toBe(true)
+			const document = editor.getJSON()
+			const inserted =
+				expectedNodeType === 'mdcInline'
+					? document.content?.[0]?.content?.[0]
+					: document.content?.find((node) => node.type === 'mdcBlock')
+			expect(inserted?.type).toBe(expectedNodeType)
+			editor.destroy()
+		},
+	)
 
 	it('separates populated MDC slot content from the next slot marker', () => {
 		const editor = new Editor({
@@ -646,6 +747,7 @@ describe('editor commands', () => {
 					name: 'CalloutBox',
 					label: 'Callout',
 					description: 'Important content',
+					nodeType: 'block',
 					props: {},
 					slots: ['default'],
 				},

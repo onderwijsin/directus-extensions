@@ -1,6 +1,17 @@
 import type { Editor } from '@tiptap/core'
 import type { ComponentMetadata } from '../component-meta/schema'
 
+export type ComponentNodeType = 'mdcBlock' | 'mdcInline'
+
+/**
+ * Resolve component insertion metadata to the corresponding generic MDC node type.
+ * @param component Component metadata supplied to the editor.
+ * @returns Generic Tiptap node type used for a new component.
+ */
+export function resolveComponentNodeType(component: ComponentMetadata): ComponentNodeType {
+	return component.nodeType === 'inline' ? 'mdcInline' : 'mdcBlock'
+}
+
 /**
  * Editor callback.
  * @param editor Parameter value.
@@ -14,7 +25,7 @@ export function insertComponent(
 	props: Record<string, unknown> = {},
 ) {
 	const attributes = { name: component.name, props, depth: 2, propsFormat: 'inline' }
-	if (component.slots.length === 0) {
+	if (resolveComponentNodeType(component) === 'mdcInline') {
 		return editor
 			.chain()
 			.focus()
@@ -46,21 +57,14 @@ export function insertComponent(
 /**
  * Editor callback.
  * @param editor Parameter value.
- * @param component Parameter value.
+ * @param targetNodeType The type of MDC node.
  * @param props Parameter value.
  * @returns Callback result.
  */
 export function updateComponent(
 	editor: Editor,
-	component: ComponentMetadata,
+	targetNodeType: ComponentNodeType,
 	props: Record<string, unknown>,
 ) {
-	return editor
-		.chain()
-		.focus()
-		.updateAttributes('mdcBlock', {
-			name: component.name,
-			props,
-		})
-		.run()
+	return editor.chain().focus().updateAttributes(targetNodeType, { props }).run()
 }

@@ -132,9 +132,10 @@ describe('Reference configuration and snapshots', () => {
 
 	it('reserves Reference from generic component metadata', () => {
 		expect(
-			normalizeComponentMetadata([{ name: 'Reference' }, { name: 'Callout' }]).map(
-				(component) => component.name,
-			),
+			normalizeComponentMetadata([
+				{ name: 'Reference', nodeType: 'inline' },
+				{ name: 'Callout', nodeType: 'block' },
+			]).map((component) => component.name),
 		).toEqual(['Callout'])
 	})
 

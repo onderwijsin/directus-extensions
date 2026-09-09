@@ -15,6 +15,7 @@ const ComponentSchema = z.looseObject({
 	name: z.string().min(1),
 	label: z.string().optional(),
 	description: z.string().optional(),
+	nodeType: z.enum(['block', 'inline']),
 	props: z.union([z.record(z.string(), PropSchema), z.array(PropSchema)]).optional(),
 	slots: z
 		.union([z.array(z.string()), z.array(z.looseObject({ name: z.string().min(1) }))])
@@ -30,6 +31,7 @@ export interface ComponentMetadata {
 	name: string
 	label: string
 	description?: string
+	nodeType: 'block' | 'inline'
 	props: Record<string, ComponentProp>
 	slots: string[]
 }
@@ -55,6 +57,7 @@ export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[
 			name: component.name,
 			label: component.label ?? component.name,
 			description: component.description,
+			nodeType: component.nodeType,
 			props: Array.isArray(component.props)
 				? Object.fromEntries(
 						component.props

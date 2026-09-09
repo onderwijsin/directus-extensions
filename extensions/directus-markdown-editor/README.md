@@ -87,6 +87,7 @@ A component metadata object has this shape:
 {
   "name": "Callout",
   "label": "Callout",
+  "nodeType": "block",
   "description": "Highlighted content",
   "props": {
     "tone": { "type": "'info' | 'warning'", "values": ["info", "warning"] }
@@ -94,6 +95,10 @@ A component metadata object has this shape:
   "slots": ["default"]
 }
 ```
+
+`nodeType` is required and accepts `"block"` or `"inline"`. It controls whether newly inserted
+components use block (`::Component`) or inline (`:Component`) MDC syntax independently of their
+slots. Existing Markdown keeps its parsed node type when metadata changes or properties are edited.
 
 For example, the equivalent static option value can wrap the same component in a `components` array:
 
@@ -103,6 +108,7 @@ For example, the equivalent static option value can wrap the same component in a
     {
       "name": "Callout",
       "label": "Callout",
+      "nodeType": "block",
       "props": {
         "tone": { "type": "'info' | 'warning'", "values": ["info", "warning"] }
       },

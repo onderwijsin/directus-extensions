@@ -83,10 +83,10 @@ Choose one component metadata source in the interface configuration:
 | Static component metadata     | unset   | Required JSON value, shown only while static metadata mode is enabled.                            |
 
 Both metadata sources accept an array of objects or an object with a `components` array; each object
-requires `name` and may include `label`, `description`, `props`, and `slots`. The editor validates
-either source using the same boundary. Static mode does not make a metadata HTTP request. When
-neither source supplies metadata, Component insertion stays hidden without affecting persisted MDC
-component editing.
+requires `name` and `nodeType` (`block` or `inline`) and may include `label`, `description`,
+`props`, and `slots`. The editor validates either source using the same boundary. Static mode does
+not make a metadata HTTP request. When neither source supplies metadata, Component insertion stays
+hidden without affecting persisted MDC component editing.
 
 Project metadata is validated at the browser boundary. For example:
 
@@ -96,12 +96,18 @@ Project metadata is validated at the browser boundary. For example:
     {
       "name": "Callout",
       "label": "Callout",
+      "nodeType": "block",
       "props": { "tone": { "type": "'info' | 'warning'", "values": ["info", "warning"] } },
       "slots": ["default"]
     }
   ]
 }
 ```
+
+`nodeType` is an insertion hint: `inline` creates `:Component` and `block` creates `::Component`. It
+is independent from `slots`; an inline component may expose slots and a block component may have
+none. Metadata changes affect future insertion only. Existing parsed components and property edits
+preserve their current inline or block representation.
 
 Source mode blocks lossy normalization until explicitly accepted. Image URLs accept HTTP(S),
 relative paths, and Directus `/assets/{id}` paths; unsafe executable/data protocols are rejected.

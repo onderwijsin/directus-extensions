@@ -139,6 +139,7 @@ describe('component metadata boundary', () => {
 				{
 					name: 'Callout',
 					label: 'Callout',
+					nodeType: 'block',
 					props: [{ name: 'tone', type: 'string', values: ['info', 'warning'] }],
 					slots: [{ name: 'default' }],
 				},
@@ -149,6 +150,7 @@ describe('component metadata boundary', () => {
 			{
 				name: 'Callout',
 				label: 'Callout',
+				nodeType: 'block',
 				props: { tone: { name: 'tone', type: 'string', values: ['info', 'warning'] } },
 				slots: ['default'],
 			},
@@ -160,4 +162,17 @@ describe('component metadata boundary', () => {
 			normalizeComponentMetadata({ components: [{ label: 'Missing name' }] }),
 		).toThrow('unsupported shape')
 	})
+
+	it.each(['inline', 'block'] as const)('accepts and preserves %s node metadata', (nodeType) => {
+		expect(normalizeComponentMetadata([{ name: 'Component', nodeType }])[0]?.nodeType).toBe(
+			nodeType,
+		)
+	})
+
+	it.each([{ name: 'Missing node type' }, { name: 'Unsupported node type', nodeType: 'flow' }])(
+		'rejects $name metadata',
+		(component) => {
+			expect(() => normalizeComponentMetadata([component])).toThrow('unsupported shape')
+		},
+	)
 })

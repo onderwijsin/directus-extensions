@@ -7,6 +7,7 @@ import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
 import { exitSuggestion } from '@tiptap/suggestion'
 
+import { resolveComponentNodeType } from '../editor/insertion'
 import ComponentPropsDrawer from './ComponentPropsDrawer.vue'
 
 const props = withDefaults(
@@ -44,7 +45,7 @@ function choose(component: ComponentMetadata) {
 	selected.value = component
 	initialProps.value = undefined
 	editExisting.value = false
-	targetNodeType.value = component.slots.length === 0 ? 'mdcInline' : 'mdcBlock'
+	targetNodeType.value = resolveComponentNodeType(component)
 	open.value = false
 	propsDrawerOpen.value = true
 }
@@ -59,6 +60,7 @@ function editComponentFromNodeView(event: Event) {
 	const component = known ?? {
 		name: event.detail.name,
 		label: event.detail.name,
+		nodeType: event.detail.nodeType === 'mdcInline' ? 'inline' : 'block',
 		description:
 			'This component is not present in the configured metadata. Existing properties are preserved.',
 		props: Object.fromEntries(

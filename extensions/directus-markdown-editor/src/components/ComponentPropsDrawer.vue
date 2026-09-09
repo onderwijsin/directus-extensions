@@ -5,7 +5,7 @@ import type { ComponentMetadata } from '../component-meta/schema'
 // Metadata has already crossed the Zod boundary before it reaches this form.
 import { computed, reactive, watch } from 'vue'
 
-import { insertComponent } from '../editor/insertion'
+import { insertComponent, updateComponent } from '../editor/insertion'
 
 const props = defineProps<{
 	editor: Editor
@@ -91,11 +91,7 @@ function setTextValue(name: string, value: string) {
 function save() {
 	if (!props.component || !canSave.value) return
 	if (props.editExisting)
-		props.editor
-			.chain()
-			.focus()
-			.updateAttributes(props.targetNodeType ?? 'mdcBlock', { props: { ...form } })
-			.run()
+		updateComponent(props.editor, props.targetNodeType ?? 'mdcBlock', { ...form })
 	else insertComponent(props.editor, props.component, { ...form })
 	open.value = false
 }

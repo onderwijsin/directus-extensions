@@ -361,7 +361,10 @@ describe('Markdown editor interface', () => {
 			'```ts\nconst locked = true\n```\n\n::Callout{tone="warning"}\n#default\nLocked :Icon{name="lock"}\n::',
 			true,
 			undefined,
-			{ useStaticComponentMeta: true, staticComponentMeta: [{ name: 'Callout' }] },
+			{
+				useStaticComponentMeta: true,
+				staticComponentMeta: [{ name: 'Callout', nodeType: 'block' }],
+			},
 		)
 		await nextTick()
 		await nextTick()
@@ -458,7 +461,10 @@ describe('Markdown editor interface', () => {
 	it('opens the metadata-driven component picker from the toolbar', async () => {
 		const { element } = mountEditor('# Hello', false, undefined, {
 			useStaticComponentMeta: true,
-			staticComponentMeta: [{ name: 'Hero' }, { name: 'Callout' }],
+			staticComponentMeta: [
+				{ name: 'Hero', nodeType: 'block' },
+				{ name: 'Callout', nodeType: 'inline' },
+			],
 		})
 		await Promise.resolve()
 		await nextTick()
@@ -477,7 +483,7 @@ describe('Markdown editor interface', () => {
 		const { element } = mountEditor('# Hello', false, undefined, {
 			options: {
 				useStaticComponentMeta: true,
-				staticComponentMeta: [{ name: 'NestedComponent' }],
+				staticComponentMeta: [{ name: 'NestedComponent', nodeType: 'block' }],
 			},
 		})
 		await Promise.resolve()
