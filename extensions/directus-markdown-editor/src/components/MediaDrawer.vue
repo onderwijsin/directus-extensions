@@ -3,6 +3,8 @@ import type { Editor } from '@tiptap/core'
 
 import { computed, ref, shallowRef, watch } from 'vue'
 
+import { hasKey, isRecord, isString, isArray } from '@onderwijsin/directus-extension-utils'
+
 import { directusAssetUrl, sanitizeImageUrl } from '../editor/media'
 
 const props = defineProps<{
@@ -37,7 +39,7 @@ watch(
 		const nodeType = activeTab.value
 		editing.value = props.editor.isActive(nodeType)
 		const attrs = editing.value ? props.editor.getAttributes(nodeType) : {}
-		source.value = typeof attrs.src === 'string' ? attrs.src : ''
+		source.value = isString(attrs.src) ? attrs.src : ''
 	},
 )
 
@@ -48,13 +50,13 @@ watch(
  */
 function onFileSelect(value: unknown) {
 	if (props.disabled) return
-	if (Array.isArray(value)) {
+	if (isArray(value)) {
 		onFileSelect(value[0])
 		return
 	}
-	if (!value || typeof value !== 'object' || !('id' in value)) return
+	if (!isRecord(value) || !hasKey(value, 'id')) return
 	const id = value.id
-	if (typeof id !== 'string') return
+	if (!isString(id)) return
 	const url = directusAssetUrl(id)
 	if (url) source.value = url
 }

@@ -1,5 +1,7 @@
 import type { ResolvedReferenceCollectionConfig, ReferenceProps } from './schema'
 
+import { isArray, isNumber, isRecord } from '@onderwijsin/directus-extension-utils'
+
 import { isReferenceItemArchived, itemToReference } from './schema'
 
 export interface ReferenceSearchResult {
@@ -19,15 +21,12 @@ export interface ReferenceApiClient {
  * @returns Item objects, or an empty array for an invalid response.
  */
 function responseItems(response: unknown): Record<string, unknown>[] | undefined {
-	if (!response || typeof response !== 'object') return undefined
+	if (!isRecord(response)) return undefined
 	const body = Reflect.get(response, 'data')
-	if (!body || typeof body !== 'object') return undefined
+	if (!isRecord(body)) return undefined
 	const data = Reflect.get(body, 'data')
-	if (!Array.isArray(data)) return undefined
-	return data.filter(
-		(sourceItem): sourceItem is Record<string, unknown> =>
-			Boolean(sourceItem) && typeof sourceItem === 'object',
-	)
+	if (!isArray(data)) return undefined
+	return data.filter((sourceItem): sourceItem is Record<string, unknown> => isRecord(sourceItem))
 }
 
 /**
@@ -36,11 +35,11 @@ function responseItems(response: unknown): Record<string, unknown>[] | undefined
  * @returns Numeric response status when present.
  */
 export function referenceErrorStatus(error: unknown): number | undefined {
-	if (!error || typeof error !== 'object') return undefined
+	if (!isRecord(error)) return undefined
 	const response = Reflect.get(error, 'response')
-	if (!response || typeof response !== 'object') return undefined
+	if (!isRecord(response)) return undefined
 	const status = Reflect.get(response, 'status')
-	return typeof status === 'number' ? status : undefined
+	return isNumber(status) ? status : undefined
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { HighlighterCore, LanguageInput } from 'shiki/types'
 
+import { hasKey } from '@onderwijsin/directus-extension-utils'
 import { createHighlighterCore } from 'shiki/core'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
 
@@ -102,7 +103,7 @@ const highlighterPromise: Promise<HighlighterCore> = createHighlighterCore({
  * @returns Whether the language can be highlighted.
  */
 export function isSupportedCodeLanguage(language: string): language is SupportedCodeLanguage {
-	return Object.hasOwn(languageLoaders, language)
+	return hasKey(languageLoaders, language)
 }
 
 /**

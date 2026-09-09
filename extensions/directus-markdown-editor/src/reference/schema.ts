@@ -1,3 +1,13 @@
+import {
+	hasKey,
+	isBoolean,
+	isNumber,
+	isRecord,
+	isString,
+	toEntries,
+	fromEntries,
+	isArray,
+} from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
 const identifierSchema = z
@@ -12,11 +22,11 @@ const identifierSchema = z
  */
 function isJsonValue(value: unknown): boolean {
 	if (value === null) return true
-	if (typeof value === 'string' || typeof value === 'boolean') return true
-	if (typeof value === 'number') return Number.isFinite(value)
-	if (Array.isArray(value)) return value.every(isJsonValue)
-	if (typeof value !== 'object') return false
-	return Object.values(value).every(isJsonValue)
+	if (isString(value) || isBoolean(value)) return true
+	if (isNumber(value)) return Number.isFinite(value)
+	if (isArray(value)) return value.every(isJsonValue)
+	if (!isRecord(value)) return false
+	return toEntries(value).every(([, entry]) => isJsonValue(entry))
 }
 
 export const ReferencePropsSchema = z.looseObject({
@@ -85,25 +95,23 @@ function unique(values: string[]): string[] {
  * @returns Relevant field metadata when structurally valid.
  */
 function readField(value: unknown): FieldDescription | undefined {
-	if (!value || typeof value !== 'object') return undefined
+	if (!isRecord(value)) return undefined
 	const field = Reflect.get(value, 'field')
 	const type = Reflect.get(value, 'type')
 	const schema = Reflect.get(value, 'schema')
 	const meta = Reflect.get(value, 'meta')
-	if (typeof field !== 'string' || typeof type !== 'string') return undefined
-	const primaryKey =
-		schema && typeof schema === 'object' ? Reflect.get(schema, 'is_primary_key') : false
-	const foreignTable =
-		schema && typeof schema === 'object' ? Reflect.get(schema, 'foreign_key_table') : undefined
-	const special = meta && typeof meta === 'object' ? Reflect.get(meta, 'special') : undefined
+	if (!isString(field) || !isString(type)) return undefined
+	const primaryKey = isRecord(schema) ? Reflect.get(schema, 'is_primary_key') : false
+	const foreignTable = isRecord(schema) ? Reflect.get(schema, 'foreign_key_table') : undefined
+	const special = isRecord(meta) ? Reflect.get(meta, 'special') : undefined
 	const relationSpecials = new Set(['m2o', 'o2m', 'm2m', 'm2a', 'translations', 'file', 'files'])
 	const hasRelationSpecial =
-		Array.isArray(special) && special.some((entry) => relationSpecials.has(String(entry)))
+		isArray(special) && special.some((entry) => relationSpecials.has(String(entry)))
 	return {
 		field,
 		type,
 		isPrimaryKey: primaryKey === true,
-		isRelational: type === 'alias' || typeof foreignTable === 'string' || hasRelationSpecial,
+		isRelational: type === 'alias' || isString(foreignTable) || hasRelationSpecial,
 	}
 }
 
@@ -147,7 +155,7 @@ export function resolveReferenceCollections(
 			errors.push(`Collection “${config.collection}” metadata could not be resolved.`)
 			continue
 		}
-		const fields = Array.isArray(rawFields)
+		const fields = isArray(rawFields)
 			? rawFields.map(readField).filter((field) => field !== undefined)
 			: []
 		const byName = new Map(fields.map((field) => [field.field, field]))
@@ -168,19 +176,16 @@ export function resolveReferenceCollections(
 		} catch {
 			rawCollection = undefined
 		}
-		const collectionMeta =
-			rawCollection && typeof rawCollection === 'object'
-				? Reflect.get(rawCollection, 'meta')
-				: undefined
-		const archiveField =
-			collectionMeta && typeof collectionMeta === 'object'
-				? Reflect.get(collectionMeta, 'archive_field')
-				: undefined
-		const archiveValue =
-			collectionMeta && typeof collectionMeta === 'object'
-				? Reflect.get(collectionMeta, 'archive_value')
-				: undefined
-		if (typeof archiveField === 'string' && typeof archiveValue === 'string') {
+		const collectionMeta = isRecord(rawCollection)
+			? Reflect.get(rawCollection, 'meta')
+			: undefined
+		const archiveField = isRecord(collectionMeta)
+			? Reflect.get(collectionMeta, 'archive_field')
+			: undefined
+		const archiveValue = isRecord(collectionMeta)
+			? Reflect.get(collectionMeta, 'archive_value')
+			: undefined
+		if (isString(archiveField) && isString(archiveValue)) {
 			const field = byName.get(archiveField)
 			if (field) archive = { field: archiveField, value: archiveValue, fieldType: field.type }
 			else {
@@ -242,8 +247,8 @@ export function isReferenceItemArchived(value: unknown, archive: ReferenceArchiv
  */
 function displayLabel(value: unknown, item: string | number): string {
 	if (value == null || value === '') return String(item)
-	if (typeof value === 'string') return value
-	if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+	if (isString(value)) return value
+	if (isNumber(value) || isBoolean(value) || typeof value === 'bigint') {
 		return String(value)
 	}
 	return JSON.stringify(value) ?? String(item)
@@ -260,12 +265,8 @@ export function itemToReference(
 	config: ResolvedReferenceCollectionConfig,
 ): ReferenceProps | undefined {
 	const item = sourceItem[config.primaryKeyField]
-	if (typeof item !== 'string' && typeof item !== 'number') return undefined
-	if (
-		![config.displayField, ...config.dataFields].every((field) =>
-			Object.hasOwn(sourceItem, field),
-		)
-	) {
+	if (!isString(item) && !isNumber(item)) return undefined
+	if (![config.displayField, ...config.dataFields].every((field) => hasKey(sourceItem, field))) {
 		return undefined
 	}
 	const rawLabel = sourceItem[config.displayField]
@@ -296,10 +297,10 @@ export function parseReferenceProps(value: unknown) {
  * @returns Structurally equivalent value with sorted object keys.
  */
 function stableValue(value: unknown): unknown {
-	if (Array.isArray(value)) return value.map(stableValue)
-	if (!value || typeof value !== 'object') return value
-	return Object.fromEntries(
-		Object.entries(value)
+	if (isArray(value)) return value.map(stableValue)
+	if (!isRecord(value)) return value
+	return fromEntries(
+		toEntries(value)
 			.sort(([left], [right]) => left.localeCompare(right))
 			.map(([key, entry]) => [key, stableValue(entry)]),
 	)

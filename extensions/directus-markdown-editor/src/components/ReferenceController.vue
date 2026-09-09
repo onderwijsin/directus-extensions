@@ -8,6 +8,7 @@ import type { ReferenceProps, ReferenceSnapshotMode } from '../reference/schema'
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
 import { useApi, useStores } from '@directus/extensions-sdk'
+import { isInteger } from '@onderwijsin/directus-extension-utils'
 
 import { resolveReferences } from '../reference/api'
 import {
@@ -79,14 +80,14 @@ function handleOpen(event: Event) {
 	if (!(event instanceof CustomEvent)) return
 	const from = event.detail?.from
 	const to = event.detail?.to
-	if (typeof from === 'number' && typeof to === 'number') openPickerAt({ from, to })
+	if (isInteger(from) && isInteger(to)) openPickerAt({ from, to })
 	else openPickerAt(selectionBookmark(props.editor))
 }
 
 function handleEdit(event: Event) {
 	if (props.disabled || !props.editor.isEditable || !(event instanceof CustomEvent)) return
 	const position = event.detail?.position
-	if (typeof position !== 'number') return
+	if (!isInteger(position)) return
 	const node = props.editor.state.doc.nodeAt(position)
 	const parsed = parseReferenceProps(node?.attrs.props)
 	selectedPosition.value = position

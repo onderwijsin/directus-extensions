@@ -2,6 +2,7 @@
 import type { Editor, Range } from '@tiptap/core'
 import type { ComponentMetadata } from '../component-meta/schema'
 
+import { hasKey, isFunction, isRecord } from '@onderwijsin/directus-extension-utils'
 import { Extension } from '@tiptap/core'
 import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from '@tiptap/suggestion'
 import { VueRenderer } from '@tiptap/vue-3'
@@ -130,12 +131,7 @@ interface SlashMenuRenderer {
 }
 
 function isSlashMenuRenderer(value: unknown): value is SlashMenuRenderer {
-	return (
-		value !== null &&
-		typeof value === 'object' &&
-		'onKeyDown' in value &&
-		typeof value.onKeyDown === 'function'
-	)
+	return isRecord(value) && hasKey(value, 'onKeyDown') && isFunction(value.onKeyDown)
 }
 
 /**

@@ -2,6 +2,8 @@
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
 import type { ReferenceOccurrence } from '../reference/editor'
 
+import { isNumber, isRecord, isString } from '@onderwijsin/directus-extension-utils'
+
 const props = defineProps<{ occurrences: ReferenceOccurrence[]; disabled?: boolean }>()
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{
@@ -54,9 +56,9 @@ function rawProperty(
 	occurrence: ReferenceOccurrence,
 	property: string,
 ): string | number | undefined {
-	if (!occurrence.rawProps || typeof occurrence.rawProps !== 'object') return undefined
+	if (!isRecord(occurrence.rawProps)) return undefined
 	const value = Reflect.get(occurrence.rawProps, property)
-	return typeof value === 'string' || typeof value === 'number' ? value : undefined
+	return isString(value) || isNumber(value) ? value : undefined
 }
 
 function occurrenceLabel(occurrence: ReferenceOccurrence) {

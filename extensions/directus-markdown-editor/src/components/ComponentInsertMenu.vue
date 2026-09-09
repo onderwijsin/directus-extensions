@@ -5,6 +5,7 @@ import type { ComponentMetadata } from '../component-meta/schema'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
+import { fromEntries, isRecord, isString, keys } from '@onderwijsin/directus-extension-utils'
 import { exitSuggestion } from '@tiptap/suggestion'
 
 import { resolveComponentNodeType } from '../editor/insertion'
@@ -52,20 +53,17 @@ function choose(component: ComponentMetadata) {
 
 function editComponentFromNodeView(event: Event) {
 	if (props.disabled || !props.editor.isEditable) return
-	if (!(event instanceof CustomEvent) || typeof event.detail?.name !== 'string') return
+	if (!(event instanceof CustomEvent) || !isString(event.detail?.name)) return
 	exitSuggestion(props.editor.view)
 	const known = props.components.find((candidate) => candidate.name === event.detail.name)
-	const rawProps =
-		event.detail.props && typeof event.detail.props === 'object' ? event.detail.props : {}
+	const rawProps = isRecord(event.detail.props) ? event.detail.props : {}
 	const component = known ?? {
 		name: event.detail.name,
 		label: event.detail.name,
 		nodeType: event.detail.nodeType === 'mdcInline' ? 'inline' : 'block',
 		description:
 			'This component is not present in the configured metadata. Existing properties are preserved.',
-		props: Object.fromEntries(
-			Object.keys(rawProps).map((name) => [name, { name, type: 'string' }]),
-		),
+		props: fromEntries(keys(rawProps).map((name) => [name, { name, type: 'string' }])),
 		slots: [],
 	}
 	selected.value = component
@@ -76,7 +74,7 @@ function editComponentFromNodeView(event: Event) {
 }
 
 function insertComponentFromSlashMenu(event: Event) {
-	if (!(event instanceof CustomEvent) || typeof event.detail?.name !== 'string') return
+	if (!(event instanceof CustomEvent) || !isString(event.detail?.name)) return
 	const component = props.components.find((candidate) => candidate.name === event.detail.name)
 	if (component) choose(component)
 }

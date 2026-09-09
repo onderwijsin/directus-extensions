@@ -5,6 +5,8 @@ import type { ComponentMetadata } from '../component-meta/schema'
 // Metadata has already crossed the Zod boundary before it reaches this form.
 import { computed, reactive, watch } from 'vue'
 
+import { isRecord, isString, keys, toEntries } from '@onderwijsin/directus-extension-utils'
+
 import { insertComponent, updateComponent } from '../editor/insertion'
 
 const props = defineProps<{
@@ -19,7 +21,7 @@ const open = defineModel<boolean>('open', { default: false })
 const form = reactive<Record<string, unknown>>({})
 const missingRequired = computed(() => {
 	if (!props.component) return []
-	return Object.entries(props.component.props)
+	return toEntries(props.component.props)
 		.filter(
 			([name, definition]) =>
 				definition.required && (form[name] === '' || form[name] === undefined),
@@ -36,9 +38,9 @@ const canSave = computed(
  * @returns Callback result.
  */
 function resetForm(component: ComponentMetadata | null) {
-	for (const key of Object.keys(form)) delete form[key]
+	for (const key of keys(form)) delete form[key]
 	if (!component) return
-	for (const [name, definition] of Object.entries(component.props)) {
+	for (const [name, definition] of toEntries(component.props)) {
 		if (props.initialProps?.[name] !== undefined) form[name] = props.initialProps[name]
 		else if (definition.default !== undefined) form[name] = definition.default
 		else if (definition.type === 'boolean') form[name] = false
@@ -60,7 +62,7 @@ watch(
 	 */
 	(values) => {
 		const [isOpen, component] = values
-		if (isOpen === true && component && typeof component === 'object') resetForm(component)
+		if (isOpen === true && component && isRecord(component)) resetForm(component)
 	},
 )
 
@@ -71,7 +73,7 @@ watch(
  */
 function textValue(name: string) {
 	const value = form[name]
-	return typeof value === 'string' ? value : value == null ? '' : String(value)
+	return isString(value) ? value : value == null ? '' : String(value)
 }
 
 /**

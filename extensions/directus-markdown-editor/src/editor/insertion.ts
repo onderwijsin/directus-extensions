@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/core'
 import type { ComponentMetadata } from '../component-meta/schema'
 
+import { fromEntries, toEntries } from '@onderwijsin/directus-extension-utils'
 import { TextSelection } from '@tiptap/pm/state'
 
 export type ComponentNodeType = 'mdcBlock' | 'mdcInline'
@@ -22,8 +23,8 @@ export function resolveComponentNodeType(component: ComponentMetadata): Componen
 export function resolveComponentDefaultProps(
 	component: ComponentMetadata,
 ): Record<string, unknown> {
-	return Object.fromEntries(
-		Object.entries(component.props)
+	return fromEntries(
+		toEntries(component.props)
 			.filter(([, definition]) => definition.default !== undefined)
 			.map(([name, definition]) => [name, definition.default]),
 	)
@@ -35,8 +36,8 @@ export function resolveComponentDefaultProps(
  * @returns Whether at least one required prop has no explicit default.
  */
 export function componentRequiresProps(component: ComponentMetadata): boolean {
-	return Object.values(component.props).some(
-		(definition) => definition.required && definition.default === undefined,
+	return toEntries(component.props).some(
+		([, definition]) => definition.required && definition.default === undefined,
 	)
 }
 

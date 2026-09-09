@@ -1,5 +1,6 @@
 import type { MarkdownParseHelpers, MarkdownRendererHelpers, MarkdownToken } from '@tiptap/core'
 
+import { isString } from '@onderwijsin/directus-extension-utils'
 import { Node } from '@tiptap/core'
 
 interface VideoToken extends MarkdownToken {
@@ -77,7 +78,7 @@ export const Video = Node.create({
 	 * @param _helpers Markdown renderer helpers.
 	 * @returns The Markdown video representation.
 	 */ (node: VideoNodeAttributes, _helpers: MarkdownRendererHelpers) =>
-		typeof node.attrs?.src === 'string'
+		isString(node.attrs?.src)
 			? `<video src="${node.attrs.src.replaceAll('"', '&quot;')}" controls></video>`
 			: '',
 })

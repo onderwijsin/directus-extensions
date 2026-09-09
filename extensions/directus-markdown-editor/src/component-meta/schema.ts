@@ -1,3 +1,4 @@
+import { fromEntries, isString, isArray } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
 const PropSchema = z.looseObject({
@@ -37,14 +38,15 @@ export interface ComponentMetadata {
 }
 
 /**
- * Editor callback.
- * @param payload Parameter value.
- * @returns Callback result.
+ * Validates and normalizes component metadata supplied by a project or URL.
+ * @param payload Unknown metadata response to validate.
+ * @returns Metadata with stable labels, prop maps, and slot names.
+ * @throws {Error} When the payload does not match the supported metadata shape.
  */
 export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[] {
 	const result = MetadataResponseSchema.safeParse(payload)
 	if (!result.success) throw new Error('Component metadata has an unsupported shape.')
-	const components = (Array.isArray(result.data) ? result.data : result.data.components).filter(
+	const components = (isArray(result.data) ? result.data : result.data.components).filter(
 		(component) => component.name !== 'Reference',
 	)
 	return components.map(
@@ -58,8 +60,8 @@ export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[
 			label: component.label ?? component.name,
 			description: component.description,
 			nodeType: component.nodeType,
-			props: Array.isArray(component.props)
-				? Object.fromEntries(
+			props: isArray(component.props)
+				? fromEntries(
 						component.props
 							.filter(
 								/**
@@ -87,7 +89,7 @@ export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[
 					 * @param slot Parameter value.
 					 * @returns Callback result.
 					 */
-					(slot) => (typeof slot === 'string' ? slot : slot.name),
+					(slot) => (isString(slot) ? slot : slot.name),
 				) ?? [],
 		}),
 	)

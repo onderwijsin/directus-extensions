@@ -421,6 +421,9 @@ importers:
 
   extensions/directus-markdown-editor:
     dependencies:
+      '@onderwijsin/directus-extension-utils':
+        specifier: workspace:*
+        version: link:../../packages/extension-utils
       '@tiptap/core':
         specifier: 'catalog:'
         version: 3.31.0(@tiptap/pm@3.31.0)

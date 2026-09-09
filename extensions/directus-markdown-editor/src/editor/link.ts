@@ -1,3 +1,4 @@
+import { attemptSync, isString } from '@onderwijsin/directus-extension-utils'
 // Link callbacks are implementation details of the editor integration.
 import { Extension, type Editor } from '@tiptap/core'
 import { getMarkRange } from '@tiptap/core'
@@ -14,9 +15,9 @@ export interface LinkRange {
 }
 
 /**
- * Editor callback.
- * @param editor Parameter value.
- * @returns Callback result.
+ * Reads the active link mark and its selected text from the editor state.
+ * @param editor Tiptap editor whose current selection should be inspected.
+ * @returns Link URL, title, and selected text.
  */
 export function readLinkSelection(editor: Editor): LinkSelection {
 	const { from, to } = editor.state.selection
@@ -26,18 +27,18 @@ export function readLinkSelection(editor: Editor): LinkSelection {
 	const attributes = editor.getAttributes('link')
 
 	return {
-		url: typeof attributes.href === 'string' ? attributes.href : '',
-		title: typeof attributes.title === 'string' ? attributes.title : '',
+		url: isString(attributes.href) ? attributes.href : '',
+		title: isString(attributes.title) ? attributes.title : '',
 		text,
 	}
 }
 
 /**
- * Editor callback.
- * @param editor Parameter value.
- * @param selection Parameter value.
- * @param range Parameter value.
- * @returns Callback result.
+ * Applies a validated link selection to a document range.
+ * @param editor Tiptap editor to update.
+ * @param selection Link URL, title, and replacement text.
+ * @param range Document range receiving the link.
+ * @returns Whether Tiptap executed the update successfully.
  */
 export function saveLinkSelection(
 	editor: Editor,
@@ -63,10 +64,10 @@ export function saveLinkSelection(
 }
 
 /**
- * Editor callback.
- * @param onTrigger Parameter value.
- * @param isEnabled Resolve whether link editing is enabled.
- * @returns Callback result.
+ * Creates the Mod-K shortcut that opens link editing outside code blocks.
+ * @param onTrigger Callback invoked when link editing should open.
+ * @param isEnabled Predicate controlling whether the shortcut is active.
+ * @returns A Tiptap extension registering the shortcut.
  */
 export function createLinkShortcut(onTrigger: () => void, isEnabled: () => boolean = () => true) {
 	return Extension.create({
@@ -90,15 +91,15 @@ export function createLinkShortcut(onTrigger: () => void, isEnabled: () => boole
 }
 
 /**
- * Editor callback.
- * @param url Parameter value.
- * @returns Callback result.
+ * Checks whether a link uses a permitted web or contact protocol.
+ * @param url Link URL to inspect.
+ * @returns Whether the URL uses `http`, `https`, `mailto`, or `tel`.
  */
 function isSafeLink(url: string): boolean {
-	try {
-		const protocol = new URL(url, 'https://directus.local').protocol
-		return ['http:', 'https:', 'mailto:', 'tel:'].includes(protocol)
-	} catch {
-		return false
-	}
+	const result = attemptSync(() => new URL(url, 'https://directus.local').protocol)
+	return !!(
+		result.error === null &&
+		result.data &&
+		['http:', 'https:', 'mailto:', 'tel:'].includes(result.data)
+	)
 }

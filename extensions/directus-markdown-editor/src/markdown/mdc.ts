@@ -1,6 +1,7 @@
 import type { JSONContent, MarkdownToken } from '@tiptap/core'
 import type { MarkdownParseHelpers, MarkdownRendererHelpers } from '@tiptap/core'
 
+import { attemptSync, isRecord, isString } from '@onderwijsin/directus-extension-utils'
 import { Node } from '@tiptap/core'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 
@@ -37,13 +38,9 @@ type MdcNode = JSONContent & {
  * @returns Parsed component properties, or undefined for invalid/non-object YAML.
  */
 function parseYamlProps(source: string): Record<string, unknown> | undefined {
-	try {
-		const value: unknown = parseYaml(source)
-		if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-		return Object.fromEntries(Object.entries(value))
-	} catch {
-		return undefined
-	}
+	const result = attemptSync(() => parseYaml(source) as unknown)
+	if (result.error !== null || !isRecord(result.data)) return undefined
+	return result.data
 }
 
 /**
@@ -178,7 +175,7 @@ export const MdcSlot = Node.create({
 	 * @param helpers Parameter value.
 	 * @returns Callback result.
 	 */ (node: MdcNode, helpers: MarkdownRendererHelpers) =>
-		`#${typeof node.attrs?.name === 'string' ? node.attrs.name : 'default'}\n${helpers.renderChildren(node.content ?? [])}\n`,
+		`#${isString(node.attrs?.name) ? node.attrs.name : 'default'}\n${helpers.renderChildren(node.content ?? [])}\n`,
 })
 
 /** Generic block MDC support. Component names are data, not extensions. */
@@ -284,7 +281,7 @@ export const MdcBlock = Node.create({
 	 * @param helpers Parameter value.
 	 * @returns Callback result.
 	 */ (node: MdcNode, helpers: MarkdownRendererHelpers) => {
-		const name = typeof node.attrs?.name === 'string' ? node.attrs.name : 'unknown'
+		const name = isString(node.attrs?.name) ? node.attrs.name : 'unknown'
 		const depth = Math.max(2, Number(node.attrs?.depth ?? 2))
 		const delimiter = ':'.repeat(depth)
 		const props = node.attrs?.props ?? {}
@@ -325,7 +322,7 @@ export const MdcInline = Node.create({
 	 */ ({ node, HTMLAttributes }) => [
 		'span',
 		{ ...HTMLAttributes, 'data-mdc-inline': node.attrs.name },
-		`:${typeof node.attrs.name === 'string' ? node.attrs.name : 'unknown'}`,
+		`:${isString(node.attrs.name) ? node.attrs.name : 'unknown'}`,
 	],
 	markdownTokenName: 'mdcInline',
 
@@ -367,7 +364,7 @@ export const MdcInline = Node.create({
 	 * @param node Parameter value.
 	 * @returns Callback result.
 	 */ (node: MdcNode) => {
-		const name = typeof node.attrs?.name === 'string' ? node.attrs.name : 'unknown'
+		const name = isString(node.attrs?.name) ? node.attrs.name : 'unknown'
 		return `:${name}${serializeMdcAttributes(node.attrs?.props) || '{}'}`
 	},
 })

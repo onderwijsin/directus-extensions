@@ -55,6 +55,7 @@
 		"typecheck": "vue-tsc --noEmit"
 	},
 	"dependencies": {
+		"@onderwijsin/directus-extension-utils": "workspace:*",
 		"@tiptap/core": "catalog:",
 		"@tiptap/extension-bubble-menu": "catalog:",
 		"@tiptap/extension-code-block": "catalog:",

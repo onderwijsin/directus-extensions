@@ -1,3 +1,5 @@
+import { attemptSync, isString, toEntries } from '@onderwijsin/directus-extension-utils'
+
 const attributeNamePattern = /[\w-]/u
 
 /** A leading MDC attribute block and the number of source characters it occupies. */
@@ -100,11 +102,8 @@ function readQuotedValue(source: string, start: number, quote: '"' | "'"): Quote
  * @returns Its JSON value, or the original string when it is not valid JSON.
  */
 function parseDynamicValue(value: string): unknown {
-	try {
-		return JSON.parse(value)
-	} catch {
-		return value
-	}
+	const result = attemptSync(() => JSON.parse(value) as unknown)
+	return result.error === null ? result.data : value
 }
 
 /**
@@ -182,14 +181,14 @@ function serializeDynamicValue(value: unknown): string {
  */
 export function serializeMdcAttributes(attributes: Record<string, unknown> | undefined): string {
 	if (!attributes) return ''
-	const entries = Object.entries(attributes).filter(
+	const entries = toEntries(attributes).filter(
 		([, value]) => value !== undefined && value !== null,
 	)
 	if (entries.length === 0) return ''
 
 	const serialized = entries.map(([name, value]) => {
 		if (value === true) return name
-		if (typeof value === 'string') return `${name}=${serializeString(value)}`
+		if (isString(value)) return `${name}=${serializeString(value)}`
 		return `:${name}=${serializeString(serializeDynamicValue(value))}`
 	})
 

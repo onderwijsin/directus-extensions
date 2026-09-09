@@ -8,6 +8,7 @@ import type {
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { HighlighterCore } from 'shiki/types'
 
+import { isString, toEntries } from '@onderwijsin/directus-extension-utils'
 import { findChildren } from '@tiptap/core'
 import CodeBlock from '@tiptap/extension-code-block'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
@@ -39,9 +40,7 @@ let activeHighlighter: HighlighterCore | undefined
  * @returns A bundled language or the plain-text fallback.
  */
 function resolveLanguage(language: unknown): SupportedCodeLanguage | 'plaintext' {
-	return typeof language === 'string' && isSupportedCodeLanguage(language)
-		? language
-		: 'plaintext'
+	return isString(language) && isSupportedCodeLanguage(language) ? language : 'plaintext'
 }
 
 /**
@@ -50,7 +49,7 @@ function resolveLanguage(language: unknown): SupportedCodeLanguage | 'plaintext'
  * @returns An inline CSS declaration.
  */
 function serializeStyles(styles: Record<string, string>): string {
-	return Object.entries(styles)
+	return toEntries(styles)
 		.map(([property, value]) => `${property}:${value}`)
 		.join(';')
 }
@@ -100,7 +99,7 @@ async function loadHighlighter(doc: ProseMirrorNode): Promise<HighlighterCore> {
 	const languages = new Set<SupportedCodeLanguage>()
 	for (const block of findChildren(doc, (node) => node.type.name === 'codeBlock')) {
 		const language = block.node.attrs.language
-		if (typeof language === 'string' && isSupportedCodeLanguage(language)) {
+		if (isString(language) && isSupportedCodeLanguage(language)) {
 			languages.add(language)
 		}
 	}
@@ -197,7 +196,7 @@ function createShikiPlugin(): Plugin<DecorationSet> {
  * @returns Parsed code-block metadata.
  */
 export function parseCodeBlockInfo(value: unknown): CodeBlockInfo {
-	if (typeof value !== 'string') return { language: null, filename: null }
+	if (!isString(value)) return { language: null, filename: null }
 	const match = /^([^\s[]+)?(?:\s+\[([^\]\n]+)\])?\s*$/u.exec(value.trim())
 	return {
 		language: match?.[1] ?? null,
@@ -232,8 +231,8 @@ export function parseCodeBlockToken(
  * @returns Portable Markdown or MDC source.
  */
 export function renderCodeBlock(node: CodeBlockNode, helpers: MarkdownRendererHelpers): string {
-	const language = typeof node.attrs?.language === 'string' ? node.attrs.language : ''
-	const filename = typeof node.attrs?.filename === 'string' ? node.attrs.filename : ''
+	const language = isString(node.attrs?.language) ? node.attrs.language : ''
+	const filename = isString(node.attrs?.filename) ? node.attrs.filename : ''
 	const info = [language, filename ? `[${filename}]` : ''].filter(Boolean).join(' ')
 	const content = node.content ? helpers.renderChildren(node.content) : ''
 	const fence = `\`\`\`${info}\n${content}\n\`\`\``

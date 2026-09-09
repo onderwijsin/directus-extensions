@@ -6,6 +6,7 @@ import type { ReferenceProps } from '../reference/schema'
 import { computed, reactive, watch } from 'vue'
 
 import { useExtensions } from '@directus/extensions-sdk'
+import { isString } from '@onderwijsin/directus-extension-utils'
 
 const props = defineProps<{
 	reference?: ReferenceProps
@@ -63,7 +64,7 @@ function apply() {
 }
 
 function setIcon(value: unknown) {
-	form.icon = typeof value === 'string' ? value : ''
+	form.icon = isString(value) ? value : ''
 }
 </script>
 

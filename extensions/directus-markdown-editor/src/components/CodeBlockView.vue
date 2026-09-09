@@ -2,6 +2,7 @@
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
 import { computed } from 'vue'
 
+import { isString } from '@onderwijsin/directus-extension-utils'
 import { NodeViewContent, NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 
 import { useEditorEditable } from '../composables/useEditorEditable'
@@ -10,7 +11,7 @@ import { codeLanguageOptions } from '../editor/code-languages'
 const props = defineProps(nodeViewProps)
 const editable = useEditorEditable(props.editor)
 const language = computed(() =>
-	typeof props.node.attrs.language === 'string' ? props.node.attrs.language : '',
+	isString(props.node.attrs.language) ? props.node.attrs.language : '',
 )
 const languageLabel = computed(
 	() =>
@@ -18,7 +19,7 @@ const languageLabel = computed(
 		language.value,
 )
 const filename = computed(() =>
-	typeof props.node.attrs.filename === 'string' ? props.node.attrs.filename : '',
+	isString(props.node.attrs.filename) ? props.node.attrs.filename : '',
 )
 const collapse = computed(() => props.node.attrs.collapse === true)
 const collapseIcon = computed(() => (collapse.value ? 'expand_content' : 'collapse_content'))
@@ -28,7 +29,7 @@ const collapseTooltip = computed(() =>
 
 function updateLanguage(value: string | number | null) {
 	if (!editable.value) return
-	props.updateAttributes({ language: typeof value === 'string' ? value : null })
+	props.updateAttributes({ language: isString(value) ? value : null })
 }
 
 function updateFilename(value: string | null) {

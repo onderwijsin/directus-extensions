@@ -1,3 +1,4 @@
+import { fromEntries, toEntries } from '@onderwijsin/directus-extension-utils'
 import { Extension } from '@tiptap/core'
 
 import { isEditorToolEnabled } from './commands'
@@ -36,8 +37,8 @@ export function createConfiguredShortcutGuard(
 
 		/** @returns Shortcut handlers that defer to Tiptap only for enabled tools. */
 		addKeyboardShortcuts() {
-			return Object.fromEntries(
-				Object.entries(toolShortcuts).flatMap(([toolId, shortcuts]) =>
+			return fromEntries(
+				toEntries(toolShortcuts).flatMap(([toolId, shortcuts]) =>
 					shortcuts.map((shortcut) => [
 						shortcut,
 						() => !isEditorToolEnabled(getEnabledTools(), toolId),

@@ -2,6 +2,13 @@
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
 import { computed, shallowRef, watch } from 'vue'
 
+import {
+	isFunction,
+	isInteger,
+	isRecord,
+	isString,
+	toEntries,
+} from '@onderwijsin/directus-extension-utils'
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/vue-3'
 
 import { useEditorEditable } from '../composables/useEditorEditable'
@@ -11,11 +18,11 @@ const props = defineProps(mdcNodeViewProps)
 const editable = useEditorEditable(props.editor)
 const menuOpen = shallowRef(false)
 const componentName = computed(() =>
-	typeof props.node.attrs.name === 'string' ? props.node.attrs.name : 'Unknown component',
+	isString(props.node.attrs.name) ? props.node.attrs.name : 'Unknown component',
 )
 const componentProps = computed(() => {
 	const value = props.node.attrs.props
-	return value && typeof value === 'object' ? Object.entries(value) : []
+	return isRecord(value) ? toEntries(value) : []
 })
 watch(editable, (value) => {
 	if (!value) menuOpen.value = false
@@ -23,9 +30,9 @@ watch(editable, (value) => {
 
 function selectComponent() {
 	if (!editable.value) return false
-	if (typeof props.getPos !== 'function') return false
+	if (!isFunction(props.getPos)) return false
 	const position = props.getPos()
-	if (typeof position !== 'number') return false
+	if (!isInteger(position)) return false
 	return props.editor.chain().focus().setNodeSelection(position).run()
 }
 
@@ -46,9 +53,9 @@ function editComponent() {
 
 function duplicateComponent() {
 	if (!editable.value) return
-	if (typeof props.getPos !== 'function') return
+	if (!isFunction(props.getPos)) return
 	const position = props.getPos()
-	if (typeof position !== 'number') return
+	if (!isInteger(position)) return
 	props.editor
 		.chain()
 		.focus()

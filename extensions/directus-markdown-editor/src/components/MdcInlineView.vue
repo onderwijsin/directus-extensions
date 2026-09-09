@@ -4,6 +4,7 @@ import type { ReferenceIntegrityState } from '../reference/editor'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
+import { isFunction, isInteger } from '@onderwijsin/directus-extension-utils'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 
 import { useEditorEditable } from '../composables/useEditorEditable'
@@ -22,16 +23,16 @@ function setReferenceProblemState(value: unknown) {
 
 function updateReferenceIntegrity(event: Event) {
 	if (!(event instanceof CustomEvent) || !(event.detail instanceof Map)) return
-	if (typeof props.getPos !== 'function') return
+	if (!isFunction(props.getPos)) return
 	const position = props.getPos()
-	if (typeof position !== 'number') return
+	if (!isInteger(position)) return
 	setReferenceProblemState(event.detail.get(position))
 }
 
 onMounted(() => {
-	if (typeof props.getPos === 'function') {
+	if (isFunction(props.getPos)) {
 		const position = props.getPos()
-		if (typeof position === 'number') {
+		if (isInteger(position)) {
 			setReferenceProblemState(getEditorReferenceState(props.editor, position))
 		}
 	}
@@ -49,9 +50,9 @@ onBeforeUnmount(() =>
 
 function editComponent() {
 	if (!editable.value) return
-	if (typeof props.getPos !== 'function') return
+	if (!isFunction(props.getPos)) return
 	const position = props.getPos()
-	if (typeof position !== 'number') return
+	if (!isInteger(position)) return
 	if (!props.editor.chain().focus().setNodeSelection(position).run()) return
 	const reference = props.node.attrs.name === 'Reference'
 	props.editor.view.dom.dispatchEvent(
