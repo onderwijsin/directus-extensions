@@ -9,7 +9,7 @@ const props = defineProps(mdcNodeViewProps)
 <template>
 	<NodeViewWrapper class="mdc-slot-view" data-mdc-node-view>
 		<div class="mdc-slot-view__label" contenteditable="false">
-			<VIcon name="tag" small />#{{ props.node.attrs.name }}
+			{{ props.node.attrs.name }}
 		</div>
 		<NodeViewContent class="mdc-slot-view__content" tabindex="0" />
 	</NodeViewWrapper>

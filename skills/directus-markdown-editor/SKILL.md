@@ -68,11 +68,14 @@ Directus Studio's globally registered primitives directly; there is no bundled f
 layer.
 
 Empty named component slots are preserved when backspacing, and exiting a trailing empty slot
-creates and focuses a paragraph directly after the component. Opening another editor overlay closes
-an active slash menu. Inline components open their property drawer directly when clicked. Block
-controls stay behind the sticky toolbar. The table toolbar preserves its table selection while its
-row, column, header, merge, split, and delete actions run; deletion supports both cell-active and
-node-selected tables.
+removes that trailing placeholder before creating and focusing a paragraph directly after the
+component. Arrow-key navigation cannot place content between component slots, and newly inserted
+multi-slot components focus their first slot. Empty nested blocks use the compact **Start writing…**
+placeholder. Opening another editor overlay closes an active slash menu. Inline components open
+their property drawer directly when clicked. Block controls stay behind the sticky toolbar and keep
+the moved block selected after **Move up** or **Move down**. The table toolbar preserves its table
+selection while its row, column, header, merge, split, and delete actions run; deletion supports
+both cell-active and node-selected tables.
 
 Choose one component metadata source in the interface configuration:
 

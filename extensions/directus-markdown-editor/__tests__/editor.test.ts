@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { Editor } from '@tiptap/core'
 import { Markdown } from '@tiptap/markdown'
+import { NodeSelection } from '@tiptap/pm/state'
 import StarterKit from '@tiptap/starter-kit'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -386,10 +387,7 @@ describe('editor commands', () => {
 				content: [
 					{
 						type: 'mdcSlot',
-						content: [
-							{ type: 'paragraph', content: [{ text: 'Content' }] },
-							{ type: 'paragraph' },
-						],
+						content: [{ type: 'paragraph', content: [{ text: 'Content' }] }],
 					},
 				],
 			},
@@ -539,6 +537,15 @@ describe('editor commands', () => {
 				{},
 			],
 		})
+		expect(editor.state.selection.$from.parent.type.name).toBe('paragraph')
+		expect(editor.state.selection.$from.node(-1).attrs.name).toBe('title')
+		editor.destroy()
+	})
+
+	it('disallows a gap cursor between component slots', () => {
+		const editor = new Editor({ extensions: createEditorExtensions() })
+
+		expect(editor.schema.nodes.mdcBlock?.spec.allowGapCursor).toBe(false)
 		editor.destroy()
 	})
 
@@ -886,9 +893,13 @@ describe('editor commands', () => {
 		expect(editor.getText({ blockSeparator: '|' })).toBe('One|Two|Two|Three')
 		expect(moveBlockUp(editor, secondPosition)).toBe(true)
 		expect(editor.getText({ blockSeparator: '|' })).toBe('Two|One|Two|Three')
+		expect(editor.state.selection).toBeInstanceOf(NodeSelection)
+		expect(editor.state.selection.from).toBe(0)
 		const firstSize = editor.state.doc.child(0).nodeSize
 		expect(moveBlockDown(editor, 0)).toBe(true)
 		expect(editor.getText({ blockSeparator: '|' })).toBe('One|Two|Two|Three')
+		expect(editor.state.selection).toBeInstanceOf(NodeSelection)
+		expect(editor.state.selection.from).toBe(firstSize)
 		expect(deleteBlock(editor, firstSize)).toBe(true)
 		expect(editor.getText({ blockSeparator: '|' })).toBe('One|Two|Three')
 		editor.destroy()

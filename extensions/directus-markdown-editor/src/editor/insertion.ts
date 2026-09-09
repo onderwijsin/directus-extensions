@@ -1,6 +1,8 @@
 import type { Editor } from '@tiptap/core'
 import type { ComponentMetadata } from '../component-meta/schema'
 
+import { TextSelection } from '@tiptap/pm/state'
+
 export type ComponentNodeType = 'mdcBlock' | 'mdcInline'
 
 /**
@@ -61,7 +63,7 @@ export function insertComponent(
 			])
 			.run()
 	}
-	return editor
+	const inserted = editor
 		.chain()
 		.focus()
 		.insertContent({
@@ -81,6 +83,26 @@ export function insertComponent(
 			),
 		})
 		.run()
+	if (!inserted || component.slots.length === 0) return inserted
+
+	let insertedBlockPosition: number | undefined
+	const selectionPosition = editor.state.selection.from
+	editor.state.doc.descendants((node, position) => {
+		if (
+			node.type.name === 'mdcBlock' &&
+			node.attrs.name === component.name &&
+			position < selectionPosition
+		) {
+			insertedBlockPosition = position
+		}
+	})
+	if (insertedBlockPosition === undefined) return inserted
+	editor.view.dispatch(
+		editor.state.tr
+			.setSelection(TextSelection.create(editor.state.doc, insertedBlockPosition + 3))
+			.scrollIntoView(),
+	)
+	return true
 }
 
 /**

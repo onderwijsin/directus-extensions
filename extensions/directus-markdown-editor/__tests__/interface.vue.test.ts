@@ -553,6 +553,7 @@ describe('Markdown editor interface', () => {
 		expect(element.textContent).toContain('tone="warning"')
 		expect(element.textContent).not.toContain('1 props')
 		expect(element.textContent).not.toContain('1 slots')
+		expect(element.querySelector('.mdc-slot-view__label')?.textContent?.trim()).toBe('default')
 		expect(element.querySelector('[aria-label="Component actions"]')).not.toBeNull()
 		expect(element.querySelector('.mdc-slot-view__content')?.getAttribute('tabindex')).toBe('0')
 		expect(element.textContent).not.toContain('Apply')

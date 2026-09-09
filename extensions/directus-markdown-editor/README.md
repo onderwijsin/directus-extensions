@@ -58,8 +58,11 @@ behind the sticky toolbar while scrolling. The table toolbar preserves its activ
 while running row, column, header, merge, split, and delete actions; deletion supports both a cell
 selection and a selected table node. MDC block and inline views expose their identity while keeping
 their content and named slots editable. Slot structures cannot be removed by backspacing their empty
-content, and pressing Enter in a trailing empty slot paragraph creates and focuses a paragraph
-directly after the component. Activating another editor overlay dismisses the slash menu.
+content. Arrow-key navigation cannot place content between slots, newly inserted multi-slot
+components focus their first slot, and exiting a populated slot removes its trailing empty paragraph
+before focusing a paragraph after the component. Nested empty blocks show the compact **Start
+writing…** placeholder. Moving a block keeps it selected so its drag handle remains available.
+Activating another editor overlay dismisses the slash menu.
 
 Tiptap 3.31.0 and `@tiptap/markdown` are pinned together because the Markdown package is beta.
 Fenced code is highlighted with Shiki's `github-light` and `github-dark` themes and exposes a

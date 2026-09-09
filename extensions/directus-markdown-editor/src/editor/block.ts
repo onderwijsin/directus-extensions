@@ -1,5 +1,7 @@
 import type { Editor } from '@tiptap/core'
 
+import { NodeSelection } from '@tiptap/pm/state'
+
 /**
  * Duplicate the top-level block at a document position.
  * @param editor Active Tiptap editor.
@@ -27,7 +29,9 @@ export function moveBlockUp(editor: Editor, position: number): boolean {
 	const transaction = editor.state.tr
 		.delete(position, position + node.nodeSize)
 		.insert(target, node)
+	transaction.setSelection(NodeSelection.create(transaction.doc, target))
 	editor.view.dispatch(transaction.scrollIntoView())
+	editor.view.focus()
 	return true
 }
 
@@ -41,10 +45,13 @@ export function moveBlockDown(editor: Editor, position: number): boolean {
 	const node = editor.state.doc.nodeAt(position)
 	const next = node ? editor.state.doc.nodeAt(position + node.nodeSize) : null
 	if (!node || !next) return false
+	const target = position + next.nodeSize
 	const transaction = editor.state.tr
 		.delete(position, position + node.nodeSize)
-		.insert(position + next.nodeSize, node)
+		.insert(target, node)
+	transaction.setSelection(NodeSelection.create(transaction.doc, target))
 	editor.view.dispatch(transaction.scrollIntoView())
+	editor.view.focus()
 	return true
 }
 

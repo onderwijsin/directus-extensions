@@ -188,6 +188,7 @@ export const MdcBlock = Node.create({
 	content: 'block*',
 	defining: true,
 	isolating: true,
+	allowGapCursor: false,
 	addNodeView: /**
 	 * Editor callback.
 	 * @returns Callback result.

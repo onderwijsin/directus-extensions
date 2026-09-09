@@ -57,6 +57,7 @@ export function createEditorExtensions(
 		MdcSlot,
 		Placeholder.configure({
 			placeholder: "Start writing or type '/' for commands",
+			nestedPlaceholder: 'Start writing…',
 		}),
 		...(actions.openReference
 			? [

@@ -25,15 +25,22 @@ function exitMdcSlot(editor: Editor): boolean {
 
 	const componentEnd = $from.after(blockDepth)
 	return editor.commands.command(({ dispatch, tr }) => {
-		const nextNode = tr.doc.nodeAt(componentEnd)
+		let insertionPosition = componentEnd
+		const slot = $from.node(slotDepth)
+		if (slot.childCount > 1) {
+			const paragraphStart = $from.before()
+			tr.delete(paragraphStart, paragraphStart + $from.parent.nodeSize)
+			insertionPosition = tr.mapping.map(componentEnd, -1)
+		}
+		const nextNode = tr.doc.nodeAt(insertionPosition)
 		const nextIsEmptyParagraph =
 			nextNode?.type.name === 'paragraph' && nextNode.content.size === 0
 		if (!nextIsEmptyParagraph) {
 			const paragraph = editor.schema.nodes.paragraph?.create()
 			if (!paragraph) return false
-			tr.insert(componentEnd, paragraph)
+			tr.insert(insertionPosition, paragraph)
 		}
-		tr.setSelection(TextSelection.create(tr.doc, componentEnd + 1))
+		tr.setSelection(TextSelection.create(tr.doc, insertionPosition + 1))
 		dispatch?.(tr)
 		return true
 	})

@@ -61,6 +61,24 @@ describe('Reference @ trigger', () => {
 		)
 	})
 
+	it('uses the minimal placeholder inside nested content', () => {
+		const { editor } = createReferenceEditor()
+		editor.commands.setContent({
+			type: 'doc',
+			content: [
+				{
+					type: 'blockquote',
+					content: [{ type: 'paragraph' }],
+				},
+			],
+		})
+		editor.commands.setTextSelection(2)
+
+		expect(
+			editor.view.dom.querySelector('blockquote p')?.getAttribute('data-placeholder'),
+		).toBe('Start writing…')
+	})
+
 	it('does not trigger for an email address', () => {
 		const { editor, openReference } = createReferenceEditor('user')
 		editor.commands.setTextSelection(5)
