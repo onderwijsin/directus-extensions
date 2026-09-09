@@ -112,7 +112,7 @@ function handleKeydown(event: KeyboardEvent) {
 				></VInput>
 				<VProgressCircular v-if="loading" indeterminate class="reference-picker__loading" />
 				<VNotice v-else-if="normalizedQuery && results.length === 0" type="info"
-					>No accessible items match “{{ normalizedQuery }}”.</VNotice
+					>No items match “{{ normalizedQuery }}”.</VNotice
 				>
 				<VList v-else-if="results.length" class="reference-picker__list">
 					<VListItem
@@ -149,7 +149,8 @@ function handleKeydown(event: KeyboardEvent) {
 	display: block;
 	margin: 2rem auto;
 }
-.reference-picker :deep(.v-input) + :deep(.v-notice),
+
+.reference-picker :deep(.v-input + .v-notice),
 .reference-picker :deep(.v-input) + .reference-picker__loading,
 .reference-picker :deep(.v-input) + .reference-picker__list {
 	margin-block-start: 1rem;
