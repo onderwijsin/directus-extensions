@@ -172,15 +172,23 @@ requests never request `*` or expand relations. A `403`, `404`, or absent result
 “source not available” because Directus cannot reliably distinguish removal from permission denial
 in this authoring context. Unexpected/network failures are non-destructive verification errors.
 
+The editor discovers `archive_field` and `archive_value` from each Directus collection. It excludes
+archived items from insertion and replacement search, and reports a readable existing Reference as
+**Archived** when the current user can still resolve it. Archived References offer replacement and
+removal but no refresh, and `sync` leaves their stored label and data untouched. Archive detection
+runs in every snapshot mode and is separate from snapshot freshness. Collections without Directus
+archive metadata continue normally; an unknown configured archive field produces a non-fatal
+warning. A permission-hidden archived item is **Unavailable**, not guessed to be archived.
+
 The editor scans once after document hydration and after a complete external Markdown replacement.
 It de-duplicates source resolution while retaining occurrence-specific repair actions:
 
-- `snapshot`: verify source availability; compare snapshots only after explicit refresh or source
-  replacement.
-- `detect`: compare current `label`/`data`, report stale occurrences, and offer Refresh, Replace,
-  Remove, and Refresh all outdated.
-- `sync`: update stale `label`/`data` in the editor in a consolidated transaction. This can make the
-  field dirty, but it never calls the item update API or saves automatically.
+- `snapshot`: verify source availability and archive state; compare snapshots only after explicit
+  refresh or source replacement.
+- `detect`: compare current `label`/`data`, report archived or stale occurrences, and offer Refresh,
+  Replace, Remove, and Refresh all outdated.
+- `sync`: update available stale `label`/`data` in the editor in a consolidated transaction. This
+  can make the field dirty, but it never calls the item update API or saves automatically.
 
 Malformed external Reference nodes remain generic selectable MDC atoms instead of being discarded.
 The integrity report presents affected items in a responsive, status-coded table and can replace or

@@ -15,12 +15,13 @@ import ReferenceReport from '../src/components/ReferenceReport.vue'
 import { createEditorExtensions } from '../src/editor/extensions'
 import { collectReferenceOccurrences } from '../src/reference/editor'
 
-const directusMocks = vi.hoisted(() => ({ get: vi.fn() }))
+const directusMocks = vi.hoisted(() => ({ get: vi.fn(), collection: undefined as unknown }))
 
 vi.mock('@directus/extensions-sdk', () => ({
 	useApi: () => ({ get: directusMocks.get }),
 	useExtensions: () => ({ interfaces: shallowRef([]) }),
 	useStores: () => ({
+		useCollectionsStore: () => ({ getCollection: () => directusMocks.collection }),
 		useFieldsStore: () => ({
 			getFieldsForCollection: () => [
 				{
@@ -30,6 +31,7 @@ vi.mock('@directus/extensions-sdk', () => ({
 					meta: null,
 				},
 				{ field: 'title', type: 'string', schema: {}, meta: null },
+				{ field: 'archived', type: 'boolean', schema: {}, meta: null },
 			],
 		}),
 	}),
@@ -120,6 +122,7 @@ function mount(component: Parameters<typeof h>[0], props: Record<string, unknown
 
 afterEach(() => {
 	vi.useRealTimers()
+	directusMocks.collection = undefined
 	for (const entry of mounted.splice(0)) {
 		entry.app.unmount()
 		entry.element.remove()
@@ -410,6 +413,8 @@ describe('Reference interface', () => {
 			reference: { collection: 'articles', item: 7, label: 'Article seven', data: {} },
 			current: { collection: 'articles', item: 7, label: 'Updated seven', data: {} },
 			state: 'outdated',
+			sourceState: 'available',
+			snapshotState: 'outdated',
 		}
 		const table = mount(ReferenceReport, { modelValue: true, occurrences: [occurrence] })
 
@@ -421,7 +426,7 @@ describe('Reference interface', () => {
 		expect(table.querySelector('.reference-report__status')?.textContent).toBe('Outdated')
 		expect(table.querySelector('.reference-report__status--warning')).not.toBeNull()
 		expect(table.querySelector('.reference-report__header')?.textContent).toContain(
-			'changed since your last edit',
+			'need attention',
 		)
 		expect(table.querySelector('.reference-report__body table')).not.toBeNull()
 		expect(table.querySelector('.reference-report__footer')?.textContent).toContain('Close')
@@ -432,6 +437,39 @@ describe('Reference interface', () => {
 			'All references are resolved',
 		)
 		expect(success.textContent).toContain('continue editing the item')
+	})
+
+	it('presents archived references without offering refresh', () => {
+		const reference = { collection: 'articles', item: 7, label: 'Archived article', data: {} }
+		const drawer = mount(ReferenceDrawer, {
+			modelValue: true,
+			status: 'archived',
+			reference,
+		})
+		expect(drawer.querySelector('.reference-drawer__notice')?.textContent).toContain(
+			'This referenced item is archived',
+		)
+		expect(drawer.querySelector('[aria-label="Refresh item"]')).toBeNull()
+
+		const report = mount(ReferenceReport, {
+			modelValue: true,
+			occurrences: [
+				{
+					key: '1:0',
+					position: 1,
+					rawProps: reference,
+					reference,
+					state: 'archived',
+					sourceState: 'archived',
+					snapshotState: 'outdated',
+				},
+			],
+		})
+		expect(report.querySelector('.reference-report__status')?.textContent).toBe('Archived')
+		expect(report.textContent).toContain('archived in Directus')
+		expect(report.querySelector('[aria-label="Refresh reference"]')).toBeNull()
+		expect(report.querySelector('[aria-label="Replace reference"]')).not.toBeNull()
+		expect(report.querySelector('[aria-label="Remove reference"]')).not.toBeNull()
 	})
 
 	it('replaces a stale reference through the picker and returns to report success', async () => {

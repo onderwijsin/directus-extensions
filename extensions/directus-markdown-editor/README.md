@@ -162,10 +162,20 @@ ordinary Markdown editing. Repeated configured field names are de-duplicated in 
 order.
 
 Picker and integrity requests use the authenticated Studio API session and request only configured
-fields plus the primary key. Directus collection and field permissions therefore determine what an
-author can find and verify. A missing item and an item hidden by permissions are deliberately shown
-as the same “source not available” state. The extension does not use an admin token, privileged
-endpoint, reverse index, deletion hook, or automatic item save.
+fields plus the primary key and Directus-configured archive field. Directus collection and field
+permissions therefore determine what an author can find and verify. A missing item and an item
+hidden by permissions are deliberately shown as the same “source not available” state. The extension
+does not use an admin token, privileged endpoint, reverse index, deletion hook, or automatic item
+save.
+
+When a collection defines both `archive_field` and `archive_value`, References automatically use
+that Directus lifecycle configuration. Archived items are omitted from every picker and surfaced as
+**Archived** by integrity checks, while their stored label stays readable and their source can still
+be changed or the occurrence removed. Archive detection works in `snapshot`, `detect`, and `sync`
+modes; `sync` never refreshes an archived Reference. A missing archive configuration disables only
+archive detection, while collection metadata that names an unknown archive field produces a
+non-fatal configuration warning. Items hidden by permissions remain **Unavailable** because the
+editor cannot infer their archive state.
 
 References persist as ordinary inline MDC and continue to use the generic MDC parser and renderer:
 
@@ -182,19 +192,19 @@ frontend MDC component should render `text ?? label` and may use the Material/Di
 
 The document-level integrity check runs after hydration and complete external value replacement, not
 after every keystroke and not from individual node views. It reports malformed references,
-unconfigured collections, unavailable sources, stale snapshots in `detect` mode, and transient
-verification failures in a responsive, status-coded table with row-level actions. Authors can
-refresh, replace, or remove affected occurrences; resolving the last issue leaves a success state
-that must be closed before editing continues. Integrity results never open the report automatically:
-the sub-toolbar notice remains visible and its **Show report** action is the only entry point.
-Opening an affected Reference also explains its integrity status in the drawer. Status lookup is
-occurrence-specific, so refreshing one of several References to the same item does not hide issues
-on the other occurrences. Integrity checks are not mounted for Directus comparison views, so a
-published side containing an old snapshot cannot interrupt the pre-publish diff. The drawer offers
-its soft-warning Refresh action beside **Change source** only when that Reference is outdated. The
-report keeps its header and actions visible while only its table body scrolls, and gives more width
-to item labels than collection and status values. `sync` updates only changed `label` and `data`
-values in the editor; this can mark the Directus field dirty but never saves the item automatically.
-`snapshot` still verifies source availability but skips normal snapshot comparison. Relational
-projections, reverse-document lookup, server-side full-document scanning, cascade cleanup, and
-frontend rendering are outside the V1 contract.
+unconfigured collections, unavailable sources, archived sources, stale snapshots in `detect` mode,
+and transient verification failures in a responsive, status-coded table with row-level actions.
+Authors can refresh, replace, or remove affected occurrences; resolving the last issue leaves a
+success state that must be closed before editing continues. Integrity results never open the report
+automatically: the sub-toolbar notice remains visible and its **Show report** action is the only
+entry point. Opening an affected Reference also explains its integrity status in the drawer. Status
+lookup is occurrence-specific, so refreshing one of several References to the same item does not
+hide issues on the other occurrences. Integrity checks are not mounted for Directus comparison
+views, so a published side containing an old snapshot cannot interrupt the pre-publish diff. The
+drawer offers its soft-warning Refresh action beside **Change source** only when that Reference is
+outdated. The report keeps its header and actions visible while only its table body scrolls, and
+gives more width to item labels than collection and status values. `sync` updates only changed
+`label` and `data` values in the editor; this can mark the Directus field dirty but never saves the
+item automatically. `snapshot` still verifies source availability but skips normal snapshot
+comparison. Relational projections, reverse-document lookup, server-side full-document scanning,
+cascade cleanup, and frontend rendering are outside the V1 contract.

@@ -1,6 +1,6 @@
 import type { ResolvedReferenceCollectionConfig, ReferenceProps } from './schema'
 
-import { itemToReference } from './schema'
+import { isReferenceItemArchived, itemToReference } from './schema'
 
 export interface ReferenceSearchResult {
 	reference: ReferenceProps
@@ -59,6 +59,7 @@ function requestedFields(
 			config.displayField,
 			...(includeSearch ? config.searchFields : []),
 			...config.dataFields,
+			...(config.archive ? [config.archive.field] : []),
 		]),
 	]
 }
@@ -70,11 +71,21 @@ function requestedFields(
  * @returns Relative Directus items URL.
  */
 function searchUrl(config: ResolvedReferenceCollectionConfig, query: string): string {
+	const searchFilter = {
+		_or: config.searchFields.map((field) => ({ [field]: { _icontains: query } })),
+	}
 	const parameters = new URLSearchParams({
 		fields: requestedFields(config, true).join(','),
-		filter: JSON.stringify({
-			_or: config.searchFields.map((field) => ({ [field]: { _icontains: query } })),
-		}),
+		filter: JSON.stringify(
+			config.archive
+				? {
+						_and: [
+							searchFilter,
+							{ [config.archive.field]: { _neq: config.archive.value } },
+						],
+					}
+				: searchFilter,
+		),
 		limit: '5',
 	})
 	return `/items/${encodeURIComponent(config.collection)}?${parameters.toString()}`
@@ -138,6 +149,7 @@ export async function searchReferences(
 
 export interface ReferenceResolution {
 	items: Map<string, ReferenceProps>
+	archivedItems: Set<string>
 	unavailableItems: Set<string>
 	verificationErrorItems: Set<string>
 }
@@ -158,6 +170,7 @@ export async function resolveReferences(
 ): Promise<ReferenceResolution> {
 	const resolvedItems = new Map<string, ReferenceProps>()
 	const unavailableItems = new Set<string>()
+	const archivedItems = new Set<string>()
 	const verificationErrorItems = new Set<string>()
 	for (let offset = 0; offset < items.length; offset += 100) {
 		const chunk = items.slice(offset, offset + 100)
@@ -178,7 +191,16 @@ export async function resolveReferences(
 			}
 			for (const sourceItem of returnedItems) {
 				const reference = itemToReference(sourceItem, config)
-				if (reference) resolvedItems.set(String(reference.item), reference)
+				if (reference) {
+					const itemKey = String(reference.item)
+					resolvedItems.set(itemKey, reference)
+					if (
+						config.archive &&
+						isReferenceItemArchived(sourceItem[config.archive.field], config.archive)
+					) {
+						archivedItems.add(itemKey)
+					}
+				}
 			}
 		} catch (error) {
 			const status = referenceErrorStatus(error)
@@ -187,5 +209,5 @@ export async function resolveReferences(
 			for (const item of chunk) target.add(String(item))
 		}
 	}
-	return { items: resolvedItems, unavailableItems, verificationErrorItems }
+	return { items: resolvedItems, archivedItems, unavailableItems, verificationErrorItems }
 }

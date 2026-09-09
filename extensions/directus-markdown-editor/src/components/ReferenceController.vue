@@ -18,6 +18,7 @@ import {
 	updateReferenceAt,
 } from '../reference/editor'
 import { parseReferenceProps, resolveReferenceCollections } from '../reference/schema'
+import { setEditorReferenceStates } from '../reference/status'
 import ReferenceDrawer from './ReferenceDrawer.vue'
 import ReferencePicker from './ReferencePicker.vue'
 import ReferenceReport from './ReferenceReport.vue'
@@ -38,9 +39,12 @@ const emit = defineEmits<{ attentionChange: [needsAttention: boolean] }>()
 const api = useApi()
 const stores = useStores()
 const fieldsStore = stores.useFieldsStore()
+const collectionsStore = stores.useCollectionsStore()
 const configuration = computed(() =>
-	resolveReferenceCollections(props.collections, (collection) =>
-		fieldsStore.getFieldsForCollection(collection),
+	resolveReferenceCollections(
+		props.collections,
+		(collection) => fieldsStore.getFieldsForCollection(collection),
+		(collection) => collectionsStore.getCollection(collection),
 	),
 )
 const apiClient = {
@@ -97,6 +101,8 @@ function handleEdit(event: Event) {
 				position,
 				rawProps: node?.attrs.props,
 				state: 'malformed',
+				sourceState: 'malformed',
+				snapshotState: 'unchecked',
 			},
 		)
 	}
@@ -118,6 +124,7 @@ function selectResult(result: ReferenceSearchResult) {
 	if (updateReferenceAt(props.editor, position, replacement)) {
 		selectedReference.value = replacement
 		report.value = report.value.filter((entry) => entry.position !== position)
+		void scan()
 	}
 }
 
@@ -173,6 +180,8 @@ function removeSelected() {
 			rawProps: selectedReference.value,
 			reference: selectedReference.value,
 			state: 'valid',
+			sourceState: 'available',
+			snapshotState: 'current',
 		},
 	)
 	drawerOpen.value = false
@@ -231,6 +240,14 @@ async function scan() {
 	)
 	if (request.signal.aborted) return
 	report.value = result.occurrences
+	setEditorReferenceStates(props.editor, result.occurrences)
+	props.editor.view.dom.dispatchEvent(
+		new CustomEvent('markdown-editor-reference-integrity', {
+			detail: new Map(
+				result.occurrences.map((occurrence) => [occurrence.position, occurrence.state]),
+			),
+		}),
+	)
 }
 
 onMounted(() => {

@@ -17,11 +17,21 @@ export interface ReferenceBookmark {
 
 export type ReferenceIntegrityState =
 	| 'valid'
+	| 'archived'
 	| 'malformed'
 	| 'unconfigured'
 	| 'not_available'
 	| 'outdated'
 	| 'verification_error'
+
+export type ReferenceSourceState =
+	| 'available'
+	| 'archived'
+	| 'unavailable'
+	| 'unconfigured'
+	| 'malformed'
+	| 'error'
+export type ReferenceSnapshotState = 'current' | 'outdated' | 'unchecked'
 
 export interface ReferenceOccurrence {
 	key: string
@@ -29,6 +39,8 @@ export interface ReferenceOccurrence {
 	rawProps: unknown
 	reference?: ReferenceProps
 	state: ReferenceIntegrityState
+	sourceState: ReferenceSourceState
+	snapshotState: ReferenceSnapshotState
 	current?: ReferenceProps
 }
 
@@ -125,6 +137,8 @@ export function collectReferenceOccurrences(document: ProseMirrorNode): Referenc
 			rawProps: node.attrs.props,
 			reference: parsed.success ? parsed.data : undefined,
 			state: parsed.success ? 'valid' : 'malformed',
+			sourceState: parsed.success ? 'available' : 'malformed',
+			snapshotState: 'unchecked',
 		})
 	})
 	return occurrences
@@ -156,6 +170,7 @@ export async function scanReferences(
 	for (const occurrence of occurrences) {
 		if (occurrence.reference && !configured.has(occurrence.reference.collection)) {
 			occurrence.state = 'unconfigured'
+			occurrence.sourceState = 'unconfigured'
 		}
 	}
 
@@ -177,22 +192,36 @@ export async function scanReferences(
 			const itemKey = String(occurrence.reference.item)
 			if (resolution.verificationErrorItems.has(itemKey)) {
 				occurrence.state = 'verification_error'
+				occurrence.sourceState = 'error'
 				continue
 			}
 			if (resolution.unavailableItems.has(itemKey)) {
 				occurrence.state = 'not_available'
+				occurrence.sourceState = 'unavailable'
 				continue
 			}
 			const current = resolution.items.get(itemKey)
 			if (!current) {
 				occurrence.state = 'not_available'
+				occurrence.sourceState = 'unavailable'
 				continue
 			}
 			occurrence.current = current
+			occurrence.sourceState = resolution.archivedItems.has(itemKey)
+				? 'archived'
+				: 'available'
+			occurrence.snapshotState =
+				mode === 'snapshot'
+					? 'unchecked'
+					: isReferenceSnapshotCurrent(occurrence.reference, current)
+						? 'current'
+						: 'outdated'
 			occurrence.state =
-				mode !== 'snapshot' && !isReferenceSnapshotCurrent(occurrence.reference, current)
-					? 'outdated'
-					: 'valid'
+				occurrence.sourceState === 'archived'
+					? 'archived'
+					: occurrence.snapshotState === 'outdated'
+						? 'outdated'
+						: 'valid'
 		}
 	}
 

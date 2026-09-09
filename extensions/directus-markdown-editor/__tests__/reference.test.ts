@@ -7,8 +7,9 @@ import { searchReferences } from '../src/reference/api'
 import { scanReferences } from '../src/reference/editor'
 import {
 	isReferenceSnapshotCurrent,
-	parseReferenceProps,
+	isReferenceItemArchived,
 	itemToReference,
+	parseReferenceProps,
 	resolveReferenceCollections,
 } from '../src/reference/schema'
 
@@ -17,6 +18,7 @@ const fields = [
 	{ field: 'title', type: 'string', schema: {}, meta: null },
 	{ field: 'slug', type: 'string', schema: {}, meta: null },
 	{ field: 'body', type: 'text', schema: {}, meta: null },
+	{ field: 'archived', type: 'boolean', schema: {}, meta: null },
 	{
 		field: 'author',
 		type: 'uuid',
@@ -50,6 +52,28 @@ describe('Reference configuration and snapshots', () => {
 			searchFields: ['title', 'slug'],
 			dataFields: ['slug'],
 		})
+	})
+
+	it('discovers archive metadata and keeps a collection usable when its archive field is missing', () => {
+		const configured = resolveReferenceCollections(
+			[{ collection: 'articles', displayField: 'title' }],
+			() => fields,
+			() => ({ meta: { archive_field: 'archived', archive_value: 'true' } }),
+		)
+		const archive = configured.collections[0]?.archive
+		expect(archive).toEqual({ field: 'archived', value: 'true', fieldType: 'boolean' })
+		if (!archive) throw new Error('Expected archive configuration.')
+		expect(isReferenceItemArchived(true, archive)).toBe(true)
+		expect(isReferenceItemArchived(false, archive)).toBe(false)
+
+		const unresolved = resolveReferenceCollections(
+			[{ collection: 'articles', displayField: 'title' }],
+			() => fields,
+			() => ({ meta: { archive_field: 'missing', archive_value: 'archived' } }),
+		)
+		expect(unresolved.collections).toHaveLength(1)
+		expect(unresolved.collections[0]?.archive).toBeUndefined()
+		expect(unresolved.errors.join(' ')).toContain('archive field that could not be resolved')
 	})
 
 	it.each([
@@ -155,6 +179,23 @@ describe('Reference API and integrity', () => {
 		expect(url).toContain('limit=5')
 	})
 
+	it('requests archive state and excludes archived records from search', async () => {
+		const config = {
+			...resolvedConfig(),
+			archive: { field: 'archived', value: 'true', fieldType: 'boolean' },
+		}
+		const get = vi.fn().mockResolvedValue({ data: { data: [] } })
+		await searchReferences({ get }, [config], 'match')
+		const url = new URL(String(get.mock.calls[0]?.[0]), 'https://directus.test')
+		expect(url.searchParams.get('fields')).toContain('archived')
+		expect(JSON.parse(url.searchParams.get('filter') ?? '')).toEqual({
+			_and: [
+				{ _or: [{ title: { _icontains: 'match' } }, { slug: { _icontains: 'match' } }] },
+				{ archived: { _neq: 'true' } },
+			],
+		})
+	})
+
 	it('detects and synchronizes stale snapshots in one editor transaction while preserving presentation', async () => {
 		const config = resolvedConfig()
 		const markdown =
@@ -181,4 +222,41 @@ describe('Reference API and integrity', () => {
 			editor.destroy()
 		}
 	})
+
+	it.each(['snapshot', 'detect', 'sync'] as const)(
+		'reports boolean archived sources in %s mode without changing their snapshots',
+		async (mode) => {
+			const config = {
+				...resolvedConfig(),
+				archive: { field: 'archived', value: 'true', fieldType: 'boolean' },
+			}
+			const editor = new Editor({
+				content:
+					':Reference{collection="articles" :item="7" label="Old" :data="{\\"slug\\":\\"old\\"}"}',
+				contentType: 'markdown',
+				extensions: createEditorExtensions(),
+			})
+			try {
+				const result = await scanReferences(
+					editor,
+					{
+						get: vi.fn().mockResolvedValue({
+							data: { data: [{ key: 7, title: 'New', slug: 'new', archived: true }] },
+						}),
+					},
+					[config],
+					mode,
+				)
+				expect(result.occurrences[0]).toMatchObject({
+					state: 'archived',
+					sourceState: 'archived',
+					snapshotState: mode === 'snapshot' ? 'unchecked' : 'outdated',
+				})
+				expect(result.synchronized).toBe(0)
+				expect(editor.getMarkdown()).toContain('label="Old"')
+			} finally {
+				editor.destroy()
+			}
+		},
+	)
 })

@@ -13,6 +13,7 @@ const emit = defineEmits<{
 }>()
 
 function statusLabel(state: ReferenceOccurrence['state']) {
+	if (state === 'archived') return 'Archived'
 	if (state === 'not_available') return 'Unavailable'
 	if (state === 'verification_error') return 'Verification failed'
 	if (state === 'unconfigured') return 'Not configured'
@@ -22,8 +23,8 @@ function statusLabel(state: ReferenceOccurrence['state']) {
 
 function statusClass(state: ReferenceOccurrence['state']) {
 	return {
-		'reference-report__status--warning': state === 'outdated',
-		'reference-report__status--danger': state !== 'outdated',
+		'reference-report__status--warning': state === 'outdated' || state === 'archived',
+		'reference-report__status--danger': state !== 'outdated' && state !== 'archived',
 	}
 }
 
@@ -59,10 +60,7 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 		<VCard class="reference-report" role="dialog" aria-label="Reference report">
 			<header class="reference-report__header">
 				<VCardTitle>Reference report</VCardTitle>
-				<p v-if="occurrences.length">
-					Some references in this item need attention, because the item that is being
-					referenced has changed since your last edit.
-				</p>
+				<p v-if="occurrences.length">Some references in this item need attention.</p>
 			</header>
 			<VCardText class="reference-report__body">
 				<div v-if="occurrences.length" class="reference-report__attention">
@@ -100,6 +98,10 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 										<small v-if="occurrence.state === 'not_available'"
 											>This item may have been removed or you may no longer
 											have access to it.</small
+										>
+										<small v-if="occurrence.state === 'archived'"
+											>This referenced item has been archived in
+											Directus.</small
 										>
 									</td>
 									<td>

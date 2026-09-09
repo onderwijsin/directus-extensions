@@ -1,15 +1,44 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
 import { NodeViewWrapper } from '@tiptap/vue-3'
 
 import { useEditorEditable } from '../composables/useEditorEditable'
 import { parseReferenceProps } from '../reference/schema'
+import { getEditorReferenceState } from '../reference/status'
 import { mdcNodeViewProps } from './mdcNodeViewProps'
 
 const props = defineProps(mdcNodeViewProps)
 const editable = useEditorEditable(props.editor)
+const referenceArchived = shallowRef(false)
+
+function updateReferenceIntegrity(event: Event) {
+	if (!(event instanceof CustomEvent) || !(event.detail instanceof Map)) return
+	if (typeof props.getPos !== 'function') return
+	const position = props.getPos()
+	if (typeof position !== 'number') return
+	referenceArchived.value = event.detail.get(position) === 'archived'
+}
+
+onMounted(() => {
+	if (typeof props.getPos === 'function') {
+		const position = props.getPos()
+		if (typeof position === 'number') {
+			referenceArchived.value = getEditorReferenceState(props.editor, position) === 'archived'
+		}
+	}
+	props.editor.view.dom.addEventListener(
+		'markdown-editor-reference-integrity',
+		updateReferenceIntegrity,
+	)
+})
+onBeforeUnmount(() =>
+	props.editor.view.dom.removeEventListener(
+		'markdown-editor-reference-integrity',
+		updateReferenceIntegrity,
+	),
+)
 
 function editComponent() {
 	if (!editable.value) return
@@ -47,6 +76,7 @@ const reference = computed(() =>
 			:class="{
 				'mdc-inline__button--reference': reference?.success,
 				'mdc-inline__button--invalid': reference && !reference.success,
+				'mdc-inline__button--archived': referenceArchived,
 			}"
 			:disabled="!editable"
 			:aria-label="
@@ -55,16 +85,20 @@ const reference = computed(() =>
 					: `Configure ${props.node.attrs.name} component`
 			"
 			:title="
-				reference?.success
-					? `${reference.data.collection} · ${reference.data.item}`
-					: undefined
+				referenceArchived
+					? 'Referenced item is archived'
+					: reference?.success
+						? `${reference.data.collection} · ${reference.data.item}`
+						: undefined
 			"
 			@click="editComponent"
 		>
 			<VIcon
 				:name="
 					reference?.success
-						? reference.data.icon || 'alternate_email'
+						? referenceArchived
+							? 'archive'
+							: reference.data.icon || 'alternate_email'
 						: reference
 							? 'warning'
 							: 'widgets'
@@ -101,6 +135,11 @@ const reference = computed(() =>
 	background: color-mix(in srgb, var(--theme--primary, #6644ff) 14%, transparent);
 }
 .mdc-inline__button--invalid {
+	border-color: var(--theme--warning, #f2c94c);
+	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 12%, transparent);
+	color: var(--theme--warning-foreground, #7a5b00);
+}
+.mdc-inline__button--archived {
 	border-color: var(--theme--warning, #f2c94c);
 	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 12%, transparent);
 	color: var(--theme--warning-foreground, #7a5b00);

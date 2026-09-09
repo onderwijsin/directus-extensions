@@ -42,6 +42,12 @@ const ReferenceCollectionConfigSchema = z.object({
 export type ReferenceCollectionConfig = z.infer<typeof ReferenceCollectionConfigSchema>
 export type ReferenceSnapshotMode = 'snapshot' | 'detect' | 'sync'
 
+export interface ReferenceArchiveConfig {
+	field: string
+	value: string
+	fieldType: string
+}
+
 export interface ResolvedReferenceCollectionConfig {
 	collection: string
 	displayField: string
@@ -49,6 +55,7 @@ export interface ResolvedReferenceCollectionConfig {
 	dataFields: string[]
 	primaryKeyField: string
 	order: number
+	archive?: ReferenceArchiveConfig
 }
 
 export interface ReferenceConfiguration {
@@ -104,11 +111,13 @@ function readField(value: unknown): FieldDescription | undefined {
  * Validate configured Reference collections against Directus field metadata.
  * @param input Raw interface configuration.
  * @param getFields Returns the fields currently known to Directus for a collection.
+ * @param getCollection Returns collection metadata currently known to Directus.
  * @returns Usable collections and non-fatal configuration errors.
  */
 export function resolveReferenceCollections(
 	input: unknown,
 	getFields: (collection: string) => unknown,
+	getCollection: (collection: string) => unknown = () => undefined,
 ): ReferenceConfiguration {
 	const list = z.array(ReferenceCollectionConfigSchema).min(1).safeParse(input)
 	if (!list.success) {
@@ -152,6 +161,34 @@ export function resolveReferenceCollections(
 			const type = byName.get(field)?.type
 			return type !== 'string' && type !== 'text'
 		})
+		let archive: ReferenceArchiveConfig | undefined
+		let rawCollection: unknown
+		try {
+			rawCollection = getCollection(config.collection)
+		} catch {
+			rawCollection = undefined
+		}
+		const collectionMeta =
+			rawCollection && typeof rawCollection === 'object'
+				? Reflect.get(rawCollection, 'meta')
+				: undefined
+		const archiveField =
+			collectionMeta && typeof collectionMeta === 'object'
+				? Reflect.get(collectionMeta, 'archive_field')
+				: undefined
+		const archiveValue =
+			collectionMeta && typeof collectionMeta === 'object'
+				? Reflect.get(collectionMeta, 'archive_value')
+				: undefined
+		if (typeof archiveField === 'string' && typeof archiveValue === 'string') {
+			const field = byName.get(archiveField)
+			if (field) archive = { field: archiveField, value: archiveValue, fieldType: field.type }
+			else {
+				errors.push(
+					`Collection “${config.collection}” has an archive field that could not be resolved: ${archiveField}.`,
+				)
+			}
+		}
 		if (!primaryKey)
 			errors.push(`Collection “${config.collection}” has no resolvable primary key.`)
 		if (missing.length)
@@ -173,9 +210,28 @@ export function resolveReferenceCollections(
 			dataFields,
 			primaryKeyField: primaryKey.field,
 			order,
+			...(archive ? { archive } : {}),
 		})
 	}
 	return { collections, errors }
+}
+
+/**
+ * Compare an item value with Directus's string-backed configured archive value.
+ * @param value Item value returned by Directus.
+ * @param archive Resolved archive metadata and field type.
+ * @returns Whether the source item is archived.
+ */
+export function isReferenceItemArchived(value: unknown, archive: ReferenceArchiveConfig): boolean {
+	if (archive.fieldType === 'boolean') {
+		if (archive.value === 'true') return value === true
+		if (archive.value === 'false') return value === false
+	}
+	if (['integer', 'bigInteger', 'float', 'decimal'].includes(archive.fieldType)) {
+		const configured = Number(archive.value)
+		return Number.isFinite(configured) && value === configured
+	}
+	return value === archive.value
 }
 
 /**

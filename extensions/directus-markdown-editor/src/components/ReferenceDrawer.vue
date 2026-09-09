@@ -26,6 +26,7 @@ const iconInterface = computed(
 	() => interfaces.value.find((candidate) => candidate.id === 'select-icon')?.component,
 )
 const statusNotice = computed(() => {
+	if (props.status === 'archived') return 'This referenced item is archived.'
 	if (props.status === 'outdated') {
 		return 'The referenced item has changed since your last edit. Refresh to use its latest content.'
 	}
