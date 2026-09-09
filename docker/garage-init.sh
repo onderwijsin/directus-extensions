@@ -52,7 +52,13 @@ if [ -z "$KEY_ID" ]; then
   exit 1
 fi
 
-if ! garage bucket info "$STORAGE_BUCKET" | grep -q "$KEY_ID"; then
+# Only inspect the bucket's key table. The bucket name can also appear in metadata such as
+# "Global alias", which must not be treated as proof that the key has bucket permissions.
+if ! garage bucket info "$STORAGE_BUCKET" | awk -v key_id="$KEY_ID" '
+  /KEYS FOR THIS BUCKET/ { in_keys = 1; next }
+  in_keys && $1 == key_id { found = 1 }
+  END { exit(found ? 0 : 1) }
+'; then
   log "Granting access to ${KEY_NAME}"
   garage bucket allow --read --write "$STORAGE_BUCKET" --key "$KEY_NAME"
 fi
