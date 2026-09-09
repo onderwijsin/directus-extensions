@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-markdown-editor': minor
+'@onderwijsin/directus-markdown-editor-bundle': minor
 ---
 
 Refactor the interface around a shared command catalog, complete the toolbar and alias-aware slash

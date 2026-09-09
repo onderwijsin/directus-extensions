@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-markdown-editor': patch
+'@onderwijsin/directus-markdown-editor-bundle': patch
 ---
 
 Fix Shiki grammar loading, scoped GitHub light/dark theme styling, and code-block metadata controls;

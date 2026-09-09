@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-markdown-editor': minor
+'@onderwijsin/directus-markdown-editor-bundle': minor
 ---
 
 Require explicit block or inline node type metadata, preserve editable slot behavior, and make

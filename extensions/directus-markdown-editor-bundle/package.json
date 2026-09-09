@@ -1,11 +1,11 @@
 {
-	"name": "@onderwijsin/directus-markdown-editor",
+	"name": "@onderwijsin/directus-markdown-editor-bundle",
 	"version": "0.1.0",
-	"description": "Directus-native Tiptap interface for Markdown and generic MDC content",
+	"description": "Directus Markdown/MDC editor interface with coordinated documentation seeding",
 	"keywords": [
 		"directus",
 		"directus-extension",
-		"directus-extension-interface",
+		"directus-extension-bundle",
 		"markdown",
 		"mdc",
 		"tiptap"
@@ -30,7 +30,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
-		"directory": "extensions/directus-markdown-editor"
+		"directory": "extensions/directus-markdown-editor-bundle"
 	},
 	"files": [
 		"dist",
@@ -38,9 +38,9 @@
 		"CHANGELOG.md"
 	],
 	"type": "module",
-	"main": "./dist/index.js",
+	"main": "./dist/api.js",
 	"exports": {
-		".": "./dist/index.js"
+		".": "./dist/api.js"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -86,9 +86,23 @@
 		"node": ">=24.10.0"
 	},
 	"directus:extension": {
-		"type": "interface",
-		"path": "dist/index.js",
-		"source": "src/index.ts",
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"name": "markdown-editor-interface",
+				"type": "interface",
+				"source": "src/markdown-editor-interface/index.ts"
+			},
+			{
+				"name": "markdown-editor-hook",
+				"type": "hook",
+				"source": "src/markdown-editor-hook/index.ts"
+			}
+		],
 		"host": ">=12.2.0 <13"
 	}
 }

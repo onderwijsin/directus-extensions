@@ -1,19 +1,19 @@
 // @vitest-environment happy-dom
 
-import type { ReferenceOccurrence } from '../src/reference/editor'
+import type { ReferenceOccurrence } from '../src/markdown-editor-interface/reference/editor'
 
 import { computed, createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
 
 import { Editor } from '@tiptap/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import EditorContextMenus from '../src/components/EditorContextMenus.vue'
-import ReferenceController from '../src/components/ReferenceController.vue'
-import ReferenceDrawer from '../src/components/ReferenceDrawer.vue'
-import ReferencePicker from '../src/components/ReferencePicker.vue'
-import ReferenceReport from '../src/components/ReferenceReport.vue'
-import { createEditorExtensions } from '../src/editor/extensions'
-import { collectReferenceOccurrences } from '../src/reference/editor'
+import EditorContextMenus from '../src/markdown-editor-interface/components/EditorContextMenus.vue'
+import ReferenceController from '../src/markdown-editor-interface/components/ReferenceController.vue'
+import ReferenceDrawer from '../src/markdown-editor-interface/components/ReferenceDrawer.vue'
+import ReferencePicker from '../src/markdown-editor-interface/components/ReferencePicker.vue'
+import ReferenceReport from '../src/markdown-editor-interface/components/ReferenceReport.vue'
+import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
+import { collectReferenceOccurrences } from '../src/markdown-editor-interface/reference/editor'
 
 const directusMocks = vi.hoisted(() => ({ get: vi.fn(), collection: undefined as unknown }))
 

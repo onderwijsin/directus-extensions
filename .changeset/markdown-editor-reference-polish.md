@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-markdown-editor': patch
+'@onderwijsin/directus-markdown-editor-bundle': patch
 ---
 
 Polish Reference insertion, search, editing, and integrity reporting; suppress reports in Directus

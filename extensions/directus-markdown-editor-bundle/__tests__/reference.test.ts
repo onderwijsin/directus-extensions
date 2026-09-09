@@ -1,17 +1,17 @@
 import { Editor } from '@tiptap/core'
 import { describe, expect, it, vi } from 'vitest'
 
-import { normalizeComponentMetadata } from '../src/component-meta/schema'
-import { createEditorExtensions } from '../src/editor/extensions'
-import { searchReferences } from '../src/reference/api'
-import { scanReferences } from '../src/reference/editor'
+import { normalizeComponentMetadata } from '../src/markdown-editor-interface/component-meta/schema'
+import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
+import { searchReferences } from '../src/markdown-editor-interface/reference/api'
+import { scanReferences } from '../src/markdown-editor-interface/reference/editor'
 import {
 	isReferenceSnapshotCurrent,
 	isReferenceItemArchived,
 	itemToReference,
 	parseReferenceProps,
 	resolveReferenceCollections,
-} from '../src/reference/schema'
+} from '../src/markdown-editor-interface/reference/schema'
 
 const fields = [
 	{ field: 'key', type: 'integer', schema: { is_primary_key: true }, meta: null },

@@ -6,5 +6,3 @@ TODO's for later:
 
 - Our guard utils (and probably also object utils and attempt methods) are not utilized. We shoudl
   do a full sweep of the extension and implement the appropriate utils
-
-- We need to add a user / editor facing doc through `startup.documentation()`

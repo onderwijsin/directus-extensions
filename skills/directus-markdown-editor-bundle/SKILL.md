@@ -1,15 +1,34 @@
 ---
-name: directus-markdown-editor
-description: Install and use the Directus-native Markdown/MDC Tiptap interface.
+name: directus-markdown-editor-bundle
+description: Install and use the bundled Markdown/MDC editor and startup documentation hook.
 ---
 
-# Directus Markdown Editor
+# Directus Markdown Editor Bundle
 
-Install `@onderwijsin/directus-markdown-editor` in a Directus instance compatible with Directus 12,
-then restart or reload extensions. Configure a Directus `text` field with the **Markdown (MDC)**
-interface. The field value is MDC Markdown; do not create a second Tiptap JSON field.
+Install `@onderwijsin/directus-markdown-editor-bundle` in a Directus instance compatible with
+Directus `>=12.2.0 <13`, then restart or reload extensions. The bundle registers the
+`markdown-editor-interface` app entry and `markdown-editor-hook` API entry. Configure a Directus
+`text` field with the **Markdown (MDC)** interface. The field value is MDC Markdown; do not create a
+second Tiptap JSON field.
 
-This is a non-sandboxed app extension. Deploy it only in a trusted Directus installation.
+The hook is non-sandboxed. Deploy the bundle only in a trusted Directus installation.
+
+## Coordinate startup documentation
+
+Install and enable `@onderwijsin/directus-studio-docs-bundle` so its `studio_docs` collection is
+available. On startup, the Markdown Editor hook contributes a stable article labeled **Editor** with
+the `edit_note` icon and placeholder body `# Hello world`.
+
+| Variable                            | Default | Behavior                                                     |
+| ----------------------------------- | ------- | ------------------------------------------------------------ |
+| `MARKDOWN_EDITOR_ENABLED`           | `true`  | Enables the hook and its startup documentation contribution. |
+| `MARKDOWN_EDITOR_DOCS_SEED_ENABLED` | `true`  | Enables the Editor article seed.                             |
+
+The hook accepts the shared startup lock and synchronization options exposed by
+`@onderwijsin/directus-extension-utils`, including `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`,
+`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`, and `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. Configure a
+shared Redis or filesystem provider for multi-process startup. Documentation seeding is a dedicated
+phase and is not disabled by the global schema or data gates.
 
 The interface supports ordinary Markdown plus generic block syntax such as:
 

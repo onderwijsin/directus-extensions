@@ -3,7 +3,7 @@
 import { Editor } from '@tiptap/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createEditorExtensions } from '../src/editor/extensions'
+import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
 
 const editors: Editor[] = []
 

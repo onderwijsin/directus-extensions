@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-markdown-editor': minor
+'@onderwijsin/directus-markdown-editor-bundle': minor
 ---
 
 Add opt-in, permission-aware Directus item references with MDC persistence, shared item search,

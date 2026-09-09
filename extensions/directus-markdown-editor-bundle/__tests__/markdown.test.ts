@@ -2,9 +2,12 @@ import { MarkdownManager } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 import { describe, expect, it } from 'vitest'
 
-import { normalizeComponentMetadata } from '../src/component-meta/schema'
-import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown'
-import { parseMdcAttributes, serializeMdcAttributes } from '../src/markdown/attributes'
+import { normalizeComponentMetadata } from '../src/markdown-editor-interface/component-meta/schema'
+import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown-editor-interface/markdown'
+import {
+	parseMdcAttributes,
+	serializeMdcAttributes,
+} from '../src/markdown-editor-interface/markdown/attributes'
 
 function manager() {
 	return new MarkdownManager({ extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot] })

@@ -1,6 +1,7 @@
-# Directus Markdown Editor
+# @onderwijsin/directus-markdown-editor-bundle
 
-Directus-native Tiptap interface for Markdown and generic MDC content. It stores one canonical
+Bundle containing a Directus-native Tiptap interface for Markdown and generic MDC content plus a
+startup hook that contributes an Editor article to Studio Docs. The interface stores one canonical
 value: Markdown in a Directus `text` field. Tiptap JSON is only used while editing.
 
 ## Status
@@ -15,10 +16,29 @@ library.
 
 ## Install
 
-Install `@onderwijsin/directus-markdown-editor` in Directus and restart or reload extensions. Add
-the **Markdown (MDC)** interface to a `text` field. No Nuxt UI Editor, Nuxt Studio, Nuxt runtime, or
-Comark runtime dependency is required. This is a non-sandboxed app extension and should be loaded
-only in a trusted self-hosted Directus installation.
+Install `@onderwijsin/directus-markdown-editor-bundle` in Directus and restart or reload extensions.
+The bundle registers `markdown-editor-interface` and `markdown-editor-hook`. Add the **Markdown
+(MDC)** interface to a `text` field. No Nuxt UI Editor, Nuxt Studio, Nuxt runtime, or Comark runtime
+dependency is required. The hook uses the trusted API runtime, so load the bundle only in a trusted
+self-hosted Directus installation.
+
+## Startup documentation
+
+During coordinated startup, the hook seeds one stable Studio Docs article with navigation label
+**Editor**, the `edit_note` icon, and placeholder body `# Hello world`. The
+`@onderwijsin/directus-studio-docs-bundle` must provision the `studio_docs` collection before the
+article can be stored.
+
+| Variable                            | Default | Purpose                                                     |
+| ----------------------------------- | ------- | ----------------------------------------------------------- |
+| `MARKDOWN_EDITOR_ENABLED`           | `true`  | Enables the server hook and its documentation contribution. |
+| `MARKDOWN_EDITOR_DOCS_SEED_ENABLED` | `true`  | Enables seeding the Markdown Editor Studio Docs article.    |
+
+The hook also accepts the shared `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`,
+`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`, `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`, and synchronization
+settings used by the startup coordinator. Use a shared Redis or filesystem lock provider when
+multiple Directus processes coordinate startup. The global schema and data gates do not disable the
+dedicated documentation phase.
 
 The editor supports multiline block components, inline components such as `:name{key="value"}`,
 named slots, and MDC YAML props between `---` delimiters. Attribute strings round-trip escaped

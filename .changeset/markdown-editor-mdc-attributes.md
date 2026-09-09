@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-markdown-editor': patch
+'@onderwijsin/directus-markdown-editor-bundle': patch
 ---
 
 Preserve escaped string attributes and typed dynamic values when parsing and serializing MDC, and

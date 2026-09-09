@@ -5,11 +5,11 @@ import { computed, createApp, defineComponent, h, nextTick, shallowRef } from 'v
 import { Editor } from '@tiptap/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import EditorTableMenu from '../src/components/EditorTableMenu.vue'
-import { createEditorCommands } from '../src/editor/commands'
-import { createEditorExtensions } from '../src/editor/extensions'
-import { createMarkdownEditorOptions } from '../src/index'
-import MarkdownEditor from '../src/MarkdownEditor.vue'
+import { createMarkdownEditorOptions } from '../src/markdown-editor-interface'
+import EditorTableMenu from '../src/markdown-editor-interface/components/EditorTableMenu.vue'
+import { createEditorCommands } from '../src/markdown-editor-interface/editor/commands'
+import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
+import MarkdownEditor from '../src/markdown-editor-interface/MarkdownEditor.vue'
 
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement }[] = []
 

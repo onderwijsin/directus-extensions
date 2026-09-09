@@ -1,11 +1,11 @@
-import type { SlashItem } from '../src/editor/slash'
+import type { SlashItem } from '../src/markdown-editor-interface/editor/slash'
 
 // @vitest-environment happy-dom
 import { createApp, defineComponent, h } from 'vue'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import SlashMenu from '../src/components/SlashMenu.vue'
+import SlashMenu from '../src/markdown-editor-interface/components/SlashMenu.vue'
 
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement }[] = []
 

@@ -5,9 +5,14 @@ import { NodeSelection } from '@tiptap/pm/state'
 import StarterKit from '@tiptap/starter-kit'
 import { describe, expect, it, vi } from 'vitest'
 
-import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp } from '../src/editor/block'
-import { parseCodeBlockInfo } from '../src/editor/code-block'
-import { codeLanguageOptions } from '../src/editor/code-languages'
+import {
+	deleteBlock,
+	duplicateBlock,
+	moveBlockDown,
+	moveBlockUp,
+} from '../src/markdown-editor-interface/editor/block'
+import { parseCodeBlockInfo } from '../src/markdown-editor-interface/editor/code-block'
+import { codeLanguageOptions } from '../src/markdown-editor-interface/editor/code-languages'
 import {
 	createEditorCommands,
 	editorTableToolbarConfig,
@@ -16,22 +21,26 @@ import {
 	filterEditorCommands,
 	isEditorToolEnabled,
 	resolveCommands,
-} from '../src/editor/commands'
-import { ClearMarksOnEnter } from '../src/editor/enter'
-import { createEditorExtensions } from '../src/editor/extensions'
-import { isSupportedCodeLanguage } from '../src/editor/highlighter'
+} from '../src/markdown-editor-interface/editor/commands'
+import { ClearMarksOnEnter } from '../src/markdown-editor-interface/editor/enter'
+import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
+import { isSupportedCodeLanguage } from '../src/markdown-editor-interface/editor/highlighter'
 import {
 	componentRequiresProps,
 	insertComponent,
 	resolveComponentDefaultProps,
 	resolveComponentNodeType,
 	updateComponent,
-} from '../src/editor/insertion'
-import { createLinkShortcut, readLinkSelection, saveLinkSelection } from '../src/editor/link'
-import { directusAssetUrl, sanitizeImageUrl } from '../src/editor/media'
-import { createSlashItems, filterSlashItems } from '../src/editor/slash'
-import { synchronizeEditorMarkdown } from '../src/editor/synchronization'
-import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown'
+} from '../src/markdown-editor-interface/editor/insertion'
+import {
+	createLinkShortcut,
+	readLinkSelection,
+	saveLinkSelection,
+} from '../src/markdown-editor-interface/editor/link'
+import { directusAssetUrl, sanitizeImageUrl } from '../src/markdown-editor-interface/editor/media'
+import { createSlashItems, filterSlashItems } from '../src/markdown-editor-interface/editor/slash'
+import { synchronizeEditorMarkdown } from '../src/markdown-editor-interface/editor/synchronization'
+import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown-editor-interface/markdown'
 
 function createEditor(content = '<p>Hello world</p>') {
 	return new Editor({ extensions: [StarterKit], content })

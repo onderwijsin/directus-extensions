@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
 	type ComponentMetadataOptions,
 	useComponentMetadata,
-} from '../src/composables/useComponentMetadata'
+} from '../src/markdown-editor-interface/composables/useComponentMetadata'
 
 vi.mock('ofetch', () => ({ ofetch: vi.fn() }))
 

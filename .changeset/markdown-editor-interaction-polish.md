@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-markdown-editor': patch
+'@onderwijsin/directus-markdown-editor-bundle': patch
 ---
 
 Fix configured shortcuts, toolbar lock-state recovery, MDC slot editing, table toolbar actions,
