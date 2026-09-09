@@ -187,10 +187,14 @@ verification failures in a responsive, status-coded table with row-level actions
 refresh, replace, or remove affected occurrences; resolving the last issue leaves a success state
 that must be closed before editing continues. Integrity results never open the report automatically:
 the sub-toolbar notice remains visible and its **Show report** action is the only entry point.
-Opening an outdated Reference also shows its changed status in the drawer. Integrity checks are not
-mounted for Directus comparison views, so a published side containing an old snapshot cannot
-interrupt the pre-publish diff. `sync` updates only changed `label` and `data` values in the editor;
-this can mark the Directus field dirty but never saves the item automatically. `snapshot` still
-verifies source availability but skips normal snapshot comparison. Relational projections,
-reverse-document lookup, server-side full-document scanning, cascade cleanup, and frontend rendering
-are outside the V1 contract.
+Opening an affected Reference also explains its integrity status in the drawer. Status lookup is
+occurrence-specific, so refreshing one of several References to the same item does not hide issues
+on the other occurrences. Integrity checks are not mounted for Directus comparison views, so a
+published side containing an old snapshot cannot interrupt the pre-publish diff. The drawer offers
+its soft-warning Refresh action beside **Change source** only when that Reference is outdated. The
+report keeps its header and actions visible while only its table body scrolls, and gives more width
+to item labels than collection and status values. `sync` updates only changed `label` and `data`
+values in the editor; this can mark the Directus field dirty but never saves the item automatically.
+`snapshot` still verifies source availability but skips normal snapshot comparison. Relational
+projections, reverse-document lookup, server-side full-document scanning, cascade cleanup, and
+frontend rendering are outside the V1 contract.

@@ -186,8 +186,12 @@ Malformed external Reference nodes remain generic selectable MDC atoms instead o
 The integrity report presents affected items in a responsive, status-coded table and can replace or
 remove malformed, unconfigured, and unavailable occurrences; transient verification errors offer
 retry only. A sub-toolbar notice communicates unresolved results, and **Show report** is the only
-action that opens the modal; scans never open it automatically. The Reference drawer also warns when
-the selected source is outdated. The report retains a success state after the last issue is resolved
-and is suppressed entirely when Directus renders a comparison view. The extension does not provide
-frontend rendering, relational projection, reverse indexing, Directus update/delete hooks, cascade
-cleanup, or a server-side document scanner.
+action that opens the modal; scans never open it automatically. The Reference drawer explains every
+affected integrity state and shows a soft-warning Refresh action beside **Change source** only when
+the selected occurrence is outdated. Drawer status is occurrence-specific, including when multiple
+References point to the same item. Refreshing performs a new integrity scan so the drawer warning
+and notice bar clear from fresh data. The report keeps its header and footer fixed while its table
+body scrolls, and gives the item label more width than its collection and status columns. It retains
+a success state after the last issue is resolved and is suppressed entirely when Directus renders a
+comparison view. The extension does not provide frontend rendering, relational projection, reverse
+indexing, Directus update/delete hooks, cascade cleanup, or a server-side document scanner.

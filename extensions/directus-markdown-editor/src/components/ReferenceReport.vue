@@ -57,15 +57,23 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 <template>
 	<VDialog v-model="open" persistent>
 		<VCard class="reference-report" role="dialog" aria-label="Reference report">
-			<VCardTitle>Reference report</VCardTitle>
-			<VCardText>
+			<header class="reference-report__header">
+				<VCardTitle>Reference report</VCardTitle>
+				<p v-if="occurrences.length">
+					Some references in this item need attention, because the item that is being
+					referenced has changed since your last edit.
+				</p>
+			</header>
+			<VCardText class="reference-report__body">
 				<div v-if="occurrences.length" class="reference-report__attention">
-					<p>
-						Some references in this item need attention, because the item that is being
-						referenced has changed since your last edit.
-					</p>
 					<div class="reference-report__table-wrap">
 						<table class="reference-report__table">
+							<colgroup>
+								<col class="reference-report__column-item" />
+								<col class="reference-report__column-collection" />
+								<col class="reference-report__column-status" />
+								<col class="reference-report__column-actions" />
+							</colgroup>
 							<thead>
 								<tr>
 									<th scope="col">Item</th>
@@ -152,7 +160,7 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 					<p>Close this report to continue editing the item.</p>
 				</div>
 			</VCardText>
-			<VCardActions>
+			<VCardActions class="reference-report__footer">
 				<VButton
 					v-if="occurrences.some((entry) => entry.state === 'outdated')"
 					secondary
@@ -167,8 +175,12 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 
 <style scoped>
 .reference-report {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr) auto;
 	width: calc(100vw - 2rem);
 	max-width: calc(100vw - 2rem);
+	max-height: min(90dvh, 50rem);
+	overflow: hidden;
 }
 @media (min-width: 769px) {
 	.reference-report {
@@ -176,8 +188,21 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 		max-width: 75vw !important;
 	}
 }
-.reference-report__attention > p {
-	margin-block: 0 1rem;
+.reference-report__header {
+	border-block-end: 1px solid var(--theme--border-color-subdued, #edf0f2);
+}
+.reference-report__header p {
+	margin: -0.25rem 0 0;
+	padding: var(--v-card-padding, 0.875rem);
+	color: var(--theme--foreground-subdued, #8b98a5);
+}
+.reference-report__body {
+	min-height: 0;
+	padding-block-start: 0.6875rem;
+	overflow-y: auto;
+}
+.reference-report__footer {
+	border-block-start: 1px solid var(--theme--border-color-subdued, #edf0f2);
 }
 .reference-report__table-wrap {
 	overflow-x: auto;
@@ -186,6 +211,15 @@ function occurrenceCollection(occurrence: ReferenceOccurrence) {
 	width: 100%;
 	border-collapse: collapse;
 	text-align: start;
+}
+.reference-report__column-collection {
+	width: 18%;
+}
+.reference-report__column-status {
+	width: 22%;
+}
+.reference-report__column-actions {
+	width: 8rem;
 }
 .reference-report__table th,
 .reference-report__table td {

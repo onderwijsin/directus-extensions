@@ -25,6 +25,26 @@ const { interfaces } = useExtensions()
 const iconInterface = computed(
 	() => interfaces.value.find((candidate) => candidate.id === 'select-icon')?.component,
 )
+const statusNotice = computed(() => {
+	if (props.status === 'outdated') {
+		return 'The referenced item has changed since your last edit. Refresh to use its latest content.'
+	}
+	if (props.status === 'unconfigured') {
+		return 'This reference belongs to a collection that is not configured for this field.'
+	}
+	if (props.status === 'not_available') {
+		return 'The referenced item is unavailable. It may have been removed, or you may no longer have access.'
+	}
+	if (props.status === 'verification_error') {
+		return 'The referenced item could not be verified. Check your connection and try again.'
+	}
+	if (props.status === 'malformed') return 'This reference contains invalid source data.'
+	return undefined
+})
+const statusNoticeType = computed<'warning' | 'danger' | undefined>(() => {
+	if (props.status === 'not_available' || props.status === 'malformed') return 'danger'
+	return statusNotice.value ? 'warning' : undefined
+})
 
 watch(
 	() => [open.value, props.reference],
@@ -56,9 +76,8 @@ function setIcon(value: unknown) {
 		@apply="apply"
 	>
 		<div v-if="reference" class="reference-drawer">
-			<VNotice v-if="status === 'outdated'" type="warning" class="reference-drawer__notice">
-				The referenced item has changed since your last edit. Refresh to use its latest
-				content.
+			<VNotice v-if="statusNotice" :type="statusNoticeType" class="reference-drawer__notice">
+				{{ statusNotice }}
 			</VNotice>
 			<section class="reference-drawer__source" aria-label="Source item">
 				<div class="reference-drawer__source-icon" aria-hidden="true">
@@ -70,13 +89,26 @@ function setIcon(value: unknown) {
 						{{ reference.collection }} · {{ reference.item }}
 					</span>
 				</div>
-				<VButton
-					secondary
-					small
-					:disabled="disabled || refreshing"
-					@click="emit('changeSource')"
-					>Change source</VButton
-				>
+				<div class="reference-drawer__source-actions">
+					<VButton
+						secondary
+						small
+						:disabled="disabled || refreshing"
+						@click="emit('changeSource')"
+						>Change source</VButton
+					>
+					<VButton
+						v-if="status === 'outdated'"
+						secondary
+						small
+						class="reference-drawer__refresh"
+						:loading="refreshing"
+						:disabled="disabled"
+						aria-label="Refresh item"
+						@click="emit('refreshSource')"
+						>Refresh</VButton
+					>
+				</div>
 			</section>
 			<section class="reference-drawer__form">
 				<label for="reference-text">Link text</label>
@@ -108,15 +140,6 @@ function setIcon(value: unknown) {
 			>
 		</template>
 		<template #actions:primary>
-			<VButton
-				secondary
-				small
-				:loading="refreshing"
-				:disabled="disabled"
-				aria-label="Refresh item"
-				@click="emit('refreshSource')"
-				>Refresh</VButton
-			>
 			<VButton small :disabled="disabled || refreshing || !reference" @click="apply"
 				>Apply</VButton
 			>
@@ -157,6 +180,32 @@ function setIcon(value: unknown) {
 	flex: 1 1 auto;
 	min-width: 0;
 	gap: 0.125rem;
+}
+.reference-drawer__source-actions {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 0.25rem;
+}
+.reference-drawer__refresh {
+	--v-button-color: var(--theme--warning-foreground, #7a5b00) !important;
+	--v-button-color-hover: var(--theme--warning-foreground, #7a5b00) !important;
+	--v-button-color-active: var(--theme--warning-foreground, #7a5b00) !important;
+	--v-button-background-color: color-mix(
+		in srgb,
+		var(--theme--warning, #f2c94c) 12%,
+		transparent
+	) !important;
+	--v-button-background-color-hover: color-mix(
+		in srgb,
+		var(--theme--warning, #f2c94c) 18%,
+		transparent
+	) !important;
+	--v-button-background-color-active: color-mix(
+		in srgb,
+		var(--theme--warning, #f2c94c) 22%,
+		transparent
+	) !important;
 }
 .reference-drawer__source-label {
 	overflow: hidden;

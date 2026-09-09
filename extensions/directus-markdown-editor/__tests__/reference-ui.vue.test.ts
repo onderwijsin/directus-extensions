@@ -13,6 +13,7 @@ import ReferenceDrawer from '../src/components/ReferenceDrawer.vue'
 import ReferencePicker from '../src/components/ReferencePicker.vue'
 import ReferenceReport from '../src/components/ReferenceReport.vue'
 import { createEditorExtensions } from '../src/editor/extensions'
+import { collectReferenceOccurrences } from '../src/reference/editor'
 
 const directusMocks = vi.hoisted(() => ({ get: vi.fn() }))
 
@@ -208,7 +209,7 @@ describe('Reference interface', () => {
 		expect(element.textContent).not.toContain('Reference')
 	})
 
-	it('shows a compact source summary and keeps evenly-spaced drawer actions', () => {
+	it('shows a compact source summary and keeps the default drawer actions', () => {
 		const element = mount(ReferenceDrawer, {
 			modelValue: true,
 			reference: {
@@ -225,13 +226,17 @@ describe('Reference interface', () => {
 		expect(element.querySelector('.reference-drawer__source-data')).toBeNull()
 		expect(element.textContent).not.toContain('Source record')
 		expect(element.textContent).not.toContain('Presentation')
-		expect(element.querySelector('header')?.textContent).toContain('Refresh')
+		expect(element.querySelector('.reference-drawer__source-actions')?.textContent).toBe(
+			'Change source',
+		)
+		expect(element.querySelector('header')?.textContent).toBe('Delete referenceApply')
 	})
 
 	it('shows loading on the item refresh action', () => {
 		const element = mount(ReferenceDrawer, {
 			modelValue: true,
 			refreshing: true,
+			status: 'outdated',
 			reference: {
 				collection: 'articles',
 				item: 7,
@@ -243,6 +248,34 @@ describe('Reference interface', () => {
 		expect(element.querySelector('[aria-label="Refresh item"]')?.hasAttribute('loading')).toBe(
 			true,
 		)
+	})
+
+	it('only shows refresh beside Change source for outdated references', () => {
+		const current = mount(ReferenceDrawer, {
+			modelValue: true,
+			status: 'valid',
+			reference: {
+				collection: 'articles',
+				item: 7,
+				label: 'A useful article',
+				data: {},
+			},
+		})
+		expect(current.querySelector('[aria-label="Refresh item"]')).toBeNull()
+
+		const outdated = mount(ReferenceDrawer, {
+			modelValue: true,
+			status: 'outdated',
+			reference: {
+				collection: 'articles',
+				item: 7,
+				label: 'A useful article',
+				data: {},
+			},
+		})
+		const actions = outdated.querySelector('.reference-drawer__source-actions')
+		expect(actions?.textContent).toContain('Change source')
+		expect(actions?.querySelector('[aria-label="Refresh item"]')).not.toBeNull()
 	})
 
 	it('warns in the drawer when the referenced item is outdated', () => {
@@ -260,6 +293,113 @@ describe('Reference interface', () => {
 		expect(element.querySelector('.reference-drawer__notice')?.textContent).toContain(
 			'has changed since your last edit',
 		)
+	})
+
+	it.each([
+		['unconfigured', 'not configured for this field'],
+		['not_available', 'may have been removed'],
+		['verification_error', 'could not be verified'],
+		['malformed', 'invalid source data'],
+	])('explains the %s drawer state', (status, message) => {
+		const element = mount(ReferenceDrawer, {
+			modelValue: true,
+			status,
+			reference: {
+				collection: 'articles',
+				item: 7,
+				label: 'A useful article',
+				data: {},
+			},
+		})
+
+		expect(element.querySelector('.reference-drawer__notice')?.textContent).toContain(message)
+		expect(element.querySelector('[aria-label="Refresh item"]')).toBeNull()
+	})
+
+	it('clears the outdated drawer state after refreshing the source', async () => {
+		directusMocks.get.mockClear()
+		directusMocks.get.mockResolvedValue({ data: { data: [{ id: 7, title: 'Current item' }] } })
+		const editor = new Editor({
+			content: ':Reference{collection="articles" :item="7" label="Stale item" :data="{}"}',
+			contentType: 'markdown',
+			extensions: createEditorExtensions(),
+		})
+		editors.push(editor)
+		const element = mount(ReferenceController, {
+			editor,
+			collections: [{ collection: 'articles', displayField: 'title' }],
+			mode: 'detect',
+		})
+		await vi.waitFor(() => expect(directusMocks.get).toHaveBeenCalled())
+		const occurrence = collectReferenceOccurrences(editor.state.doc)[0]
+		if (!occurrence) throw new Error('Expected a reference occurrence.')
+		editor.view.dom.dispatchEvent(
+			new CustomEvent('markdown-editor-edit-reference', {
+				detail: { position: occurrence.position },
+			}),
+		)
+		await nextTick()
+		await vi.waitFor(() =>
+			expect(element.querySelector('.reference-drawer__notice')).not.toBeNull(),
+		)
+		element
+			.querySelector('[aria-label="Refresh item"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+		await vi.waitFor(() =>
+			expect(element.querySelector('.reference-drawer__notice')).toBeNull(),
+		)
+		expect(editor.getMarkdown()).toContain('label="Current item"')
+	})
+
+	it('keeps duplicate reference drawer states occurrence-specific after refresh', async () => {
+		directusMocks.get.mockClear()
+		directusMocks.get.mockResolvedValue({ data: { data: [{ id: 7, title: 'Current item' }] } })
+		const stale = ':Reference{collection="articles" :item="7" label="Stale item" :data="{}"}'
+		const editor = new Editor({
+			content: `${stale} and ${stale}`,
+			contentType: 'markdown',
+			extensions: createEditorExtensions(),
+		})
+		editors.push(editor)
+		const element = mount(ReferenceController, {
+			editor,
+			collections: [{ collection: 'articles', displayField: 'title' }],
+			mode: 'detect',
+		})
+		await vi.waitFor(() => expect(directusMocks.get).toHaveBeenCalled())
+		const occurrences = collectReferenceOccurrences(editor.state.doc)
+		const first = occurrences[0]
+		const second = occurrences[1]
+		if (!first || !second) throw new Error('Expected duplicate reference occurrences.')
+
+		editor.view.dom.dispatchEvent(
+			new CustomEvent('markdown-editor-edit-reference', {
+				detail: { position: first.position },
+			}),
+		)
+		await vi.waitFor(() =>
+			expect(element.querySelector('.reference-drawer__notice')).not.toBeNull(),
+		)
+		element
+			.querySelector('[aria-label="Refresh item"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await vi.waitFor(() =>
+			expect(element.querySelector('.reference-drawer__notice')).toBeNull(),
+		)
+
+		editor.view.dom.dispatchEvent(
+			new CustomEvent('markdown-editor-edit-reference', {
+				detail: { position: second.position },
+			}),
+		)
+		await vi.waitFor(() =>
+			expect(element.querySelector('.reference-drawer__notice')).not.toBeNull(),
+		)
+		expect(element.querySelector('[aria-label="Refresh item"]')).not.toBeNull()
+		const refreshed = collectReferenceOccurrences(editor.state.doc)
+		expect(refreshed[0]?.reference?.label).toBe('Current item')
+		expect(refreshed[1]?.reference?.label).toBe('Stale item')
 	})
 
 	it('renders report issues as a table and resolved issues as a success state', () => {
@@ -280,6 +420,12 @@ describe('Reference interface', () => {
 		expect(table.querySelector('[aria-label="Remove reference"]')).not.toBeNull()
 		expect(table.querySelector('.reference-report__status')?.textContent).toBe('Outdated')
 		expect(table.querySelector('.reference-report__status--warning')).not.toBeNull()
+		expect(table.querySelector('.reference-report__header')?.textContent).toContain(
+			'changed since your last edit',
+		)
+		expect(table.querySelector('.reference-report__body table')).not.toBeNull()
+		expect(table.querySelector('.reference-report__footer')?.textContent).toContain('Close')
+		expect(table.querySelectorAll('colgroup col')).toHaveLength(4)
 
 		const success = mount(ReferenceReport, { modelValue: true, occurrences: [] })
 		expect(success.querySelector('[role="status"]')?.textContent).toContain(

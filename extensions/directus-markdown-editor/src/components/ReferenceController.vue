@@ -60,18 +60,7 @@ let editorDom: HTMLElement | undefined
 
 const reportEntries = computed(() => report.value.filter((entry) => entry.state !== 'valid'))
 const selectedStatus = computed(
-	() =>
-		report.value.find((entry) => {
-			if (entry.position === selectedPosition.value) return true
-			const reference = entry.reference
-			const selected = selectedReference.value
-			return (
-				reference !== undefined &&
-				selected !== undefined &&
-				reference.collection === selected.collection &&
-				String(reference.item) === String(selected.item)
-			)
-		})?.state,
+	() => report.value.find((entry) => entry.position === selectedPosition.value)?.state,
 )
 
 function openPickerAt(nextBookmark: ReferenceBookmark) {
@@ -99,6 +88,7 @@ function handleEdit(event: Event) {
 	selectedPosition.value = position
 	selectedReference.value = parsed.success ? parsed.data : undefined
 	drawerOpen.value = parsed.success
+	if (parsed.success) void scan()
 	if (!parsed.success) {
 		const occurrence = report.value.find((entry) => entry.position === position)
 		replace(
@@ -166,7 +156,7 @@ async function refreshSelectedSource() {
 		const next = { ...reference, label: current.label, data: current.data }
 		if (updateReferenceAt(props.editor, position, next)) {
 			selectedReference.value = next
-			report.value = report.value.filter((entry) => entry.position !== position)
+			await scan()
 		}
 	} finally {
 		refreshingSelectedSource.value = false

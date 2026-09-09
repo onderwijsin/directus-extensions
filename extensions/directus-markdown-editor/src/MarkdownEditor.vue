@@ -439,7 +439,13 @@ watch(
 				role="status"
 			>
 				<span>Some item references need attention.</span>
-				<VButton x-small secondary @click="referenceReportOpen = true">Show report</VButton>
+				<VButton
+					x-small
+					secondary
+					class="markdown-editor__notice-action"
+					@click="referenceReportOpen = true"
+					>Show report</VButton
+				>
 			</div>
 			<EditorContextMenus
 				:editor="editor"
@@ -571,6 +577,30 @@ watch(
 	margin: 0;
 	color: var(--theme--danger, #e35169);
 	font-size: 0.8rem;
+}
+.markdown-editor__notice-bar:not(.markdown-editor__notice-bar--danger) {
+	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 10%, transparent);
+	color: var(--theme--warning-foreground, #7a5b00);
+}
+.markdown-editor__notice-action {
+	--v-button-color: var(--theme--warning-foreground, #7a5b00) !important;
+	--v-button-color-hover: var(--theme--warning-foreground, #7a5b00) !important;
+	--v-button-color-active: var(--theme--warning-foreground, #7a5b00) !important;
+	--v-button-background-color: color-mix(
+		in srgb,
+		var(--theme--warning, #f2c94c) 12%,
+		transparent
+	) !important;
+	--v-button-background-color-hover: color-mix(
+		in srgb,
+		var(--theme--warning, #f2c94c) 18%,
+		transparent
+	) !important;
+	--v-button-background-color-active: color-mix(
+		in srgb,
+		var(--theme--warning, #f2c94c) 22%,
+		transparent
+	) !important;
 }
 
 :deep(.ProseMirror) {
