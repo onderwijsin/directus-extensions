@@ -77,12 +77,13 @@ describe('Markdown Editor bundle', () => {
 			extensionName: 'Markdown Editor',
 			extensionSeedEnabled: true,
 		})
-		expect(docsArticle).toEqual({
-			body: '# Hello world',
+		expect(docsArticle).toMatchObject({
 			icon: 'edit_note',
 			id: '019941df-2c10-7b6e-8c42-5d7f91a3e608',
 			navigation_label: 'Editor',
 		})
+		expect(docsArticle.body).toContain('# Markdown-editor')
+		expect(docsArticle.body).toContain('## 🧩 Werken met componenten')
 		expect(mocks.setup.end).toHaveBeenCalledOnce()
 	})
 

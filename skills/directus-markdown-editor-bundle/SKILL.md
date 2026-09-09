@@ -1,116 +1,126 @@
 ---
 name: directus-markdown-editor-bundle
-description: Install and use the bundled Markdown/MDC editor and startup documentation hook.
+description: Set up and use the Directus Markdown Editor bundle.
 ---
 
-# Directus Markdown Editor Bundle
+# Directus Markdown Editor bundle
 
-Install `@onderwijsin/directus-markdown-editor-bundle` in a Directus instance compatible with
-Directus `>=12.2.0 <13`, then restart or reload extensions. The bundle registers the
-`markdown-editor-interface` app entry and `markdown-editor-hook` API entry. Configure a Directus
-`text` field with the **Markdown (MDC)** interface. The field value is MDC Markdown; do not create a
-second Tiptap JSON field.
+Use this guide when a consuming Directus project needs
+`@onderwijsin/directus-markdown-editor-bundle`. Complete the applicable path and verify the stored
+Markdown contract before declaring the integration ready.
 
-The hook is non-sandboxed. Deploy the bundle only in a trusted Directus installation.
+## Establish the integration boundary
 
-## Coordinate startup documentation
+Confirm all of the following:
 
-Install and enable `@onderwijsin/directus-studio-docs-bundle` so its `studio_docs` collection is
-available. On startup, the Markdown Editor hook contributes a stable article labeled **Editor** with
-the `edit_note` icon and placeholder body `# Hello world`.
+- Directus is `>=12.2.0 <13` and permits trusted non-sandboxed extensions.
+- The package will be installed in the runtime that starts Directus, not only in a frontend.
+- Each editor field is a Directus `text` or `string` field whose canonical value is Markdown.
+- The consuming application owns Markdown/MDC rendering, component registration, styling,
+  sanitization, media presentation, and Reference rendering.
+- Component metadata is supplied as static interface JSON or through a browser-accessible JSON URL.
+  Generating and transporting it is a project concern outside this package.
 
-| Variable                            | Default | Behavior                                                     |
-| ----------------------------------- | ------- | ------------------------------------------------------------ |
-| `MARKDOWN_EDITOR_ENABLED`           | `true`  | Enables the hook and its startup documentation contribution. |
-| `MARKDOWN_EDITOR_DOCS_SEED_ENABLED` | `true`  | Enables the Editor article seed.                             |
+The bundle registers `markdown-editor-interface` and `markdown-editor-hook`. The hook makes the
+bundle non-sandboxed. Do not add a parallel Tiptap JSON field.
 
-The hook accepts the shared startup lock and synchronization options exposed by
-`@onderwijsin/directus-extension-utils`, including `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`,
-`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`, and `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. Configure a
-shared Redis or filesystem provider for multi-process startup. Documentation seeding is a dedicated
-phase and is not disabled by the global schema or data gates.
+## Install and load the bundle
 
-The interface supports ordinary Markdown plus generic block syntax such as:
+Install the published package and restart Directus:
 
-```md
-::callout{tone="warning"} Some **rich text**. ::
+```sh
+pnpm add @onderwijsin/directus-markdown-editor-bundle
 ```
 
-and generic inline syntax such as `:icon{name="check"}`. String attributes preserve escaped quotes
-and backslashes, while shorthand booleans and dynamic JSON bindings retain their value types. Named
-slots and MDC YAML props are also supported:
+For Docker, build it into the Directus image:
 
-```md
-::hero
----
+```dockerfile
+FROM directus/directus:12.2.0
 
-theme: dark
----
+USER root
+RUN corepack enable
+USER node
 
-#description Supporting **rich text**. ::
+RUN pnpm add @onderwijsin/directus-markdown-editor-bundle
 ```
 
-Component names are data and do not need to be registered in the editor. The consuming Nuxt
-application remains responsible for rendering those names through its own MDC/Comark setup.
+```yaml
+services:
+  directus:
+    build: .
+    environment:
+      MARKDOWN_EDITOR_ENABLED: 'true'
+      MARKDOWN_EDITOR_DOCS_SEED_ENABLED: 'true'
+```
 
-The editor provides read-only/disabled behavior, safe external value resynchronization, a
-configuration-driven Markdown toolbar, contextual bubble controls, an alias-aware grouped slash
-menu, polished generic MDC NodeViews, a `+` insert control followed by a drag handle, block
-duplicate/move/delete actions, headings 1–6, lists, blockquotes, fenced code, tables, hard breaks,
-metadata-driven component insertion and prop editing, explicit Markdown source mode, image/video
-media insertion, and Directus-native link editing through the link button or `Mod-k`. The final
-toolbar action enters a viewport-filling full-screen mode, switches to an exit icon while active,
-and closes on Escape.
+After restart, verify that **Markdown (MDC)** appears as an interface for `text` and `string`
+fields. If it does not, inspect the Directus extension list/logs and confirm both bundle entries are
+enabled.
 
-Configure **Available editor tools** to expose all controls or a field-specific subset. Its
-multiselect includes **All tools** and **Deselect all**, and the selected tools consistently govern
-the toolbar, slash menu, contextual controls, insertion actions, and native Tiptap shortcuts. **Full
-screen** is an independently selectable tool. Hiding component insertion leaves the settings
-controls for already-persisted components active.
+## Configure a field
 
-Code blocks use Shiki's `github-light` and `github-dark` themes and store Nuxt Content-compatible
-metadata. The searchable language select contains common general-purpose languages, web-development
-formats, and data/configuration file types. A filename/path is written after the language
-(`ts [app/nuxt.config.ts]`); enabling the collapsible icon toggle wraps the fence in
-`::code-collapse` and `::` delimiters. Tab and Shift-Tab indent and outdent code without moving
-focus, and Enter preserves the current line's indentation. While a code block is active,
-incompatible formatting and insertion actions are disabled. Shiki highlighting initializes in
-read-only item views and refreshes when Directus switches the same interface instance into editable
-draft mode. The complete Shiki grammar registry is excluded; the shared highlighter loads only the
-supported grammars used by the current document.
+Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configure every option:
 
-Slash commands can be found by their display label or alternate names (`text`, `h1`–`h6`, `ul`,
-`ol`, `quote`, `separator`, `line break`, `grid`, and similar terms). They support Arrow Up/Down,
-Home, End, Enter, and Escape, and the menu flips above the cursor when the viewport lacks room
-below. It stays above the sticky toolbar and scrolls within a 48dvh maximum height. The UI uses
-Directus Studio's globally registered primitives directly; there is no bundled fallback component
-layer.
+| Option                               | Default   | Accepted value and effect                                                                                                                                                           |
+| ------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tools` / **Available editor tools** | `["all"]` | JSON array containing `all` or individual tool IDs. Controls toolbar, slash menu, contextual controls, insertion, and shortcuts. An empty array enables none of the optional tools. |
+| `useStaticComponentMeta`             | `false`   | Boolean. Chooses `staticComponentMeta`; otherwise `metadataUrl` is used.                                                                                                            |
+| `metadataUrl`                        | unset     | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                           |
+| `staticComponentMeta`                | unset     | Required JSON while static mode is enabled. No metadata request is made.                                                                                                            |
+| `useReferences`                      | `false`   | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                       |
+| `referenceCollections`               | unset     | Required non-empty JSON array while References are enabled.                                                                                                                         |
+| `referenceSnapshotMode`              | `detect`  | `snapshot`, `detect`, or `sync`.                                                                                                                                                    |
 
-Empty named component slots are preserved when backspacing, and exiting a trailing empty slot
-removes that trailing placeholder before creating and focusing a paragraph directly after the
-component. Arrow-key navigation cannot place content between component slots, and newly inserted
-multi-slot components focus their first slot. Empty nested blocks use the compact **Start writing…**
-placeholder. Opening another editor overlay closes an active slash menu. Inline components open
-their property drawer directly when clicked. Block controls stay behind the sticky toolbar and keep
-the moved block selected after **Move up** or **Move down**. The table toolbar preserves its table
-selection while its row, column, header, merge, split, and delete actions run; deletion supports
-both cell-active and node-selected tables.
+Valid tool IDs are:
 
-Choose one component metadata source in the interface configuration:
+```json
+[
+  "paragraph",
+  "heading-1",
+  "heading-2",
+  "heading-3",
+  "heading-4",
+  "heading-5",
+  "heading-6",
+  "bold",
+  "italic",
+  "strike",
+  "code",
+  "blockquote",
+  "code-block",
+  "bullet-list",
+  "ordered-list",
+  "image",
+  "video",
+  "link",
+  "reference",
+  "horizontal-rule",
+  "hard-break",
+  "table",
+  "clear-formatting",
+  "history",
+  "component",
+  "source",
+  "fullscreen"
+]
+```
 
-| Option                        | Default | Behavior                                                                                          |
-| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| Use static component metadata | `false` | When disabled, the editor uses **Component metadata URL**. When enabled, it uses the static JSON. |
-| Component metadata URL        | unset   | Optional public JSON endpoint, shown only while static metadata mode is disabled.                 |
-| Static component metadata     | unset   | Required JSON value, shown only while static metadata mode is enabled.                            |
+Use `all` unless the content model deliberately restricts authors. Hiding `component` preserves
+settings for stored components. Hiding `reference` preserves stored Reference MDC; turning
+`useReferences` off removes Reference-specific UI and integrity checks.
 
-Both metadata sources accept an array of objects or an object with a `components` array; each object
-requires `name` and `nodeType` (`block` or `inline`) and may include `label`, `description`,
-`props`, and `slots`. The editor validates either source using the same boundary. Static mode does
-not make a metadata HTTP request. When neither source supplies metadata, Component insertion stays
-hidden without affecting persisted MDC component editing.
+The saved API value must remain a Markdown string:
 
-Project metadata is validated at the browser boundary. For example:
+```json
+{
+  "body": "# Welcome\n\n::Callout{tone=\"info\"}\n#default\nText\n::"
+}
+```
+
+## Supply component metadata
+
+Use this definitive input contract for both static and remote metadata. The root is either an array
+or `{ "components": [...] }`.
 
 ```json
 {
@@ -118,40 +128,104 @@ Project metadata is validated at the browser boundary. For example:
     {
       "name": "Callout",
       "label": "Callout",
+      "description": "Highlight supporting content.",
       "nodeType": "block",
-      "props": { "tone": { "type": "'info' | 'warning'", "values": ["info", "warning"] } },
+      "props": {
+        "tone": {
+          "name": "Tone",
+          "type": "string",
+          "description": "Visual emphasis.",
+          "required": true,
+          "default": "info",
+          "values": ["info", "warning", "danger"]
+        },
+        "dismissible": {
+          "name": "Dismissible",
+          "type": "boolean",
+          "default": false
+        }
+      },
       "slots": ["default"]
+    },
+    {
+      "name": "Icon",
+      "nodeType": "inline",
+      "props": [{ "name": "name", "type": "string", "required": true }],
+      "slots": []
     }
   ]
 }
 ```
 
-`nodeType` is an insertion hint: `inline` creates `:Component` and `block` creates `::Component`
-when the component has no slots. Components with slots always insert as blocks so their content
-regions remain editable. Metadata changes affect future insertion only. Existing parsed components
-and property edits preserve their current inline or block representation.
+### Validate component entries
 
-Slash-menu insertion opens the props drawer when required values still need author input; otherwise
-it applies declared prop defaults immediately. Empty inline components serialize with an explicit
-empty attribute delimiter such as `:Icon{}` so adjacent text cannot be parsed as part of the name.
+| Field         | Requirement                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `name`        | Required non-empty string. Exclude reserved name `Reference`; the editor filters it.       |
+| `nodeType`    | Required `block` or `inline`. Any component with slots is inserted as a block.             |
+| `label`       | Optional author-facing label; defaults to `name`.                                          |
+| `description` | Optional selector help text.                                                               |
+| `props`       | Optional object keyed by property name or array of property definitions; defaults to `{}`. |
+| `slots`       | Optional string array or array of objects containing non-empty `name`; defaults to `[]`.   |
 
-Source mode blocks lossy normalization until explicitly accepted. Image URLs accept HTTP(S),
-relative paths, and Directus `/assets/{id}` paths; unsafe executable/data protocols are rejected.
-Rich media, image transformations/captions, and advanced unsupported-content recovery remain
-deferred.
+For a property definition:
 
-## Configure item references
+- `name` is required in array form and is an optional display label in object form;
+- `type: "boolean"` selects a checkbox; other types use text/select input behavior;
+- `description` is optional help text;
+- `required: true` blocks insertion while empty unless a default exists;
+- `default` may contain a JSON-compatible initial value; and
+- `values` is an optional array of string choices.
 
-References are an opt-in authoring capability. Configure the interface as follows:
+The schemas are loose: additional component/property fields survive validation but have no current
+editor behavior. Metadata changes govern future insertion/forms. They do not rewrite existing
+Markdown or change an existing node from inline to block.
 
-| Interface option        | Default  | Required and operational behavior                                                                    |
-| ----------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| Use item references     | `false`  | Enables the picker, persisted-node editor, and document integrity controller.                        |
-| Reference collections   | unset    | Required non-empty JSON array when enabled; each collection may appear once.                         |
-| Reference snapshot mode | `detect` | `snapshot` verifies availability, `detect` reports changes, `sync` refreshes changed snapshots.      |
-| Available editor tools  | `all`    | Include `reference` for toolbar and bare-`@` insertion. This does not govern editing existing nodes. |
+For remote metadata, ensure the Directus user’s browser can fetch the URL over HTTPS. Configure CORS
+for the Studio origin and return JSON. The editor adds no authentication header. Verify the endpoint
+in browser developer tools from the deployed Studio origin. The process that derives or publishes
+this payload is outside this skill.
 
-Use direct field names only:
+## Understand the MDC contract
+
+Inline nodes use `:Name`; block nodes use `::Name`; named slots use `#slot` inside the block:
+
+```text
+Use :Icon{name="check"} inline.
+
+::Hero{theme="dark"}
+#title
+Welcome
+#description
+Supporting **content**.
+::
+```
+
+Block properties can use YAML:
+
+```text
+::Hero
+---
+theme: dark
+layout: wide
+---
+#default
+Content
+::
+```
+
+The parser preserves escaped string quotes/backslashes, shorthand booleans, dynamic JSON bindings,
+unknown component names, and nested delimiter depth. Empty inline nodes serialize with `{}` to keep
+adjacent text separate. Component slots are structural editable regions; the editor prevents gap
+content between slots and focuses the first slot after insertion.
+
+Implement matching MDC renderers in the consumer and decide how unknown components are handled
+safely. The editor does not provide frontend components.
+
+## Configure Directus item References
+
+References are inline snapshots, not Directus relations. Enable `useReferences`, include `reference`
+in `tools` (or use `all`), and configure unique collections:
 
 ```json
 [
@@ -160,81 +234,109 @@ Use direct field names only:
     "displayField": "title",
     "searchFields": ["title", "slug"],
     "dataFields": ["slug", "status", "category"]
-  },
-  {
-    "collection": "programs",
-    "displayField": "name",
-    "dataFields": ["slug", "type"]
   }
 ]
 ```
 
-`collection` and `displayField` are required. `searchFields` defaults to the display field and must
-contain only Directus `string` or `text` fields. `dataFields` defaults to an empty list and controls
-the complete projected snapshot—no full item is copied implicitly. Repeated field names are
-de-duplicated in order. The editor uses Directus field metadata to discover primary keys, including
-keys not named `id`, and disables only invalid collection configurations. V1 rejects nested paths,
-wildcards, relational aliases, foreign-key fields, and relation traversal.
+| Field          | Default          | Requirement                                                |
+| -------------- | ---------------- | ---------------------------------------------------------- |
+| `collection`   | required         | Direct collection identifier; each collection occurs once. |
+| `displayField` | required         | Direct field copied to `label`.                            |
+| `searchFields` | `[displayField]` | Direct `string`/`text` fields only.                        |
+| `dataFields`   | `[]`             | Direct, non-relational fields copied to `data`.            |
 
-Authors can use the Reference toolbar button immediately after Link, choose Reference from the block
-`+` insert menu, or type a bare `@` at the start of a text block/after whitespace and follow the
-inline Enter hint. The latter intentionally ignores email addresses. Search starts only after a
-query, searches every valid collection independently, and shows up to five ranked results. Hiding
-the `reference` editor tool removes all insertion paths while leaving persisted Reference nodes
-editable. Turning off **Use item references** unmounts all Reference-specific behavior, but generic
-MDC parsing keeps stored nodes intact.
+Only identifiers containing letters, numbers, underscores, or hyphens are accepted. Nested paths,
+wildcards, aliases, foreign keys, and M2O/O2M/M2M/M2A traversal are unsupported. The editor resolves
+the actual primary key and de-duplicates repeated field names in order.
 
-The persisted frontend contract is ordinary MDC:
+Grant the author role `read` permission for the configured collection, its primary key,
+`displayField`, every `searchFields`/`dataFields` entry, and its archive field when present. All
+reads use the current Studio API session. The extension uses no privileged token. A missing item and
+an item hidden by permissions intentionally share the **Unavailable** state.
+
+### Snapshot modes
+
+| Mode       | Load behavior                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| `snapshot` | Resolve availability/archive state; do not report normal label/data drift until explicit refresh or replacement.   |
+| `detect`   | Resolve sources, report stale snapshots, and offer occurrence-specific refresh/replace/remove actions.             |
+| `sync`     | Refresh available stale `label`/`data` in one editor transaction. This dirties the field but never saves the item. |
+
+Directus archive metadata is honored when both `archive_field` and `archive_value` exist. Archived
+items are excluded from pickers, reported as **Archived**, and never refreshed by `sync`.
+
+The stored contract is:
 
 ```md
 :Reference{collection="articles" item="article-7" label="Becoming a teacher" text="this article"
 icon="school" :data="{\"slug\":\"becoming-a-teacher\"}"}
 ```
 
-New nodes require `collection`, `item`, `label`, and object `data`. `item` remains string or
-numeric. An empty source display value falls back to `String(item)`. Optional `text` and `icon` are
-omitted when blank. Consumer renderers should display `text ?? label`; `icon` is a Directus/Material
-icon name. `label` and `data` belong to the source snapshot, while `text` and `icon` belong to the
-author and survive refresh, sync, and source replacement. `Reference` is a reserved built-in name
-and cannot also be inserted through project component metadata.
+- Required: `collection`, string/finite-number `item`, `label`, and JSON-compatible object `data`.
+- Source-owned: `label` and `data`; refresh/sync may replace them.
+- Author-owned: optional `text` and `icon`; refresh/sync/source replacement preserve them.
+- Render `text ?? label` in the frontend; interpret `icon` only when included in that contract.
 
-All reads use the current Studio user's authenticated `useApi()` client. Grant authors read access
-only to the configured collections and projected fields they should discover. Search and integrity
-requests never request `*` or expand relations. A `403`, `404`, or absent result is reported as
-“source not available” because Directus cannot reliably distinguish removal from permission denial
-in this authoring context. Unexpected/network failures are non-destructive verification errors.
+The integrity scan runs after hydration and full external replacements. It can report malformed,
+unconfigured, unavailable, archived, outdated, and transient-error occurrences. It never updates the
+source item, automatically saves the document, scans documents server-side, creates a reverse index,
+or cascades source deletion.
 
-The editor discovers `archive_field` and `archive_value` from each Directus collection. It excludes
-archived items from insertion and replacement search, and reports a readable existing Reference as
-**Archived** when the current user can still resolve it. Archived References offer replacement and
-removal but no refresh, and `sync` leaves their stored label and data untouched. Archive detection
-runs in every snapshot mode and is separate from snapshot freshness. Collections without Directus
-archive metadata continue normally; an unknown configured archive field produces a non-fatal
-warning. A permission-hidden archived item is **Unavailable**, not guessed to be archived. Inline
-archived References use warning styling, while unavailable References use error styling. In the
-integrity report, every status chip provides its explanation as a tooltip rather than persistent row
-text.
+## Configure editor documentation
 
-The editor scans once after document hydration and after a complete external Markdown replacement.
-It de-duplicates source resolution while retaining occurrence-specific repair actions:
+Install the Studio Docs bundle when the seeded Dutch **Editor** article is required:
 
-- `snapshot`: verify source availability and archive state; compare snapshots only after explicit
-  refresh or source replacement.
-- `detect`: compare current `label`/`data`, report archived or stale occurrences, and offer Refresh,
-  Replace, Remove, and Refresh all outdated.
-- `sync`: update available stale `label`/`data` in the editor in a consolidated transaction. This
-  can make the field dirty, but it never calls the item update API or saves automatically.
+```sh
+pnpm add @onderwijsin/directus-studio-docs-bundle
+```
 
-Malformed external Reference nodes remain generic selectable MDC atoms instead of being discarded.
-The integrity report presents affected items in a responsive, status-coded table and can replace or
-remove malformed, unconfigured, and unavailable occurrences; transient verification errors offer
-retry only. A sub-toolbar notice communicates unresolved results, and **Show report** is the only
-action that opens the modal; scans never open it automatically. The Reference drawer explains every
-affected integrity state and shows a soft-warning Refresh action beside **Change source** only when
-the selected occurrence is outdated. Drawer status is occurrence-specific, including when multiple
-References point to the same item. Refreshing performs a new integrity scan so the drawer warning
-and notice bar clear from fresh data. The report keeps its header and footer fixed while its table
-body scrolls, and gives the item label more width than its collection and status columns. It retains
-a success state after the last issue is resolved and is suppressed entirely when Directus renders a
-comparison view. The extension does not provide frontend rendering, relational projection, reverse
-indexing, Directus update/delete hooks, cascade cleanup, or a server-side document scanner.
+Configure its `studio_docs` collection and assign **Can View Studio Docs** or **Can Manage Studio
+Docs** to the intended roles. This bundle contributes one stable article during startup.
+
+| Variable                                | Default                 | Accepted value and behavior                                                                         |
+| --------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `MARKDOWN_EDITOR_ENABLED`               | `true`                  | Boolean gate for the server hook/document contribution. It cannot unregister the browser interface. |
+| `MARKDOWN_EDITOR_DOCS_SEED_ENABLED`     | `true`                  | Boolean contributor-specific article gate.                                                          |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`     | `SYNCHRONIZATION_STORE` | `memory`, `redis`, or `fs`; use a shared provider across replicas.                                  |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`    | resolved Redis config   | Optional Redis URL override.                                                                        |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | unset                   | Non-empty shared directory required for `fs`.                                                       |
+| `SYNCHRONIZATION_STORE`                 | `memory`                | `memory` or `redis`; fallback when no dedicated provider is set.                                    |
+
+The common schema also accepts `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`,
+`DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`, and `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`, but this
+documentation callback is independent of the global schema/data gates and uses no rate limiter.
+Redis can be supplied through the lock URL or Directus Redis configuration.
+
+The Studio Docs bundle owns its enablement, seeding strategy, schema, and policy variables. With the
+default `versioning` strategy, changed seeded content becomes the reserved `incoming` version;
+review and promote it in Directus. Use `override` only when replacing current content is intended.
+
+## Verify the integration
+
+Complete every applicable check:
+
+1. Restart Directus and confirm both bundle entries load without configuration errors.
+2. Confirm **Markdown (MDC)** is selectable on a `text`/`string` field.
+3. Save ordinary Markdown and read the item through the API; confirm the value is a string.
+4. Insert one inline and one slotted block component and compare stored MDC with the renderer.
+5. For remote metadata, test the request from the deployed Studio origin and verify CORS.
+6. For References, test a normal, archived, missing, and permission-hidden item.
+7. For Studio Docs, verify the article or review/promote its `incoming` version.
+8. Confirm a restricted role sees only Reference collections and fields it may read.
+
+## Troubleshoot deterministically
+
+| Symptom                           | Resolve                                                                                            |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Interface absent                  | Verify runtime installation, supported Directus version, enabled app entry, and restart.           |
+| Components absent                 | Verify `component` tool, selected metadata source, JSON schema, HTTPS/CORS, and browser console.   |
+| Stored component has no metadata  | Restore its metadata entry to regain typed choices; generic editing remains available.             |
+| Reference configuration warning   | Check unique collections, primary keys, direct fields, search field types, and relation exclusion. |
+| Reference picker empty            | Enter a query, verify author permissions, and check archive state.                                 |
+| Reference unavailable             | Treat as missing or permission-hidden; replace/remove it or correct permissions.                   |
+| Source mode requests confirmation | Compare normalization; accept only when the syntax change is intended.                             |
+| Studio article unchanged          | Inspect/promote `incoming`, then check contributor and Studio Docs seed gates.                     |
+| Startup lock errors               | Use shared Redis/filesystem storage and validate connection/directory access.                      |
+
+Keep metadata delivery in the consuming project. Do not add undocumented extension endpoints or
+privileged browser credentials to transport it.
