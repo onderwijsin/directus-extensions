@@ -3,15 +3,20 @@ Please continue wher eyou left of. Based on your stream, you stated
 > The core change is in place: normalized metadata now requires and preserves nodeType, and both
 > picker and slash-menu insertion converge on one resolver
 
-However, I'm not seeing the expected behavior in the inline node view. Even though i have added
-`nodeType = 'block'` to a component without slots, it is still rendered as an inline node.
+This indeed seems to work! If i add `nodeType = 'inline'` to a component meta that also has slots,
+it behaves like an inline node and doesnt render the slots.
 
-Vice versa, if i add `nodeType = 'inline'` to a component meta that also has slots, it still behaves
-like a block node.
+However, this also makes the slots uneditable - because we wouldn't be able to provide good editing
+ui for slots in an inline node anyway.
 
-However, the latter is actually good - because we wouldn't be able to provide good editing ui for
-slots in an inline node anyway. However, the general bug needs to be fixed, where slotless
-components don't behave as expected.
+So i think we need to make an exception here: if a component has slots, it shoudl always behave like
+a block node, regardless of its node type.
+
+Also, a block node, without any slots, default need to render the slots container (see screenshot of
+the button component: the bottom container doesnt need rendering, because there are no slots).
+Expect: this container is also used to render props... (See second screenshot). So mayber we shoudl
+only render it when there is Object.keys(props).length. However, we do need to remove the additional
+padding
 
 ---
 
@@ -66,3 +71,24 @@ TODO's:
   do a full sweep of the extension and implement the appropriate utils
 
 - We need to add a user / editor facing doc through `startup.documentation()`
+
+- it is still possible to unintentionally add content "in between" component slots. This previously
+  was a bug, where an enter or tab made it possible to focus between slots. That bug is fixed, but
+  we can still do exactly that by using arrow keys (left/up or right/down). See attached screenshot
+  of the callout component.
+
+- Inside components i want to use a different blank line placeholder. Normally that is "Start
+  writing or type '/' for commands". Inside components (such as table cell, component slots,
+  blockquote etc), i want a minimal version "Start writing..."
+
+- If you move a line with drag handle once, the drag handle in unavailable afterwards (reproduction
+  needed)
+
+- if you hit enter twice inside a component slot after inserting content, a new blank line is
+  created below the component. However, the blank line that was created INSIDE the component slot
+  from the first enter keystroke is not removed...
+
+- If a component is insert with multiple slots, autofocus shoudl always be on the first slot
+
+- the block components, slots are rendered with two #'s. Eg for example `# #title`. I think we dont
+  need any #..
