@@ -68,6 +68,7 @@
 		"@tiptap/starter-kit": "catalog:",
 		"@tiptap/suggestion": "catalog:",
 		"@tiptap/vue-3": "catalog:",
+		"ai": "catalog:",
 		"ofetch": "catalog:",
 		"shiki": "catalog:",
 		"yaml": "catalog:",

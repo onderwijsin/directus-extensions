@@ -64,6 +64,7 @@ catalog:
   '@tiptap/vue-3': 3.31.0
   shiki: 4.4.3
   yaml: 2.9.0
+  ai: 7.0.96
 catalogs:
   node24:
     '@types/node': 24.13.3
