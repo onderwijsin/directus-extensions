@@ -140,18 +140,25 @@ defineExpose({ ask, run })
 
 <template>
 	<div class="ai-controller">
-		<VMenu v-model="menuOpen" placement="bottom-end" show-arrow :disabled="disabled || loading">
-			<template #activator="{ toggle }"
-				><VButton
+		<VMenu
+			v-model="menuOpen"
+			placement="bottom-start"
+			show-arrow
+			:disabled="disabled || loading"
+		>
+			<template #activator="{ toggle }">
+				<VButton
 					icon
 					small
 					ghost
 					:loading="loading"
-					tooltip="AI editing"
-					aria-label="AI editing"
+					tooltip="Edit with AI"
+					aria-label="Edit with AI"
 					@click.stop="toggle"
-					><VIcon name="auto_awesome" /></VButton
-			></template>
+				>
+					<VIcon name="auto_awesome" />
+				</VButton>
+			</template>
 			<VList>
 				<VListItem
 					v-for="skill in documentSkills"
@@ -159,55 +166,65 @@ defineExpose({ ask, run })
 					clickable
 					:title="skill.description ?? undefined"
 					@click="run('document', skill.id)"
-					><VListItemIcon><VIcon :name="skill.icon ?? 'auto_fix_high'" /></VListItemIcon
-					><VListItemContent>{{ skill.name }}</VListItemContent></VListItem
 				>
-				<VListItem clickable @click="ask('document')"
-					><VListItemIcon><VIcon name="prompt_suggestion" /></VListItemIcon
-					><VListItemContent>Ask AI…</VListItemContent></VListItem
-				>
+					<VListItemIcon>
+						<VIcon :name="skill.icon ?? 'auto_fix_high'" />
+					</VListItemIcon>
+					<VListItemContent>{{ skill.name }}</VListItemContent>
+				</VListItem>
+				<VListItem clickable @click="ask('document')">
+					<VListItemIcon>
+						<VIcon name="prompt_suggestion" />
+					</VListItemIcon>
+					<VListItemContent>Ask AI…</VListItemContent>
+				</VListItem>
 			</VList>
 		</VMenu>
 		<p v-if="error" class="ai-controller__error" role="alert">{{ error }}</p>
 
-		<VDialog v-model="promptOpen"
-			><VCard
-				><VCardTitle>Ask AI</VCardTitle
-				><VCardText
-					><VTextarea
+		<VDialog v-model="promptOpen">
+			<VCard>
+				<VCardTitle>Ask AI</VCardTitle>
+				<VCardText>
+					<VTextarea
 						v-model="prompt"
-						placeholder="Describe how the content should change" /></VCardText
-				><VCardActions
-					><VButton secondary @click="promptOpen = false">Cancel</VButton
-					><VButton
+						placeholder="Describe how the content should change"
+					/>
+				</VCardText>
+				<VCardActions>
+					<VButton secondary @click="promptOpen = false">Cancel</VButton>
+					<VButton
 						:disabled="!prompt.trim()"
 						:loading="loading"
 						@click="run(requestedScope)"
-						>Generate</VButton
-					></VCardActions
-				></VCard
-			></VDialog
-		>
-		<VDialog :model-value="documentProposal !== undefined" persistent
-			><VCard class="ai-controller__review"
-				><VCardTitle>Review AI changes</VCardTitle
-				><VCardText
-					><div class="ai-controller__comparison">
+						>Generate
+					</VButton>
+				</VCardActions>
+			</VCard>
+		</VDialog>
+		<VDialog :model-value="documentProposal !== undefined" persistent>
+			<VCard class="ai-controller__review">
+				<VCardTitle>Review AI changes</VCardTitle>
+				<VCardText>
+					<div class="ai-controller__comparison">
 						<section>
 							<h3>Current</h3>
-							<pre><span v-for="(part, index) in comparison.base" :key="index" :class="`is-${part.kind}`">{{ part.value }}</span></pre>
+							<pre><span v-for="(part, index) in comparison.base" :key="index" :class="`is-${part.kind}`">{{
+								part.value }}</span></pre>
 						</section>
 						<section>
 							<h3>AI suggestion</h3>
-							<pre><span v-for="(part, index) in comparison.incoming" :key="index" :class="`is-${part.kind}`">{{ part.value }}</span></pre>
+							<pre><span v-for="(part, index) in comparison.incoming" :key="index" :class="`is-${part.kind}`">{{
+								part.value }}</span></pre>
 						</section>
-					</div></VCardText
-				><VCardActions
-					><VButton secondary @click="documentProposal = undefined">Discard</VButton
-					><VButton @click="applyDocument">Apply changes</VButton></VCardActions
-				></VCard
-			></VDialog
-		>
+					</div>
+				</VCardText>
+				<VCardActions>
+					<VButton secondary @click="documentProposal = undefined">Discard</VButton>
+					<VButton @click="applyDocument">Apply changes</VButton>
+				</VCardActions>
+			</VCard>
+		</VDialog>
 		<div v-if="selectionProposal !== undefined" class="ai-controller__preview-container">
 			<div class="ai-controller__preview">
 				<strong>AI suggestion</strong>
@@ -216,7 +233,8 @@ defineExpose({ ask, run })
 				<div>
 					<VButton x-small secondary @click="selectionProposal = undefined"
 						>Discard</VButton
-					><VButton x-small :disabled="!selectionIsCurrent" @click="applySelection"
+					>
+					<VButton x-small :disabled="!selectionIsCurrent" @click="applySelection"
 						>Replace</VButton
 					>
 				</div>
@@ -231,6 +249,7 @@ defineExpose({ ask, run })
 	align-items: center;
 	padding-inline-end: 0.375rem;
 }
+
 .ai-controller__error {
 	position: absolute;
 	inset-inline: 0;
@@ -241,6 +260,7 @@ defineExpose({ ask, run })
 	color: var(--theme--danger);
 	background: var(--theme--background);
 }
+
 .ai-controller__preview {
 	padding: 0.5rem;
 	border: 1px solid var(--theme--border-color);
@@ -248,31 +268,38 @@ defineExpose({ ask, run })
 	background: var(--theme--background);
 	box-shadow: var(--theme--navigation--box-shadow);
 }
+
 .ai-controller__preview-container {
 	position: absolute;
 	z-index: 7;
 	inset-inline-start: 1rem;
 	top: calc(100% + 0.5rem);
 }
+
 .ai-controller__preview {
 	width: min(28rem, 80vw);
 }
+
 .ai-controller__preview pre {
 	max-height: 12rem;
 	overflow: auto;
 	white-space: pre-wrap;
 }
+
 .ai-controller__review {
 	width: min(72rem, 92vw);
 }
+
 .ai-controller__comparison {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	gap: 1rem;
 }
+
 .ai-controller__comparison section {
 	min-width: 0;
 }
+
 .ai-controller__comparison pre {
 	min-height: 18rem;
 	max-height: 60vh;
@@ -281,13 +308,16 @@ defineExpose({ ask, run })
 	white-space: pre-wrap;
 	background: var(--theme--background-subdued);
 }
+
 .is-added {
 	background: color-mix(in srgb, var(--theme--success) 25%, transparent);
 }
+
 .is-removed {
 	background: color-mix(in srgb, var(--theme--danger) 22%, transparent);
 	text-decoration: line-through;
 }
+
 @media (max-width: 700px) {
 	.ai-controller__comparison {
 		grid-template-columns: 1fr;

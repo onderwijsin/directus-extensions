@@ -214,12 +214,13 @@ function runAi(skillId?: string) {
 					small
 					ghost
 					class="editor-bubble-menu__button"
-					aria-label="AI editing"
-					tooltip="AI editing"
+					aria-label="Edit with AI"
+					tooltip="Edit with AI"
 					@mousedown.prevent
 					@click.stop="toggle"
-					><VIcon name="auto_awesome"
-				/></VButton>
+				>
+					<VIcon name="auto_awesome" />
+				</VButton>
 			</template>
 			<VList>
 				<VListItem
@@ -227,11 +228,12 @@ function runAi(skillId?: string) {
 					:key="skill.id"
 					clickable
 					@click="runAi(skill.id)"
-					><VListItemContent>{{ skill.name }}</VListItemContent></VListItem
 				>
-				<VListItem clickable @click="runAi()"
-					><VListItemContent>Ask AI…</VListItemContent></VListItem
-				>
+					<VListItemContent>{{ skill.name }}</VListItemContent>
+				</VListItem>
+				<VListItem clickable @click="runAi()">
+					<VListItemContent>Ask AI…</VListItemContent>
+				</VListItem>
 			</VList>
 		</VMenu>
 		<VButton
@@ -247,8 +249,9 @@ function runAi(skillId?: string) {
 			:aria-label="command.label"
 			@mousedown.prevent
 			@click="execute(command)"
-			><VIcon :name="command.icon"
-		/></VButton>
+		>
+			<VIcon :name="command.icon" />
+		</VButton>
 		<VButton
 			v-if="isEditorToolEnabled(enabledTools, 'link')"
 			icon
@@ -260,8 +263,9 @@ function runAi(skillId?: string) {
 			tooltip="Edit link"
 			@mousedown.prevent
 			@click="emit('openLink')"
-			><VIcon name="link"
-		/></VButton>
+		>
+			<VIcon name="link" />
+		</VButton>
 		<VButton
 			v-if="isEditorToolEnabled(enabledTools, 'link') && editor.isActive('link')"
 			icon
@@ -273,8 +277,9 @@ function runAi(skillId?: string) {
 			tooltip="Remove link"
 			@mousedown.prevent
 			@click="removeLink"
-			><VIcon name="link_off"
-		/></VButton>
+		>
+			<VIcon name="link_off" />
+		</VButton>
 	</BubbleMenu>
 
 	<DragHandle
@@ -301,8 +306,9 @@ function runAi(skillId?: string) {
 						tooltip="Insert block"
 						@mousedown.stop
 						@click.stop="setInsertMenuState(!insertMenuOpen)"
-						><VIcon name="add"
-					/></VButton>
+					>
+						<VIcon name="add" />
+					</VButton>
 				</template>
 				<VList class="editor-block-controls__menu">
 					<VListItem
@@ -310,9 +316,12 @@ function runAi(skillId?: string) {
 						:key="command.id"
 						clickable
 						@click="insert(command)"
-						><VListItemIcon><VIcon :name="command.icon" /></VListItemIcon
-						><VListItemContent>{{ command.label }}</VListItemContent></VListItem
 					>
+						<VListItemIcon>
+							<VIcon :name="command.icon" />
+						</VListItemIcon>
+						<VListItemContent>{{ command.label }}</VListItemContent>
+					</VListItem>
 					<VDivider
 						v-if="
 							(componentsAvailable &&
@@ -324,16 +333,22 @@ function runAi(skillId?: string) {
 						v-if="componentsAvailable && isEditorToolEnabled(enabledTools, 'component')"
 						clickable
 						@click="openComponentInsert"
-						><VListItemIcon><VIcon name="widgets" /></VListItemIcon
-						><VListItemContent>Component</VListItemContent></VListItem
 					>
+						<VListItemIcon>
+							<VIcon name="widgets" />
+						</VListItemIcon>
+						<VListItemContent>Component</VListItemContent>
+					</VListItem>
 					<VListItem
 						v-if="referencesEnabled && isEditorToolEnabled(enabledTools, 'reference')"
 						clickable
 						@click="openReferenceInsert"
-						><VListItemIcon><VIcon name="alternate_email" /></VListItemIcon
-						><VListItemContent>Reference</VListItemContent></VListItem
 					>
+						<VListItemIcon>
+							<VIcon name="alternate_email" />
+						</VListItemIcon>
+						<VListItemContent>Reference</VListItemContent>
+					</VListItem>
 				</VList>
 			</VMenu>
 
@@ -352,16 +367,19 @@ function runAi(skillId?: string) {
 						aria-label="Drag or open block actions"
 						tooltip="Drag or open block actions"
 						@click.stop="setBlockMenuState(!blockMenuOpen)"
-						><VIcon name="drag_indicator"
-					/></VButton>
+					>
+						<VIcon name="drag_indicator" />
+					</VButton>
 				</template>
 				<VList class="editor-block-controls__menu">
 					<VMenu v-if="aiEnabled" placement="right-start" show-arrow>
 						<template #activator="{ toggle }">
-							<VListItem clickable @click.stop="toggle"
-								><VListItemIcon><VIcon name="auto_awesome" /></VListItemIcon
-								><VListItemContent>AI editing</VListItemContent></VListItem
-							>
+							<VListItem clickable @click.stop="toggle">
+								<VListItemIcon>
+									<VIcon name="auto_awesome" />
+								</VListItemIcon>
+								<VListItemContent>AI editing</VListItemContent>
+							</VListItem>
 						</template>
 						<VList>
 							<VListItem
@@ -369,34 +387,44 @@ function runAi(skillId?: string) {
 								:key="skill.id"
 								clickable
 								@click="runAi(skill.id)"
-								><VListItemContent>{{ skill.name }}</VListItemContent></VListItem
 							>
-							<VListItem clickable @click="runAi()"
-								><VListItemContent>Ask AI…</VListItemContent></VListItem
-							>
+								<VListItemContent>{{ skill.name }}</VListItemContent>
+							</VListItem>
+							<VListItem clickable @click="runAi()">
+								<VListItemContent>Ask AI…</VListItemContent>
+							</VListItem>
 						</VList>
 					</VMenu>
 					<VDivider v-if="aiEnabled" />
-					<VListItem clickable @click="runBlockAction('duplicate')"
-						><VListItemIcon><VIcon name="content_copy" /></VListItemIcon
-						><VListItemContent>Duplicate</VListItemContent></VListItem
-					>
-					<VListItem clickable @click="runBlockAction('up')"
-						><VListItemIcon><VIcon name="arrow_upward" /></VListItemIcon
-						><VListItemContent>Move up</VListItemContent></VListItem
-					>
-					<VListItem clickable @click="runBlockAction('down')"
-						><VListItemIcon><VIcon name="arrow_downward" /></VListItemIcon
-						><VListItemContent>Move down</VListItemContent></VListItem
-					>
+					<VListItem clickable @click="runBlockAction('duplicate')">
+						<VListItemIcon>
+							<VIcon name="content_copy" />
+						</VListItemIcon>
+						<VListItemContent>Duplicate</VListItemContent>
+					</VListItem>
+					<VListItem clickable @click="runBlockAction('up')">
+						<VListItemIcon>
+							<VIcon name="arrow_upward" />
+						</VListItemIcon>
+						<VListItemContent>Move up</VListItemContent>
+					</VListItem>
+					<VListItem clickable @click="runBlockAction('down')">
+						<VListItemIcon>
+							<VIcon name="arrow_downward" />
+						</VListItemIcon>
+						<VListItemContent>Move down</VListItemContent>
+					</VListItem>
 					<VDivider />
 					<VListItem
 						clickable
 						class="editor-block-controls__danger"
 						@click="runBlockAction('delete')"
-						><VListItemIcon><VIcon name="delete" /></VListItemIcon
-						><VListItemContent>Delete</VListItemContent></VListItem
 					>
+						<VListItemIcon>
+							<VIcon name="delete" />
+						</VListItemIcon>
+						<VListItemContent>Delete</VListItemContent>
+					</VListItem>
 				</VList>
 			</VMenu>
 		</div>
@@ -444,14 +472,17 @@ function runAi(skillId?: string) {
 .editor-block-controls__drag {
 	cursor: grab;
 }
+
 .editor-block-controls__drag:active {
 	cursor: grabbing;
 }
+
 .editor-block-controls__menu {
 	min-width: 13rem;
 	max-height: 22rem;
 	overflow-y: auto;
 }
+
 .editor-block-controls__danger {
 	color: var(--theme--danger, #cc3a3a);
 }

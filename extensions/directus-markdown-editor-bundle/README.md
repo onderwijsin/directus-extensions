@@ -146,9 +146,12 @@ custom prompts are sent to the configured provider; do not enable the feature fo
 organizational policy forbids sending there.
 
 Requests also include a bounded, normalized description of the field's configured MDC components.
-This lets the model preserve component names, properties, and slots. The hardcoded system prompt
-documents the editor's Markdown/MDC flavor and requires output to retain the input language unless
-the editing task explicitly requests another language.
+This lets the model preserve component names, properties, and slots. The hardcoded system prompt is
+created per request from the target field's server-read **Available editor tools** configuration. It
+describes only syntax enabled for new authoring in that editor instance, while requiring existing
+syntax to be preserved. It also preserves every natural language used by the input unless the
+editing task explicitly requests another language, treats code as literal by default, and returns
+provider output without trimming intentional boundary whitespace.
 
 **Available editor tools** can independently expose paragraphs, heading levels 1–6, bold, italic,
 strikethrough, inline code, blockquotes, code blocks, unordered and numbered lists, images, video,

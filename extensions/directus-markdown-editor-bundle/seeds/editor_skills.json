@@ -6,7 +6,7 @@
 			"description": "Correct language mistakes without unnecessary rewriting.",
 			"icon": "spellcheck",
 			"scopes": ["document", "selection"],
-			"prompt": "Correct spelling, grammar, punctuation, capitalization, and obvious language mistakes.\n\nPreserve the original meaning, tone, structure, terminology, and level of formality as much as possible.\n\nDo not rewrite sentences purely for stylistic preference. Only make changes that improve linguistic correctness or resolve clearly awkward phrasing caused by an error.",
+			"prompt": "Correct spelling, grammar, punctuation, capitalization, and obvious language mistakes.\n\nPreserve the original meaning, tone, structure, terminology, and level of formality as much as possible.\n\nDo not rewrite sentences purely for stylistic preference. Only make changes that improve linguistic correctness or resolve clearly awkward phrasing caused by an error.\n\nIf no mistakes are found, return the content unchanged.",
 			"archived": false,
 			"sort": 10
 		},

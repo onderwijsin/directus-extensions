@@ -160,6 +160,10 @@ services:
       LOOPS_CAMPAIGN_PROCESSING_LEASE_MS: ${LOOPS_CAMPAIGN_PROCESSING_LEASE_MS:-300000}
       LOOPS_LMX_PARSING_MODE: ${LOOPS_LMX_PARSING_MODE:-best_effort}
       LOOPS_SYNC_ENABLED_FIELD: ${LOOPS_SYNC_ENABLED_FIELD:-loops_sync_enabled}
+
+      EDITOR_AI_PROVIDER: ${EDITOR_AI_PROVIDER:-mistral}
+      EDITOR_AI_MODEL: ${EDITOR_AI_MODEL:-mistral-medium-latest}
+      EDITOR_AI_API_KEY: ${EDITOR_AI_API_KEY:-}
     networks:
       - frontend
       - backend

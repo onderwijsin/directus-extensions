@@ -54,7 +54,7 @@
 			"field": "icon",
 			"type": "string",
 			"schema": { "data_type": "varchar", "max_length": 255, "is_nullable": true },
-			"meta": { "interface": "select-icon", "width": "half" }
+			"meta": { "interface": "select-icon", "display": "icon", "width": "half" }
 		},
 		{
 			"collection": "editor_skills",
@@ -78,7 +78,24 @@
 			"field": "prompt",
 			"type": "text",
 			"schema": { "data_type": "text", "is_nullable": false },
-			"meta": { "interface": "input-multiline", "required": true, "width": "full" }
+			"meta": {
+				"interface": "input-rich-text-md",
+				"required": true,
+				"width": "full",
+				"options": {
+					"toolbar": [
+						"heading",
+						"bold",
+						"italic",
+						"strikethrough",
+						"blockquote",
+						"bullist",
+						"numlist",
+						"code",
+						"empty"
+					]
+				}
+			}
 		},
 		{
 			"collection": "editor_skills",

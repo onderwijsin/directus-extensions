@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc-js/require-jsdoc -- Endpoint-local guards and route callbacks are private wiring. */
 import { defineEndpoint } from '@directus/extensions-sdk'
-import { attempt, isDefined, isRecord } from '@onderwijsin/directus-extension-utils'
+import { attempt, hasKey, isDefined, isRecord } from '@onderwijsin/directus-extension-utils'
 import {
 	assertRequestWithAccountability,
 	asyncHandler,
@@ -97,6 +97,9 @@ export default defineEndpoint({
 					throw new EditorAiForbiddenError({
 						reason: 'Editor AI is not enabled for this field.',
 					})
+				const configuredTools = hasKey(interfaceOptions, 'tools')
+					? interfaceOptions.tools
+					: undefined
 
 				let task = input.prompt
 				const skillId = input.skillId
@@ -134,6 +137,7 @@ export default defineEndpoint({
 						task ?? '',
 						input.content,
 						input.components,
+						configuredTools,
 					),
 				)
 				if (generated.error) {

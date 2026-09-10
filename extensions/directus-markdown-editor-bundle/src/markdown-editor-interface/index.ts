@@ -37,7 +37,7 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			name: 'Enable AI editing',
 			type: 'boolean',
 			meta: {
-				width: 'half',
+				width: 'full',
 				interface: 'checkbox',
 				note: 'Show AI actions for this field. Server provider configuration and permissions are also required.',
 			},

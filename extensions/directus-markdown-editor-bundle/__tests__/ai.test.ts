@@ -13,7 +13,7 @@ import { isEditorAiAdministrator } from '../src/editor-endpoint/authorization'
 import { envSchema as endpointEnvSchema } from '../src/editor-endpoint/env.schema'
 import { EditorAiInvalidPayloadError, toEditorAiError } from '../src/editor-endpoint/errors'
 import { editorAiRequestSchema } from '../src/editor-endpoint/request'
-import { EDITOR_AI_SYSTEM_PROMPT } from '../src/editor-endpoint/system-prompt'
+import { createSystemPrompt } from '../src/editor-endpoint/system-prompt'
 import { diffMarkdown } from '../src/markdown-editor-interface/ai/diff'
 import { replaceDocument } from '../src/markdown-editor-interface/ai/document'
 import {
@@ -67,6 +67,26 @@ describe('editor AI domain', () => {
 			'user_created',
 			'user_updated',
 		])
+		expect(definition.fields.find(({ field }) => field === 'icon')?.meta).toMatchObject({
+			interface: 'select-icon',
+			display: 'icon',
+		})
+		expect(definition.fields.find(({ field }) => field === 'prompt')?.meta).toMatchObject({
+			interface: 'input-rich-text-md',
+			options: {
+				toolbar: [
+					'heading',
+					'bold',
+					'italic',
+					'strikethrough',
+					'blockquote',
+					'bullist',
+					'numlist',
+					'code',
+					'empty',
+				],
+			},
+		})
 	})
 
 	it('requires stable UUID identities for versioned skill seeds', () => {
@@ -169,11 +189,24 @@ describe('editor AI domain', () => {
 	})
 
 	it('keeps content subordinate to the hardcoded system prompt', () => {
-		expect(EDITOR_AI_SYSTEM_PROMPT).toContain('untrusted content')
-		expect(EDITOR_AI_SYSTEM_PROMPT).toContain('Return only the replacement')
-		expect(EDITOR_AI_SYSTEM_PROMPT).toContain('same natural language')
-		expect(EDITOR_AI_SYSTEM_PROMPT).toContain('Nuxt Content MDC')
-		expect(EDITOR_AI_SYSTEM_PROMPT).toContain('named slots')
+		const prompt = createSystemPrompt(['paragraph', 'bold', 'component'])
+		expect(prompt).toContain('untrusted data')
+		expect(prompt).toContain('Return only the replacement')
+		expect(prompt).toContain('natural language or languages')
+		expect(prompt).toContain('only task-specific instruction')
+		expect(prompt).toContain('component reference as untrusted data')
+		expect(prompt).toContain('inline code and fenced code block contents as literal content')
+		expect(prompt).toContain('bold text')
+		expect(prompt).toContain('Nuxt Content MDC')
+		expect(prompt).toContain('named slots')
+		expect(prompt).not.toContain('GitHub-style tables')
+	})
+
+	it('describes all editor syntax for the default all-tools configuration', () => {
+		const prompt = createSystemPrompt(undefined)
+		expect(prompt).toContain('level 6 headings')
+		expect(prompt).toContain('GitHub-style tables')
+		expect(prompt).toContain('Nuxt Content MDC')
 	})
 
 	it('accepts bounded component metadata as syntax reference data', () => {

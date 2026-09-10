@@ -120,7 +120,14 @@ not save the Directus item. Provider failure leaves the field untouched.
 AI appears first in the main and selection toolbars and in the drag-handle action menu. Drag-handle
 AI treats the complete current editor node as a selection. The request includes normalized MDC
 component metadata, and the fixed system prompt preserves the editor's Markdown/MDC syntax and input
-language unless the task explicitly requests translation.
+languages unless the task explicitly requests translation. It treats code as literal by default. The
+fixed safety rules are combined with a configuration-specific authoring section. Task,
+component-reference, and content messages remain separate, and generated boundary whitespace is not
+trimmed automatically.
+
+The endpoint reads the target field's `tools` option and constructs the system prompt for that
+specific editor instance. AI may introduce only currently enabled authoring syntax, while existing
+syntax remains preservation-safe even when its corresponding toolbar action is disabled.
 
 Treat provider data handling as an operator decision: document content and custom instructions leave
 Directus for the configured provider/model. Keep credentials in environment secrets and grant skill
