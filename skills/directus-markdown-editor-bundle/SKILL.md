@@ -51,6 +51,10 @@ services:
     environment:
       MARKDOWN_EDITOR_ENABLED: 'true'
       MARKDOWN_EDITOR_DOCS_SEED_ENABLED: 'true'
+	  MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED: 'true'
+	  EDITOR_AI_PROVIDER: 'openai'
+	  EDITOR_AI_MODEL: 'your-model-id'
+	  EDITOR_AI_API_KEY: 'replace-with-a-secret'
 ```
 
 After restart, verify that **Markdown (MDC)** appears as an interface for `text` and `string`
@@ -70,6 +74,57 @@ Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configur
 | `useReferences`                      | `false`   | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                       |
 | `referenceCollections`               | unset     | Required non-empty JSON array while References are enabled.                                                                                                                         |
 | `referenceSnapshotMode`              | `detect`  | `snapshot`, `detect`, or `sync`.                                                                                                                                                    |
+| `ai` / **Enable AI editing**         | `false`   | Enables document and selection AI surfaces and authorizes field-context requests to `/editor/ai`.                                                                                   |
+
+## Configure AI editing
+
+The startup hook creates the versioned `editor_skills` collection, including Directus created and
+updated user/timestamp audit fields, when `MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED=true`. Create
+reusable records with a name, optional description/icon, one or both scopes (`document`,
+`selection`), a task prompt, `archived=false`, and an optional sort value. Do not create a
+custom-prompt record: **Ask AI…** is built in.
+
+Assign the seeded **Can Use Editor Skills** policy to editor roles that may invoke AI. It grants
+create, read, and update access to `editor_skills`, intentionally not delete access. Execution
+resolves the prompt with request accountability. Archived and scope-incompatible records are
+rejected. Directus administrators may invoke the endpoint without an assigned policy.
+
+Configure server-only provider values:
+
+| Variable                                  | Default          | Meaning                                                  |
+| ----------------------------------------- | ---------------- | -------------------------------------------------------- |
+| `EDITOR_AI_PROVIDER`                      | unset            | Required: `openai`, `anthropic`, `google`, or `mistral`. |
+| `EDITOR_AI_MODEL`                         | unset            | Required provider-native model ID.                       |
+| `EDITOR_AI_API_KEY`                       | unset            | Required secret; never reaches Studio.                   |
+| `EDITOR_AI_BASE_URL`                      | provider default | Optional provider-specific API base URL.                 |
+| `EDITOR_AI_MAX_CONTENT_LENGTH`            | `100000`         | Positive request content limit.                          |
+| `MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED`  | `true`           | Reconcile `editor_skills` at startup.                    |
+| `MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR`   | `true`           | Fail startup if reconciliation fails.                    |
+| `MARKDOWN_EDITOR_SKILLS_SEED_ENABLED`     | `true`           | Reconcile bundled editor skill seeds.                    |
+| `MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY` | `versioning`     | Changed seeds use `versioning` or `override`.            |
+
+Skill seeds are owned by this Markdown hook and run in its coordinated data phase. Each seed has a
+stable UUID. Missing seeds are created, unchanged seeds are skipped, and changed seeds update the
+Directus **Incoming** version by default. Seed removal does not remove existing records.
+
+The built-in catalog includes Fix spelling and grammar, Improve clarity, Improve structure, Rewrite,
+Shorten, Expand, and Turn into bullet points.
+
+`POST /editor/ai` accepts authenticated JSON containing `scope`, `content`, `collection`, `field`,
+and exactly one of `skillId` or `prompt`. Selection requests also contain `{ from, to, text }`, with
+`text` equal to `content`. The target field must use interface `markdown-editor` with `ai: true`.
+The response is `{ "content": string }`. Document output is reviewed before one undoable editor
+replacement; selection output is previewed and rejected if its original range changed. Applying does
+not save the Directus item. Provider failure leaves the field untouched.
+
+AI appears first in the main and selection toolbars and in the drag-handle action menu. Drag-handle
+AI treats the complete current editor node as a selection. The request includes normalized MDC
+component metadata, and the fixed system prompt preserves the editor's Markdown/MDC syntax and input
+language unless the task explicitly requests translation.
+
+Treat provider data handling as an operator decision: document content and custom instructions leave
+Directus for the configured provider/model. Keep credentials in environment secrets and grant skill
+permissions only to trusted roles.
 
 Valid tool IDs are:
 

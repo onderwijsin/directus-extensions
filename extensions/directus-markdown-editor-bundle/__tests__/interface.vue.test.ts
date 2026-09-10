@@ -156,6 +156,14 @@ afterEach(() => {
 })
 
 describe('Markdown editor interface', () => {
+	it('keeps AI explicitly disabled by default', () => {
+		expect(createMarkdownEditorOptions().find((option) => option.field === 'ai')).toMatchObject(
+			{
+				type: 'boolean',
+				schema: { default_value: false },
+			},
+		)
+	})
 	it('exposes a Directus multiselect for all configurable tools', () => {
 		const options = createMarkdownEditorOptions()
 		const tools = options.find((option) => option.field === 'tools')

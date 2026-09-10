@@ -6,6 +6,18 @@ settings:
 
 catalogs:
   default:
+    '@ai-sdk/anthropic':
+      specifier: 4.0.51
+      version: 4.0.51
+    '@ai-sdk/google':
+      specifier: 4.0.66
+      version: 4.0.66
+    '@ai-sdk/mistral':
+      specifier: 4.0.41
+      version: 4.0.41
+    '@ai-sdk/openai':
+      specifier: 4.0.64
+      version: 4.0.64
     '@changesets/changelog-git':
       specifier: 1.0.0
       version: 1.0.0
@@ -424,6 +436,21 @@ importers:
 
   extensions/directus-markdown-editor-bundle:
     dependencies:
+      '@ai-sdk/anthropic':
+        specifier: 'catalog:'
+        version: 4.0.51(zod@4.4.3)
+      '@ai-sdk/google':
+        specifier: 'catalog:'
+        version: 4.0.66(zod@4.4.3)
+      '@ai-sdk/mistral':
+        specifier: 'catalog:'
+        version: 4.0.41(zod@4.4.3)
+      '@ai-sdk/openai':
+        specifier: 'catalog:'
+        version: 4.0.64(zod@4.4.3)
+      '@directus/errors':
+        specifier: 'catalog:'
+        version: 2.5.0
       '@onderwijsin/directus-extension-utils':
         specifier: workspace:*
         version: link:../../packages/extension-utils
@@ -482,6 +509,9 @@ importers:
       '@directus/extensions-sdk':
         specifier: 'catalog:'
         version: 18.0.2(@types/node@24.13.3)(@unhead/vue@1.11.20(vue@3.5.24(typescript@5.9.3)))(debug@4.4.3(supports-color@7.2.0))(deep-diff@1.0.2)(express@4.21.2(supports-color@7.2.0))(graphql@16.12.0)(jiti@2.6.1)(knex@3.1.0(mysql2@3.15.3)(pg@8.16.3)(sqlite3@5.1.7(bluebird@3.7.2)(supports-color@7.2.0))(supports-color@7.2.0)(tedious@18.6.1(supports-color@7.2.0)))(mysql2@3.15.3)(nodemailer@9.0.3)(openapi3-ts@4.5.0)(pg@8.16.3)(pinia@2.3.1(typescript@5.9.3)(vue@3.5.24(typescript@5.9.3)))(pino@9.7.0)(sharp@0.35.3(@types/node@24.13.3))(sqlite3@5.1.7(bluebird@3.7.2)(supports-color@7.2.0))(supports-color@7.2.0)(tedious@18.6.1(supports-color@7.2.0))(terser@5.50.0)(tsx@4.22.4)(typescript@5.9.3)(vue-router@4.6.3(vue@3.5.24(typescript@5.9.3)))(ws@8.21.0)(yaml@2.9.0)
+      '@directus/types':
+        specifier: 'catalog:'
+        version: 16.1.0(deep-diff@1.0.2)(express@4.21.2(supports-color@7.2.0))(graphql@16.12.0)(knex@3.1.0(mysql2@3.15.3)(pg@8.16.3)(sqlite3@5.1.7(bluebird@3.7.2)(supports-color@7.2.0))(supports-color@7.2.0)(tedious@18.6.1(supports-color@7.2.0)))(mysql2@3.15.3)(nodemailer@9.0.3)(openapi3-ts@4.5.0)(pg@8.16.3)(pino@9.7.0)(sharp@0.35.3(@types/node@24.13.3))(sqlite3@5.1.7(bluebird@3.7.2)(supports-color@7.2.0))(supports-color@7.2.0)(tedious@18.6.1(supports-color@7.2.0))(vue-router@4.6.3(vue@3.5.24(typescript@5.9.3)))(vue@3.5.24(typescript@5.9.3))(ws@8.21.0)
       '@types/node':
         specifier: catalog:node24
         version: 24.13.3
@@ -782,8 +812,32 @@ importers:
 
 packages:
 
+  '@ai-sdk/anthropic@4.0.51':
+    resolution: {integrity: sha512-b0Nef9I8roBewt50g59dTg+/JJZ9Kofc7U40vpIufWtZ6M705LCzZd0iihylKtSucRc0HHC/kT4IFu5c8eLSUg==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/gateway@4.0.77':
     resolution: {integrity: sha512-oPbuuh8qS8x3pNgo6fWsCQCbiVWQ3LEHNMLasAbzzL4hPfMYomesvY46671zAMo4L0vlMVfSnrE8ucKRc0P7Pw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/google@4.0.66':
+    resolution: {integrity: sha512-5ZYLh4TDyb/oZz5IAX89quWV6SCuw+308SBFpuL/pa3LkJQWW3vQaTnEa1oVETZDx8wwo9SoVseG/tg7Idh0KQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/mistral@4.0.41':
+    resolution: {integrity: sha512-Oe9CKKXDUMgn+HpJKLdm3kBpciOHOfNYCExsGJGXQjtCIl/bpW2i4B+2xb8aqjV4uLbWl3+2/yhbpNoDn0ipug==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai@4.0.64':
+    resolution: {integrity: sha512-oxVaIwYDi4mFjARh/ecRdVNWGVvIjN5mtRpIwcOEDv7A1qGaL+SU4hsHtvV64T7+VrfOxvmTnKmEA9lPa7nx3A==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -6738,11 +6792,35 @@ packages:
 
 snapshots:
 
+  '@ai-sdk/anthropic@4.0.51(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.12
+      '@ai-sdk/provider-utils': 5.0.38(zod@4.4.3)
+      zod: 4.4.3
+
   '@ai-sdk/gateway@4.0.77(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.12
       '@ai-sdk/provider-utils': 5.0.38(zod@4.4.3)
       '@vercel/oidc': 3.2.0
+      zod: 4.4.3
+
+  '@ai-sdk/google@4.0.66(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.12
+      '@ai-sdk/provider-utils': 5.0.38(zod@4.4.3)
+      zod: 4.4.3
+
+  '@ai-sdk/mistral@4.0.41(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.12
+      '@ai-sdk/provider-utils': 5.0.38(zod@4.4.3)
+      zod: 4.4.3
+
+  '@ai-sdk/openai@4.0.64(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.12
+      '@ai-sdk/provider-utils': 5.0.38(zod@4.4.3)
       zod: 4.4.3
 
   '@ai-sdk/provider-utils@5.0.38(zod@4.4.3)':

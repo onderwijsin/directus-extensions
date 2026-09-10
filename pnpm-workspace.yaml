@@ -65,6 +65,10 @@ catalog:
   shiki: 4.4.3
   yaml: 2.9.0
   ai: 7.0.96
+  '@ai-sdk/openai': 4.0.64
+  '@ai-sdk/anthropic': 4.0.51
+  '@ai-sdk/google': 4.0.66
+  '@ai-sdk/mistral': 4.0.41
 catalogs:
   node24:
     '@types/node': 24.13.3

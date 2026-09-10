@@ -2,6 +2,7 @@
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
 import type { Editor } from '@tiptap/core'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
+import type { EditorAiScope, EditorSkillMenuItem } from '../ai/types'
 import type { EditorCommand } from '../editor/commands'
 
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef } from 'vue'
@@ -20,8 +21,16 @@ const props = defineProps<{
 	disabled?: boolean
 	referencesEnabled?: boolean
 	componentsAvailable?: boolean
+	aiEnabled?: boolean
+	aiSkills?: EditorSkillMenuItem[]
 }>()
-const emit = defineEmits<{ openLink: []; openComponents: []; openReference: [] }>()
+const emit = defineEmits<{
+	openLink: []
+	openComponents: []
+	openReference: []
+	runAi: [scope: EditorAiScope, skillId: string]
+	askAi: [scope: EditorAiScope]
+}>()
 const revision = shallowRef(0)
 const hoveredPosition = shallowRef<number | null>(null)
 const insertMenuPosition = shallowRef<number | null>(null)
@@ -47,6 +56,9 @@ const insertCommands = computed(() =>
 		'horizontal-rule',
 		'insert-table',
 	]),
+)
+const selectionAiSkills = computed(() =>
+	(props.aiSkills ?? []).filter((skill) => !skill.archived && skill.scopes.includes('selection')),
 )
 
 function refresh() {
@@ -172,6 +184,12 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 	if (action === 'delete') deleteBlock(props.editor, position)
 	setBlockMenuState(false)
 }
+
+function runAi(skillId?: string) {
+	if (skillId) emit('runAi', 'selection', skillId)
+	else emit('askAi', 'selection')
+	setBlockMenuState(false)
+}
 </script>
 
 <template>
@@ -189,6 +207,33 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 				!state.selection.empty
 		"
 	>
+		<VMenu v-if="aiEnabled" placement="bottom-start" show-arrow>
+			<template #activator="{ toggle }">
+				<VButton
+					icon
+					small
+					ghost
+					class="editor-bubble-menu__button"
+					aria-label="AI editing"
+					tooltip="AI editing"
+					@mousedown.prevent
+					@click.stop="toggle"
+					><VIcon name="auto_awesome"
+				/></VButton>
+			</template>
+			<VList>
+				<VListItem
+					v-for="skill in selectionAiSkills"
+					:key="skill.id"
+					clickable
+					@click="runAi(skill.id)"
+					><VListItemContent>{{ skill.name }}</VListItemContent></VListItem
+				>
+				<VListItem clickable @click="runAi()"
+					><VListItemContent>Ask AI…</VListItemContent></VListItem
+				>
+			</VList>
+		</VMenu>
 		<VButton
 			v-for="command in inlineCommands"
 			:key="`${command.id}-${revision}`"
@@ -311,6 +356,27 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 					/></VButton>
 				</template>
 				<VList class="editor-block-controls__menu">
+					<VMenu v-if="aiEnabled" placement="right-start" show-arrow>
+						<template #activator="{ toggle }">
+							<VListItem clickable @click.stop="toggle"
+								><VListItemIcon><VIcon name="auto_awesome" /></VListItemIcon
+								><VListItemContent>AI editing</VListItemContent></VListItem
+							>
+						</template>
+						<VList>
+							<VListItem
+								v-for="skill in selectionAiSkills"
+								:key="skill.id"
+								clickable
+								@click="runAi(skill.id)"
+								><VListItemContent>{{ skill.name }}</VListItemContent></VListItem
+							>
+							<VListItem clickable @click="runAi()"
+								><VListItemContent>Ask AI…</VListItemContent></VListItem
+							>
+						</VList>
+					</VMenu>
+					<VDivider v-if="aiEnabled" />
 					<VListItem clickable @click="runBlockAction('duplicate')"
 						><VListItemIcon><VIcon name="content_copy" /></VListItemIcon
 						><VListItemContent>Duplicate</VListItemContent></VListItem

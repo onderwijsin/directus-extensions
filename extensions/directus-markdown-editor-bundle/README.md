@@ -17,6 +17,8 @@ and does not require a Nuxt runtime in Directus.
 - static or remotely loaded component metadata with one definitive JSON contract;
 - hydration-time component property freshness reports with editor-controlled refresh;
 - permission-aware Directus item references with source snapshots and integrity reporting; and
+- opt-in AI transformations with reusable skills, custom prompts, document comparison, and
+  stale-safe selection replacement; and
 - an optional Dutch Studio Docs article for editors.
 
 ## Requirements
@@ -55,6 +57,9 @@ services:
     build: .
     environment:
       MARKDOWN_EDITOR_ENABLED: 'true'
+	  EDITOR_AI_PROVIDER: 'openai'
+	  EDITOR_AI_MODEL: 'your-model-id'
+	  EDITOR_AI_API_KEY: 'replace-with-a-secret'
 ```
 
 Pin the Directus image to a version supported by the package and use your normal image update
@@ -93,6 +98,57 @@ Configure these options on each field using the **Markdown (MDC)** interface.
 | **Use item references**           | `false`   | Enables the Reference picker, Reference editing, and document integrity checks.                                                                               |
 | **Reference collections**         | unset     | Required non-empty JSON array when item references are enabled.                                                                                               |
 | **Reference snapshot mode**       | `detect`  | Chooses `snapshot`, `detect`, or `sync` behavior for source snapshots.                                                                                        |
+| **Enable AI editing**             | `false`   | Shows AI actions for this field and allows authenticated `/editor/ai` requests for it.                                                                        |
+
+## AI-assisted editing
+
+AI is disabled per field by default. When enabled, AI is the first toolbar action. A non-empty
+selection shows AI first in the selection toolbar, and the drag-handle menu offers the same actions
+for its current block. Document suggestions open a side-by-side Markdown diff and change the field
+only after **Apply changes**. Selection suggestions remain tied to the original range and cannot be
+applied after that text changes. Neither flow saves the Directus item automatically.
+
+The hook provisions the versioned `editor_skills` collection and the **Can Use Editor Skills**
+policy. It also reconciles the bundled skill catalog during its own coordinated data phase. New
+seeds are created; changed seeds create or refresh Directus' **Incoming** version by default, so
+maintainer edits to the main item are not overwritten. Set the strategy to `override` only when
+deployed seed content must replace the main item. Assign the policy to editor roles that may use AI.
+It grants create, read, and update access to skills, intentionally not delete access. Administrators
+can always invoke the endpoint without this policy. The endpoint separately reads the selected skill
+with request accountability, validates its scope and archive state, and never trusts a
+client-supplied stored prompt.
+
+| Environment variable                      | Default          | Contract                                                 |
+| ----------------------------------------- | ---------------- | -------------------------------------------------------- |
+| `EDITOR_AI_PROVIDER`                      | unset            | Required: `openai`, `anthropic`, `google`, or `mistral`. |
+| `EDITOR_AI_MODEL`                         | unset            | Required provider-native model ID.                       |
+| `EDITOR_AI_API_KEY`                       | unset            | Required secret used only by the API extension.          |
+| `EDITOR_AI_BASE_URL`                      | provider default | Optional provider-specific API base URL.                 |
+| `EDITOR_AI_MAX_CONTENT_LENGTH`            | `100000`         | Positive maximum request content length in characters.   |
+| `MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED`  | `true`           | Provisions and reconciles `editor_skills`.               |
+| `MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR`   | `true`           | Aborts startup when that schema reconciliation fails.    |
+| `MARKDOWN_EDITOR_SKILLS_SEED_ENABLED`     | `true`           | Enables the hook-owned bundled skill seed catalog.       |
+| `MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY` | `versioning`     | Uses `versioning` or `override` for changed seeds.       |
+
+`editor_skills` includes Directus versioning and the standard `user_created`, `date_created`,
+`user_updated`, and `date_updated` audit fields. Bundled seeds use stable UUIDs. Removing a seed
+from a later package release does not delete or archive an existing item.
+
+The bundled catalog seeds **Fix spelling and grammar**, **Improve clarity**, **Improve structure**,
+**Rewrite**, **Shorten**, **Expand**, and **Turn into bullet points**. Their document/selection
+scopes control where each action appears.
+
+`POST /editor/ai` requires an authenticated request with the **Can Use Editor Skills** policy,
+collection/field context for a Markdown field whose `ai` option is true, and exactly one of
+`skillId` or `prompt`. Stored skills must be readable, active, and compatible with `scope`
+(`document` or `selection`). The response is `{ "content": "replacement Markdown" }`. AI content and
+custom prompts are sent to the configured provider; do not enable the feature for content that
+organizational policy forbids sending there.
+
+Requests also include a bounded, normalized description of the field's configured MDC components.
+This lets the model preserve component names, properties, and slots. The hardcoded system prompt
+documents the editor's Markdown/MDC flavor and requires output to retain the input language unless
+the editing task explicitly requests another language.
 
 **Available editor tools** can independently expose paragraphs, heading levels 1–6, bold, italic,
 strikethrough, inline code, blockquotes, code blocks, unordered and numbered lists, images, video,

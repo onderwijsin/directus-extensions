@@ -147,6 +147,7 @@ function tooltip(command: EditorCommand) {
 
 <template>
 	<div class="editor-toolbar" role="toolbar" aria-label="Text formatting">
+		<slot name="before" />
 		<VSelect
 			class="editor-toolbar__block-select"
 			inline

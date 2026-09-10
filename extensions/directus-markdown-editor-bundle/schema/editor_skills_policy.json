@@ -1,0 +1,19 @@
+{
+	"policies": [
+		{
+			"id": "de720a9d-8881-4d53-a929-70b6684f96d1",
+			"name": "Can Use Editor Skills",
+			"icon": "auto_awesome",
+			"description": "Can create, read, and update reusable editor skills and invoke editor AI.",
+			"enforce_tfa": false,
+			"ip_access": null,
+			"app_access": true,
+			"admin_access": false,
+			"permissions": [
+				{ "collection": "editor_skills", "action": "create", "fields": ["*"] },
+				{ "collection": "editor_skills", "action": "read", "fields": ["*"] },
+				{ "collection": "editor_skills", "action": "update", "fields": ["*"] }
+			]
+		}
+	]
+}

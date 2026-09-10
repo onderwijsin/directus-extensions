@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { EditorAiScope, EditorSkillMenuItem } from './ai/types'
 import type { ReferenceSnapshotMode } from './reference/schema'
 
 // Directus/Vue template callbacks are intentionally local and do not need public API JSDoc.
@@ -7,6 +8,8 @@ import { computed, onBeforeUnmount, onMounted, shallowRef, toRef, watch } from '
 import { exitSuggestion } from '@tiptap/suggestion'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 
+import { replaceDocument } from './ai/document'
+import AiController from './components/AiController.vue'
 import ComponentInsertMenu from './components/ComponentInsertMenu.vue'
 import EditorContextMenus from './components/EditorContextMenus.vue'
 import EditorTableMenu from './components/EditorTableMenu.vue'
@@ -34,12 +37,18 @@ const props = withDefaults(
 		referenceCollections?: unknown
 		referenceSnapshotMode?: ReferenceSnapshotMode
 		comparisonMode?: boolean
+		comparisonActive?: boolean
+		comparisonSide?: 'base' | 'incoming'
+		ai?: boolean
+		collection?: string
+		field?: string
 		options?: {
 			metadataUrl?: string | null
 			useStaticComponentMeta?: boolean
 			staticComponentMeta?: unknown
 			tools?: string[] | null
 			useReferences?: boolean
+			ai?: boolean
 			referenceCollections?: unknown
 			referenceSnapshotMode?: ReferenceSnapshotMode
 		}
@@ -59,9 +68,12 @@ const fullscreen = shallowRef(false)
 const referenceScanRevision = shallowRef(0)
 const referenceNeedsAttention = shallowRef(false)
 const referenceReportOpen = shallowRef(false)
+const aiController = shallowRef<InstanceType<typeof AiController>>()
+const editorSkills = shallowRef<EditorSkillMenuItem[]>([])
 const lastEmittedValue = shallowRef<string>()
 const darkMode = shallowRef(false)
 const enabledTools = computed(() => props.tools ?? props.options?.tools)
+const aiEnabled = computed(() => props.ai ?? props.options?.ai ?? false)
 const referencesEnabled = computed(
 	() => props.useReferences ?? props.options?.useReferences ?? false,
 )
@@ -220,6 +232,35 @@ function toggleFullscreen() {
 	if (!canInteract()) return
 	dismissSlashMenu()
 	fullscreen.value = !fullscreen.value
+}
+
+/**
+ * Apply a reviewed full-document proposal as one undoable editor transaction.
+ * @param content Reviewed replacement Markdown.
+ * @returns Nothing.
+ */
+function applyAiDocument(content: string) {
+	if (!canInteract()) return
+	if (editor.value) replaceDocument(editor.value, content)
+}
+
+/**
+ * Run an AI action from a contextual editor surface.
+ * @param scope Content scope selected by the contextual surface.
+ * @param skillId Optional stored skill identifier.
+ * @returns Nothing.
+ */
+function runContextualAi(scope: EditorAiScope, skillId?: string) {
+	void aiController.value?.run(scope, skillId)
+}
+
+/**
+ * Open the custom AI prompt from a contextual editor surface.
+ * @param scope Content scope selected by the contextual surface.
+ * @returns Nothing.
+ */
+function askContextualAi(scope: EditorAiScope) {
+	aiController.value?.ask(scope)
 }
 
 /**
@@ -447,7 +488,22 @@ watch(
 					@open-source="openSourceDrawer"
 					@open-components="openComponentInsert"
 					@toggle-fullscreen="toggleFullscreen"
-				/>
+				>
+					<template #before>
+						<AiController
+							v-if="aiEnabled && collection && field && !comparisonMode"
+							ref="aiController"
+							:editor="editor"
+							:collection="collection"
+							:field="field"
+							:value="value ?? ''"
+							:disabled="disabled"
+							:components="metadata.components.value"
+							@skills-change="editorSkills = $event"
+							@apply-document="applyAiDocument"
+						/>
+					</template>
+				</EditorToolbar>
 			</div>
 			<p
 				v-if="metadata.state.value === 'error'"
@@ -491,9 +547,13 @@ watch(
 				:disabled="disabled"
 				:references-enabled="referencesEnabled"
 				:components-available="metadata.hasComponents.value"
+				:ai-enabled="aiEnabled && Boolean(collection) && Boolean(field) && !comparisonMode"
+				:ai-skills="editorSkills"
 				@open-link="openLinkDrawer"
 				@open-components="openComponentInsert"
 				@open-reference="openReferencePicker"
+				@run-ai="runContextualAi"
+				@ask-ai="askContextualAi"
 			/>
 			<EditorTableMenu :editor="editor" :commands="commands" :disabled="disabled" />
 			<div class="markdown-editor__canvas">

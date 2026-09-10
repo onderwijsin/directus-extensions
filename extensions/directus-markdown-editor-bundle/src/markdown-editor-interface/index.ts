@@ -33,6 +33,17 @@ interface MarkdownEditorOption {
 export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 	return [
 		{
+			field: 'ai',
+			name: 'Enable AI editing',
+			type: 'boolean',
+			meta: {
+				width: 'half',
+				interface: 'checkbox',
+				note: 'Show AI actions for this field. Server provider configuration and permissions are also required.',
+			},
+			schema: { default_value: false },
+		},
+		{
 			field: 'tools',
 			name: 'Available editor tools',
 			type: 'json',

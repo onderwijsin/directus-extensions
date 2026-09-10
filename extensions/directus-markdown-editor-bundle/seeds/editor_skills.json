@@ -1,0 +1,74 @@
+{
+	"skills": [
+		{
+			"id": "df383967-9fdd-4d03-b7aa-e4ef95683f23",
+			"name": "Fix spelling and grammar",
+			"description": "Correct language mistakes without unnecessary rewriting.",
+			"icon": "spellcheck",
+			"scopes": ["document", "selection"],
+			"prompt": "Correct spelling, grammar, punctuation, capitalization, and obvious language mistakes.\n\nPreserve the original meaning, tone, structure, terminology, and level of formality as much as possible.\n\nDo not rewrite sentences purely for stylistic preference. Only make changes that improve linguistic correctness or resolve clearly awkward phrasing caused by an error.",
+			"archived": false,
+			"sort": 10
+		},
+		{
+			"id": "aeb1ef5e-a779-4b6a-b804-a5b6cf16a031",
+			"name": "Improve clarity",
+			"description": "Make content clearer, more concise, and easier to understand.",
+			"icon": "readability",
+			"scopes": ["document", "selection"],
+			"prompt": "Rewrite the content to make it clearer, more concise, and easier to understand.\n\nRemove unnecessary words, repetition, vague phrasing, filler, and overly complicated sentence structures.\n\nPrefer direct, concrete language and natural sentence flow.\n\nPreserve all important meaning, nuance, facts, terminology, links, and relevant details. Do not simplify away information that is necessary to understand the content.\n\nDo not substantially change the tone or intent unless doing so is necessary for clarity.",
+			"archived": false,
+			"sort": 20
+		},
+		{
+			"id": "09bf527f-4c59-4146-a43d-09cd43d67b8a",
+			"name": "Improve structure",
+			"description": "Reorganize a document using clearer Markdown and appropriate components.",
+			"icon": "account_tree",
+			"scopes": ["document"],
+			"prompt": "Improve the overall structure and presentation of this document.\n\nReorganize content where useful so information appears in a logical order, related ideas are grouped together, and the document is easy to scan and understand.\n\nImprove the use of headings, paragraphs, lists, emphasis, and other available Markdown structure where appropriate.\n\nAlso look for opportunities to make better use of the editor components and custom markup described in the available component metadata. Use those components when they provide a clearer, more appropriate, or more useful representation of the existing content.\n\nDo not introduce components merely for decoration. Only use them when they meaningfully improve the document.\n\nYou may:\n- reorder sections or paragraphs;\n- split overly long sections;\n- combine redundant sections;\n- add, remove, or improve headings;\n- convert suitable content into lists or other appropriate structures;\n- replace plain Markdown with an available component when the component better expresses the same content.\n\nPreserve the document's meaning, facts, links, and important details. Do not invent new substantive information.",
+			"archived": false,
+			"sort": 30
+		},
+		{
+			"id": "f62a9789-4320-4411-a19d-b671981ca237",
+			"name": "Rewrite",
+			"description": "Rewrite selected content with more natural wording and flow.",
+			"icon": "edit_note",
+			"scopes": ["selection"],
+			"prompt": "Rewrite the selected content so it reads more naturally and effectively.\n\nPreserve the original meaning, intent, important details, terminology, and approximate tone.\n\nImprove wording, sentence construction, and flow where useful.\n\nDo not make the text substantially longer or shorter unless that is necessary to produce a better rewrite.",
+			"archived": false,
+			"sort": 40
+		},
+		{
+			"id": "7b7ad4cf-566d-454f-9feb-b991dc839e5e",
+			"name": "Shorten",
+			"description": "Make selected content shorter without losing important meaning.",
+			"icon": "compress",
+			"scopes": ["selection"],
+			"prompt": "Shorten the selected content while preserving its important meaning and intent.\n\nRemove repetition, filler, unnecessary qualifiers, redundant examples, and overly verbose phrasing.\n\nPrefer concise, direct language.\n\nDo not remove information that materially changes the meaning, introduces ambiguity, or makes the text misleading.",
+			"archived": false,
+			"sort": 50
+		},
+		{
+			"id": "99543bc5-1f2b-45df-9b51-65c284835415",
+			"name": "Expand",
+			"description": "Develop selected content with supported context and detail.",
+			"icon": "expand_content",
+			"scopes": ["selection"],
+			"prompt": "Expand the selected content into a fuller and more useful version.\n\nAdd explanation, context, transitions, or supporting detail where these can be reasonably derived from the existing text.\n\nMake the content feel intentionally developed rather than artificially padded.\n\nDo not invent facts, statistics, claims, sources, examples, policies, or other information that is not supported by the supplied content.\n\nPreserve the original meaning, tone, and intent.",
+			"archived": false,
+			"sort": 60
+		},
+		{
+			"id": "eac04279-61f9-4fb8-bac5-dd237148c4f5",
+			"name": "Turn into bullet points",
+			"description": "Convert selected content into a concise Markdown bullet list.",
+			"icon": "format_list_bulleted",
+			"scopes": ["selection"],
+			"prompt": "Rewrite the selected content as a clear, concise Markdown bullet list.\n\nIdentify the distinct ideas, requirements, steps, arguments, or pieces of information in the selection and give each an appropriate bullet.\n\nKeep bullets parallel in style and reasonably concise.\n\nPreserve important meaning and detail, but remove prose that is only needed to connect sentences together.\n\nUse nested bullets only when there is a genuine parent-child relationship between ideas.\n\nDo not add new information.",
+			"archived": false,
+			"sort": 70
+		}
+	]
+}

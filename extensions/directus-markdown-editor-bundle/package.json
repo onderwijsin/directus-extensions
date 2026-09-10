@@ -55,6 +55,11 @@
 		"typecheck": "vue-tsc --noEmit"
 	},
 	"dependencies": {
+		"@ai-sdk/anthropic": "catalog:",
+		"@ai-sdk/google": "catalog:",
+		"@ai-sdk/mistral": "catalog:",
+		"@ai-sdk/openai": "catalog:",
+		"@directus/errors": "catalog:",
 		"@onderwijsin/directus-extension-utils": "workspace:*",
 		"@tiptap/core": "catalog:",
 		"@tiptap/extension-bubble-menu": "catalog:",
@@ -76,6 +81,7 @@
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",
+		"@directus/types": "catalog:",
 		"@types/node": "catalog:node24",
 		"@workspace/typescript-config": "workspace:*",
 		"vitest": "catalog:",
@@ -102,6 +108,11 @@
 				"name": "markdown-editor-hook",
 				"type": "hook",
 				"source": "src/markdown-editor-hook/index.ts"
+			},
+			{
+				"name": "editor",
+				"type": "endpoint",
+				"source": "src/editor-endpoint/index.ts"
 			}
 		],
 		"host": ">=12.2.0 <13"
