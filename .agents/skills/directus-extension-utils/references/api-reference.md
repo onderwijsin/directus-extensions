@@ -126,8 +126,10 @@ provided by `@directus/memory` and support local and Redis-backed stores. `Kv` a
 ```ts
 cacheConfigSchema
 redisConfigSchema
+synchronizationConfigSchema
 emailConfigSchema
 requiredEmailConfigSchema
+type CacheConfig = z.output<typeof cacheConfigSchema>
 resolveRedisConnectionString(options: RedisConfig): string | undefined
 resolveCacheStorage(options: CacheConfig): 'memory' | 'redis' | null
 isEmailConfigured(options: unknown): boolean
@@ -139,6 +141,51 @@ percent-encoded. Cache storage keeps the public `memory` value; `initializeCache
 memory package's local backend internally. The base email schema is optional and supplies Directus
 defaults; the required schema validates the selected `sendmail`, `smtp`, `mailgun`, or `ses`
 transport.
+
+The raw schemas are retained for compatibility. For new extension environment configuration, use an
+opaque option-schema builder instead of extending or combining a raw schema.
+
+## Server-only option schema builders
+
+```ts
+type ExtensionOptionsSchemaBuilder<Schema extends ZodType> = (zod: typeof z) => Schema
+type ExtensionOptionsShapeBuilder<Shape extends z.ZodRawShape> = (zod: typeof z) => Shape
+
+defineExtensionOptionsSchema<Schema extends ZodType>(
+  builder: ExtensionOptionsSchemaBuilder<Schema>,
+): ExtensionOptionsDefinition<z.output<Schema>>
+
+defineCacheConfigSchema<const Shape extends z.ZodRawShape>(
+  builder: ExtensionOptionsShapeBuilder<Shape>,
+): ExtensionOptionsDefinition<
+  Omit<CacheConfig, keyof Shape> & z.output<z.ZodObject<Shape>>
+>
+```
+
+`ExtensionOptionsDefinition<Output>` is the opaque value returned by every builder. The six
+specialized builders accept an `ExtensionOptionsShapeBuilder<Shape>` and return an opaque definition
+with inferred output; `defineCacheConfigSchema` above is the representative generic signature:
+
+| Builder | Adds |
+| --- | --- |
+| `defineRedisConfigSchema` | Directus Redis values. |
+| `defineSynchronizationConfigSchema` | Synchronization and Redis values. |
+| `defineCacheConfigSchema` | Cache and Redis values. |
+| `defineEmailConfigSchema` | Optional email transport configuration. |
+| `defineRequiredEmailConfigSchema` | Email configuration with selected-transport prerequisites. |
+| `defineDirectusStartupSchema` | Directus startup, locking, rate-limiter, synchronization, and Redis values. |
+
+`defineExtensionOptionsSchema` receives a callback that returns a complete schema. The other six
+builders receive a callback that returns extension-specific object fields before the listed shared
+configuration is added.
+
+An `ExtensionOptionsDefinition` is not a Zod schema. It is opaque and may only be supplied to
+`validateExtensionOptions`. Every schema node, including nested objects, arrays, unions, and helper
+output, must be constructed with the `zod` passed to the builder callback. A nested helper must be a
+factory that accepts that callback value. Definitions reject a node from another Zod runtime. Most
+extensions rely on inferred output; the two builder types are for helpers that need to name a
+callback type. The rejection identifies the node's location and directs the consumer to the supplied
+`z` runtime.
 
 ## Server-only cache-aside helpers
 
@@ -292,6 +339,13 @@ extensionSetup<ENV extends Record<string, unknown>>(
   logger: Logger,
 ): ExtensionSetup
 
+validateExtensionOptions<Output>(
+  options: unknown,
+  schema: ExtensionOptionsDefinition<Output>,
+  logger: Logger,
+): Output
+
+/** @deprecated Use an option-schema builder for new configuration. */
 validateExtensionOptions<S extends ZodType>(
   options: unknown,
   schema: S,
@@ -302,7 +356,8 @@ validateExtensionOptions<S extends ZodType>(
 `extensionSetup` logs lifecycle messages and treats missing or true `<EXTENSION_NAME>_ENABLED`
 values as enabled. The string `"false"` and boolean `false` disable the extension.
 `validateExtensionOptions` logs Zod's formatted error and throws `Invalid extension options ☝.
-Exiting.` when parsing fails.
+Exiting.` when parsing fails. The raw-schema overload remains for compatibility, but it is deprecated
+and cannot safely compose schemas from different Zod runtimes.
 
 ## Server-only schema management
 
@@ -334,13 +389,14 @@ const DIRECTUS_EXTENSION_STARTUP_LOCK = 'directus-extension-startup'
 getDirectusStartupLockName(name: string): string
 ```
 
-`directusStartupSchema` validates the global enablement and provider settings. Extend it with
-`.extend(...)` so its conditional Redis and filesystem requirements remain active:
+`directusStartupSchema` validates the global enablement and provider settings. It remains a raw
+compatibility export. New extension environment definitions should use the opaque builder, which
+preserves those conditional Redis and filesystem requirements:
 
 ```ts
-const envSchema = directusStartupSchema.extend({
+const envSchema = defineDirectusStartupSchema((z) => ({
   ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
-})
+}))
 ```
 
 ```ts

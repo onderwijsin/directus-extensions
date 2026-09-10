@@ -1,6 +1,6 @@
 ---
 name: directus-extension-utils
-description: Use when implementing, reviewing, or documenting Directus extensions that could use @onderwijsin/directus-extension-utils, especially guards, Directus memory/KV, locks, auto-tasks, retries, MIME classification, UUIDs, logging, typed object helpers, or runtime-specific imports.
+description: Use when implementing, reviewing, or documenting Directus extensions that could use @onderwijsin/directus-extension-utils, especially Zod-safe option schemas, guards, Directus memory/KV, locks, auto-tasks, retries, MIME classification, UUIDs, logging, typed object helpers, or runtime-specific imports.
 ---
 
 # Directus extension utilities
@@ -18,11 +18,13 @@ Read the smallest set of sources that covers the task, then inspect current sour
    and [`packages/extension-utils/README.md`](../../../packages/extension-utils/README.md).
 2. For locks or auto-tasks, also read [`docs/extension-cookbook/extension-utils-glossary.md`](../../../docs/extension-cookbook/extension-utils-glossary.md).
 3. For primitive narrowing, also read [`docs/extension-cookbook/guards.md`](../../../docs/extension-cookbook/guards.md).
-4. For package, test, build, export, or documentation changes, follow
+4. For extension environment schemas, also read
+   [`docs/extension-cookbook/environment-validation.md`](../../../docs/extension-cookbook/environment-validation.md).
+5. For package, test, build, export, or documentation changes, follow
    [`docs/agent-workflow.md`](../../../docs/agent-workflow.md) and [`docs/workspace.md`](../../../docs/workspace.md).
-5. For runtime-specific work, verify the package `exports` map in
+6. For runtime-specific work, verify the package `exports` map in
    [`packages/extension-utils/package.json`](../../../packages/extension-utils/package.json).
-6. Consult [`references/api-reference.md`](references/api-reference.md) for the complete API surface.
+7. Consult [`references/api-reference.md`](references/api-reference.md) for the complete API surface.
 
 Treat `packages/extension-utils/src/` and its public export indexes as the implementation source of
 truth. `dist/` is generated; rebuild it before using declarations or packed output as evidence.
@@ -64,7 +66,9 @@ The package has one shared Directus-extension implementation and eight public im
 Import common browser-safe helpers from the root or `/shared`. Always use `/server` for
 `createMemoryLockProvider`, `createRedisLockProvider`, `createFsLockProvider`,
 `createAutoTaskHandler`, task-storage factories, marker stores, `createLogger`,
-`extensionSetup`, `validateExtensionOptions`, `directusStartupSchema`,
+`extensionSetup`, `validateExtensionOptions`, `defineExtensionOptionsSchema`,
+`defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`,
+`defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, `defineDirectusStartupSchema`,
 `validateSchemaDefinition`, `ensureDirectusSchema`,
 `ensureDirectusPolicy`, `ensureDirectusDocumentation`, `createDirectusStartupCoordinator`, and `asyncHandler`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
@@ -149,12 +153,13 @@ All lock providers expose the same `defaultLeaseMs` and `tokenFactory` options w
 
 ### Schema changes
 
-Use `directusStartupSchema` when an extension can create or update Directus collections, fields, or
-relations. It validates the global enablement flags and selects a lock provider with
+Use `defineDirectusStartupSchema` when an extension can create or update Directus collections,
+fields, or relations. It validates the global enablement flags and selects a lock provider with
 `DIRECTUS_EXTENSIONS_LOCK_PROVIDER=memory|redis|fs`. When unset, the provider follows
 `SYNCHRONIZATION_STORE`. Redis requires
 `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; filesystem locking requires
-`DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`.
+`DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. The raw `directusStartupSchema` remains a compatibility
+export; do not compose new extension configuration from it.
 
 Pass the validated environment options as `options.lockProviderConfig` to
 `ensureDirectusSchema`. The utility creates and disposes providers selected from environment
@@ -325,9 +330,24 @@ Use `extensionSetup` at an API or server extension entrypoint to log loading/com
 the `<EXTENSION_NAME>_ENABLED` environment flag. Call `start()` first, return when `isEnabled()` is
 false, and call `end()` after successful registration.
 
-Use `validateExtensionOptions` with a complete Zod schema to validate the extension environment
-before registering routes or other API behavior. Valid data is returned with its inferred Zod
-output type. Invalid data is logged and throws `Invalid extension options ☝. Exiting.`.
+Use `validateExtensionOptions` with an opaque `ExtensionOptionsDefinition` to validate the extension
+environment before registering routes or other API behavior. Create it with
+`defineExtensionOptionsSchema`, or with `defineRedisConfigSchema`,
+`defineSynchronizationConfigSchema`, `defineCacheConfigSchema`, `defineEmailConfigSchema`,
+`defineRequiredEmailConfigSchema`, or `defineDirectusStartupSchema` when shared configuration is
+needed. Valid data is returned with its inferred output type. Invalid data is logged and throws
+`Invalid extension options ☝. Exiting.`.
+
+The builder callback supplies the package-owned Zod runtime. Build every field and nested schema
+with that callback value. A reusable nested helper must be a factory that receives the supplied `z`,
+never a schema from an imported or captured Zod runtime. Definitions reject foreign Zod nodes at any
+depth. `ExtensionOptionsSchemaBuilder` and `ExtensionOptionsShapeBuilder` are type-only exports for
+helpers that need to name a callback; `ExtensionOptionsDefinition` is opaque and is only passed to
+`validateExtensionOptions`.
+
+The raw-schema overload of `validateExtensionOptions` is deprecated but remains available for
+backward compatibility. Do not use it for new configuration, especially where two Zod runtimes could
+meet.
 
 These helpers coordinate setup and validation only; Directus registration, environment lookup, and
 application resource ownership remain with the consuming extension.

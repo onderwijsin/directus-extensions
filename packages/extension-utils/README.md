@@ -20,7 +20,8 @@ pnpm add @onderwijsin/directus-extension-utils
 The server utilities use their own Zod runtime dependency. Consumers do not need to install or align
 Zod when defining extension options through the package's schema builders. An extension may use
 another Zod version for unrelated validation, but must not combine schemas from that runtime with
-the legacy raw schemas exported by this package.
+the legacy raw schemas exported by this package. Every node in an opaque options definition,
+including nested nodes, must be built with the `z` supplied to its builder callback.
 
 `ensureDirectusDocumentation` is the server-only contract for extensions that contribute articles to
 the fixed `studio_docs` collection. It validates stable article input, honors the docs seed gate,
@@ -282,6 +283,22 @@ export const envSchema = defineExtensionOptionsSchema((z) =>
 )
 ```
 
+The seven public builders are:
+
+| Builder                             | Adds                                                                                            |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `defineExtensionOptionsSchema`      | Nothing; use it for one complete extension schema.                                              |
+| `defineRedisConfigSchema`           | Directus Redis configuration.                                                                   |
+| `defineSynchronizationConfigSchema` | Synchronization and Redis configuration.                                                        |
+| `defineCacheConfigSchema`           | Cache and Redis configuration.                                                                  |
+| `defineEmailConfigSchema`           | Optional email transport configuration.                                                         |
+| `defineRequiredEmailConfigSchema`   | Email configuration with selected-transport prerequisites.                                      |
+| `defineDirectusStartupSchema`       | Directus schema/data startup, locking, rate limiting, synchronization, and Redis configuration. |
+
+The returned `ExtensionOptionsDefinition<Output>` is opaque. Most consumers rely on inference; the
+type-only `ExtensionOptionsSchemaBuilder` and `ExtensionOptionsShapeBuilder` exports are available
+when a helper needs to name an ordinary-schema or shared-shape callback.
+
 Use `/server` setup helpers at an API extension boundary:
 
 ```ts
@@ -306,9 +323,31 @@ use `validateExtensionOptions` to obtain the inferred, validated output. The spe
 `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and `defineDirectusStartupSchema` add
 their shared configuration before validation.
 
-For backward compatibility, `validateExtensionOptions` still accepts a raw Zod schema and the
-package still exports its raw shared schemas. That path is version-sensitive when a consumer
-combines schemas from another Zod runtime; use builders for new code.
+All nested schemas must come from the builder callback's runtime. Make a reusable nested-schema
+helper a factory that receives that callback value, rather than closing over a separately imported
+`z`:
+
+```ts
+import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema((z) => {
+  const catalogFields = (builderZ: typeof z) => ({
+    CATALOG_CONNECTION: builderZ.object({
+      URL: builderZ.url(),
+      TIMEOUT: builderZ.number().int().positive().default(5_000),
+    }),
+  })
+
+  return z.object(catalogFields(z))
+})
+```
+
+The package rejects a foreign Zod node in an opaque definition, even when it appears inside nested
+objects, arrays, unions, or helper output. Its diagnostic identifies the node's location and directs
+the consumer to the supplied `z` runtime. For backward compatibility, `validateExtensionOptions`
+still accepts a raw Zod schema and the package still exports its raw shared schemas. That overload
+is deprecated and is version-sensitive when a consumer combines schemas from another Zod runtime;
+use builders for new code.
 
 For extensions that modify Directus schema, compose the entrypoint environment schema with the
 shared server-side schema-change settings:

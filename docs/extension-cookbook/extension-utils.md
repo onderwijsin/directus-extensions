@@ -13,6 +13,7 @@ visible.
 | Narrow Directus request accountability                              | [`isAccountability`](#accountability-helpers) and related server helpers          |
 | Narrow an unknown value                                             | [Guards](guards.md)                                                               |
 | Return an error instead of throwing                                 | [`attempt`](#attempts-and-retries) or [`attemptWithRetry`](#attempts-and-retries) |
+| Validate extension configuration                                    | [Zod-safe extension options](#zod-safe-extension-options)                         |
 | Store derived data                                                  | [`initializeCache`](#cache) and [`withCache`](#cache)                             |
 | Store coordination state                                            | Directus `createKv`                                                               |
 | Coordinate one [owner](extension-utils-glossary.md#owner) at a time | A lock provider                                                                   |
@@ -101,6 +102,8 @@ only the common helper surface.
 | Auto-tasks       | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                                                              | `/server`         |
 | Logging          | `createLogger`                                                                                                                                                                                                                                  | `/server`         |
 | Setup            | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                                | `/server`         |
+| Schema builders  | `defineExtensionOptionsSchema`, `defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`, `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, `defineDirectusStartupSchema`                          | `/server`         |
+| Builder types    | `ExtensionOptionsDefinition`, `ExtensionOptionsSchemaBuilder`, `ExtensionOptionsShapeBuilder`                                                                                                                                                   | `/server`         |
 | Cache            | `initializeCache`, `withCache`                                                                                                                                                                                                                  | `/server`         |
 | Schema/data      | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `ensureDirectusDocumentation`, `getDirectusStartupStatus`, `withCollectionIdentity` | `/server`         |
 | Constants        | `deploymentEnvs`, `DEPLOYMENT_ENV`                                                                                                                                                                                                              | `/constants`      |
@@ -136,6 +139,53 @@ export default defineHook(({ init, embed }, { env, logger }) => {
 The setup helper does not register routes or events. The caller owns Directus registration and
 resource cleanup. Invalid Zod configuration is logged and throws
 `Invalid extension options ☝. Exiting.`.
+
+### Zod-safe extension options
+
+For new extension configuration, define an opaque options definition with the package-owned Zod
+runtime. `defineExtensionOptionsSchema` builds an ordinary complete schema. The specialized builders
+add shared configuration before accepting extension fields:
+
+| Builder                             | Shared configuration                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------------- |
+| `defineExtensionOptionsSchema`      | None; build one complete extension schema.                                              |
+| `defineRedisConfigSchema`           | Directus Redis values.                                                                  |
+| `defineSynchronizationConfigSchema` | Synchronization store and Redis values.                                                 |
+| `defineCacheConfigSchema`           | Cache and Redis values.                                                                 |
+| `defineEmailConfigSchema`           | Optional email transport configuration.                                                 |
+| `defineRequiredEmailConfigSchema`   | Email configuration with selected-transport prerequisites.                              |
+| `defineDirectusStartupSchema`       | Directus schema/data startup, locking, rate-limiter, synchronization, and Redis values. |
+
+Each builder gives its callback the package-owned `z`; use that value for every field and nested
+schema. A reusable nested-schema helper must be a factory that receives that callback value, rather
+than a schema created elsewhere:
+
+```ts
+import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema((z) => {
+  const catalogFields = (builderZ: typeof z) => ({
+    CATALOG_CONNECTION: builderZ.object({
+      URL: builderZ.url(),
+      TIMEOUT: builderZ.number().int().positive().default(5_000),
+    }),
+  })
+
+  return z.object(catalogFields(z))
+})
+```
+
+The returned `ExtensionOptionsDefinition<Output>` is intentionally opaque. In ordinary extension
+code, rely on inference; `ExtensionOptionsSchemaBuilder` and `ExtensionOptionsShapeBuilder` are
+available for helpers that need to name a builder callback type. Do not call schema methods on a
+definition or mix in a Zod node from another runtime, including in nested objects, arrays, unions,
+or helper output. The rejection identifies the node's location and directs the consumer to the
+supplied `z` runtime. `validateExtensionOptions` materializes the definition and returns its
+inferred, validated output.
+
+Raw Zod schemas and shared raw schemas remain exported for compatibility. The raw-schema overload of
+`validateExtensionOptions` is deprecated and is version-sensitive when schemas from different Zod
+runtimes are combined; use an opaque builder for new code.
 
 ### Policy resolution
 
@@ -196,10 +246,11 @@ The server export also exposes `CacheEnv`, `CacheOptions` (`ttl` must be finite 
 an optional Redis `namespace`), `WithCacheOptions` (`cache` plus `key`), `CollectionInput`, and
 `CollectionCacheInvalidationOptions`.
 
-Validate cache settings with `cacheConfigSchema`. `REDIS` takes precedence over the four component
-values; component configuration requires `REDIS_ENABLED=true` (or `SYNCHRONIZATION_STORE=redis`) and
-all of `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, and `REDIS_PASSWORD`.
-`resolveRedisConnectionString` only resolves the URL and never creates a client.
+Use `defineCacheConfigSchema` when new extension fields need the shared cache settings.
+`cacheConfigSchema` remains available as a raw compatibility schema. `REDIS` takes precedence over
+the four component values; component configuration requires `REDIS_ENABLED=true` (or
+`SYNCHRONIZATION_STORE=redis`) and all of `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, and
+`REDIS_PASSWORD`. `resolveRedisConnectionString` only resolves the URL and never creates a client.
 `resolveCacheStorage` returns the public `memory`, `redis`, or `null` value; `initializeCache` maps
 `memory` to `@directus/memory`'s local backend internally.
 
@@ -208,21 +259,24 @@ the resulting `Cache | null` to `fetchPolicies` and `hasPolicies`. Invalid or ab
 configuration returns `null`, so policy resolution remains uncached without creating request-path
 Redis clients. The Redis-only cache uses the shared `directus:policies` namespace.
 
-The same `/server` subpath exports `emailConfigSchema`, `requiredEmailConfigSchema`, and
-`isEmailConfigured`. Use the base schema for optional email settings and the required schema at an
-extension startup boundary when the selected `sendmail`, `smtp`, `mailgun`, or `ses` transport must
-meet the shared minimum prerequisites. For SMTP, the shared check only requires `EMAIL_SMTP_HOST`;
-Directus or the consumer owns validation of the port, credentials, and other transport options.
+The same `/server` subpath exports `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and
+`isEmailConfigured`. Use the optional builder for shared email settings and the required builder at
+an extension startup boundary when the selected `sendmail`, `smtp`, `mailgun`, or `ses` transport
+must meet the shared minimum prerequisites. For SMTP, the shared check only requires
+`EMAIL_SMTP_HOST`; Directus or the consumer owns validation of the port, credentials, and other
+transport options. The raw `emailConfigSchema` and `requiredEmailConfigSchema` remain available for
+compatibility.
 
 ### Schema changes
 
-Use `directusStartupSchema` for global enablement and locking flags, then call
-`ensureDirectusSchema` with the hook context's `database`, `getSchema`, `services`, and a trusted
-portable definition. Existing compatible resources are preserved; incompatible structural resources
-are logged and left unchanged. Register the operation with `createDirectusStartupCoordinator` to
-apply the global and extension-specific disabled checks consistently and to run schema work before
-data seeds. Register documentation work with `startup.documentation()` when it must remain available
-while those ordinary startup gates are disabled.
+Use `defineDirectusStartupSchema` for new extension configuration that needs global enablement and
+locking flags, then call `ensureDirectusSchema` with the hook context's `database`, `getSchema`,
+`services`, and a trusted portable definition. Existing compatible resources are preserved;
+incompatible structural resources are logged and left unchanged. Register the operation with
+`createDirectusStartupCoordinator` to apply the global and extension-specific disabled checks
+consistently and to run schema work before data seeds. Register documentation work with
+`startup.documentation()` when it must remain available while those ordinary startup gates are
+disabled.
 
 Each collection definition must include a non-blank `schema.name` and the collection's primary-key
 field in its nested `fields` array. Keep that primary-key field out of the top-level `fields` array:
@@ -254,15 +308,14 @@ The collection guard preserves malformed definitions instead of allowing Directu
 implicit integer primary key. The utility logs the incompatible collection and continues with the
 rest of the ensure operation.
 
-Compose the shared schema-change environment into an extension schema:
+Compose the shared schema-change environment with its opaque builder:
 
 ```ts
-import { directusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
-import { z } from 'zod'
+import { defineDirectusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
 
-export const envSchema = directusStartupSchema.extend({
+export const envSchema = defineDirectusStartupSchema((z) => ({
   ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
-})
+}))
 ```
 
 The provider can then be selected entirely through environment configuration:
