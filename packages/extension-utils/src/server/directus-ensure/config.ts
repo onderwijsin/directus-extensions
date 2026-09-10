@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { redisUrlSchema, resolveRedisConnectionString } from '../config/redis'
 import { synchronizationConfigSchema } from '../config/synchronization'
+import { defineExtensionOptionsShape, type ExtensionOptionsShapeBuilder } from '../schema-builder'
 
 /** Supported providers for Directus startup coordination. */
 export const startupLockProviderSchema = z.enum(['memory', 'redis', 'fs'])
@@ -70,6 +71,16 @@ export const directusStartupSchema = z
 	})
 
 export type DirectusStartupOptions = z.output<typeof directusStartupSchema>
+
+/**
+ * Defines extension options that include the shared Directus startup configuration.
+ *
+ * @param builder - Builds extension-specific fields with the package-owned Zod runtime.
+ * @returns An opaque definition accepted by `validateExtensionOptions`.
+ */
+export const defineDirectusStartupSchema = <const Shape extends z.ZodRawShape>(
+	builder: ExtensionOptionsShapeBuilder<Shape>,
+) => defineExtensionOptionsShape(directusStartupSchema, builder)
 
 /**
  * Resolves the extension startup lock provider using local and global fallbacks.

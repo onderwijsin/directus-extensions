@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { defineExtensionOptionsShape, type ExtensionOptionsShapeBuilder } from '../schema-builder'
+
 const nonBlankStringSchema = z.string().trim().min(1)
 const portSchema = z.coerce.number().int().min(1).max(65_535)
 
@@ -61,6 +63,26 @@ export const requiredEmailConfigSchema = emailConfigSchema.superRefine((options,
 })
 
 export type EmailConfig = z.output<typeof emailConfigSchema>
+
+/**
+ * Defines extension options that include the shared optional email configuration.
+ *
+ * @param builder - Builds extension-specific fields with the package-owned Zod runtime.
+ * @returns An opaque definition accepted by `validateExtensionOptions`.
+ */
+export const defineEmailConfigSchema = <const Shape extends z.ZodRawShape>(
+	builder: ExtensionOptionsShapeBuilder<Shape>,
+) => defineExtensionOptionsShape(emailConfigSchema, builder)
+
+/**
+ * Defines extension options that include required transport-specific email configuration.
+ *
+ * @param builder - Builds extension-specific fields with the package-owned Zod runtime.
+ * @returns An opaque definition accepted by `validateExtensionOptions`.
+ */
+export const defineRequiredEmailConfigSchema = <const Shape extends z.ZodRawShape>(
+	builder: ExtensionOptionsShapeBuilder<Shape>,
+) => defineExtensionOptionsShape(requiredEmailConfigSchema, builder)
 
 /**
  * Checks whether the selected Directus email transport is configured.

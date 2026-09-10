@@ -2,6 +2,8 @@ import type { Logger } from 'pino'
 
 import { z, type ZodType } from 'zod'
 
+import { resolveExtensionOptionsSchema, type ExtensionOptionsDefinition } from './schema-builder'
+
 /**
  * Setup observability helpers for extension entrypoints
  * @param EXTENSION_NAME - The name of the extension that is set up
@@ -52,12 +54,33 @@ export function extensionSetup<ENV extends Record<string, unknown>>(
  * @returns The validated options.
  * @throws When validation fails.
  */
-export function validateExtensionOptions<S extends ZodType>(
+export function validateExtensionOptions<const Output>(
 	options: unknown,
-	schema: S,
+	schema: ExtensionOptionsDefinition<Output>,
 	log: Logger,
-): z.output<S> {
-	const result = schema.safeParse(options)
+): Output
+/**
+ * Validates extension environment config against a legacy Zod schema.
+ * @param options - The extension environment.
+ * @param schema - The complete extension-specific Zod schema.
+ * @param log - The Pino Logger.
+ * @returns The validated options.
+ * @throws When validation fails.
+ * @deprecated Define new schemas with `defineExtensionOptionsSchema` or a shared configuration
+ * builder so extension-utils owns the Zod runtime.
+ */
+export function validateExtensionOptions<const Schema extends ZodType>(
+	options: unknown,
+	schema: Schema,
+	log: Logger,
+): z.output<Schema>
+export function validateExtensionOptions(
+	options: unknown,
+	schema: ZodType | ExtensionOptionsDefinition<unknown>,
+	log: Logger,
+): unknown {
+	const resolvedSchema = resolveExtensionOptionsSchema(schema)
+	const result = resolvedSchema.safeParse(options)
 
 	if (result.success) {
 		return result.data

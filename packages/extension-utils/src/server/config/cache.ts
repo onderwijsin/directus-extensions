@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { defineExtensionOptionsShape, type ExtensionOptionsShapeBuilder } from '../schema-builder'
 import { redisConfigSchema, resolveRedisConnectionString, type RedisConfig } from './redis'
 
 /** Directus cache and Redis environment values used by extension consumers. */
@@ -54,6 +55,16 @@ export const cacheConfigSchema = z
 export type CacheConfig = z.output<typeof cacheConfigSchema>
 export type { RedisConfig }
 export { redisConfigSchema, resolveRedisConnectionString }
+
+/**
+ * Defines extension options that include the shared cache configuration.
+ *
+ * @param builder - Builds extension-specific fields with the package-owned Zod runtime.
+ * @returns An opaque definition accepted by `validateExtensionOptions`.
+ */
+export const defineCacheConfigSchema = <const Shape extends z.ZodRawShape>(
+	builder: ExtensionOptionsShapeBuilder<Shape>,
+) => defineExtensionOptionsShape(cacheConfigSchema, builder)
 
 /**
  * Resolves the public cache storage choice while validating Redis availability.
