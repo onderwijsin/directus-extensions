@@ -8,6 +8,9 @@ const PropSchema = z.looseObject({
 	required: z.boolean().optional(),
 	default: z.unknown().optional(),
 	values: z.array(z.string()).optional(),
+	tags: z
+		.array(z.looseObject({ name: z.string().min(1), text: z.string().optional() }))
+		.optional(),
 })
 
 export type ComponentProp = z.infer<typeof PropSchema>
@@ -16,6 +19,9 @@ const ComponentSchema = z.looseObject({
 	name: z.string().min(1),
 	label: z.string().optional(),
 	description: z.string().optional(),
+	tags: z
+		.array(z.looseObject({ name: z.string().min(1), text: z.string().optional() }))
+		.optional(),
 	nodeType: z.enum(['block', 'inline']),
 	props: z.union([z.record(z.string(), PropSchema), z.array(PropSchema)]).optional(),
 	slots: z
@@ -32,9 +38,32 @@ export interface ComponentMetadata {
 	name: string
 	label: string
 	description?: string
+	tags?: { name: string; text?: string }[]
 	nodeType: 'block' | 'inline'
 	props: Record<string, ComponentProp>
 	slots: string[]
+}
+
+interface TaggedMetadata {
+	tags?: { name: string; text?: string }[]
+}
+
+/**
+ * Resolve the standard deprecation tag supplied by Vue component metadata.
+ * @param prop Normalized component property metadata.
+ * @returns The deprecation tag when present.
+ */
+export function componentPropDeprecation(prop: ComponentProp) {
+	return metadataDeprecation(prop)
+}
+
+/**
+ * Resolve the standard deprecation tag supplied by Vue component metadata.
+ * @param metadata Component or property metadata.
+ * @returns The deprecation tag when present.
+ */
+export function metadataDeprecation(metadata: TaggedMetadata) {
+	return metadata.tags?.find((tag) => tag.name === 'deprecated')
 }
 
 /**
@@ -59,6 +88,7 @@ export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[
 			name: component.name,
 			label: component.label ?? component.name,
 			description: component.description,
+			tags: component.tags,
 			nodeType: component.nodeType,
 			props: isArray(component.props)
 				? fromEntries(

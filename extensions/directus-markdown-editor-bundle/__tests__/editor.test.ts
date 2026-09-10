@@ -5,6 +5,7 @@ import { NodeSelection } from '@tiptap/pm/state'
 import StarterKit from '@tiptap/starter-kit'
 import { describe, expect, it, vi } from 'vitest'
 
+import { scanComponentIntegrity } from '../src/markdown-editor-interface/component-meta/freshness'
 import {
 	deleteBlock,
 	duplicateBlock,
@@ -28,6 +29,7 @@ import { isSupportedCodeLanguage } from '../src/markdown-editor-interface/editor
 import {
 	componentRequiresProps,
 	insertComponent,
+	refreshComponentAt,
 	resolveComponentDefaultProps,
 	resolveComponentNodeType,
 	updateComponent,
@@ -41,6 +43,135 @@ import { directusAssetUrl, sanitizeImageUrl } from '../src/markdown-editor-inter
 import { createSlashItems, filterSlashItems } from '../src/markdown-editor-interface/editor/slash'
 import { synchronizeEditorMarkdown } from '../src/markdown-editor-interface/editor/synchronization'
 import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown-editor-interface/markdown'
+
+describe('component property freshness', () => {
+	const metadata = [
+		{
+			name: 'Card',
+			label: 'Card',
+			nodeType: 'block' as const,
+			props: {
+				title: { required: true },
+				tone: { type: 'string' },
+				legacy: { tags: [{ name: 'deprecated', text: 'Use tone.' }] },
+			},
+			slots: [],
+		},
+	]
+
+	it('reports missing required and removed properties without changing markdown', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+			content: '::Card{obsolete="value"}\n::',
+			contentType: 'markdown',
+		})
+		const before = editor.getMarkdown()
+
+		expect(scanComponentIntegrity(editor, metadata)).toMatchObject([
+			{ name: 'Card', missingProps: ['title'], removedProps: ['obsolete'] },
+		])
+		expect(editor.getMarkdown()).toBe(before)
+		editor.destroy()
+	})
+
+	it.each(['', null])(
+		'reports an existing required property with the empty value %j',
+		(emptyValue) => {
+			const editor = new Editor({
+				extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+				content: {
+					type: 'doc',
+					content: [
+						{
+							type: 'mdcBlock',
+							attrs: { name: 'Card', props: { title: emptyValue } },
+						},
+					],
+				},
+			})
+
+			expect(scanComponentIntegrity(editor, metadata)).toMatchObject([
+				{
+					name: 'Card',
+					state: 'stale',
+					missingProps: [],
+					emptyRequiredProps: ['title'],
+				},
+			])
+			editor.destroy()
+		},
+	)
+
+	it('keeps optional and deprecated metadata properties non-blocking', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+			content: '::Card{title="Current"}\n::',
+			contentType: 'markdown',
+		})
+
+		expect(scanComponentIntegrity(editor, metadata)).toEqual([])
+		editor.destroy()
+	})
+
+	it('reports added and removed slots, missing components, and deprecated components', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+			content: '::Card{title="Current"}\n#old\nOld content\n::\n\n::Removed\n::',
+			contentType: 'markdown',
+		})
+		const changedMetadata = [
+			{ ...metadata[0]!, slots: ['new'], tags: [{ name: 'deprecated', text: 'Use Panel.' }] },
+		]
+
+		expect(scanComponentIntegrity(editor, changedMetadata)).toMatchObject([
+			{
+				name: 'Card',
+				state: 'stale',
+				missingSlots: ['new'],
+				removedSlots: ['old'],
+				deprecation: 'Use Panel.',
+			},
+			{ name: 'Removed', state: 'missing' },
+		])
+		editor.destroy()
+	})
+
+	it('reconciles slots while preserving supported slot content', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+			content: '::Card{title="Old"}\n#keep\nKeep content\n#remove\nRemove content\n::',
+			contentType: 'markdown',
+		})
+
+		expect(refreshComponentAt(editor, 0, { title: 'New' }, ['keep', 'added'])).toBe(true)
+		const markdown = editor.getMarkdown()
+		expect(markdown).toContain('title="New"')
+		expect(markdown).toContain('#keep\nKeep content')
+		expect(markdown).toContain('#added')
+		expect(markdown).not.toContain('#remove')
+		expect(markdown).not.toContain('Remove content')
+		editor.destroy()
+	})
+
+	it('converts a legacy inline occurrence to a block when current metadata adds slots', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+			content: 'Before :Card{title="Current"} after',
+			contentType: 'markdown',
+		})
+		let position: number | undefined
+		editor.state.doc.descendants((node, nodePosition) => {
+			if (node.type.name === 'mdcInline') position = nodePosition
+		})
+		if (position === undefined) throw new Error('Expected inline component occurrence.')
+
+		expect(refreshComponentAt(editor, position, { title: 'Current' }, ['content'])).toBe(true)
+		expect(editor.getMarkdown()).toContain('::Card{title="Current"}\n#content')
+		expect(editor.getMarkdown()).toContain('Before')
+		expect(editor.getMarkdown()).toContain('after')
+		editor.destroy()
+	})
+})
 
 function createEditor(content = '<p>Hello world</p>') {
 	return new Editor({ extensions: [StarterKit], content })
@@ -630,6 +761,21 @@ describe('editor commands', () => {
 
 		expect(componentRequiresProps(component)).toBe(true)
 		expect(resolveComponentDefaultProps(component)).toEqual({ mode: 'svg' })
+	})
+
+	it('marks deprecated components in slash-menu item data', () => {
+		const item = createSlashItems([
+			{
+				name: 'OldCard',
+				label: 'Old card',
+				nodeType: 'block',
+				props: {},
+				slots: [],
+				tags: [{ name: 'deprecated', text: 'Use Card.' }],
+			},
+		]).find((entry) => entry.id === 'component:OldCard')
+
+		expect(item?.deprecated).toBe(true)
 	})
 
 	it.each([

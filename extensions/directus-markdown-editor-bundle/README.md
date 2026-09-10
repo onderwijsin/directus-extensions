@@ -15,6 +15,7 @@ and does not require a Nuxt runtime in Directus.
   direct Markdown source editing;
 - generic inline and block MDC components with typed properties and named editable slots;
 - static or remotely loaded component metadata with one definitive JSON contract;
+- hydration-time component property freshness reports with editor-controlled refresh;
 - permission-aware Directus item references with source snapshots and integrity reporting; and
 - an optional Dutch Studio Docs article for editors.
 
@@ -149,6 +150,7 @@ framework and accepts either an array or an object with a `components` array:
 | `nodeType`    | yes      | `block` or `inline`. Components with slots always insert as blocks.                                 |
 | `label`       | no       | Editor-facing name; defaults to `name`.                                                             |
 | `description` | no       | Editor-facing explanation shown during component selection.                                         |
+| `tags`        | no       | JSDoc tags; `deprecated` marks a supported component for replacement or removal.                    |
 | `props`       | no       | Object keyed by property name, or an array whose entries contain `name`; defaults to `{}`.          |
 | `slots`       | no       | Array of slot-name strings or `{ "name": "..." }` objects; defaults to `[]`.                        |
 
@@ -162,10 +164,31 @@ framework and accepts either an array or an object with a `components` array:
 | `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                 |
 | `default`     | no                 | Initial JSON-compatible value applied during insertion.                                    |
 | `values`      | no                 | Allowed string choices shown as a select control.                                          |
+| `tags`        | no                 | JSDoc tags from component metadata; `deprecated` adds an editor hint and optional message. |
 
-Additional component and property fields are retained by validation but are not interpreted by the
-current editor. Metadata changes affect future insertion and property forms; existing Markdown keeps
-its parsed inline or block representation.
+When a static value or metadata URL loads successfully, the editor treats that metadata as
+authoritative and checks components after hydration. Missing required properties, required
+properties whose persisted value is empty, removed properties, and added or removed slots produce an
+attention report and warning styling in the canvas. Components absent from authoritative metadata
+use error styling and expose deletion as their only action. A missing or failed metadata source is
+not interpreted as component deletion.
+
+The scan never rewrites Markdown. **Review** opens the component drawer. **Refresh properties** is
+shown in the header only for property drift; it preserves known values, applies defaults, and
+removes obsolete properties. **Refresh slots** preserves supported slot content, removes unsupported
+slots and their content, and adds empty current slots. Changes are persisted only after **Apply**,
+which is blocked while required values are empty. Optional property additions do not create
+attention items.
+
+Components and properties carrying a standard JSDoc `deprecated` tag remain functional and display a
+Deprecated hint. Deprecated components are labeled in both insertion menus and appear in the report
+and canvas as warnings so authors can replace or remove them. A deprecated property remains a UI
+hint only. Tag `text` is shown as migration guidance when supplied; no separate `deprecated` field
+is used.
+
+Additional component and property fields are retained by validation but are not otherwise
+interpreted by the current editor. Refreshing newly added slots converts a legacy inline occurrence
+to a block because inline MDC cannot contain slots; other metadata changes preserve its node type.
 
 When using **Component metadata URL**, the Directus user’s browser fetches the URL. Serve valid JSON
 over HTTPS with CORS headers that allow the Studio origin. Authentication headers are not added by
@@ -243,6 +266,15 @@ fields only:
 | `displayField` | required         | Direct field used as the stored source label.                                |
 | `searchFields` | `[displayField]` | Direct `string` or `text` fields searched with case-insensitive containment. |
 | `dataFields`   | `[]`             | Direct fields copied into the stored source snapshot.                        |
+
+Changing this configuration triggers a new integrity scan. Removing a configured collection marks
+its persisted References as **Not configured** without rewriting them. Changing `displayField`
+compares stored labels with the newly selected field, while changing `dataFields` compares the
+stored data object with the newly selected field set. In `detect` mode differences are reported as
+outdated; `sync` updates available snapshots in one editor transaction; `snapshot` leaves snapshot
+values unchecked. Invalid collection configuration is reported without deleting stored References.
+Outdated and archived References use warning styling in the canvas; unconfigured, unavailable, and
+unverifiable References use error styling.
 
 The editor discovers the real primary key and requests only the configured projection plus the
 archive field configured on the collection. Nested fields, wildcards, aliases, foreign keys, and

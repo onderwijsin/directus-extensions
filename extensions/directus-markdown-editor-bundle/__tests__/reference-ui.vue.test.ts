@@ -14,6 +14,7 @@ import ReferencePicker from '../src/markdown-editor-interface/components/Referen
 import ReferenceReport from '../src/markdown-editor-interface/components/ReferenceReport.vue'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
 import { collectReferenceOccurrences } from '../src/markdown-editor-interface/reference/editor'
+import { getEditorReferenceState } from '../src/markdown-editor-interface/reference/status'
 
 const directusMocks = vi.hoisted(() => ({ get: vi.fn(), collection: undefined as unknown }))
 
@@ -131,6 +132,40 @@ afterEach(() => {
 })
 
 describe('Reference interface', () => {
+	it('rescans references when collection configuration changes', async () => {
+		directusMocks.get.mockResolvedValue({ data: { data: [{ id: 7, title: 'Current item' }] } })
+		const editor = new Editor({
+			content: ':Reference{collection="articles" :item="7" label="Current item" :data="{}"}',
+			contentType: 'markdown',
+			extensions: createEditorExtensions(),
+		})
+		editors.push(editor)
+		const collections = shallowRef<unknown>([{ collection: 'articles', displayField: 'title' }])
+		const element = document.createElement('div')
+		document.body.appendChild(element)
+		const app = createApp(
+			defineComponent({
+				setup: () => () =>
+					h(ReferenceController, {
+						editor,
+						collections: collections.value,
+						mode: 'detect',
+						reportOpen: true,
+					}),
+			}),
+		)
+		registerPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+		await vi.waitFor(() => expect(directusMocks.get).toHaveBeenCalled())
+
+		collections.value = []
+		await vi.waitFor(() => expect(element.textContent).toContain('Not configured'))
+		const occurrence = collectReferenceOccurrences(editor.state.doc)[0]
+		if (!occurrence) throw new Error('Expected a reference occurrence.')
+		expect(getEditorReferenceState(editor, occurrence.position)).toBe('unconfigured')
+	})
+
 	it('accepts a null search value when the input is cleared', async () => {
 		vi.useFakeTimers()
 		const get = vi.fn()
@@ -345,6 +380,7 @@ describe('Reference interface', () => {
 		await vi.waitFor(() =>
 			expect(element.querySelector('.reference-drawer__notice')).not.toBeNull(),
 		)
+		expect(getEditorReferenceState(editor, occurrence.position)).toBe('outdated')
 		element
 			.querySelector('[aria-label="Refresh item"]')
 			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))

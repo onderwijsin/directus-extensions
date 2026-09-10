@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
-import { computed, shallowRef, watch } from 'vue'
+import type { ComponentIntegrityState } from '../component-meta/freshness'
+
+import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
 import {
 	isFunction,
@@ -11,12 +13,14 @@ import {
 } from '@onderwijsin/directus-extension-utils'
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/vue-3'
 
+import { getEditorComponentState } from '../component-meta/status'
 import { useEditorEditable } from '../composables/useEditorEditable'
 import { mdcNodeViewProps } from './mdcNodeViewProps'
 
 const props = defineProps(mdcNodeViewProps)
 const editable = useEditorEditable(props.editor)
 const menuOpen = shallowRef(false)
+const integrityState = shallowRef<ComponentIntegrityState>()
 const componentName = computed(() =>
 	isString(props.node.attrs.name) ? props.node.attrs.name : 'Unknown component',
 )
@@ -28,6 +32,28 @@ watch(editable, (value) => {
 	if (!value) menuOpen.value = false
 })
 
+function updateIntegrity(event: Event) {
+	if (!(event instanceof CustomEvent) || !(event.detail instanceof Map)) return
+	if (!isFunction(props.getPos)) return
+	const position = props.getPos()
+	if (isInteger(position)) integrityState.value = event.detail.get(position)
+}
+
+onMounted(() => {
+	if (isFunction(props.getPos)) {
+		const position = props.getPos()
+		if (isInteger(position))
+			integrityState.value = getEditorComponentState(props.editor, position)
+	}
+	props.editor.view.dom.addEventListener('markdown-editor-component-integrity', updateIntegrity)
+})
+onBeforeUnmount(() =>
+	props.editor.view.dom.removeEventListener(
+		'markdown-editor-component-integrity',
+		updateIntegrity,
+	),
+)
+
 function selectComponent() {
 	if (!editable.value) return false
 	if (!isFunction(props.getPos)) return false
@@ -38,6 +64,9 @@ function selectComponent() {
 
 function editComponent() {
 	if (!selectComponent()) return
+	if (!isFunction(props.getPos)) return
+	const position = props.getPos()
+	if (!isInteger(position)) return
 	menuOpen.value = false
 	props.editor.view.dom.dispatchEvent(
 		new CustomEvent('markdown-editor-edit-component', {
@@ -46,6 +75,7 @@ function editComponent() {
 				name: componentName.value,
 				props: props.node.attrs.props,
 				nodeType: 'mdcBlock',
+				position,
 			},
 		}),
 	)
@@ -73,10 +103,26 @@ function deleteComponent() {
 </script>
 
 <template>
-	<NodeViewWrapper class="mdc-block" data-mdc-node-view>
+	<NodeViewWrapper
+		class="mdc-block"
+		:class="{
+			'mdc-block--warning': integrityState === 'stale' || integrityState === 'deprecated',
+			'mdc-block--error': integrityState === 'missing',
+		}"
+		data-mdc-node-view
+	>
 		<header class="mdc-block__header" contenteditable="false">
 			<div class="mdc-block__identity">
-				<span class="mdc-block__icon"><VIcon name="widgets" /></span>
+				<span class="mdc-block__icon"
+					><VIcon
+						:name="
+							integrityState === 'missing'
+								? 'error'
+								: integrityState
+									? 'warning'
+									: 'widgets'
+						"
+				/></span>
 				<strong>{{ componentName }}</strong>
 			</div>
 			<div class="mdc-block__summary">
@@ -95,11 +141,17 @@ function deleteComponent() {
 						/></VButton>
 					</template>
 					<VList class="mdc-block__menu">
-						<VListItem clickable @click="editComponent"
+						<VListItem
+							v-if="integrityState !== 'missing'"
+							clickable
+							@click="editComponent"
 							><VListItemIcon><VIcon name="tune" /></VListItemIcon
 							><VListItemContent>Settings</VListItemContent></VListItem
 						>
-						<VListItem clickable @click="duplicateComponent"
+						<VListItem
+							v-if="integrityState !== 'missing'"
+							clickable
+							@click="duplicateComponent"
 							><VListItemIcon><VIcon name="content_copy" /></VListItemIcon
 							><VListItemContent>Duplicate</VListItemContent></VListItem
 						>
@@ -138,6 +190,26 @@ function deleteComponent() {
 .mdc-block.ProseMirror-selectednode {
 	border-color: var(--theme--primary, #6644ff);
 	box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme--primary, #6644ff) 16%, transparent);
+}
+.mdc-block--warning {
+	border-color: var(--theme--warning, #f2c94c);
+}
+.mdc-block--warning .mdc-block__header {
+	background: color-mix(
+		in srgb,
+		var(--theme--warning, #f2c94c) 12%,
+		var(--theme--background, white)
+	);
+}
+.mdc-block--error {
+	border-color: var(--theme--danger, #cc3a3a);
+}
+.mdc-block--error .mdc-block__header {
+	background: color-mix(
+		in srgb,
+		var(--theme--danger, #cc3a3a) 10%,
+		var(--theme--background, white)
+	);
 }
 .mdc-block__header {
 	display: flex;

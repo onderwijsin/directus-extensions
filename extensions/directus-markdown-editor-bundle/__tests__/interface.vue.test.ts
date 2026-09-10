@@ -322,9 +322,17 @@ describe('Markdown editor interface', () => {
 	})
 
 	it('keeps persisted component settings functional when component insertion is hidden', async () => {
-		const { element } = mountEditor('::Callout{tone="warning"}\n#default\nContent\n::', false, [
-			'paragraph',
-		])
+		const { element } = mountEditor(
+			'::Callout{tone="warning"}\n#default\nContent\n::',
+			false,
+			['paragraph'],
+			{
+				useStaticComponentMeta: true,
+				staticComponentMeta: [
+					{ name: 'Callout', nodeType: 'block', props: { tone: {} }, slots: ['default'] },
+				],
+			},
+		)
 		await nextTick()
 		await nextTick()
 
@@ -341,6 +349,72 @@ describe('Markdown editor interface', () => {
 
 		expect(element.textContent).toContain('Apply')
 		expect(element.textContent).toContain('warning')
+	})
+
+	it('reports stale component properties and routes refresh through the component drawer', async () => {
+		const { element, input } = mountEditor('::Card{obsolete="value"}\n::', false, undefined, {
+			useStaticComponentMeta: true,
+			staticComponentMeta: [
+				{
+					name: 'Card',
+					nodeType: 'block',
+					props: {
+						title: { required: true },
+						oldTone: {
+							tags: [{ name: 'deprecated', text: 'Use tone instead.' }],
+						},
+					},
+					slots: ['content'],
+				},
+			],
+		})
+		await nextTick()
+		await nextTick()
+		await nextTick()
+
+		expect(element.textContent).toContain('Some components need attention.')
+		expect(input).not.toHaveBeenCalled()
+		const showReport = [...element.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Show report',
+		)
+		showReport?.click()
+		await nextTick()
+		expect(element.textContent).toContain('New properties: title')
+		expect(element.textContent).toContain('Removed properties: obsolete')
+		expect(element.textContent).toContain('New slots: content')
+		expect(element.querySelectorAll('.component-props-report__changes li')).toHaveLength(3)
+		expect(element.querySelector('.component-props-report__status--warning')).not.toBeNull()
+		expect(element.querySelector('.mdc-block--warning')).not.toBeNull()
+
+		const review = [...element.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Review',
+		)
+		review?.click()
+		await nextTick()
+		expect(element.textContent).toContain('Refresh properties')
+		expect(element.textContent).toContain('Refresh slots')
+		expect(element.textContent).toContain('Deprecated')
+		expect(element.textContent).toContain('Use tone instead.')
+		expect(input).not.toHaveBeenCalled()
+	})
+
+	it('marks removed components as errors and exposes only deletion', async () => {
+		const { element } = mountEditor('::Removed\n::', false, undefined, {
+			useStaticComponentMeta: true,
+			staticComponentMeta: [],
+		})
+		await nextTick()
+		await nextTick()
+		await nextTick()
+
+		expect(element.querySelector('.mdc-block--error')).not.toBeNull()
+		element
+			.querySelector('[aria-label="Component actions"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		expect(element.textContent).not.toContain('Settings')
+		expect(element.textContent).not.toContain('Duplicate')
+		expect(element.textContent).toContain('Delete')
 	})
 
 	it('re-synchronizes an external Markdown value without emitting an input update', async () => {
@@ -545,7 +619,17 @@ describe('Markdown editor interface', () => {
 	})
 
 	it('renders persisted MDC as a polished component view and opens its settings', async () => {
-		const { element } = mountEditor('::Callout{tone="warning"}\n#default\nContent\n::')
+		const { element } = mountEditor(
+			'::Callout{tone="warning"}\n#default\nContent\n::',
+			false,
+			undefined,
+			{
+				useStaticComponentMeta: true,
+				staticComponentMeta: [
+					{ name: 'Callout', nodeType: 'block', props: { tone: {} }, slots: ['default'] },
+				],
+			},
+		)
 		await nextTick()
 		await nextTick()
 
@@ -570,12 +654,18 @@ describe('Markdown editor interface', () => {
 
 		expect(element.textContent).toContain('Apply')
 		expect(element.textContent).toContain('warning')
+		expect(element.textContent).not.toContain('Refresh properties')
 		expect(element.textContent).not.toContain('Highlighted supporting content.')
 		expect(element.textContent).not.toContain('Slots:')
 	})
 
 	it('opens an inline component directly without a separate settings icon', async () => {
-		const { element } = mountEditor('Before :Icon{name="check"} after')
+		const { element } = mountEditor('Before :Icon{name="check"} after', false, undefined, {
+			useStaticComponentMeta: true,
+			staticComponentMeta: [
+				{ name: 'Icon', nodeType: 'inline', props: { name: { required: true } } },
+			],
+		})
 		await nextTick()
 		await nextTick()
 

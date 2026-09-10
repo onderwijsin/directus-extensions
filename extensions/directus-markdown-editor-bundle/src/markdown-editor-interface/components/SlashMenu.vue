@@ -97,7 +97,9 @@ defineExpose({ onKeyDown })
 			>
 				<span class="slash-menu__icon"><VIcon :name="item.icon" /></span>
 				<span class="slash-menu__copy"
-					><strong>{{ item.label }}</strong
+					><strong
+						>{{ item.label }}
+						<VChip v-if="item.deprecated" x-small>Deprecated</VChip></strong
 					><small>{{ item.description }}</small></span
 				>
 			</button>

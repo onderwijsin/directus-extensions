@@ -7,6 +7,7 @@ import { Extension } from '@tiptap/core'
 import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from '@tiptap/suggestion'
 import { VueRenderer } from '@tiptap/vue-3'
 
+import { metadataDeprecation } from '../component-meta/schema'
 import SlashMenu from '../components/SlashMenu.vue'
 import {
 	createEditorCommands,
@@ -30,6 +31,7 @@ export interface SlashItem {
 	icon: string
 	group: string
 	aliases: string[]
+	deprecated?: boolean
 	command: (editor: Editor) => boolean
 }
 
@@ -65,6 +67,7 @@ export function createSlashItems(
 				icon: 'widgets',
 				group: 'Components',
 				aliases: [component.name, 'component', 'mdc', 'block'],
+				deprecated: Boolean(metadataDeprecation(component)),
 				command: (editor: Editor) => {
 					if (componentRequiresProps(component)) {
 						actions.openComponent?.(component)

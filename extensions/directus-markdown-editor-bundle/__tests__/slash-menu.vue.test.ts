@@ -15,6 +15,7 @@ function mount(items: SlashItem[], command = vi.fn()) {
 	const app = createApp(SlashMenu, { items, query: '', command })
 	app.component('VIcon', defineComponent({ props: ['name'], template: '<i>{{ name }}</i>' }))
 	app.component('VNotice', defineComponent({ template: '<div><slot /></div>' }))
+	app.component('VChip', defineComponent({ template: '<span class="chip"><slot /></span>' }))
 	app.mount(element)
 	mounted.push({ app, element })
 	return { element, command }
@@ -60,6 +61,14 @@ describe('slash menu', () => {
 		const button = element.querySelector('button')
 		button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 		expect(command).toHaveBeenCalledWith(selected)
+	})
+
+	it('labels deprecated component items', () => {
+		const deprecated = item('component:OldCard', 'Old card', 'Components')
+		deprecated.deprecated = true
+		const { element } = mount([deprecated])
+
+		expect(element.querySelector('.chip')?.textContent).toBe('Deprecated')
 	})
 
 	it('supports wrapped arrow navigation, boundary keys, Enter, and Escape', async () => {

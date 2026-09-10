@@ -165,6 +165,7 @@ or `{ "components": [...] }`.
 | `nodeType`    | Required `block` or `inline`. Any component with slots is inserted as a block.             |
 | `label`       | Optional author-facing label; defaults to `name`.                                          |
 | `description` | Optional selector help text.                                                               |
+| `tags`        | Optional JSDoc tags; `deprecated` marks a supported component for urgent replacement.      |
 | `props`       | Optional object keyed by property name or array of property definitions; defaults to `{}`. |
 | `slots`       | Optional string array or array of objects containing non-empty `name`; defaults to `[]`.   |
 
@@ -176,10 +177,24 @@ For a property definition:
 - `required: true` blocks insertion while empty unless a default exists;
 - `default` may contain a JSON-compatible initial value; and
 - `values` is an optional array of string choices.
+- `tags` preserves JSDoc tags; `{ "name": "deprecated", "text": "Use newProp instead." }` displays a
+  deprecation hint without changing runtime behavior.
 
-The schemas are loose: additional component/property fields survive validation but have no current
-editor behavior. Metadata changes govern future insertion/forms. They do not rewrite existing
-Markdown or change an existing node from inline to block.
+Successfully loaded configured metadata is authoritative. The editor reports missing required
+properties, required properties with empty persisted values, removed properties, added or removed
+slots, deprecated components, and components absent from that metadata. A missing/failed metadata
+source does not imply deletion. Stale/deprecated components use canvas warnings; absent components
+use errors and expose only deletion. The scan never rewrites Markdown. In **Review**, header actions
+appear only for applicable drift: **Refresh properties** preserves known values and removes obsolete
+keys, while **Refresh slots** preserves supported slot content, removes unsupported slots/content,
+and adds empty current slots. **Apply** is blocked until new required values are complete. Optional
+property additions and deprecated properties are non-blocking hints. Component `tags` and property
+`tags` both use the standard JSDoc shape. Deprecated components are labeled in both the component
+picker and slash menu.
+
+The schemas are loose: additional component/property fields survive validation but have no other
+editor behavior. Refreshing newly added slots converts a legacy inline occurrence to a block because
+inline MDC cannot contain slots; other metadata changes preserve its node type.
 
 For remote metadata, ensure the Directus user’s browser can fetch the URL over HTTPS. Configure CORS
 for the Studio origin and return JSON. The editor adds no authentication header. Verify the endpoint
@@ -261,6 +276,13 @@ an item hidden by permissions intentionally share the **Unavailable** state.
 | `snapshot` | Resolve availability/archive state; do not report normal label/data drift until explicit refresh or replacement.   |
 | `detect`   | Resolve sources, report stale snapshots, and offer occurrence-specific refresh/replace/remove actions.             |
 | `sync`     | Refresh available stale `label`/`data` in one editor transaction. This dirties the field but never saves the item. |
+
+Collection configuration changes trigger a fresh integrity scan. Removing a collection marks its
+stored References as `unconfigured` without rewriting them. Changing `displayField` compares against
+the newly selected label, and changing `dataFields` compares against the new snapshot field set. The
+result follows the selected `snapshot`, `detect`, or `sync` behavior. Invalid configuration is
+reported and never deletes stored References. Canvas nodes use warning styling for outdated/archived
+states and error styling for unconfigured, unavailable, or unverifiable states.
 
 Directus archive metadata is honored when both `archive_field` and `archive_value` exist. Archived
 items are excluded from pickers, reported as **Archived**, and never refreshed by `sync`.

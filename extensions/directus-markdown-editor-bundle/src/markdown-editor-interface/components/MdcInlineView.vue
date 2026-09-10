@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ComponentIntegrityState } from '../component-meta/freshness'
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
 import type { ReferenceIntegrityState } from '../reference/editor'
 
@@ -7,6 +8,7 @@ import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 import { isFunction, isInteger } from '@onderwijsin/directus-extension-utils'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 
+import { getEditorComponentState } from '../component-meta/status'
 import { useEditorEditable } from '../composables/useEditorEditable'
 import { parseReferenceProps } from '../reference/schema'
 import { getEditorReferenceState } from '../reference/status'
@@ -15,11 +17,28 @@ import { mdcNodeViewProps } from './mdcNodeViewProps'
 const props = defineProps(mdcNodeViewProps)
 const editable = useEditorEditable(props.editor)
 const referenceProblemState = shallowRef<ReferenceIntegrityState>()
+const componentProblemState = shallowRef<ComponentIntegrityState>()
 
 function setReferenceProblemState(value: unknown) {
 	referenceProblemState.value =
-		value === 'archived' || value === 'not_available' ? value : undefined
+		value === 'archived' ||
+		value === 'outdated' ||
+		value === 'unconfigured' ||
+		value === 'not_available' ||
+		value === 'verification_error'
+			? value
+			: undefined
 }
+
+const referenceWarning = computed(
+	() => referenceProblemState.value === 'archived' || referenceProblemState.value === 'outdated',
+)
+const referenceError = computed(
+	() =>
+		referenceProblemState.value === 'unconfigured' ||
+		referenceProblemState.value === 'not_available' ||
+		referenceProblemState.value === 'verification_error',
+)
 
 function updateReferenceIntegrity(event: Event) {
 	if (!(event instanceof CustomEvent) || !(event.detail instanceof Map)) return
@@ -29,24 +48,40 @@ function updateReferenceIntegrity(event: Event) {
 	setReferenceProblemState(event.detail.get(position))
 }
 
+function updateComponentIntegrity(event: Event) {
+	if (!(event instanceof CustomEvent) || !(event.detail instanceof Map)) return
+	if (!isFunction(props.getPos)) return
+	const position = props.getPos()
+	if (isInteger(position)) componentProblemState.value = event.detail.get(position)
+}
+
 onMounted(() => {
 	if (isFunction(props.getPos)) {
 		const position = props.getPos()
 		if (isInteger(position)) {
 			setReferenceProblemState(getEditorReferenceState(props.editor, position))
+			componentProblemState.value = getEditorComponentState(props.editor, position)
 		}
 	}
 	props.editor.view.dom.addEventListener(
 		'markdown-editor-reference-integrity',
 		updateReferenceIntegrity,
 	)
+	props.editor.view.dom.addEventListener(
+		'markdown-editor-component-integrity',
+		updateComponentIntegrity,
+	)
 })
-onBeforeUnmount(() =>
+onBeforeUnmount(() => {
 	props.editor.view.dom.removeEventListener(
 		'markdown-editor-reference-integrity',
 		updateReferenceIntegrity,
-	),
-)
+	)
+	props.editor.view.dom.removeEventListener(
+		'markdown-editor-component-integrity',
+		updateComponentIntegrity,
+	)
+})
 
 function editComponent() {
 	if (!editable.value) return
@@ -84,8 +119,13 @@ const reference = computed(() =>
 			:class="{
 				'mdc-inline__button--reference': reference?.success,
 				'mdc-inline__button--invalid': reference && !reference.success,
-				'mdc-inline__button--archived': referenceProblemState === 'archived',
-				'mdc-inline__button--unavailable': referenceProblemState === 'not_available',
+				'mdc-inline__button--reference-warning': referenceWarning,
+				'mdc-inline__button--reference-error': referenceError,
+				'mdc-inline__button--component-warning':
+					!reference &&
+					(componentProblemState === 'stale' || componentProblemState === 'deprecated'),
+				'mdc-inline__button--component-error':
+					!reference && componentProblemState === 'missing',
 			}"
 			:disabled="!editable"
 			:aria-label="
@@ -96,11 +136,23 @@ const reference = computed(() =>
 			:title="
 				referenceProblemState === 'archived'
 					? 'Referenced item is archived'
-					: referenceProblemState === 'not_available'
-						? 'Referenced item is unavailable'
-						: reference?.success
-							? `${reference.data.collection} · ${reference.data.item}`
-							: undefined
+					: referenceProblemState === 'outdated'
+						? 'Referenced item snapshot is outdated'
+						: referenceProblemState === 'unconfigured'
+							? 'Reference collection is not configured'
+							: referenceProblemState === 'verification_error'
+								? 'Reference could not be verified'
+								: referenceProblemState === 'not_available'
+									? 'Referenced item is unavailable'
+									: componentProblemState === 'missing'
+										? 'This component is absent from current metadata'
+										: componentProblemState === 'deprecated'
+											? 'This component is deprecated'
+											: componentProblemState === 'stale'
+												? 'Component metadata has changed'
+												: reference?.success
+													? `${reference.data.collection} · ${reference.data.item}`
+													: undefined
 			"
 			@click="editComponent"
 		>
@@ -109,12 +161,18 @@ const reference = computed(() =>
 					reference?.success
 						? referenceProblemState === 'archived'
 							? 'archive'
-							: referenceProblemState === 'not_available'
+							: referenceError
 								? 'error'
-								: reference.data.icon || 'alternate_email'
+								: referenceProblemState === 'outdated'
+									? 'warning'
+									: reference.data.icon || 'alternate_email'
 						: reference
 							? 'warning'
-							: 'widgets'
+							: componentProblemState === 'missing'
+								? 'error'
+								: componentProblemState
+									? 'warning'
+									: 'widgets'
 				"
 				small
 			/>
@@ -152,12 +210,22 @@ const reference = computed(() =>
 	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 12%, transparent);
 	color: var(--theme--warning-foreground, #7a5b00);
 }
-.mdc-inline__button--archived {
+.mdc-inline__button--reference-warning {
 	border-color: var(--theme--warning, #f2c94c);
 	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 12%, transparent);
 	color: var(--theme--warning-foreground, #7a5b00);
 }
-.mdc-inline__button--unavailable {
+.mdc-inline__button--reference-error {
+	border-color: var(--theme--danger, #cc3a3a);
+	background: color-mix(in srgb, var(--theme--danger, #cc3a3a) 12%, transparent);
+	color: var(--theme--danger, #cc3a3a);
+}
+.mdc-inline__button--component-warning {
+	border-color: var(--theme--warning, #f2c94c);
+	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 12%, transparent);
+	color: var(--theme--warning-foreground, #7a5b00);
+}
+.mdc-inline__button--component-error {
 	border-color: var(--theme--danger, #cc3a3a);
 	background: color-mix(in srgb, var(--theme--danger, #cc3a3a) 12%, transparent);
 	color: var(--theme--danger, #cc3a3a);

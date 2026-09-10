@@ -267,6 +267,7 @@ watch(
 	() => props.scanRevision,
 	() => void scan(),
 )
+watch([configuration, () => props.mode], () => void scan(), { deep: true })
 watch(reportEntries, (entries) => emit('attentionChange', entries.length > 0), { immediate: true })
 watch(
 	() => props.disabled,

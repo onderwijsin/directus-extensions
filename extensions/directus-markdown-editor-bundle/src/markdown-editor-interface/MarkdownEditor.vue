@@ -53,6 +53,8 @@ const mediaDrawerOpen = shallowRef(false)
 const mediaDrawerType = shallowRef<'image' | 'video'>('image')
 const sourceDrawerOpen = shallowRef(false)
 const componentInsertOpen = shallowRef(false)
+const componentPropsNeedAttention = shallowRef(false)
+const componentPropsReportOpen = shallowRef(false)
 const fullscreen = shallowRef(false)
 const referenceScanRevision = shallowRef(0)
 const referenceNeedsAttention = shallowRef(false)
@@ -271,6 +273,12 @@ const metadata = useComponentMetadata({
 const componentInsertionEnabled = computed(
 	() => metadata.hasComponents.value && isEditorToolEnabled(enabledTools.value, 'component'),
 )
+const componentMetadataAuthoritative = computed(
+	() =>
+		metadata.state.value === 'ready' &&
+		(Boolean(props.useStaticComponentMeta ?? props.options?.useStaticComponentMeta) ||
+			Boolean(props.metadataUrl ?? props.options?.metadataUrl)),
+)
 
 const extensions = createEditorExtensions(
 	/**
@@ -462,6 +470,20 @@ watch(
 					>Show report</VButton
 				>
 			</div>
+			<div
+				v-if="componentPropsNeedAttention"
+				class="markdown-editor__notice-bar"
+				role="status"
+			>
+				<span>Some components need attention.</span>
+				<VButton
+					x-small
+					secondary
+					class="markdown-editor__notice-action"
+					@click="componentPropsReportOpen = true"
+					>Show report</VButton
+				>
+			</div>
 			<EditorContextMenus
 				:editor="editor"
 				:commands="commands"
@@ -502,11 +524,14 @@ watch(
 			<!-- Keep the controller mounted so persisted nodes remain editable when insertion is hidden. -->
 			<ComponentInsertMenu
 				v-model="componentInsertOpen"
+				v-model:report-open="componentPropsReportOpen"
 				:editor="editor"
 				:components="metadata.components.value"
 				:loading="metadata.state.value === 'loading'"
 				:disabled="disabled"
 				:insertion-enabled="componentInsertionEnabled"
+				:metadata-authoritative="componentMetadataAuthoritative"
+				@attention-change="componentPropsNeedAttention = $event"
 			/>
 			<ReferenceController
 				v-if="referencesEnabled && !comparisonMode"

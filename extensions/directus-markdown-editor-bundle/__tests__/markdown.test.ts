@@ -180,6 +180,36 @@ describe('component metadata boundary', () => {
 		])
 	})
 
+	it('preserves standard JSDoc deprecation tags on properties', () => {
+		const component = normalizeComponentMetadata([
+			{
+				name: 'Card',
+				nodeType: 'block',
+				props: {
+					oldProp: {
+						tags: [{ name: 'deprecated', text: 'Use newProp instead.' }],
+					},
+				},
+			},
+		])[0]
+
+		expect(component?.props.oldProp?.tags).toEqual([
+			{ name: 'deprecated', text: 'Use newProp instead.' },
+		])
+	})
+
+	it('preserves standard JSDoc deprecation tags on components', () => {
+		const component = normalizeComponentMetadata([
+			{
+				name: 'OldCard',
+				nodeType: 'block',
+				tags: [{ name: 'deprecated', text: 'Use Card instead.' }],
+			},
+		])[0]
+
+		expect(component?.tags).toEqual([{ name: 'deprecated', text: 'Use Card instead.' }])
+	})
+
 	it('rejects malformed metadata', () => {
 		expect(() =>
 			normalizeComponentMetadata({ components: [{ label: 'Missing name' }] }),
