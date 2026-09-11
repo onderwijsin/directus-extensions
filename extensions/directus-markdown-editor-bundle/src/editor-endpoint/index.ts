@@ -36,6 +36,7 @@ export default defineEndpoint({
 		router.post(
 			'/ai',
 			asyncHandler(async (request, response) => {
+				// Reject anonymous calls before parsing or touching Directus services.
 				if (!assertRequestWithAccountability(request))
 					throw new EditorAiForbiddenError({
 						reason: 'The Can Use Editor Skills policy is required.',
@@ -46,14 +47,14 @@ export default defineEndpoint({
 					throw new EditorAiInvalidPayloadError({
 						reason: parsed.error.issues.map((issue) => issue.message).join('; '),
 					})
+				// Apply one size limit to replacement content and full insert-document context.
 				const inputLength =
-					parsed.data.content?.length ??
-					(parsed.data.insertion?.before.length ?? 0) +
-						(parsed.data.insertion?.after.length ?? 0)
+					parsed.data.content?.length ?? parsed.data.insertion?.document.length ?? 0
 				if (inputLength > options.EDITOR_AI_MAX_CONTENT_LENGTH)
 					throw new EditorAiInvalidPayloadError({
 						reason: 'Content exceeds the configured limit',
 					})
+				// Provider credentials are server-only and all three values are required together.
 				if (
 					!isDefined(options.EDITOR_AI_PROVIDER) ||
 					!isDefined(options.EDITOR_AI_API_KEY) ||
@@ -67,6 +68,7 @@ export default defineEndpoint({
 				const model = options.EDITOR_AI_MODEL
 
 				const schema = await getSchema()
+				// Administrators bypass the seeded policy; regular users must be assigned to it.
 				const isAdmin = isEditorAiAdministrator(accountability)
 				const isAllowed =
 					isAdmin ||
@@ -84,6 +86,7 @@ export default defineEndpoint({
 					})
 
 				const input = parsed.data
+				// Read the actual field configuration instead of trusting client-supplied capabilities.
 				const fieldResult = await attempt(() =>
 					new services.FieldsService({ schema, accountability }).readOne(
 						input.collection,
@@ -105,6 +108,7 @@ export default defineEndpoint({
 					? interfaceOptions.tools
 					: undefined
 
+				// Resolve a stored skill into the same task string used by an ad-hoc prompt.
 				let task = input.prompt
 				const skillId = input.skillId
 				if (skillId) {
@@ -128,6 +132,7 @@ export default defineEndpoint({
 					task = parsedSkill.data.prompt
 				}
 
+				// Keep provider failures inside the extension's stable Directus error contract.
 				const generated = await attempt(() =>
 					generateEditorReplacement(
 						{

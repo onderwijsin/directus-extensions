@@ -1,6 +1,8 @@
 import type { Editor } from '@tiptap/core'
 import type { SelectionSnapshot } from './types'
 
+import { serializeMarkdownRange } from './markdown'
+
 /**
  * Capture a non-empty ProseMirror selection for an asynchronous transformation.
  * @param editor Active editor instance.
@@ -10,7 +12,8 @@ export function captureSelection(editor: Editor): SelectionSnapshot | undefined 
 	const { from, to } = editor.state.selection
 	if (from >= to) return undefined
 	const text = editor.state.doc.textBetween(from, to, '\n')
-	return text ? { from, to, text } : undefined
+	const markdown = serializeMarkdownRange(editor, from, to)
+	return text && markdown ? { from, to, markdown, text } : undefined
 }
 
 /**

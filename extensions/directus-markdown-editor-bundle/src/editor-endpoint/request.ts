@@ -1,6 +1,7 @@
 import { isDefined } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
+import { EDITOR_AI_INSERTION_MARKER } from '../shared/editor-ai'
 import { editorSkillScopeSchema } from '../shared/editor-skill'
 
 const editorAiComponentSchema = z.object({
@@ -27,8 +28,7 @@ export const editorAiRequestSchema = z
 		insertion: z
 			.object({
 				position: z.number().int().positive(),
-				before: z.string().max(20_000),
-				after: z.string().max(20_000),
+				document: z.string().min(1),
 			})
 			.optional(),
 		collection: z.string().trim().min(1),
@@ -36,11 +36,13 @@ export const editorAiRequestSchema = z
 		components: z.array(editorAiComponentSchema).max(200).optional(),
 	})
 	.superRefine((value, context) => {
+		// Requests choose either a managed skill or an ad-hoc prompt, never both or neither.
 		if (isDefined(value.skillId) === isDefined(value.prompt))
 			context.addIssue({
 				code: 'custom',
 				message: 'Provide exactly one of skillId or prompt',
 			})
+		// Selection coordinates are client bookmarks; content must mirror the serialized selection.
 		if (
 			value.scope === 'selection' &&
 			(!isDefined(value.content) ||
@@ -52,6 +54,7 @@ export const editorAiRequestSchema = z
 				code: 'custom',
 				message: 'Selection scope requires a valid selection matching content',
 			})
+		// Document mode operates on content alone and must not carry range-specific state.
 		if (value.scope === 'document' && isDefined(value.selection))
 			context.addIssue({
 				code: 'custom',
@@ -59,19 +62,23 @@ export const editorAiRequestSchema = z
 			})
 		if (value.scope === 'document' && !isDefined(value.content))
 			context.addIssue({ code: 'custom', message: 'Document scope requires content' })
+		// Insertion context is exclusive to insert mode so providers cannot receive surplus data.
 		if (value.scope !== 'insert' && isDefined(value.insertion))
 			context.addIssue({
 				code: 'custom',
 				message: 'Only insert scope accepts insertion context',
 			})
+		// Exactly one marker makes the insertion point unambiguous in the complete Markdown document.
 		if (
 			value.scope === 'insert' &&
-			(!value.insertion || isDefined(value.content) || isDefined(value.selection))
+			(value.insertion?.document.split(EDITOR_AI_INSERTION_MARKER).length !== 2 ||
+				isDefined(value.content) ||
+				isDefined(value.selection))
 		)
 			context.addIssue({
 				code: 'custom',
 				message:
-					'Insert scope requires insertion context and does not accept replacement content',
+					'Insert scope requires document context with one insertion marker and does not accept replacement content',
 			})
 	})
 

@@ -14,14 +14,16 @@ import { envSchema as endpointEnvSchema } from '../src/editor-endpoint/env.schem
 import { EditorAiInvalidPayloadError, toEditorAiError } from '../src/editor-endpoint/errors'
 import { editorAiRequestSchema } from '../src/editor-endpoint/request'
 import { createSystemPrompt } from '../src/editor-endpoint/system-prompt'
-import { diffMarkdown } from '../src/markdown-editor-interface/ai/diff'
 import { replaceDocument } from '../src/markdown-editor-interface/ai/document'
+import { createInsertionDocument } from '../src/markdown-editor-interface/ai/insertion'
+import { normalizeAiPrompt, shouldSubmitAiPrompt } from '../src/markdown-editor-interface/ai/prompt'
 import {
 	captureSelection,
 	isSelectionCurrent,
 	replaceSelection,
 } from '../src/markdown-editor-interface/ai/selection'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
+import { EDITOR_AI_INSERTION_MARKER } from '../src/shared/editor-ai'
 import {
 	CAN_USE_EDITOR_SKILLS_POLICY_ID,
 	editorSkillSchema,
@@ -194,7 +196,10 @@ describe('editor AI domain', () => {
 			prompt: 'Write an introduction',
 			collection: 'pages',
 			field: 'body',
-			insertion: { position: 1, before: '', after: 'Existing text' },
+			insertion: {
+				position: 1,
+				document: `${EDITOR_AI_INSERTION_MARKER}Existing text`,
+			},
 		}
 		expect(editorAiRequestSchema.safeParse(base).success).toBe(true)
 		expect(
@@ -226,7 +231,8 @@ describe('editor AI domain', () => {
 	it('uses a generation contract for insertion requests', () => {
 		const prompt = createSystemPrompt(['paragraph'], 'insert')
 		expect(prompt).toContain('Generate Markdown to insert')
-		expect(prompt).toContain('do not repeat the surrounding context')
+		expect(prompt).toContain(EDITOR_AI_INSERTION_MARKER)
+		expect(prompt).toContain('do not repeat the marker or surrounding document')
 		expect(prompt).not.toContain('Return only the replacement Markdown')
 	})
 
@@ -250,18 +256,23 @@ describe('editor AI domain', () => {
 		expect(result.success).toBe(true)
 	})
 
-	it('highlights replacements, additions, removals, and unchanged Markdown', () => {
-		const changed = diffMarkdown('# Old heading\n\nText', '# New heading\n\nMore text')
+	it('normalizes cleared prompts and submits Enter without Shift', () => {
+		expect(normalizeAiPrompt(null)).toBe('')
+		expect(normalizeAiPrompt('  Improve this  ')).toBe('Improve this')
 		expect(
-			changed.base.some((part) => part.kind === 'removed' && part.value.includes('Old')),
+			shouldSubmitAiPrompt(
+				{ key: 'Enter', shiftKey: false, isComposing: false },
+				'Improve this',
+				false,
+			),
 		).toBe(true)
 		expect(
-			changed.incoming.some((part) => part.kind === 'added' && part.value.includes('New')),
-		).toBe(true)
-		expect(diffMarkdown('**same**', '**same**')).toEqual({
-			base: [{ value: '**same**', kind: 'unchanged' }],
-			incoming: [{ value: '**same**', kind: 'unchanged' }],
-		})
+			shouldSubmitAiPrompt(
+				{ key: 'Enter', shiftKey: true, isComposing: false },
+				'Improve this',
+				false,
+			),
+		).toBe(false)
 	})
 
 	it('refuses stale selection replacement and applies a current one', () => {
@@ -273,6 +284,7 @@ describe('editor AI domain', () => {
 		editor.commands.setTextSelection({ from: 1, to: 6 })
 		const snapshot = captureSelection(editor)
 		expect(snapshot?.text).toBe('Hello')
+		expect(snapshot?.markdown).toBe('Hello')
 		if (!snapshot) return
 		expect(isSelectionCurrent(editor, snapshot)).toBe(true)
 		expect(replaceSelection(editor, snapshot, 'Hi')).toBe(true)
@@ -281,20 +293,47 @@ describe('editor AI domain', () => {
 		editor.destroy()
 	})
 
+	it('captures selection Markdown with block structure and marks', () => {
+		const editor = new Editor({
+			content: '# Heading\n\nParagraph with **bold** text.\n\n- First\n- Second',
+			extensions: createEditorExtensions(),
+			contentType: 'markdown',
+		})
+		editor.commands.setTextSelection({ from: 1, to: editor.state.doc.content.size })
+		const snapshot = captureSelection(editor)
+		expect(snapshot?.markdown).toContain('# Heading')
+		expect(snapshot?.markdown).toContain('**bold**')
+		expect(snapshot?.markdown).toContain('- First')
+		editor.destroy()
+	})
+
 	it('inserts generated Markdown directly at an empty range', () => {
 		const editor = new Editor({
-			content: '',
+			content: 'Existing',
 			extensions: createEditorExtensions(),
 			contentType: 'markdown',
 		})
 		expect(
 			replaceSelection(
 				editor,
-				{ from: 1, to: 1, text: '' },
+				{ from: 1, to: 1, markdown: '', text: '' },
 				'# Suggested heading\n\nSuggested paragraph.',
 			),
 		).toBe(true)
-		expect(editor.getMarkdown()).toBe('# Suggested heading\n\nSuggested paragraph.')
+		expect(editor.getMarkdown()).toBe('# Suggested heading\n\nSuggested paragraph.\n\nExisting')
+		editor.destroy()
+	})
+
+	it('serializes complete insert context with an explicit marker', () => {
+		const editor = new Editor({
+			content: '**Before** and after',
+			extensions: createEditorExtensions(),
+			contentType: 'markdown',
+		})
+		const context = createInsertionDocument(editor, 10)
+		expect(context).toContain('**Before**')
+		expect(context).toContain(EDITOR_AI_INSERTION_MARKER)
+		expect(context).toContain('after')
 		editor.destroy()
 	})
 

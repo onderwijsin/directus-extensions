@@ -482,7 +482,7 @@ watch(
 
 <template>
 	<div
-		class="markdown-editor"
+		class="markdown-editor markdown-editor-content"
 		:class="{ 'is-disabled': disabled, 'is-dark': darkMode, 'is-fullscreen': fullscreen }"
 		@pointerdown.capture="handleEditorPointerDown"
 	>
@@ -625,15 +625,6 @@ watch(
 
 <style scoped>
 .markdown-editor {
-	--editor-font-family: var(
-		--theme--fonts--sans--font-family,
-		-apple-system,
-		BlinkMacSystemFont,
-		'Segoe UI',
-		sans-serif
-	);
-	--editor-foreground: var(--theme--form--field--input--foreground, #1f2937);
-	--editor-border: var(--theme--form--field--input--border-color, #d3dce3);
 	position: relative;
 	min-width: 0;
 	border: 1px solid var(--theme--form--field--input--border-color, #d3dce3);

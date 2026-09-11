@@ -10,8 +10,10 @@ import { useApi, useStores } from '@directus/extensions-sdk'
 import { z } from 'zod'
 
 import { editorSkillMenuItemSchema } from '../../shared/editor-skill'
-import { diffMarkdown } from '../ai/diff'
+import { createInsertionDocument } from '../ai/insertion'
+import { normalizeAiPrompt, shouldSubmitAiPrompt } from '../ai/prompt'
 import { captureSelection, isSelectionCurrent, replaceSelection } from '../ai/selection'
+import MarkdownPreview from './MarkdownPreview.vue'
 
 const props = defineProps<{
 	editor: Editor
@@ -31,7 +33,7 @@ const skills = shallowRef<EditorSkillMenuItem[]>([])
 const loading = shallowRef(false)
 const menuOpen = shallowRef(false)
 const promptOpen = shallowRef(false)
-const prompt = shallowRef('')
+const prompt = shallowRef<string | null>('')
 const requestedScope = shallowRef<EditorAiScope>('document')
 const documentProposal = shallowRef<string>()
 const documentSnapshot = shallowRef<string>()
@@ -40,9 +42,7 @@ const selectionSnapshot = shallowRef<SelectionSnapshot>()
 const insertionPosition = shallowRef<number>()
 const selectionIsCurrent = shallowRef(false)
 const selectionPanelPosition = shallowRef({ top: '0px', left: '0px' })
-const comparison = computed(() =>
-	diffMarkdown(documentSnapshot.value ?? props.value, documentProposal.value ?? props.value),
-)
+const normalizedPrompt = computed(() => normalizeAiPrompt(prompt.value))
 const documentSkills = computed(() =>
 	skills.value.filter((skill) => !skill.archived && skill.scopes.includes('document')),
 )
@@ -94,6 +94,7 @@ onBeforeUnmount(() => {
 
 async function run(scope: EditorAiScope, skillId?: string) {
 	if (loading.value || props.disabled) return
+	// Capture the target before awaiting the provider so later replacement can detect stale content.
 	const snapshot = scope === 'selection' ? captureSelection(props.editor) : undefined
 	if (scope === 'selection' && !snapshot) {
 		notifyError('Select some text before using AI.')
@@ -103,27 +104,29 @@ async function run(scope: EditorAiScope, skillId?: string) {
 		scope === 'insert'
 			? (insertionPosition.value ?? props.editor.state.selection.from)
 			: undefined
+	const insertionDocument =
+		position === undefined ? undefined : createInsertionDocument(props.editor, position)
 	const insertion =
-		scope === 'insert' && position !== undefined
-			? {
-					position,
-					before: props.editor.state.doc.textBetween(0, position, '\n').slice(-20_000),
-					after: props.editor.state.doc
-						.textBetween(position, props.editor.state.doc.content.size, '\n')
-						.slice(0, 20_000),
-				}
+		scope === 'insert' && position !== undefined && insertionDocument !== undefined
+			? { position, document: insertionDocument }
 			: undefined
+	if (scope === 'insert' && !insertion) {
+		notifyError('The current document could not be prepared for AI insertion.')
+		return
+	}
 	loading.value = true
 	menuOpen.value = false
 	try {
-		const content = scope === 'document' ? props.editor.getMarkdown() : snapshot?.text
+		const content = scope === 'document' ? props.editor.getMarkdown() : snapshot?.markdown
 		if (scope === 'document') documentSnapshot.value = content
-		const requestPrompt = skillId ? undefined : prompt.value
+		const requestPrompt = skillId ? undefined : normalizedPrompt.value
 		const response = await api.post('/editor/ai', {
 			scope,
 			...(content !== undefined ? { content } : {}),
 			...(skillId ? { skillId } : { prompt: requestPrompt }),
-			...(snapshot ? { selection: snapshot } : {}),
+			...(snapshot
+				? { selection: { from: snapshot.from, to: snapshot.to, text: snapshot.markdown } }
+				: {}),
 			...(insertion ? { insertion } : {}),
 			collection: props.collection,
 			field: props.field,
@@ -135,6 +138,7 @@ async function run(scope: EditorAiScope, skillId?: string) {
 				slots: component.slots,
 			})),
 		})
+		// Each scope has a deliberately different review contract.
 		if (scope === 'document') {
 			documentProposal.value = response.data.content
 		} else if (scope === 'selection' && snapshot) {
@@ -145,7 +149,7 @@ async function run(scope: EditorAiScope, skillId?: string) {
 			position === undefined ||
 			!replaceSelection(
 				props.editor,
-				{ from: position, to: position, text: '' },
+				{ from: position, to: position, markdown: '', text: '' },
 				response.data.content,
 			)
 		) {
@@ -168,6 +172,12 @@ function ask(scope: EditorAiScope) {
 	prompt.value = ''
 	promptOpen.value = true
 	menuOpen.value = false
+}
+
+function handlePromptKeydown(event: KeyboardEvent) {
+	if (!shouldSubmitAiPrompt(event, prompt.value, loading.value)) return
+	event.preventDefault()
+	void run(requestedScope.value)
 }
 function applyDocument() {
 	if (documentProposal.value === undefined) return
@@ -256,15 +266,20 @@ defineExpose({ ask, run })
 								? 'Describe what to write'
 								: 'Describe how the content should change'
 						"
+						@keydown="handlePromptKeydown"
 					/>
 				</VCardText>
 				<VCardActions>
 					<VButton secondary @click="promptOpen = false">Cancel</VButton>
 					<VButton
-						:disabled="!prompt.trim()"
+						:disabled="!normalizedPrompt"
 						:loading="loading"
 						@click="run(requestedScope)"
 						>Generate
+						<span class="ai-controller__submit-shortcut">
+							Enter
+							<VIcon name="keyboard_return" x-small />
+						</span>
 					</VButton>
 				</VCardActions>
 			</VCard>
@@ -275,14 +290,24 @@ defineExpose({ ask, run })
 				<VCardText class="ai-controller__review-body">
 					<div class="ai-controller__comparison">
 						<section>
-							<h3>Current</h3>
-							<pre><span v-for="(part, index) in comparison.base" :key="index" :class="`is-${part.kind}`">{{
-								part.value }}</span></pre>
+							<h3 class="ai-controller__comparison-title">Current</h3>
+							<div class="ai-controller__markdown-pane">
+								<MarkdownPreview
+									:content="documentSnapshot ?? value"
+									:components="components"
+									label="Current Markdown"
+								/>
+							</div>
 						</section>
 						<section>
-							<h3>AI suggestion</h3>
-							<pre><span v-for="(part, index) in comparison.incoming" :key="index" :class="`is-${part.kind}`">{{
-								part.value }}</span></pre>
+							<h3 class="ai-controller__comparison-title">AI suggestion</h3>
+							<div class="ai-controller__markdown-pane">
+								<MarkdownPreview
+									:content="documentProposal ?? value"
+									:components="components"
+									label="Suggested Markdown"
+								/>
+							</div>
 						</section>
 					</div>
 				</VCardText>
@@ -300,8 +325,17 @@ defineExpose({ ask, run })
 				role="dialog"
 				aria-label="Review AI suggestion"
 			>
-				<strong>AI suggestion</strong>
-				<pre>{{ selectionProposal }}</pre>
+				<strong class="ai-controller__selection-title">
+					<VIcon name="auto_awesome" small />
+					AI suggestion
+				</strong>
+				<div class="ai-controller__selection-content">
+					<MarkdownPreview
+						:content="selectionProposal"
+						:components="components"
+						label="Selection suggestion"
+					/>
+				</div>
 				<p v-if="!selectionIsCurrent">The selected content has changed.</p>
 				<div class="ai-controller__selection-actions">
 					<VButton x-small secondary @click="discardSelection">Discard</VButton>
@@ -319,6 +353,15 @@ defineExpose({ ask, run })
 	display: flex;
 	align-items: center;
 	padding-inline-end: 0.375rem;
+}
+
+.ai-controller__submit-shortcut {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.125rem;
+	margin-inline-start: 0.5rem;
+	opacity: 0.72;
+	font-size: 0.75em;
 }
 
 .ai-controller__review {
@@ -341,11 +384,22 @@ defineExpose({ ask, run })
 	box-shadow: var(--theme--navigation--box-shadow, 0 0.5rem 1.25rem rgb(0 0 0 / 14%));
 }
 
-.ai-controller__selection-review pre {
+.ai-controller__selection-content {
 	max-height: 12rem;
 	margin-block: 0.75rem;
 	overflow: auto;
-	white-space: pre-wrap;
+}
+
+.ai-controller__comparison-title {
+	padding: 0.375rem 0;
+	color: var(--theme--primary, #6644ff);
+}
+
+.ai-controller__selection-title {
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
+	color: var(--theme--primary, #6644ff);
 }
 
 .ai-controller__selection-review p {
@@ -389,22 +443,12 @@ defineExpose({ ask, run })
 	min-width: 0;
 }
 
-.ai-controller__comparison pre {
+.ai-controller__markdown-pane {
 	min-height: 18rem;
 	max-height: 60vh;
 	overflow: auto;
 	padding: 1rem;
-	white-space: pre-wrap;
 	background: var(--theme--background-subdued);
-}
-
-.is-added {
-	background: color-mix(in srgb, var(--theme--success) 25%, transparent);
-}
-
-.is-removed {
-	background: color-mix(in srgb, var(--theme--danger) 22%, transparent);
-	text-decoration: line-through;
 }
 
 @media (max-width: 700px) {

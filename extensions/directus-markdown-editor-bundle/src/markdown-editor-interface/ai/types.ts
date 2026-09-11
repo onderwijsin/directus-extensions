@@ -6,5 +6,6 @@ export type { EditorSkillMenuItem }
 export interface SelectionSnapshot {
 	from: number
 	to: number
+	markdown: string
 	text: string
 }

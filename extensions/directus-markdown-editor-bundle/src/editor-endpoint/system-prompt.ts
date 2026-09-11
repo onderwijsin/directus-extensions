@@ -1,5 +1,7 @@
 import { isArray, isDefined, isString } from '@onderwijsin/directus-extension-utils'
 
+import { EDITOR_AI_INSERTION_MARKER } from '../shared/editor-ai'
+
 const syntaxByTool: Record<string, string> = {
 	paragraph: 'paragraphs',
 	'heading-1': 'level 1 headings',
@@ -60,7 +62,7 @@ export function createSystemPrompt(
 
 	const outputContract =
 		scope === 'insert'
-			? 'Generate Markdown to insert at the requested position. Return only the new content; do not repeat the surrounding context.'
+			? `Generate Markdown to insert at the position marked ${EDITOR_AI_INSERTION_MARKER} in the supplied document. Return only the new content; do not repeat the marker or surrounding document.`
 			: 'Return only the replacement Markdown or text.'
 
 	return `You are an editing engine embedded in a Markdown editor.

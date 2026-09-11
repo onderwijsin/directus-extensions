@@ -107,8 +107,9 @@ selection shows AI first in the selection toolbar, and the drag-handle menu offe
 for its current block. The `/` menu starts with an **AI** section containing **Write with AI** and
 skills with the `insert` scope. Document suggestions open a side-by-side Markdown diff and change
 the field only after **Apply changes**. Selection suggestions open a floating review panel below the
-target selection and replace it only after confirmation. Insert suggestions are added to the
-document immediately. None of these flows save the Directus item automatically.
+target selection and replace it only after confirmation. Selected headings, lists, marks, and other
+Markdown structure are included in the AI request. Insert suggestions are added to the document
+immediately. None of these flows save the Directus item automatically.
 
 The hook provisions the versioned `editor_skills` collection and the **Can Use Editor Skills**
 policy. It also reconciles the bundled skill catalog during its own coordinated data phase. New
@@ -143,10 +144,11 @@ scopes control where each action appears.
 `POST /editor/ai` requires an authenticated request with the **Can Use Editor Skills** policy,
 collection/field context for a Markdown field whose `ai` option is true, and exactly one of
 `skillId` or `prompt`. Stored skills must be readable, active, and compatible with `scope`
-(`document`, `selection`, or `insert`). Insert requests supply bounded before/after context instead
-of replacement content. The response is `{ "content": "replacement or inserted Markdown" }`. AI
-content and custom prompts are sent to the configured provider; do not enable the feature for
-content that organizational policy forbids sending there.
+(`document`, `selection`, or `insert`). Insert requests supply the complete current Markdown with an
+explicit insertion marker instead of replacement content. The response is
+`{ "content": "replacement or inserted Markdown" }`. AI content and custom prompts are sent to the
+configured provider; do not enable the feature for content that organizational policy forbids
+sending there.
 
 Requests also include a bounded, normalized description of the field's configured MDC components.
 This lets the model preserve component names, properties, and slots. The hardcoded system prompt is

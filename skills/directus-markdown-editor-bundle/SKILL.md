@@ -113,10 +113,12 @@ Shorten, Expand, and Turn into bullet points.
 `POST /editor/ai` accepts authenticated JSON containing `scope`, `collection`, `field`, and exactly
 one of `skillId` or `prompt`. Document and selection requests contain `content`; selection requests
 also contain `{ from, to, text }`, with `text` equal to `content`. Insert requests instead contain
-`{ position, before, after }` context. The target field must use interface `markdown-editor` with
-`ai: true`. The response is `{ "content": string }`. Document output is reviewed before one undoable
-editor replacement. Selection output opens a floating review panel below its target and replaces the
-captured selection only after confirmation. Insert output is added at its requested position
+`{ position, document }`, where `document` is the complete current Markdown with one explicit
+insertion marker. The target field must use interface `markdown-editor` with `ai: true`. The
+response is `{ "content": string }`. Document output is reviewed before one undoable editor
+replacement. Selection output opens a floating review panel below its target and replaces the
+captured selection only after confirmation. Selection `content` retains Markdown structure and marks
+rather than reducing them to plain text. Insert output is added at its requested position
 immediately. Applying or inserting does not save the Directus item. Provider failure leaves the
 field untouched.
 
