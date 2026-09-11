@@ -11,8 +11,7 @@ import { z } from 'zod'
 
 import { editorSkillMenuItemSchema } from '../../shared/editor-skill'
 import { diffMarkdown } from '../ai/diff'
-import { clearPendingAiSuggestion, showPendingAiSuggestion } from '../ai/pending'
-import { captureSelection, replaceSelection } from '../ai/selection'
+import { captureSelection, isSelectionCurrent, replaceSelection } from '../ai/selection'
 
 const props = defineProps<{
 	editor: Editor
@@ -36,9 +35,11 @@ const prompt = shallowRef('')
 const requestedScope = shallowRef<EditorAiScope>('document')
 const documentProposal = shallowRef<string>()
 const documentSnapshot = shallowRef<string>()
+const selectionProposal = shallowRef<string>()
 const selectionSnapshot = shallowRef<SelectionSnapshot>()
-const lastRequest = shallowRef<{ scope: EditorAiScope; skillId?: string; prompt?: string }>()
 const insertionPosition = shallowRef<number>()
+const selectionIsCurrent = shallowRef(false)
+const selectionPanelPosition = shallowRef({ top: '0px', left: '0px' })
 const comparison = computed(() =>
 	diffMarkdown(documentSnapshot.value ?? props.value, documentProposal.value ?? props.value),
 )
@@ -66,15 +67,29 @@ onMounted(async () => {
 	}
 })
 
-onMounted(() =>
-	props.editor.view.dom.addEventListener('markdown-editor-ai-suggestion', handleSuggestionAction),
-)
+function updateSelectionPanel() {
+	const snapshot = selectionSnapshot.value
+	if (!snapshot) return
+	selectionIsCurrent.value = isSelectionCurrent(props.editor, snapshot)
+	const position = Math.min(snapshot.to, props.editor.state.doc.content.size)
+	const coordinates = props.editor.view.coordsAtPos(position)
+	const below = coordinates.bottom + 8
+	const top = below <= window.innerHeight - 240 ? below : Math.max(8, coordinates.top - 248)
+	selectionPanelPosition.value = {
+		top: `${top}px`,
+		left: `${Math.max(8, Math.min(coordinates.left, window.innerWidth - 464))}px`,
+	}
+}
+
+onMounted(() => {
+	props.editor.on('transaction', updateSelectionPanel)
+	window.addEventListener('resize', updateSelectionPanel)
+	window.addEventListener('scroll', updateSelectionPanel, true)
+})
 onBeforeUnmount(() => {
-	props.editor.view.dom.removeEventListener(
-		'markdown-editor-ai-suggestion',
-		handleSuggestionAction,
-	)
-	clearPendingAiSuggestion(props.editor)
+	props.editor.off('transaction', updateSelectionPanel)
+	window.removeEventListener('resize', updateSelectionPanel)
+	window.removeEventListener('scroll', updateSelectionPanel, true)
 })
 
 async function run(scope: EditorAiScope, skillId?: string) {
@@ -88,31 +103,28 @@ async function run(scope: EditorAiScope, skillId?: string) {
 		scope === 'insert'
 			? (insertionPosition.value ?? props.editor.state.selection.from)
 			: undefined
+	const insertion =
+		scope === 'insert' && position !== undefined
+			? {
+					position,
+					before: props.editor.state.doc.textBetween(0, position, '\n').slice(-20_000),
+					after: props.editor.state.doc
+						.textBetween(position, props.editor.state.doc.content.size, '\n')
+						.slice(0, 20_000),
+				}
+			: undefined
 	loading.value = true
 	menuOpen.value = false
 	try {
 		const content = scope === 'document' ? props.editor.getMarkdown() : snapshot?.text
 		if (scope === 'document') documentSnapshot.value = content
 		const requestPrompt = skillId ? undefined : prompt.value
-		lastRequest.value = { scope, ...(skillId ? { skillId } : { prompt: requestPrompt }) }
 		const response = await api.post('/editor/ai', {
 			scope,
 			...(content !== undefined ? { content } : {}),
 			...(skillId ? { skillId } : { prompt: requestPrompt }),
 			...(snapshot ? { selection: snapshot } : {}),
-			...(position !== undefined
-				? {
-						insertion: {
-							position,
-							before: props.editor.state.doc
-								.textBetween(0, position, '\n')
-								.slice(-20_000),
-							after: props.editor.state.doc
-								.textBetween(position, props.editor.state.doc.content.size, '\n')
-								.slice(0, 20_000),
-						},
-					}
-				: {}),
+			...(insertion ? { insertion } : {}),
 			collection: props.collection,
 			field: props.field,
 			components: props.components?.map((component) => ({
@@ -123,16 +135,23 @@ async function run(scope: EditorAiScope, skillId?: string) {
 				slots: component.slots,
 			})),
 		})
-		if (scope === 'document') documentProposal.value = response.data.content
-		else {
-			selectionSnapshot.value =
-				snapshot ??
-				(position !== undefined ? { from: position, to: position, text: '' } : undefined)
-			if (selectionSnapshot.value)
-				showPendingAiSuggestion(props.editor, {
-					...selectionSnapshot.value,
-					content: response.data.content,
-				})
+		if (scope === 'document') {
+			documentProposal.value = response.data.content
+		} else if (scope === 'selection' && snapshot) {
+			selectionSnapshot.value = snapshot
+			selectionProposal.value = response.data.content
+			updateSelectionPanel()
+		} else if (
+			position === undefined ||
+			!replaceSelection(
+				props.editor,
+				{ from: position, to: position, text: '' },
+				response.data.content,
+			)
+		) {
+			notifyError(
+				'The insertion position changed while AI was generating. Run the action again.',
+			)
 		}
 		promptOpen.value = false
 		prompt.value = ''
@@ -160,33 +179,22 @@ function applyDocument() {
 	documentProposal.value = undefined
 	documentSnapshot.value = undefined
 }
-function applySelection(content: string) {
+function applySelection() {
 	if (
 		!selectionSnapshot.value ||
-		!replaceSelection(props.editor, selectionSnapshot.value, content)
+		selectionProposal.value === undefined ||
+		!replaceSelection(props.editor, selectionSnapshot.value, selectionProposal.value)
 	) {
-		notifyError('The target content changed while AI was generating. Run the action again.')
+		notifyError('The selection changed while AI was generating. Run the action again.')
 		return
 	}
-	clearPendingAiSuggestion(props.editor)
+	selectionProposal.value = undefined
 	selectionSnapshot.value = undefined
 }
 
-function handleSuggestionAction(event: Event) {
-	if (!(event instanceof CustomEvent)) return
-	if (event.detail?.action === 'cancel') {
-		clearPendingAiSuggestion(props.editor)
-		selectionSnapshot.value = undefined
-	}
-	if (event.detail?.action === 'confirm' && typeof event.detail.content === 'string')
-		applySelection(event.detail.content)
-	if (event.detail?.action === 'retry' && lastRequest.value) {
-		const request = lastRequest.value
-		if (request.scope === 'insert' && selectionSnapshot.value)
-			insertionPosition.value = selectionSnapshot.value.from
-		prompt.value = request.prompt ?? ''
-		void run(request.scope, request.skillId)
-	}
+function discardSelection() {
+	selectionProposal.value = undefined
+	selectionSnapshot.value = undefined
 }
 
 defineExpose({ ask, run })
@@ -242,6 +250,7 @@ defineExpose({ ask, run })
 				<VCardText>
 					<VTextarea
 						v-model="prompt"
+						autofocus
 						:placeholder="
 							requestedScope === 'insert'
 								? 'Describe what to write'
@@ -283,6 +292,25 @@ defineExpose({ ask, run })
 				</VCardActions>
 			</VCard>
 		</VDialog>
+		<Teleport to="body">
+			<div
+				v-if="selectionProposal !== undefined"
+				class="ai-controller__selection-review"
+				:style="selectionPanelPosition"
+				role="dialog"
+				aria-label="Review AI suggestion"
+			>
+				<strong>AI suggestion</strong>
+				<pre>{{ selectionProposal }}</pre>
+				<p v-if="!selectionIsCurrent">The selected content has changed.</p>
+				<div class="ai-controller__selection-actions">
+					<VButton x-small secondary @click="discardSelection">Discard</VButton>
+					<VButton x-small :disabled="!selectionIsCurrent" @click="applySelection">
+						Replace
+					</VButton>
+				</div>
+			</div>
+		</Teleport>
 	</div>
 </template>
 
@@ -300,6 +328,35 @@ defineExpose({ ask, run })
 	max-width: calc(100vw - 2rem);
 	max-height: min(90dvh, 50rem);
 	overflow: hidden;
+}
+
+.ai-controller__selection-review {
+	position: fixed;
+	z-index: 1000;
+	width: min(28rem, calc(100vw - 1rem));
+	padding: 0.75rem;
+	border: 1px solid var(--theme--border-color, #d3dce3);
+	border-radius: var(--theme--border-radius, 0.25rem);
+	background: var(--theme--background, white);
+	box-shadow: var(--theme--navigation--box-shadow, 0 0.5rem 1.25rem rgb(0 0 0 / 14%));
+}
+
+.ai-controller__selection-review pre {
+	max-height: 12rem;
+	margin-block: 0.75rem;
+	overflow: auto;
+	white-space: pre-wrap;
+}
+
+.ai-controller__selection-review p {
+	margin-block: 0 0.75rem;
+	color: var(--theme--danger, #e35169);
+}
+
+.ai-controller__selection-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
 }
 
 @media (min-width: 769px) {

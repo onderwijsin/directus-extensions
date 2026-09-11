@@ -106,9 +106,9 @@ AI is disabled per field by default. When enabled, AI is the first toolbar actio
 selection shows AI first in the selection toolbar, and the drag-handle menu offers the same actions
 for its current block. The `/` menu starts with an **AI** section containing **Write with AI** and
 skills with the `insert` scope. Document suggestions open a side-by-side Markdown diff and change
-the field only after **Apply changes**. Selection and insertion suggestions appear inline as an
-editable pending change with Cancel, Retry, and Apply actions. Pending changes are editor-only and
-never enter the Markdown value. Neither flow saves the Directus item automatically.
+the field only after **Apply changes**. Selection suggestions open a floating review panel below the
+target selection and replace it only after confirmation. Insert suggestions are added to the
+document immediately. None of these flows save the Directus item automatically.
 
 The hook provisions the versioned `editor_skills` collection and the **Can Use Editor Skills**
 policy. It also reconciles the bundled skill catalog during its own coordinated data phase. New

@@ -115,9 +115,10 @@ one of `skillId` or `prompt`. Document and selection requests contain `content`;
 also contain `{ from, to, text }`, with `text` equal to `content`. Insert requests instead contain
 `{ position, before, after }` context. The target field must use interface `markdown-editor` with
 `ai: true`. The response is `{ "content": string }`. Document output is reviewed before one undoable
-editor replacement; selection and insertion output is an editable inline pending decoration with
-Cancel, Retry, and Apply controls. The decoration is not serialized into Markdown. Applying does not
-save the Directus item. Provider failure leaves the field untouched.
+editor replacement. Selection output opens a floating review panel below its target and replaces the
+captured selection only after confirmation. Insert output is added at its requested position
+immediately. Applying or inserting does not save the Directus item. Provider failure leaves the
+field untouched.
 
 AI appears first in the main and selection toolbars and in the drag-handle action menu. Drag-handle
 controls align with the first visual line of paragraphs and headings, including wrapped text, and
