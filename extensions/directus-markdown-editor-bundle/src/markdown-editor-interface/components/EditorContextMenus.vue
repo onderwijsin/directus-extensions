@@ -13,6 +13,7 @@ import { BubbleMenu } from '@tiptap/vue-3/menus'
 
 import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp } from '../editor/block'
 import { isEditorToolEnabled, resolveCommands } from '../editor/commands'
+import { getDragHandleOffset } from '../editor/drag-handle'
 
 const props = defineProps<{
 	editor: Editor
@@ -37,7 +38,7 @@ const insertMenuPosition = shallowRef<number | null>(null)
 const blockMenuPosition = shallowRef<number | null>(null)
 const insertMenuOpen = shallowRef(false)
 const blockMenuOpen = shallowRef(false)
-const topAlignedNodeTypes = new Set(['codeBlock', 'image', 'mdcBlock', 'table', 'video'])
+const selectionAiMenuOpen = shallowRef(false)
 let dragHandleLayerTimer: number | null = null
 
 const inlineCommands = computed(() =>
@@ -106,16 +107,16 @@ function updateDragHandleNode(change: {
 		rail?.style.removeProperty('transform')
 		return
 	}
-	const isTopAligned =
-		topAlignedNodeTypes.has(change.node?.type.name ?? '') ||
-		nodeDom.closest('[data-mdc-node-view]') !== null
-	if (isTopAligned) {
+	const offset = getDragHandleOffset({
+		isTextblock: change.node?.isTextblock ?? false,
+		node: nodeDom,
+		rail,
+	})
+	if (offset === null) {
 		rail.style.removeProperty('transform')
 		return
 	}
-	const nodeHeight = nodeDom.getBoundingClientRect().height
-	const railHeight = rail.getBoundingClientRect().height || 34
-	rail.style.transform = `translateY(${(nodeHeight - railHeight) / 2}px)`
+	rail.style.transform = `translateY(${offset}px)`
 }
 
 function selectBlock(position: number | null): boolean {
@@ -186,6 +187,7 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 }
 
 function runAi(skillId?: string) {
+	selectionAiMenuOpen.value = false
 	if (skillId) emit('runAi', 'selection', skillId)
 	else emit('askAi', 'selection')
 	setBlockMenuState(false)
@@ -207,7 +209,7 @@ function runAi(skillId?: string) {
 				!state.selection.empty
 		"
 	>
-		<VMenu v-if="aiEnabled" placement="bottom-start" show-arrow>
+		<VMenu v-if="aiEnabled" v-model="selectionAiMenuOpen" placement="bottom-start" show-arrow>
 			<template #activator="{ toggle }">
 				<VButton
 					icon
@@ -215,7 +217,7 @@ function runAi(skillId?: string) {
 					ghost
 					class="editor-bubble-menu__button"
 					aria-label="Edit with AI"
-					tooltip="Edit with AI"
+					:tooltip="selectionAiMenuOpen ? undefined : 'Edit with AI'"
 					@mousedown.prevent
 					@click.stop="toggle"
 				>

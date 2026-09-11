@@ -68,7 +68,25 @@
 				"options": {
 					"choices": [
 						{ "text": "Document", "value": "document" },
-						{ "text": "Selection", "value": "selection" }
+						{ "text": "Selection", "value": "selection" },
+						{ "text": "Insert", "value": "insert" }
+					]
+				},
+				"display": "labels",
+				"display_options": {
+					"choices": [
+						{
+							"text": "Document",
+							"value": "document"
+						},
+						{
+							"text": "Selection",
+							"value": "selection"
+						},
+						{
+							"text": "Insert",
+							"value": "insert"
+						}
 					]
 				}
 			}

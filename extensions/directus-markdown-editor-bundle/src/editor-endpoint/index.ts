@@ -46,7 +46,11 @@ export default defineEndpoint({
 					throw new EditorAiInvalidPayloadError({
 						reason: parsed.error.issues.map((issue) => issue.message).join('; '),
 					})
-				if (parsed.data.content.length > options.EDITOR_AI_MAX_CONTENT_LENGTH)
+				const inputLength =
+					parsed.data.content?.length ??
+					(parsed.data.insertion?.before.length ?? 0) +
+						(parsed.data.insertion?.after.length ?? 0)
+				if (inputLength > options.EDITOR_AI_MAX_CONTENT_LENGTH)
 					throw new EditorAiInvalidPayloadError({
 						reason: 'Content exceeds the configured limit',
 					})
@@ -138,6 +142,8 @@ export default defineEndpoint({
 						input.content,
 						input.components,
 						configuredTools,
+						input.scope,
+						input.insertion,
 					),
 				)
 				if (generated.error) {

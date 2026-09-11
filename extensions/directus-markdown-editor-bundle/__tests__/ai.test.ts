@@ -17,6 +17,10 @@ import { createSystemPrompt } from '../src/editor-endpoint/system-prompt'
 import { diffMarkdown } from '../src/markdown-editor-interface/ai/diff'
 import { replaceDocument } from '../src/markdown-editor-interface/ai/document'
 import {
+	clearPendingAiSuggestion,
+	showPendingAiSuggestion,
+} from '../src/markdown-editor-interface/ai/pending'
+import {
 	captureSelection,
 	isSelectionCurrent,
 	replaceSelection,
@@ -188,6 +192,20 @@ describe('editor AI domain', () => {
 		).toBe(false)
 	})
 
+	it('accepts insertion context without replacement content', () => {
+		const base = {
+			scope: 'insert',
+			prompt: 'Write an introduction',
+			collection: 'pages',
+			field: 'body',
+			insertion: { position: 1, before: '', after: 'Existing text' },
+		}
+		expect(editorAiRequestSchema.safeParse(base).success).toBe(true)
+		expect(
+			editorAiRequestSchema.safeParse({ ...base, content: 'Not replacement source' }).success,
+		).toBe(false)
+	})
+
 	it('keeps content subordinate to the hardcoded system prompt', () => {
 		const prompt = createSystemPrompt(['paragraph', 'bold', 'component'])
 		expect(prompt).toContain('untrusted data')
@@ -207,6 +225,13 @@ describe('editor AI domain', () => {
 		expect(prompt).toContain('level 6 headings')
 		expect(prompt).toContain('GitHub-style tables')
 		expect(prompt).toContain('Nuxt Content MDC')
+	})
+
+	it('uses a generation contract for insertion requests', () => {
+		const prompt = createSystemPrompt(['paragraph'], 'insert')
+		expect(prompt).toContain('Generate Markdown to insert')
+		expect(prompt).toContain('do not repeat the surrounding context')
+		expect(prompt).not.toContain('Return only the replacement Markdown')
 	})
 
 	it('accepts bounded component metadata as syntax reference data', () => {
@@ -273,6 +298,19 @@ describe('editor AI domain', () => {
 		expect(replaceDocument(editor, '# After')).toBe(true)
 		expect(editor.getMarkdown()).toBe('# After')
 		expect(transactions).toBe(1)
+		editor.destroy()
+	})
+
+	it('keeps pending AI suggestions out of serialized Markdown', () => {
+		const editor = new Editor({
+			content: 'Hello world',
+			extensions: createEditorExtensions(),
+			contentType: 'markdown',
+		})
+		showPendingAiSuggestion(editor, { from: 1, to: 6, content: 'Hi' })
+		expect(editor.getMarkdown()).toBe('Hello world')
+		clearPendingAiSuggestion(editor)
+		expect(editor.getMarkdown()).toBe('Hello world')
 		editor.destroy()
 	})
 })

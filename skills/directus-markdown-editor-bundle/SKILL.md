@@ -74,14 +74,14 @@ Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configur
 | `useReferences`                      | `false`   | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                       |
 | `referenceCollections`               | unset     | Required non-empty JSON array while References are enabled.                                                                                                                         |
 | `referenceSnapshotMode`              | `detect`  | `snapshot`, `detect`, or `sync`.                                                                                                                                                    |
-| `ai` / **Enable AI editing**         | `false`   | Enables document and selection AI surfaces and authorizes field-context requests to `/editor/ai`.                                                                                   |
+| `ai` / **Enable AI editing**         | `false`   | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                            |
 
 ## Configure AI editing
 
 The startup hook creates the versioned `editor_skills` collection, including Directus created and
 updated user/timestamp audit fields, when `MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED=true`. Create
-reusable records with a name, optional description/icon, one or both scopes (`document`,
-`selection`), a task prompt, `archived=false`, and an optional sort value. Do not create a
+reusable records with a name, optional description/icon, one or more scopes (`document`,
+`selection`, `insert`), a task prompt, `archived=false`, and an optional sort value. Do not create a
 custom-prompt record: **Ask AI…** is built in.
 
 Assign the seeded **Can Use Editor Skills** policy to editor roles that may invoke AI. It grants
@@ -110,20 +110,27 @@ Directus **Incoming** version by default. Seed removal does not remove existing 
 The built-in catalog includes Fix spelling and grammar, Improve clarity, Improve structure, Rewrite,
 Shorten, Expand, and Turn into bullet points.
 
-`POST /editor/ai` accepts authenticated JSON containing `scope`, `content`, `collection`, `field`,
-and exactly one of `skillId` or `prompt`. Selection requests also contain `{ from, to, text }`, with
-`text` equal to `content`. The target field must use interface `markdown-editor` with `ai: true`.
-The response is `{ "content": string }`. Document output is reviewed before one undoable editor
-replacement; selection output is previewed and rejected if its original range changed. Applying does
-not save the Directus item. Provider failure leaves the field untouched.
+`POST /editor/ai` accepts authenticated JSON containing `scope`, `collection`, `field`, and exactly
+one of `skillId` or `prompt`. Document and selection requests contain `content`; selection requests
+also contain `{ from, to, text }`, with `text` equal to `content`. Insert requests instead contain
+`{ position, before, after }` context. The target field must use interface `markdown-editor` with
+`ai: true`. The response is `{ "content": string }`. Document output is reviewed before one undoable
+editor replacement; selection and insertion output is an editable inline pending decoration with
+Cancel, Retry, and Apply controls. The decoration is not serialized into Markdown. Applying does not
+save the Directus item. Provider failure leaves the field untouched.
 
 AI appears first in the main and selection toolbars and in the drag-handle action menu. Drag-handle
-AI treats the complete current editor node as a selection. The request includes normalized MDC
-component metadata, and the fixed system prompt preserves the editor's Markdown/MDC syntax and input
-languages unless the task explicitly requests translation. It treats code as literal by default. The
-fixed safety rules are combined with a configuration-specific authoring section. Task,
-component-reference, and content messages remain separate, and generated boundary whitespace is not
-trimmed automatically.
+controls align with the first visual line of paragraphs and headings, including wrapped text, and
+stay near the top of container and media blocks. Drag-handle AI treats the complete current editor
+node as a selection. The request includes normalized MDC component metadata, and the fixed system
+prompt preserves the editor's Markdown/MDC syntax and input languages unless the task explicitly
+requests translation. It treats code as literal by default. The fixed safety rules are combined with
+a configuration-specific authoring section. Task, component-reference, and content messages remain
+separate, and generated boundary whitespace is not trimmed automatically.
+
+The `/` menu starts with an AI section. **Write with AI** is first, followed only by active skills
+with the `insert` scope; insert skills do not appear on document, selection, or drag-handle
+surfaces.
 
 The endpoint reads the target field's `tools` option and constructs the system prompt for that
 specific editor instance. AI may introduce only currently enabled authoring syntax, while existing

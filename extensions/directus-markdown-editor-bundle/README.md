@@ -11,8 +11,8 @@ and does not require a Nuxt runtime in Directus.
 
 - headings, paragraphs, marks, lists, blockquotes, dividers, links, tables, images, video, and
   syntax-highlighted code blocks;
-- keyboard shortcuts, a searchable `/` command menu, block drag handles, full-screen editing, and
-  direct Markdown source editing;
+- keyboard shortcuts, a searchable `/` command menu, first-line-aligned block drag handles,
+  full-screen editing, and direct Markdown source editing;
 - generic inline and block MDC components with typed properties and named editable slots;
 - static or remotely loaded component metadata with one definitive JSON contract;
 - hydration-time component property freshness reports with editor-controlled refresh;
@@ -104,9 +104,11 @@ Configure these options on each field using the **Markdown (MDC)** interface.
 
 AI is disabled per field by default. When enabled, AI is the first toolbar action. A non-empty
 selection shows AI first in the selection toolbar, and the drag-handle menu offers the same actions
-for its current block. Document suggestions open a side-by-side Markdown diff and change the field
-only after **Apply changes**. Selection suggestions remain tied to the original range and cannot be
-applied after that text changes. Neither flow saves the Directus item automatically.
+for its current block. The `/` menu starts with an **AI** section containing **Write with AI** and
+skills with the `insert` scope. Document suggestions open a side-by-side Markdown diff and change
+the field only after **Apply changes**. Selection and insertion suggestions appear inline as an
+editable pending change with Cancel, Retry, and Apply actions. Pending changes are editor-only and
+never enter the Markdown value. Neither flow saves the Directus item automatically.
 
 The hook provisions the versioned `editor_skills` collection and the **Can Use Editor Skills**
 policy. It also reconciles the bundled skill catalog during its own coordinated data phase. New
@@ -141,9 +143,10 @@ scopes control where each action appears.
 `POST /editor/ai` requires an authenticated request with the **Can Use Editor Skills** policy,
 collection/field context for a Markdown field whose `ai` option is true, and exactly one of
 `skillId` or `prompt`. Stored skills must be readable, active, and compatible with `scope`
-(`document` or `selection`). The response is `{ "content": "replacement Markdown" }`. AI content and
-custom prompts are sent to the configured provider; do not enable the feature for content that
-organizational policy forbids sending there.
+(`document`, `selection`, or `insert`). Insert requests supply bounded before/after context instead
+of replacement content. The response is `{ "content": "replacement or inserted Markdown" }`. AI
+content and custom prompts are sent to the configured provider; do not enable the feature for
+content that organizational policy forbids sending there.
 
 Requests also include a bounded, normalized description of the field's configured MDC components.
 This lets the model preserve component names, properties, and slots. The hardcoded system prompt is

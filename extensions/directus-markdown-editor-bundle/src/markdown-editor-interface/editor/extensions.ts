@@ -1,3 +1,4 @@
+import type { EditorSkillMenuItem } from '../ai/types'
 import type { ComponentMetadata } from '../component-meta/schema'
 
 import Image from '@tiptap/extension-image'
@@ -5,6 +6,7 @@ import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table
 import { Markdown } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 
+import { PendingAiSuggestionExtension } from '../ai/pending'
 import { MdcBlock, MdcInline, MdcSlot } from '../markdown'
 import { Video } from '../markdown/video'
 import { MarkdownCodeBlock } from './code-block'
@@ -22,6 +24,9 @@ export interface EditorExtensionActions {
 	openComponent?: (component: ComponentMetadata) => void
 	openReference?: (position: number) => void
 	canOpenReference?: () => boolean
+	openAiInsert?: (skillId?: string) => void
+	getAiSkills?: () => EditorSkillMenuItem[]
+	canOpenAi?: () => boolean
 }
 
 /**
@@ -37,6 +42,7 @@ export function createEditorExtensions(
 	getEnabledTools: () => readonly string[] | null | undefined = () => undefined,
 ) {
 	return [
+		PendingAiSuggestionExtension,
 		createConfiguredShortcutGuard(getEnabledTools),
 		StarterKit.configure({ codeBlock: false }),
 		ClearMarksOnEnter,

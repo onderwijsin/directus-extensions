@@ -1,5 +1,6 @@
 /* eslint-disable jsdoc-js/require-jsdoc -- Suggestion lifecycle callbacks are private Tiptap integration details. */
 import type { Editor, Range } from '@tiptap/core'
+import type { EditorSkillMenuItem } from '../ai/types'
 import type { ComponentMetadata } from '../component-meta/schema'
 
 import { hasKey, isFunction, isRecord } from '@onderwijsin/directus-extension-utils'
@@ -22,6 +23,9 @@ export interface SlashMenuActions {
 	openImage?: () => void
 	openVideo?: () => void
 	openComponent?: (component: ComponentMetadata) => void
+	openAiInsert?: (skillId?: string) => void
+	getAiSkills?: () => EditorSkillMenuItem[]
+	canOpenAi?: () => boolean
 }
 
 export interface SlashItem {
@@ -47,6 +51,37 @@ export function createSlashItems(
 	actions: SlashMenuActions = {},
 	enabledTools?: readonly string[] | null,
 ): SlashItem[] {
+	const aiItems: SlashItem[] =
+		actions.openAiInsert && (actions.canOpenAi?.() ?? true)
+			? [
+					{
+						id: 'ai:write',
+						label: 'Write with AI',
+						description: 'Generate new content at this position',
+						icon: 'auto_awesome',
+						group: 'AI',
+						aliases: ['ask', 'generate', 'write'],
+						command: () => {
+							actions.openAiInsert?.()
+							return true
+						},
+					},
+					...(actions.getAiSkills?.() ?? [])
+						.filter((skill) => !skill.archived && skill.scopes.includes('insert'))
+						.map((skill) => ({
+							id: `ai:${skill.id}`,
+							label: skill.name,
+							description: skill.description ?? `Generate content with ${skill.name}`,
+							icon: skill.icon ?? 'auto_fix_high',
+							group: 'AI',
+							aliases: ['ai', 'generate', 'write'],
+							command: () => {
+								actions.openAiInsert?.(skill.id)
+								return true
+							},
+						})),
+				]
+			: []
 	const commands = filterEditorCommands(createEditorCommands(), enabledTools)
 	const configured = slashMenuGroups.flatMap((group) =>
 		resolveCommands(commands, group.commandIds).map((item) => ({
@@ -109,7 +144,7 @@ export function createSlashItems(
 	].filter((item) =>
 		isEditorToolEnabled(enabledTools, item.id === 'insert-image' ? 'image' : 'video'),
 	)
-	return [...configured, ...mediaItems, ...componentItems]
+	return [...aiItems, ...configured, ...mediaItems, ...componentItems]
 }
 
 /**

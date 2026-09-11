@@ -4,7 +4,7 @@ export const EDITOR_SKILLS_COLLECTION = 'editor_skills'
 export const CAN_USE_EDITOR_SKILLS_POLICY_ID = 'de720a9d-8881-4d53-a929-70b6684f96d1'
 
 /** Supported content scopes for reusable editor transformations. */
-export const editorSkillScopeSchema = z.enum(['document', 'selection'])
+export const editorSkillScopeSchema = z.enum(['document', 'selection', 'insert'])
 
 /** Single runtime source of truth for persisted editor skill records. */
 export const editorSkillSchema = z.object({

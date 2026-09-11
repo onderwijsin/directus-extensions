@@ -6,6 +6,7 @@ import { createApp, defineComponent, h } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import SlashMenu from '../src/markdown-editor-interface/components/SlashMenu.vue'
+import { createSlashItems } from '../src/markdown-editor-interface/editor/slash'
 
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement }[] = []
 
@@ -41,6 +42,26 @@ function item(id: string, label: string, group: string): SlashItem {
 }
 
 describe('slash menu', () => {
+	it('places write and insert-scoped AI skills first', () => {
+		const items = createSlashItems([], {
+			openAiInsert: vi.fn(),
+			getAiSkills: () => [
+				{
+					id: '7b8b3a1e-38f3-4ab7-9b37-5e4c5d7f1234',
+					name: 'Draft summary',
+					description: null,
+					icon: null,
+					scopes: ['insert'],
+					archived: false,
+					sort: 10,
+				},
+			],
+		})
+		expect(items.slice(0, 2).map(({ label, group }) => ({ label, group }))).toEqual([
+			{ label: 'Write with AI', group: 'AI' },
+			{ label: 'Draft summary', group: 'AI' },
+		])
+	})
 	it('renders grouped commands with accessible option state', () => {
 		const { element } = mount([
 			item('paragraph', 'Paragraph', 'Text'),

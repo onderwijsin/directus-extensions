@@ -264,6 +264,16 @@ function askContextualAi(scope: EditorAiScope) {
 }
 
 /**
+ * Run or prompt an insertion action after the slash trigger has been removed.
+ * @param skillId Optional stored insertion skill identifier.
+ * @returns Nothing.
+ */
+function openAiInsertFromSlash(skillId?: string) {
+	if (skillId) void aiController.value?.run('insert', skillId)
+	else aiController.value?.ask('insert')
+}
+
+/**
  * Exit full screen when Escape is pressed anywhere in the viewport.
  * @param event Keyboard event from the viewport.
  * @returns Nothing.
@@ -331,6 +341,11 @@ const extensions = createEditorExtensions(
 		openImage: openImageDrawer,
 		openVideo: openVideoDrawer,
 		openComponent: openComponentFromSlash,
+		openAiInsert: openAiInsertFromSlash,
+		/** @returns Currently loaded editor skills. */
+		getAiSkills: () => editorSkills.value,
+		/** @returns Whether this editor can expose AI insertion. */
+		canOpenAi: () => aiEnabled.value && Boolean(props.collection) && Boolean(props.field),
 		...(referencesEnabled.value
 			? { openReference: openReferenceFromTrigger, canOpenReference: canInteract }
 			: {}),
@@ -933,6 +948,56 @@ watch(
 	padding-inline-start: 1em;
 	border-inline-start: 2px solid var(--editor-border);
 	color: var(--theme--foreground-subdued, #64748b);
+}
+
+:deep(.ProseMirror .ai-pending-suggestion__source) {
+	display: none;
+}
+
+:deep(.ProseMirror .ai-pending-suggestion) {
+	position: relative;
+	display: inline-block;
+	min-width: 4rem;
+	margin-block: 0.125rem;
+	border-radius: var(--theme--border-radius, 0.25rem);
+	background: color-mix(in srgb, var(--theme--primary, #6644ff) 12%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme--primary, #6644ff) 35%, transparent);
+}
+
+:deep(.ProseMirror .ai-pending-suggestion__content) {
+	display: inline-block;
+	min-width: 4rem;
+	padding: 0.125rem 0.25rem;
+	white-space: pre-wrap;
+	outline: none;
+}
+
+:deep(.ProseMirror .ai-pending-suggestion__actions) {
+	position: absolute;
+	top: calc(100% + 0.375rem);
+	right: 0;
+	z-index: 8;
+	display: flex;
+	gap: 0.25rem;
+	padding: 0.25rem;
+	border: 1px solid var(--theme--border-color, #d3dce3);
+	border-radius: var(--theme--border-radius, 0.25rem);
+	background: var(--theme--background, white);
+	box-shadow: 0 0.5rem 1.25rem rgb(0 0 0 / 14%);
+}
+
+:deep(.ProseMirror .ai-pending-suggestion__actions button) {
+	padding: 0.25rem 0.5rem;
+	border: 0;
+	border-radius: var(--theme--border-radius, 0.25rem);
+	background: var(--theme--background-subdued, #f0f2f5);
+	color: var(--theme--foreground, #1f2937);
+	cursor: pointer;
+}
+
+:deep(.ProseMirror .ai-pending-suggestion__confirm) {
+	background: var(--theme--primary, #6644ff) !important;
+	color: var(--theme--primary-foreground, white) !important;
 }
 
 .is-disabled {

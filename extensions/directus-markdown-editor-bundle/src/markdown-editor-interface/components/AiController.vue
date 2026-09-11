@@ -4,14 +4,15 @@ import type { Editor } from '@tiptap/core'
 import type { EditorAiScope, EditorSkillMenuItem, SelectionSnapshot } from '../ai/types'
 import type { ComponentMetadata } from '../component-meta/schema'
 
-import { computed, onMounted, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
-import { useApi } from '@directus/extensions-sdk'
+import { useApi, useStores } from '@directus/extensions-sdk'
 import { z } from 'zod'
 
 import { editorSkillMenuItemSchema } from '../../shared/editor-skill'
 import { diffMarkdown } from '../ai/diff'
-import { captureSelection, isSelectionCurrent, replaceSelection } from '../ai/selection'
+import { clearPendingAiSuggestion, showPendingAiSuggestion } from '../ai/pending'
+import { captureSelection, replaceSelection } from '../ai/selection'
 
 const props = defineProps<{
 	editor: Editor
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 	skillsChange: [skills: EditorSkillMenuItem[]]
 }>()
 const api = useApi()
+const notifications = useStores().useNotificationsStore()
 const skills = shallowRef<EditorSkillMenuItem[]>([])
 const loading = shallowRef(false)
 const menuOpen = shallowRef(false)
@@ -34,18 +36,18 @@ const prompt = shallowRef('')
 const requestedScope = shallowRef<EditorAiScope>('document')
 const documentProposal = shallowRef<string>()
 const documentSnapshot = shallowRef<string>()
-const selectionProposal = shallowRef<string>()
 const selectionSnapshot = shallowRef<SelectionSnapshot>()
-const error = shallowRef<string>()
+const lastRequest = shallowRef<{ scope: EditorAiScope; skillId?: string; prompt?: string }>()
+const insertionPosition = shallowRef<number>()
 const comparison = computed(() =>
 	diffMarkdown(documentSnapshot.value ?? props.value, documentProposal.value ?? props.value),
 )
 const documentSkills = computed(() =>
 	skills.value.filter((skill) => !skill.archived && skill.scopes.includes('document')),
 )
-const selectionIsCurrent = computed(() =>
-	selectionSnapshot.value ? isSelectionCurrent(props.editor, selectionSnapshot.value) : false,
-)
+function notifyError(message: string) {
+	notifications.add({ title: message, type: 'error' })
+}
 
 onMounted(async () => {
 	try {
@@ -60,28 +62,57 @@ onMounted(async () => {
 		skills.value = z.array(editorSkillMenuItemSchema).parse(response.data.data)
 		emit('skillsChange', skills.value)
 	} catch {
-		error.value = 'AI skills could not be loaded. Check your editor_skills read permission.'
+		notifyError('AI skills could not be loaded. Check your editor_skills read permission.')
 	}
+})
+
+onMounted(() =>
+	props.editor.view.dom.addEventListener('markdown-editor-ai-suggestion', handleSuggestionAction),
+)
+onBeforeUnmount(() => {
+	props.editor.view.dom.removeEventListener(
+		'markdown-editor-ai-suggestion',
+		handleSuggestionAction,
+	)
+	clearPendingAiSuggestion(props.editor)
 })
 
 async function run(scope: EditorAiScope, skillId?: string) {
 	if (loading.value || props.disabled) return
 	const snapshot = scope === 'selection' ? captureSelection(props.editor) : undefined
 	if (scope === 'selection' && !snapshot) {
-		error.value = 'Select some text before using AI.'
+		notifyError('Select some text before using AI.')
 		return
 	}
+	const position =
+		scope === 'insert'
+			? (insertionPosition.value ?? props.editor.state.selection.from)
+			: undefined
 	loading.value = true
-	error.value = undefined
 	menuOpen.value = false
 	try {
-		const content = scope === 'document' ? props.editor.getMarkdown() : (snapshot?.text ?? '')
+		const content = scope === 'document' ? props.editor.getMarkdown() : snapshot?.text
 		if (scope === 'document') documentSnapshot.value = content
+		const requestPrompt = skillId ? undefined : prompt.value
+		lastRequest.value = { scope, ...(skillId ? { skillId } : { prompt: requestPrompt }) }
 		const response = await api.post('/editor/ai', {
 			scope,
-			content,
-			...(skillId ? { skillId } : { prompt: prompt.value }),
+			...(content !== undefined ? { content } : {}),
+			...(skillId ? { skillId } : { prompt: requestPrompt }),
 			...(snapshot ? { selection: snapshot } : {}),
+			...(position !== undefined
+				? {
+						insertion: {
+							position,
+							before: props.editor.state.doc
+								.textBetween(0, position, '\n')
+								.slice(-20_000),
+							after: props.editor.state.doc
+								.textBetween(position, props.editor.state.doc.content.size, '\n')
+								.slice(0, 20_000),
+						},
+					}
+				: {}),
 			collection: props.collection,
 			field: props.field,
 			components: props.components?.map((component) => ({
@@ -94,13 +125,19 @@ async function run(scope: EditorAiScope, skillId?: string) {
 		})
 		if (scope === 'document') documentProposal.value = response.data.content
 		else {
-			selectionSnapshot.value = snapshot
-			selectionProposal.value = response.data.content
+			selectionSnapshot.value =
+				snapshot ??
+				(position !== undefined ? { from: position, to: position, text: '' } : undefined)
+			if (selectionSnapshot.value)
+				showPendingAiSuggestion(props.editor, {
+					...selectionSnapshot.value,
+					content: response.data.content,
+				})
 		}
 		promptOpen.value = false
 		prompt.value = ''
 	} catch (cause) {
-		error.value = cause instanceof Error ? cause.message : 'AI could not generate a suggestion.'
+		notifyError(cause instanceof Error ? cause.message : 'AI could not generate a suggestion.')
 	} finally {
 		loading.value = false
 	}
@@ -108,6 +145,7 @@ async function run(scope: EditorAiScope, skillId?: string) {
 
 function ask(scope: EditorAiScope) {
 	requestedScope.value = scope
+	if (scope === 'insert') insertionPosition.value = props.editor.state.selection.from
 	prompt.value = ''
 	promptOpen.value = true
 	menuOpen.value = false
@@ -115,24 +153,40 @@ function ask(scope: EditorAiScope) {
 function applyDocument() {
 	if (documentProposal.value === undefined) return
 	if (documentSnapshot.value !== props.editor.getMarkdown()) {
-		error.value = 'The document changed while AI was generating. Run the action again.'
+		notifyError('The document changed while AI was generating. Run the action again.')
 		return
 	}
 	emit('applyDocument', documentProposal.value)
 	documentProposal.value = undefined
 	documentSnapshot.value = undefined
 }
-function applySelection() {
+function applySelection(content: string) {
 	if (
 		!selectionSnapshot.value ||
-		selectionProposal.value === undefined ||
-		!replaceSelection(props.editor, selectionSnapshot.value, selectionProposal.value)
+		!replaceSelection(props.editor, selectionSnapshot.value, content)
 	) {
-		error.value = 'The selection changed while AI was generating. Run the action again.'
+		notifyError('The target content changed while AI was generating. Run the action again.')
 		return
 	}
-	selectionProposal.value = undefined
+	clearPendingAiSuggestion(props.editor)
 	selectionSnapshot.value = undefined
+}
+
+function handleSuggestionAction(event: Event) {
+	if (!(event instanceof CustomEvent)) return
+	if (event.detail?.action === 'cancel') {
+		clearPendingAiSuggestion(props.editor)
+		selectionSnapshot.value = undefined
+	}
+	if (event.detail?.action === 'confirm' && typeof event.detail.content === 'string')
+		applySelection(event.detail.content)
+	if (event.detail?.action === 'retry' && lastRequest.value) {
+		const request = lastRequest.value
+		if (request.scope === 'insert' && selectionSnapshot.value)
+			insertionPosition.value = selectionSnapshot.value.from
+		prompt.value = request.prompt ?? ''
+		void run(request.scope, request.skillId)
+	}
 }
 
 defineExpose({ ask, run })
@@ -180,15 +234,19 @@ defineExpose({ ask, run })
 				</VListItem>
 			</VList>
 		</VMenu>
-		<p v-if="error" class="ai-controller__error" role="alert">{{ error }}</p>
-
 		<VDialog v-model="promptOpen">
 			<VCard>
-				<VCardTitle>Ask AI</VCardTitle>
+				<VCardTitle>{{
+					requestedScope === 'insert' ? 'Write with AI' : 'Ask AI'
+				}}</VCardTitle>
 				<VCardText>
 					<VTextarea
 						v-model="prompt"
-						placeholder="Describe how the content should change"
+						:placeholder="
+							requestedScope === 'insert'
+								? 'Describe what to write'
+								: 'Describe how the content should change'
+						"
 					/>
 				</VCardText>
 				<VCardActions>
@@ -204,8 +262,8 @@ defineExpose({ ask, run })
 		</VDialog>
 		<VDialog :model-value="documentProposal !== undefined" persistent>
 			<VCard class="ai-controller__review">
-				<VCardTitle>Review AI changes</VCardTitle>
-				<VCardText>
+				<VCardTitle class="ai-controller__review-header">Review AI changes</VCardTitle>
+				<VCardText class="ai-controller__review-body">
 					<div class="ai-controller__comparison">
 						<section>
 							<h3>Current</h3>
@@ -219,27 +277,12 @@ defineExpose({ ask, run })
 						</section>
 					</div>
 				</VCardText>
-				<VCardActions>
+				<VCardActions class="ai-controller__review-footer">
 					<VButton secondary @click="documentProposal = undefined">Discard</VButton>
 					<VButton @click="applyDocument">Apply changes</VButton>
 				</VCardActions>
 			</VCard>
 		</VDialog>
-		<div v-if="selectionProposal !== undefined" class="ai-controller__preview-container">
-			<div class="ai-controller__preview">
-				<strong>AI suggestion</strong>
-				<pre>{{ selectionProposal }}</pre>
-				<p v-if="!selectionIsCurrent">The selection changed while AI was generating.</p>
-				<div>
-					<VButton x-small secondary @click="selectionProposal = undefined"
-						>Discard</VButton
-					>
-					<VButton x-small :disabled="!selectionIsCurrent" @click="applySelection"
-						>Replace</VButton
-					>
-				</div>
-			</div>
-		</div>
 	</div>
 </template>
 
@@ -250,50 +293,39 @@ defineExpose({ ask, run })
 	padding-inline-end: 0.375rem;
 }
 
-.ai-controller__error {
-	position: absolute;
-	inset-inline: 0;
-	top: 100%;
-	z-index: 8;
-	margin: 0;
-	padding: 0.5rem 1rem;
-	color: var(--theme--danger);
-	background: var(--theme--background);
-}
-
-.ai-controller__preview {
-	padding: 0.5rem;
-	border: 1px solid var(--theme--border-color);
-	border-radius: var(--theme--border-radius);
-	background: var(--theme--background);
-	box-shadow: var(--theme--navigation--box-shadow);
-}
-
-.ai-controller__preview-container {
-	position: absolute;
-	z-index: 7;
-	inset-inline-start: 1rem;
-	top: calc(100% + 0.5rem);
-}
-
-.ai-controller__preview {
-	width: min(28rem, 80vw);
-}
-
-.ai-controller__preview pre {
-	max-height: 12rem;
-	overflow: auto;
-	white-space: pre-wrap;
-}
-
 .ai-controller__review {
-	width: min(72rem, 92vw);
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr) auto;
+	width: calc(100vw - 2rem);
+	max-width: calc(100vw - 2rem);
+	max-height: min(90dvh, 50rem);
+	overflow: hidden;
+}
+
+@media (min-width: 769px) {
+	.ai-controller__review {
+		width: 75vw !important;
+		max-width: 75vw !important;
+	}
 }
 
 .ai-controller__comparison {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	gap: 1rem;
+}
+
+.ai-controller__review-header {
+	border-block-end: 1px solid var(--theme--border-color-subdued, #edf0f2);
+}
+
+.ai-controller__review-body {
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.ai-controller__review-footer {
+	border-block-start: 1px solid var(--theme--border-color-subdued, #edf0f2);
 }
 
 .ai-controller__comparison section {
