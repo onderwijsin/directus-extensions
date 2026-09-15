@@ -6,7 +6,7 @@
  * inspected as an archive, and then removed from the temporary workspace.
  */
 import { execFileSync } from 'node:child_process'
-import { access, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { access, mkdtemp, open, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -309,9 +309,9 @@ export async function validateExtension(packageName, packageDirectory, manifest)
  * @param {string} packageName - Package name.
  * @param {PackageManifest} manifest - Package manifest.
  * @param {string} outputDirectory - Temporary package output directory.
- * @returns {void} Nothing.
+ * @returns {Promise<void>} A promise that resolves after validation completes.
  */
-export function validatePackedPackage(packageName, manifest, outputDirectory) {
+export async function validatePackedPackage(packageName, manifest, outputDirectory) {
 	let packOutput
 	try {
 		// Pack from the workspace root so the archive is built using the same filter as release CI.
@@ -345,15 +345,61 @@ export function validatePackedPackage(packageName, manifest, outputDirectory) {
 
 	try {
 		// Inspect the archive directly: this catches publish-time omissions hidden by the workspace.
+		await inspectPackedArchive(packageName, manifest, archive)
+
+		execFileSync('corepack', ['pnpm', 'exec', 'publint', '--strict', archive], {
+			cwd: root,
+			stdio: 'inherit',
+		})
+	} catch (error) {
+		report(packageName, `packed package validation failed: ${error.message}`)
+	}
+}
+
+/**
+ * Reads standard output from tar without using the child-process output buffer.
+ * @param {string[]} tarArguments - Arguments to pass to tar.
+ * @param {string} inspectionDirectory - Temporary directory for inspection output.
+ * @returns {Promise<string>} Tar standard output.
+ */
+async function readTarOutput(tarArguments, inspectionDirectory) {
+	const outputPath = resolve(inspectionDirectory, 'tar-output')
+	const output = await open(outputPath, 'w')
+	try {
+		execFileSync('tar', tarArguments, { stdio: ['ignore', output.fd, 'pipe'] })
+	} finally {
+		await output.close()
+	}
+	return readFile(outputPath, 'utf8')
+}
+
+/**
+ * Inspects a packed archive without retaining tar output in a child-process buffer.
+ * @param {string} packageName - Package name for validation errors.
+ * @param {PackageManifest} manifest - Workspace package manifest.
+ * @param {string} archive - Packed package archive path.
+ * @param {string} temporaryDirectory - Parent directory for a unique temporary inspection directory.
+ * @returns {Promise<void>} A promise that resolves after archive inspection completes.
+ */
+export async function inspectPackedArchive(
+	packageName,
+	manifest,
+	archive,
+	temporaryDirectory = tmpdir(),
+) {
+	const inspectionDirectory = await mkdtemp(
+		join(temporaryDirectory, 'directus-extensions-package-inspection-'),
+	)
+	try {
 		const packageJson = JSON.parse(
-			execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8' }),
+			await readTarOutput(['-xOf', archive, 'package/package.json'], inspectionDirectory),
 		)
 		if (packageJson.name !== manifest.name || packageJson.version !== manifest.version) {
 			report(packageName, 'packed package metadata does not match the workspace manifest')
 		}
 		if (packageJson.private === true) report(packageName, 'packed package must not be private')
 
-		const files = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' })
+		const files = await readTarOutput(['-tzf', archive], inspectionDirectory)
 		const entries = files.split('\n').filter(Boolean)
 		if (!entries.some((file) => file.startsWith('package/dist/'))) {
 			report(packageName, 'packed package is missing dist output')
@@ -371,7 +417,7 @@ export function validatePackedPackage(packageName, manifest, outputDirectory) {
 			/^package\/dist\/.*\.(?:c|m)?js$/u.test(entry),
 		)) {
 			// Generated JavaScript must not contain a private workspace dependency reference.
-			const output = execFileSync('tar', ['-xOf', archive, file], { encoding: 'utf8' })
+			const output = await readTarOutput(['-xOf', archive, file], inspectionDirectory)
 			if (output.includes('@workspace/test-utils')) {
 				report(
 					packageName,
@@ -379,13 +425,8 @@ export function validatePackedPackage(packageName, manifest, outputDirectory) {
 				)
 			}
 		}
-
-		execFileSync('corepack', ['pnpm', 'exec', 'publint', '--strict', archive], {
-			cwd: root,
-			stdio: 'inherit',
-		})
-	} catch (error) {
-		report(packageName, `packed package validation failed: ${error.message}`)
+	} finally {
+		await rm(inspectionDirectory, { force: true, recursive: true })
 	}
 }
 
@@ -417,7 +458,7 @@ export async function main() {
 				}
 				if (manifest.private === true) continue
 				await validateMetadata(packageName, packageDirectory, manifest)
-				validatePackedPackage(packageName, manifest, outputDirectory)
+				await validatePackedPackage(packageName, manifest, outputDirectory)
 			}
 		}
 	} finally {

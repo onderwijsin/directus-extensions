@@ -119,6 +119,7 @@ export default defineConfig({
 						? [
 								'packages/**/__tests__/**/*.integration.{test,spec}.{js,jsx,ts,tsx}',
 								'extensions/**/__tests__/**/*.integration.{test,spec}.{js,jsx,ts,tsx}',
+								'scripts/**/*.integration.{test,spec}.{js,jsx,ts,tsx}',
 							]
 						: [],
 				},

@@ -8,7 +8,8 @@ The public surface includes:
 - runtime guards (including Directus primary-key narrowing), attempt/retry helpers, object helpers,
   MIME classification, and UUIDs;
 - server-only async Express adapters, locks, debounced auto-task handlers, task storage, logging,
-  extension setup helpers, and the Studio Docs article seeding contract; and
+  extension setup helpers, composable configuration fragments, and the Studio Docs article seeding
+  contract; and
 - reusable Directus extension types.
 
 ## Install
@@ -16,6 +17,18 @@ The public surface includes:
 ```sh
 pnpm add @onderwijsin/directus-extension-utils
 ```
+
+The server utilities use their own Zod runtime dependency. Consumers do not need to install or align
+Zod when defining extension options through the package's schema builders. A consumer-owned Zod
+schema can also be passed directly to `validateExtensionOptions`; this is a fully supported API.
+When extension options combine shared configuration provided by extension-utils, use
+`defineExtensionOptionsSchema` with declarative `include` fragments and build extension fields with
+its `extend` callback. Shared dependencies are deduplicated by fragment identity, include order does
+not change behavior, and duplicate top-level keys fail instead of overriding one another. The
+specialized builders remain convenience APIs for one shared fragment. An extension may use another
+Zod version for unrelated validation, but must not combine schemas from that runtime with the raw
+shared schemas exported by this package. Use the `z` supplied to each builder callback for the
+complete options definition, including nested schemas and helper output.
 
 `ensureDirectusDocumentation` is the server-only contract for extensions that contribute articles to
 the fixed `studio_docs` collection. It validates stable article input, honors the docs seed gate,
@@ -146,6 +159,16 @@ The related public types are `CacheEnv`, `CacheOptions` (`ttl`, a finite positiv
 `WithCacheOptions` (`cache` plus `key`), `CollectionInput`, and
 `CollectionCacheInvalidationOptions`.
 
+Use `defineCacheConfigSchema` when adding extension-specific fields to the shared cache settings:
+
+```ts
+import { defineCacheConfigSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineCacheConfigSchema((z) => ({
+  CATALOG_CACHE_NAMESPACE: z.string().default('catalog'),
+}))
+```
+
 Publishable extensions must provide an explicit extension-specific `CacheOptions.namespace` for
 extension-owned caches. Use separate subsystem namespaces when targeted invalidation is useful.
 `CacheOptions.namespace` isolates Redis keys and makes `clear()` namespace-scoped. Local caches have
@@ -157,11 +180,12 @@ uses `memory`, even though `initializeCache` maps memory to the library's local 
 must be finite and positive. Policy caching is the exception: it deliberately ignores memory and
 requires valid Redis configuration.
 
-The server entrypoint also exports `emailConfigSchema`, `requiredEmailConfigSchema`, and
-`isEmailConfigured`. The base email schema supplies Directus defaults without requiring a transport;
-the required schema validates the minimum shared prerequisites for the selected transport. For SMTP,
-that means only `EMAIL_SMTP_HOST`; the SMTP port, username, password, and other transport options
-are left to Directus and the consumer to configure and validate.
+The server entrypoint also exports `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and
+`isEmailConfigured`. The optional builder supplies Directus defaults without requiring a transport;
+the required builder validates the minimum shared prerequisites for the selected transport. For
+SMTP, that means only `EMAIL_SMTP_HOST`; the SMTP port, username, password, and other transport
+options are left to Directus and the consumer to configure and validate. The corresponding raw
+schemas remain available for backward compatibility.
 
 Wrap asynchronous endpoint handlers and middleware with `asyncHandler` so rejected promises reach
 Directus's Express 4 error handling:
@@ -249,6 +273,77 @@ the corresponding console methods.
 The `/app` and `/shared` entry points expose the common browser-safe surface. Do not import locks,
 tasks, task storage, logging, or setup helpers from those paths.
 
+### Zod-safe extension options
+
+`defineExtensionOptionsSchema` has two intentional forms. When no shared extension-utils
+configuration is needed, use the simple builder callback for the complete consumer-only schema:
+
+```ts
+import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema((z) =>
+  z.object({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+  }),
+)
+```
+
+When shared extension-utils configuration is needed, use declarative composition. The object form
+requires `include`, which accepts one or more package-owned fragments; `extend` adds
+extension-specific top-level fields with the Zod runtime owned by extension-utils:
+
+```ts
+// env.schema.ts
+import {
+  cacheConfig,
+  defineExtensionOptionsSchema,
+  directusStartupConfig,
+} from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema({
+  include: [directusStartupConfig, cacheConfig],
+  extend: (z) => ({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+  }),
+})
+```
+
+If there is nothing to include, use the callback form instead.
+
+Composition is order-independent. A fragment's transitive dependencies are collected once by object
+identity, so the example composes Redis once even though startup and cache both depend on it. Each
+fragment owns an explicit shallow top-level shape and any cross-field refinement it needs; the
+package does not inspect Zod internals. If two different fragments declare the same top-level key,
+or `extend` repeats a fragment key, schema materialization throws a duplicate-key error. There is no
+override or last-wins mode.
+
+The six public shared configuration fragments are:
+
+| Fragment                | Adds                                                                      | Dependencies             |
+| ----------------------- | ------------------------------------------------------------------------- | ------------------------ |
+| `redisConfig`           | Directus Redis configuration.                                             | None.                    |
+| `synchronizationConfig` | Synchronization store configuration.                                      | `redisConfig`.           |
+| `cacheConfig`           | Cache configuration and its Redis cross-field validation.                 | `redisConfig`.           |
+| `emailConfig`           | Optional email transport configuration.                                   | None.                    |
+| `requiredEmailConfig`   | Selected-transport email prerequisites.                                   | `emailConfig`.           |
+| `directusStartupConfig` | Directus startup, locking, and rate-limiter configuration and validation. | `synchronizationConfig`. |
+
+The specialized builders remain convenience APIs implemented through the same fragment composer:
+
+| Builder                             | Equivalent included fragment |
+| ----------------------------------- | ---------------------------- |
+| `defineRedisConfigSchema`           | `redisConfig`                |
+| `defineSynchronizationConfigSchema` | `synchronizationConfig`      |
+| `defineCacheConfigSchema`           | `cacheConfig`                |
+| `defineEmailConfigSchema`           | `emailConfig`                |
+| `defineRequiredEmailConfigSchema`   | `requiredEmailConfig`        |
+| `defineDirectusStartupSchema`       | `directusStartupConfig`      |
+
+The returned `ExtensionOptionsDefinition<Output>` is opaque. Most consumers rely on inference; the
+type-only `ExtensionOptionsConfigFragment`, `ExtensionOptionsSchemaBuilder`, and
+`ExtensionOptionsShapeBuilder` exports are available when a helper needs to name a fragment,
+ordinary-schema callback, or shared-shape callback.
+
 Use `/server` setup helpers at an API extension boundary:
 
 ```ts
@@ -266,23 +361,67 @@ const options = validateExtensionOptions(env, envSchema, logger)
 setup.end()
 ```
 
+Schema definitions created by these builders are intentionally opaque: do not call `.parse()`,
+`.safeParse()`, `.extend()`, or `.safeExtend()` on them. Define every field inside the callback and
+use `validateExtensionOptions` to obtain the inferred, validated output. The specialized builders
+`defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`,
+`defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and `defineDirectusStartupSchema` add
+their matching shared fragment before validation.
+
+Build nested schemas with the builder callback's runtime. Make a reusable nested-schema helper a
+factory that receives that callback value, rather than closing over a separately imported `z`:
+
+```ts
+import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema((z) => {
+  const catalogFields = (builderZ: typeof z) => ({
+    CATALOG_CONNECTION: builderZ.object({
+      URL: builderZ.url(),
+      TIMEOUT: builderZ.number().int().positive().default(5_000),
+    }),
+  })
+
+  return z.object(catalogFields(z))
+})
+```
+
+The supplied callback value is the builder's mixed-runtime safeguard. The package does not traverse
+Zod's internal schema graph or reject schemas captured from another runtime, so using a separately
+imported `z` inside the callback can reintroduce version-sensitive behavior.
+`validateExtensionOptions` also fully supports a consumer-owned raw Zod schema. Passing a standalone
+consumer-owned schema directly does not mix Zod runtimes. The mixed-runtime risk arises when a
+consumer-owned schema is composed with a raw shared schema from extension-utils that uses a
+different Zod runtime. When using extension-utils-provided shared configuration, prefer fragment
+composition or the corresponding one-fragment builder because both supply the package-owned runtime.
+The package continues to export its raw shared schemas for compatibility; combining them across Zod
+runtimes remains version-sensitive.
+
 For extensions that modify Directus schema, compose the entrypoint environment schema with the
 shared server-side schema-change settings:
 
 ```ts
-import { directusStartupSchema } from '@onderwijsin/directus-extension-utils/server'
-import { z } from 'zod'
+import {
+  defineExtensionOptionsSchema,
+  directusStartupConfig,
+} from '@onderwijsin/directus-extension-utils/server'
 
-const envSchema = directusStartupSchema.extend({
-  MY_EXTENSION_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
+const envSchema = defineExtensionOptionsSchema({
+  include: [directusStartupConfig],
+  extend: (z) => ({
+    MY_EXTENSION_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
+  }),
 })
 ```
 
-`directusStartupSchema` validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to
-`true`, and supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`memory`, `redis`, or `fs`). When unset,
-the lock provider falls back to `SYNCHRONIZATION_STORE`. `redis` uses
-`DIRECTUS_EXTENSIONS_LOCK_REDIS_URL` when set, otherwise the resolved Directus Redis configuration;
-`fs` requires `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. It also exposes the shared
+`defineDirectusStartupSchema` remains the concise equivalent when startup is the only shared
+configuration fragment.
+
+The fragment validates `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`, which defaults to `true`, and
+supports `DIRECTUS_EXTENSIONS_LOCK_PROVIDER` (`memory`, `redis`, or `fs`). When unset, the lock
+provider falls back to `SYNCHRONIZATION_STORE`. `redis` uses `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`
+when set, otherwise the resolved Directus Redis configuration; `fs` requires
+`DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. It also exposes the shared
 `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE` setting. When unset, it falls back to
 `SYNCHRONIZATION_STORE`.
 
@@ -310,8 +449,9 @@ natural key `policy + collection + action`; matching existing rows are preserved
 updated.
 
 `extensionSetup` logs lifecycle messages and supports an environment-based enabled flag.
-`validateExtensionOptions` parses a complete extension environment with Zod, logs validation
-details, and throws when the configuration is invalid.
+`validateExtensionOptions` materializes package-owned schema definitions, parses a complete
+extension environment with Zod, logs validation details, and throws when the configuration is
+invalid.
 
 Schema configuration and operation options:
 

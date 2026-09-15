@@ -24,6 +24,11 @@ The normal CI workflow runs:
 7. packed artifact creation; and
 8. packed artifact upload.
 
+Packed package inspection writes archive contents to temporary files before reading them, avoiding
+the child process output buffer limit. Large JavaScript files still undergo the complete private
+dependency scan. Temporary inspection files are removed on success and failure; process integration
+tests under `scripts/` cover large archives and extraction failures.
+
 `ci-yolo.yml` skips package builds, package validation, artifact creation, process integration, and
 E2E testing. It is not sufficient release evidence.
 
