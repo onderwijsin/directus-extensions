@@ -60,9 +60,9 @@ export const envSchema = defineExtensionOptionsSchema((z) =>
 )
 ```
 
-The builder supplies the only Zod runtime that may construct fields in this definition. Use that
-callback value for every nested object, array, union, and transform. When a nested schema needs a
-helper, make the helper a factory that receives the supplied callback value:
+The builder supplies the package-owned Zod runtime. Use that callback value for every nested object,
+array, union, and transform. When a nested schema needs a helper, make the helper a factory that
+receives the supplied callback value:
 
 ```ts
 import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
@@ -78,13 +78,13 @@ export const envSchema = defineExtensionOptionsSchema((z) => {
 })
 ```
 
-Do not import or close over another `z` value for fields in an opaque definition. The package
-validates that its definitions do not combine a foreign Zod node, including inside a nested helper.
-Its diagnostic identifies the node's location and directs the consumer to the supplied `z` runtime.
-For new code, use `defineExtensionOptionsSchema` or one of the specialized shared-configuration
-builders documented in [`extension-utils.md`](extension-utils.md#zod-safe-extension-options).
-`validateExtensionOptions` still accepts raw Zod schemas for compatibility, but that overload is
-deprecated and may not safely compose schemas from different Zod runtimes.
+Do not import or close over another `z` value for fields in an opaque definition. Supplying the
+package-owned runtime through the callback is the safeguard; the package does not traverse Zod's
+internal schema graph to enforce it. For new code, use `defineExtensionOptionsSchema` or one of the
+specialized shared-configuration builders documented in
+[`extension-utils.md`](extension-utils.md#zod-safe-extension-options). `validateExtensionOptions`
+still accepts raw Zod schemas for compatibility, but that overload is deprecated and may not safely
+compose schemas from different Zod runtimes.
 
 Do not assume that every environment value is a string. Directus automatically type casts values
 using context clues before making them available to extensions. Prefer a schema that reflects those

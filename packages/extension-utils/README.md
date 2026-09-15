@@ -20,8 +20,8 @@ pnpm add @onderwijsin/directus-extension-utils
 The server utilities use their own Zod runtime dependency. Consumers do not need to install or align
 Zod when defining extension options through the package's schema builders. An extension may use
 another Zod version for unrelated validation, but must not combine schemas from that runtime with
-the legacy raw schemas exported by this package. Every node in an opaque options definition,
-including nested nodes, must be built with the `z` supplied to its builder callback.
+the legacy raw schemas exported by this package. Use the `z` supplied to each builder callback for
+the complete options definition, including nested schemas and helper output.
 
 `ensureDirectusDocumentation` is the server-only contract for extensions that contribute articles to
 the fixed `studio_docs` collection. It validates stable article input, honors the docs seed gate,
@@ -323,9 +323,8 @@ use `validateExtensionOptions` to obtain the inferred, validated output. The spe
 `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and `defineDirectusStartupSchema` add
 their shared configuration before validation.
 
-All nested schemas must come from the builder callback's runtime. Make a reusable nested-schema
-helper a factory that receives that callback value, rather than closing over a separately imported
-`z`:
+Build nested schemas with the builder callback's runtime. Make a reusable nested-schema helper a
+factory that receives that callback value, rather than closing over a separately imported `z`:
 
 ```ts
 import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
@@ -342,12 +341,12 @@ export const envSchema = defineExtensionOptionsSchema((z) => {
 })
 ```
 
-The package rejects a foreign Zod node in an opaque definition, even when it appears inside nested
-objects, arrays, unions, or helper output. Its diagnostic identifies the node's location and directs
-the consumer to the supplied `z` runtime. For backward compatibility, `validateExtensionOptions`
-still accepts a raw Zod schema and the package still exports its raw shared schemas. That overload
-is deprecated and is version-sensitive when a consumer combines schemas from another Zod runtime;
-use builders for new code.
+The supplied callback value is the builder's mixed-runtime safeguard. The package does not traverse
+Zod's internal schema graph or reject schemas captured from another runtime, so using a separately
+imported `z` inside the callback can reintroduce version-sensitive behavior. For backward
+compatibility, `validateExtensionOptions` still accepts a raw Zod schema and the package still
+exports its raw shared schemas. That overload is deprecated and is version-sensitive when a consumer
+combines schemas from another Zod runtime; use builders for new code.
 
 For extensions that modify Directus schema, compose the entrypoint environment schema with the
 shared server-side schema-change settings:

@@ -178,10 +178,10 @@ export const envSchema = defineExtensionOptionsSchema((z) => {
 The returned `ExtensionOptionsDefinition<Output>` is intentionally opaque. In ordinary extension
 code, rely on inference; `ExtensionOptionsSchemaBuilder` and `ExtensionOptionsShapeBuilder` are
 available for helpers that need to name a builder callback type. Do not call schema methods on a
-definition or mix in a Zod node from another runtime, including in nested objects, arrays, unions,
-or helper output. The rejection identifies the node's location and directs the consumer to the
-supplied `z` runtime. `validateExtensionOptions` materializes the definition and returns its
-inferred, validated output.
+definition. Use the supplied `z` for nested objects, arrays, unions, and helper output so the
+materialized schema stays on the package-owned runtime. The package does not traverse Zod's internal
+schema graph to enforce that usage contract. `validateExtensionOptions` materializes the definition
+and returns its inferred, validated output.
 
 Raw Zod schemas and shared raw schemas remain exported for compatibility. The raw-schema overload of
 `validateExtensionOptions` is deprecated and is version-sensitive when schemas from different Zod

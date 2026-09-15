@@ -182,10 +182,9 @@ configuration is added.
 An `ExtensionOptionsDefinition` is not a Zod schema. It is opaque and may only be supplied to
 `validateExtensionOptions`. Every schema node, including nested objects, arrays, unions, and helper
 output, must be constructed with the `zod` passed to the builder callback. A nested helper must be a
-factory that accepts that callback value. Definitions reject a node from another Zod runtime. Most
-extensions rely on inferred output; the two builder types are for helpers that need to name a
-callback type. The rejection identifies the node's location and directs the consumer to the supplied
-`z` runtime.
+factory that accepts that callback value. The package supplies this runtime instead of traversing
+Zod's internal schema graph to enforce ownership. Most extensions rely on inferred output; the two
+builder types are for helpers that need to name a callback type.
 
 ## Server-only cache-aside helpers
 

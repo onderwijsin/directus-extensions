@@ -340,10 +340,10 @@ needed. Valid data is returned with its inferred output type. Invalid data is lo
 
 The builder callback supplies the package-owned Zod runtime. Build every field and nested schema
 with that callback value. A reusable nested helper must be a factory that receives the supplied `z`,
-never a schema from an imported or captured Zod runtime. Definitions reject foreign Zod nodes at any
-depth. `ExtensionOptionsSchemaBuilder` and `ExtensionOptionsShapeBuilder` are type-only exports for
-helpers that need to name a callback; `ExtensionOptionsDefinition` is opaque and is only passed to
-`validateExtensionOptions`.
+never a schema from an imported or captured Zod runtime. The package does not traverse Zod's schema
+graph to enforce this usage contract. `ExtensionOptionsSchemaBuilder` and
+`ExtensionOptionsShapeBuilder` are type-only exports for helpers that need to name a callback;
+`ExtensionOptionsDefinition` is opaque and is only passed to `validateExtensionOptions`.
 
 The raw-schema overload of `validateExtensionOptions` is deprecated but remains available for
 backward compatibility. Do not use it for new configuration, especially where two Zod runtimes could

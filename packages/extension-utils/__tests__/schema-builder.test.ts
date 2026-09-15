@@ -20,19 +20,19 @@ const logger = pino({ enabled: false })
 
 /**
  * Loads a real independent Zod runtime through its CommonJS entrypoint.
- * @returns A defaulted boolean from that runtime, narrowed without a cast.
+ * @returns A defaulted boolean and version object from that runtime.
  */
 function createForeignDefault() {
 	const runtime: unknown = createRequire(import.meta.url)('zod')
-	if (!isRecord(runtime) || !isFunction(runtime.boolean)) {
-		throw new Error('The CommonJS Zod entrypoint must export boolean')
+	if (!isRecord(runtime) || !isRecord(runtime.core) || !isFunction(runtime.boolean)) {
+		throw new Error('The CommonJS Zod entrypoint must export boolean and core')
 	}
 	const schema = runtime.boolean()
 	if (!(schema instanceof z.ZodBoolean)) {
 		throw new Error('The CommonJS Zod boolean factory must return a boolean schema')
 	}
-	expect(schema._zod.version).not.toBe(z.core.version)
-	return schema.default(true)
+	expect(runtime.core.version).not.toBe(z.core.version)
+	return { schema: schema.default(true), version: runtime.core.version }
 }
 
 describe('extension options schema builders', () => {
@@ -88,104 +88,22 @@ describe('extension options schema builders', () => {
 		).toThrow('Invalid extension options ☝. Exiting.')
 	})
 
-	it('rejects a foreign defaulted field nested inside a supplied-runtime object', () => {
-		const foreignDefault = createForeignDefault()
-		const definition = defineDirectusStartupSchema((zod) => ({
-			NESTED: zod.object({ ENABLED: foreignDefault }),
-		}))
+	it('supplies its package-owned Zod runtime when another runtime is loaded', () => {
+		const { version: foreignVersion } = createForeignDefault()
+		const definition = defineDirectusStartupSchema((zod) => {
+			expect(zod.core.version).toBe(z.core.version)
+			expect(zod.core.version).not.toBe(foreignVersion)
 
-		expect(() => validateExtensionOptions({ NESTED: {} }, definition, logger)).toThrow(
-			/supplied z/,
-		)
-		expect(() => validateExtensionOptions({ NESTED: {} }, definition, logger)).toThrow(/NESTED/)
-	})
-
-	it('rejects a foreign root returned by the general builder', () => {
-		const foreignDefault = createForeignDefault()
-		const definition = defineExtensionOptionsSchema(() => foreignDefault)
-
-		expect(() => validateExtensionOptions(undefined, definition, logger)).toThrow(/supplied z/)
-	})
-
-	it.each([
-		{ name: 'array', wrap: (foreign: z.ZodType) => z.array(foreign) },
-		{ name: 'union', wrap: (foreign: z.ZodType) => z.union([z.string(), foreign]) },
-		{
-			name: 'intersection',
-			wrap: (foreign: z.ZodType) => z.intersection(z.unknown(), foreign),
-		},
-		{ name: 'tuple rest', wrap: (foreign: z.ZodType) => z.tuple([z.string()], foreign) },
-		{ name: 'record', wrap: (foreign: z.ZodType) => z.record(z.string(), foreign) },
-		{ name: 'map', wrap: (foreign: z.ZodType) => z.map(z.string(), foreign) },
-		{ name: 'set', wrap: (foreign: z.ZodType) => z.set(foreign) },
-		{ name: 'optional', wrap: (foreign: z.ZodType) => z.optional(foreign) },
-		{ name: 'nullable', wrap: (foreign: z.ZodType) => z.nullable(foreign) },
-		{
-			name: 'default',
-			wrap: (foreign: z.ZodType) =>
-				new z.ZodDefault({ type: 'default', innerType: foreign, defaultValue: true }),
-		},
-		{ name: 'prefault', wrap: (foreign: z.ZodType) => z.prefault(foreign, true) },
-		{ name: 'catch', wrap: (foreign: z.ZodType) => z.catch(foreign, true) },
-		{ name: 'readonly', wrap: (foreign: z.ZodType) => z.readonly(foreign) },
-		{ name: 'pipe', wrap: (foreign: z.ZodType) => z.pipe(z.unknown(), foreign) },
-		{ name: 'lazy', wrap: (foreign: z.ZodType) => z.lazy(() => foreign) },
-		{ name: 'catchall', wrap: (foreign: z.ZodType) => z.object({}).catchall(foreign) },
-		{ name: 'function output', wrap: (foreign: z.ZodType) => z.function({ output: foreign }) },
-		{
-			name: 'property check',
-			wrap: (foreign: z.ZodType) =>
-				z.object({ ENABLED: z.unknown() }).check(z.property('ENABLED', foreign)),
-		},
-	])('rejects foreign schemas hidden in $name before parsing', ({ wrap }) => {
-		const foreignDefault = createForeignDefault()
-		const definition = defineExtensionOptionsSchema(() => wrap(foreignDefault))
-
-		expect(() => validateExtensionOptions(undefined, definition, logger)).toThrow(/supplied z/)
-	})
-
-	it('validates recursive lazy schemas without looping or resolving the factory twice', () => {
-		interface Tree {
-			ENABLED: boolean
-			CHILDREN: Tree[]
-		}
-		let resolutions = 0
-		const definition = defineExtensionOptionsSchema((zod) => {
-			const tree: z.ZodType<Tree> = zod.lazy(() => {
-				resolutions += 1
-				return zod.object({
-					ENABLED: zod.boolean().default(true),
-					CHILDREN: zod.array(tree).default([]),
-				})
-			})
-			return tree
+			return {
+				CATALOG_ENABLED: zod.boolean().default(true),
+			}
 		})
 
-		expect(validateExtensionOptions({ CHILDREN: [{}] }, definition, logger)).toEqual({
-			ENABLED: true,
-			CHILDREN: [{ ENABLED: true, CHILDREN: [] }],
-		})
-		expect(resolutions).toBe(1)
-	})
-
-	it('does not inspect schema-valued data or execute default factories while checking ownership', () => {
-		const foreignDefault = createForeignDefault()
-		let defaults = 0
-		const definition = defineExtensionOptionsSchema((zod) =>
-			zod.object({
-				DATA: zod.unknown().default(() => {
-					defaults += 1
-					return foreignDefault
-				}),
-			}),
-		)
-
-		expect(validateExtensionOptions({}, definition, logger).DATA).toBe(foreignDefault)
-		expect(defaults).toBe(1)
+		expect(validateExtensionOptions({}, definition, logger).CATALOG_ENABLED).toBe(true)
 	})
 
 	it('preserves the legacy raw-schema path with an independent runtime', () => {
-		const foreignDefault = createForeignDefault()
+		const { schema: foreignDefault } = createForeignDefault()
 
 		expect(validateExtensionOptions(undefined, foreignDefault, logger)).toBe(true)
 	})

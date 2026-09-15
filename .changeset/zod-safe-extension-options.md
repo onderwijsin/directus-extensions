@@ -2,4 +2,5 @@
 '@onderwijsin/directus-extension-utils': minor
 ---
 
-Add Zod-safe builders for extension option schemas and reject mixed Zod runtimes in their definitions.
+Add schema builders that supply the package-owned Zod runtime and help extension option definitions
+avoid mixed-runtime composition.
