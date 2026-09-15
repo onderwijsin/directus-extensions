@@ -275,9 +275,22 @@ tasks, task storage, logging, or setup helpers from those paths.
 
 ### Zod-safe extension options
 
-Compose extension-utils shared configuration declaratively with `defineExtensionOptionsSchema`.
-`include` accepts one or more package-owned fragments, and `extend` adds extension-specific
-top-level fields with the Zod runtime owned by extension-utils:
+`defineExtensionOptionsSchema` has two intentional forms. When no shared extension-utils
+configuration is needed, use the simple builder callback for the complete consumer-only schema:
+
+```ts
+import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema((z) =>
+  z.object({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+  }),
+)
+```
+
+When shared extension-utils configuration is needed, use declarative composition. The object form
+requires `include`, which accepts one or more package-owned fragments; `extend` adds
+extension-specific top-level fields with the Zod runtime owned by extension-utils:
 
 ```ts
 // env.schema.ts
@@ -290,11 +303,12 @@ import {
 export const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig, cacheConfig],
   extend: (z) => ({
-    CATALOG_ENABLED: z.boolean().default(true),
-    CATALOG_URL: z.url(),
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
   }),
 })
 ```
+
+If there is nothing to include, use the callback form instead.
 
 Composition is order-independent. A fragment's transitive dependencies are collected once by object
 identity, so the example composes Redis once even though startup and cache both depend on it. Each
@@ -352,14 +366,7 @@ Schema definitions created by these builders are intentionally opaque: do not ca
 use `validateExtensionOptions` to obtain the inferred, validated output. The specialized builders
 `defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`,
 `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and `defineDirectusStartupSchema` add
-their matching shared fragment before validation. The callback-only form remains supported for a
-complete schema that does not use shared extension-utils configuration:
-
-```ts
-export const standaloneEnvSchema = defineExtensionOptionsSchema((z) =>
-  z.object({ CATALOG_URL: z.url() }),
-)
-```
+their matching shared fragment before validation.
 
 Build nested schemas with the builder callback's runtime. Make a reusable nested-schema helper a
 factory that receives that callback value, rather than closing over a separately imported `z`:

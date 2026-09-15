@@ -143,8 +143,22 @@ resource cleanup. Invalid Zod configuration is logged and throws
 
 ### Zod-safe extension options
 
-The builder API defines opaque options with the package-owned Zod runtime. Compose shared settings
-declaratively through the package-owned fragments, then build extension-specific fields in `extend`:
+The builder API defines opaque options with the package-owned Zod runtime. When no shared
+extension-utils configuration is needed, use the simple builder callback for the complete
+consumer-only schema:
+
+```ts
+import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema((z) =>
+  z.object({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+  }),
+)
+```
+
+When shared extension-utils configuration is needed, use declarative composition through the
+package-owned fragments, then build extension-specific fields in `extend`:
 
 ```ts
 import {
@@ -156,10 +170,13 @@ import {
 export const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig, cacheConfig],
   extend: (z) => ({
-    CATALOG_ENABLED: z.boolean().default(true),
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
   }),
 })
 ```
+
+`include` is required for the object/composition form. If there is nothing to include, use the
+callback form instead.
 
 `include` order does not affect composition. Transitive dependencies are deduplicated by fragment
 identity, so startup and cache share one `redisConfig` instance in the example. Each fragment
@@ -207,9 +224,6 @@ builder callback type. Do not call schema methods on a definition. Use the suppl
 objects, arrays, unions, and helper output so the materialized schema stays on the package-owned
 runtime. The package does not traverse Zod's internal schema graph to enforce that usage contract.
 `validateExtensionOptions` materializes the definition and returns its inferred, validated output.
-
-The callback-only `defineExtensionOptionsSchema((z) => z.object(...))` form remains supported for a
-complete schema that does not include shared extension-utils configuration.
 
 The raw-schema overload of `validateExtensionOptions` remains fully supported for consumer-owned Zod
 schemas. Passing a standalone consumer-owned schema directly does not mix Zod runtimes. The risk

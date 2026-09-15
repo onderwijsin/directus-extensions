@@ -336,16 +336,21 @@ false, and call `end()` after successful registration.
 
 Use `validateExtensionOptions` with either a consumer-owned Zod schema or an opaque
 `ExtensionOptionsDefinition` to validate the extension environment before registering routes or
-other API behavior. Both overloads are fully supported. Create a complete opaque definition with
-the callback form of `defineExtensionOptionsSchema`. When extension options include shared
-configuration provided by extension-utils, use declarative composition with `include` and the
-package-owned `redisConfig`, `synchronizationConfig`, `cacheConfig`, `emailConfig`,
-`requiredEmailConfig`, or `directusStartupConfig` fragments. Put extension-specific fields in
-`extend`. Includes are order-independent, transitive dependencies are deduplicated by fragment
-identity, and duplicate top-level keys fail without override semantics. The specialized
-`define*ConfigSchema` builders remain one-fragment convenience APIs implemented through the same
-composer. Valid data is returned with its inferred output type. Invalid data is logged and throws
-`Invalid extension options ☝. Exiting.`.
+other API behavior. Both overloads are fully supported. When no shared extension-utils configuration
+is needed, create the complete consumer-only definition with the simple callback form:
+
+```ts
+const envSchema = defineExtensionOptionsSchema((z) =>
+  z.object({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+  }),
+)
+```
+
+When extension options include shared configuration provided by extension-utils, use declarative
+composition with the package-owned `redisConfig`, `synchronizationConfig`, `cacheConfig`,
+`emailConfig`, `requiredEmailConfig`, or `directusStartupConfig` fragments. Put
+extension-specific fields in `extend`:
 
 ```ts
 const envSchema = defineExtensionOptionsSchema({
@@ -353,6 +358,13 @@ const envSchema = defineExtensionOptionsSchema({
   extend: (z) => ({ MY_EXTENSION_ENABLED: z.boolean().default(true) }),
 })
 ```
+
+`include` is required for the object/composition form. If there is nothing to include, use the
+callback form instead. Includes are order-independent, transitive dependencies are deduplicated by
+fragment identity, and duplicate top-level keys fail without override semantics. The specialized
+`define*ConfigSchema` builders remain one-fragment convenience APIs implemented through the same
+composer. Valid data is returned with its inferred output type. Invalid data is logged and throws
+`Invalid extension options ☝. Exiting.`.
 
 The builder callback supplies the package-owned Zod runtime. Build every field and nested schema
 with that callback value. A reusable nested helper must be a factory that receives the supplied `z`,

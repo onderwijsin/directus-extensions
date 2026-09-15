@@ -61,6 +61,10 @@ export const envSchema = defineExtensionOptionsSchema((z) =>
 )
 ```
 
+Use this callback form when the complete schema is consumer-only. The object/composition form
+requires `include`; if there is no shared extension-utils configuration to include, keep using the
+callback form.
+
 The builder supplies the package-owned Zod runtime. Use that callback value for every nested object,
 array, union, and transform. When a nested schema needs a helper, make the helper a factory that
 receives the supplied callback value:

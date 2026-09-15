@@ -166,20 +166,36 @@ interface ExtensionOptionsConfigFragment<Output> // opaque package-owned fragmen
 defineExtensionOptionsSchema<Schema extends ZodType>(
   builder: ExtensionOptionsSchemaBuilder<Schema>,
 ): ExtensionOptionsDefinition<z.output<Schema>>
+```
 
+Use the callback form for a complete consumer-only schema when no shared extension-utils
+configuration is needed:
+
+```ts
+defineExtensionOptionsSchema((z) =>
+  z.object({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+  }),
+)
+```
+
+Use the object form for declarative composition when shared extension-utils configuration is
+needed:
+
+```ts
 defineExtensionOptionsSchema({
   include: [directusStartupConfig, cacheConfig],
   extend: (z) => ({ MY_EXTENSION_ENABLED: z.boolean().default(true) }),
-}): ExtensionOptionsDefinition<DirectusStartupOptions & CacheConfig & {
-  MY_EXTENSION_ENABLED: boolean
-}>
+})
 ```
 
-The object form is declarative. `include` is a non-empty tuple of package-owned fragments; `extend`
-is optional. The inferred output intersects every included fragment output with the object output
-from `extend`. Includes are collected with their transitive dependencies, deduplicated by fragment
-identity, and sorted into a canonical composition order. Fragment order therefore does not affect
-defaults, refinements, output, or issue ordering.
+`include` is required for the object form and is a non-empty tuple of package-owned fragments;
+`extend` is optional. If there is nothing to include, use the callback form instead. The inferred
+output for the example is `DirectusStartupOptions & CacheConfig & { MY_EXTENSION_ENABLED: boolean }`.
+It intersects every included fragment output with the object output from `extend`. Includes are
+collected with their transitive dependencies, deduplicated by fragment identity, and sorted into a
+canonical composition order. Fragment order therefore does not affect defaults, refinements, output,
+or issue ordering.
 
 Each fragment declares its own shallow top-level shape and cross-field refinement. Composition uses
 those declarations to build one package-owned object schema and never inspects a Zod schema graph.
