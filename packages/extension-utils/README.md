@@ -18,10 +18,13 @@ pnpm add @onderwijsin/directus-extension-utils
 ```
 
 The server utilities use their own Zod runtime dependency. Consumers do not need to install or align
-Zod when defining extension options through the package's schema builders. An extension may use
-another Zod version for unrelated validation, but must not combine schemas from that runtime with
-the legacy raw schemas exported by this package. Use the `z` supplied to each builder callback for
-the complete options definition, including nested schemas and helper output.
+Zod when defining extension options through the package's schema builders. A consumer-owned Zod
+schema can also be passed directly to `validateExtensionOptions`; this is a fully supported API.
+When extension options include shared configuration provided by extension-utils, use the applicable
+builder so its callback supplies the package-owned Zod runtime. An extension may use another Zod
+version for unrelated validation, but must not combine schemas from that runtime with the raw shared
+schemas exported by this package. Use the `z` supplied to each builder callback for the complete
+options definition, including nested schemas and helper output.
 
 `ensureDirectusDocumentation` is the server-only contract for extensions that contribute articles to
 the fixed `studio_docs` collection. It validates stable article input, honors the docs seed gate,
@@ -343,10 +346,14 @@ export const envSchema = defineExtensionOptionsSchema((z) => {
 
 The supplied callback value is the builder's mixed-runtime safeguard. The package does not traverse
 Zod's internal schema graph or reject schemas captured from another runtime, so using a separately
-imported `z` inside the callback can reintroduce version-sensitive behavior. For backward
-compatibility, `validateExtensionOptions` still accepts a raw Zod schema and the package still
-exports its raw shared schemas. That overload is deprecated and is version-sensitive when a consumer
-combines schemas from another Zod runtime; use builders for new code.
+imported `z` inside the callback can reintroduce version-sensitive behavior.
+`validateExtensionOptions` also fully supports a consumer-owned raw Zod schema. Passing a standalone
+consumer-owned schema directly does not mix Zod runtimes. The mixed-runtime risk arises when a
+consumer-owned schema is composed with a raw shared schema from extension-utils that uses a
+different Zod runtime. When using extension-utils-provided shared configuration, prefer the
+corresponding builder because its callback supplies the package-owned runtime. The package continues
+to export its raw shared schemas for compatibility; combining them across Zod runtimes remains
+version-sensitive.
 
 For extensions that modify Directus schema, compose the entrypoint environment schema with the
 shared server-side schema-change settings:

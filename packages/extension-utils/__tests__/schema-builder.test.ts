@@ -102,7 +102,7 @@ describe('extension options schema builders', () => {
 		expect(validateExtensionOptions({}, definition, logger).CATALOG_ENABLED).toBe(true)
 	})
 
-	it('preserves the legacy raw-schema path with an independent runtime', () => {
+	it('supports a consumer-owned raw schema from an independent runtime', () => {
 		const { schema: foreignDefault } = createForeignDefault()
 
 		expect(validateExtensionOptions(undefined, foreignDefault, logger)).toBe(true)

@@ -142,8 +142,10 @@ memory package's local backend internally. The base email schema is optional and
 defaults; the required schema validates the selected `sendmail`, `smtp`, `mailgun`, or `ses`
 transport.
 
-The raw schemas are retained for compatibility. For new extension environment configuration, use an
-opaque option-schema builder instead of extending or combining a raw schema.
+The raw shared schemas are retained for compatibility. A consumer-owned raw schema can be passed
+directly to `validateExtensionOptions` as a fully supported API. When extension environment
+configuration uses shared settings provided by extension-utils, prefer the corresponding opaque
+option-schema builder instead of extending or combining a raw shared schema.
 
 ## Server-only option schema builders
 
@@ -344,7 +346,6 @@ validateExtensionOptions<Output>(
   logger: Logger,
 ): Output
 
-/** @deprecated Use an option-schema builder for new configuration. */
 validateExtensionOptions<S extends ZodType>(
   options: unknown,
   schema: S,
@@ -355,8 +356,12 @@ validateExtensionOptions<S extends ZodType>(
 `extensionSetup` logs lifecycle messages and treats missing or true `<EXTENSION_NAME>_ENABLED`
 values as enabled. The string `"false"` and boolean `false` disable the extension.
 `validateExtensionOptions` logs Zod's formatted error and throws `Invalid extension options ☝.
-Exiting.` when parsing fails. The raw-schema overload remains for compatibility, but it is deprecated
-and cannot safely compose schemas from different Zod runtimes.
+Exiting.` when parsing fails. The raw-schema overload is fully supported for consumer-owned schemas;
+passing a standalone consumer-owned schema directly does not mix Zod runtimes. The mixed-runtime
+risk arises when a consumer-owned schema is composed with a raw shared schema from extension-utils
+that uses a different Zod runtime. Prefer the corresponding builder when using
+extension-utils-provided shared configuration because its callback supplies the package-owned
+runtime.
 
 ## Server-only schema management
 

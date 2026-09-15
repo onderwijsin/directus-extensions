@@ -330,12 +330,14 @@ Use `extensionSetup` at an API or server extension entrypoint to log loading/com
 the `<EXTENSION_NAME>_ENABLED` environment flag. Call `start()` first, return when `isEnabled()` is
 false, and call `end()` after successful registration.
 
-Use `validateExtensionOptions` with an opaque `ExtensionOptionsDefinition` to validate the extension
-environment before registering routes or other API behavior. Create it with
-`defineExtensionOptionsSchema`, or with `defineRedisConfigSchema`,
+Use `validateExtensionOptions` with either a consumer-owned Zod schema or an opaque
+`ExtensionOptionsDefinition` to validate the extension environment before registering routes or
+other API behavior. Both overloads are fully supported. Create a complete opaque definition with
+`defineExtensionOptionsSchema`. When extension options include shared configuration provided by
+extension-utils, prefer the corresponding specialized builder: `defineRedisConfigSchema`,
 `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`, `defineEmailConfigSchema`,
-`defineRequiredEmailConfigSchema`, or `defineDirectusStartupSchema` when shared configuration is
-needed. Valid data is returned with its inferred output type. Invalid data is logged and throws
+`defineRequiredEmailConfigSchema`, or `defineDirectusStartupSchema`. Valid data is returned with its
+inferred output type. Invalid data is logged and throws
 `Invalid extension options ☝. Exiting.`.
 
 The builder callback supplies the package-owned Zod runtime. Build every field and nested schema
@@ -345,9 +347,11 @@ graph to enforce this usage contract. `ExtensionOptionsSchemaBuilder` and
 `ExtensionOptionsShapeBuilder` are type-only exports for helpers that need to name a callback;
 `ExtensionOptionsDefinition` is opaque and is only passed to `validateExtensionOptions`.
 
-The raw-schema overload of `validateExtensionOptions` is deprecated but remains available for
-backward compatibility. Do not use it for new configuration, especially where two Zod runtimes could
-meet.
+The raw-schema overload of `validateExtensionOptions` remains fully supported for a consumer-owned
+schema. Passing a standalone consumer-owned schema directly does not mix Zod runtimes. The
+mixed-runtime risk arises when a consumer-owned schema is composed with a raw shared schema from
+extension-utils that uses a different Zod runtime. Prefer the corresponding builder in that case
+because its callback supplies the package-owned runtime.
 
 These helpers coordinate setup and validation only; Directus registration, environment lookup, and
 application resource ownership remain with the consuming extension.

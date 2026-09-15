@@ -65,9 +65,9 @@ export function defineExtensionOptionsShape<
 }
 
 /**
- * Resolves a legacy schema or package-owned definition to its Zod schema.
+ * Resolves a raw Zod schema or package-owned definition to its Zod schema.
  *
- * @param schema - Legacy Zod schema or an opaque package-owned definition.
+ * @param schema - Raw Zod schema or an opaque package-owned definition.
  * @returns The schema used to validate extension options.
  */
 export function resolveExtensionOptionsSchema(

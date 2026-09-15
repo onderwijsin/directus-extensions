@@ -2,8 +2,9 @@
 
 Validate extension configuration at the Directus entrypoint boundary. Environment values are
 external input: they can be missing, mistyped, or changed independently of the extension package.
-Use an extension-utils schema builder to define accepted configuration and fail during startup
-before registering routes, events, SDK clients, or other side effects.
+Define accepted configuration with a consumer-owned Zod schema, or use an extension-utils schema
+builder when the configuration includes shared settings provided by extension-utils. Validate during
+startup before registering routes, events, SDK clients, or other side effects.
 
 ## Validation pattern
 
@@ -13,8 +14,8 @@ For server and API extensions, use the setup lifecycle before validating configu
 2. Call `start()`.
 3. Return when `isEnabled()` is false, so disabled extensions do not validate optional runtime
    dependencies or perform other setup work.
-4. Import the opaque options definition from the entrypoint's sibling `src/env.schema.ts` and pass
-   it to `validateExtensionOptions`.
+4. Import the options schema or opaque definition from the entrypoint's sibling `src/env.schema.ts`
+   and pass it to `validateExtensionOptions`.
 5. Use the validated options to register Directus behavior, then call `end()` only after
    registration succeeds.
 
@@ -80,11 +81,13 @@ export const envSchema = defineExtensionOptionsSchema((z) => {
 
 Do not import or close over another `z` value for fields in an opaque definition. Supplying the
 package-owned runtime through the callback is the safeguard; the package does not traverse Zod's
-internal schema graph to enforce it. For new code, use `defineExtensionOptionsSchema` or one of the
-specialized shared-configuration builders documented in
+internal schema graph to enforce it. The builder API is recommended when using shared configuration
+provided by extension-utils because the callback supplies the package-owned Zod runtime; see the
+specialized builders documented in
 [`extension-utils.md`](extension-utils.md#zod-safe-extension-options). `validateExtensionOptions`
-still accepts raw Zod schemas for compatibility, but that overload is deprecated and may not safely
-compose schemas from different Zod runtimes.
+also fully supports a standalone consumer-owned raw Zod schema. Passing that schema directly does
+not mix runtimes. The mixed-runtime risk arises when a consumer-owned schema is composed with a raw
+shared schema from extension-utils that uses a different Zod runtime.
 
 Do not assume that every environment value is a string. Directus automatically type casts values
 using context clues before making them available to extensions. Prefer a schema that reflects those

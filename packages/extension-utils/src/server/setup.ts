@@ -47,9 +47,9 @@ export function extensionSetup<ENV extends Record<string, unknown>>(
 }
 
 /**
- * Validates extension environment config against a Zod schema.
+ * Validates extension environment config against an opaque extension options definition.
  * @param options - The extension environment.
- * @param schema - The complete extension-specific Zod schema, including `<EXTENSION_NAME_ENABLED>`.
+ * @param schema - The opaque extension options definition, including `<EXTENSION_NAME_ENABLED>`.
  * @param log - The Pino Logger
  * @returns The validated options.
  * @throws When validation fails.
@@ -60,14 +60,17 @@ export function validateExtensionOptions<const Output>(
 	log: Logger,
 ): Output
 /**
- * Validates extension environment config against a legacy Zod schema.
+ * Validates extension environment config against a consumer-owned Zod schema.
+ *
+ * A standalone consumer-owned schema is fully supported. When extension options include shared
+ * configuration provided by extension-utils, prefer the corresponding builder so its callback
+ * supplies the package-owned Zod runtime.
+ *
  * @param options - The extension environment.
  * @param schema - The complete extension-specific Zod schema.
  * @param log - The Pino Logger.
  * @returns The validated options.
  * @throws When validation fails.
- * @deprecated Define new schemas with `defineExtensionOptionsSchema` or a shared configuration
- * builder so extension-utils owns the Zod runtime.
  */
 export function validateExtensionOptions<const Schema extends ZodType>(
 	options: unknown,

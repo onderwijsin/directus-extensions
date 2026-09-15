@@ -142,9 +142,10 @@ resource cleanup. Invalid Zod configuration is logged and throws
 
 ### Zod-safe extension options
 
-For new extension configuration, define an opaque options definition with the package-owned Zod
-runtime. `defineExtensionOptionsSchema` builds an ordinary complete schema. The specialized builders
-add shared configuration before accepting extension fields:
+The builder API defines opaque options with the package-owned Zod runtime.
+`defineExtensionOptionsSchema` builds an ordinary complete schema. The specialized builders add
+shared configuration before accepting extension fields and are recommended when extension options
+use extension-utils-provided shared configuration:
 
 | Builder                             | Shared configuration                                                                    |
 | ----------------------------------- | --------------------------------------------------------------------------------------- |
@@ -183,9 +184,12 @@ materialized schema stays on the package-owned runtime. The package does not tra
 schema graph to enforce that usage contract. `validateExtensionOptions` materializes the definition
 and returns its inferred, validated output.
 
-Raw Zod schemas and shared raw schemas remain exported for compatibility. The raw-schema overload of
-`validateExtensionOptions` is deprecated and is version-sensitive when schemas from different Zod
-runtimes are combined; use an opaque builder for new code.
+The raw-schema overload of `validateExtensionOptions` remains fully supported for consumer-owned Zod
+schemas. Passing a standalone consumer-owned schema directly does not mix Zod runtimes. The risk
+arises when a consumer-owned schema is composed with a raw shared schema from extension-utils that
+uses a different Zod runtime. Prefer the corresponding builder when using extension-utils-provided
+shared configuration because its callback supplies the package-owned runtime. Raw shared schemas
+remain exported for compatibility, and composing them across Zod runtimes remains version-sensitive.
 
 ### Policy resolution
 
