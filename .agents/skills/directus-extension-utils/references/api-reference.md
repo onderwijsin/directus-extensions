@@ -129,6 +129,12 @@ redisConfigSchema
 synchronizationConfigSchema
 emailConfigSchema
 requiredEmailConfigSchema
+redisConfig
+synchronizationConfig
+cacheConfig
+emailConfig
+requiredEmailConfig
+directusStartupConfig
 type CacheConfig = z.output<typeof cacheConfigSchema>
 resolveRedisConnectionString(options: RedisConfig): string | undefined
 resolveCacheStorage(options: CacheConfig): 'memory' | 'redis' | null
@@ -142,44 +148,60 @@ memory package's local backend internally. The base email schema is optional and
 defaults; the required schema validates the selected `sendmail`, `smtp`, `mailgun`, or `ses`
 transport.
 
-The raw shared schemas are retained for compatibility. A consumer-owned raw schema can be passed
-directly to `validateExtensionOptions` as a fully supported API. When extension environment
-configuration uses shared settings provided by extension-utils, prefer the corresponding opaque
-option-schema builder instead of extending or combining a raw shared schema.
+The six values without the `Schema` suffix are opaque package-owned configuration fragments. Their
+dependencies are explicit: synchronization and cache depend on Redis, required email depends on
+email, and Directus startup depends on synchronization. The raw shared schemas are retained for
+compatibility. A consumer-owned raw schema can be passed directly to `validateExtensionOptions` as
+a fully supported API. When extension environment configuration uses shared settings provided by
+extension-utils, compose the corresponding fragments instead of extending or combining raw shared
+schemas.
 
 ## Server-only option schema builders
 
 ```ts
 type ExtensionOptionsSchemaBuilder<Schema extends ZodType> = (zod: typeof z) => Schema
 type ExtensionOptionsShapeBuilder<Shape extends z.ZodRawShape> = (zod: typeof z) => Shape
+interface ExtensionOptionsConfigFragment<Output> // opaque package-owned fragment
 
 defineExtensionOptionsSchema<Schema extends ZodType>(
   builder: ExtensionOptionsSchemaBuilder<Schema>,
 ): ExtensionOptionsDefinition<z.output<Schema>>
 
-defineCacheConfigSchema<const Shape extends z.ZodRawShape>(
-  builder: ExtensionOptionsShapeBuilder<Shape>,
-): ExtensionOptionsDefinition<
-  Omit<CacheConfig, keyof Shape> & z.output<z.ZodObject<Shape>>
->
+defineExtensionOptionsSchema({
+  include: [directusStartupConfig, cacheConfig],
+  extend: (z) => ({ MY_EXTENSION_ENABLED: z.boolean().default(true) }),
+}): ExtensionOptionsDefinition<DirectusStartupOptions & CacheConfig & {
+  MY_EXTENSION_ENABLED: boolean
+}>
 ```
+
+The object form is declarative. `include` is a non-empty tuple of package-owned fragments; `extend`
+is optional. The inferred output intersects every included fragment output with the object output
+from `extend`. Includes are collected with their transitive dependencies, deduplicated by fragment
+identity, and sorted into a canonical composition order. Fragment order therefore does not affect
+defaults, refinements, output, or issue ordering.
+
+Each fragment declares its own shallow top-level shape and cross-field refinement. Composition uses
+those declarations to build one package-owned object schema and never inspects a Zod schema graph.
+Duplicate top-level keys from distinct fragments or from `extend` throw an error naming the key and
+both owners. Schema equivalence, overrides, and last-wins behavior are not supported.
 
 `ExtensionOptionsDefinition<Output>` is the opaque value returned by every builder. The six
 specialized builders accept an `ExtensionOptionsShapeBuilder<Shape>` and return an opaque definition
-with inferred output; `defineCacheConfigSchema` above is the representative generic signature:
+with inferred output through the same one-fragment composition mechanism:
 
-| Builder | Adds |
+| Builder | Included fragment |
 | --- | --- |
-| `defineRedisConfigSchema` | Directus Redis values. |
-| `defineSynchronizationConfigSchema` | Synchronization and Redis values. |
-| `defineCacheConfigSchema` | Cache and Redis values. |
-| `defineEmailConfigSchema` | Optional email transport configuration. |
-| `defineRequiredEmailConfigSchema` | Email configuration with selected-transport prerequisites. |
-| `defineDirectusStartupSchema` | Directus startup, locking, rate-limiter, synchronization, and Redis values. |
+| `defineRedisConfigSchema` | `redisConfig`. |
+| `defineSynchronizationConfigSchema` | `synchronizationConfig`. |
+| `defineCacheConfigSchema` | `cacheConfig`. |
+| `defineEmailConfigSchema` | `emailConfig`. |
+| `defineRequiredEmailConfigSchema` | `requiredEmailConfig`. |
+| `defineDirectusStartupSchema` | `directusStartupConfig`. |
 
-`defineExtensionOptionsSchema` receives a callback that returns a complete schema. The other six
-builders receive a callback that returns extension-specific object fields before the listed shared
-configuration is added.
+The callback form of `defineExtensionOptionsSchema` receives a callback that returns a complete
+schema. The other six builders receive a callback that returns extension-specific object fields
+alongside the listed shared configuration fragment.
 
 An `ExtensionOptionsDefinition` is not a Zod schema. It is opaque and may only be supplied to
 `validateExtensionOptions`. Every schema node, including nested objects, arrays, unions, and helper
@@ -346,22 +368,27 @@ validateExtensionOptions<Output>(
   logger: Logger,
 ): Output
 
-validateExtensionOptions<S extends ZodType>(
+validateExtensionOptions<Output>(
   options: unknown,
-  schema: S,
+  schema: {
+    safeParse(options: unknown):
+      | { success: true; data: Output }
+      | { success: false; error: unknown }
+  },
   logger: Logger,
-): z.output<S>
+): Output
 ```
 
 `extensionSetup` logs lifecycle messages and treats missing or true `<EXTENSION_NAME>_ENABLED`
 values as enabled. The string `"false"` and boolean `false` disable the extension.
-`validateExtensionOptions` logs Zod's formatted error and throws `Invalid extension options ☝.
+`validateExtensionOptions` logs validation error details (prettified for package-owned Zod errors) and throws `Invalid extension options ☝.
 Exiting.` when parsing fails. The raw-schema overload is fully supported for consumer-owned schemas;
-passing a standalone consumer-owned schema directly does not mix Zod runtimes. The mixed-runtime
-risk arises when a consumer-owned schema is composed with a raw shared schema from extension-utils
-that uses a different Zod runtime. Prefer the corresponding builder when using
-extension-utils-provided shared configuration because its callback supplies the package-owned
-runtime.
+its shallow structural `safeParse` contract does not require the consumer's schema type to match the
+package's exact Zod minor. Passing a standalone consumer-owned schema directly does not mix Zod
+runtimes. The mixed-runtime risk arises when a consumer-owned schema is composed with a raw shared
+schema from extension-utils that uses a different Zod runtime. Prefer fragment composition or the
+corresponding one-fragment builder when using extension-utils-provided shared configuration because
+both supply the package-owned runtime.
 
 ## Server-only schema management
 
@@ -394,14 +421,19 @@ getDirectusStartupLockName(name: string): string
 ```
 
 `directusStartupSchema` validates the global enablement and provider settings. It remains a raw
-compatibility export. New extension environment definitions should use the opaque builder, which
-preserves those conditional Redis and filesystem requirements:
+compatibility export. New extension environment definitions should include the package-owned
+fragment, which preserves those conditional Redis and filesystem requirements:
 
 ```ts
-const envSchema = defineDirectusStartupSchema((z) => ({
-  ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
-}))
+const envSchema = defineExtensionOptionsSchema({
+  include: [directusStartupConfig],
+  extend: (z) => ({
+    ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
+  }),
+})
 ```
+
+`defineDirectusStartupSchema` is the one-fragment convenience equivalent.
 
 ```ts
 interface DirectusStartupLockProvider {

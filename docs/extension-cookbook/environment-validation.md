@@ -81,9 +81,27 @@ export const envSchema = defineExtensionOptionsSchema((z) => {
 
 Do not import or close over another `z` value for fields in an opaque definition. Supplying the
 package-owned runtime through the callback is the safeguard; the package does not traverse Zod's
-internal schema graph to enforce it. The builder API is recommended when using shared configuration
-provided by extension-utils because the callback supplies the package-owned Zod runtime; see the
-specialized builders documented in
+internal schema graph to enforce it. When an extension needs multiple shared configuration groups,
+compose their package-owned fragments declaratively:
+
+```ts
+import {
+  cacheConfig,
+  defineExtensionOptionsSchema,
+  directusStartupConfig,
+} from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema({
+  include: [directusStartupConfig, cacheConfig],
+  extend: (z) => ({
+    CATALOG_ENABLED: z.boolean().default(true),
+  }),
+})
+```
+
+Fragment order does not change behavior, and transitive dependencies are deduplicated by fragment
+identity. A duplicate top-level key from separate fragments or `extend` is an error; composition
+does not provide overrides. See the fragments and one-fragment convenience builders documented in
 [`extension-utils.md`](extension-utils.md#zod-safe-extension-options). `validateExtensionOptions`
 also fully supports a standalone consumer-owned raw Zod schema. Passing that schema directly does
 not mix runtimes. The mixed-runtime risk arises when a consumer-owned schema is composed with a raw

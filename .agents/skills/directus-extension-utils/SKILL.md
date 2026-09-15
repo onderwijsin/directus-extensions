@@ -69,6 +69,8 @@ Import common browser-safe helpers from the root or `/shared`. Always use `/serv
 `extensionSetup`, `validateExtensionOptions`, `defineExtensionOptionsSchema`,
 `defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`,
 `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, `defineDirectusStartupSchema`,
+`redisConfig`, `synchronizationConfig`, `cacheConfig`, `emailConfig`, `requiredEmailConfig`,
+`directusStartupConfig`,
 `validateSchemaDefinition`, `ensureDirectusSchema`,
 `ensureDirectusPolicy`, `ensureDirectusDocumentation`, `createDirectusStartupCoordinator`, and `asyncHandler`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
@@ -153,13 +155,15 @@ All lock providers expose the same `defaultLeaseMs` and `tokenFactory` options w
 
 ### Schema changes
 
-Use `defineDirectusStartupSchema` when an extension can create or update Directus collections,
-fields, or relations. It validates the global enablement flags and selects a lock provider with
+Include `directusStartupConfig` with `defineExtensionOptionsSchema` when an extension can create or
+update Directus collections, fields, or relations and needs other shared configuration. Use
+`defineDirectusStartupSchema` as the one-fragment convenience API. Both validate the global
+enablement flags and select a lock provider with
 `DIRECTUS_EXTENSIONS_LOCK_PROVIDER=memory|redis|fs`. When unset, the provider follows
 `SYNCHRONIZATION_STORE`. Redis requires
 `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`; filesystem locking requires
 `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY`. The raw `directusStartupSchema` remains a compatibility
-export; do not compose new extension configuration from it.
+export; compose new shared configuration from package-owned fragments.
 
 Pass the validated environment options as `options.lockProviderConfig` to
 `ensureDirectusSchema`. The utility creates and disposes providers selected from environment
@@ -333,25 +337,36 @@ false, and call `end()` after successful registration.
 Use `validateExtensionOptions` with either a consumer-owned Zod schema or an opaque
 `ExtensionOptionsDefinition` to validate the extension environment before registering routes or
 other API behavior. Both overloads are fully supported. Create a complete opaque definition with
-`defineExtensionOptionsSchema`. When extension options include shared configuration provided by
-extension-utils, prefer the corresponding specialized builder: `defineRedisConfigSchema`,
-`defineSynchronizationConfigSchema`, `defineCacheConfigSchema`, `defineEmailConfigSchema`,
-`defineRequiredEmailConfigSchema`, or `defineDirectusStartupSchema`. Valid data is returned with its
-inferred output type. Invalid data is logged and throws
+the callback form of `defineExtensionOptionsSchema`. When extension options include shared
+configuration provided by extension-utils, use declarative composition with `include` and the
+package-owned `redisConfig`, `synchronizationConfig`, `cacheConfig`, `emailConfig`,
+`requiredEmailConfig`, or `directusStartupConfig` fragments. Put extension-specific fields in
+`extend`. Includes are order-independent, transitive dependencies are deduplicated by fragment
+identity, and duplicate top-level keys fail without override semantics. The specialized
+`define*ConfigSchema` builders remain one-fragment convenience APIs implemented through the same
+composer. Valid data is returned with its inferred output type. Invalid data is logged and throws
 `Invalid extension options ☝. Exiting.`.
+
+```ts
+const envSchema = defineExtensionOptionsSchema({
+  include: [directusStartupConfig, cacheConfig],
+  extend: (z) => ({ MY_EXTENSION_ENABLED: z.boolean().default(true) }),
+})
+```
 
 The builder callback supplies the package-owned Zod runtime. Build every field and nested schema
 with that callback value. A reusable nested helper must be a factory that receives the supplied `z`,
 never a schema from an imported or captured Zod runtime. The package does not traverse Zod's schema
 graph to enforce this usage contract. `ExtensionOptionsSchemaBuilder` and
 `ExtensionOptionsShapeBuilder` are type-only exports for helpers that need to name a callback;
-`ExtensionOptionsDefinition` is opaque and is only passed to `validateExtensionOptions`.
+`ExtensionOptionsConfigFragment` names the public fragment type. `ExtensionOptionsDefinition` is
+opaque and is only passed to `validateExtensionOptions`.
 
 The raw-schema overload of `validateExtensionOptions` remains fully supported for a consumer-owned
 schema. Passing a standalone consumer-owned schema directly does not mix Zod runtimes. The
 mixed-runtime risk arises when a consumer-owned schema is composed with a raw shared schema from
-extension-utils that uses a different Zod runtime. Prefer the corresponding builder in that case
-because its callback supplies the package-owned runtime.
+extension-utils that uses a different Zod runtime. Prefer fragment composition or the corresponding
+one-fragment builder in that case because both supply the package-owned runtime.
 
 These helpers coordinate setup and validation only; Directus registration, environment lookup, and
 application resource ownership remain with the consuming extension.

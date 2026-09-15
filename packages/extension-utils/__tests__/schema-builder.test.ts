@@ -5,6 +5,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
 
 import {
+	cacheConfig,
 	defineCacheConfigSchema,
 	defineDirectusStartupSchema,
 	defineEmailConfigSchema,
@@ -12,8 +13,17 @@ import {
 	defineRedisConfigSchema,
 	defineRequiredEmailConfigSchema,
 	defineSynchronizationConfigSchema,
+	directusStartupConfig,
+	requiredEmailConfig,
+	requiredEmailConfigSchema,
+	redisConfig,
+	synchronizationConfig,
 	validateExtensionOptions,
 } from '../src/server'
+import {
+	createExtensionOptionsConfigFragment,
+	resolveExtensionOptionsSchema,
+} from '../src/server/schema-builder'
 import { isFunction, isRecord } from '../src/shared/guards'
 
 const logger = pino({ enabled: false })
@@ -104,8 +114,10 @@ describe('extension options schema builders', () => {
 
 	it('supports a consumer-owned raw schema from an independent runtime', () => {
 		const { schema: foreignDefault } = createForeignDefault()
+		const options = validateExtensionOptions(undefined, foreignDefault, logger)
 
-		expect(validateExtensionOptions(undefined, foreignDefault, logger)).toBe(true)
+		expect(options).toBe(true)
+		expectTypeOf(options).toEqualTypeOf<boolean>()
 	})
 
 	it('composes Directus startup fields without exposing the base schema', () => {
@@ -128,6 +140,154 @@ describe('extension options schema builders', () => {
 				logger,
 			),
 		).toThrow('Invalid extension options ☝. Exiting.')
+	})
+
+	it('composes Directus startup, cache, and extension-specific fields', () => {
+		const definition = defineExtensionOptionsSchema({
+			include: [directusStartupConfig, cacheConfig],
+			extend: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
+		})
+
+		const options = validateExtensionOptions({}, definition, logger)
+
+		expect(options).toMatchObject({
+			CACHE_ENABLED: false,
+			CATALOG_ENABLED: true,
+			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+			REDIS_ENABLED: false,
+			SYNCHRONIZATION_STORE: 'memory',
+		})
+		expectTypeOf(options.CACHE_ENABLED).toEqualTypeOf<boolean>()
+		expectTypeOf(options.CATALOG_ENABLED).toEqualTypeOf<boolean>()
+		expectTypeOf(options.DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED).toEqualTypeOf<boolean>()
+		expect(() =>
+			validateExtensionOptions(
+				{ DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'redis' },
+				definition,
+				logger,
+			),
+		).toThrow('Invalid extension options ☝. Exiting.')
+	})
+
+	it('composes Directus startup, required email, and extension-specific fields', () => {
+		const definition = defineExtensionOptionsSchema({
+			include: [directusStartupConfig, requiredEmailConfig],
+			extend: (z) => ({ CATALOG_EMAIL_ENABLED: z.boolean().default(true) }),
+		})
+
+		const options = validateExtensionOptions(
+			{ EMAIL_TRANSPORT: 'smtp', EMAIL_SMTP_HOST: 'smtp.example.com' },
+			definition,
+			logger,
+		)
+
+		expect(options).toMatchObject({
+			CATALOG_EMAIL_ENABLED: true,
+			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+			EMAIL_SMTP_HOST: 'smtp.example.com',
+			EMAIL_TRANSPORT: 'smtp',
+		})
+		expectTypeOf(options.EMAIL_TRANSPORT).toEqualTypeOf<
+			'sendmail' | 'smtp' | 'mailgun' | 'ses'
+		>()
+		expect(() =>
+			validateExtensionOptions({ EMAIL_TRANSPORT: 'smtp' }, definition, logger),
+		).toThrow('Invalid extension options ☝. Exiting.')
+	})
+
+	it('preserves shared cross-field issues alongside field-level issues', () => {
+		const definition = defineExtensionOptionsSchema({ include: [requiredEmailConfig] })
+		const input = { EMAIL_TRANSPORT: 'smtp', EMAIL_SMTP_HOST: ' ' }
+		const rawResult = requiredEmailConfigSchema.safeParse(input)
+		const composedResult = resolveExtensionOptionsSchema(definition).safeParse(input)
+
+		if (rawResult.success || composedResult.success) {
+			throw new Error('Both required email schemas must reject a blank SMTP host')
+		}
+		if (!(composedResult.error instanceof z.ZodError)) {
+			throw new Error('The composed schema must return a package-owned Zod error')
+		}
+
+		expect(composedResult.error.issues).toEqual(rawResult.error.issues)
+	})
+
+	it('produces equivalent behavior independent of include order', () => {
+		const startupThenCache = defineExtensionOptionsSchema({
+			include: [directusStartupConfig, cacheConfig],
+			extend: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
+		})
+		const cacheThenStartup = defineExtensionOptionsSchema({
+			include: [cacheConfig, directusStartupConfig],
+			extend: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
+		})
+		const input = {
+			CACHE_ENABLED: true,
+			CACHE_STORE: 'redis',
+			DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'redis',
+			REDIS: 'redis://cache.example.com:6379',
+		}
+
+		expect(validateExtensionOptions(input, startupThenCache, logger)).toEqual(
+			validateExtensionOptions(input, cacheThenStartup, logger),
+		)
+		expect(() =>
+			validateExtensionOptions(
+				{ CACHE_ENABLED: true, CACHE_STORE: 'redis' },
+				startupThenCache,
+				logger,
+			),
+		).toThrow('Invalid extension options ☝. Exiting.')
+		expect(() =>
+			validateExtensionOptions(
+				{ CACHE_ENABLED: true, CACHE_STORE: 'redis' },
+				cacheThenStartup,
+				logger,
+			),
+		).toThrow('Invalid extension options ☝. Exiting.')
+	})
+
+	it('deduplicates direct and transitive shared dependencies by identity', () => {
+		const definition = defineExtensionOptionsSchema({
+			include: [
+				redisConfig,
+				synchronizationConfig,
+				cacheConfig,
+				directusStartupConfig,
+				redisConfig,
+			],
+		})
+
+		expect(validateExtensionOptions({}, definition, logger)).toMatchObject({
+			CACHE_ENABLED: false,
+			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+			REDIS_ENABLED: false,
+			SYNCHRONIZATION_STORE: 'memory',
+		})
+	})
+
+	it('rejects duplicate top-level option keys clearly', () => {
+		const firstConfig = createExtensionOptionsConfigFragment<{ SHARED_ENABLED: boolean }>({
+			name: 'firstConfig',
+			shape: (z) => ({ SHARED_ENABLED: z.boolean() }),
+		})
+		const secondConfig = createExtensionOptionsConfigFragment<{ SHARED_ENABLED: boolean }>({
+			name: 'secondConfig',
+			shape: (z) => ({ SHARED_ENABLED: z.boolean() }),
+		})
+		const duplicateFragments = defineExtensionOptionsSchema({
+			include: [secondConfig, firstConfig],
+		})
+		const duplicateExtensionField = defineExtensionOptionsSchema({
+			include: [cacheConfig],
+			extend: (z) => ({ CACHE_ENABLED: z.boolean() }),
+		})
+
+		expect(() => validateExtensionOptions({}, duplicateFragments, logger)).toThrow(
+			'Duplicate extension option key "SHARED_ENABLED" declared by "firstConfig" and "secondConfig"',
+		)
+		expect(() => validateExtensionOptions({}, duplicateExtensionField, logger)).toThrow(
+			'Duplicate extension option key "CACHE_ENABLED" declared by "cacheConfig" and "extend"',
+		)
 	})
 
 	it('preserves shared configuration validation in specialized builders', () => {

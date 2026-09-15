@@ -10,6 +10,7 @@ export * from './accountability'
 export * from './policies'
 export {
 	defineExtensionOptionsSchema,
+	type ExtensionOptionsConfigFragment,
 	type ExtensionOptionsDefinition,
 	type ExtensionOptionsSchemaBuilder,
 	type ExtensionOptionsShapeBuilder,

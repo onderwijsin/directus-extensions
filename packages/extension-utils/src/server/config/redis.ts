@@ -1,36 +1,68 @@
 import { z } from 'zod'
 
-import { defineExtensionOptionsShape, type ExtensionOptionsShapeBuilder } from '../schema-builder'
+import {
+	createExtensionOptionsConfigFragment,
+	defineExtensionOptionsShape,
+	type ExtensionOptionsShapeBuilder,
+} from '../schema-builder'
 
-const nonBlankStringSchema = z.string().trim().min(1)
+/**
+ * Creates a non-blank string schema with the supplied runtime.
+ * @param zod - Package-owned Zod runtime.
+ * @returns A trimmed non-blank string schema.
+ */
+const createNonBlankStringSchema = (zod: typeof z) => zod.string().trim().min(1)
 
-export const redisUrlSchema = nonBlankStringSchema.refine((value) => {
-	try {
-		const url = new URL(value)
-		return url.protocol === 'redis:' || url.protocol === 'rediss:'
-	} catch {
-		return false
+/**
+ * Creates the Redis URL schema with the supplied runtime.
+ * @param zod - Package-owned Zod runtime.
+ * @returns A schema accepting Redis and secure Redis URLs.
+ */
+const createRedisUrlSchema = (zod: typeof z) =>
+	createNonBlankStringSchema(zod).refine((value) => {
+		try {
+			const url = new URL(value)
+			return url.protocol === 'redis:' || url.protocol === 'rediss:'
+		} catch {
+			return false
+		}
+	}, 'must be a valid redis:// or rediss:// URL')
+
+export const redisUrlSchema = createRedisUrlSchema(z)
+
+/**
+ * Builds the Redis configuration fields for raw schemas and fragments.
+ * @param zod - Package-owned Zod runtime.
+ * @returns The shared Redis configuration shape.
+ */
+const defineRedisConfigShape = (zod: typeof z) => {
+	const nonBlankStringSchema = createNonBlankStringSchema(zod)
+	const redisHostSchema = nonBlankStringSchema.refine(
+		(value) => !/\s/u.test(value),
+		'must not contain whitespace',
+	)
+	const redisPortSchema = zod.coerce.number().int().min(1).max(65_535)
+
+	return {
+		REDIS_ENABLED: zod.boolean().default(false),
+		REDIS: createRedisUrlSchema(zod).optional(),
+		REDIS_HOST: redisHostSchema.optional(),
+		REDIS_PORT: redisPortSchema.optional(),
+		REDIS_USERNAME: nonBlankStringSchema.optional(),
+		REDIS_PASSWORD: nonBlankStringSchema.optional(),
 	}
-}, 'must be a valid redis:// or rediss:// URL')
-
-const redisHostSchema = nonBlankStringSchema.refine(
-	(value) => !/\s/u.test(value),
-	'must not contain whitespace',
-)
-
-const redisPortSchema = z.coerce.number().int().min(1).max(65_535)
+}
 
 /** Redis environment values supported by Directus. */
-export const redisConfigSchema = z.object({
-	REDIS_ENABLED: z.boolean().default(false),
-	REDIS: redisUrlSchema.optional(),
-	REDIS_HOST: redisHostSchema.optional(),
-	REDIS_PORT: redisPortSchema.optional(),
-	REDIS_USERNAME: nonBlankStringSchema.optional(),
-	REDIS_PASSWORD: nonBlankStringSchema.optional(),
-})
+export const redisConfigSchema = z.object(defineRedisConfigShape(z))
 
 export type RedisConfig = z.output<typeof redisConfigSchema>
+
+/** Shared Directus Redis configuration for declarative options composition. */
+export const redisConfig = createExtensionOptionsConfigFragment<RedisConfig>({
+	name: 'redisConfig',
+	shape: defineRedisConfigShape,
+})
 
 /**
  * Defines extension options that include the shared Redis configuration.
@@ -40,7 +72,7 @@ export type RedisConfig = z.output<typeof redisConfigSchema>
  */
 export const defineRedisConfigSchema = <const Shape extends z.ZodRawShape>(
 	builder: ExtensionOptionsShapeBuilder<Shape>,
-) => defineExtensionOptionsShape(redisConfigSchema, builder)
+) => defineExtensionOptionsShape(redisConfig, builder)
 
 /**
  * Resolves Directus Redis environment values to a connection URL.

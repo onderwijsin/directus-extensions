@@ -1,8 +1,12 @@
 import type { Logger } from 'pino'
 
-import { z, type ZodType } from 'zod'
+import { z } from 'zod'
 
-import { resolveExtensionOptionsSchema, type ExtensionOptionsDefinition } from './schema-builder'
+import {
+	resolveExtensionOptionsSchema,
+	type ExtensionOptionsDefinition,
+	type ExtensionOptionsValidator,
+} from './schema-builder'
 
 /**
  * Setup observability helpers for extension entrypoints
@@ -72,14 +76,14 @@ export function validateExtensionOptions<const Output>(
  * @returns The validated options.
  * @throws When validation fails.
  */
-export function validateExtensionOptions<const Schema extends ZodType>(
+export function validateExtensionOptions<const Output>(
 	options: unknown,
-	schema: Schema,
+	schema: ExtensionOptionsValidator<Output>,
 	log: Logger,
-): z.output<Schema>
+): Output
 export function validateExtensionOptions(
 	options: unknown,
-	schema: ZodType | ExtensionOptionsDefinition<unknown>,
+	schema: ExtensionOptionsValidator<unknown> | ExtensionOptionsDefinition<unknown>,
 	log: Logger,
 ): unknown {
 	const resolvedSchema = resolveExtensionOptionsSchema(schema)
@@ -89,6 +93,8 @@ export function validateExtensionOptions(
 		return result.data
 	}
 
-	log.info(z.prettifyError(result.error))
+	log.info(
+		result.error instanceof z.ZodError ? z.prettifyError(result.error) : String(result.error),
+	)
 	throw new Error('Invalid extension options ☝. Exiting.')
 }
