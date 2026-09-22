@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 import {
 	cacheConfig,
+	cacheConfigSchema,
 	defineCacheConfigSchema,
 	defineDirectusStartupSchema,
 	defineEmailConfigSchema,
@@ -98,7 +99,7 @@ describe('extension options schema builders', () => {
 		).toThrow('Invalid extension options ☝. Exiting.')
 	})
 
-	it('supports options-only composition with the package-owned Zod runtime', () => {
+	it('supports options-only defaults and transforms with the package-owned Zod runtime', () => {
 		const { version: foreignVersion } = createForeignDefault()
 		const definition = defineExtensionOptionsSchema({
 			options: (zod) => {
@@ -107,6 +108,10 @@ describe('extension options schema builders', () => {
 
 				return {
 					CATALOG_ENABLED: zod.boolean().default(true),
+					CATALOG_LABEL: zod
+						.string()
+						.default(' catalog ')
+						.transform((value) => value.trim()),
 				}
 			},
 		})
@@ -114,7 +119,9 @@ describe('extension options schema builders', () => {
 		const options = validateExtensionOptions({}, definition, logger)
 
 		expect(options.CATALOG_ENABLED).toBe(true)
+		expect(options.CATALOG_LABEL).toBe('catalog')
 		expectTypeOf(options.CATALOG_ENABLED).toEqualTypeOf<boolean>()
+		expectTypeOf(options.CATALOG_LABEL).toEqualTypeOf<string>()
 	})
 
 	it('supports a consumer-owned raw schema from an independent runtime', () => {
@@ -200,7 +207,7 @@ describe('extension options schema builders', () => {
 		).toThrow('Invalid extension options ☝. Exiting.')
 	})
 
-	it('stages shared defaults and transforms before overlapping options', () => {
+	it('validates shared defaults and transforms before overlapping constraints', () => {
 		const stagedConfig = createExtensionOptionsConfigFragment<{
 			SHARED_ENABLED: boolean
 			SHARED_LIMIT: number
@@ -221,11 +228,14 @@ describe('extension options schema builders', () => {
 		const definition = defineExtensionOptionsSchema({
 			include: [stagedConfig],
 			options: (z) => ({
-				OPTION_ONLY: z.string().default('default'),
+				OPTION_ONLY: z
+					.string()
+					.default(' default ')
+					.transform((value) => value.trim()),
 				SHARED_LIMIT: z
 					.number()
 					.max(10)
-					.transform((value) => `limit:${value}`),
+					.transform((value) => `ignored:${value}`),
 			}),
 		})
 		const schema = resolveExtensionOptionsSchema(definition)
@@ -234,20 +244,20 @@ describe('extension options schema builders', () => {
 		expect(defaulted).toEqual({
 			OPTION_ONLY: 'default',
 			SHARED_ENABLED: true,
-			SHARED_LIMIT: 'limit:10',
+			SHARED_LIMIT: 10,
 		})
 		expectTypeOf(defaulted.OPTION_ONLY).toEqualTypeOf<string>()
 		expectTypeOf(defaulted.SHARED_ENABLED).toEqualTypeOf<boolean>()
-		expectTypeOf(defaulted.SHARED_LIMIT).toEqualTypeOf<string>()
+		expectTypeOf(defaulted.SHARED_LIMIT).toEqualTypeOf<number>()
 		expectTypeOf(defaulted.SHARED_NOTE).toEqualTypeOf<string | undefined>()
 
 		expect(
 			validateExtensionOptions(
-				{ OPTION_ONLY: 'explicit', SHARED_LIMIT: '4' },
+				{ OPTION_ONLY: ' explicit ', SHARED_LIMIT: '4' },
 				definition,
 				logger,
 			),
-		).toMatchObject({ OPTION_ONLY: 'explicit', SHARED_LIMIT: 'limit:8' })
+		).toMatchObject({ OPTION_ONLY: 'explicit', SHARED_LIMIT: 8 })
 		expect(schema.safeParse({ SHARED_LIMIT: '0' }).success).toBe(false)
 		expect(schema.safeParse({ SHARED_LIMIT: '6' }).success).toBe(false)
 	})
@@ -260,6 +270,7 @@ describe('extension options schema builders', () => {
 		const schema = resolveExtensionOptionsSchema(definition)
 
 		expect(schema.safeParse({}).success).toBe(false)
+		expect(schema.safeParse({ CACHE_ENABLED: false }).success).toBe(false)
 
 		const options = validateExtensionOptions({ CACHE_ENABLED: true }, definition, logger)
 		expect(options.CACHE_ENABLED).toBe(true)
@@ -267,31 +278,36 @@ describe('extension options schema builders', () => {
 		expectTypeOf(options.REDIS_ENABLED).toEqualTypeOf<boolean>()
 	})
 
-	it('runs shared cross-field refinements before overlapping options transforms', () => {
-		const definition = defineExtensionOptionsSchema({
+	it('keeps canonical shared values when overlapping schemas default or transform', () => {
+		const defaultingDefinition = defineExtensionOptionsSchema({
 			include: [cacheConfig],
 			options: (z) => ({
-				CACHE_ENABLED: z.boolean().transform(() => false),
-				CACHE_STORE: z.enum(['memory', 'redis']).transform(() => 'memory'),
+				CACHE_STORE: z.enum(['memory', 'redis']).default('redis'),
 			}),
 		})
-		const result = resolveExtensionOptionsSchema(definition).safeParse({
-			CACHE_ENABLED: true,
-			CACHE_STORE: 'redis',
+		const transformingDefinition = defineExtensionOptionsSchema({
+			include: [cacheConfig],
+			options: (z) => ({
+				CACHE_STORE: z.enum(['memory', 'redis']).transform(() => 'redis'),
+			}),
 		})
 
-		if (result.success || !(result.error instanceof z.ZodError)) {
-			throw new Error('Shared cache validation must reject missing Redis configuration')
-		}
-		expect(result.error.issues).toContainEqual(
-			expect.objectContaining({
-				message: 'Redis configuration is required when CACHE_STORE is redis',
-				path: ['CACHE_STORE'],
-			}),
+		const defaulted = validateExtensionOptions({}, defaultingDefinition, logger)
+		const transformed = validateExtensionOptions(
+			{ CACHE_STORE: 'memory' },
+			transformingDefinition,
+			logger,
 		)
+
+		expect(defaulted.CACHE_STORE).toBeUndefined()
+		expect(transformed.CACHE_STORE).toBe('memory')
+		expect(cacheConfigSchema.safeParse(defaulted).success).toBe(true)
+		expect(cacheConfigSchema.safeParse(transformed).success).toBe(true)
+		expectTypeOf(defaulted.CACHE_STORE).toEqualTypeOf<'memory' | 'redis' | undefined>()
+		expectTypeOf(transformed.CACHE_STORE).toEqualTypeOf<'memory' | 'redis'>()
 	})
 
-	it('rejects impossible staged constraints instead of overriding shared fields', () => {
+	it('rejects impossible shared and options constraints normally', () => {
 		const stringConfig = createExtensionOptionsConfigFragment<{ SHARED_VALUE: string }>({
 			name: 'stringConfig',
 			shape: (z) => ({ SHARED_VALUE: z.string() }),

@@ -75,12 +75,37 @@ export interface ExtensionOptionsConfigFragment<Output> {
 
 type ExtensionOptionsShapeOutput<Shape extends z.ZodRawShape> = z.output<z.ZodObject<Shape>>
 
+type SharedExtensionOptionsKeys<Base, Shape extends z.ZodRawShape> = Extract<
+	keyof Shape,
+	keyof Base
+>
+
+type RequiredSharedExtensionOptionsKeys<Base, Shape extends z.ZodRawShape> = {
+	[Key in SharedExtensionOptionsKeys<Base, Shape>]-?: undefined extends z.input<Shape[Key]>
+		? never
+		: Key
+}[SharedExtensionOptionsKeys<Base, Shape>]
+
+type OptionalSharedExtensionOptionsKeys<Base, Shape extends z.ZodRawShape> = Exclude<
+	SharedExtensionOptionsKeys<Base, Shape>,
+	RequiredSharedExtensionOptionsKeys<Base, Shape>
+>
+
+type SharedExtensionOptionsConstraints<Base, Shape extends z.ZodRawShape> = {
+	[Key in RequiredSharedExtensionOptionsKeys<Base, Shape>]: z.input<Shape[Key]>
+} & {
+	[Key in OptionalSharedExtensionOptionsKeys<Base, Shape>]?: z.input<Shape[Key]>
+}
+
+type ExtensionOwnedOptionsOutput<Base, Shape extends z.ZodRawShape> = Pick<
+	ExtensionOptionsShapeOutput<Shape>,
+	Extract<Exclude<keyof Shape, keyof Base>, keyof ExtensionOptionsShapeOutput<Shape>>
+>
+
 /** The output of shared configuration composed with extension-specific fields. */
-export type ExtendedExtensionOptionsOutput<Base, Shape extends z.ZodRawShape> = Omit<
-	Base,
-	keyof ExtensionOptionsShapeOutput<Shape>
-> &
-	ExtensionOptionsShapeOutput<Shape>
+export type ExtendedExtensionOptionsOutput<Base, Shape extends z.ZodRawShape> = Base &
+	SharedExtensionOptionsConstraints<Base, Shape> &
+	ExtensionOwnedOptionsOutput<Base, Shape>
 
 /** Opaque extension options schema definition resolved by `validateExtensionOptions`. */
 export interface ExtensionOptionsDefinition<Output> {
@@ -171,11 +196,11 @@ function collectExtensionOptionsConfigFragments(
 }
 
 /**
- * Builds a staged schema from declarative shared configuration and extension fields.
+ * Builds a schema from declarative shared configuration and extension fields.
  *
  * @param zod - Package-owned Zod runtime.
  * @param composition - Shared fragments and optional extension-specific fields.
- * @returns A schema that resolves shared fields before applying extension-owned constraints.
+ * @returns A schema that preserves parsed shared values while validating overlapping constraints.
  */
 function composeExtensionOptionsSchema(
 	zod: typeof z,
@@ -198,17 +223,23 @@ function composeExtensionOptionsSchema(
 	}
 
 	const optionsShape = composition.options?.(zod)
-	let optionsStageShape: Record<string, z.core.$ZodType> | undefined
+	const overlappingOptions = new Map<string, z.core.$ZodType>()
+	let extensionStageShape: Record<string, z.core.$ZodType> | undefined
 	if (optionsShape) {
-		optionsStageShape = {}
-		for (const key of owners.keys()) {
-			optionsStageShape[key] = zod.unknown().optional()
-		}
 		for (const [key, schema] of Object.entries(optionsShape)) {
-			if (!owners.has(key)) {
-				shape[key] = zod.unknown().optional()
+			if (owners.has(key)) {
+				overlappingOptions.set(key, schema)
+				continue
 			}
-			optionsStageShape[key] = schema
+
+			if (!extensionStageShape) {
+				extensionStageShape = {}
+				for (const sharedKey of owners.keys()) {
+					extensionStageShape[sharedKey] = zod.unknown().optional()
+				}
+			}
+			shape[key] = zod.unknown().optional()
+			extensionStageShape[key] = schema
 		}
 	}
 
@@ -216,9 +247,19 @@ function composeExtensionOptionsSchema(
 		for (const fragment of fragments) {
 			fragment[extensionOptionsConfig].refine?.(options, context)
 		}
+		for (const [key, schema] of overlappingOptions) {
+			const result = zod.safeParse(schema, options[key])
+			if (result.success) continue
+
+			for (const issue of result.error.issues) {
+				context.addIssue({ ...issue, path: [key, ...issue.path] })
+			}
+		}
 	})
 
-	return optionsStageShape ? zod.pipe(sharedStage, zod.object(optionsStageShape)) : sharedStage
+	return extensionStageShape
+		? zod.pipe(sharedStage, zod.object(extensionStageShape))
+		: sharedStage
 }
 
 /**

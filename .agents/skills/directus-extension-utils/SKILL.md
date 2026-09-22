@@ -336,8 +336,8 @@ false, and call `end()` after successful registration.
 
 Use `validateExtensionOptions` with either a consumer-owned Zod schema or an opaque
 `ExtensionOptionsDefinition` to validate the extension environment before registering routes or
-other API behavior. Both overloads are fully supported. When no shared extension-utils configuration
-is needed, create the complete consumer-only definition with the simple callback form:
+other API behavior. Both overloads are fully supported. The simple callback form remains available
+for a complete consumer-owned definition:
 
 ```ts
 const envSchema = defineExtensionOptionsSchema((z) =>
@@ -365,11 +365,14 @@ const envSchema = defineExtensionOptionsSchema({
 `include` may be omitted when `options` defines an extension-only top-level shape. Includes are
 order-independent, transitive dependencies are deduplicated by fragment identity, and duplicate
 top-level keys between distinct shared fragments fail clearly. When `options` repeats an included
-key, the complete shared stage—including fragment cross-field refinements—runs first and its output
-is passed to the extension field schema; both stages must succeed. This is narrowing/processing, not
-override or last-wins behavior. The specialized `define*ConfigSchema` builders remain one-fragment
-convenience APIs implemented through the same composer. Valid data is returned with its inferred
-output type. Invalid data is logged and throws `Invalid extension options ☝. Exiting.`.
+key, the complete shared stage—including defaults, transforms, and fragment cross-field
+refinements—runs first. The overlapping extension schema validates that parsed value, but its
+defaulted or transformed output is discarded so the canonical shared value remains unchanged. Both
+constraints must succeed. Extension-owned keys retain normal defaults and transforms. This is
+additional validation or narrowing, not override or last-wins behavior. The specialized
+`define*ConfigSchema` builders remain one-fragment convenience APIs implemented through the same
+composer. Valid data is returned with its inferred output type. Invalid data is logged and throws
+`Invalid extension options ☝. Exiting.`.
 
 The builder callback supplies the package-owned Zod runtime. Build every field and nested schema
 with that callback value. A reusable nested helper must be a factory that receives the supplied `z`,

@@ -106,9 +106,11 @@ export const envSchema = defineExtensionOptionsSchema({
 
 Fragment order does not change behavior, and transitive dependencies are deduplicated by fragment
 identity. Duplicate top-level keys from separate fragments remain an error. An overlapping key in
-`options` is instead a staged constraint: shared field parsing, defaults, transforms, and fragment
-cross-field refinements complete first, then the extension field schema validates or processes the
-resulting value. Both stages must succeed; this is not override or last-wins behavior.
+`options` is instead an additional constraint: shared field parsing, defaults, transforms, and
+fragment cross-field refinements complete first, then the extension field schema validates the
+resulting value. Both constraints must succeed, but the overlapping schema cannot replace or
+transform the canonical shared output. Extension-owned fields keep normal defaults and transforms;
+this is not override or last-wins behavior.
 
 The object form requires `include`, `options`, or both. `include` may be omitted when only a
 top-level extension shape is needed:

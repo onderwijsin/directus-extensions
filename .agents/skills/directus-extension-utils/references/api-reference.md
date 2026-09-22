@@ -181,15 +181,18 @@ defineExtensionOptionsSchema<Includes, Shape extends z.ZodRawShape>(composition:
   include: Includes // non-empty tuple of package-owned fragments
   options: ExtensionOptionsShapeBuilder<Shape>
 }): ExtensionOptionsDefinition<
-  Omit<IncludedOutput<Includes>, keyof Shape> & z.output<z.ZodObject<Shape>>
+  IncludedOutput<Includes>
+    & OverlappingInput<Includes, Shape>
+    & Pick<z.output<z.ZodObject<Shape>>, ExtensionOwnedKeys<Includes, Shape>>
 >
 ```
 
 `IncludedOutput<Includes>` above denotes the inferred intersection of the included fragment output
-types; it is explanatory notation rather than a public export.
+types. `OverlappingInput<Includes, Shape>` denotes each overlapping key's accepted input type, while
+`ExtensionOwnedKeys<Includes, Shape>` denotes the remaining `options` keys. All three are
+explanatory notation rather than public exports.
 
-Use the callback form for a complete consumer-only schema when no shared extension-utils
-configuration is needed:
+Use the callback form for a complete consumer-owned schema when convenient:
 
 ```ts
 defineExtensionOptionsSchema((z) =>
@@ -222,9 +225,11 @@ output, or issue ordering.
 Each fragment declares its own shallow top-level shape and cross-field refinement. Composition uses
 those declarations to build one package-owned object schema and never inspects a Zod schema graph.
 Duplicate top-level keys from distinct fragments throw an error naming the key and both owners. An
-overlap between a fragment and `options` creates a staged pipeline: shared field parsing, defaults,
-transforms, and fragment cross-field refinements complete before the extension schema runs. Both
-stages must succeed, and the final field value and inferred type come from the `options` stage.
+overlap between a fragment and `options` adds validation to the canonical shared value: shared field
+parsing, defaults, transforms, and fragment cross-field refinements complete before the overlapping
+schema runs. Both constraints must succeed. The overlapping schema's defaulted or transformed
+output is discarded, so the final value remains the shared output; its accepted input type narrows
+the inferred shared type. Extension-owned keys retain their normal schema output values and types.
 Schema equivalence, overrides, and last-wins behavior are not supported.
 
 `ExtensionOptionsDefinition<Output>` is the opaque value returned by every builder. The six

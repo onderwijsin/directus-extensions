@@ -26,11 +26,12 @@ When extension options combine shared configuration provided by extension-utils,
 its `options` callback. Shared dependencies are deduplicated by fragment identity, include order
 does not change behavior, and duplicate top-level keys between distinct shared fragments fail
 clearly. When `options` repeats an included key, the shared schema parses it first and the extension
-schema then narrows or processes that result; both stages must succeed. The specialized builders
-remain convenience APIs for one shared fragment. An extension may use another Zod version for
-unrelated validation, but must not combine schemas from that runtime with the raw shared schemas
-exported by this package. Use the `z` supplied to each builder callback for the complete options
-definition, including nested schemas and helper output.
+schema adds validation or narrowing to that result; both constraints must succeed, and the canonical
+shared value is preserved. Defaults or transforms on overlapping `options` keys do not replace the
+shared output. The specialized builders remain convenience APIs for one shared fragment. An
+extension may use another Zod version for unrelated validation, but must not combine schemas from
+that runtime with the raw shared schemas exported by this package. Use the `z` supplied to each
+builder callback for the complete options definition, including nested schemas and helper output.
 
 `ensureDirectusDocumentation` is the server-only contract for extensions that contribute articles to
 the fixed `studio_docs` collection. It validates stable article input, honors the docs seed gate,
@@ -277,8 +278,8 @@ tasks, task storage, logging, or setup helpers from those paths.
 
 ### Zod-safe extension options
 
-`defineExtensionOptionsSchema` has two intentional forms. When no shared extension-utils
-configuration is needed, use the simple builder callback for the complete consumer-only schema:
+`defineExtensionOptionsSchema` has two intentional forms. The simple builder callback remains
+available for a complete consumer-owned schema:
 
 ```ts
 import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
@@ -330,10 +331,11 @@ identity, so the example composes Redis once even though startup and cache both 
 fragment owns an explicit shallow top-level shape and any cross-field refinement it needs; the
 package does not inspect Zod internals. If two different fragments declare the same top-level key,
 schema materialization throws a duplicate-key error. When `options` repeats a fragment key, the
-shared stage completes first, including field defaults and transforms plus fragment cross-field
-refinements, and its output is then passed to the extension schema. This is additional
-validation/processing, not override or last-wins behavior. The final field value and inferred type
-come from the `options` stage.
+shared stage completes first, including field defaults, transforms, and fragment cross-field
+refinements. The overlapping `options` schema then validates that parsed value, but its defaulted or
+transformed output is discarded: the canonical shared value remains in the result. This is
+additional validation or narrowing, not override or last-wins behavior. Extension-owned keys that do
+not occur in a fragment keep their normal defaults, transforms, output values, and output types.
 
 The six public shared configuration fragments are:
 

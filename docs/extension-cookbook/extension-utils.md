@@ -143,9 +143,8 @@ resource cleanup. Invalid Zod configuration is logged and throws
 
 ### Zod-safe extension options
 
-The builder API defines opaque options with the package-owned Zod runtime. When no shared
-extension-utils configuration is needed, use the simple builder callback for the complete
-consumer-only schema:
+The builder API defines opaque options with the package-owned Zod runtime. The simple builder
+callback remains available for a complete consumer-owned schema:
 
 ```ts
 import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
@@ -192,9 +191,11 @@ a top-level shape.
 identity, so startup and cache share one `redisConfig` instance in the example. Each fragment
 declares a shallow top-level shape, dependencies, and its own cross-field refinement explicitly;
 composition does not inspect Zod internals. Duplicate top-level keys from different fragments throw
-a clear error. For an overlapping key, the shared stage—including fragment cross-field
-refinements—completes before the `options` schema applies its additional constraint or transform.
-Both stages must succeed; override and last-wins behavior remain unsupported.
+a clear error. For an overlapping key, the shared stage—including field defaults, transforms, and
+fragment cross-field refinements—completes before the `options` schema validates the parsed value.
+Both constraints must succeed, but the overlapping schema's defaulted or transformed output is
+discarded so the canonical shared value remains unchanged. Extension-owned keys keep normal Zod
+defaults and transforms. Override and last-wins behavior remain unsupported.
 
 | Fragment                | Shared configuration                                               | Dependency               |
 | ----------------------- | ------------------------------------------------------------------ | ------------------------ |
