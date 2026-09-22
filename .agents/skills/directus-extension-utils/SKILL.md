@@ -350,21 +350,26 @@ const envSchema = defineExtensionOptionsSchema((z) =>
 When extension options include shared configuration provided by extension-utils, use declarative
 composition with the package-owned `redisConfig`, `synchronizationConfig`, `cacheConfig`,
 `emailConfig`, `requiredEmailConfig`, or `directusStartupConfig` fragments. Put
-extension-specific fields in `extend`:
+extension-specific fields and stricter constraints in `options`:
 
 ```ts
 const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig, cacheConfig],
-  extend: (z) => ({ MY_EXTENSION_ENABLED: z.boolean().default(true) }),
+  options: (z) => ({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+    CACHE_ENABLED: z.literal(true),
+  }),
 })
 ```
 
-`include` is required for the object/composition form. If there is nothing to include, use the
-callback form instead. Includes are order-independent, transitive dependencies are deduplicated by
-fragment identity, and duplicate top-level keys fail without override semantics. The specialized
-`define*ConfigSchema` builders remain one-fragment convenience APIs implemented through the same
-composer. Valid data is returned with its inferred output type. Invalid data is logged and throws
-`Invalid extension options ☝. Exiting.`.
+`include` may be omitted when `options` defines an extension-only top-level shape. Includes are
+order-independent, transitive dependencies are deduplicated by fragment identity, and duplicate
+top-level keys between distinct shared fragments fail clearly. When `options` repeats an included
+key, the complete shared stage—including fragment cross-field refinements—runs first and its output
+is passed to the extension field schema; both stages must succeed. This is narrowing/processing, not
+override or last-wins behavior. The specialized `define*ConfigSchema` builders remain one-fragment
+convenience APIs implemented through the same composer. Valid data is returned with its inferred
+output type. Invalid data is logged and throws `Invalid extension options ☝. Exiting.`.
 
 The builder callback supplies the package-owned Zod runtime. Build every field and nested schema
 with that callback value. A reusable nested helper must be a factory that receives the supplied `z`,

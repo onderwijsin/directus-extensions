@@ -98,18 +98,23 @@ describe('extension options schema builders', () => {
 		).toThrow('Invalid extension options ☝. Exiting.')
 	})
 
-	it('supplies its package-owned Zod runtime when another runtime is loaded', () => {
+	it('supports options-only composition with the package-owned Zod runtime', () => {
 		const { version: foreignVersion } = createForeignDefault()
-		const definition = defineDirectusStartupSchema((zod) => {
-			expect(zod.core.version).toBe(z.core.version)
-			expect(zod.core.version).not.toBe(foreignVersion)
+		const definition = defineExtensionOptionsSchema({
+			options: (zod) => {
+				expect(zod.core.version).toBe(z.core.version)
+				expect(zod.core.version).not.toBe(foreignVersion)
 
-			return {
-				CATALOG_ENABLED: zod.boolean().default(true),
-			}
+				return {
+					CATALOG_ENABLED: zod.boolean().default(true),
+				}
+			},
 		})
 
-		expect(validateExtensionOptions({}, definition, logger).CATALOG_ENABLED).toBe(true)
+		const options = validateExtensionOptions({}, definition, logger)
+
+		expect(options.CATALOG_ENABLED).toBe(true)
+		expectTypeOf(options.CATALOG_ENABLED).toEqualTypeOf<boolean>()
 	})
 
 	it('supports a consumer-owned raw schema from an independent runtime', () => {
@@ -145,7 +150,7 @@ describe('extension options schema builders', () => {
 	it('composes Directus startup, cache, and extension-specific fields', () => {
 		const definition = defineExtensionOptionsSchema({
 			include: [directusStartupConfig, cacheConfig],
-			extend: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
+			options: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
 		})
 
 		const options = validateExtensionOptions({}, definition, logger)
@@ -172,7 +177,7 @@ describe('extension options schema builders', () => {
 	it('composes Directus startup, required email, and extension-specific fields', () => {
 		const definition = defineExtensionOptionsSchema({
 			include: [directusStartupConfig, requiredEmailConfig],
-			extend: (z) => ({ CATALOG_EMAIL_ENABLED: z.boolean().default(true) }),
+			options: (z) => ({ CATALOG_EMAIL_ENABLED: z.boolean().default(true) }),
 		})
 
 		const options = validateExtensionOptions(
@@ -195,7 +200,113 @@ describe('extension options schema builders', () => {
 		).toThrow('Invalid extension options ☝. Exiting.')
 	})
 
-	it('preserves shared cross-field issues alongside field-level issues', () => {
+	it('stages shared defaults and transforms before overlapping options', () => {
+		const stagedConfig = createExtensionOptionsConfigFragment<{
+			SHARED_ENABLED: boolean
+			SHARED_LIMIT: number
+			SHARED_NOTE?: string
+		}>({
+			name: 'stagedConfig',
+			shape: (z) => ({
+				SHARED_ENABLED: z.boolean().default(true),
+				SHARED_LIMIT: z.coerce
+					.number()
+					.int()
+					.positive()
+					.default(5)
+					.transform((value) => value * 2),
+				SHARED_NOTE: z.string().optional(),
+			}),
+		})
+		const definition = defineExtensionOptionsSchema({
+			include: [stagedConfig],
+			options: (z) => ({
+				OPTION_ONLY: z.string().default('default'),
+				SHARED_LIMIT: z
+					.number()
+					.max(10)
+					.transform((value) => `limit:${value}`),
+			}),
+		})
+		const schema = resolveExtensionOptionsSchema(definition)
+
+		const defaulted = validateExtensionOptions({}, definition, logger)
+		expect(defaulted).toEqual({
+			OPTION_ONLY: 'default',
+			SHARED_ENABLED: true,
+			SHARED_LIMIT: 'limit:10',
+		})
+		expectTypeOf(defaulted.OPTION_ONLY).toEqualTypeOf<string>()
+		expectTypeOf(defaulted.SHARED_ENABLED).toEqualTypeOf<boolean>()
+		expectTypeOf(defaulted.SHARED_LIMIT).toEqualTypeOf<string>()
+		expectTypeOf(defaulted.SHARED_NOTE).toEqualTypeOf<string | undefined>()
+
+		expect(
+			validateExtensionOptions(
+				{ OPTION_ONLY: 'explicit', SHARED_LIMIT: '4' },
+				definition,
+				logger,
+			),
+		).toMatchObject({ OPTION_ONLY: 'explicit', SHARED_LIMIT: 'limit:8' })
+		expect(schema.safeParse({ SHARED_LIMIT: '0' }).success).toBe(false)
+		expect(schema.safeParse({ SHARED_LIMIT: '6' }).success).toBe(false)
+	})
+
+	it('applies an overlapping options constraint after the shared default', () => {
+		const definition = defineExtensionOptionsSchema({
+			include: [cacheConfig],
+			options: (z) => ({ CACHE_ENABLED: z.literal(true) }),
+		})
+		const schema = resolveExtensionOptionsSchema(definition)
+
+		expect(schema.safeParse({}).success).toBe(false)
+
+		const options = validateExtensionOptions({ CACHE_ENABLED: true }, definition, logger)
+		expect(options.CACHE_ENABLED).toBe(true)
+		expectTypeOf(options.CACHE_ENABLED).toEqualTypeOf<true>()
+		expectTypeOf(options.REDIS_ENABLED).toEqualTypeOf<boolean>()
+	})
+
+	it('runs shared cross-field refinements before overlapping options transforms', () => {
+		const definition = defineExtensionOptionsSchema({
+			include: [cacheConfig],
+			options: (z) => ({
+				CACHE_ENABLED: z.boolean().transform(() => false),
+				CACHE_STORE: z.enum(['memory', 'redis']).transform(() => 'memory'),
+			}),
+		})
+		const result = resolveExtensionOptionsSchema(definition).safeParse({
+			CACHE_ENABLED: true,
+			CACHE_STORE: 'redis',
+		})
+
+		if (result.success || !(result.error instanceof z.ZodError)) {
+			throw new Error('Shared cache validation must reject missing Redis configuration')
+		}
+		expect(result.error.issues).toContainEqual(
+			expect.objectContaining({
+				message: 'Redis configuration is required when CACHE_STORE is redis',
+				path: ['CACHE_STORE'],
+			}),
+		)
+	})
+
+	it('rejects impossible staged constraints instead of overriding shared fields', () => {
+		const stringConfig = createExtensionOptionsConfigFragment<{ SHARED_VALUE: string }>({
+			name: 'stringConfig',
+			shape: (z) => ({ SHARED_VALUE: z.string() }),
+		})
+		const definition = defineExtensionOptionsSchema({
+			include: [stringConfig],
+			options: (z) => ({ SHARED_VALUE: z.number() }),
+		})
+		const schema = resolveExtensionOptionsSchema(definition)
+
+		expect(schema.safeParse({ SHARED_VALUE: 'shared-only' }).success).toBe(false)
+		expect(schema.safeParse({ SHARED_VALUE: 42 }).success).toBe(false)
+	})
+
+	it('supports include-only composition with shared cross-field issues', () => {
 		const definition = defineExtensionOptionsSchema({ include: [requiredEmailConfig] })
 		const input = { EMAIL_TRANSPORT: 'smtp', EMAIL_SMTP_HOST: ' ' }
 		const rawResult = requiredEmailConfigSchema.safeParse(input)
@@ -214,11 +325,11 @@ describe('extension options schema builders', () => {
 	it('produces equivalent behavior independent of include order', () => {
 		const startupThenCache = defineExtensionOptionsSchema({
 			include: [directusStartupConfig, cacheConfig],
-			extend: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
+			options: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
 		})
 		const cacheThenStartup = defineExtensionOptionsSchema({
 			include: [cacheConfig, directusStartupConfig],
-			extend: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
+			options: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
 		})
 		const input = {
 			CACHE_ENABLED: true,
@@ -265,7 +376,7 @@ describe('extension options schema builders', () => {
 		})
 	})
 
-	it('rejects duplicate top-level option keys clearly', () => {
+	it('rejects duplicate top-level keys from distinct shared fragments clearly', () => {
 		const firstConfig = createExtensionOptionsConfigFragment<{ SHARED_ENABLED: boolean }>({
 			name: 'firstConfig',
 			shape: (z) => ({ SHARED_ENABLED: z.boolean() }),
@@ -277,16 +388,9 @@ describe('extension options schema builders', () => {
 		const duplicateFragments = defineExtensionOptionsSchema({
 			include: [secondConfig, firstConfig],
 		})
-		const duplicateExtensionField = defineExtensionOptionsSchema({
-			include: [cacheConfig],
-			extend: (z) => ({ CACHE_ENABLED: z.boolean() }),
-		})
 
 		expect(() => validateExtensionOptions({}, duplicateFragments, logger)).toThrow(
 			'Duplicate extension option key "SHARED_ENABLED" declared by "firstConfig" and "secondConfig"',
-		)
-		expect(() => validateExtensionOptions({}, duplicateExtensionField, logger)).toThrow(
-			'Duplicate extension option key "CACHE_ENABLED" declared by "cacheConfig" and "extend"',
 		)
 	})
 

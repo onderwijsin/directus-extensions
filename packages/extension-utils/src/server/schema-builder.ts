@@ -43,8 +43,8 @@ type ExtensionOptionsConfigIncludes = readonly [
 ]
 
 interface ExtensionOptionsSchemaComposition {
-	readonly extend?: ExtensionOptionsShapeBuilder<z.ZodRawShape>
-	readonly include: ExtensionOptionsConfigIncludes
+	readonly include?: readonly ExtensionOptionsConfigFragment<unknown>[]
+	readonly options?: ExtensionOptionsShapeBuilder<z.ZodRawShape>
 }
 
 type ExtensionOptionsConfigOutput<Config> =
@@ -62,7 +62,7 @@ type IncludedExtensionOptionsOutput<
 /** Builds an extension options schema with the Zod runtime owned by this package. */
 export type ExtensionOptionsSchemaBuilder<Schema extends ZodType> = (zod: typeof z) => Schema
 
-/** Builds additional object fields with the Zod runtime owned by this package. */
+/** Builds extension-owned object fields and constraints with this package's Zod runtime. */
 export type ExtensionOptionsShapeBuilder<Shape extends z.ZodRawShape> = (zod: typeof z) => Shape
 
 /** A package-owned shared configuration fragment accepted by `defineExtensionOptionsSchema`. */
@@ -73,9 +73,14 @@ export interface ExtensionOptionsConfigFragment<Output> {
 	readonly [extensionOptionsOutput]?: Output
 }
 
+type ExtensionOptionsShapeOutput<Shape extends z.ZodRawShape> = z.output<z.ZodObject<Shape>>
+
 /** The output of shared configuration composed with extension-specific fields. */
-export type ExtendedExtensionOptionsOutput<Base, Shape extends z.ZodRawShape> = Base &
-	z.output<z.ZodObject<Shape>>
+export type ExtendedExtensionOptionsOutput<Base, Shape extends z.ZodRawShape> = Omit<
+	Base,
+	keyof ExtensionOptionsShapeOutput<Shape>
+> &
+	ExtensionOptionsShapeOutput<Shape>
 
 /** Opaque extension options schema definition resolved by `validateExtensionOptions`. */
 export interface ExtensionOptionsDefinition<Output> {
@@ -119,15 +124,15 @@ export function createExtensionOptionsConfigFragment<Output>(
 }
 
 /**
- * Adds fields to a composed shape while rejecting ambiguous option ownership.
+ * Adds fields to a composed shape while rejecting duplicate shared ownership.
  *
  * @param target - Shape receiving the fields.
  * @param owners - Existing top-level option owners.
  * @param source - New top-level fields.
- * @param owner - Fragment or extension callback that declared the fields.
+ * @param owner - Shared fragment that declared the fields.
  * @returns Nothing.
  */
-function addExtensionOptionsShape(
+function addSharedExtensionOptionsShape(
 	target: Record<string, z.core.$ZodType>,
 	owners: Map<string, string>,
 	source: z.ZodRawShape,
@@ -166,18 +171,18 @@ function collectExtensionOptionsConfigFragments(
 }
 
 /**
- * Builds one object schema from declarative shared configuration and extension fields.
+ * Builds a staged schema from declarative shared configuration and extension fields.
  *
  * @param zod - Package-owned Zod runtime.
  * @param composition - Shared fragments and optional extension-specific fields.
- * @returns A coherent object schema with every fragment refinement applied once.
+ * @returns A schema that resolves shared fields before applying extension-owned constraints.
  */
 function composeExtensionOptionsSchema(
 	zod: typeof z,
 	composition: ExtensionOptionsSchemaComposition,
-): z.ZodObject {
+): ZodType {
 	const fragmentSet = new Set<ExtensionOptionsConfigFragment<unknown>>()
-	for (const fragment of composition.include) {
+	for (const fragment of composition.include ?? []) {
 		collectExtensionOptionsConfigFragments(fragment, fragmentSet)
 	}
 
@@ -189,17 +194,31 @@ function composeExtensionOptionsSchema(
 
 	for (const fragment of fragments) {
 		const definition = fragment[extensionOptionsConfig]
-		addExtensionOptionsShape(shape, owners, definition.shape(zod), definition.name)
-	}
-	if (composition.extend) {
-		addExtensionOptionsShape(shape, owners, composition.extend(zod), 'extend')
+		addSharedExtensionOptionsShape(shape, owners, definition.shape(zod), definition.name)
 	}
 
-	return zod.object(shape).superRefine((options, context) => {
+	const optionsShape = composition.options?.(zod)
+	let optionsStageShape: Record<string, z.core.$ZodType> | undefined
+	if (optionsShape) {
+		optionsStageShape = {}
+		for (const key of owners.keys()) {
+			optionsStageShape[key] = zod.unknown().optional()
+		}
+		for (const [key, schema] of Object.entries(optionsShape)) {
+			if (!owners.has(key)) {
+				shape[key] = zod.unknown().optional()
+			}
+			optionsStageShape[key] = schema
+		}
+	}
+
+	const sharedStage = zod.object(shape).superRefine((options, context) => {
 		for (const fragment of fragments) {
 			fragment[extensionOptionsConfig].refine?.(options, context)
 		}
 	})
+
+	return optionsStageShape ? zod.pipe(sharedStage, zod.object(optionsStageShape)) : sharedStage
 }
 
 /**
@@ -220,9 +239,19 @@ export function defineExtensionOptionsSchema<const Schema extends ZodType>(
 export function defineExtensionOptionsSchema<
 	const Includes extends ExtensionOptionsConfigIncludes,
 >(composition: {
-	readonly extend?: never
 	readonly include: Includes
+	readonly options?: never
 }): ExtensionOptionsDefinition<IncludedExtensionOptionsOutput<Includes>>
+/**
+ * Defines extension options from extension-specific fields.
+ *
+ * @param composition - An extension field builder without shared configuration.
+ * @returns An opaque definition accepted by `validateExtensionOptions`.
+ */
+export function defineExtensionOptionsSchema<const Shape extends z.ZodRawShape>(composition: {
+	readonly include?: never
+	readonly options: ExtensionOptionsShapeBuilder<Shape>
+}): ExtensionOptionsDefinition<ExtensionOptionsShapeOutput<Shape>>
 /**
  * Defines extension options by composing shared configuration and extension-specific fields.
  *
@@ -233,10 +262,10 @@ export function defineExtensionOptionsSchema<
 	const Includes extends ExtensionOptionsConfigIncludes,
 	const Shape extends z.ZodRawShape,
 >(composition: {
-	readonly extend: ExtensionOptionsShapeBuilder<Shape>
 	readonly include: Includes
+	readonly options: ExtensionOptionsShapeBuilder<Shape>
 }): ExtensionOptionsDefinition<
-	IncludedExtensionOptionsOutput<Includes> & z.output<z.ZodObject<Shape>>
+	ExtendedExtensionOptionsOutput<IncludedExtensionOptionsOutput<Includes>, Shape>
 >
 export function defineExtensionOptionsSchema(
 	input: ExtensionOptionsSchemaBuilder<ZodType> | ExtensionOptionsSchemaComposition,
@@ -258,7 +287,7 @@ export function defineExtensionOptionsShape<const Base, const Shape extends z.Zo
 	builder: ExtensionOptionsShapeBuilder<Shape>,
 ): ExtensionOptionsDefinition<ExtendedExtensionOptionsOutput<Base, Shape>> {
 	return createExtensionOptionsDefinition((zod) =>
-		composeExtensionOptionsSchema(zod, { include: [config], extend: builder }),
+		composeExtensionOptionsSchema(zod, { include: [config], options: builder }),
 	)
 }
 
