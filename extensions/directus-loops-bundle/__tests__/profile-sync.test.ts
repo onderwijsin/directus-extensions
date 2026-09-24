@@ -6,9 +6,7 @@ import {
 	toLoopsContactUpdate,
 	type DirectusLoopsUser,
 } from '../src/loops-webhook-hook/profile-sync'
-import { envSchema } from '../src/shared/env.schema'
-
-const env = envSchema.parse({})
+const env = { LOOPS_SYNC_ENABLED_FIELD: 'loops_sync_enabled' }
 
 const user: DirectusLoopsUser = {
 	id: 'user-1',

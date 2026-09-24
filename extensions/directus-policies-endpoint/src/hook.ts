@@ -6,7 +6,7 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { envSchema } from './env.schema'
+import { envSchema, withPoliciesCacheDefault } from './env.schema'
 
 const EXTENSION_NAME = 'policies_endpoint'
 
@@ -25,7 +25,11 @@ export default defineHook((hook, context) => {
 		return
 	}
 
-	const options = validateExtensionOptions(context.env, envSchema, context.logger)
+	const options = validateExtensionOptions(
+		withPoliciesCacheDefault(context.env),
+		envSchema,
+		context.logger,
+	)
 	const cache = initializePolicyCache(options)
 
 	if (options.DIRECTUS_POLICY_CACHE_INVALIDATION_ENABLED) {

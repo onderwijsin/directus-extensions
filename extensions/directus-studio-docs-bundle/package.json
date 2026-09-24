@@ -56,8 +56,7 @@
 	"dependencies": {
 		"@comark/vue": "catalog:",
 		"github-markdown-css": "catalog:",
-		"vue-router": "catalog:",
-		"zod": "catalog:"
+		"vue-router": "catalog:"
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",
