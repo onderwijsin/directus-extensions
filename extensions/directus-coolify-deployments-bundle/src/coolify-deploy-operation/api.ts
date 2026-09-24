@@ -9,6 +9,7 @@ import {
 
 import { EXTENSION_NAME } from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
+import { withCoolifyCacheDefault } from '../shared/env'
 import { envSchema } from './env.schema'
 
 interface CoolifyDeployOptions {
@@ -31,7 +32,7 @@ export default defineOperationApi<CoolifyDeployOptions>({
 
 		if (!setup.isEnabled()) return null
 
-		const options = validateExtensionOptions(env, envSchema, logger)
+		const options = validateExtensionOptions(withCoolifyCacheDefault(env), envSchema, logger)
 		if (
 			accountability &&
 			accountability.admin !== true &&

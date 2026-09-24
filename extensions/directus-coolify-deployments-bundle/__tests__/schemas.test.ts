@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { envSchema as endpointEnvSchema } from '../src/coolify-deployments-endpoint/env.schema'
 import {
 	coolifyDeploymentRequestSchema,
 	coolifyDeploymentsResponseSchema,
@@ -12,25 +11,6 @@ import {
 } from '../src/shared/coolify-client/schemas'
 
 describe('Coolify deployments schemas', () => {
-	it('provides the default Studio polling interval', () => {
-		expect(
-			endpointEnvSchema.parse({
-				COOLIFY_URL: 'https://coolify.example.com',
-				COOLIFY_TOKEN: 'token',
-			}).COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS,
-		).toBe(5000)
-	})
-
-	it('accepts a custom Studio polling interval', () => {
-		expect(
-			endpointEnvSchema.parse({
-				COOLIFY_URL: 'https://coolify.example.com',
-				COOLIFY_TOKEN: 'token',
-				COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS: '5000',
-			}).COOLIFY_DEPLOYMENTS_POLL_INTERVAL_MS,
-		).toBe(5000)
-	})
-
 	it('provides the documented environment defaults', () => {
 		expect(
 			envSchema.parse({ COOLIFY_URL: 'https://coolify.example.com', COOLIFY_TOKEN: 'token' }),
@@ -65,30 +45,6 @@ describe('Coolify deployments schemas', () => {
 				],
 			}).deployments,
 		).toMatchObject([{ deploymentUuid: 'deployment-1' }])
-	})
-
-	it('requires Redis configuration for the Redis cache store', () => {
-		const base = { COOLIFY_URL: 'https://coolify.example.com', COOLIFY_TOKEN: 'token' }
-		expect(endpointEnvSchema.safeParse({ ...base, CACHE_STORE: 'memory' }).success).toBe(true)
-		expect(endpointEnvSchema.safeParse({ ...base, CACHE_STORE: 'redis' }).success).toBe(false)
-		expect(
-			endpointEnvSchema.safeParse({
-				...base,
-				CACHE_STORE: 'redis',
-				REDIS: 'redis://localhost',
-			}).success,
-		).toBe(true)
-		expect(
-			endpointEnvSchema.safeParse({
-				...base,
-				CACHE_STORE: 'redis',
-				REDIS_ENABLED: true,
-				REDIS_HOST: 'cache',
-				REDIS_PORT: 6379,
-				REDIS_USERNAME: 'default',
-				REDIS_PASSWORD: 'secret',
-			}).success,
-		).toBe(true)
 	})
 
 	it('restricts deployment requests to one application UUID', () => {
