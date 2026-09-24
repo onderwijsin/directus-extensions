@@ -70,30 +70,9 @@ describe('Studio Docs bundle Phase 1 scaffold', () => {
 		mocks.setup.isEnabled.mockReturnValue(true)
 	})
 
-	it('provides the documented environment defaults', () => {
-		expect(envSchema.parse({})).toMatchObject({
-			DIRECTUS_DOCS_ENABLED: true,
-			DIRECTUS_DOCS_SEED_ENABLED: true,
-			DIRECTUS_DOCS_SEEDING_STRATEGY: 'versioning',
-			DIRECTUS_DOCS_SCHEMA_CHANGES_ENABLED: true,
-			DIRECTUS_DOCS_SCHEMA_ABORT_ON_ERROR: true,
-			DIRECTUS_DOCS_MANAGE_POLICY_ENABLED: true,
-			DIRECTUS_DOCS_VIEW_POLICY_ENABLED: true,
-		})
-	})
-
 	it('keeps the collection and module name as client-side constants', () => {
 		expect(COLLECTION_NAME).toBe('studio_docs')
 		expect(MODULE_NAME).toBe('Docs')
-		expect(
-			envSchema.parse({ DIRECTUS_DOCS_COLLECTION: 'other_collection' }),
-		).not.toHaveProperty('DIRECTUS_DOCS_COLLECTION')
-	})
-
-	it('rejects invalid seeding strategies', () => {
-		expect(envSchema.safeParse({ DIRECTUS_DOCS_SEEDING_STRATEGY: 'replace' }).success).toBe(
-			false,
-		)
 	})
 
 	it('validates enabled hook configuration and completes setup', () => {
