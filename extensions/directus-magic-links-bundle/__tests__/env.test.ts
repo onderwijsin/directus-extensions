@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { validateExtensionOptions } from '@onderwijsin/directus-extension-utils/server'
+import { describe, expect, it, vi } from 'vitest'
 
 import { envSchema as endpointEnvSchema } from '../src/magic-links-endpoint/env.schema'
 import { envSchema as hookEnvSchema } from '../src/magic-links-hook/env.schema'
@@ -12,181 +13,180 @@ const validEnvironment = {
 	EMAIL_FROM: 'noreply@example.com',
 }
 
+/**
+ * Validates an entry's environment through the public builder API.
+ * @param schema - Endpoint or hook options definition.
+ * @param env - Environment values to validate.
+ * @returns The validated options.
+ */
+function parseEnv(
+	schema: typeof endpointEnvSchema | typeof hookEnvSchema,
+	env: Record<string, unknown>,
+): unknown {
+	return Reflect.apply(validateExtensionOptions, undefined, [env, schema, { info: vi.fn() }])
+}
+
 describe('magic-links environment schemas', () => {
 	it('shares common defaults between endpoint and hook entries', () => {
-		expect(endpointEnvSchema.parse(validEnvironment)).toMatchObject({
+		expect(parseEnv(endpointEnvSchema, validEnvironment)).toMatchObject({
 			MAGIC_LINKS_ENABLED: true,
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
 			MAGIC_LINKS_COLLECTION: 'magic_links',
 		})
-		expect(hookEnvSchema.parse({})).toMatchObject({
+		expect(parseEnv(hookEnvSchema, {})).toMatchObject({
 			MAGIC_LINKS_ENABLED: true,
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
 			MAGIC_LINKS_COLLECTION: 'magic_links',
 		})
 	})
 
-	it('accepts endpoint-specific configuration', () => {
-		const result = endpointEnvSchema.safeParse({
-			...validEnvironment,
+	it('accepts endpoint-specific configuration and coerces the request limit', () => {
+		expect(
+			parseEnv(endpointEnvSchema, {
+				...validEnvironment,
+				DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: false,
+				MAGIC_LINKS_TOKEN_SECRET: 'secret',
+				MAGIC_LINKS_TOKEN_TTL: '30m',
+				MAGIC_LINKS_REQUEST_RATE_LIMIT: '12',
+			}),
+		).toMatchObject({
 			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: false,
 			MAGIC_LINKS_TOKEN_SECRET: 'secret',
 			MAGIC_LINKS_TOKEN_TTL: '30m',
+			MAGIC_LINKS_REQUEST_RATE_LIMIT: 12,
+		})
+		expect(parseEnv(endpointEnvSchema, validEnvironment)).toMatchObject({
+			MAGIC_LINKS_REQUEST_RATE_LIMIT: 5,
 			MAGIC_LINKS_EMAIL_TEMPLATE: 'magic-link',
 		})
-
-		expect(result.success).toBe(true)
-		if (result.success) expect(result.data.MAGIC_LINKS_REQUEST_RATE_LIMIT).toBe(5)
+		expect(() =>
+			parseEnv(endpointEnvSchema, { ...validEnvironment, MAGIC_LINKS_REQUEST_RATE_LIMIT: 0 }),
+		).toThrow()
 	})
 
-	it('validates the request rate limit', () => {
-		expect(
-			endpointEnvSchema.parse({
+	it('requires selected email transport prerequisites without extra SMTP requirements', () => {
+		expect(() =>
+			parseEnv(endpointEnvSchema, { ...validEnvironment, EMAIL_TRANSPORT: 'sendmail' }),
+		).not.toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, { ...validEnvironment, EMAIL_SMTP_PORT: undefined }),
+		).not.toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, { ...validEnvironment, EMAIL_SMTP_USER: 'user' }),
+		).not.toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
 				...validEnvironment,
-				MAGIC_LINKS_REQUEST_RATE_LIMIT: '12',
-			}).MAGIC_LINKS_REQUEST_RATE_LIMIT,
-		).toBe(12)
-		expect(
-			endpointEnvSchema.safeParse({
-				...validEnvironment,
-				MAGIC_LINKS_REQUEST_RATE_LIMIT: 0,
-			}).success,
-		).toBe(false)
+				EMAIL_TRANSPORT: 'smtp',
+				EMAIL_SMTP_HOST: undefined,
+			}),
+		).toThrow()
 	})
 
-	it('requires selected transport prerequisites without requiring SMTP port or credentials', () => {
-		expect(
-			endpointEnvSchema.safeParse({ ...validEnvironment, EMAIL_TRANSPORT: 'sendmail' })
-				.success,
-		).toBe(true)
-		expect(
-			endpointEnvSchema.safeParse({ ...validEnvironment, EMAIL_SMTP_PORT: undefined })
-				.success,
-		).toBe(true)
-		expect(
-			endpointEnvSchema.safeParse({
-				...validEnvironment,
-				EMAIL_SMTP_USER: 'user',
-			}).success,
-		).toBe(true)
-	})
-
-	it('validates optional reply-to and sender configuration', () => {
-		expect(
-			endpointEnvSchema.safeParse({
+	it('validates optional email overrides', () => {
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
 				...validEnvironment,
 				MAGIC_LINKS_EMAIL_REPLY_TO: 'support@example.com',
 				MAGIC_LINKS_EMAIL_SENDER: 'Example <no-reply@example.com>',
-			}).success,
-		).toBe(true)
-		expect(
-			endpointEnvSchema.safeParse({
+				MAGIC_LINKS_EMAIL_SUBJECT: 'Log in to Example',
+				MAGIC_LINKS_EMAIL_PREVIEW_TEXT: 'Your secure login link is ready.',
+			}),
+		).not.toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
 				...validEnvironment,
 				MAGIC_LINKS_EMAIL_REPLY_TO: 'not-an-email',
-			}).success,
-		).toBe(false)
-		expect(
-			endpointEnvSchema.safeParse({ ...validEnvironment, MAGIC_LINKS_EMAIL_SENDER: ' ' })
-				.success,
-		).toBe(false)
-	})
-
-	it('accepts optional email subject and preview text overrides', () => {
-		const result = endpointEnvSchema.safeParse({
-			...validEnvironment,
-			MAGIC_LINKS_EMAIL_SUBJECT: 'Log in to Example',
-			MAGIC_LINKS_EMAIL_PREVIEW_TEXT: 'Your secure login link is ready.',
-		})
-
-		expect(result.success).toBe(true)
+			}),
+		).toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, { ...validEnvironment, MAGIC_LINKS_EMAIL_SENDER: ' ' }),
+		).toThrow()
 	})
 
 	it('accepts hook-specific schema and cleanup configuration', () => {
-		const result = hookEnvSchema.safeParse({
+		expect(
+			parseEnv(hookEnvSchema, {
+				MAGIC_LINKS_SCHEMA_CHANGES_ENABLED: false,
+				MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR: false,
+				USE_MAGIC_LINK_CLEANUP: true,
+				MAGIC_LINK_CLEANUP_WINDOW: '7d',
+				MAGIC_LINK_CLEANUP_CRON: '0 * * * *',
+			}),
+		).toMatchObject({
 			MAGIC_LINKS_SCHEMA_CHANGES_ENABLED: false,
-			MAGIC_LINKS_SCHEMA_ABORT_ON_ERROR: false,
 			USE_MAGIC_LINK_CLEANUP: true,
 			MAGIC_LINK_CLEANUP_WINDOW: '7d',
-			MAGIC_LINK_CLEANUP_CRON: '0 * * * *',
 		})
-
-		expect(result.success).toBe(true)
+		expect(() => parseEnv(hookEnvSchema, { MAGIC_LINK_CLEANUP_WINDOW: 'forever' })).toThrow()
+		expect(() => parseEnv(hookEnvSchema, { MAGIC_LINK_CLEANUP_CRON: 'not-a-cron' })).toThrow()
 	})
 
-	it('rejects invalid cleanup windows and cron expressions', () => {
-		expect(hookEnvSchema.safeParse({ MAGIC_LINK_CLEANUP_WINDOW: 'forever' }).success).toBe(
-			false,
-		)
-		expect(hookEnvSchema.safeParse({ MAGIC_LINK_CLEANUP_CRON: 'not-a-cron' }).success).toBe(
-			false,
-		)
-	})
-
-	it('accepts HTTP(S) redirect URLs with explicit ports', () => {
-		expect(
-			endpointEnvSchema.safeParse({
+	it('accepts HTTP(S) allowlists and rejects unsafe redirects', () => {
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
 				...validEnvironment,
 				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: [
 					'http://localhost:3000/auth/magic-link',
 					'https://app.example.com:8443/auth/magic-link',
 				],
-			}).success,
-		).toBe(true)
-	})
-
-	it('rejects malicious or unsafe redirect allowlists', () => {
-		expect(
-			endpointEnvSchema.safeParse({
-				...validEnvironment,
-				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: ['javascript:alert(1)'],
-			}).success,
-		).toBe(false)
-		expect(
-			endpointEnvSchema.safeParse({
-				...validEnvironment,
-				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: [
-					'https://user:pass@app.example.com/auth/magic-link',
-				],
-			}).success,
-		).toBe(false)
-		expect(
-			endpointEnvSchema.safeParse({
-				...validEnvironment,
-				MAGIC_LINKS_COLLECTION: 'directus_custom_links',
-			}).success,
-		).toBe(false)
-	})
-
-	it('requires a non-empty redirect allowlist', () => {
-		expect(
-			endpointEnvSchema.safeParse({
-				...validEnvironment,
-				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: undefined,
-			}).success,
-		).toBe(false)
-		expect(
-			endpointEnvSchema.safeParse({
+			}),
+		).not.toThrow()
+		for (const value of [
+			'javascript:alert(1)',
+			'https://user:pass@app.example.com/auth/magic-link',
+		]) {
+			expect(() =>
+				parseEnv(endpointEnvSchema, {
+					...validEnvironment,
+					MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: [value],
+				}),
+			).toThrow()
+		}
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
 				...validEnvironment,
 				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: [],
-			}).success,
-		).toBe(false)
+			}),
+		).toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
+				...validEnvironment,
+				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: undefined,
+			}),
+		).toThrow()
 	})
 
-	it('rejects malformed durations and identifiers', () => {
-		expect(
-			endpointEnvSchema.safeParse({ ...validEnvironment, MAGIC_LINKS_TOKEN_TTL: 'forever' })
-				.success,
-		).toBe(false)
-		expect(
-			endpointEnvSchema.safeParse({ ...validEnvironment, MAGIC_LINKS_COLLECTION: 'bad-name' })
-				.success,
-		).toBe(false)
+	it('rejects malformed identifiers, durations, and missing required values', () => {
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
+				...validEnvironment,
+				MAGIC_LINKS_COLLECTION: 'bad-name',
+			}),
+		).toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
+				...validEnvironment,
+				MAGIC_LINKS_COLLECTION: 'directus_custom_links',
+			}),
+		).toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, { ...validEnvironment, MAGIC_LINKS_TOKEN_TTL: 'forever' }),
+		).toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, { ...validEnvironment, SECRET: undefined }),
+		).toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
+				...validEnvironment,
+				DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'redis',
+			}),
+		).toThrow()
 	})
 
 	it('accepts the Directus SECRET fallback', () => {
-		const result = endpointEnvSchema.safeParse(validEnvironment)
-
-		expect(result.success).toBe(true)
-		if (result.success) expect(result.data.SECRET).toBe('directus-secret')
+		expect(parseEnv(endpointEnvSchema, validEnvironment)).toMatchObject({
+			SECRET: 'directus-secret',
+		})
 	})
 })
