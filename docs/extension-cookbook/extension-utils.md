@@ -143,9 +143,8 @@ resource cleanup. Invalid Zod configuration is logged and throws
 
 ### Zod-safe extension options
 
-The builder API defines opaque options with the package-owned Zod runtime. When no shared
-extension-utils configuration is needed, use the simple builder callback for the complete
-consumer-only schema:
+The builder API defines opaque options with the package-owned Zod runtime. The simple builder
+callback remains available for a complete consumer-owned schema:
 
 ```ts
 import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
@@ -157,8 +156,8 @@ export const envSchema = defineExtensionOptionsSchema((z) =>
 )
 ```
 
-When shared extension-utils configuration is needed, use declarative composition through the
-package-owned fragments, then build extension-specific fields in `extend`:
+Use declarative composition when extension options include package-owned fragments, form a top-level
+extension shape, or both. Build extension-specific fields and constraints in `options`:
 
 ```ts
 import {
@@ -169,20 +168,34 @@ import {
 
 export const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig, cacheConfig],
-  extend: (z) => ({
+  options: (z) => ({
     MY_EXTENSION_ENABLED: z.boolean().default(true),
+    CACHE_ENABLED: z.literal(true),
   }),
 })
 ```
 
-`include` is required for the object/composition form. If there is nothing to include, use the
-callback form instead.
+The object form requires `include`, `options`, or both. `include` is optional when `options` is
+present, so an extension-only object shape can use:
+
+```ts
+export const envSchema = defineExtensionOptionsSchema({
+  options: (z) => ({ MY_EXTENSION_ENABLED: z.boolean().default(true) }),
+})
+```
+
+The callback form remains available for a complete consumer-owned schema that is not represented as
+a top-level shape.
 
 `include` order does not affect composition. Transitive dependencies are deduplicated by fragment
 identity, so startup and cache share one `redisConfig` instance in the example. Each fragment
 declares a shallow top-level shape, dependencies, and its own cross-field refinement explicitly;
-composition does not inspect Zod internals. Duplicate top-level keys from different fragments or
-from `extend` throw a clear error. Overrides and last-wins behavior are deliberately unsupported.
+composition does not inspect Zod internals. Duplicate top-level keys from different fragments throw
+a clear error. For an overlapping key, the shared stage—including field defaults, transforms, and
+fragment cross-field refinements—completes before the `options` schema validates the parsed value.
+Both constraints must succeed, but the overlapping schema's defaulted or transformed output is
+discarded so the canonical shared value remains unchanged. Extension-owned keys keep normal Zod
+defaults and transforms. Override and last-wins behavior remain unsupported.
 
 | Fragment                | Shared configuration                                               | Dependency               |
 | ----------------------- | ------------------------------------------------------------------ | ------------------------ |
@@ -366,7 +379,7 @@ import {
 
 export const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig],
-  extend: (z) => ({
+  options: (z) => ({
     ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
   }),
 })

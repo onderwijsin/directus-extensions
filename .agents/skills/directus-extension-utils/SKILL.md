@@ -336,8 +336,8 @@ false, and call `end()` after successful registration.
 
 Use `validateExtensionOptions` with either a consumer-owned Zod schema or an opaque
 `ExtensionOptionsDefinition` to validate the extension environment before registering routes or
-other API behavior. Both overloads are fully supported. When no shared extension-utils configuration
-is needed, create the complete consumer-only definition with the simple callback form:
+other API behavior. Both overloads are fully supported. The simple callback form remains available
+for a complete consumer-owned definition:
 
 ```ts
 const envSchema = defineExtensionOptionsSchema((z) =>
@@ -350,18 +350,26 @@ const envSchema = defineExtensionOptionsSchema((z) =>
 When extension options include shared configuration provided by extension-utils, use declarative
 composition with the package-owned `redisConfig`, `synchronizationConfig`, `cacheConfig`,
 `emailConfig`, `requiredEmailConfig`, or `directusStartupConfig` fragments. Put
-extension-specific fields in `extend`:
+extension-specific fields and stricter constraints in `options`:
 
 ```ts
 const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig, cacheConfig],
-  extend: (z) => ({ MY_EXTENSION_ENABLED: z.boolean().default(true) }),
+  options: (z) => ({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+    CACHE_ENABLED: z.literal(true),
+  }),
 })
 ```
 
-`include` is required for the object/composition form. If there is nothing to include, use the
-callback form instead. Includes are order-independent, transitive dependencies are deduplicated by
-fragment identity, and duplicate top-level keys fail without override semantics. The specialized
+`include` may be omitted when `options` defines an extension-only top-level shape. Includes are
+order-independent, transitive dependencies are deduplicated by fragment identity, and duplicate
+top-level keys between distinct shared fragments fail clearly. When `options` repeats an included
+key, the complete shared stage—including defaults, transforms, and fragment cross-field
+refinements—runs first. The overlapping extension schema validates that parsed value, but its
+defaulted or transformed output is discarded so the canonical shared value remains unchanged. Both
+constraints must succeed. Extension-owned keys retain normal defaults and transforms. This is
+additional validation or narrowing, not override or last-wins behavior. The specialized
 `define*ConfigSchema` builders remain one-fragment convenience APIs implemented through the same
 composer. Valid data is returned with its inferred output type. Invalid data is logged and throws
 `Invalid extension options ☝. Exiting.`.

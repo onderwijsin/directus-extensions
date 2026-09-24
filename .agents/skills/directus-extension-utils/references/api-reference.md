@@ -166,10 +166,33 @@ interface ExtensionOptionsConfigFragment<Output> // opaque package-owned fragmen
 defineExtensionOptionsSchema<Schema extends ZodType>(
   builder: ExtensionOptionsSchemaBuilder<Schema>,
 ): ExtensionOptionsDefinition<z.output<Schema>>
+
+defineExtensionOptionsSchema<Includes>(composition: {
+  include: Includes // non-empty tuple of package-owned fragments
+  options?: never
+}): ExtensionOptionsDefinition<IncludedOutput<Includes>>
+
+defineExtensionOptionsSchema<Shape extends z.ZodRawShape>(composition: {
+  include?: never
+  options: ExtensionOptionsShapeBuilder<Shape>
+}): ExtensionOptionsDefinition<z.output<z.ZodObject<Shape>>>
+
+defineExtensionOptionsSchema<Includes, Shape extends z.ZodRawShape>(composition: {
+  include: Includes // non-empty tuple of package-owned fragments
+  options: ExtensionOptionsShapeBuilder<Shape>
+}): ExtensionOptionsDefinition<
+  IncludedOutput<Includes>
+    & OverlappingInput<Includes, Shape>
+    & Pick<z.output<z.ZodObject<Shape>>, ExtensionOwnedKeys<Includes, Shape>>
+>
 ```
 
-Use the callback form for a complete consumer-only schema when no shared extension-utils
-configuration is needed:
+`IncludedOutput<Includes>` above denotes the inferred intersection of the included fragment output
+types. `OverlappingInput<Includes, Shape>` denotes each overlapping key's accepted input type, while
+`ExtensionOwnedKeys<Includes, Shape>` denotes the remaining `options` keys. All three are
+explanatory notation rather than public exports.
+
+Use the callback form for a complete consumer-owned schema when convenient:
 
 ```ts
 defineExtensionOptionsSchema((z) =>
@@ -180,27 +203,34 @@ defineExtensionOptionsSchema((z) =>
 ```
 
 Use the object form for declarative composition when shared extension-utils configuration is
-needed:
+needed or when the extension defines a top-level option shape:
 
 ```ts
 defineExtensionOptionsSchema({
   include: [directusStartupConfig, cacheConfig],
-  extend: (z) => ({ MY_EXTENSION_ENABLED: z.boolean().default(true) }),
+  options: (z) => ({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+    CACHE_ENABLED: z.literal(true),
+  }),
 })
 ```
 
-`include` is required for the object form and is a non-empty tuple of package-owned fragments;
-`extend` is optional. If there is nothing to include, use the callback form instead. The inferred
-output for the example is `DirectusStartupOptions & CacheConfig & { MY_EXTENSION_ENABLED: boolean }`.
-It intersects every included fragment output with the object output from `extend`. Includes are
+The object form requires `include`, `options`, or both. When supplied, `include` is a non-empty tuple
+of package-owned fragments. The inferred output for the example retains the startup and cache
+fields, adds `MY_EXTENSION_ENABLED: boolean`, and narrows `CACHE_ENABLED` to `true`. Includes are
 collected with their transitive dependencies, deduplicated by fragment identity, and sorted into a
-canonical composition order. Fragment order therefore does not affect defaults, refinements, output,
-or issue ordering.
+canonical composition order. Fragment order therefore does not affect defaults, refinements,
+output, or issue ordering.
 
 Each fragment declares its own shallow top-level shape and cross-field refinement. Composition uses
 those declarations to build one package-owned object schema and never inspects a Zod schema graph.
-Duplicate top-level keys from distinct fragments or from `extend` throw an error naming the key and
-both owners. Schema equivalence, overrides, and last-wins behavior are not supported.
+Duplicate top-level keys from distinct fragments throw an error naming the key and both owners. An
+overlap between a fragment and `options` adds validation to the canonical shared value: shared field
+parsing, defaults, transforms, and fragment cross-field refinements complete before the overlapping
+schema runs. Both constraints must succeed. The overlapping schema's defaulted or transformed
+output is discarded, so the final value remains the shared output; its accepted input type narrows
+the inferred shared type. Extension-owned keys retain their normal schema output values and types.
+Schema equivalence, overrides, and last-wins behavior are not supported.
 
 `ExtensionOptionsDefinition<Output>` is the opaque value returned by every builder. The six
 specialized builders accept an `ExtensionOptionsShapeBuilder<Shape>` and return an opaque definition
@@ -443,7 +473,7 @@ fragment, which preserves those conditional Redis and filesystem requirements:
 ```ts
 const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig],
-  extend: (z) => ({
+  options: (z) => ({
     ORDERS_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
   }),
 })

@@ -23,12 +23,15 @@ Zod when defining extension options through the package's schema builders. A con
 schema can also be passed directly to `validateExtensionOptions`; this is a fully supported API.
 When extension options combine shared configuration provided by extension-utils, use
 `defineExtensionOptionsSchema` with declarative `include` fragments and build extension fields with
-its `extend` callback. Shared dependencies are deduplicated by fragment identity, include order does
-not change behavior, and duplicate top-level keys fail instead of overriding one another. The
-specialized builders remain convenience APIs for one shared fragment. An extension may use another
-Zod version for unrelated validation, but must not combine schemas from that runtime with the raw
-shared schemas exported by this package. Use the `z` supplied to each builder callback for the
-complete options definition, including nested schemas and helper output.
+its `options` callback. Shared dependencies are deduplicated by fragment identity, include order
+does not change behavior, and duplicate top-level keys between distinct shared fragments fail
+clearly. When `options` repeats an included key, the shared schema parses it first and the extension
+schema adds validation or narrowing to that result; both constraints must succeed, and the canonical
+shared value is preserved. Defaults or transforms on overlapping `options` keys do not replace the
+shared output. The specialized builders remain convenience APIs for one shared fragment. An
+extension may use another Zod version for unrelated validation, but must not combine schemas from
+that runtime with the raw shared schemas exported by this package. Use the `z` supplied to each
+builder callback for the complete options definition, including nested schemas and helper output.
 
 `ensureDirectusDocumentation` is the server-only contract for extensions that contribute articles to
 the fixed `studio_docs` collection. It validates stable article input, honors the docs seed gate,
@@ -275,8 +278,8 @@ tasks, task storage, logging, or setup helpers from those paths.
 
 ### Zod-safe extension options
 
-`defineExtensionOptionsSchema` has two intentional forms. When no shared extension-utils
-configuration is needed, use the simple builder callback for the complete consumer-only schema:
+`defineExtensionOptionsSchema` has two intentional forms. The simple builder callback remains
+available for a complete consumer-owned schema:
 
 ```ts
 import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
@@ -288,9 +291,9 @@ export const envSchema = defineExtensionOptionsSchema((z) =>
 )
 ```
 
-When shared extension-utils configuration is needed, use declarative composition. The object form
-requires `include`, which accepts one or more package-owned fragments; `extend` adds
-extension-specific top-level fields with the Zod runtime owned by extension-utils:
+Use the object form when the extension describes its top-level options as a shape. `include` accepts
+one or more package-owned fragments, while `options` defines extension-owned fields and may add
+stricter requirements to included fields with the Zod runtime owned by extension-utils:
 
 ```ts
 // env.schema.ts
@@ -302,20 +305,37 @@ import {
 
 export const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig, cacheConfig],
-  extend: (z) => ({
+  options: (z) => ({
+    MY_EXTENSION_ENABLED: z.boolean().default(true),
+    CACHE_ENABLED: z.literal(true),
+  }),
+})
+```
+
+The object form requires `include`, `options`, or both. `include` is optional when `options` is
+present:
+
+```ts
+export const envSchema = defineExtensionOptionsSchema({
+  options: (z) => ({
     MY_EXTENSION_ENABLED: z.boolean().default(true),
   }),
 })
 ```
 
-If there is nothing to include, use the callback form instead.
+The callback form remains available when the complete consumer-owned definition is more than a
+top-level object shape.
 
 Composition is order-independent. A fragment's transitive dependencies are collected once by object
 identity, so the example composes Redis once even though startup and cache both depend on it. Each
 fragment owns an explicit shallow top-level shape and any cross-field refinement it needs; the
 package does not inspect Zod internals. If two different fragments declare the same top-level key,
-or `extend` repeats a fragment key, schema materialization throws a duplicate-key error. There is no
-override or last-wins mode.
+schema materialization throws a duplicate-key error. When `options` repeats a fragment key, the
+shared stage completes first, including field defaults, transforms, and fragment cross-field
+refinements. The overlapping `options` schema then validates that parsed value, but its defaulted or
+transformed output is discarded: the canonical shared value remains in the result. This is
+additional validation or narrowing, not override or last-wins behavior. Extension-owned keys that do
+not occur in a fragment keep their normal defaults, transforms, output values, and output types.
 
 The six public shared configuration fragments are:
 
@@ -408,7 +428,7 @@ import {
 
 const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig],
-  extend: (z) => ({
+  options: (z) => ({
     MY_EXTENSION_SCHEMA_CHANGES_ENABLED: z.boolean().default(true),
   }),
 })

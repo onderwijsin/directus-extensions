@@ -61,9 +61,9 @@ export const envSchema = defineExtensionOptionsSchema((z) =>
 )
 ```
 
-Use this callback form when the complete schema is consumer-only. The object/composition form
-requires `include`; if there is no shared extension-utils configuration to include, keep using the
-callback form.
+Use this callback form when the complete schema is consumer-only and is not naturally described as a
+top-level option shape. The object/composition form can include shared extension-utils
+configuration, define extension-owned options, or do both.
 
 The builder supplies the package-owned Zod runtime. Use that callback value for every nested object,
 array, union, and transform. When a nested schema needs a helper, make the helper a factory that
@@ -97,15 +97,31 @@ import {
 
 export const envSchema = defineExtensionOptionsSchema({
   include: [directusStartupConfig, cacheConfig],
-  extend: (z) => ({
+  options: (z) => ({
     CATALOG_ENABLED: z.boolean().default(true),
+    CACHE_ENABLED: z.literal(true),
   }),
 })
 ```
 
 Fragment order does not change behavior, and transitive dependencies are deduplicated by fragment
-identity. A duplicate top-level key from separate fragments or `extend` is an error; composition
-does not provide overrides. See the fragments and one-fragment convenience builders documented in
+identity. Duplicate top-level keys from separate fragments remain an error. An overlapping key in
+`options` is instead an additional constraint: shared field parsing, defaults, transforms, and
+fragment cross-field refinements complete first, then the extension field schema validates the
+resulting value. Both constraints must succeed, but the overlapping schema cannot replace or
+transform the canonical shared output. Extension-owned fields keep normal defaults and transforms;
+this is not override or last-wins behavior.
+
+The object form requires `include`, `options`, or both. `include` may be omitted when only a
+top-level extension shape is needed:
+
+```ts
+export const envSchema = defineExtensionOptionsSchema({
+  options: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
+})
+```
+
+See the fragments and one-fragment convenience builders documented in
 [`extension-utils.md`](extension-utils.md#zod-safe-extension-options). `validateExtensionOptions`
 also fully supports a standalone consumer-owned raw Zod schema. Passing that schema directly does
 not mix runtimes. The mixed-runtime risk arises when a consumer-owned schema is composed with a raw
