@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2
+
+### Patch Changes
+
+- 9a733ac: Compose both Magic Links environment definitions with shared startup and required email
+  configuration.
+
 ## 0.4.1
 
 ### Patch Changes

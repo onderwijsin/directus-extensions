@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-policies-endpoint",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Directus bundle for resolving the current user's policies",
 	"keywords": [
 		"directus",
