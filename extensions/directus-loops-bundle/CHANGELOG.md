@@ -1,5 +1,11 @@
 # @onderwijsin/directus-loops-bundle
 
+## 0.3.1
+
+### Patch Changes
+
+- 616e7e3: Compose Loops environment options with the shared Directus startup configuration.
+
 ## 0.3.0
 
 ### Minor Changes
