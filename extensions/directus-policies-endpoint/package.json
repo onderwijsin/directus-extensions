@@ -51,8 +51,7 @@
 	"dependencies": {
 		"@directus/errors": "catalog:",
 		"@directus/memory": "catalog:",
-		"ioredis": "catalog:",
-		"zod": "catalog:"
+		"ioredis": "catalog:"
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",

@@ -1,3 +1,4 @@
+import { validateExtensionOptions } from '@onderwijsin/directus-extension-utils/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import { parseRequestPayload } from '../src/magic-links-endpoint/handlers'
@@ -52,19 +53,22 @@ describe('magic-link security helpers', () => {
 
 	it('accepts the exact URL that passed configuration validation', async () => {
 		const { envSchema } = await import('../src/magic-links-endpoint/env.schema')
-		const environment = envSchema.parse({
-			SECRET: 'directus-secret',
-			MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: ['https://app.example.com/auth/magic-link'],
-			EMAIL_TRANSPORT: 'sendmail',
-			EMAIL_FROM: 'noreply@example.com',
-		})
+		const allowlist = ['https://app.example.com/auth/magic-link']
+		const environment = Reflect.apply(validateExtensionOptions, undefined, [
+			{
+				SECRET: 'directus-secret',
+				MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: allowlist,
+				EMAIL_TRANSPORT: 'sendmail',
+				EMAIL_FROM: 'noreply@example.com',
+			},
+			envSchema,
+			{ info: vi.fn() },
+		])
+		expect(environment).toMatchObject({ MAGIC_LINKS_REDIRECT_URL_ALLOWLIST: allowlist })
 
-		expect(
-			isAllowedRedirectUrl(
-				'https://app.example.com/auth/magic-link',
-				environment.MAGIC_LINKS_REDIRECT_URL_ALLOWLIST,
-			),
-		).toBe(true)
+		expect(isAllowedRedirectUrl('https://app.example.com/auth/magic-link', allowlist)).toBe(
+			true,
+		)
 	})
 
 	it('parses supported durations and rejects overflow', () => {

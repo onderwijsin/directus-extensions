@@ -1,10 +1,10 @@
 /* oxlint-disable typescript/no-unsafe-call, typescript/no-unsafe-return */
 
 import type { HookExtensionContext } from '@directus/types'
+import type { SluggernautEnv } from '../src/sluggernaut-hook/configuration/env.schema'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { envSchema } from '../src/sluggernaut-hook/configuration/env.schema'
 import { registerSluggernautItemHooks } from '../src/sluggernaut-hook/mutation/item-hooks'
 
 const options = {
@@ -253,12 +253,24 @@ describe('Sluggernaut item hook integration seams', () => {
 			]),
 			clearCache: vi.fn(),
 		}
-		registerSluggernautItemHooks(
-			hook as never,
-			context,
-			envSchema.parse({ SLUGGERNAUT_REDIRECTS_ENABLED: true }),
-			fieldReader,
-		)
+		const configuredEnv: SluggernautEnv = {
+			REDIS_ENABLED: false,
+			SYNCHRONIZATION_STORE: 'memory',
+			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+			DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: true,
+			SLUGGERNAUT_ENABLED: true,
+			SLUGGERNAUT_REDIRECTS_ENABLED: true,
+			SLUGGERNAUT_THROW_ON_PROCESSING_ERROR: true,
+			SLUGGERNAUT_REDIRECTS_COLLECTION: 'redirects',
+			SLUGGERNAUT_MAX_REDIRECT_GRAPH_DEPTH: 25,
+			SLUGGERNAUT_FIELDS_CACHE_TTL_MS: 60_000,
+			SLUGGERNAUT_SCHEMA_CHANGES_ENABLED: false,
+			SLUGGERNAUT_SCHEMA_ABORT_ON_ERROR: true,
+			SLUGGERNAUT_DOCS_SEED_ENABLED: true,
+			SLUGGERNAUT_MANAGE_REDIRECTS_POLICY_ENABLED: false,
+			SLUGGERNAUT_READ_ACTIVE_REDIRECTS_POLICY_ENABLED: false,
+		}
+		registerSluggernautItemHooks(hook as never, context, configuredEnv, fieldReader)
 		const updateFilter = filters.get('items.update')
 		if (!updateFilter) throw new Error('Expected items.update filter')
 		const result = await updateFilter(

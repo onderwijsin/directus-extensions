@@ -9,7 +9,7 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { envSchema } from './env.schema'
+import { envSchema, withPoliciesCacheDefault } from './env.schema'
 
 const EXTENSION_NAME = 'policies_endpoint'
 
@@ -30,7 +30,7 @@ export default defineEndpoint({
 		setup.start()
 
 		if (!setup.isEnabled()) return
-		const options = validateExtensionOptions(env, envSchema, logger)
+		const options = validateExtensionOptions(withPoliciesCacheDefault(env), envSchema, logger)
 		const policyCache = initializePolicyCache(options)
 		router.get(
 			'/policies',
