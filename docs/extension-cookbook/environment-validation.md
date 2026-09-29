@@ -2,8 +2,9 @@
 
 Validate extension configuration at the Directus entrypoint boundary. Environment values are
 external input: they can be missing, mistyped, or changed independently of the extension package.
-Use a Zod schema to define the accepted configuration and fail during startup before registering
-routes, events, SDK clients, or other side effects.
+Define accepted configuration with a consumer-owned Zod schema, or use an extension-utils schema
+builder when the configuration includes shared settings provided by extension-utils. Validate during
+startup before registering routes, events, SDK clients, or other side effects.
 
 ## Validation pattern
 
@@ -13,12 +14,12 @@ For server and API extensions, use the setup lifecycle before validating configu
 2. Call `start()`.
 3. Return when `isEnabled()` is false, so disabled extensions do not validate optional runtime
    dependencies or perform other setup work.
-4. Import the complete schema from the entrypoint's sibling `src/env.schema.ts` and pass it to
-   `validateExtensionOptions`.
+4. Import the options schema or opaque definition from the entrypoint's sibling `src/env.schema.ts`
+   and pass it to `validateExtensionOptions`.
 5. Use the validated options to register Directus behavior, then call `end()` only after
    registration succeeds.
 
-Keeping the schema in `src/env.schema.ts` makes it reusable across entrypoints and gives tests a
+Keeping the definition in `src/env.schema.ts` makes it reusable across entrypoints and gives tests a
 stable import target. The validation helper logs invalid configuration and throws
 `Invalid extension options ☝. Exiting.`. Do not register behavior or initialize external SDKs
 before validation succeeds.
@@ -46,17 +47,85 @@ export default defineEndpoint((router, { env, logger }) => {
 })
 ```
 
-The schema should describe the values the extension receives from Directus. For example:
+The definition should describe the values the extension receives from Directus. For example:
 
 ```ts
-import { z } from 'zod'
+import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
 
-export const envSchema = z.object({
-  CATALOG_ENABLED: z.boolean().default(true),
-  CATALOG_URL: z.string().url(),
-  CATALOG_TIMEOUT: z.number().int().positive().default(5_000),
+export const envSchema = defineExtensionOptionsSchema((z) =>
+  z.object({
+    CATALOG_ENABLED: z.boolean().default(true),
+    CATALOG_URL: z.url(),
+    CATALOG_TIMEOUT: z.number().int().positive().default(5_000),
+  }),
+)
+```
+
+Use this callback form when the complete schema is consumer-only and is not naturally described as a
+top-level option shape. The object/composition form can include shared extension-utils
+configuration, define extension-owned options, or do both.
+
+The builder supplies the package-owned Zod runtime. Use that callback value for every nested object,
+array, union, and transform. When a nested schema needs a helper, make the helper a factory that
+receives the supplied callback value:
+
+```ts
+import { defineExtensionOptionsSchema } from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema((z) => {
+  const catalogFields = (builderZ: typeof z) => ({
+    CATALOG_RETRY: builderZ.object({
+      ATTEMPTS: builderZ.number().int().positive().default(3),
+    }),
+  })
+
+  return z.object(catalogFields(z))
 })
 ```
+
+Do not import or close over another `z` value for fields in an opaque definition. Supplying the
+package-owned runtime through the callback is the safeguard; the package does not traverse Zod's
+internal schema graph to enforce it. When an extension needs multiple shared configuration groups,
+compose their package-owned fragments declaratively:
+
+```ts
+import {
+  cacheConfig,
+  defineExtensionOptionsSchema,
+  directusStartupConfig,
+} from '@onderwijsin/directus-extension-utils/server'
+
+export const envSchema = defineExtensionOptionsSchema({
+  include: [directusStartupConfig, cacheConfig],
+  options: (z) => ({
+    CATALOG_ENABLED: z.boolean().default(true),
+    CACHE_ENABLED: z.literal(true),
+  }),
+})
+```
+
+Fragment order does not change behavior, and transitive dependencies are deduplicated by fragment
+identity. Duplicate top-level keys from separate fragments remain an error. An overlapping key in
+`options` is instead an additional constraint: shared field parsing, defaults, transforms, and
+fragment cross-field refinements complete first, then the extension field schema validates the
+resulting value. Both constraints must succeed, but the overlapping schema cannot replace or
+transform the canonical shared output. Extension-owned fields keep normal defaults and transforms;
+this is not override or last-wins behavior.
+
+The object form requires `include`, `options`, or both. `include` may be omitted when only a
+top-level extension shape is needed:
+
+```ts
+export const envSchema = defineExtensionOptionsSchema({
+  options: (z) => ({ CATALOG_ENABLED: z.boolean().default(true) }),
+})
+```
+
+See the fragments and one-fragment convenience builders documented in
+[`extension-utils.md`](extension-utils.md#zod-safe-extension-options). `validateExtensionOptions`
+also fully supports a standalone consumer-owned raw Zod schema. Passing that schema directly does
+not mix runtimes. The mixed-runtime risk arises when a consumer-owned schema is composed with a raw
+shared schema from extension-utils that uses a different Zod runtime.
 
 Do not assume that every environment value is a string. Directus automatically type casts values
 using context clues before making them available to extensions. Prefer a schema that reflects those
@@ -70,14 +139,18 @@ at the boundary and normalize the result to `T[]`. This keeps single-value deplo
 preserving the predictable array shape used by the extension at runtime. Validate the individual
 values with the same schema in both cases; do not split arbitrary strings on commas.
 
-For example, a Zod schema for a list of strings can normalize both `"database"` and `["database"]`
-to `["database"]`:
+For example, a field built inside the callback can normalize both `"database"` and `["database"]` to
+`["database"]`:
 
 ```ts
-const stringListSchema = z.preprocess(
-  (value) => (value === undefined || Array.isArray(value) ? value : [value]),
-  z.array(z.string()).default([]),
-)
+export const envSchema = defineExtensionOptionsSchema((z) => {
+  const stringListSchema = z.preprocess(
+    (value) => (value === undefined || Array.isArray(value) ? value : [value]),
+    z.array(z.string()).default([]),
+  )
+
+  return z.object({ ALLOWED_VALUES: stringListSchema })
+})
 ```
 
 Apply this rule to include/exclude lists and other collection-valued configuration options. Document

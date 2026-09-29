@@ -1,6 +1,12 @@
 import type { Logger } from 'pino'
 
-import { z, type ZodType } from 'zod'
+import { z } from 'zod'
+
+import {
+	resolveExtensionOptionsSchema,
+	type ExtensionOptionsDefinition,
+	type ExtensionOptionsValidator,
+} from './schema-builder'
 
 /**
  * Setup observability helpers for extension entrypoints
@@ -45,24 +51,50 @@ export function extensionSetup<ENV extends Record<string, unknown>>(
 }
 
 /**
- * Validates extension environment config against a Zod schema.
+ * Validates extension environment config against an opaque extension options definition.
  * @param options - The extension environment.
- * @param schema - The complete extension-specific Zod schema, including `<EXTENSION_NAME_ENABLED>`.
+ * @param schema - The opaque extension options definition, including `<EXTENSION_NAME_ENABLED>`.
  * @param log - The Pino Logger
  * @returns The validated options.
  * @throws When validation fails.
  */
-export function validateExtensionOptions<S extends ZodType>(
+export function validateExtensionOptions<const Output>(
 	options: unknown,
-	schema: S,
+	schema: ExtensionOptionsDefinition<Output>,
 	log: Logger,
-): z.output<S> {
-	const result = schema.safeParse(options)
+): Output
+/**
+ * Validates extension environment config against a consumer-owned Zod schema.
+ *
+ * A standalone consumer-owned schema is fully supported. When extension options include shared
+ * configuration provided by extension-utils, prefer the corresponding builder so its callback
+ * supplies the package-owned Zod runtime.
+ *
+ * @param options - The extension environment.
+ * @param schema - The complete extension-specific Zod schema.
+ * @param log - The Pino Logger.
+ * @returns The validated options.
+ * @throws When validation fails.
+ */
+export function validateExtensionOptions<const Output>(
+	options: unknown,
+	schema: ExtensionOptionsValidator<Output>,
+	log: Logger,
+): Output
+export function validateExtensionOptions(
+	options: unknown,
+	schema: ExtensionOptionsValidator<unknown> | ExtensionOptionsDefinition<unknown>,
+	log: Logger,
+): unknown {
+	const resolvedSchema = resolveExtensionOptionsSchema(schema)
+	const result = resolvedSchema.safeParse(options)
 
 	if (result.success) {
 		return result.data
 	}
 
-	log.info(z.prettifyError(result.error))
+	log.info(
+		result.error instanceof z.ZodError ? z.prettifyError(result.error) : String(result.error),
+	)
 	throw new Error('Invalid extension options ☝. Exiting.')
 }

@@ -1,16 +1,23 @@
-import { cacheConfigSchema } from '@onderwijsin/directus-extension-utils/server'
-import { z } from 'zod'
+import {
+	cacheConfig,
+	defineExtensionOptionsSchema,
+} from '@onderwijsin/directus-extension-utils/server'
 
 import { DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID } from '../shared/constants'
-import { coolifyEnvironmentSchema } from '../shared/coolify-client/schemas'
+import { defineCoolifyEnvironmentOptions } from '../shared/coolify-client/schemas'
 
-const operationEnvSchema = coolifyEnvironmentSchema.extend({
-	COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: z
-		.uuid()
-		.default(DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID),
+/** Environment configuration used by the Coolify deployment operation. */
+export const envSchema = defineExtensionOptionsSchema({
+	include: [cacheConfig],
+	/**
+	 * Builds operation fields with the shared package's Zod runtime.
+	 * @param z - The package-owned Zod runtime.
+	 * @returns Operation environment fields.
+	 */
+	options: (z) => ({
+		...defineCoolifyEnvironmentOptions(z),
+		COOLIFY_DEPLOYMENTS_TRIGGER_DEPLOYMENTS_POLICY_ID: z
+			.uuid()
+			.default(DEFAULT_TRIGGER_DEPLOYMENTS_POLICY_ID),
+	}),
 })
-
-export const envSchema = z.intersection(
-	operationEnvSchema,
-	cacheConfigSchema.safeExtend({ CACHE_ENABLED: z.boolean().default(true) }),
-)

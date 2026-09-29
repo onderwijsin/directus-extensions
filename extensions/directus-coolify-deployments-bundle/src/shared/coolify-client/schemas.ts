@@ -1,19 +1,28 @@
 import { z } from 'zod'
 
-const collectionNameSchema = z
-	.string()
-	.trim()
-	.regex(/^[A-Za-z_][A-Za-z0-9_]*$/u)
-	.refine((value) => !value.startsWith('directus_'), {
-		message: 'Collection names may not start with directus_',
-	})
+/**
+ * Builds Coolify environment fields with the supplied Zod runtime.
+ * @param zod - The Zod runtime used by the caller.
+ * @returns Coolify connection and collection fields.
+ */
+export function defineCoolifyEnvironmentOptions(zod: typeof z) {
+	const collectionNameSchema = zod
+		.string()
+		.trim()
+		.regex(/^[A-Za-z_][A-Za-z0-9_]*$/u)
+		.refine((value) => !value.startsWith('directus_'), {
+			message: 'Collection names may not start with directus_',
+		})
 
-export const coolifyEnvironmentSchema = z.object({
-	COOLIFY_DEPLOYMENTS_ENABLED: z.boolean().default(true),
-	COOLIFY_APPLICATIONS_COLLECTION: collectionNameSchema.default('coolify_applications'),
-	COOLIFY_URL: z.url(),
-	COOLIFY_TOKEN: z.string().trim().min(1),
-})
+	return {
+		COOLIFY_DEPLOYMENTS_ENABLED: zod.boolean().default(true),
+		COOLIFY_APPLICATIONS_COLLECTION: collectionNameSchema.default('coolify_applications'),
+		COOLIFY_URL: zod.url(),
+		COOLIFY_TOKEN: zod.string().trim().min(1),
+	}
+}
+
+export const coolifyEnvironmentSchema = z.object(defineCoolifyEnvironmentOptions(z))
 
 export const envSchema = coolifyEnvironmentSchema
 

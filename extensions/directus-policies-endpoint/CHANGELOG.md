@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+### Patch Changes
+
+- 8cd6b75: Compose the policies environment options with the shared cache configuration while
+  preserving its enabled-by-default cache behavior.
+
 ## 0.2.1
 
 ### Patch Changes

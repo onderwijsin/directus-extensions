@@ -1,5 +1,12 @@
 # @onderwijsin/directus-coolify-deployments-bundle
 
+## 0.4.1
+
+### Patch Changes
+
+- 274c863: Compose Coolify environment options with shared startup and cache configuration while
+  preserving its enabled-by-default cache behavior.
+
 ## 0.4.0
 
 ### Minor Changes

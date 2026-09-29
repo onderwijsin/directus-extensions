@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1
+
+### Patch Changes
+
+- ce597a5: Compose Sluggernaut environment options with the shared Directus startup configuration.
+
 ## 0.4.0
 
 ### Minor Changes

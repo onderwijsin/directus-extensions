@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-policies-endpoint",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Directus bundle for resolving the current user's policies",
 	"keywords": [
 		"directus",
@@ -51,8 +51,7 @@
 	"dependencies": {
 		"@directus/errors": "catalog:",
 		"@directus/memory": "catalog:",
-		"ioredis": "catalog:",
-		"zod": "catalog:"
+		"ioredis": "catalog:"
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+### Patch Changes
+
+- 7736b1d: Compose Studio Docs environment options with the shared Directus startup configuration.
+
 ## 0.2.1
 
 ### Patch Changes

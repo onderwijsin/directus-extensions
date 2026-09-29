@@ -24,6 +24,7 @@ import {
 	EXTENSION_NAME,
 } from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
+import { withCoolifyCacheDefault } from '../shared/env'
 import { registerApplicationEnrichmentHook } from './application-enrichment'
 import { envSchema } from './env.schema'
 import { resolveCoolifyPolicyId } from './policy-ids'
@@ -42,7 +43,7 @@ export default defineHook((hook, context) => {
 
 	if (!setup.isEnabled()) return
 
-	const options = validateExtensionOptions(env, envSchema, logger)
+	const options = validateExtensionOptions(withCoolifyCacheDefault(env), envSchema, logger)
 	const client = createCoolifyDeploymentClient(options, {
 		...options,
 		services: context.services,

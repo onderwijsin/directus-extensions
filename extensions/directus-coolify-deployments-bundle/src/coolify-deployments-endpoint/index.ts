@@ -22,6 +22,7 @@ import {
 	MAX_APPLICATION_DEPLOYMENT_PAGE_SIZE,
 } from '../shared/constants'
 import { createCoolifyDeploymentClient } from '../shared/coolify-client'
+import { withCoolifyCacheDefault } from '../shared/env'
 import { isAssignedPolicy, requirePolicies } from './auth'
 import { envSchema } from './env.schema'
 import { CoolifyDeploymentApplicationMismatchError, CoolifyUpstreamError } from './errors'
@@ -57,7 +58,7 @@ export default defineEndpoint({
 
 		if (!setup.isEnabled()) return
 
-		const options = validateExtensionOptions(env, envSchema, logger)
+		const options = validateExtensionOptions(withCoolifyCacheDefault(env), envSchema, logger)
 		const policyCache = initializePolicyCache(options)
 		const client = createCoolifyDeploymentClient(options, {
 			...options,
