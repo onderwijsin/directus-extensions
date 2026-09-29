@@ -10,6 +10,7 @@ import ComponentPropsDrawer from '../src/markdown-editor-interface/components/Co
 import EditorTableMenu from '../src/markdown-editor-interface/components/EditorTableMenu.vue'
 import EditorToolbar from '../src/markdown-editor-interface/components/EditorToolbar.vue'
 import ImageUploadField from '../src/markdown-editor-interface/components/ImageUploadField.vue'
+import VideoUploadField from '../src/markdown-editor-interface/components/VideoUploadField.vue'
 import { createEditorCommands } from '../src/markdown-editor-interface/editor/commands'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
 import MarkdownEditor from '../src/markdown-editor-interface/MarkdownEditor.vue'
@@ -203,6 +204,48 @@ describe('Markdown editor interface', () => {
 		await nextTick()
 		expect(selected).toHaveBeenCalledWith({ id: 'next-image' })
 		element.querySelector<HTMLButtonElement>('[aria-label="Deselect image"]')?.click()
+		await nextTick()
+		expect(cleared).toHaveBeenCalledOnce()
+	})
+
+	it('renders a playable selected video preview and supports replacement or deselection', async () => {
+		const selected = vi.fn()
+		const cleared = vi.fn()
+		const root = defineComponent({
+			setup: () => () =>
+				h(VideoUploadField, {
+					previewSource: '/assets/current-video',
+					onSelect: selected,
+					onClear: cleared,
+				}),
+		})
+		const element = document.createElement('div')
+		document.body.append(element)
+		const app = createApp(root)
+		registerDirectusPrimitives(app)
+		app.component(
+			'VUpload',
+			defineComponent({
+				props: ['filter'],
+				emits: ['input'],
+				template:
+					'<button class="upload-video" :data-filter="JSON.stringify(filter)" @click="$emit(\'input\', { id: \'next-video\' })">Upload</button>',
+			}),
+		)
+		app.mount(element)
+		mounted.push({ app, element })
+
+		const preview = element.querySelector('video')
+		expect(preview?.getAttribute('src')).toBe('/assets/current-video')
+		expect(preview?.hasAttribute('controls')).toBe(true)
+		expect(preview?.getAttribute('preload')).toBe('metadata')
+		expect(element.querySelector('.upload-video')?.getAttribute('data-filter')).toBe(
+			'{"type":{"_contains":"video"}}',
+		)
+		element.querySelector<HTMLButtonElement>('.upload-video')?.click()
+		await nextTick()
+		expect(selected).toHaveBeenCalledWith({ id: 'next-video' })
+		element.querySelector<HTMLButtonElement>('[aria-label="Deselect video"]')?.click()
 		await nextTick()
 		expect(cleared).toHaveBeenCalledOnce()
 	})

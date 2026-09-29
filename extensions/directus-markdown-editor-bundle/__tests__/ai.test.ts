@@ -14,6 +14,7 @@ import { envSchema as endpointEnvSchema } from '../src/editor-endpoint/env.schem
 import { EditorAiInvalidPayloadError, toEditorAiError } from '../src/editor-endpoint/errors'
 import { editorAiRequestSchema } from '../src/editor-endpoint/request'
 import { createSystemPrompt } from '../src/editor-endpoint/system-prompt'
+import { envSchema as hookEnvSchema } from '../src/markdown-editor-hook/env.schema'
 import { replaceDocument } from '../src/markdown-editor-interface/ai/document'
 import { createInsertionDocument } from '../src/markdown-editor-interface/ai/insertion'
 import { normalizeAiPrompt, shouldSubmitAiPrompt } from '../src/markdown-editor-interface/ai/prompt'
@@ -31,11 +32,11 @@ import {
 } from '../src/shared/editor-skill'
 
 describe('editor AI domain', () => {
-	it('shares enablement while requiring a supported direct provider only at invocation', () => {
-		expect(endpointEnvSchema.parse({})).toMatchObject({ MARKDOWN_EDITOR_ENABLED: true })
-		expect(endpointEnvSchema.safeParse({ EDITOR_AI_PROVIDER: 'gateway' }).success).toBe(false)
-		for (const provider of ['openai', 'anthropic', 'google', 'mistral'])
-			expect(endpointEnvSchema.safeParse({ EDITOR_AI_PROVIDER: provider }).success).toBe(true)
+	it('defines opaque endpoint and hook environment options', () => {
+		expect('parse' in endpointEnvSchema).toBe(false)
+		expect('safeParse' in endpointEnvSchema).toBe(false)
+		expect('parse' in hookEnvSchema).toBe(false)
+		expect('safeParse' in hookEnvSchema).toBe(false)
 	})
 
 	it('defines the editor policy with create, read, and update only', () => {

@@ -417,10 +417,10 @@ indent/outdent and Enter preserves indentation.
 
 Images and video can be selected from the Directus file library or entered as HTTP(S), relative, or
 `/assets/{id}` URLs. Image library browsing is filtered to image MIME types and video browsing to
-video MIME types. Selected images show a removable preview. Existing image and video blocks expose
-**Edit image** or **Edit video** in their drag-handle action menu. Executable and data protocols are
-rejected. The extension does not transform images, generate captions, or provide a frontend media
-renderer.
+video MIME types. Selected images and videos show a removable preview; video previews include native
+playback controls. Existing image and video blocks expose **Edit image** or **Edit video** in their
+drag-handle action menu. Executable and data protocols are rejected. The extension does not
+transform images, generate captions, or provide a frontend media renderer.
 
 ## Studio Docs article
 

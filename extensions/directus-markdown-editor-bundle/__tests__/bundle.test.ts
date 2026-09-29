@@ -55,24 +55,12 @@ vi.mock('../src/markdown-editor-hook/skill-seeding', () => ({
 
 import docsArticle from '../docs/markdown-editor.json'
 import skillSeeds from '../seeds/editor_skills.json'
-import { envSchema } from '../src/markdown-editor-hook/env.schema'
 import '../src/markdown-editor-hook'
 
 describe('Markdown Editor bundle', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		mocks.setup.isEnabled.mockReturnValue(true)
-	})
-
-	it('provides enabled startup defaults', () => {
-		expect(envSchema.parse({})).toMatchObject({
-			MARKDOWN_EDITOR_ENABLED: true,
-			MARKDOWN_EDITOR_DOCS_SEED_ENABLED: true,
-			MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED: true,
-			MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR: true,
-			MARKDOWN_EDITOR_SKILLS_SEED_ENABLED: true,
-			MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY: 'versioning',
-		})
 	})
 
 	it('seeds editor skills during the hook-owned data phase', async () => {

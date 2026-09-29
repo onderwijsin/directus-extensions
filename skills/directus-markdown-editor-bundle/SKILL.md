@@ -135,9 +135,10 @@ The `/` menu starts with an AI section. **Write with AI** is first, followed onl
 with the `insert` scope; insert skills do not appear on document, selection, or drag-handle
 surfaces.
 
-Image and video library selection is MIME-filtered to the matching media type. Selected images show
-a removable preview. Existing media nodes expose **Edit image** or **Edit video** in the drag-handle
-action menu and reopen the same media drawer used for insertion.
+Image and video library selection is MIME-filtered to the matching media type. Selected images and
+videos show a removable preview; video previews include native playback controls. Existing media
+nodes expose **Edit image** or **Edit video** in the drag-handle action menu and reopen the same
+media drawer used for insertion.
 
 The endpoint reads the target field's `tools` option and constructs the system prompt for that
 specific editor instance. AI may introduce only currently enabled authoring syntax, while existing

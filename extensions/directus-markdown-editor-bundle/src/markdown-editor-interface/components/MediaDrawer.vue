@@ -7,6 +7,7 @@ import { isString } from '@onderwijsin/directus-extension-utils'
 
 import { directusAssetId, directusAssetUrl, sanitizeImageUrl } from '../editor/media'
 import ImageUploadField from './ImageUploadField.vue'
+import VideoUploadField from './VideoUploadField.vue'
 
 const props = defineProps<{
 	editor: Editor
@@ -113,15 +114,12 @@ function remove() {
 				@select="onFileSelect"
 				@clear="clearSource"
 			/>
-			<VUpload
+			<VideoUploadField
 				v-else
+				:preview-source="sanitizeImageUrl(source)"
 				:disabled="disabled"
-				:multiple="false"
-				from-library
-				from-url
-				accept="video/*"
-				:filter="{ type: { _contains: 'video' } }"
-				@input="onFileSelect"
+				@select="onFileSelect"
+				@clear="clearSource"
 			/>
 		</div>
 		<template #actions>
