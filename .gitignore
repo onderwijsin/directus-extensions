@@ -71,6 +71,7 @@ build-info.json
 registry/
 .registry
 nuxt-build.cpuprofile
+.reference
 
 # ===================================
 # ⚙️ Dotenv / Config Files

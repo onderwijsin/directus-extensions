@@ -36,7 +36,9 @@ Use these filename conventions:
 | Process integration | `*.integration.test.ts` | `test:integration` |
 | Directus E2E        | `*.e2e.test.ts`         | `e2e`              |
 
-Do not create `test/` directories. Use only the `.test.ts` suffixes shown above.
+Do not create `test/` directories. Use only the `.test.ts` suffixes shown above. Checked-out
+upstream repositories under `.reference/` are documentation/source references, not workspace test
+inputs, and are excluded from every Vitest project.
 
 ## Test layers
 
