@@ -267,13 +267,15 @@ For a property definition:
 - `values` is an array of string choices and is required for `type: "array"`;
 - `tags: [{ "name": "editor", "text": "image" }]` (the JSON form of `@editor image`) keeps a prop
   typed and persisted as a `string` while rendering a Directus image selector with a removable
-  thumbnail.
+  thumbnail; and
+- `tags: [{ "name": "editor", "text": "url" }]` (the JSON form of `@editor url`) keeps a prop typed
+  and persisted as a `string` while requiring a valid HTTP(S) URL with its protocol.
 
 Primitive controls persist their matching JSON value types. The image editor hint persists only the
-selected Directus file ID, not an asset URL or file object. It is carried as a JSDoc tag so the
-metadata remains compatible with `nuxt-component-meta`; arbitrary upstream tags continue to pass
-through unchanged. `@editor` is the extensible editor-control namespace; `image` is currently its
-only supported value.
+selected Directus file ID, not an asset URL or file object. Editor hints are carried as JSDoc tags
+so the metadata remains compatible with `nuxt-component-meta`; arbitrary upstream tags continue to
+pass through unchanged. `@editor` is the extensible editor-control namespace; `image` and `url` are
+currently supported.
 
 - `tags` preserves JSDoc tags; `{ "name": "deprecated", "text": "Use newProp instead." }` displays a
   deprecation hint without changing runtime behavior.

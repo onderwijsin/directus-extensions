@@ -230,15 +230,15 @@ framework and accepts either an array or an object with a `components` array:
 
 ### Property fields
 
-| Field         | Required           | Contract                                                                                                         |
-| ------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                         |
-| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, or `array`. Unknown values fall back to text.                  |
-| `description` | no                 | Help text for the property.                                                                                      |
-| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                       |
-| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                          |
-| `values`      | for `array`        | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                  |
-| `tags`        | no                 | JSDoc tags from component metadata; `deprecated` adds a hint and `editor: image` selects an image asset control. |
+| Field         | Required           | Contract                                                                                                                      |
+| ------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                                      |
+| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, or `array`. Unknown values fall back to text.                               |
+| `description` | no                 | Help text for the property.                                                                                                   |
+| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                                    |
+| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                                       |
+| `values`      | for `array`        | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                               |
+| `tags`        | no                 | JSDoc tags from component metadata; `deprecated` adds a hint, while `editor: image` and `editor: url` select richer controls. |
 
 The primitive controls preserve their corresponding values: `string` stores a string, `number`
 stores a number, `boolean` stores a boolean, and `array` stores a string array. A string property
@@ -247,9 +247,9 @@ with `values` is the select form of the string control; `select` is not a separa
 For an image asset property, keep the component prop typed as `string` and add the Vue-compatible
 JSDoc tag `@editor image`. In JSON this is `{ "name": "editor", "text": "image" }`. The drawer uses
 the Directus image selector, shows the selected asset as a removable thumbnail, and persists only
-the Directus file ID. `@editor` is the extensible editor-control namespace; currently `image` is its
-only supported value. Arbitrary JSDoc tags remain compatible with `nuxt-component-meta`; the editor
-interprets only documented hints and the standard `deprecated` tag.
+the Directus file ID. Use `@editor url` for a string control that requires a valid HTTP(S) URL with
+its protocol. Both hints keep the metadata compatible with `nuxt-component-meta`; arbitrary JSDoc
+tags remain available, while the editor interprets only documented hints and `deprecated`.
 
 When a static value or metadata URL loads successfully, the editor treats that metadata as
 authoritative and checks components after hydration. Missing required properties, required
@@ -391,6 +391,14 @@ Archived items are omitted from search and reported as **Archived** when still r
 items and permission-hidden items are both reported as **Unavailable**. The editor never uses an
 administrator token, changes the source item, saves the containing item automatically, or creates a
 reverse index.
+
+## Links
+
+Authors can insert links from the toolbar, selection bubble, slash menu, or drag-handle insert menu.
+The link drawer requires visible link text and offers URL, internal path, email, and phone types.
+URL values require an `http://` or `https://` protocol, internal paths must start with `/`, and
+email values must be valid addresses. Phone values are accepted as entered. Email and phone links
+persist as standard `mailto:` and `tel:` hrefs.
 
 ## Code blocks and media
 

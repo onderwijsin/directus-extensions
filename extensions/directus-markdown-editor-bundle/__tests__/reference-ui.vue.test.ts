@@ -247,6 +247,25 @@ describe('Reference interface', () => {
 		expect(element.textContent).not.toContain('Reference')
 	})
 
+	it('offers link insertion from the drag-handle insert menu', async () => {
+		const editor = new Editor({ extensions: createEditorExtensions() })
+		editors.push(editor)
+		const element = mount(EditorContextMenus, {
+			editor,
+			commands: [],
+			enabledTools: ['link'],
+		})
+
+		element
+			.querySelector('[aria-label="Insert block"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+
+		expect(
+			[...element.querySelectorAll('button')].some((button) => button.textContent === 'Link'),
+		).toBe(true)
+	})
+
 	it.each([
 		{ type: 'image', source: '![alt](/assets/image-id)', action: 'Edit image' },
 		{

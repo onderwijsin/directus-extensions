@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
-import type { ComponentMetadata } from '../component-meta/schema'
+import type { ComponentMetadata, ComponentProp } from '../component-meta/schema'
 
 // Metadata has already crossed the Zod boundary before it reaches this form.
 import { computed, reactive, shallowRef, watch } from 'vue'
@@ -14,6 +14,7 @@ import {
 	metadataDeprecation,
 } from '../component-meta/schema'
 import { insertComponent, refreshComponentAt, updateComponent } from '../editor/insertion'
+import { linkValueError } from '../editor/link'
 import { directusAssetId, directusAssetUrl } from '../editor/media'
 import ImageUploadField from './ImageUploadField.vue'
 
@@ -39,8 +40,18 @@ const missingRequired = computed(() => {
 		)
 		.map(([name]) => name)
 })
+const invalidUrlProps = computed(() => {
+	if (!props.component) return []
+	return toEntries(props.component.props)
+		.filter(([name, definition]) => urlPropError(name, definition) !== undefined)
+		.map(([name]) => name)
+})
 const canSave = computed(
-	() => Boolean(props.component) && !props.disabled && missingRequired.value.length === 0,
+	() =>
+		Boolean(props.component) &&
+		!props.disabled &&
+		missingRequired.value.length === 0 &&
+		invalidUrlProps.value.length === 0,
 )
 const refreshed = shallowRef(false)
 const refreshSlotsRequested = shallowRef(false)
@@ -133,6 +144,18 @@ function textValue(name: string) {
  */
 function setTextValue(name: string, value: string) {
 	form[name] = value
+}
+
+/**
+ * Validate a metadata property rendered with the URL editor control.
+ * @param name Property name.
+ * @param definition Property metadata.
+ * @returns Validation message, or nothing for a valid or empty optional value.
+ */
+function urlPropError(name: string, definition: ComponentProp): string | undefined {
+	if (definition.type !== 'string' || componentPropEditor(definition) !== 'url') return undefined
+	const value = textValue(name).trim()
+	return value ? linkValueError('url', value) : undefined
 }
 
 /**
@@ -270,6 +293,9 @@ function remove() {
 			<VNotice v-if="missingRequired.length" type="warning"
 				>Complete the required fields: {{ missingRequired.join(', ') }}.</VNotice
 			>
+			<VNotice v-if="invalidUrlProps.length" type="warning"
+				>Enter valid URLs for: {{ invalidUrlProps.join(', ') }}.</VNotice
+			>
 			<VNotice v-if="refreshed" type="info"
 				>Properties now match the current metadata. Review them and apply to save.</VNotice
 			>
@@ -300,6 +326,23 @@ function remove() {
 					@select="setImageValue(name, $event)"
 					@clear="clearImageValue(name)"
 				/>
+				<template
+					v-else-if="
+						definition.type === 'string' && componentPropEditor(definition) === 'url'
+					"
+				>
+					<VInput
+						:id="`component-prop-${name}`"
+						:model-value="textValue(name)"
+						placeholder="https://example.com"
+						:error="Boolean(urlPropError(name, definition))"
+						:disabled="disabled"
+						@update:model-value="setTextValue(name, $event)"
+					/>
+					<p v-if="urlPropError(name, definition)" class="component-props-form__error">
+						{{ urlPropError(name, definition) }}
+					</p>
+				</template>
 				<VSelect
 					v-else-if="definition.type === 'array'"
 					:model-value="form[name]"
@@ -398,6 +441,11 @@ function remove() {
 .component-props-form__deprecated {
 	margin: 0;
 	color: var(--theme--warning-foreground, #7a5b00);
+	font-size: 0.75rem;
+}
+.component-props-form__error {
+	margin: 0;
+	color: var(--theme--danger, var(--danger));
 	font-size: 0.75rem;
 }
 </style>

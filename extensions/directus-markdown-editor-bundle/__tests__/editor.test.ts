@@ -36,6 +36,8 @@ import {
 } from '../src/markdown-editor-interface/editor/insertion'
 import {
 	createLinkShortcut,
+	linkHref,
+	linkValueError,
 	readLinkSelection,
 	saveLinkSelection,
 } from '../src/markdown-editor-interface/editor/link'
@@ -388,7 +390,7 @@ describe('editor commands', () => {
 		expect(
 			saveLinkSelection(
 				editor,
-				{ url: 'https://example.com', title: 'Example', text: 'const' },
+				{ type: 'url', url: 'https://example.com', title: 'Example', text: 'const' },
 				{ from: 1, to: 6 },
 			),
 		).toBe(false)
@@ -657,7 +659,12 @@ describe('editor commands', () => {
 		expect(
 			saveLinkSelection(
 				editor,
-				{ url: 'https://example.com', title: 'Example', text: 'Hello' },
+				{
+					type: 'url',
+					url: 'https://example.com',
+					title: 'Example',
+					text: 'Hello',
+				},
 				{ from: 1, to: 6 },
 			),
 		).toBe(true)
@@ -665,10 +672,45 @@ describe('editor commands', () => {
 		expect(
 			saveLinkSelection(
 				editor,
-				{ url: 'javascript:alert(1)', title: '', text: 'Hello' },
+				{ type: 'url', url: 'javascript:alert(1)', title: '', text: 'Hello' },
 				{ from: 1, to: 6 },
 			),
 		).toBe(false)
+		editor.destroy()
+	})
+
+	it('validates and serializes each supported link type', () => {
+		expect(linkValueError('url', 'https://example.com/path')).toBeUndefined()
+		expect(linkValueError('url', 'example.com')).toBeDefined()
+		expect(linkValueError('internal', '/news/article')).toBeUndefined()
+		expect(linkValueError('internal', 'news/article')).toBeDefined()
+		expect(linkValueError('email', 'editor@example.com')).toBeUndefined()
+		expect(linkValueError('email', 'editor@')).toBeDefined()
+		expect(linkValueError('phone', '+31 (0)20 123 4567')).toBeUndefined()
+		expect(linkHref('email', 'editor@example.com')).toBe('mailto:editor@example.com')
+		expect(linkHref('phone', '+31 20 123 4567')).toBe('tel:+31 20 123 4567')
+	})
+
+	it('requires link text and persists typed links with replacement text', () => {
+		const editor = createEditor('<p>Replace me</p>')
+		editor.commands.setTextSelection({ from: 1, to: 8 })
+
+		expect(
+			saveLinkSelection(
+				editor,
+				{ type: 'email', url: 'editor@example.com', title: '', text: '' },
+				{ from: 1, to: 8 },
+			),
+		).toBe(false)
+		expect(
+			saveLinkSelection(
+				editor,
+				{ type: 'email', url: 'editor@example.com', title: '', text: 'Contact us' },
+				{ from: 1, to: 8 },
+			),
+		).toBe(true)
+		expect(editor.getHTML()).toContain('href="mailto:editor@example.com"')
+		expect(editor.getText()).toBe('Contact us me')
 		editor.destroy()
 	})
 
@@ -1014,6 +1056,7 @@ describe('editor commands', () => {
 	})
 
 	it('filters slash commands by alternate names and component names', () => {
+		const openLink = vi.fn()
 		const openImage = vi.fn()
 		const openVideo = vi.fn()
 		const editor = createEditor()
@@ -1028,7 +1071,7 @@ describe('editor commands', () => {
 					slots: ['default'],
 				},
 			],
-			{ openImage, openVideo },
+			{ openLink, openImage, openVideo },
 		)
 
 		expect(filterSlashItems(items, 'ul').map((item) => item.id)).toContain('bullet-list')
@@ -1040,10 +1083,13 @@ describe('editor commands', () => {
 		])
 		expect(filterSlashItems(items, 'photo').map((item) => item.id)).toEqual(['insert-image'])
 		expect(filterSlashItems(items, 'media').map((item) => item.id)).toEqual(['insert-video'])
+		expect(filterSlashItems(items, 'email').map((item) => item.id)).toEqual(['insert-link'])
+		expect(items.find((item) => item.id === 'insert-link')?.command(editor)).toBe(true)
 		expect(items.find((item) => item.id === 'insert-image')?.command(editor)).toBe(true)
 		expect(items.find((item) => item.id === 'insert-video')?.command(editor)).toBe(true)
 		expect(openImage).toHaveBeenCalledOnce()
 		expect(openVideo).toHaveBeenCalledOnce()
+		expect(openLink).toHaveBeenCalledOnce()
 		expect(items.find((item) => item.id === 'heading-1')).toMatchObject({
 			group: 'Text',
 			aliases: expect.arrayContaining(['h1']),

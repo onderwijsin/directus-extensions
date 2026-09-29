@@ -210,6 +210,18 @@ function openReferenceInsert() {
 	emit('openReference')
 }
 
+function openLinkInsert() {
+	if (
+		!isEditorToolEnabled(props.enabledTools, 'link') ||
+		props.disabled ||
+		!props.editor.isEditable
+	)
+		return
+	if (!prepareInsertionPoint()) return
+	setInsertMenuState(false)
+	emit('openLink')
+}
+
 function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 	const position = blockMenuPosition.value ?? hoveredPosition.value
 	if (position === null || props.disabled) return
@@ -368,11 +380,22 @@ function runAi(skillId?: string) {
 					</VListItem>
 					<VDivider
 						v-if="
+							isEditorToolEnabled(enabledTools, 'link') ||
 							(componentsAvailable &&
 								isEditorToolEnabled(enabledTools, 'component')) ||
 							(referencesEnabled && isEditorToolEnabled(enabledTools, 'reference'))
 						"
 					/>
+					<VListItem
+						v-if="isEditorToolEnabled(enabledTools, 'link')"
+						clickable
+						@click="openLinkInsert"
+					>
+						<VListItemIcon>
+							<VIcon name="link" />
+						</VListItemIcon>
+						<VListItemContent>Link</VListItemContent>
+					</VListItem>
 					<VListItem
 						v-if="componentsAvailable && isEditorToolEnabled(enabledTools, 'component')"
 						clickable

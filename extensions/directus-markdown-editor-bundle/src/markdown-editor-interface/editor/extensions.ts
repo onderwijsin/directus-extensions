@@ -18,6 +18,7 @@ import { createSlashExtension } from './slash'
 
 /** Actions delegated by editor extensions to the surrounding interface. */
 export interface EditorExtensionActions {
+	openLink?: () => void
 	openImage?: () => void
 	openVideo?: () => void
 	openComponent?: (component: ComponentMetadata) => void

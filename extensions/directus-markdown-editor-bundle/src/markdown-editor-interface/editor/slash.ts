@@ -20,6 +20,7 @@ import {
 import { componentRequiresProps, insertComponent, resolveComponentDefaultProps } from './insertion'
 
 export interface SlashMenuActions {
+	openLink?: () => void
 	openImage?: () => void
 	openVideo?: () => void
 	openComponent?: (component: ComponentMetadata) => void
@@ -118,6 +119,18 @@ export function createSlashItems(
 		: []
 	const mediaItems: SlashItem[] = [
 		{
+			id: 'insert-link',
+			label: 'Link',
+			description: 'Insert a link',
+			icon: 'link',
+			group: 'Insert',
+			aliases: ['url', 'internal', 'email', 'phone'],
+			command: () => {
+				actions.openLink?.()
+				return Boolean(actions.openLink)
+			},
+		},
+		{
 			id: 'insert-image',
 			label: 'Image',
 			description: 'Insert an image from Directus or a URL',
@@ -141,9 +154,10 @@ export function createSlashItems(
 				return Boolean(actions.openVideo)
 			},
 		},
-	].filter((item) =>
-		isEditorToolEnabled(enabledTools, item.id === 'insert-image' ? 'image' : 'video'),
-	)
+	].filter((item) => {
+		if (item.id === 'insert-link') return isEditorToolEnabled(enabledTools, 'link')
+		return isEditorToolEnabled(enabledTools, item.id === 'insert-image' ? 'image' : 'video')
+	})
 	return [...aiItems, ...configured, ...mediaItems, ...componentItems]
 }
 

@@ -338,6 +338,7 @@ const extensions = createEditorExtensions(
 	 */
 	() => metadata.components.value,
 	{
+		openLink: openLinkDrawer,
 		openImage: openImageDrawer,
 		openVideo: openVideoDrawer,
 		openComponent: openComponentFromSlash,
