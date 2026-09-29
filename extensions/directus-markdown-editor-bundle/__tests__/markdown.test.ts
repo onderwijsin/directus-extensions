@@ -198,6 +198,49 @@ describe('component metadata boundary', () => {
 		])
 	})
 
+	it('accepts array properties with allowed values', () => {
+		const component = normalizeComponentMetadata([
+			{
+				name: 'CardGrid',
+				nodeType: 'block',
+				props: {
+					columns: { type: 'array', values: ['one', 'two', 'three'] },
+				},
+			},
+		])[0]
+
+		expect(component?.props.columns).toEqual({
+			type: 'array',
+			values: ['one', 'two', 'three'],
+		})
+	})
+
+	it('rejects array properties without allowed values', () => {
+		expect(() =>
+			normalizeComponentMetadata([
+				{
+					name: 'CardGrid',
+					nodeType: 'block',
+					props: { columns: { type: 'array' } },
+				},
+			]),
+		).toThrow('unsupported shape')
+	})
+
+	it('preserves Vue-compatible editor tags for non-primitive controls', () => {
+		const component = normalizeComponentMetadata([
+			{
+				name: 'Hero',
+				nodeType: 'block',
+				props: {
+					image: { type: 'string', tags: [{ name: 'editor', text: 'image' }] },
+				},
+			},
+		])[0]
+
+		expect(component?.props.image?.tags).toEqual([{ name: 'editor', text: 'image' }])
+	})
+
 	it('preserves standard JSDoc deprecation tags on components', () => {
 		const component = normalizeComponentMetadata([
 			{

@@ -3,9 +3,10 @@ import type { Editor } from '@tiptap/core'
 
 import { computed, ref, shallowRef, watch } from 'vue'
 
-import { hasKey, isRecord, isString, isArray } from '@onderwijsin/directus-extension-utils'
+import { isString } from '@onderwijsin/directus-extension-utils'
 
-import { directusAssetUrl, sanitizeImageUrl } from '../editor/media'
+import { directusAssetId, directusAssetUrl, sanitizeImageUrl } from '../editor/media'
+import ImageUploadField from './ImageUploadField.vue'
 
 const props = defineProps<{
 	editor: Editor
@@ -50,15 +51,18 @@ watch(
  */
 function onFileSelect(value: unknown) {
 	if (props.disabled) return
-	if (isArray(value)) {
-		onFileSelect(value[0])
-		return
-	}
-	if (!isRecord(value) || !hasKey(value, 'id')) return
-	const id = value.id
-	if (!isString(id)) return
+	const id = directusAssetId(value)
+	if (!id) return
 	const url = directusAssetUrl(id)
 	if (url) source.value = url
+}
+
+/**
+ * Clear the currently selected media source from the drawer draft.
+ * @returns Nothing.
+ */
+function clearSource() {
+	if (!props.disabled) source.value = ''
 }
 
 /**
@@ -102,12 +106,21 @@ function remove() {
 		@apply="save"
 	>
 		<div class="media-drawer__content">
+			<ImageUploadField
+				v-if="activeTab === 'image'"
+				:preview-source="sanitizeImageUrl(source)"
+				:disabled="disabled"
+				@select="onFileSelect"
+				@clear="clearSource"
+			/>
 			<VUpload
+				v-else
 				:disabled="disabled"
 				:multiple="false"
 				from-library
 				from-url
-				:accept="activeTab === 'video' ? 'video/*' : 'image/*'"
+				accept="video/*"
+				:filter="{ type: { _contains: 'video' } }"
 				@input="onFileSelect"
 			/>
 		</div>

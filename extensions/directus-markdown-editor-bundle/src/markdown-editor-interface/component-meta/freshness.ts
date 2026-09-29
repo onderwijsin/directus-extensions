@@ -2,7 +2,7 @@ import type { Editor } from '@tiptap/core'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { ComponentMetadata } from './schema'
 
-import { isRecord, isString, keys } from '@onderwijsin/directus-extension-utils'
+import { isArray, isRecord, isString, keys } from '@onderwijsin/directus-extension-utils'
 
 import { metadataDeprecation } from './schema'
 
@@ -30,7 +30,12 @@ export interface ComponentOccurrence {
  * @returns Whether the value is empty.
  */
 export function isRequiredComponentPropEmpty(value: unknown) {
-	return value === undefined || value === null || value === ''
+	return (
+		value === undefined ||
+		value === null ||
+		value === '' ||
+		(isArray(value) && value.length === 0)
+	)
 }
 
 /**

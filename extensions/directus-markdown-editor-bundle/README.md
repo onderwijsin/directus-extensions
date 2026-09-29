@@ -192,6 +192,16 @@ framework and accepts either an array or an object with a `components` array:
           "name": "Dismissible",
           "type": "boolean",
           "default": false
+        },
+        "audiences": {
+          "name": "Audiences",
+          "type": "array",
+          "values": ["students", "teachers", "parents"]
+        },
+        "image": {
+          "name": "Image",
+          "type": "string",
+          "tags": [{ "name": "editor", "text": "image" }]
         }
       },
       "slots": ["default"]
@@ -220,15 +230,26 @@ framework and accepts either an array or an object with a `components` array:
 
 ### Property fields
 
-| Field         | Required           | Contract                                                                                   |
-| ------------- | ------------------ | ------------------------------------------------------------------------------------------ |
-| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                   |
-| `type`        | no                 | Editor input hint. `boolean` renders a checkbox; other values render text/select controls. |
-| `description` | no                 | Help text for the property.                                                                |
-| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                 |
-| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                    |
-| `values`      | no                 | Allowed string choices shown as a select control.                                          |
-| `tags`        | no                 | JSDoc tags from component metadata; `deprecated` adds an editor hint and optional message. |
+| Field         | Required           | Contract                                                                                                         |
+| ------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                         |
+| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, or `array`. Unknown values fall back to text.                  |
+| `description` | no                 | Help text for the property.                                                                                      |
+| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                       |
+| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                          |
+| `values`      | for `array`        | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                  |
+| `tags`        | no                 | JSDoc tags from component metadata; `deprecated` adds a hint and `editor: image` selects an image asset control. |
+
+The primitive controls preserve their corresponding values: `string` stores a string, `number`
+stores a number, `boolean` stores a boolean, and `array` stores a string array. A string property
+with `values` is the select form of the string control; `select` is not a separate property type.
+
+For an image asset property, keep the component prop typed as `string` and add the Vue-compatible
+JSDoc tag `@editor image`. In JSON this is `{ "name": "editor", "text": "image" }`. The drawer uses
+the Directus image selector, shows the selected asset as a removable thumbnail, and persists only
+the Directus file ID. `@editor` is the extensible editor-control namespace; currently `image` is its
+only supported value. Arbitrary JSDoc tags remain compatible with `nuxt-component-meta`; the editor
+interprets only documented hints and the standard `deprecated` tag.
 
 When a static value or metadata URL loads successfully, the editor treats that metadata as
 authoritative and checks components after hydration. Missing required properties, required
@@ -387,8 +408,11 @@ Collapsible code uses an MDC `::code-collapse` wrapper. Inside code blocks, Tab 
 indent/outdent and Enter preserves indentation.
 
 Images and video can be selected from the Directus file library or entered as HTTP(S), relative, or
-`/assets/{id}` URLs. Executable and data protocols are rejected. The extension does not transform
-images, generate captions, or provide a frontend media renderer.
+`/assets/{id}` URLs. Image library browsing is filtered to image MIME types and video browsing to
+video MIME types. Selected images show a removable preview. Existing image and video blocks expose
+**Edit image** or **Edit video** in their drag-handle action menu. Executable and data protocols are
+rejected. The extension does not transform images, generate captions, or provide a frontend media
+renderer.
 
 ## Studio Docs article
 

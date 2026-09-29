@@ -8,8 +8,14 @@ import { computed, reactive, shallowRef, watch } from 'vue'
 import { isString, keys, toEntries } from '@onderwijsin/directus-extension-utils'
 
 import { isRequiredComponentPropEmpty } from '../component-meta/freshness'
-import { componentPropDeprecation, metadataDeprecation } from '../component-meta/schema'
+import {
+	componentPropDeprecation,
+	componentPropEditor,
+	metadataDeprecation,
+} from '../component-meta/schema'
 import { insertComponent, refreshComponentAt, updateComponent } from '../editor/insertion'
+import { directusAssetId, directusAssetUrl } from '../editor/media'
+import ImageUploadField from './ImageUploadField.vue'
 
 const props = defineProps<{
 	editor: Editor
@@ -91,6 +97,7 @@ function populateCurrentProperties(
 		if (previous[name] !== undefined) form[name] = previous[name]
 		else if (definition.default !== undefined) form[name] = definition.default
 		else if (definition.type === 'boolean') form[name] = false
+		else if (definition.type === 'array') form[name] = []
 		else form[name] = ''
 	}
 }
@@ -126,6 +133,61 @@ function textValue(name: string) {
  */
 function setTextValue(name: string, value: string) {
 	form[name] = value
+}
+
+/**
+ * Store a numeric input as a number while retaining an empty optional field.
+ * @param name Property name.
+ * @param value Current input value.
+ * @returns Nothing.
+ */
+function setNumberValue(name: string, value: unknown) {
+	if (value === '') {
+		form[name] = ''
+		return
+	}
+	const number = Number(value)
+	if (Number.isFinite(number)) form[name] = number
+}
+
+/**
+ * Store the selected values for an array property.
+ * @param name Property name.
+ * @param value Current select value.
+ * @returns Nothing.
+ */
+function setArrayValue(name: string, value: unknown) {
+	form[name] = Array.isArray(value) ? value.filter(isString) : []
+}
+
+/**
+ * Store a selected Directus image asset as its identifier.
+ * @param name Property name.
+ * @param value File selection emitted by Directus.
+ * @returns Nothing.
+ */
+function setImageValue(name: string, value: unknown) {
+	const id = directusAssetId(value)
+	if (id) form[name] = id
+}
+
+/**
+ * Clear a selected Directus image asset from the draft.
+ * @param name Property name.
+ * @returns Nothing.
+ */
+function clearImageValue(name: string) {
+	form[name] = ''
+}
+
+/**
+ * Resolve a stored Directus image identifier to its preview URL.
+ * @param name Property name.
+ * @returns Directus asset URL when the property contains a valid identifier.
+ */
+function imagePreview(name: string) {
+	const value = form[name]
+	return isString(value) ? directusAssetUrl(value) : undefined
 }
 
 /**
@@ -229,8 +291,25 @@ function remove() {
 				>
 					{{ componentPropDeprecation(definition)?.text }}
 				</p>
+				<ImageUploadField
+					v-if="
+						definition.type === 'string' && componentPropEditor(definition) === 'image'
+					"
+					:preview-source="imagePreview(name)"
+					:disabled="disabled"
+					@select="setImageValue(name, $event)"
+					@clear="clearImageValue(name)"
+				/>
 				<VSelect
-					v-if="definition.values?.length"
+					v-else-if="definition.type === 'array'"
+					:model-value="form[name]"
+					:items="definition.values?.map((value) => ({ text: value, value })) ?? []"
+					:disabled="disabled"
+					multiple
+					@update:model-value="setArrayValue(name, $event)"
+				/>
+				<VSelect
+					v-else-if="definition.values?.length"
 					:model-value="textValue(name)"
 					:items="definition.values.map((value) => ({ text: value, value }))"
 					:disabled="disabled"
@@ -247,9 +326,14 @@ function remove() {
 					v-else
 					:id="`component-prop-${name}`"
 					:model-value="textValue(name)"
+					:type="definition.type === 'number' ? 'number' : 'text'"
 					:placeholder="definition.description"
 					:disabled="disabled"
-					@update:model-value="setTextValue(name, $event)"
+					@update:model-value="
+						definition.type === 'number'
+							? setNumberValue(name, $event)
+							: setTextValue(name, $event)
+					"
 				/>
 			</div>
 		</div>

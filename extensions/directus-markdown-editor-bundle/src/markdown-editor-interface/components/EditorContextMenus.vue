@@ -8,7 +8,7 @@ import type { EditorCommand } from '../editor/commands'
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
 import { DragHandle } from '@tiptap/extension-drag-handle-vue-3'
-import { TextSelection } from '@tiptap/pm/state'
+import { NodeSelection, TextSelection } from '@tiptap/pm/state'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 
 import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp } from '../editor/block'
@@ -29,6 +29,8 @@ const emit = defineEmits<{
 	openLink: []
 	openComponents: []
 	openReference: []
+	openImage: []
+	openMedia: []
 	runAi: [scope: EditorAiScope, skillId: string]
 	askAi: [scope: EditorAiScope]
 }>()
@@ -61,9 +63,31 @@ const insertCommands = computed(() =>
 const selectionAiSkills = computed(() =>
 	(props.aiSkills ?? []).filter((skill) => !skill.archived && skill.scopes.includes('selection')),
 )
+const blockMenuNodeType = computed(() => {
+	void revision.value
+	const position = currentBlockPosition()
+	return position === null ? undefined : props.editor.state.doc.nodeAt(position)?.type.name
+})
+const editableMediaType = computed(() => {
+	if (blockMenuNodeType.value === 'image' && isEditorToolEnabled(props.enabledTools, 'image')) {
+		return 'image'
+	}
+	if (blockMenuNodeType.value === 'video' && isEditorToolEnabled(props.enabledTools, 'video')) {
+		return 'video'
+	}
+	return undefined
+})
 
 function refresh() {
 	revision.value += 1
+}
+
+function currentBlockPosition(): number | null {
+	if (blockMenuPosition.value !== null) return blockMenuPosition.value
+	if (hoveredPosition.value !== null) return hoveredPosition.value
+	return props.editor.state.selection instanceof NodeSelection
+		? props.editor.state.selection.from
+		: null
 }
 
 onMounted(async () => {
@@ -86,6 +110,16 @@ function lowerDragHandleLayer() {
 
 function execute(command: EditorCommand) {
 	if (!props.disabled && !command.isDisabled(props.editor)) command.execute(props.editor)
+}
+
+function isCommandActive(command: EditorCommand) {
+	void revision.value
+	return command.isActive(props.editor)
+}
+
+function isCommandDisabled(command: EditorCommand) {
+	void revision.value
+	return props.disabled || !props.editor.isEditable || command.isDisabled(props.editor)
 }
 
 function removeLink() {
@@ -186,6 +220,14 @@ function runBlockAction(action: 'duplicate' | 'up' | 'down' | 'delete') {
 	setBlockMenuState(false)
 }
 
+function editMedia(type: 'image' | 'video') {
+	const position = currentBlockPosition()
+	if (!selectBlock(position)) return
+	setBlockMenuState(false)
+	if (type === 'image') emit('openImage')
+	else emit('openMedia')
+}
+
 function runAi(skillId?: string) {
 	selectionAiMenuOpen.value = false
 	if (skillId) emit('runAi', 'selection', skillId)
@@ -240,13 +282,13 @@ function runAi(skillId?: string) {
 		</VMenu>
 		<VButton
 			v-for="command in inlineCommands"
-			:key="`${command.id}-${revision}`"
+			:key="command.id"
 			icon
 			small
 			ghost
 			class="editor-bubble-menu__button"
-			:active="command.isActive(editor)"
-			:disabled="disabled || !editor.isEditable || command.isDisabled(editor)"
+			:active="isCommandActive(command)"
+			:disabled="isCommandDisabled(command)"
 			:tooltip="command.label"
 			:aria-label="command.label"
 			@mousedown.prevent
@@ -374,6 +416,23 @@ function runAi(skillId?: string) {
 					</VButton>
 				</template>
 				<VList class="editor-block-controls__menu">
+					<VListItem
+						v-if="editableMediaType === 'image'"
+						clickable
+						@click="editMedia('image')"
+					>
+						<VListItemIcon><VIcon name="image" /></VListItemIcon>
+						<VListItemContent>Edit image</VListItemContent>
+					</VListItem>
+					<VListItem
+						v-if="editableMediaType === 'video'"
+						clickable
+						@click="editMedia('video')"
+					>
+						<VListItemIcon><VIcon name="movie" /></VListItemIcon>
+						<VListItemContent>Edit video</VListItemContent>
+					</VListItem>
+					<VDivider v-if="editableMediaType" />
 					<VMenu v-if="aiEnabled" placement="right-start" show-arrow>
 						<template #activator="{ toggle }">
 							<VListItem clickable @click.stop="toggle">

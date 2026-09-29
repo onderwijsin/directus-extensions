@@ -247,6 +247,42 @@ describe('Reference interface', () => {
 		expect(element.textContent).not.toContain('Reference')
 	})
 
+	it.each([
+		{ type: 'image', source: '![alt](/assets/image-id)', action: 'Edit image' },
+		{
+			type: 'video',
+			source: '<video src="/assets/video-id" controls></video>',
+			action: 'Edit video',
+		},
+	])('opens the media drawer from the $type block action', async ({ type, source, action }) => {
+		const editor = new Editor({
+			content: source,
+			contentType: 'markdown',
+			extensions: createEditorExtensions(),
+		})
+		editor.commands.setNodeSelection(0)
+		editors.push(editor)
+		const open = vi.fn()
+		const element = mount(EditorContextMenus, {
+			editor,
+			commands: [],
+			enabledTools: [type],
+			onOpenImage: type === 'image' ? open : undefined,
+			onOpenMedia: type === 'video' ? open : undefined,
+		})
+		await nextTick()
+		element
+			.querySelector('[aria-label="Drag or open block actions"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		const edit = [...element.querySelectorAll('button')].find((button) =>
+			button.textContent?.includes(action),
+		)
+		expect(edit).toBeDefined()
+		edit?.click()
+		expect(open).toHaveBeenCalledOnce()
+	})
+
 	it('shows a compact source summary and keeps the default drawer actions', () => {
 		const element = mount(ReferenceDrawer, {
 			modelValue: true,

@@ -565,6 +565,8 @@ watch(
 				:ai-enabled="aiEnabled && Boolean(collection) && Boolean(field) && !comparisonMode"
 				:ai-skills="editorSkills"
 				@open-link="openLinkDrawer"
+				@open-image="openMediaDrawer('image')"
+				@open-media="openMediaDrawer('video')"
 				@open-components="openComponentInsert"
 				@open-reference="openReferencePicker"
 				@run-ai="runContextualAi"

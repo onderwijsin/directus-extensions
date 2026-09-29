@@ -135,6 +135,10 @@ The `/` menu starts with an AI section. **Write with AI** is first, followed onl
 with the `insert` scope; insert skills do not appear on document, selection, or drag-handle
 surfaces.
 
+Image and video library selection is MIME-filtered to the matching media type. Selected images show
+a removable preview. Existing media nodes expose **Edit image** or **Edit video** in the drag-handle
+action menu and reopen the same media drawer used for insertion.
+
 The endpoint reads the target field's `tools` option and constructs the system prompt for that
 specific editor instance. AI may introduce only currently enabled authoring syntax, while existing
 syntax remains preservation-safe even when its corresponding toolbar action is disabled.
@@ -215,6 +219,16 @@ or `{ "components": [...] }`.
           "name": "Dismissible",
           "type": "boolean",
           "default": false
+        },
+        "audiences": {
+          "name": "Audiences",
+          "type": "array",
+          "values": ["students", "teachers", "parents"]
+        },
+        "image": {
+          "name": "Image",
+          "type": "string",
+          "tags": [{ "name": "editor", "text": "image" }]
         }
       },
       "slots": ["default"]
@@ -244,11 +258,23 @@ or `{ "components": [...] }`.
 For a property definition:
 
 - `name` is required in array form and is an optional display label in object form;
-- `type: "boolean"` selects a checkbox; other types use text/select input behavior;
+- `type` supports `string`, `number`, `boolean`, and `array`; unknown values fall back to text;
+- a `string` with `values` renders a single select, while an `array` renders a multiselect and
+  requires at least one entry in `values`;
 - `description` is optional help text;
 - `required: true` blocks insertion while empty unless a default exists;
 - `default` may contain a JSON-compatible initial value; and
-- `values` is an optional array of string choices.
+- `values` is an array of string choices and is required for `type: "array"`;
+- `tags: [{ "name": "editor", "text": "image" }]` (the JSON form of `@editor image`) keeps a prop
+  typed and persisted as a `string` while rendering a Directus image selector with a removable
+  thumbnail.
+
+Primitive controls persist their matching JSON value types. The image editor hint persists only the
+selected Directus file ID, not an asset URL or file object. It is carried as a JSDoc tag so the
+metadata remains compatible with `nuxt-component-meta`; arbitrary upstream tags continue to pass
+through unchanged. `@editor` is the extensible editor-control namespace; `image` is currently its
+only supported value.
+
 - `tags` preserves JSDoc tags; `{ "name": "deprecated", "text": "Use newProp instead." }` displays a
   deprecation hint without changing runtime behavior.
 

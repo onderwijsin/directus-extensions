@@ -6,7 +6,10 @@ import { Editor } from '@tiptap/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createMarkdownEditorOptions } from '../src/markdown-editor-interface'
+import ComponentPropsDrawer from '../src/markdown-editor-interface/components/ComponentPropsDrawer.vue'
 import EditorTableMenu from '../src/markdown-editor-interface/components/EditorTableMenu.vue'
+import EditorToolbar from '../src/markdown-editor-interface/components/EditorToolbar.vue'
+import ImageUploadField from '../src/markdown-editor-interface/components/ImageUploadField.vue'
 import { createEditorCommands } from '../src/markdown-editor-interface/editor/commands'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
 import MarkdownEditor from '../src/markdown-editor-interface/MarkdownEditor.vue'
@@ -100,7 +103,14 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 			template: '<label><input type="checkbox" :checked="modelValue" />{{ label }}</label>',
 		}),
 	)
-	app.component('VUpload', defineComponent({ template: '<div />' }))
+	app.component(
+		'VUpload',
+		defineComponent({
+			props: ['accept', 'filter'],
+			template:
+				'<div class="v-upload-stub" :data-accept="accept" :data-filter="JSON.stringify(filter)" />',
+		}),
+	)
 	app.component('VNotice', defineComponent({ template: '<div><slot /></div>' }))
 	app.component('VProgressCircular', defineComponent({ template: '<div />' }))
 	app.component('VChip', defineComponent({ template: '<span><slot /></span>' }))
@@ -156,6 +166,143 @@ afterEach(() => {
 })
 
 describe('Markdown editor interface', () => {
+	it('renders the selected image preview and forwards image selections', async () => {
+		const selected = vi.fn()
+		const cleared = vi.fn()
+		const root = defineComponent({
+			setup: () => () =>
+				h(ImageUploadField, {
+					previewSource: '/assets/current-image',
+					onSelect: selected,
+					onClear: cleared,
+				}),
+		})
+		const element = document.createElement('div')
+		document.body.appendChild(element)
+		const app = createApp(root)
+		registerDirectusPrimitives(app)
+		app.component(
+			'VUpload',
+			defineComponent({
+				props: ['filter'],
+				emits: ['input'],
+				template:
+					'<button class="upload-image" :data-filter="JSON.stringify(filter)" @click="$emit(\'input\', { id: \'next-image\' })">Upload</button>',
+			}),
+		)
+		app.mount(element)
+		mounted.push({ app, element })
+
+		expect(element.querySelector('img')?.getAttribute('src')).toBe('/assets/current-image')
+		expect(element.querySelector('.upload-image')?.getAttribute('data-filter')).toBe(
+			'{"type":{"_contains":"image"}}',
+		)
+		element.querySelector<HTMLButtonElement>('.upload-image')?.click()
+		await nextTick()
+		expect(selected).toHaveBeenCalledWith({ id: 'next-image' })
+		element.querySelector<HTMLButtonElement>('[aria-label="Deselect image"]')?.click()
+		await nextTick()
+		expect(cleared).toHaveBeenCalledOnce()
+	})
+
+	it('keeps toolbar command buttons mounted across editor transactions', async () => {
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: '<p>Format me</p>',
+		})
+		editor.commands.selectAll()
+		const root = defineComponent({
+			setup: () => () =>
+				h(EditorToolbar, {
+					editor,
+					commands: createEditorCommands(),
+				}),
+		})
+		const element = document.createElement('div')
+		document.body.appendChild(element)
+		const app = createApp(root)
+		registerDirectusPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+		const bold = element.querySelector<HTMLButtonElement>('[aria-label="Bold"]')
+		expect(bold).not.toBeNull()
+
+		editor.commands.setMeta('dismissSlashMenu', true)
+		await nextTick()
+		expect(bold?.isConnected).toBe(true)
+		bold?.click()
+		await nextTick()
+
+		expect(editor.getHTML()).toContain('<strong>Format me</strong>')
+		editor.destroy()
+	})
+
+	it('filters the video library by MIME type', async () => {
+		const { element } = mountEditor()
+		await nextTick()
+		element.querySelector<HTMLButtonElement>('[aria-label="Insert video"]')?.click()
+		await nextTick()
+
+		const upload = element.querySelector('.v-upload-stub')
+		expect(upload?.getAttribute('data-accept')).toBe('video/*')
+		expect(upload?.getAttribute('data-filter')).toBe('{"type":{"_contains":"video"}}')
+	})
+
+	it('persists only the selected image asset ID for tagged string properties', async () => {
+		const editor = new Editor({ extensions: createEditorExtensions() })
+		const root = defineComponent({
+			setup: () => () =>
+				h(ComponentPropsDrawer, {
+					editor,
+					open: true,
+					component: {
+						name: 'Hero',
+						label: 'Hero',
+						nodeType: 'block',
+						props: {
+							image: {
+								type: 'string',
+								tags: [{ name: 'editor', text: 'image' }],
+							},
+						},
+						slots: [],
+					},
+				}),
+		})
+		const element = document.createElement('div')
+		document.body.appendChild(element)
+		const app = createApp(root)
+		registerDirectusPrimitives(app)
+		app.component(
+			'VUpload',
+			defineComponent({
+				emits: ['input'],
+				template:
+					'<button class="select-image" @click="$emit(\'input\', { id: \'asset-id\' })">Select image</button>',
+			}),
+		)
+		app.mount(element)
+		mounted.push({ app, element })
+
+		element.querySelector<HTMLButtonElement>('.select-image')?.click()
+		await nextTick()
+		Array.from(element.querySelectorAll('button'))
+			.find((button) => button.textContent?.includes('Insert'))
+			?.click()
+		await nextTick()
+
+		expect(editor.getJSON().content).toContainEqual({
+			type: 'mdcBlock',
+			attrs: {
+				name: 'Hero',
+				props: { image: 'asset-id' },
+				depth: 2,
+				propsFormat: 'inline',
+			},
+		})
+		editor.destroy()
+	})
+
 	it('keeps AI explicitly disabled by default', () => {
 		expect(createMarkdownEditorOptions().find((option) => option.field === 'ai')).toMatchObject(
 			{

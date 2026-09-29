@@ -39,7 +39,11 @@ import {
 	readLinkSelection,
 	saveLinkSelection,
 } from '../src/markdown-editor-interface/editor/link'
-import { directusAssetUrl, sanitizeImageUrl } from '../src/markdown-editor-interface/editor/media'
+import {
+	directusAssetId,
+	directusAssetUrl,
+	sanitizeImageUrl,
+} from '../src/markdown-editor-interface/editor/media'
 import { createSlashItems, filterSlashItems } from '../src/markdown-editor-interface/editor/slash'
 import { synchronizeEditorMarkdown } from '../src/markdown-editor-interface/editor/synchronization'
 import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown-editor-interface/markdown'
@@ -101,6 +105,26 @@ describe('component property freshness', () => {
 			editor.destroy()
 		},
 	)
+
+	it('reports an empty required array property', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+			content: {
+				type: 'doc',
+				content: [
+					{
+						type: 'mdcBlock',
+						attrs: { name: 'Card', props: { title: [] } },
+					},
+				],
+			},
+		})
+
+		expect(scanComponentIntegrity(editor, metadata)).toMatchObject([
+			{ emptyRequiredProps: ['title'] },
+		])
+		editor.destroy()
+	})
 
 	it('keeps optional and deprecated metadata properties non-blocking', () => {
 		const editor = new Editor({
@@ -984,6 +1008,9 @@ describe('editor commands', () => {
 		expect(sanitizeImageUrl('data:image/png;base64,unsafe')).toBeUndefined()
 		expect(directusAssetUrl('abc-123')).toBe('/assets/abc-123')
 		expect(directusAssetUrl('bad/id')).toBeUndefined()
+		expect(directusAssetId({ id: 'abc-123' })).toBe('abc-123')
+		expect(directusAssetId([{ id: 'abc-123' }])).toBe('abc-123')
+		expect(directusAssetId({ id: 'bad/id' })).toBeUndefined()
 	})
 
 	it('filters slash commands by alternate names and component names', () => {

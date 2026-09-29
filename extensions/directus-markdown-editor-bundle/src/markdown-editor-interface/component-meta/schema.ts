@@ -1,17 +1,26 @@
 import { fromEntries, isString, isArray } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
-const PropSchema = z.looseObject({
-	name: z.string().min(1).optional(),
-	type: z.string().optional(),
-	description: z.string().optional(),
-	required: z.boolean().optional(),
-	default: z.unknown().optional(),
-	values: z.array(z.string()).optional(),
-	tags: z
-		.array(z.looseObject({ name: z.string().min(1), text: z.string().optional() }))
-		.optional(),
-})
+const PropSchema = z
+	.looseObject({
+		name: z.string().min(1).optional(),
+		type: z.string().optional(),
+		description: z.string().optional(),
+		required: z.boolean().optional(),
+		default: z.unknown().optional(),
+		values: z.array(z.string()).optional(),
+		tags: z
+			.array(z.looseObject({ name: z.string().min(1), text: z.string().optional() }))
+			.optional(),
+	})
+	.superRefine((prop, context) => {
+		if (prop.type !== 'array' || prop.values?.length) return
+		context.addIssue({
+			code: 'custom',
+			message: 'Array properties require at least one allowed value.',
+			path: ['values'],
+		})
+	})
 
 export type ComponentProp = z.infer<typeof PropSchema>
 
@@ -55,6 +64,18 @@ interface TaggedMetadata {
  */
 export function componentPropDeprecation(prop: ComponentProp) {
 	return metadataDeprecation(prop)
+}
+
+/**
+ * Resolve the optional editor control hint supplied through Vue-compatible JSDoc tags.
+ * @param prop Normalized component property metadata.
+ * @returns The normalized editor control name when present.
+ */
+export function componentPropEditor(prop: ComponentProp) {
+	return prop.tags
+		?.find((tag) => tag.name === 'editor')
+		?.text?.trim()
+		.toLowerCase()
 }
 
 /**

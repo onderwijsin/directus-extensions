@@ -1,4 +1,10 @@
-import { attemptSync } from '@onderwijsin/directus-extension-utils'
+import {
+	attemptSync,
+	hasKey,
+	isArray,
+	isRecord,
+	isString,
+} from '@onderwijsin/directus-extension-utils'
 
 const safeProtocols = new Set(['http:', 'https:'])
 
@@ -25,4 +31,16 @@ export function sanitizeImageUrl(value: string): string | undefined {
 export function directusAssetUrl(id: string): string | undefined {
 	const assetId = id.trim()
 	return assetId && /^[\w-]+$/u.test(assetId) ? `/assets/${assetId}` : undefined
+}
+
+/**
+ * Resolve the identifier from a single-file VUpload result.
+ * @param value File object or single-item file array emitted by Directus.
+ * @returns The selected asset identifier when valid.
+ */
+export function directusAssetId(value: unknown): string | undefined {
+	const file = isArray(value) ? value[0] : value
+	if (!isRecord(file) || !hasKey(file, 'id') || !isString(file.id)) return undefined
+	const id = file.id.trim()
+	return directusAssetUrl(id) ? id : undefined
 }

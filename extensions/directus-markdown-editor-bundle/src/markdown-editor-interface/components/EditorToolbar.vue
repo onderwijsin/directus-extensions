@@ -86,7 +86,13 @@ watch(
 )
 
 function isDisabled(command: EditorCommand) {
+	void revision.value
 	return props.disabled || command.isDisabled(props.editor)
+}
+
+function isActive(command: EditorCommand) {
+	void revision.value
+	return command.isActive(props.editor)
 }
 
 function isToolDisabled(toolId: string) {
@@ -162,12 +168,12 @@ function tooltip(command: EditorCommand) {
 		<div class="editor-toolbar__group editor-toolbar__action-group">
 			<VButton
 				v-for="command in actionCommands"
-				:key="`${command.id}-${revision}`"
+				:key="command.id"
 				icon
 				small
 				ghost
 				class="editor-toolbar__ghost-button"
-				:active="command.isActive(editor)"
+				:active="isActive(command)"
 				:disabled="isDisabled(command)"
 				:tooltip="tooltip(command)"
 				:aria-label="command.label"
@@ -247,10 +253,10 @@ function tooltip(command: EditorCommand) {
 				<VList class="editor-toolbar__overflow-list">
 					<VListItem
 						v-for="command in overflowCommands"
-						:key="`${command.id}-${revision}`"
+						:key="command.id"
 						clickable
 						:disabled="isDisabled(command)"
-						:active="command.isActive(editor)"
+						:active="isActive(command)"
 						@click="executeOverflow(command)"
 					>
 						<VListItemIcon><VIcon :name="command.icon" /></VListItemIcon>
@@ -265,7 +271,7 @@ function tooltip(command: EditorCommand) {
 		<div class="editor-toolbar__group editor-toolbar__special-group">
 			<VButton
 				v-for="command in specialCommands"
-				:key="`${command.id}-${revision}`"
+				:key="command.id"
 				icon
 				small
 				ghost
