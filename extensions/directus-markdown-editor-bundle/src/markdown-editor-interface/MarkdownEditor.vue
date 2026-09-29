@@ -3,7 +3,7 @@ import type { EditorAiScope, EditorSkillMenuItem } from './ai/types'
 import type { ReferenceSnapshotMode } from './reference/schema'
 
 // Directus/Vue template callbacks are intentionally local and do not need public API JSDoc.
-import { computed, onBeforeUnmount, onMounted, shallowRef, toRef, watch } from 'vue'
+import { computed, shallowRef, toRef, watch } from 'vue'
 
 import { exitSuggestion } from '@tiptap/suggestion'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
@@ -12,6 +12,7 @@ import { replaceDocument } from './ai/document'
 import AiController from './components/AiController.vue'
 import ComponentInsertMenu from './components/ComponentInsertMenu.vue'
 import EditorContextMenus from './components/EditorContextMenus.vue'
+import EditorNotices from './components/EditorNotices.vue'
 import EditorTableMenu from './components/EditorTableMenu.vue'
 import EditorToolbar from './components/EditorToolbar.vue'
 import LinkDrawer from './components/LinkDrawer.vue'
@@ -19,6 +20,8 @@ import MediaDrawer from './components/MediaDrawer.vue'
 import ReferenceController from './components/ReferenceController.vue'
 import SourceDrawer from './components/SourceDrawer.vue'
 import { useComponentMetadata } from './composables/useComponentMetadata'
+import { useEditorOverlays } from './composables/useEditorOverlays'
+import { useEditorShell } from './composables/useEditorShell'
 import { refreshCodeHighlighting } from './editor/code-block'
 import { createEditorCommands, filterEditorCommands, isEditorToolEnabled } from './editor/commands'
 import { createEditorExtensions } from './editor/extensions'
@@ -57,21 +60,14 @@ const props = withDefaults(
 )
 const emit = defineEmits<{ input: [value: string] }>()
 const syncing = shallowRef(false)
-const linkDrawerOpen = shallowRef(false)
-const mediaDrawerOpen = shallowRef(false)
-const mediaDrawerType = shallowRef<'image' | 'video'>('image')
-const sourceDrawerOpen = shallowRef(false)
-const componentInsertOpen = shallowRef(false)
 const componentPropsNeedAttention = shallowRef(false)
-const componentPropsReportOpen = shallowRef(false)
-const fullscreen = shallowRef(false)
 const referenceScanRevision = shallowRef(0)
 const referenceNeedsAttention = shallowRef(false)
-const referenceReportOpen = shallowRef(false)
 const aiController = shallowRef<InstanceType<typeof AiController>>()
 const editorSkills = shallowRef<EditorSkillMenuItem[]>([])
 const lastEmittedValue = shallowRef<string>()
-const darkMode = shallowRef(false)
+const disabled = toRef(() => props.disabled)
+const { darkMode, fullscreen, toggleFullscreen } = useEditorShell(disabled)
 const enabledTools = computed(() => props.tools ?? props.options?.tools)
 const aiEnabled = computed(() => props.ai ?? props.options?.ai ?? false)
 const referencesEnabled = computed(
@@ -83,56 +79,6 @@ const referenceCollections = computed(
 const referenceSnapshotMode = computed(
 	() => props.referenceSnapshotMode ?? props.options?.referenceSnapshotMode ?? 'detect',
 )
-let themeObserver: MutationObserver | undefined
-
-/**
- * Mirror the Directus shell theme onto this editor instance.
- * @returns Nothing.
- */
-function updateDarkMode() {
-	darkMode.value =
-		document.body.classList.contains('dark') ||
-		document.documentElement.classList.contains('dark') ||
-		document.body.dataset.theme === 'dark' ||
-		document.documentElement.dataset.theme === 'dark'
-}
-
-onMounted(() => {
-	updateDarkMode()
-	themeObserver = new MutationObserver(updateDarkMode)
-	themeObserver.observe(document.body, {
-		attributes: true,
-		attributeFilter: ['class', 'data-theme'],
-	})
-	themeObserver.observe(document.documentElement, {
-		attributes: true,
-		attributeFilter: ['class', 'data-theme'],
-	})
-	window.addEventListener('keydown', handleEscape)
-})
-
-onBeforeUnmount(() => {
-	themeObserver?.disconnect()
-	window.removeEventListener('keydown', handleEscape)
-})
-
-/**
- * Open the shared media drawer in the requested mode.
- * @param type The media type to insert or edit.
- * @returns Nothing.
- */
-function openMediaDrawer(type: 'image' | 'video') {
-	if (props.disabled || editor.value?.isEditable !== true) return
-	dismissSlashMenu()
-	mediaDrawerType.value = type
-	mediaDrawerOpen.value = true
-}
-
-/** @returns Whether editor-owned controls may open or mutate content. */
-function canInteract() {
-	return !props.disabled && editor.value?.isEditable === true
-}
-
 /**
  * Dismiss the slash suggestion before opening another editor surface.
  * @returns Nothing.
@@ -150,13 +96,6 @@ function dismissSlashMenu() {
 function handleEditorPointerDown(event: PointerEvent) {
 	if (!(event.target instanceof Element) || event.target.closest('.slash-menu')) return
 	dismissSlashMenu()
-}
-
-/** @returns Nothing. */
-function openLinkDrawer() {
-	if (!canInteract()) return
-	dismissSlashMenu()
-	linkDrawerOpen.value = true
 }
 
 /**
@@ -196,20 +135,6 @@ function openReferenceFromTrigger(position: number) {
 	dispatchReferencePicker(position, position)
 }
 
-/** @returns Nothing. */
-function openSourceDrawer() {
-	if (!canInteract()) return
-	dismissSlashMenu()
-	sourceDrawerOpen.value = true
-}
-
-/** @returns Nothing. */
-function openComponentInsert() {
-	if (!canInteract() || !componentInsertionEnabled.value) return
-	dismissSlashMenu()
-	componentInsertOpen.value = true
-}
-
 /**
  * Open component prop collection from a slash-menu insertion.
  * @param component Component selected from the slash menu.
@@ -222,16 +147,6 @@ function openComponentFromSlash(component: { name: string }) {
 			detail: { name: component.name },
 		}),
 	)
-}
-
-/**
- * Toggle the editor's viewport-filling mode.
- * @returns Nothing.
- */
-function toggleFullscreen() {
-	if (!canInteract()) return
-	dismissSlashMenu()
-	fullscreen.value = !fullscreen.value
 }
 
 /**
@@ -271,15 +186,6 @@ function askContextualAi(scope: EditorAiScope) {
 function openAiInsertFromSlash(skillId?: string) {
 	if (skillId) void aiController.value?.run('insert', skillId)
 	else aiController.value?.ask('insert')
-}
-
-/**
- * Exit full screen when Escape is pressed anywhere in the viewport.
- * @param event Keyboard event from the viewport.
- * @returns Nothing.
- */
-function handleEscape(event: KeyboardEvent) {
-	if (event.key === 'Escape' && fullscreen.value) fullscreen.value = false
 }
 
 /**
@@ -330,6 +236,34 @@ const componentMetadataAuthoritative = computed(
 		(Boolean(props.useStaticComponentMeta ?? props.options?.useStaticComponentMeta) ||
 			Boolean(props.metadataUrl ?? props.options?.metadataUrl)),
 )
+
+const {
+	canInteract,
+	componentInsertOpen,
+	componentPropsReportOpen,
+	linkDrawerOpen,
+	mediaDrawerOpen,
+	mediaDrawerType,
+	openComponentInsert,
+	openLinkDrawer,
+	openMediaDrawer,
+	openSourceDrawer,
+	referenceReportOpen,
+	sourceDrawerOpen,
+} = useEditorOverlays({
+	disabled,
+	/** @returns Current editor instance. */
+	getEditor: () => editor.value,
+	componentInsertionEnabled,
+	dismissSuggestions: dismissSlashMenu,
+})
+
+/** @returns Nothing after toggling fullscreen when interaction is allowed. */
+function toggleEditorFullscreen() {
+	if (!canInteract()) return
+	dismissSlashMenu()
+	toggleFullscreen()
+}
 
 const extensions = createEditorExtensions(
 	/**
@@ -434,13 +368,6 @@ watch(
 		const [instance, disabled] = values
 		if (!instance) return
 		instance.setEditable(!disabled)
-		if (disabled) {
-			linkDrawerOpen.value = false
-			mediaDrawerOpen.value = false
-			sourceDrawerOpen.value = false
-			componentInsertOpen.value = false
-			fullscreen.value = false
-		}
 		void refreshCodeHighlighting(instance).catch(() => undefined)
 	},
 	{ immediate: true, flush: 'post' },
@@ -503,7 +430,7 @@ watch(
 					@open-media="openMediaDrawer('video')"
 					@open-source="openSourceDrawer"
 					@open-components="openComponentInsert"
-					@toggle-fullscreen="toggleFullscreen"
+					@toggle-fullscreen="toggleEditorFullscreen"
 				>
 					<template #before>
 						<AiController
@@ -521,41 +448,15 @@ watch(
 					</template>
 				</EditorToolbar>
 			</div>
-			<p
-				v-if="metadata.state.value === 'error'"
-				class="markdown-editor__notice-bar markdown-editor__notice-bar--danger"
-				role="alert"
-			>
-				Component metadata could not be loaded. Markdown editing is still available.
-			</p>
-			<div
-				v-if="referencesEnabled && !comparisonMode && referenceNeedsAttention"
-				class="markdown-editor__notice-bar"
-				role="status"
-			>
-				<span>Some item references need attention.</span>
-				<VButton
-					x-small
-					secondary
-					class="markdown-editor__notice-action"
-					@click="referenceReportOpen = true"
-					>Show report</VButton
-				>
-			</div>
-			<div
-				v-if="componentPropsNeedAttention"
-				class="markdown-editor__notice-bar"
-				role="status"
-			>
-				<span>Some components need attention.</span>
-				<VButton
-					x-small
-					secondary
-					class="markdown-editor__notice-action"
-					@click="componentPropsReportOpen = true"
-					>Show report</VButton
-				>
-			</div>
+			<EditorNotices
+				:metadata-error="metadata.state.value === 'error'"
+				:references-need-attention="
+					referencesEnabled && !comparisonMode && referenceNeedsAttention
+				"
+				:components-need-attention="componentPropsNeedAttention"
+				@show-reference-report="referenceReportOpen = true"
+				@show-component-report="componentPropsReportOpen = true"
+			/>
 			<EditorContextMenus
 				:editor="editor"
 				:commands="commands"
@@ -670,46 +571,6 @@ watch(
 .markdown-editor__toolbar-row :deep(.editor-toolbar) {
 	flex: 1 1 auto;
 	border-block-end: 0;
-}
-
-.markdown-editor__notice-bar {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 1rem;
-	padding: 0.5rem 1rem;
-	border-block-end: 1px solid var(--theme--border-color-subdued, #edf0f2);
-	color: var(--theme--foreground-subdued, #8b98a5);
-	font-size: 0.75rem;
-}
-.markdown-editor__notice-bar--danger {
-	margin: 0;
-	color: var(--theme--danger, #e35169);
-	font-size: 0.8rem;
-}
-.markdown-editor__notice-bar:not(.markdown-editor__notice-bar--danger) {
-	background: color-mix(in srgb, var(--theme--warning, #f2c94c) 10%, transparent);
-	color: var(--theme--warning-foreground, #7a5b00);
-}
-.markdown-editor__notice-action {
-	--v-button-color: var(--theme--warning-foreground, #7a5b00) !important;
-	--v-button-color-hover: var(--theme--warning-foreground, #7a5b00) !important;
-	--v-button-color-active: var(--theme--warning-foreground, #7a5b00) !important;
-	--v-button-background-color: color-mix(
-		in srgb,
-		var(--theme--warning, #f2c94c) 12%,
-		transparent
-	) !important;
-	--v-button-background-color-hover: color-mix(
-		in srgb,
-		var(--theme--warning, #f2c94c) 18%,
-		transparent
-	) !important;
-	--v-button-background-color-active: color-mix(
-		in srgb,
-		var(--theme--warning, #f2c94c) 22%,
-		transparent
-	) !important;
 }
 
 :deep(.ProseMirror) {

@@ -100,7 +100,9 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 		'VCheckbox',
 		defineComponent({
 			props: ['modelValue', 'label'],
-			template: '<label><input type="checkbox" :checked="modelValue" />{{ label }}</label>',
+			emits: ['update:modelValue'],
+			template:
+				'<label><input type="checkbox" :checked="modelValue" @change="$emit(\'update:modelValue\', $event.target.checked)" />{{ label }}</label>',
 		}),
 	)
 	app.component(
@@ -663,6 +665,55 @@ describe('Markdown editor interface', () => {
 		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
 		await nextTick()
 		expect(editor?.classList.contains('is-fullscreen')).toBe(false)
+	})
+
+	it('edits Markdown source and emits the resulting canonical document', async () => {
+		const { element, input } = mountEditor('# Before')
+		await nextTick()
+		await nextTick()
+
+		element.querySelector<HTMLButtonElement>('[aria-label="Edit Markdown source"]')?.click()
+		await nextTick()
+		const source = element.querySelector<HTMLTextAreaElement>('[aria-label="Markdown source"]')
+		expect(source?.value).toBe('# Before\n\n')
+		if (!source) return
+		source.value = '# After\n\nUpdated **content**.'
+		source.dispatchEvent(new Event('input', { bubbles: true }))
+		await nextTick()
+		const apply = [...element.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Apply source',
+		)
+		expect(apply?.hasAttribute('disabled')).toBe(false)
+		apply?.click()
+		await nextTick()
+
+		expect(input.mock.lastCall?.[0]).toBe('# After\n\nUpdated **content**.')
+		expect(element.querySelector('[role="textbox"]')?.textContent).toContain('After')
+	})
+
+	it('requires explicit confirmation before applying normalized source', async () => {
+		const { element, input } = mountEditor('# Before')
+		await nextTick()
+		await nextTick()
+		element.querySelector<HTMLButtonElement>('[aria-label="Edit Markdown source"]')?.click()
+		await nextTick()
+		const source = element.querySelector<HTMLTextAreaElement>('[aria-label="Markdown source"]')
+		if (!source) return
+		source.value = '# After   '
+		source.dispatchEvent(new Event('input', { bubbles: true }))
+		await nextTick()
+
+		expect(element.textContent).toContain('cannot represent this source exactly')
+		const apply = [...element.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Apply source',
+		)
+		expect(apply?.hasAttribute('disabled')).toBe(true)
+		element.querySelector<HTMLInputElement>('input[type="checkbox"]')?.click()
+		await nextTick()
+		expect(apply?.hasAttribute('disabled')).toBe(false)
+		apply?.click()
+		await nextTick()
+		expect(input.mock.lastCall?.[0]).toBe('# After\n\n')
 	})
 
 	it('loads Shiki while locked and refreshes when a draft becomes editable', async () => {
