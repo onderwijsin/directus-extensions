@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.0
+
+### Minor Changes
+
+- c36cf63: Add shared AI configuration resolution with extension, environment, and encrypted
+  Directus credential fallbacks, and adopt it in the Markdown Editor AI endpoint.
+
+### Patch Changes
+
+- b81d1e2: Replace an existing link in place when saving it from a cursor inside the linked text.
+- 2a7740c: Run bundled editor skill reconciliation during the documentation startup phase so it
+  remains available when global policy and data seeding is disabled.
+- bf54b03: - use min(0) for zod fields that shoudl accept blank or optional strings, instead of
+  preprocessing empty strings to undefined.
+  - Remove old debug log that printed sensitive environment variables
+- 42c480f: Fix empty tool selections, paragraph fallback behavior, and the block-type toolbar
+  control.
+- Updated dependencies [c36cf63]
+- Updated dependencies [344ccd1]
+  - @onderwijsin/directus-extension-utils@0.5.0
+
 ## 0.2.0
 
 ### Minor Changes
