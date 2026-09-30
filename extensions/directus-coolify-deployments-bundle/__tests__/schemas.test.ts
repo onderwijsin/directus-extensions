@@ -98,6 +98,47 @@ describe('Coolify deployments schemas', () => {
 		)
 	})
 
+	it('uses the first Docker Compose service domain when fqdn is blank', () => {
+		expect(
+			coolifyApplicationSchema.parse({
+				uuid: 'compose-app',
+				name: 'Compose app',
+				fqdn: null,
+				build_pack: 'dockercompose',
+				docker_compose_domains: JSON.stringify({
+					admin: { domain: 'https://admin.example.com,https://admin-alt.example.com' },
+					assets: { domain: 'https://assets.example.com' },
+				}),
+			}),
+		).toMatchObject({
+			fqdn: 'https://admin.example.com,https://admin-alt.example.com,https://assets.example.com',
+		})
+	})
+
+	it('preserves a top-level fqdn over Docker Compose domains', () => {
+		expect(
+			coolifyApplicationSchema.parse({
+				uuid: 'compose-app',
+				name: 'Compose app',
+				fqdn: ' https://primary.example.com ',
+				docker_compose_domains: JSON.stringify({
+					admin: { domain: 'https://admin.example.com' },
+				}),
+			}),
+		).toMatchObject({ fqdn: 'https://primary.example.com' })
+	})
+
+	it('returns no fallback for malformed Docker Compose domains', () => {
+		expect(
+			coolifyApplicationSchema.parse({
+				uuid: 'compose-app',
+				name: 'Compose app',
+				fqdn: '',
+				docker_compose_domains: '{not-json',
+			}),
+		).toMatchObject({ fqdn: null })
+	})
+
 	it('rejects malformed trigger, cancellation, and pagination payloads', () => {
 		expect(() =>
 			coolifyDeploymentTriggerResponseSchema.parse({ deployments: [{ message: 'queued' }] }),

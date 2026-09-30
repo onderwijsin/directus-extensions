@@ -31,15 +31,25 @@ export interface LinkRange {
 }
 
 /**
+ * Resolves the complete active link range, or falls back to the current selection.
+ * @param editor Tiptap editor whose current selection should be inspected.
+ * @returns Document range containing the active link or current selection.
+ */
+export function readLinkRange(editor: Editor): LinkRange {
+	const { from, to } = editor.state.selection
+	const linkMark = editor.schema.marks.link
+	const range = linkMark ? getMarkRange(editor.state.doc.resolve(from), linkMark) : undefined
+	return range ?? { from, to }
+}
+
+/**
  * Reads the active link mark and its selected text from the editor state.
  * @param editor Tiptap editor whose current selection should be inspected.
  * @returns Link URL, title, and selected text.
  */
 export function readLinkSelection(editor: Editor): LinkSelection {
-	const { from, to } = editor.state.selection
-	const linkMark = editor.schema.marks.link
-	const range = linkMark ? getMarkRange(editor.state.doc.resolve(from), linkMark) : undefined
-	const text = editor.state.doc.textBetween(range?.from ?? from, range?.to ?? to, ' ')
+	const range = readLinkRange(editor)
+	const text = editor.state.doc.textBetween(range.from, range.to, ' ')
 	const attributes = editor.getAttributes('link')
 
 	return {

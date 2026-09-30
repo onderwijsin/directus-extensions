@@ -29,7 +29,8 @@ the endpoint.
 | `REDIS_ENABLED`                                                | `false`                                            | Enables component-based Redis configuration.                                 |
 | `REDIS`                                                        | Directus setting                                   | Complete URL; takes precedence over components.                              |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | unset                                              | Required together when building a URL.                                       |
-| `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback                         | Non-empty HMAC secret.                                                       |
+| `SECRET`                                                       | unset                                              | Directus HMAC secret fallback; provide this or `MAGIC_LINKS_TOKEN_SECRET`.   |
+| `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback                         | Dedicated non-empty HMAC secret; provide this or `SECRET`.                   |
 | `MAGIC_LINKS_TOKEN_TTL`                                        | `15m`                                              | Duration such as `30m` or `7d`.                                              |
 | `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                                           | Non-empty array of HTTP(S) URLs without credentials; explicit ports allowed. |
 | `MAGIC_LINKS_TOKEN_QUERY_PARAMETER`                            | `token`                                            | Token query parameter name.                                                  |

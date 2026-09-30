@@ -39,7 +39,8 @@ configuration options are specific to this bundle, it also relies on common dire
 | `REDIS_ENABLED`                                                | `false`                                            | Enables component-based Redis configuration.                                      |
 | `REDIS`                                                        | Directus setting                                   | Complete URL; takes precedence over components.                                   |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | unset                                              | Required together when building a URL.                                            |
-| `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback                         | HMAC secret for token digests.                                                    |
+| `SECRET`                                                       | unset                                              | Directus HMAC secret fallback; provide this or `MAGIC_LINKS_TOKEN_SECRET`.        |
+| `MAGIC_LINKS_TOKEN_SECRET`                                     | Directus `SECRET` fallback                         | Dedicated HMAC secret; provide this or `SECRET`.                                  |
 | `MAGIC_LINKS_TOKEN_TTL`                                        | `15m`                                              | Token lifetime (`ms`, `s`, `m`, `h`, `d`, or `w`).                                |
 | `MAGIC_LINKS_REQUEST_RATE_LIMIT`                               | `5`                                                | Requests per IP per 60 seconds for the request endpoint.                          |
 | `MAGIC_LINKS_REDIRECT_URL_ALLOWLIST`                           | required                                           | Non-empty array of HTTP(S) URLs without credentials; explicit ports are allowed.  |

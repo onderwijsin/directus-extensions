@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 		MARKDOWN_EDITOR_ENABLED: true,
 		EDITOR_AI_PROVIDER: 'openai' as const,
 		EDITOR_AI_MODEL: 'test-model',
-		EDITOR_AI_API_KEY: 'test-key',
+		EDITOR_AI_API_KEY: 'test-key' as string | undefined,
 		EDITOR_AI_MAX_CONTENT_LENGTH: 100_000,
 	})),
 	hasPolicies: vi.fn().mockResolvedValue(true),
@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
 		scopes: ['document'],
 		archived: false,
 	}),
+	readSettings: vi.fn().mockResolvedValue({ ai_openai_api_key: 'directus-key' }),
 	generateEditorReplacement: vi.fn().mockResolvedValue('# Improved'),
 }))
 
@@ -71,6 +72,9 @@ function registerEndpoint(router: ReturnType<typeof createRouter>) {
 				ItemsService: class {
 					public readOne = mocks.readSkill
 				},
+				SettingsService: class {
+					public readSingleton = mocks.readSettings
+				},
 			},
 		},
 	])
@@ -116,6 +120,14 @@ describe('Markdown Editor endpoint orchestration', () => {
 			archived: false,
 		})
 		mocks.generateEditorReplacement.mockResolvedValue('# Improved')
+		mocks.readSettings.mockResolvedValue({ ai_openai_api_key: 'directus-key' })
+		mocks.validateExtensionOptions.mockReturnValue({
+			MARKDOWN_EDITOR_ENABLED: true,
+			EDITOR_AI_PROVIDER: 'openai',
+			EDITOR_AI_MODEL: 'test-model',
+			EDITOR_AI_API_KEY: 'test-key',
+			EDITOR_AI_MAX_CONTENT_LENGTH: 100_000,
+		})
 	})
 
 	it('registers POST /ai after validating enabled configuration', () => {
@@ -188,6 +200,33 @@ describe('Markdown Editor endpoint orchestration', () => {
 
 		await vi.waitFor(() => expect(response.json).toHaveBeenCalled())
 		expect(mocks.hasPolicies).not.toHaveBeenCalled()
+	})
+
+	it('falls back to the matching encrypted Directus provider credential', async () => {
+		mocks.validateExtensionOptions.mockReturnValueOnce({
+			MARKDOWN_EDITOR_ENABLED: true,
+			EDITOR_AI_PROVIDER: 'openai',
+			EDITOR_AI_MODEL: 'test-model',
+			EDITOR_AI_API_KEY: undefined,
+			EDITOR_AI_MAX_CONTENT_LENGTH: 100_000,
+		})
+		const router = createRouter()
+		registerEndpoint(router)
+		const response = { json: vi.fn() }
+
+		getRoute()(validRequest, response, vi.fn())
+
+		await vi.waitFor(() => expect(response.json).toHaveBeenCalled())
+		expect(mocks.readSettings).toHaveBeenCalledOnce()
+		expect(mocks.generateEditorReplacement).toHaveBeenCalledWith(
+			expect.objectContaining({ apiKey: 'directus-key' }),
+			expect.anything(),
+			expect.anything(),
+			undefined,
+			expect.anything(),
+			expect.anything(),
+			undefined,
+		)
 	})
 
 	it('loads stored skills with request accountability and enforces their scope', async () => {

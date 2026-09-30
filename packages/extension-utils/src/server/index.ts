@@ -9,6 +9,7 @@ export * from './setup'
 export * from './accountability'
 export * from './policies'
 export {
+	createExtensionOptionsConfigFragment,
 	defineExtensionOptionsSchema,
 	type ExtensionOptionsConfigFragment,
 	type ExtensionOptionsDefinition,

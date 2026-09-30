@@ -22,6 +22,7 @@ import {
 	filterEditorCommands,
 	isEditorToolEnabled,
 	resolveCommands,
+	resolveEditorTools,
 } from '../src/markdown-editor-interface/editor/commands'
 import { ClearMarksOnEnter } from '../src/markdown-editor-interface/editor/enter'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
@@ -38,6 +39,7 @@ import {
 	createLinkShortcut,
 	linkHref,
 	linkValueError,
+	readLinkRange,
 	readLinkSelection,
 	saveLinkSelection,
 } from '../src/markdown-editor-interface/editor/link'
@@ -679,6 +681,34 @@ describe('editor commands', () => {
 		editor.destroy()
 	})
 
+	it('resolves the full link range from a cursor inside an existing link', () => {
+		const editor = createEditor(
+			'<p>Before <a href="https://example.com">some link</a> after</p>',
+		)
+		editor.commands.setTextSelection(10)
+
+		const range = readLinkRange(editor)
+		expect(editor.state.doc.textBetween(range.from, range.to)).toBe('some link')
+
+		expect(
+			saveLinkSelection(
+				editor,
+				{
+					type: 'url',
+					url: 'https://updated.example.com',
+					title: '',
+					text: 'some link',
+				},
+				range,
+			),
+		).toBe(true)
+		expect(editor.getText()).toBe('Before some link after')
+		expect(editor.getHTML()).toContain(
+			'<a target="_blank" rel="noopener noreferrer nofollow" href="https://updated.example.com">some link</a>',
+		)
+		editor.destroy()
+	})
+
 	it('validates and serializes each supported link type', () => {
 		expect(linkValueError('url', 'https://example.com/path')).toBeUndefined()
 		expect(linkValueError('url', 'example.com')).toBeDefined()
@@ -1111,6 +1141,16 @@ describe('editor commands', () => {
 		expect(editorToolOptions.map((option) => option.text)).toEqual(
 			expect.arrayContaining(['Heading 6', 'Video / media', 'Undo / redo', 'Edit source']),
 		)
+	})
+
+	it('uses all tools for an empty selection and keeps paragraph available for non-block selections', () => {
+		expect(resolveEditorTools([])).toBeUndefined()
+		expect(resolveEditorTools(['bold'])).toEqual(['bold', 'paragraph'])
+		expect(resolveEditorTools(['heading-2'])).toEqual(['heading-2'])
+		expect(isEditorToolEnabled([], 'fullscreen')).toBe(true)
+		expect(
+			filterEditorCommands(createEditorCommands(), ['bold']).map((command) => command.id),
+		).toEqual(['bold', 'paragraph'])
 	})
 
 	it('duplicates, reorders, and deletes top-level blocks', () => {

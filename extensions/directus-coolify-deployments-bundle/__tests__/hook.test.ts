@@ -59,6 +59,7 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 }))
 
 import hook from '../src/coolify-deployments-hook'
+import { coolifyApplicationSchema } from '../src/shared/coolify-client/schemas'
 
 const application = {
 	uuid: 'application-1',
@@ -182,6 +183,30 @@ describe('Coolify application enrichment hook', () => {
 
 		await expect(filter({ application_uuid: 'application-1' })).resolves.toMatchObject({
 			production_url: 'https://hello.frontend01.kaas.onderwijs.dev',
+		})
+	})
+
+	it('enriches a Docker Compose application from service domains', async () => {
+		mocks.getApplication.mockResolvedValueOnce(
+			coolifyApplicationSchema.parse({
+				uuid: 'application-1',
+				name: 'Compose frontend',
+				fqdn: null,
+				build_pack: 'dockercompose',
+				docker_compose_domains: JSON.stringify({
+					frontend: { domain: 'https://compose.example.com' },
+				}),
+				environment_uuid: 'environment-1',
+				environment_name: 'Production',
+				project_uuid: 'project-1',
+				project_name: 'Frontend project',
+			}),
+		)
+		const filter = mocks.filter.mock.calls[0]?.[1]
+		if (typeof filter !== 'function') throw new Error('Expected application create filter')
+
+		await expect(filter({ application_uuid: 'application-1' })).resolves.toMatchObject({
+			production_url: 'https://compose.example.com',
 		})
 	})
 

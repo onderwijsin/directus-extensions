@@ -337,10 +337,11 @@ transformed output is discarded: the canonical shared value remains in the resul
 additional validation or narrowing, not override or last-wins behavior. Extension-owned keys that do
 not occur in a fragment keep their normal defaults, transforms, output values, and output types.
 
-The six public shared configuration fragments are:
+The seven public shared configuration fragments are:
 
 | Fragment                | Adds                                                                      | Dependencies             |
 | ----------------------- | ------------------------------------------------------------------------- | ------------------------ |
+| `aiConfig`              | Shared `DIRECTUS_EXTENSIONS_AI_*` provider configuration.                 | None.                    |
 | `redisConfig`           | Directus Redis configuration.                                             | None.                    |
 | `synchronizationConfig` | Synchronization store configuration.                                      | `redisConfig`.           |
 | `cacheConfig`           | Cache configuration and its Redis cross-field validation.                 | `redisConfig`.           |
@@ -348,10 +349,15 @@ The six public shared configuration fragments are:
 | `requiredEmailConfig`   | Selected-transport email prerequisites.                                   | `emailConfig`.           |
 | `directusStartupConfig` | Directus startup, locking, and rate-limiter configuration and validation. | `synchronizationConfig`. |
 
+Use `createExtensionOptionsConfigFragment` from `/server` when an extension needs a local composable
+fragment with its own cross-field refinement. Keep the fragment's fields and refinement focused on
+one configuration concern.
+
 The specialized builders remain convenience APIs implemented through the same fragment composer:
 
 | Builder                             | Equivalent included fragment |
 | ----------------------------------- | ---------------------------- |
+| `defineAiConfigSchema`              | `aiConfig`                   |
 | `defineRedisConfigSchema`           | `redisConfig`                |
 | `defineSynchronizationConfigSchema` | `synchronizationConfig`      |
 | `defineCacheConfigSchema`           | `cacheConfig`                |
@@ -363,6 +369,22 @@ The returned `ExtensionOptionsDefinition<Output>` is opaque. Most consumers rely
 type-only `ExtensionOptionsConfigFragment`, `ExtensionOptionsSchemaBuilder`, and
 `ExtensionOptionsShapeBuilder` exports are available when a helper needs to name a fragment,
 ordinary-schema callback, or shared-shape callback.
+
+### Shared AI configuration
+
+`aiConfig` validates the optional `DIRECTUS_EXTENSIONS_AI_PROVIDER`, `DIRECTUS_EXTENSIONS_AI_MODEL`,
+`DIRECTUS_EXTENSIONS_AI_API_KEY`, and `DIRECTUS_EXTENSIONS_AI_BASE_URL` environment values.
+`resolveAiConfig` applies values per field in this order: extension option overrides,
+extension-specific environment, shared environment, then a provider-matched Directus credential.
+Directus supplies credentials—not a general default provider or model—so a provider and model must
+still be selected by a higher-precedence layer. Validate the result with `resolvedAiConfigSchema`,
+which requires a non-blank provider, model, and API key and accepts an optional base URL.
+
+Use `readDirectusAiSettings` with an internal `SettingsService` constructed without accountability.
+That makes Directus decrypt the `special: [encrypt]` provider keys. Call it only after authorizing
+the extension request, keep the returned values server-side, and never include them in a response.
+The helper reads OpenAI, Anthropic, Google, and OpenAI-compatible credentials plus the compatible
+provider base URL. Other providers require an extension-specific or shared API key.
 
 Use `/server` setup helpers at an API extension boundary:
 
@@ -384,9 +406,9 @@ setup.end()
 Schema definitions created by these builders are intentionally opaque: do not call `.parse()`,
 `.safeParse()`, `.extend()`, or `.safeExtend()` on them. Define every field inside the callback and
 use `validateExtensionOptions` to obtain the inferred, validated output. The specialized builders
-`defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`,
-`defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and `defineDirectusStartupSchema` add
-their matching shared fragment before validation.
+`defineAiConfigSchema`, `defineRedisConfigSchema`, `defineSynchronizationConfigSchema`,
+`defineCacheConfigSchema`, `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and
+`defineDirectusStartupSchema` add their matching shared fragment before validation.
 
 Build nested schemas with the builder callback's runtime. Make a reusable nested-schema helper a
 factory that receives that callback value, rather than closing over a separately imported `z`:

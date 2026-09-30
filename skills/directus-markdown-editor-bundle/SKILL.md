@@ -65,16 +65,16 @@ enabled.
 
 Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configure every option:
 
-| Option                               | Default   | Accepted value and effect                                                                                                                                                           |
-| ------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tools` / **Available editor tools** | `["all"]` | JSON array containing `all` or individual tool IDs. Controls toolbar, slash menu, contextual controls, insertion, and shortcuts. An empty array enables none of the optional tools. |
-| `useStaticComponentMeta`             | `false`   | Boolean. Chooses `staticComponentMeta`; otherwise `metadataUrl` is used.                                                                                                            |
-| `metadataUrl`                        | unset     | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                           |
-| `staticComponentMeta`                | unset     | Required JSON while static mode is enabled. No metadata request is made.                                                                                                            |
-| `useReferences`                      | `false`   | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                       |
-| `referenceCollections`               | unset     | Required non-empty JSON array while References are enabled.                                                                                                                         |
-| `referenceSnapshotMode`              | `detect`  | `snapshot`, `detect`, or `sync`.                                                                                                                                                    |
-| `ai` / **Enable AI editing**         | `false`   | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                            |
+| Option                               | Default  | Accepted value and effect                                                                                                                                                                                                                                                                              |
+| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tools` / **Available editor tools** | `[]`     | JSON array of individual tool IDs. Controls toolbar, slash menu, contextual controls, insertion, and shortcuts. An empty array enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
+| `useStaticComponentMeta`             | `false`  | Boolean. Chooses `staticComponentMeta`; otherwise `metadataUrl` is used.                                                                                                                                                                                                                               |
+| `metadataUrl`                        | unset    | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                                                                                                                                              |
+| `staticComponentMeta`                | unset    | Required JSON while static mode is enabled. No metadata request is made.                                                                                                                                                                                                                               |
+| `useReferences`                      | `false`  | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                                                                                                                                          |
+| `referenceCollections`               | unset    | Required non-empty JSON array while References are enabled.                                                                                                                                                                                                                                            |
+| `referenceSnapshotMode`              | `detect` | `snapshot`, `detect`, or `sync`.                                                                                                                                                                                                                                                                       |
+| `ai` / **Enable AI editing**         | `false`  | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                                                                                                                                               |
 
 ## Configure AI editing
 
@@ -91,17 +91,27 @@ rejected. Directus administrators may invoke the endpoint without an assigned po
 
 Configure server-only provider values:
 
-| Variable                                  | Default          | Meaning                                                  |
-| ----------------------------------------- | ---------------- | -------------------------------------------------------- |
-| `EDITOR_AI_PROVIDER`                      | unset            | Required: `openai`, `anthropic`, `google`, or `mistral`. |
-| `EDITOR_AI_MODEL`                         | unset            | Required provider-native model ID.                       |
-| `EDITOR_AI_API_KEY`                       | unset            | Required secret; never reaches Studio.                   |
-| `EDITOR_AI_BASE_URL`                      | provider default | Optional provider-specific API base URL.                 |
-| `EDITOR_AI_MAX_CONTENT_LENGTH`            | `100000`         | Positive request content limit.                          |
-| `MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED`  | `true`           | Reconcile `editor_skills` at startup.                    |
-| `MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR`   | `true`           | Fail startup if reconciliation fails.                    |
-| `MARKDOWN_EDITOR_SKILLS_SEED_ENABLED`     | `true`           | Reconcile bundled editor skill seeds.                    |
-| `MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY` | `versioning`     | Changed seeds use `versioning` or `override`.            |
+| Variable                                  | Default          | Meaning                                                                 |
+| ----------------------------------------- | ---------------- | ----------------------------------------------------------------------- |
+| `EDITOR_AI_PROVIDER`                      | shared value     | Local provider override: `openai`, `anthropic`, `google`, or `mistral`. |
+| `EDITOR_AI_MODEL`                         | shared value     | Local provider-native model override.                                   |
+| `EDITOR_AI_API_KEY`                       | shared/Directus  | Local secret override; never reaches Studio.                            |
+| `EDITOR_AI_BASE_URL`                      | shared/default   | Local provider API base URL override.                                   |
+| `DIRECTUS_EXTENSIONS_AI_PROVIDER`         | unset            | Shared provider fallback.                                               |
+| `DIRECTUS_EXTENSIONS_AI_MODEL`            | unset            | Shared model fallback.                                                  |
+| `DIRECTUS_EXTENSIONS_AI_API_KEY`          | Directus setting | Shared key before a matching Directus project credential.               |
+| `DIRECTUS_EXTENSIONS_AI_BASE_URL`         | provider default | Shared provider API base URL.                                           |
+| `EDITOR_AI_MAX_CONTENT_LENGTH`            | `100000`         | Positive request content limit.                                         |
+| `MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED`  | `true`           | Reconcile `editor_skills` at startup.                                   |
+| `MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR`   | `true`           | Fail startup if reconciliation fails.                                   |
+| `MARKDOWN_EDITOR_SKILLS_SEED_ENABLED`     | `true`           | Reconcile bundled editor skill seeds.                                   |
+| `MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY` | `versioning`     | Changed seeds use `versioning` or `override`.                           |
+
+Resolve each value from the editor-specific variables first, then the shared
+`DIRECTUS_EXTENSIONS_AI_*` variables. Without an explicit API key, the endpoint reuses the encrypted
+Directus project credential matching OpenAI, Anthropic, or Google. Provider and model remain
+explicit because Directus has no general default. Mistral requires an editor-specific or shared API
+key. The internal credential read occurs only after authorization and never reaches Studio.
 
 Skill seeds are owned by this Markdown hook and run in its coordinated documentation phase. This
 keeps the catalog enabled when `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED=false`; that global switch
@@ -185,9 +195,9 @@ Valid tool IDs are:
 ]
 ```
 
-Use `all` unless the content model deliberately restricts authors. Hiding `component` preserves
-settings for stored components. Hiding `reference` preserves stored Reference MDC; turning
-`useReferences` off removes Reference-specific UI and integrity checks.
+Leave the selection empty unless the content model deliberately restricts authors. Hiding
+`component` preserves settings for stored components. Hiding `reference` preserves stored Reference
+MDC; turning `useReferences` off removes Reference-specific UI and integrity checks.
 
 The saved API value must remain a Markdown string:
 
@@ -344,7 +354,7 @@ safely. The editor does not provide frontend components.
 ## Configure Directus item References
 
 References are inline snapshots, not Directus relations. Enable `useReferences`, include `reference`
-in `tools` (or use `all`), and configure unique collections:
+in `tools` (or leave the selection empty), and configure unique collections:
 
 ```json
 [

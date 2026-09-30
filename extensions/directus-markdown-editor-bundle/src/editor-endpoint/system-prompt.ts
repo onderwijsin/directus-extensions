@@ -34,10 +34,26 @@ const syntaxByTool: Record<string, string> = {
  * @returns Human-readable syntax descriptions.
  */
 function enabledSyntax(tools: unknown): string[] {
-	const configured = isArray(tools) ? tools.filter(isString) : ['all']
-	const allEnabled = !isDefined(tools) || configured.includes('all')
+	const configured = isArray(tools) ? tools.filter(isString) : []
+	const allEnabled =
+		!isDefined(tools) ||
+		!isArray(tools) ||
+		configured.length === 0 ||
+		configured.includes('all')
+	const hasBlockType = configured.some((tool) =>
+		[
+			'paragraph',
+			'heading-1',
+			'heading-2',
+			'heading-3',
+			'heading-4',
+			'heading-5',
+			'heading-6',
+		].includes(tool),
+	)
+	const effectiveTools = hasBlockType || allEnabled ? configured : [...configured, 'paragraph']
 	return Object.entries(syntaxByTool).flatMap(([tool, syntax]) =>
-		allEnabled || configured.includes(tool) ? [syntax] : [],
+		allEnabled || effectiveTools.includes(tool) ? [syntax] : [],
 	)
 }
 
