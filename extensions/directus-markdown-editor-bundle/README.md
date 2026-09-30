@@ -112,12 +112,14 @@ Markdown structure are included in the AI request. Insert suggestions are added 
 immediately. None of these flows save the Directus item automatically.
 
 The hook provisions the versioned `editor_skills` collection and the **Can Use Editor Skills**
-policy. It also reconciles the bundled skill catalog during its own coordinated data phase. New
-seeds are created; changed seeds create or refresh Directus' **Incoming** version by default, so
-maintainer edits to the main item are not overwritten. Set the strategy to `override` only when
-deployed seed content must replace the main item. Assign the policy to editor roles that may use AI.
-It grants create, read, and update access to skills, intentionally not delete access. Administrators
-can always invoke the endpoint without this policy. The endpoint separately reads the selected skill
+policy. It also reconciles the bundled skill catalog during its own coordinated documentation phase.
+Skill seeding is independent of the global `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED` gate, so the
+catalog is still reconciled when ordinary policy and data seeding is disabled. New seeds are
+created; changed seeds create or refresh Directus' **Incoming** version by default, so maintainer
+edits to the main item are not overwritten. Set the strategy to `override` only when deployed seed
+content must replace the main item. Assign the policy to editor roles that may use AI. It grants
+create, read, and update access to skills, intentionally not delete access. Administrators can
+always invoke the endpoint without this policy. The endpoint separately reads the selected skill
 with request accountability, validates its scope and archive state, and never trusts a
 client-supplied stored prompt.
 
@@ -445,10 +447,11 @@ documentation startup phase.
 | `SYNCHRONIZATION_STORE`                 | `memory`                       | Shared fallback store: `memory` or `redis`.                                                                           |
 
 The hook accepts the shared schema/data and rate-limiter environment values through the common
-startup schema, but its documentation phase is independent of the global schema and data gates. See
-the Studio Docs bundle configuration for seeding strategy, schema provisioning, and policy controls.
-With its default `versioning` strategy, changed article content is written to the `incoming` version
-for review rather than replacing the published article.
+startup schema, but its documentation phase—including the bundled editor skill catalog—is
+independent of the global schema and data gates. See the Studio Docs bundle configuration for
+seeding strategy, schema provisioning, and policy controls. With its default `versioning` strategy,
+changed article content is written to the `incoming` version for review rather than replacing the
+published article.
 
 ## Security and operational boundaries
 

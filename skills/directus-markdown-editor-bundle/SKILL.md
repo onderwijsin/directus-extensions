@@ -103,9 +103,12 @@ Configure server-only provider values:
 | `MARKDOWN_EDITOR_SKILLS_SEED_ENABLED`     | `true`           | Reconcile bundled editor skill seeds.                    |
 | `MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY` | `versioning`     | Changed seeds use `versioning` or `override`.            |
 
-Skill seeds are owned by this Markdown hook and run in its coordinated data phase. Each seed has a
-stable UUID. Missing seeds are created, unchanged seeds are skipped, and changed seeds update the
-Directus **Incoming** version by default. Seed removal does not remove existing records.
+Skill seeds are owned by this Markdown hook and run in its coordinated documentation phase. This
+keeps the catalog enabled when `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED=false`; that global switch
+still disables ordinary policy and data seeds, but not documentation-phase skill reconciliation.
+Each seed has a stable UUID. Missing seeds are created, unchanged seeds are skipped, and changed
+seeds update the Directus **Incoming** version by default. Seed removal does not remove existing
+records.
 
 The built-in catalog includes Fix spelling and grammar, Improve clarity, Improve structure, Rewrite,
 Shorten, Expand, and Turn into bullet points.

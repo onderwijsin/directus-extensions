@@ -71,12 +71,6 @@ export default defineHook((hook, context) => {
 				},
 			})
 		}
-		if (options.MARKDOWN_EDITOR_SKILLS_SEED_ENABLED) {
-			await seedEditorSkills(skillSeeds.skills, context, {
-				abortOnError: options.MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR,
-				strategy: options.MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY,
-			})
-		}
 	})
 
 	startup.documentation(async ({ lockProvider }) => {
@@ -85,6 +79,13 @@ export default defineHook((hook, context) => {
 			extensionName: EXTENSION_NAME,
 			extensionSeedEnabled: options.MARKDOWN_EDITOR_DOCS_SEED_ENABLED,
 		})
+
+		if (options.MARKDOWN_EDITOR_SKILLS_SEED_ENABLED) {
+			await seedEditorSkills(skillSeeds.skills, context, {
+				abortOnError: options.MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR,
+				strategy: options.MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY,
+			})
+		}
 	})
 
 	setup.end()
