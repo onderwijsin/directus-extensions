@@ -49,6 +49,7 @@ describe('runtime-aware exports', () => {
 				'defineSynchronizationConfigSchema',
 				'DIRECTUS_EXTENSION_STARTUP_LOCK',
 				'directusStartupConfig',
+				'emptyStringToUndefined',
 				'ensureDirectusSchema',
 				'ensureDirectusPolicy',
 				'docsArticleSchema',

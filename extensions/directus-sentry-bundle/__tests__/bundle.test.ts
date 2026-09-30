@@ -50,7 +50,8 @@ vi.mock('@directus/extensions-sdk', () => ({
 	defineEndpoint: mocks.defineEndpoint,
 	defineHook: mocks.defineHook,
 }))
-vi.mock('@onderwijsin/directus-extension-utils/server', () => ({
+vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) => ({
+	...(await importOriginal()),
 	extensionSetup: mocks.extensionSetup,
 	validateExtensionOptions: mocks.validateExtensionOptions,
 }))
