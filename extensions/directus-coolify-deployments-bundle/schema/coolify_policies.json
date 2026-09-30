@@ -7,7 +7,7 @@
 			"description": "Can create, read, update, and delete the local Coolify application configuration.",
 			"enforce_tfa": false,
 			"ip_access": null,
-			"app_access": true,
+			"app_access": false,
 			"admin_access": false,
 			"permissions": [
 				{ "collection": "coolify_applications", "action": "create", "fields": ["*"] },
@@ -23,7 +23,7 @@
 			"description": "Can read application and deployment data through the custom GET endpoints, without direct collection access.",
 			"enforce_tfa": false,
 			"ip_access": null,
-			"app_access": true,
+			"app_access": false,
 			"admin_access": false,
 			"permissions": []
 		},
@@ -34,7 +34,7 @@
 			"description": "Can use POST routes to trigger and cancel configured deployments.",
 			"enforce_tfa": false,
 			"ip_access": null,
-			"app_access": true,
+			"app_access": false,
 			"admin_access": false,
 			"permissions": []
 		}
