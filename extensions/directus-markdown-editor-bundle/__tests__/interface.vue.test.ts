@@ -576,6 +576,19 @@ describe('Markdown editor interface', () => {
 			'Highlight box',
 		)
 		expect(input).not.toHaveBeenCalled()
+
+		element
+			.querySelector('[aria-label="Component actions"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		const settings = [...element.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Settings',
+		)
+		settings?.click()
+		await nextTick()
+
+		expect(element.textContent).toContain('Highlight box')
+		expect(element.textContent).not.toContain('Unsupported component')
 	})
 
 	it('reports stale component properties and routes refresh through the component drawer', async () => {

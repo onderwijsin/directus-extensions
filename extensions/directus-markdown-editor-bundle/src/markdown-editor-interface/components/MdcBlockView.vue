@@ -21,10 +21,13 @@ const props = defineProps(mdcNodeViewProps)
 const editable = useEditorEditable(props.editor)
 const menuOpen = shallowRef(false)
 const integrityState = shallowRef<ComponentIntegrityState>()
-const componentName = computed(() => {
-	const name = isString(props.node.attrs.name) ? props.node.attrs.name : 'Unknown component'
+
+const componentName = computed(() =>
+	isString(props.node.attrs.name) ? props.node.attrs.name : 'Unknown component',
+)
+const componentLabel = computed(() => {
 	const getComponentLabel = props.extension.options.getComponentLabel
-	return getComponentLabel(name)
+	return getComponentLabel(componentName.value)
 })
 const componentProps = computed(() => {
 	const value = props.node.attrs.props
@@ -125,7 +128,7 @@ function deleteComponent() {
 									: 'widgets'
 						"
 				/></span>
-				<strong>{{ componentName }}</strong>
+				<strong>{{ componentLabel }}</strong>
 			</div>
 			<div class="mdc-block__summary">
 				<VMenu v-model="menuOpen" placement="bottom-end" show-arrow>
