@@ -7,7 +7,7 @@
 			"description": "Can create, read, and update reusable editor skills and invoke editor AI.",
 			"enforce_tfa": false,
 			"ip_access": null,
-			"app_access": true,
+			"app_access": false,
 			"admin_access": false,
 			"permissions": [
 				{ "collection": "editor_skills", "action": "create", "fields": ["*"] },

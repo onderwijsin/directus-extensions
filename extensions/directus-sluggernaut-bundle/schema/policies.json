@@ -7,7 +7,7 @@
 			"description": "Can create, read, update, and delete redirect records.",
 			"enforce_tfa": false,
 			"ip_access": null,
-			"app_access": true,
+			"app_access": false,
 			"admin_access": false,
 			"permissions": [
 				{ "collection": "redirects", "action": "create", "fields": ["*"] },
@@ -23,7 +23,7 @@
 			"description": "Can read redirects active within their configured time window.",
 			"enforce_tfa": false,
 			"ip_access": null,
-			"app_access": true,
+			"app_access": false,
 			"admin_access": false,
 			"permissions": [
 				{
