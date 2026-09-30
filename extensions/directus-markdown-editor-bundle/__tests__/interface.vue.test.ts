@@ -364,18 +364,21 @@ describe('Markdown editor interface', () => {
 			type: 'json',
 			meta: {
 				interface: 'select-multiple-dropdown',
-				options: { allowNone: true },
+				options: { allowNone: true, showDeselect: true },
 			},
-			schema: { default_value: ['all'] },
+			schema: { default_value: [] },
 		})
 		expect(tools?.meta?.options?.choices).toEqual(
 			expect.arrayContaining([
-				{ text: 'All tools', value: 'all' },
 				{ text: 'Heading 1', value: 'heading-1' },
 				{ text: 'Edit source', value: 'source' },
 				{ text: 'Full screen', value: 'fullscreen' },
 			]),
 		)
+		expect(tools?.meta?.options?.choices).not.toContainEqual({
+			text: 'All tools',
+			value: 'all',
+		})
 	})
 
 	it('configures static and URL component metadata as mutually exclusive sources', () => {
@@ -519,6 +522,16 @@ describe('Markdown editor interface', () => {
 		expect(element.querySelector('[aria-label="Insert image"]')).toBeNull()
 		expect(element.querySelector('[aria-label="Insert component"]')).toBeNull()
 		expect(element.querySelector('[aria-label="Full screen"]')).toBeNull()
+		expect(element.querySelector('[aria-label="Block type"]')).toBeNull()
+	})
+
+	it('treats an empty tool selection as all tools', async () => {
+		const { element } = mountEditor('All tools', false, [])
+		await nextTick()
+		await nextTick()
+
+		expect(element.querySelector('[aria-label="Bold"]')).not.toBeNull()
+		expect(element.querySelector('[aria-label="Block type"]')).not.toBeNull()
 	})
 
 	it('keeps persisted component settings functional when component insertion is hidden', async () => {

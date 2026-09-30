@@ -110,6 +110,16 @@ export const editorToolOptions: EditorToolOption[] = [
 	{ text: 'Full screen', value: 'fullscreen', commandIds: [] },
 ]
 
+const blockTypeToolIds = new Set([
+	'paragraph',
+	'heading-1',
+	'heading-2',
+	'heading-3',
+	'heading-4',
+	'heading-5',
+	'heading-6',
+])
+
 export const editorToolbarConfig: EditorToolbarConfig = {
 	blockTypeCommandIds: [
 		'paragraph',
@@ -557,7 +567,7 @@ export function resolveCommands(commands: EditorCommand[], ids: string[]): Edito
 
 /**
  * Determine whether an interface tool is enabled by the saved configuration.
- * @param enabledTools Selected tool identifiers, or undefined to preserve the all-tools default.
+ * @param enabledTools Selected tool identifiers, or an empty value for all tools.
  * @param toolId Tool identifier to inspect.
  * @returns Whether the tool is enabled.
  */
@@ -565,11 +575,28 @@ export function isEditorToolEnabled(
 	enabledTools: readonly string[] | null | undefined,
 	toolId: string,
 ): boolean {
-	return (
+	const resolvedTools = resolveEditorTools(enabledTools)
+	return resolvedTools === undefined || resolvedTools.includes(toolId)
+}
+
+/**
+ * Resolve the effective tool selection used by every editor surface.
+ * @param enabledTools Selected tool identifiers, or an empty value for all tools.
+ * @returns Effective selected tool identifiers, or undefined when all tools are enabled.
+ */
+export function resolveEditorTools(
+	enabledTools: readonly string[] | null | undefined,
+): readonly string[] | undefined {
+	if (
 		enabledTools === undefined ||
-		enabledTools?.includes('all') === true ||
-		enabledTools?.includes(toolId) === true
-	)
+		enabledTools === null ||
+		enabledTools.length === 0 ||
+		enabledTools.includes('all')
+	) {
+		return undefined
+	}
+	if (enabledTools.some((toolId) => blockTypeToolIds.has(toolId))) return enabledTools
+	return [...enabledTools, 'paragraph']
 }
 
 /**
@@ -582,10 +609,11 @@ export function filterEditorCommands(
 	commands: EditorCommand[],
 	enabledTools: readonly string[] | null | undefined,
 ): EditorCommand[] {
-	if (enabledTools === undefined || enabledTools?.includes('all') === true) return commands
+	const resolvedTools = resolveEditorTools(enabledTools)
+	if (resolvedTools === undefined) return commands
 	const enabledCommandIds = new Set(
 		editorToolOptions
-			.filter((option) => enabledTools?.includes(option.value) === true)
+			.filter((option) => resolvedTools.includes(option.value))
 			.flatMap((option) => option.commandIds),
 	)
 	return commands.filter((command) => enabledCommandIds.has(command.id))

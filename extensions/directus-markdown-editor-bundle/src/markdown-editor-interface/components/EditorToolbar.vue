@@ -155,6 +155,7 @@ function tooltip(command: EditorCommand) {
 	<div class="editor-toolbar" role="toolbar" aria-label="Text formatting">
 		<slot name="before" />
 		<VSelect
+			v-if="blockCommands.length > 1"
 			class="editor-toolbar__block-select"
 			inline
 			label

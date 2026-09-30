@@ -229,6 +229,16 @@ describe('editor AI domain', () => {
 		expect(prompt).toContain('Nuxt Content MDC')
 	})
 
+	it('treats an empty tool configuration as all tools and adds paragraph to restricted syntax', () => {
+		const allToolsPrompt = createSystemPrompt([])
+		const restrictedPrompt = createSystemPrompt(['bold'])
+
+		expect(allToolsPrompt).toContain('level 6 headings')
+		expect(restrictedPrompt).toContain('paragraphs')
+		expect(restrictedPrompt).toContain('bold text')
+		expect(restrictedPrompt).not.toContain('level 1 headings')
+	})
+
 	it('uses a generation contract for insertion requests', () => {
 		const prompt = createSystemPrompt(['paragraph'], 'insert')
 		expect(prompt).toContain('Generate Markdown to insert')

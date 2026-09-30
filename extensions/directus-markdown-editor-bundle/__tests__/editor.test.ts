@@ -22,6 +22,7 @@ import {
 	filterEditorCommands,
 	isEditorToolEnabled,
 	resolveCommands,
+	resolveEditorTools,
 } from '../src/markdown-editor-interface/editor/commands'
 import { ClearMarksOnEnter } from '../src/markdown-editor-interface/editor/enter'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
@@ -1111,6 +1112,16 @@ describe('editor commands', () => {
 		expect(editorToolOptions.map((option) => option.text)).toEqual(
 			expect.arrayContaining(['Heading 6', 'Video / media', 'Undo / redo', 'Edit source']),
 		)
+	})
+
+	it('uses all tools for an empty selection and keeps paragraph available for non-block selections', () => {
+		expect(resolveEditorTools([])).toBeUndefined()
+		expect(resolveEditorTools(['bold'])).toEqual(['bold', 'paragraph'])
+		expect(resolveEditorTools(['heading-2'])).toEqual(['heading-2'])
+		expect(isEditorToolEnabled([], 'fullscreen')).toBe(true)
+		expect(
+			filterEditorCommands(createEditorCommands(), ['bold']).map((command) => command.id),
+		).toEqual(['bold', 'paragraph'])
 	})
 
 	it('duplicates, reorders, and deletes top-level blocks', () => {

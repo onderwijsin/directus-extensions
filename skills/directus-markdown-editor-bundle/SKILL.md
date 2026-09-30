@@ -65,16 +65,16 @@ enabled.
 
 Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configure every option:
 
-| Option                               | Default   | Accepted value and effect                                                                                                                                                           |
-| ------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tools` / **Available editor tools** | `["all"]` | JSON array containing `all` or individual tool IDs. Controls toolbar, slash menu, contextual controls, insertion, and shortcuts. An empty array enables none of the optional tools. |
-| `useStaticComponentMeta`             | `false`   | Boolean. Chooses `staticComponentMeta`; otherwise `metadataUrl` is used.                                                                                                            |
-| `metadataUrl`                        | unset     | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                           |
-| `staticComponentMeta`                | unset     | Required JSON while static mode is enabled. No metadata request is made.                                                                                                            |
-| `useReferences`                      | `false`   | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                       |
-| `referenceCollections`               | unset     | Required non-empty JSON array while References are enabled.                                                                                                                         |
-| `referenceSnapshotMode`              | `detect`  | `snapshot`, `detect`, or `sync`.                                                                                                                                                    |
-| `ai` / **Enable AI editing**         | `false`   | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                            |
+| Option                               | Default  | Accepted value and effect                                                                                                                                                                                                                                                                              |
+| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tools` / **Available editor tools** | `[]`     | JSON array of individual tool IDs. Controls toolbar, slash menu, contextual controls, insertion, and shortcuts. An empty array enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
+| `useStaticComponentMeta`             | `false`  | Boolean. Chooses `staticComponentMeta`; otherwise `metadataUrl` is used.                                                                                                                                                                                                                               |
+| `metadataUrl`                        | unset    | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                                                                                                                                              |
+| `staticComponentMeta`                | unset    | Required JSON while static mode is enabled. No metadata request is made.                                                                                                                                                                                                                               |
+| `useReferences`                      | `false`  | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                                                                                                                                          |
+| `referenceCollections`               | unset    | Required non-empty JSON array while References are enabled.                                                                                                                                                                                                                                            |
+| `referenceSnapshotMode`              | `detect` | `snapshot`, `detect`, or `sync`.                                                                                                                                                                                                                                                                       |
+| `ai` / **Enable AI editing**         | `false`  | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                                                                                                                                               |
 
 ## Configure AI editing
 
@@ -185,9 +185,9 @@ Valid tool IDs are:
 ]
 ```
 
-Use `all` unless the content model deliberately restricts authors. Hiding `component` preserves
-settings for stored components. Hiding `reference` preserves stored Reference MDC; turning
-`useReferences` off removes Reference-specific UI and integrity checks.
+Leave the selection empty unless the content model deliberately restricts authors. Hiding
+`component` preserves settings for stored components. Hiding `reference` preserves stored Reference
+MDC; turning `useReferences` off removes Reference-specific UI and integrity checks.
 
 The saved API value must remain a Markdown string:
 
@@ -344,7 +344,7 @@ safely. The editor does not provide frontend components.
 ## Configure Directus item References
 
 References are inline snapshots, not Directus relations. Enable `useReferences`, include `reference`
-in `tools` (or use `all`), and configure unique collections:
+in `tools` (or leave the selection empty), and configure unique collections:
 
 ```json
 [

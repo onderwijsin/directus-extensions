@@ -19,6 +19,7 @@ interface MarkdownEditorOption {
 		}[]
 		options?: {
 			allowNone?: boolean
+			showDeselect?: boolean
 			choices?: { text: string; value: string }[]
 			language?: string
 		}
@@ -53,13 +54,11 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 				note: 'Choose which formatting and insertion tools editors can use.',
 				options: {
 					allowNone: true,
-					choices: [
-						{ text: 'All tools', value: 'all' },
-						...editorToolOptions.map(({ text, value }) => ({ text, value })),
-					],
+					showDeselect: true,
+					choices: [...editorToolOptions.map(({ text, value }) => ({ text, value }))],
 				},
 			},
-			schema: { default_value: ['all'] },
+			schema: { default_value: [] },
 		},
 		{
 			field: 'useStaticComponentMeta',

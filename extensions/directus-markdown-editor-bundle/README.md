@@ -71,7 +71,8 @@ process to upgrade. Directus loads the `markdown-editor-interface` app entry and
 1. Open **Settings → Data Model** and choose a collection.
 2. Add a field with type **Text** or **String**.
 3. Select the **Markdown (MDC)** interface.
-4. Keep **Available editor tools** set to **All tools** for the first setup.
+4. Leave **Available editor tools** empty for the first setup; an empty selection enables every
+   tool.
 5. Save the field and open an item in the collection.
 
 The API value remains a string:
@@ -89,16 +90,16 @@ your website or other application.
 
 Configure these options on each field using the **Markdown (MDC)** interface.
 
-| Option                            | Default   | Description                                                                                                                                                   |
-| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Available editor tools**        | All tools | Selects the toolbar, `/` menu, block actions, insertion controls, and native shortcuts available on this field. An empty selection exposes no optional tools. |
-| **Use static component metadata** | `false`   | Chooses static JSON instead of loading component metadata from a URL.                                                                                         |
-| **Component metadata URL**        | unset     | Browser-accessible JSON URL used while static metadata is disabled.                                                                                           |
-| **Static component metadata**     | unset     | Required JSON value while static metadata is enabled.                                                                                                         |
-| **Use item references**           | `false`   | Enables the Reference picker, Reference editing, and document integrity checks.                                                                               |
-| **Reference collections**         | unset     | Required non-empty JSON array when item references are enabled.                                                                                               |
-| **Reference snapshot mode**       | `detect`  | Chooses `snapshot`, `detect`, or `sync` behavior for source snapshots.                                                                                        |
-| **Enable AI editing**             | `false`   | Shows AI actions for this field and allows authenticated `/editor/ai` requests for it.                                                                        |
+| Option                            | Default  | Description                                                                                                                                                                                                                                                                                                |
+| --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Available editor tools**        | empty    | Selects the toolbar, `/` menu, block actions, insertion controls, and native shortcuts available on this field. An empty selection enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
+| **Use static component metadata** | `false`  | Chooses static JSON instead of loading component metadata from a URL.                                                                                                                                                                                                                                      |
+| **Component metadata URL**        | unset    | Browser-accessible JSON URL used while static metadata is disabled.                                                                                                                                                                                                                                        |
+| **Static component metadata**     | unset    | Required JSON value while static metadata is enabled.                                                                                                                                                                                                                                                      |
+| **Use item references**           | `false`  | Enables the Reference picker, Reference editing, and document integrity checks.                                                                                                                                                                                                                            |
+| **Reference collections**         | unset    | Required non-empty JSON array when item references are enabled.                                                                                                                                                                                                                                            |
+| **Reference snapshot mode**       | `detect` | Chooses `snapshot`, `detect`, or `sync` behavior for source snapshots.                                                                                                                                                                                                                                     |
+| **Enable AI editing**             | `false`  | Shows AI actions for this field and allows authenticated `/editor/ai` requests for it.                                                                                                                                                                                                                     |
 
 ## AI-assisted editing
 
