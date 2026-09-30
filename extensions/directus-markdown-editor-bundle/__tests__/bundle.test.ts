@@ -63,10 +63,35 @@ describe('Markdown Editor bundle', () => {
 		mocks.setup.isEnabled.mockReturnValue(true)
 	})
 
-	it('seeds editor skills during the hook-owned data phase', async () => {
+	it('seeds editor skills during the hook-owned documentation phase', async () => {
 		const context = { env: {}, logger: {} }
 		mocks.hookRegister({ init: vi.fn() }, context)
-		const callback = mocks.startup.data.mock.calls[0]?.[0]
+		const callback = mocks.startup.documentation.mock.calls[0]?.[0]
+		expect(callback).toBeTypeOf('function')
+		if (!callback) return
+
+		await callback({ lockProvider: {} })
+
+		expect(mocks.seedEditorSkills).toHaveBeenCalledWith(skillSeeds.skills, context, {
+			abortOnError: true,
+			strategy: 'versioning',
+		})
+	})
+
+	it('keeps skill seeding enabled when global data seeding is disabled', async () => {
+		mocks.validateExtensionOptions.mockReturnValueOnce({
+			DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: false,
+			DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: true,
+			MARKDOWN_EDITOR_DOCS_SEED_ENABLED: true,
+			MARKDOWN_EDITOR_ENABLED: true,
+			MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED: true,
+			MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR: true,
+			MARKDOWN_EDITOR_SKILLS_SEED_ENABLED: true,
+			MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY: 'versioning',
+		})
+		const context = { env: {}, logger: {} }
+		mocks.hookRegister({ init: vi.fn() }, context)
+		const callback = mocks.startup.documentation.mock.calls[0]?.[0]
 		expect(callback).toBeTypeOf('function')
 		if (!callback) return
 

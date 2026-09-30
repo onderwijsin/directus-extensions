@@ -1013,6 +1013,32 @@ describe('createDirectusStartupCoordinator', () => {
 		expect(order).toEqual(['documentation'])
 	})
 
+	it('runs documentation callbacks when global data seeding is disabled', async () => {
+		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
+		const order: string[] = []
+		const startup = createDirectusStartupCoordinator(createHook(action, init), createLogger(), {
+			id: 'documentation-data-disabled-test',
+			name: 'Documentation data-disabled test',
+			disabled: false,
+			disabledGlobally: false,
+			dataDisabledGlobally: true,
+		})
+
+		startup.data(() => {
+			order.push('data')
+			return Promise.resolve()
+		})
+		startup.documentation(() => {
+			order.push('documentation')
+			return Promise.resolve()
+		})
+
+		await init.mock.calls[1]?.[1]?.()
+		await init.mock.calls[2]?.[1]?.()
+		expect(order).toEqual(['documentation'])
+	})
+
 	it('does not release the coordinator lease through nested callbacks', async () => {
 		const action = vi.fn<ActionRegistrar>()
 		const init = vi.fn<InitRegistrar>()
