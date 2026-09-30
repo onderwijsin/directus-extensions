@@ -7,6 +7,7 @@ import {
 	type ExtensionOptionsRefinementValues,
 	type ExtensionOptionsShapeBuilder,
 } from '../schema-builder'
+import { emptyStringToUndefined } from './helpers'
 
 /**
  * Builds email fields for raw schemas and fragments.
@@ -24,20 +25,24 @@ const defineEmailConfigShape = (zod: typeof z) => {
 		EMAIL_TEMPLATES_PATH: nonBlankStringSchema.default('./templates'),
 		EMAIL_SENDMAIL_NEW_LINE: zod.enum(['unix', 'windows']).default('unix'),
 		EMAIL_SENDMAIL_PATH: nonBlankStringSchema.default('/usr/sbin/sendmail'),
-		EMAIL_SMTP_HOST: nonBlankStringSchema.optional(),
+		EMAIL_SMTP_HOST: emptyStringToUndefined(nonBlankStringSchema.optional()),
 		EMAIL_SMTP_PORT: portSchema.optional(),
-		EMAIL_SMTP_USER: nonBlankStringSchema.optional(),
-		EMAIL_SMTP_PASSWORD: nonBlankStringSchema.optional(),
+		EMAIL_SMTP_USER: emptyStringToUndefined(nonBlankStringSchema.optional()),
+		EMAIL_SMTP_PASSWORD: emptyStringToUndefined(nonBlankStringSchema.optional()),
 		EMAIL_SMTP_POOL: zod.boolean().optional(),
 		EMAIL_SMTP_SECURE: zod.boolean().optional(),
 		EMAIL_SMTP_IGNORE_TLS: zod.boolean().optional(),
-		EMAIL_SMTP_NAME: nonBlankStringSchema.optional(),
-		EMAIL_MAILGUN_API_KEY: nonBlankStringSchema.optional(),
-		EMAIL_MAILGUN_DOMAIN: nonBlankStringSchema.optional(),
+		EMAIL_SMTP_NAME: emptyStringToUndefined(nonBlankStringSchema.optional()),
+		EMAIL_MAILGUN_API_KEY: emptyStringToUndefined(nonBlankStringSchema.optional()),
+		EMAIL_MAILGUN_DOMAIN: emptyStringToUndefined(nonBlankStringSchema.optional()),
 		EMAIL_MAILGUN_HOST: nonBlankStringSchema.default('api.mailgun.net'),
-		EMAIL_SES_CREDENTIALS__ACCESS_KEY_ID: nonBlankStringSchema.optional(),
-		EMAIL_SES_CREDENTIALS__SECRET_ACCESS_KEY: nonBlankStringSchema.optional(),
-		EMAIL_SES_REGION: nonBlankStringSchema.optional(),
+		EMAIL_SES_CREDENTIALS__ACCESS_KEY_ID: emptyStringToUndefined(
+			nonBlankStringSchema.optional(),
+		),
+		EMAIL_SES_CREDENTIALS__SECRET_ACCESS_KEY: emptyStringToUndefined(
+			nonBlankStringSchema.optional(),
+		),
+		EMAIL_SES_REGION: emptyStringToUndefined(nonBlankStringSchema.optional()),
 	}
 }
 

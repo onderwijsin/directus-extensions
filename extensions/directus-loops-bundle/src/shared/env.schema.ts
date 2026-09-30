@@ -1,6 +1,7 @@
 import {
 	defineExtensionOptionsSchema,
 	directusStartupConfig,
+	emptyStringToUndefined,
 	type ExtensionOptionsDefinition,
 } from '@onderwijsin/directus-extension-utils/server'
 
@@ -18,10 +19,7 @@ export const envSchema = defineExtensionOptionsSchema({
 			.trim()
 			.min(1)
 			.regex(/^[A-Za-z_][A-Za-z0-9_$]*$/u, 'must be a valid Directus collection identifier')
-		const optionalSecret = z.preprocess(
-			(value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-			z.string().trim().min(1).optional(),
-		)
+		const optionalSecret = emptyStringToUndefined(z.string().trim().min(1).optional())
 
 		return {
 			LOOPS_ENABLED: z.boolean().default(true),

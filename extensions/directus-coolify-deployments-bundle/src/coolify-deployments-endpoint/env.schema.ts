@@ -2,6 +2,7 @@ import {
 	cacheConfig,
 	defineExtensionOptionsSchema,
 	directusStartupConfig,
+	emptyStringToUndefined,
 } from '@onderwijsin/directus-extension-utils/server'
 
 import {
@@ -25,7 +26,7 @@ export const envSchema = defineExtensionOptionsSchema({
 	 */
 	options: (z) => ({
 		...defineCoolifyEnvironmentOptions(z),
-		PUBLIC_URL: z.url().optional(),
+		PUBLIC_URL: emptyStringToUndefined(z.url().optional()),
 		COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED: z.boolean().default(true),
 		COOLIFY_DEPLOYMENTS_MANAGE_APPLICATIONS_POLICY_ID: z
 			.string()

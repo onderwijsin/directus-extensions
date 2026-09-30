@@ -43,6 +43,8 @@ the endpoint.
 | `MAGIC_LINK_CLEANUP_WINDOW`                                    | `24h`                                              | Duration retention grace period.                                             |
 | `MAGIC_LINK_CLEANUP_CRON`                                      | `*/15 * * * *`                                     | Non-empty Directus cron expression.                                          |
 
+Blank optional token, email override, and shared email transport values are treated as unset.
+
 Example Directus environment:
 
 ```dotenv

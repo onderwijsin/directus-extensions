@@ -190,6 +190,26 @@ SMTP, that means only `EMAIL_SMTP_HOST`; the SMTP port, username, password, and 
 options are left to Directus and the consumer to configure and validate. The corresponding raw
 schemas remain available for backward compatibility.
 
+Use `emptyStringToUndefined` for an optional string or string-format environment field with no
+default when deployment tooling may provide an empty value for an unset variable. It converts empty
+and whitespace-only strings to `undefined` before normal validation, preserving non-blank values:
+
+```ts
+import {
+  defineExtensionOptionsSchema,
+  emptyStringToUndefined,
+} from '@onderwijsin/directus-extension-utils/server'
+
+const envSchema = defineExtensionOptionsSchema({
+  options: (z) => ({
+    SMTP_PASSWORD: emptyStringToUndefined(z.string().trim().min(1).optional()),
+  }),
+})
+```
+
+Apply it only where blank is equivalent to absence; do not use it for required/defaulted fields or
+payload schemas where blank input must remain distinguishable or invalid.
+
 Wrap asynchronous endpoint handlers and middleware with `asyncHandler` so rejected promises reach
 Directus's Express 4 error handling:
 

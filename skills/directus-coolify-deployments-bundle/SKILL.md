@@ -344,8 +344,9 @@ trusted deployers. Policy assignment honors `policy.ip_access`. Configure Expres
 proxy headers; the endpoint does not trust client-supplied `X-Forwarded-*` headers. Set Directus's
 `PUBLIC_URL` to the browser-visible URL when a reverse proxy gives Express an internal host or
 protocol. Set `COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED=false` only when another trusted boundary
-enforces browser origin protection; authentication and policy checks still apply. Add rate limiting,
-audit logging, retries, and alerting at the consumer boundary when required.
+enforces browser origin protection; authentication and policy checks still apply. Blank `PUBLIC_URL`
+is treated as unset. Add rate limiting, audit logging, retries, and alerting at the consumer
+boundary when required.
 
 The server client restricts provider reads to UUIDs found in enabled local records. It fetches
 deployment history in pages of 100 and does not copy it into Directus. The cache is only a 60-second

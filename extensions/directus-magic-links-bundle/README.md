@@ -54,6 +54,8 @@ configuration options are specific to this bundle, it also relies on common dire
 | `MAGIC_LINK_CLEANUP_WINDOW`                                    | `24h`                                              | Retention grace period after expiry or redemption.                                |
 | `MAGIC_LINK_CLEANUP_CRON`                                      | `*/15 * * * *`                                     | Directus schedule expression for cleanup.                                         |
 
+Blank optional token, email override, and shared email transport values are treated as unset.
+
 Example:
 
 ```dotenv

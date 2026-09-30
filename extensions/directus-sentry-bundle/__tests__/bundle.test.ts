@@ -88,6 +88,13 @@ describe('Sentry bundle', () => {
 		expect(endpointEnvSchema.parse({}).SENTRY_TEST_SUITE_ENABLED).toBe(false)
 	})
 
+	it('treats blank optional Sentry configuration as unset', () => {
+		expect(hookEnvSchema.parse({ SENTRY_DSN: ' ', SENTRY_RELEASE: '\t' })).toMatchObject({
+			SENTRY_DSN: undefined,
+			SENTRY_RELEASE: undefined,
+		})
+	})
+
 	it('accepts the documented multiline loader script', () => {
 		const loaderScript = `<script
   src="https://js-de.sentry-cdn.com/0123456789abcdef0123456789abcdef.min.js"

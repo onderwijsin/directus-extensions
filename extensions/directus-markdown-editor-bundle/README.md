@@ -133,6 +133,8 @@ client-supplied stored prompt.
 | `MARKDOWN_EDITOR_SKILLS_SEED_ENABLED`     | `true`           | Enables the hook-owned bundled skill seed catalog.       |
 | `MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY` | `versioning`     | Uses `versioning` or `override` for changed seeds.       |
 
+Blank values for the optional AI model, API key, and base URL are treated as unset.
+
 `editor_skills` includes Directus versioning and the standard `user_created`, `date_created`,
 `user_updated`, and `date_updated` audit fields. Bundled seeds use stable UUIDs. Removing a seed
 from a later package release does not delete or archive an existing item.

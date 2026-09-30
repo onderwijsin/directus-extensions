@@ -70,7 +70,7 @@ Import common browser-safe helpers from the root or `/shared`. Always use `/serv
 `defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`,
 `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, `defineDirectusStartupSchema`,
 `redisConfig`, `synchronizationConfig`, `cacheConfig`, `emailConfig`, `requiredEmailConfig`,
-`directusStartupConfig`,
+`directusStartupConfig`, `emptyStringToUndefined`,
 `validateSchemaDefinition`, `ensureDirectusSchema`,
 `ensureDirectusPolicy`, `ensureDirectusDocumentation`, `createDirectusStartupCoordinator`, and `asyncHandler`. Never import
 these Directus-runtime utilities from the root, `/shared`, or `/app`; the app path must remain free
@@ -387,6 +387,12 @@ schema. Passing a standalone consumer-owned schema directly does not mix Zod run
 mixed-runtime risk arises when a consumer-owned schema is composed with a raw shared schema from
 extension-utils that uses a different Zod runtime. Prefer fragment composition or the corresponding
 one-fragment builder in that case because both supply the package-owned runtime.
+
+Use `emptyStringToUndefined` around an optional string or string-format environment field without a
+default when a blank value is equivalent to absence. It changes empty and whitespace-only strings to
+`undefined` before the field validates, while preserving non-blank validation and output. Do not
+apply it to required/defaulted fields or request schemas, where blank input should remain
+distinguishable or fail validation.
 
 These helpers coordinate setup and validation only; Directus registration, environment lookup, and
 application resource ownership remain with the consuming extension.

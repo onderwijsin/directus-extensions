@@ -62,4 +62,18 @@ describe('email configuration', () => {
 			false,
 		)
 	})
+
+	it('treats blank optional transport values as unset', () => {
+		expect(
+			emailConfigSchema.parse({
+				EMAIL_SMTP_PASSWORD: '  ',
+				EMAIL_MAILGUN_API_KEY: '',
+				EMAIL_SES_REGION: '\t',
+			}),
+		).toMatchObject({
+			EMAIL_SMTP_PASSWORD: undefined,
+			EMAIL_MAILGUN_API_KEY: undefined,
+			EMAIL_SES_REGION: undefined,
+		})
+	})
 })

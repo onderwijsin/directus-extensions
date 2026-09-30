@@ -74,6 +74,8 @@ Set these Directus environment variables after the runtime prerequisites are ava
 | `SENTRY_RELEASE`        | No                 | Explicit release override.                                   |
 | `DEPLOYMENT_ENV`        | No                 | Deployment environment. Defaults to `development`.           |
 
+Blank `SENTRY_DSN` and `SENTRY_RELEASE` values are treated as unset.
+
 The loader script must match Sentry's hosted format:
 
 ```html

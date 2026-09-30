@@ -103,6 +103,8 @@ Configure server-only provider values:
 | `MARKDOWN_EDITOR_SKILLS_SEED_ENABLED`     | `true`           | Reconcile bundled editor skill seeds.                    |
 | `MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY` | `versioning`     | Changed seeds use `versioning` or `override`.            |
 
+Blank values for the optional AI model, API key, and base URL are treated as unset.
+
 Skill seeds are owned by this Markdown hook and run in its coordinated data phase. Each seed has a
 stable UUID. Missing seeds are created, unchanged seeds are skipped, and changed seeds update the
 Directus **Incoming** version by default. Seed removal does not remove existing records.

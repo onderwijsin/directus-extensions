@@ -1,4 +1,5 @@
 import { deploymentEnvs } from '@onderwijsin/directus-extension-utils/constants'
+import { emptyStringToUndefined } from '@onderwijsin/directus-extension-utils/server'
 import { z } from 'zod'
 
 /**
@@ -20,10 +21,10 @@ export const sentryLoaderScriptSchema = z
  */
 export const envSchema = z.object({
 	SENTRY_ENABLED: z.boolean().default(false),
-	SENTRY_DSN: z.url().trim().optional(),
+	SENTRY_DSN: emptyStringToUndefined(z.url().trim().optional()),
 	SENTRY_LOADER_SCRIPT: sentryLoaderScriptSchema.optional(),
 	SENTRY_RELEASE_PREFIX: z.string().trim().default('dev'),
 	SOURCE_COMMIT: z.string().trim().default('unknown'),
-	SENTRY_RELEASE: z.string().trim().optional(),
+	SENTRY_RELEASE: emptyStringToUndefined(z.string().trim().optional()),
 	DEPLOYMENT_ENV: z.enum(deploymentEnvs).default('development'),
 })

@@ -32,7 +32,6 @@ export default defineEndpoint({
 		setup.start()
 		if (!setup.isEnabled()) return
 
-		console.log({ EDITOR_AI_API_KEY: env.EDITOR_AI_API_KEY })
 		const options = validateExtensionOptions(env, envSchema, logger)
 
 		router.post(

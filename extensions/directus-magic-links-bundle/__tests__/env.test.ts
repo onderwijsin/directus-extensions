@@ -83,7 +83,7 @@ describe('magic-links environment schemas', () => {
 		).toThrow()
 	})
 
-	it('validates optional email overrides', () => {
+	it('validates optional email overrides and treats blank overrides as unset', () => {
 		expect(() =>
 			parseEnv(endpointEnvSchema, {
 				...validEnvironment,
@@ -99,9 +99,22 @@ describe('magic-links environment schemas', () => {
 				MAGIC_LINKS_EMAIL_REPLY_TO: 'not-an-email',
 			}),
 		).toThrow()
-		expect(() =>
-			parseEnv(endpointEnvSchema, { ...validEnvironment, MAGIC_LINKS_EMAIL_SENDER: ' ' }),
-		).toThrow()
+		expect(
+			parseEnv(endpointEnvSchema, {
+				...validEnvironment,
+				MAGIC_LINKS_EMAIL_REPLY_TO: ' ',
+				MAGIC_LINKS_EMAIL_SENDER: ' ',
+				MAGIC_LINKS_EMAIL_SUBJECT: '',
+				MAGIC_LINKS_EMAIL_PREVIEW_TEXT: '\t',
+				MAGIC_LINKS_TOKEN_SECRET: ' ',
+			}),
+		).toMatchObject({
+			MAGIC_LINKS_EMAIL_REPLY_TO: undefined,
+			MAGIC_LINKS_EMAIL_SENDER: undefined,
+			MAGIC_LINKS_EMAIL_SUBJECT: undefined,
+			MAGIC_LINKS_EMAIL_PREVIEW_TEXT: undefined,
+			MAGIC_LINKS_TOKEN_SECRET: undefined,
+		})
 	})
 
 	it('accepts hook-specific schema and cleanup configuration', () => {

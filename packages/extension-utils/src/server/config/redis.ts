@@ -5,6 +5,7 @@ import {
 	defineExtensionOptionsShape,
 	type ExtensionOptionsShapeBuilder,
 } from '../schema-builder'
+import { emptyStringToUndefined } from './helpers'
 
 /**
  * Creates a non-blank string schema with the supplied runtime.
@@ -45,11 +46,11 @@ const defineRedisConfigShape = (zod: typeof z) => {
 
 	return {
 		REDIS_ENABLED: zod.boolean().default(false),
-		REDIS: createRedisUrlSchema(zod).optional(),
-		REDIS_HOST: redisHostSchema.optional(),
+		REDIS: emptyStringToUndefined(createRedisUrlSchema(zod).optional()),
+		REDIS_HOST: emptyStringToUndefined(redisHostSchema.optional()),
 		REDIS_PORT: redisPortSchema.optional(),
-		REDIS_USERNAME: nonBlankStringSchema.optional(),
-		REDIS_PASSWORD: nonBlankStringSchema.optional(),
+		REDIS_USERNAME: emptyStringToUndefined(nonBlankStringSchema.optional()),
+		REDIS_PASSWORD: emptyStringToUndefined(nonBlankStringSchema.optional()),
 	}
 }
 

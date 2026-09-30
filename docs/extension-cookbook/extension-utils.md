@@ -104,6 +104,7 @@ only the common helper surface.
 | Setup            | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                                | `/server`         |
 | Schema fragments | `redisConfig`, `synchronizationConfig`, `cacheConfig`, `emailConfig`, `requiredEmailConfig`, `directusStartupConfig`                                                                                                                            | `/server`         |
 | Schema builders  | `defineExtensionOptionsSchema`, `defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`, `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, `defineDirectusStartupSchema`                          | `/server`         |
+| Schema helpers   | `emptyStringToUndefined`                                                                                                                                                                                                                        | `/server`         |
 | Builder types    | `ExtensionOptionsConfigFragment`, `ExtensionOptionsDefinition`, `ExtensionOptionsSchemaBuilder`, `ExtensionOptionsShapeBuilder`                                                                                                                 | `/server`         |
 | Cache            | `initializeCache`, `withCache`                                                                                                                                                                                                                  | `/server`         |
 | Schema/data      | `directusStartupSchema`, `validateSchemaDefinition`, `validatePolicyDefinition`, `processPolicyDefinition`, `ensureDirectusSchema`, `ensureDirectusPolicy`, `ensureDirectusDocumentation`, `getDirectusStartupStatus`, `withCollectionIdentity` | `/server`         |
@@ -237,6 +238,31 @@ builder callback type. Do not call schema methods on a definition. Use the suppl
 objects, arrays, unions, and helper output so the materialized schema stays on the package-owned
 runtime. The package does not traverse Zod's internal schema graph to enforce that usage contract.
 `validateExtensionOptions` materializes the definition and returns its inferred, validated output.
+
+### Optional environment strings
+
+Use `emptyStringToUndefined` for an optional string or string-format environment field that has no
+default and for which a blank value means “not configured.” It converts empty and whitespace-only
+strings to `undefined` before the wrapped optional field validates. Non-blank values still use the
+wrapped field's validation and output unchanged:
+
+```ts
+import {
+  defineExtensionOptionsSchema,
+  emptyStringToUndefined,
+} from '@onderwijsin/directus-extension-utils/server'
+
+const envSchema = defineExtensionOptionsSchema({
+  options: (z) => ({
+    SMTP_PASSWORD: emptyStringToUndefined(z.string().trim().min(1).optional()),
+    SERVICE_URL: emptyStringToUndefined(z.url().optional()),
+  }),
+})
+```
+
+Use it for environment configuration only when blank is semantically equivalent to absence. Do not
+apply it to required fields, defaulted fields, or request/payload schemas where an empty string is
+meaningful or should produce a validation error.
 
 The raw-schema overload of `validateExtensionOptions` remains fully supported for consumer-owned Zod
 schemas. Passing a standalone consumer-owned schema directly does not mix Zod runtimes. The risk

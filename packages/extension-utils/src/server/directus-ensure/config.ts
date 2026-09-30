@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { emptyStringToUndefined } from '../config/helpers'
 import { redisUrlSchema, resolveRedisConnectionString } from '../config/redis'
 import { synchronizationConfig, synchronizationConfigSchema } from '../config/synchronization'
 import {
@@ -36,12 +37,14 @@ export const extensionRateLimiterStoreSchema = createExtensionRateLimiterStoreSc
  * @returns The Directus startup configuration shape.
  */
 const defineDirectusStartupConfigShape = (zod: typeof z) => ({
-	DIRECTUS_EXTENSION_ID: zod.string().optional(),
+	DIRECTUS_EXTENSION_ID: emptyStringToUndefined(zod.string().optional()),
 	DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED: zod.boolean().default(true),
 	DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED: zod.boolean().default(true),
 	DIRECTUS_EXTENSIONS_LOCK_PROVIDER: createStartupLockProviderSchema(zod).optional(),
-	DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: redisUrlSchema.optional(),
-	DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: zod.string().trim().min(1).optional(),
+	DIRECTUS_EXTENSIONS_LOCK_REDIS_URL: emptyStringToUndefined(redisUrlSchema.optional()),
+	DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: emptyStringToUndefined(
+		zod.string().trim().min(1).optional(),
+	),
 	DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE: createExtensionRateLimiterStoreSchema(zod).optional(),
 })
 

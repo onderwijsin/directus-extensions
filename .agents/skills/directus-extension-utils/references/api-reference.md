@@ -135,6 +135,9 @@ cacheConfig
 emailConfig
 requiredEmailConfig
 directusStartupConfig
+emptyStringToUndefined<T extends string>(
+  field: ZodOptional<ZodStringFormat<T> | ZodString>,
+): ZodPreprocess<ZodOptional<ZodStringFormat<T> | ZodString>>
 type CacheConfig = z.output<typeof cacheConfigSchema>
 resolveRedisConnectionString(options: RedisConfig): string | undefined
 resolveCacheStorage(options: CacheConfig): 'memory' | 'redis' | null
@@ -147,6 +150,12 @@ percent-encoded. Cache storage keeps the public `memory` value; `initializeCache
 memory package's local backend internally. The base email schema is optional and supplies Directus
 defaults; the required schema validates the selected `sendmail`, `smtp`, `mailgun`, or `ses`
 transport.
+
+`emptyStringToUndefined` is for optional string or string-format environment fields with no default
+where blank configuration means absent configuration. It converts empty and whitespace-only strings
+to `undefined` before validation. Non-blank values retain the wrapped field's normal validation and
+output. Do not use it for required/defaulted fields or request/payload schemas where blank remains
+meaningful or should be rejected.
 
 The six values without the `Schema` suffix are opaque package-owned configuration fragments. Their
 dependencies are explicit: synchronization and cache depend on Redis, required email depends on

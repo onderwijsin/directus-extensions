@@ -116,8 +116,8 @@ replaced by the bundle hook, and installing the bundle does not cause Directus t
 
 ## Configuration
 
-All values are Directus environment variables. Empty optional values should be omitted or supplied
-as an empty string according to the consumer's environment-management conventions.
+All values are Directus environment variables. Blank `SENTRY_DSN` and `SENTRY_RELEASE` values are
+treated as unset.
 
 | Variable                | Default       | Used by               | Description                                                                                               |
 | ----------------------- | ------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |

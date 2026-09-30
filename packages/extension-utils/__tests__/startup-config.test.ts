@@ -24,6 +24,20 @@ describe('directusStartupSchema', () => {
 		).toBe(true)
 	})
 
+	it('treats blank optional startup and Redis values as unset', () => {
+		expect(
+			directusStartupSchema.parse({
+				DIRECTUS_EXTENSION_ID: ' ',
+				DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: '',
+				REDIS_PASSWORD: '\t',
+			}),
+		).toMatchObject({
+			DIRECTUS_EXTENSION_ID: undefined,
+			DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY: undefined,
+			REDIS_PASSWORD: undefined,
+		})
+	})
+
 	it('requires backend configuration for distributed providers', () => {
 		expect(
 			directusStartupSchema.safeParse({ DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'redis' }).success,

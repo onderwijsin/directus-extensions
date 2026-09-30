@@ -191,7 +191,7 @@ uses it to validate browser origins even when Express sees an internal proxy hos
 `PUBLIC_URL`, Express must resolve trusted proxy headers; the endpoint does not trust
 client-supplied `X-Forwarded-*` headers. Set `COOLIFY_DEPLOYMENTS_SAME_ORIGIN_ENABLED=false` only
 when the consumer has an equivalent trusted origin boundary elsewhere; authentication and policy
-checks remain enabled.
+checks remain enabled. Blank `PUBLIC_URL` is treated as unset.
 
 ## API reference
 

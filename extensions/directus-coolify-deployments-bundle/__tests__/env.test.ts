@@ -50,6 +50,12 @@ describe('Coolify entry environment configuration', () => {
 		).toThrow()
 	})
 
+	it('treats a blank optional public URL as unset', () => {
+		expect(parseEnv(endpointEnvSchema, { ...base, PUBLIC_URL: '  ' })).toMatchObject({
+			PUBLIC_URL: undefined,
+		})
+	})
+
 	it('requires Redis configuration for the Redis cache store in every entry', () => {
 		for (const schema of [endpointEnvSchema, hookEnvSchema, operationEnvSchema]) {
 			expect(() => parseEnv(schema, { ...base, CACHE_STORE: 'memory' })).not.toThrow()
