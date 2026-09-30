@@ -6,6 +6,7 @@ import { computed, reactive, shallowRef, watch } from 'vue'
 
 import {
 	linkValueError,
+	readLinkRange,
 	readLinkSelection,
 	saveLinkSelection,
 	type LinkType,
@@ -56,8 +57,7 @@ watch(
 	 */
 	(value) => {
 		if (!value) return
-		const current = props.editor.state.selection
-		range.value = { from: current.from, to: current.to }
+		range.value = readLinkRange(props.editor)
 		Object.assign(selection, readLinkSelection(props.editor))
 	},
 )

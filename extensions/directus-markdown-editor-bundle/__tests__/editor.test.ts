@@ -39,6 +39,7 @@ import {
 	createLinkShortcut,
 	linkHref,
 	linkValueError,
+	readLinkRange,
 	readLinkSelection,
 	saveLinkSelection,
 } from '../src/markdown-editor-interface/editor/link'
@@ -677,6 +678,34 @@ describe('editor commands', () => {
 				{ from: 1, to: 6 },
 			),
 		).toBe(false)
+		editor.destroy()
+	})
+
+	it('resolves the full link range from a cursor inside an existing link', () => {
+		const editor = createEditor(
+			'<p>Before <a href="https://example.com">some link</a> after</p>',
+		)
+		editor.commands.setTextSelection(10)
+
+		const range = readLinkRange(editor)
+		expect(editor.state.doc.textBetween(range.from, range.to)).toBe('some link')
+
+		expect(
+			saveLinkSelection(
+				editor,
+				{
+					type: 'url',
+					url: 'https://updated.example.com',
+					title: '',
+					text: 'some link',
+				},
+				range,
+			),
+		).toBe(true)
+		expect(editor.getText()).toBe('Before some link after')
+		expect(editor.getHTML()).toContain(
+			'<a target="_blank" rel="noopener noreferrer nofollow" href="https://updated.example.com">some link</a>',
+		)
 		editor.destroy()
 	})
 
