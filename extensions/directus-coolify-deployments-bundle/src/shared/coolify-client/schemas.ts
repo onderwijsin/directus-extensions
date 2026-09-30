@@ -1,3 +1,4 @@
+import { hasKey, isArray, isRecord, isString } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
 /**
@@ -71,11 +72,42 @@ const coolifyApplicationEnvironmentSchema = z
 	.nullable()
 	.optional()
 
+/**
+ * Extract the ordered domain list from Coolify's JSON-encoded Compose domains.
+ * @param raw - Raw `docker_compose_domains` response value.
+ * @returns Comma-separated domains, or null when the response contains none.
+ */
+const composeDomainsToFqdn = (raw: unknown): string | null => {
+	let parsed: unknown = raw
+	if (isString(raw)) {
+		try {
+			parsed = JSON.parse(raw)
+		} catch {
+			return null
+		}
+	}
+
+	const entries = isArray(parsed) ? parsed : isRecord(parsed) ? Object.values(parsed) : []
+	const domains = entries.flatMap((entry) => {
+		const domain =
+			isString(entry) || !isRecord(entry) || !hasKey(entry, 'domain') ? entry : entry.domain
+		return isString(domain)
+			? domain
+					.split(',')
+					.map((value) => value.trim())
+					.filter((value) => value.length > 0)
+			: []
+	})
+
+	return domains.length > 0 ? domains.join(',') : null
+}
+
 export const coolifyApplicationSchema = z
 	.object({
 		uuid: z.string().trim().min(1),
 		name: z.string(),
 		fqdn: z.string().nullable().optional(),
+		docker_compose_domains: z.string().nullable().optional(),
 		status: z.string().nullable().optional(),
 		environment_id: z.number().int().nullable().optional(),
 		environment_uuid: z.string().trim().min(1).nullable().optional(),
@@ -100,30 +132,39 @@ export const coolifyApplicationSchema = z
 			.optional(),
 	})
 	.loose()
-	.transform((application) => ({
-		uuid: application.uuid,
-		name: application.name,
-		fqdn: application.fqdn ?? null,
-		status: application.status ?? null,
-		environmentId: application.environment_id ?? null,
-		environmentUuid: application.environment_uuid ?? application.environment?.uuid ?? null,
-		environmentName: application.environment_name ?? application.environment?.name ?? null,
-		projectUuid:
-			application.project_uuid ??
-			application.environment?.project_uuid ??
-			application.environment?.project?.uuid ??
-			null,
-		projectName:
-			application.project_name ??
-			application.environment?.project_name ??
-			application.environment?.project?.name ??
-			null,
-		gitBranch: application.git_branch ?? null,
-		gitCommitSha: application.git_commit_sha ?? null,
-		gitRepository: application.git_repository ?? null,
-		buildPack: application.build_pack ?? null,
-		serverName: application.destination?.server?.name ?? null,
-	}))
+	.transform((application) => {
+		const normalizedFqdn = application.fqdn?.trim()
+		const fqdn =
+			normalizedFqdn === undefined || normalizedFqdn.length === 0
+				? composeDomainsToFqdn(application.docker_compose_domains)
+				: normalizedFqdn
+
+		return {
+			uuid: application.uuid,
+			name: application.name,
+			fqdn,
+			status: application.status ?? null,
+			environmentId: application.environment_id ?? null,
+			environmentUuid: application.environment_uuid ?? application.environment?.uuid ?? null,
+			environmentName: application.environment_name ?? application.environment?.name ?? null,
+			projectUuid:
+				application.project_uuid ??
+				application.environment?.project_uuid ??
+				application.environment?.project?.uuid ??
+				null,
+			projectName:
+				application.project_name ??
+				application.environment?.project_name ??
+				application.environment?.project?.name ??
+				null,
+			gitBranch: application.git_branch ?? null,
+			gitCommitSha: application.git_commit_sha ?? null,
+			gitRepository: application.git_repository ?? null,
+			buildPack: application.build_pack ?? null,
+			serverName: application.destination?.server?.name ?? null,
+		}
+	})
+
 export const coolifyApplicationsResponseSchema = z.array(coolifyApplicationSchema)
 
 export const coolifyDeploymentSchema = z

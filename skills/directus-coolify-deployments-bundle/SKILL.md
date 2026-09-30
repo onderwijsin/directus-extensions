@@ -165,13 +165,15 @@ if (!result.ok) throw new Error(await result.text())
 ```
 
 The create and update filters fetch Coolify with an initial allow-list bypass, verify the UUID, and
-require name, project UUID/name, environment UUID/name, and an HTTP(S) production URL. If Coolify
-returns multiple comma-separated FQDNs, only the first URL is stored. An unavailable, incomplete, or
-unsafe provider response rejects the item without saving partial data. Existing records are not
-refreshed automatically unless `application_uuid` is included in an update. Updates that include an
-`application_uuid` re-enrich the complete provider-managed metadata; other direct updates to
-Coolify-managed metadata fields are rejected. After creation, only `enabled` and `deploy_enabled`
-may be changed without re-enrichment.
+require name, project UUID/name, environment UUID/name, and an HTTP(S) production URL. For Docker
+Compose applications, Coolify stores service domains in `docker_compose_domains` instead of the
+top-level `fqdn`; the bundle reads those domains and stores the first domain as `production_url`. If
+Coolify returns multiple comma-separated FQDNs or Compose service domains, only the first URL is
+stored. An unavailable, incomplete, or unsafe provider response rejects the item without saving
+partial data. Existing records are not refreshed automatically unless `application_uuid` is included
+in an update. Updates that include an `application_uuid` re-enrich the complete provider-managed
+metadata; other direct updates to Coolify-managed metadata fields are rejected. After creation, only
+`enabled` and `deploy_enabled` may be changed without re-enrichment.
 
 ## Bundle entries
 

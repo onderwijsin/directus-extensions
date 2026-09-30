@@ -164,13 +164,16 @@ curl -X POST "$DIRECTUS_URL/items/coolify_applications" \
 ```
 
 The create and update filters load the application from Coolify and fill all other fields. They
-require a matching UUID, name, project UUID/name, environment UUID/name, and production URL. When
-Coolify returns multiple comma-separated FQDNs, the first URL is stored. If Coolify is unavailable
-or returns incomplete data, the write fails and no partial item is saved. Existing records are not
-automatically refreshed when Coolify metadata changes unless `application_uuid` is included in an
-update. Updates that include an `application_uuid` re-enrich the complete provider-managed metadata;
-other direct updates to Coolify-managed metadata fields are rejected. Only `enabled` and
-`deploy_enabled` may be changed without re-enrichment.
+require a matching UUID, name, project UUID/name, environment UUID/name, and production URL. For
+Docker Compose applications, Coolify stores service domains in `docker_compose_domains` instead of
+the top-level `fqdn`; the bundle reads those domains and stores the first domain as
+`production_url`. When Coolify returns multiple comma-separated FQDNs or Compose service domains,
+the first URL is stored. If Coolify is unavailable or returns incomplete data, the write fails and
+no partial item is saved. Existing records are not automatically refreshed when Coolify metadata
+changes unless `application_uuid` is included in an update. Updates that include an
+`application_uuid` re-enrich the complete provider-managed metadata; other direct updates to
+Coolify-managed metadata fields are rejected. Only `enabled` and `deploy_enabled` may be changed
+without re-enrichment.
 
 ## Policies and security
 
