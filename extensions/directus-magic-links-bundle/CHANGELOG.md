@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3
+
+### Patch Changes
+
+- 344ccd1: Allow the magic-links endpoint to use either `SECRET` or `MAGIC_LINKS_TOKEN_SECRET` for
+  token signing.
+
 ## 0.4.2
 
 ### Patch Changes

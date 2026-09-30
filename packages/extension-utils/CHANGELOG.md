@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0
+
+### Minor Changes
+
+- c36cf63: Add shared AI configuration resolution with extension, environment, and encrypted
+  Directus credential fallbacks, and adopt it in the Markdown Editor AI endpoint.
+
+### Patch Changes
+
+- 344ccd1: Export the configuration fragment factory for extension-local cross-field validation.
+
 ## 0.4.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @onderwijsin/directus-coolify-deployments-bundle
 
+## 0.4.2
+
+### Patch Changes
+
+- a62e620: Support registering Coolify applications that use the Docker Compose build pack.
+
 ## 0.4.1
 
 ### Patch Changes
