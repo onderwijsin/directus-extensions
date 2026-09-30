@@ -348,6 +348,10 @@ The six public shared configuration fragments are:
 | `requiredEmailConfig`   | Selected-transport email prerequisites.                                   | `emailConfig`.           |
 | `directusStartupConfig` | Directus startup, locking, and rate-limiter configuration and validation. | `synchronizationConfig`. |
 
+Use `createExtensionOptionsConfigFragment` from `/server` when an extension needs a local composable
+fragment with its own cross-field refinement. Keep the fragment's fields and refinement focused on
+one configuration concern.
+
 The specialized builders remain convenience APIs implemented through the same fragment composer:
 
 | Builder                             | Equivalent included fragment |

@@ -45,6 +45,9 @@ export default defineEndpoint({
 
 		const options = validateExtensionOptions(env, envSchema, logger)
 		const secret = options.MAGIC_LINKS_TOKEN_SECRET ?? options.SECRET
+		if (!secret) {
+			throw new Error('At least one of SECRET or MAGIC_LINKS_TOKEN_SECRET is required')
+		}
 		const redis = createMagicLinksRedisClient(options)
 		const requestLimiter = createRequestLimiter({ options, redis })
 		let redeemLimiter: ReturnType<typeof createRedeemLimiter> | undefined

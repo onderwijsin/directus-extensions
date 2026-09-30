@@ -179,6 +179,13 @@ describe('magic-links environment schemas', () => {
 		expect(() =>
 			parseEnv(endpointEnvSchema, {
 				...validEnvironment,
+				SECRET: undefined,
+				MAGIC_LINKS_TOKEN_SECRET: undefined,
+			}),
+		).toThrow()
+		expect(() =>
+			parseEnv(endpointEnvSchema, {
+				...validEnvironment,
 				DIRECTUS_EXTENSIONS_LOCK_PROVIDER: 'redis',
 			}),
 		).toThrow()
@@ -187,6 +194,18 @@ describe('magic-links environment schemas', () => {
 	it('accepts the Directus SECRET fallback', () => {
 		expect(parseEnv(endpointEnvSchema, validEnvironment)).toMatchObject({
 			SECRET: 'directus-secret',
+		})
+	})
+
+	it('accepts a dedicated token secret without the Directus SECRET', () => {
+		expect(
+			parseEnv(endpointEnvSchema, {
+				...validEnvironment,
+				SECRET: undefined,
+				MAGIC_LINKS_TOKEN_SECRET: 'dedicated-secret',
+			}),
+		).toMatchObject({
+			MAGIC_LINKS_TOKEN_SECRET: 'dedicated-secret',
 		})
 	})
 })

@@ -36,6 +36,7 @@ describe('runtime-aware exports', () => {
 				'createFsTaskHandlerStorage',
 				'createRedisTaskHandlerStorage',
 				'createAutoTaskHandler',
+				'createExtensionOptionsConfigFragment',
 				'createMemoryMarkerStore',
 				'createMemoryLockProvider',
 				'createMemoryTaskHandlerStorage',
