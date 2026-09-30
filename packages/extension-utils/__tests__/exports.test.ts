@@ -26,6 +26,8 @@ describe('runtime-aware exports', () => {
 		expect(Object.keys(server).sort()).toEqual(
 			[
 				...Object.keys(shared),
+				'aiConfig',
+				'aiConfigSchema',
 				'assertRequestWithAccountability',
 				'asyncHandler',
 				'cacheConfig',
@@ -42,6 +44,7 @@ describe('runtime-aware exports', () => {
 				'createMemoryTaskHandlerStorage',
 				'createLogger',
 				'defineCacheConfigSchema',
+				'defineAiConfigSchema',
 				'defineDirectusStartupSchema',
 				'defineEmailConfigSchema',
 				'defineExtensionOptionsSchema',
@@ -90,6 +93,10 @@ describe('runtime-aware exports', () => {
 				'synchronizationConfig',
 				'synchronizationStoreSchema',
 				'isEmailConfigured',
+				'directusAiSettingsSchema',
+				'readDirectusAiSettings',
+				'resolveAiConfig',
+				'resolvedAiConfigSchema',
 				'hasAuthenticatedUser',
 				'isAccountability',
 				'POLICY_FIELDS',

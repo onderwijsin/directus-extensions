@@ -124,17 +124,28 @@ always invoke the endpoint without this policy. The endpoint separately reads th
 with request accountability, validates its scope and archive state, and never trusts a
 client-supplied stored prompt.
 
-| Environment variable                      | Default          | Contract                                                 |
-| ----------------------------------------- | ---------------- | -------------------------------------------------------- |
-| `EDITOR_AI_PROVIDER`                      | unset            | Required: `openai`, `anthropic`, `google`, or `mistral`. |
-| `EDITOR_AI_MODEL`                         | unset            | Required provider-native model ID.                       |
-| `EDITOR_AI_API_KEY`                       | unset            | Required secret used only by the API extension.          |
-| `EDITOR_AI_BASE_URL`                      | provider default | Optional provider-specific API base URL.                 |
-| `EDITOR_AI_MAX_CONTENT_LENGTH`            | `100000`         | Positive maximum request content length in characters.   |
-| `MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED`  | `true`           | Provisions and reconciles `editor_skills`.               |
-| `MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR`   | `true`           | Aborts startup when that schema reconciliation fails.    |
-| `MARKDOWN_EDITOR_SKILLS_SEED_ENABLED`     | `true`           | Enables the hook-owned bundled skill seed catalog.       |
-| `MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY` | `versioning`     | Uses `versioning` or `override` for changed seeds.       |
+| Environment variable                      | Default          | Contract                                                                |
+| ----------------------------------------- | ---------------- | ----------------------------------------------------------------------- |
+| `EDITOR_AI_PROVIDER`                      | shared value     | Local provider override: `openai`, `anthropic`, `google`, or `mistral`. |
+| `EDITOR_AI_MODEL`                         | shared value     | Local provider-native model override.                                   |
+| `EDITOR_AI_API_KEY`                       | shared/Directus  | Local secret override used only by the API extension.                   |
+| `EDITOR_AI_BASE_URL`                      | shared/default   | Local provider-specific API base URL override.                          |
+| `DIRECTUS_EXTENSIONS_AI_PROVIDER`         | unset            | Shared provider used when `EDITOR_AI_PROVIDER` is unset.                |
+| `DIRECTUS_EXTENSIONS_AI_MODEL`            | unset            | Shared model used when `EDITOR_AI_MODEL` is unset.                      |
+| `DIRECTUS_EXTENSIONS_AI_API_KEY`          | Directus setting | Shared secret used before a matching Directus provider credential.      |
+| `DIRECTUS_EXTENSIONS_AI_BASE_URL`         | provider default | Shared provider API base URL.                                           |
+| `EDITOR_AI_MAX_CONTENT_LENGTH`            | `100000`         | Positive maximum request content length in characters.                  |
+| `MARKDOWN_EDITOR_SCHEMA_CHANGES_ENABLED`  | `true`           | Provisions and reconciles `editor_skills`.                              |
+| `MARKDOWN_EDITOR_SCHEMA_ABORT_ON_ERROR`   | `true`           | Aborts startup when that schema reconciliation fails.                   |
+| `MARKDOWN_EDITOR_SKILLS_SEED_ENABLED`     | `true`           | Enables the hook-owned bundled skill seed catalog.                      |
+| `MARKDOWN_EDITOR_SKILLS_SEEDING_STRATEGY` | `versioning`     | Uses `versioning` or `override` for changed seeds.                      |
+
+AI configuration resolves each value from the editor-specific variables, then the shared
+`DIRECTUS_EXTENSIONS_AI_*` variables. When no API key is supplied, the endpoint reuses the encrypted
+Directus project credential matching the selected OpenAI, Anthropic, or Google provider. The
+provider and model must still be configured explicitly; Directus has no general default for either.
+The internal settings read happens only after endpoint authorization and no credential is returned
+to Studio. Mistral requires an editor-specific or shared API key.
 
 `editor_skills` includes Directus versioning and the standard `user_created`, `date_created`,
 `user_updated`, and `date_updated` audit fields. Bundled seeds use stable UUIDs. Removing a seed

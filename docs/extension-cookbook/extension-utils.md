@@ -102,8 +102,8 @@ only the common helper surface.
 | Auto-tasks       | `createAutoTaskHandler`, marker stores, and task storage factories                                                                                                                                                                              | `/server`         |
 | Logging          | `createLogger`                                                                                                                                                                                                                                  | `/server`         |
 | Setup            | `extensionSetup`, `validateExtensionOptions`, `createDirectusStartupCoordinator`                                                                                                                                                                | `/server`         |
-| Schema fragments | `redisConfig`, `synchronizationConfig`, `cacheConfig`, `emailConfig`, `requiredEmailConfig`, `directusStartupConfig`                                                                                                                            | `/server`         |
-| Schema builders  | `defineExtensionOptionsSchema`, `defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`, `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, `defineDirectusStartupSchema`                          | `/server`         |
+| Schema fragments | `aiConfig`, `redisConfig`, `synchronizationConfig`, `cacheConfig`, `emailConfig`, `requiredEmailConfig`, `directusStartupConfig`                                                                                                                | `/server`         |
+| Schema builders  | `defineExtensionOptionsSchema`, `defineAiConfigSchema`, `defineRedisConfigSchema`, `defineSynchronizationConfigSchema`, `defineCacheConfigSchema`, `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, `defineDirectusStartupSchema`  | `/server`         |
 | Builder types    | `ExtensionOptionsConfigFragment`, `ExtensionOptionsDefinition`, `ExtensionOptionsSchemaBuilder`, `ExtensionOptionsShapeBuilder`                                                                                                                 | `/server`         |
 | Fragment factory | `createExtensionOptionsConfigFragment`                                                                                                                                                                                                          | `/server`         |
 | Cache            | `initializeCache`, `withCache`                                                                                                                                                                                                                  | `/server`         |
@@ -200,6 +200,7 @@ defaults and transforms. Override and last-wins behavior remain unsupported.
 
 | Fragment                | Shared configuration                                               | Dependency               |
 | ----------------------- | ------------------------------------------------------------------ | ------------------------ |
+| `aiConfig`              | Shared AI provider environment values.                             | None.                    |
 | `redisConfig`           | Directus Redis values.                                             | None.                    |
 | `synchronizationConfig` | Synchronization store.                                             | `redisConfig`.           |
 | `cacheConfig`           | Cache values and Redis requirements.                               | `redisConfig`.           |
@@ -208,9 +209,9 @@ defaults and transforms. Override and last-wins behavior remain unsupported.
 | `directusStartupConfig` | Directus startup, locking, and rate-limiter values and validation. | `synchronizationConfig`. |
 
 The specialized builders are convenience wrappers over the same composer. They include their
-matching fragment: `defineRedisConfigSchema`, `defineSynchronizationConfigSchema`,
-`defineCacheConfigSchema`, `defineEmailConfigSchema`, `defineRequiredEmailConfigSchema`, and
-`defineDirectusStartupSchema`.
+matching fragment: `defineAiConfigSchema`, `defineRedisConfigSchema`,
+`defineSynchronizationConfigSchema`, `defineCacheConfigSchema`, `defineEmailConfigSchema`,
+`defineRequiredEmailConfigSchema`, and `defineDirectusStartupSchema`.
 
 Every builder callback receives the package-owned `z`; use that value for every field and nested
 schema. A reusable nested-schema helper must be a factory that receives that callback value, rather
@@ -327,6 +328,21 @@ startup boundary when the selected `sendmail`, `smtp`, `mailgun`, or `ses` trans
 shared minimum prerequisites. For SMTP, the shared check only requires `EMAIL_SMTP_HOST`; Directus
 or the consumer owns validation of the port, credentials, and other transport options. The raw
 `emailConfigSchema` and `requiredEmailConfigSchema` remain available for compatibility.
+
+### AI configuration
+
+Compose `aiConfig` when an API extension can use shared AI provider configuration. It adds the
+optional `DIRECTUS_EXTENSIONS_AI_PROVIDER`, `DIRECTUS_EXTENSIONS_AI_MODEL`,
+`DIRECTUS_EXTENSIONS_AI_API_KEY`, and `DIRECTUS_EXTENSIONS_AI_BASE_URL` fields. `resolveAiConfig`
+resolves each value from extension options, extension-specific environment, shared environment, and
+finally provider-matched Directus settings. Directus settings are only a credential fallback:
+Directus has no general default provider or model. Pass the result through `resolvedAiConfigSchema`
+to require a provider, model, and API key before invoking a provider SDK.
+
+`readDirectusAiSettings` accepts an internal `SettingsService` created without accountability and
+reads the encrypted provider keys after Directus decrypts them. Authorize the request first and
+never expose the returned settings. The helper supports Directus' OpenAI, Anthropic, Google, and
+OpenAI-compatible credentials and the OpenAI-compatible base URL.
 
 ### Schema changes
 
