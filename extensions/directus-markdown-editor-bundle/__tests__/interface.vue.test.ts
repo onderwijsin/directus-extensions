@@ -564,6 +564,20 @@ describe('Markdown editor interface', () => {
 		expect(element.textContent).toContain('warning')
 	})
 
+	it('renders the component label in the block card while preserving the serialized name', async () => {
+		const { element, input } = mountEditor('::Callout\n::', false, undefined, {
+			useStaticComponentMeta: true,
+			staticComponentMeta: [{ name: 'Callout', label: 'Highlight box', nodeType: 'block' }],
+		})
+		await nextTick()
+		await nextTick()
+
+		expect(element.querySelector('.mdc-block__identity strong')?.textContent).toBe(
+			'Highlight box',
+		)
+		expect(input).not.toHaveBeenCalled()
+	})
+
 	it('reports stale component properties and routes refresh through the component drawer', async () => {
 		const { element, input } = mountEditor('::Card{obsolete="value"}\n::', false, undefined, {
 			useStaticComponentMeta: true,

@@ -57,7 +57,15 @@ export function createEditorExtensions(
 		Image.configure({ allowBase64: false }),
 		Video,
 		MarkdownCodeBlock.configure({ enableTabIndentation: true }),
-		MdcBlock,
+		MdcBlock.configure({
+			/**
+			 * Resolve the editor-facing label for a serialized component name.
+			 * @param name Serialized component name.
+			 * @returns Editor-facing component label.
+			 */
+			getComponentLabel: (name: string) =>
+				getComponents().find((component) => component.name === name)?.label ?? name,
+		}),
 		MdcInline,
 		MdcSlot,
 		Placeholder.configure({

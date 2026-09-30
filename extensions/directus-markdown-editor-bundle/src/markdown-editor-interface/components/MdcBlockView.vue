@@ -21,9 +21,11 @@ const props = defineProps(mdcNodeViewProps)
 const editable = useEditorEditable(props.editor)
 const menuOpen = shallowRef(false)
 const integrityState = shallowRef<ComponentIntegrityState>()
-const componentName = computed(() =>
-	isString(props.node.attrs.name) ? props.node.attrs.name : 'Unknown component',
-)
+const componentName = computed(() => {
+	const name = isString(props.node.attrs.name) ? props.node.attrs.name : 'Unknown component'
+	const getComponentLabel = props.extension.options.getComponentLabel
+	return getComponentLabel(name)
+})
 const componentProps = computed(() => {
 	const value = props.node.attrs.props
 	return isRecord(value) ? toEntries(value) : []

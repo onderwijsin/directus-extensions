@@ -186,6 +186,18 @@ export const MdcBlock = Node.create({
 	defining: true,
 	isolating: true,
 	allowGapCursor: false,
+	/**
+	 * Configure the editor-facing component label resolver.
+	 * @returns MDC block options.
+	 */
+	addOptions: () => ({
+		/**
+		 * Resolve the editor-facing label for a serialized component name.
+		 * @param name Serialized component name.
+		 * @returns Editor-facing component label.
+		 */
+		getComponentLabel: (name: string) => name,
+	}),
 	addNodeView: /**
 	 * Editor callback.
 	 * @returns Callback result.
