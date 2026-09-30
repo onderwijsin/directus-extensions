@@ -31,8 +31,6 @@ export default defineEndpoint({
 		const setup = extensionSetup('markdown-editor', env, logger)
 		setup.start()
 		if (!setup.isEnabled()) return
-
-		console.log({ EDITOR_AI_API_KEY: env.EDITOR_AI_API_KEY })
 		const options = validateExtensionOptions(env, envSchema, logger)
 
 		router.post(
