@@ -75,10 +75,14 @@ describe('generic MDC Markdown boundary', () => {
 			disabled: false,
 			count: 3,
 			items: ['one', 'two'],
+			config: { id: 'article-7', label: "O'Connor", nested: [{ enabled: true }] },
 		}
 		const serialized = serializeMdcAttributes(properties)
 		const attributeSource = serialized.slice(1, -1)
 
+		expect(serialized).toContain(
+			`:config='{"id":"article-7","label":"O\\'Connor","nested":[{"enabled":true}]}'`,
+		)
 		expect(parseMdcAttributes(attributeSource)).toEqual(properties)
 
 		const markdown = manager()

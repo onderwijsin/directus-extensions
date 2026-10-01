@@ -344,9 +344,10 @@ Content
 ```
 
 The parser preserves escaped string quotes/backslashes, shorthand booleans, dynamic JSON bindings,
-unknown component names, and nested delimiter depth. Empty inline nodes serialize with `{}` to keep
-adjacent text separate. Component slots are structural editable regions; the editor prevents gap
-content between slots and focuses the first slot after insertion.
+unknown component names, and nested delimiter depth. Dynamic bindings serialize with single outer
+quotes, leaving object and array JSON in its standard double-quoted form. Empty inline nodes
+serialize with `{}` to keep adjacent text separate. Component slots are structural editable regions;
+the editor prevents gap content between slots and focuses the first slot after insertion.
 
 Implement matching MDC renderers in the consumer and decide how unknown components are handled
 safely. The editor does not provide frontend components.
@@ -405,7 +406,7 @@ The stored contract is:
 
 ```md
 :Reference{collection="articles" item="article-7" label="Becoming a teacher" text="this article"
-icon="school" :data="{\"slug\":\"becoming-a-teacher\"}"}
+icon="school" :data='{"slug":"becoming-a-teacher"}'}
 ```
 
 - Required: `collection`, string/finite-number `item`, `label`, and JSON-compatible object `data`.

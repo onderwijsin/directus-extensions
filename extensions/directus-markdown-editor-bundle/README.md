@@ -332,8 +332,9 @@ Hero content
 ```
 
 String attributes preserve escaped quotes and backslashes. Shorthand booleans and dynamic JSON
-bindings preserve their value types. Unknown component names remain generic MDC nodes so stored
-content is not tied to the current metadata list.
+bindings preserve their value types. Dynamic bindings use single outer quotes, so JSON objects and
+arrays retain their standard double-quoted JSON syntax. Unknown component names remain generic MDC
+nodes so stored content is not tied to the current metadata list.
 
 ## Item references
 
@@ -393,7 +394,7 @@ A stored Reference looks like this:
 
 ```md
 :Reference{collection="articles" item="article-7" label="Becoming a teacher" text="this article"
-icon="school" :data="{\"slug\":\"becoming-a-teacher\"}"}
+icon="school" :data='{"slug":"becoming-a-teacher"}'}
 ```
 
 `collection`, `item`, `label`, and object `data` are required on new References. `item` can be a

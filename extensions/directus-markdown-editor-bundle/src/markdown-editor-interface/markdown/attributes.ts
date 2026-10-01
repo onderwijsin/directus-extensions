@@ -166,6 +166,15 @@ function serializeString(value: string): string {
 }
 
 /**
+ * Encode a dynamic binding value with a single-quoted MDC delimiter.
+ * @param value JSON source for the dynamic binding.
+ * @returns A safely quoted MDC attribute value.
+ */
+function serializeDynamicBinding(value: string): string {
+	return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`
+}
+
+/**
  * Convert a structured value to JSON without passing an undefined result to the serializer.
  * @param value Dynamic property value.
  * @returns Its JSON representation, or a string representation for non-JSON values.
@@ -189,7 +198,7 @@ export function serializeMdcAttributes(attributes: Record<string, unknown> | und
 	const serialized = entries.map(([name, value]) => {
 		if (value === true) return name
 		if (isString(value)) return `${name}=${serializeString(value)}`
-		return `:${name}=${serializeString(serializeDynamicValue(value))}`
+		return `:${name}=${serializeDynamicBinding(serializeDynamicValue(value))}`
 	})
 
 	return `{${serialized.join(' ')}}`
