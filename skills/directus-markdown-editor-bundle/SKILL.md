@@ -153,7 +153,9 @@ surfaces.
 Image and video library selection is MIME-filtered to the matching media type. Selected images and
 videos show a removable preview; video previews include native playback controls. Existing media
 nodes expose **Edit image** or **Edit video** in the drag-handle action menu and reopen the same
-media drawer used for insertion.
+media drawer used for insertion. The image drawer accepts optional alt text and stores it in image
+Markdown; editing an image loads its current alt text. Videos fit within the editor and preview
+width while retaining their natural size when smaller.
 
 For metadata image and URL controls, use `{ "name": "specialInputType", "text": "image" }` or
 `{ "name": "specialInputType", "text": "url" }` on a `string` property. The former `editor` tag

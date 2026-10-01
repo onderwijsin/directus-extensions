@@ -791,6 +791,10 @@ watch(
 	border-radius: var(--theme--border-radius, 0.25rem);
 }
 
+:deep(.ProseMirror video) {
+	max-inline-size: 100%;
+}
+
 :deep(.ProseMirror hr) {
 	height: 0.0625rem;
 	margin-block: 2em;

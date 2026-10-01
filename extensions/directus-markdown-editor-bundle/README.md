@@ -452,9 +452,11 @@ Images and video can be selected from the Directus file library or entered as HT
 through the current Directus `/assets/` path while their Markdown keeps the bare ID. Image library
 browsing is filtered to image MIME types and video browsing to video MIME types. Selected images and
 videos show a removable preview; video previews include native playback controls. Existing image and
-video blocks expose **Edit image** or **Edit video** in their drag-handle action menu. Executable
-and data protocols are rejected. The extension does not transform images, generate captions, or
-provide a frontend media renderer.
+video blocks expose **Edit image** or **Edit video** in their drag-handle action menu. The image
+drawer also accepts optional alt text, which is stored in the image Markdown and can be edited
+later. Videos are constrained to the editor or preview width while retaining their natural size when
+smaller. Executable and data protocols are rejected. The extension does not transform images,
+generate captions, or provide a frontend media renderer.
 
 ## Studio Docs article
 

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createMarkdownEditorOptions } from '../src/markdown-editor-interface'
 import ComponentPropsDrawer from '../src/markdown-editor-interface/components/drawers/ComponentPropsDrawer.vue'
+import MediaDrawer from '../src/markdown-editor-interface/components/drawers/MediaDrawer.vue'
 import Field from '../src/markdown-editor-interface/components/fields/Field.vue'
 import ImageUploadField from '../src/markdown-editor-interface/components/fields/ImageUploadField.vue'
 import NumberInput from '../src/markdown-editor-interface/components/fields/NumberInput.vue'
@@ -270,6 +271,69 @@ afterEach(() => {
 })
 
 describe('Markdown editor interface', () => {
+	it('persists image alt text when inserting and editing through the media drawer', async () => {
+		const editor = new Editor({ extensions: createEditorExtensions() })
+		const open = shallowRef(true)
+		const element = document.createElement('div')
+		const app = createApp(
+			defineComponent({
+				setup: () => () =>
+					h(MediaDrawer, {
+						editor,
+						modelValue: open.value,
+						'onUpdate:modelValue': (value: boolean) => (open.value = value),
+						initialType: 'image',
+					}),
+			}),
+		)
+		registerDirectusPrimitives(app)
+		app.component(
+			'VUpload',
+			defineComponent({
+				emits: ['input'],
+				template:
+					'<button class="select-image" @click="$emit(\'input\', { id: \'image-1\' })">Select image</button>',
+			}),
+		)
+		app.component(
+			'VInput',
+			defineComponent({
+				props: ['modelValue'],
+				emits: ['update:modelValue'],
+				template:
+					'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+			}),
+		)
+		app.mount(element)
+		mounted.push({ app, element })
+		await nextTick()
+		const initialAltInput = element.querySelector<HTMLInputElement>('input')
+		if (!initialAltInput) throw new Error('Alt text input was not rendered')
+		element.querySelector<HTMLButtonElement>('.select-image')?.click()
+		initialAltInput.value = 'A blue bird'
+		initialAltInput.dispatchEvent(new Event('input', { bubbles: true }))
+		await nextTick()
+		;[...element.querySelectorAll('button')]
+			.find((button) => button.textContent?.includes('Save Image'))
+			?.click()
+		expect(editor.getMarkdown()).toContain('![A blue bird](/assets/image-1)')
+
+		editor.commands.setNodeSelection(1)
+		open.value = true
+		await nextTick()
+		const altInput = element.querySelector<HTMLInputElement>('input')
+		expect(altInput?.value).toBe('A blue bird')
+		if (!altInput) throw new Error('Alt text input was not rendered')
+		altInput.value = 'A red bird'
+		altInput.dispatchEvent(new Event('input', { bubbles: true }))
+		await nextTick()
+		;[...element.querySelectorAll('button')]
+			.find((button) => button.textContent?.includes('Save Image'))
+			?.click()
+		expect(editor.getMarkdown()).toContain('![A red bird](/assets/image-1)')
+		editor.destroy()
+	})
+
 	it('associates field labels, descriptions, and errors with the input', () => {
 		const root = defineComponent({
 			components: { Field, StringInput },

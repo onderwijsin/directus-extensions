@@ -15,6 +15,7 @@ import {
 } from '../../editor/media'
 import Field from '../fields/Field.vue'
 import ImageInput from '../fields/ImageInput.vue'
+import StringInput from '../fields/StringInput.vue'
 import VideoUploadField from '../fields/VideoUploadField.vue'
 
 const props = defineProps<{
@@ -27,6 +28,7 @@ const props = defineProps<{
 const open = defineModel<boolean>({ default: false })
 const activeTab = ref('image')
 const source = ref('')
+const altText = ref('')
 const editing = shallowRef(false)
 const assetBaseError = computed(() =>
 	activeTab.value === 'image' &&
@@ -67,6 +69,7 @@ watch(
 		editing.value = props.editor.isActive(nodeType)
 		const attrs = editing.value ? props.editor.getAttributes(nodeType) : {}
 		source.value = isString(attrs.src) ? attrs.src : ''
+		altText.value = nodeType === 'image' && isString(attrs.alt) ? attrs.alt : ''
 	},
 )
 
@@ -104,11 +107,15 @@ function save() {
 	if (!src) return
 	const nodeType = activeTab.value === 'video' ? 'video' : 'image'
 	const chain = props.editor.chain().focus()
-	if (editing.value && props.editor.isActive(nodeType)) chain.updateAttributes(nodeType, { src })
+	if (editing.value && props.editor.isActive(nodeType))
+		chain.updateAttributes(
+			nodeType,
+			nodeType === 'image' ? { src, alt: altText.value } : { src },
+		)
 	else
 		chain.insertContent({
 			type: nodeType,
-			attrs: nodeType === 'image' ? { src, alt: '', title: null } : { src },
+			attrs: nodeType === 'image' ? { src, alt: altText.value, title: null } : { src },
 		})
 	chain.run()
 	open.value = false
@@ -147,6 +154,15 @@ function remove() {
 						v-bind="field"
 						:storage-mode="assetStorageMode ?? 'path'"
 						:base-url="assetBaseUrl"
+					/>
+				</template>
+			</Field>
+			<Field v-if="activeTab === 'image'" label="Alt text" :disabled="disabled">
+				<template #default="field">
+					<StringInput
+						v-model="altText"
+						v-bind="field"
+						placeholder="Describe the image"
 					/>
 				</template>
 			</Field>
