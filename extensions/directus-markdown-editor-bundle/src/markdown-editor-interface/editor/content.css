@@ -167,6 +167,7 @@
 .markdown-editor-content .ProseMirror th {
 	background: var(--theme--background-subdued, #f0f2f5);
 	font-weight: 700;
+	text-align: left;
 }
 
 .markdown-editor-content .ProseMirror .selectedCell::after {

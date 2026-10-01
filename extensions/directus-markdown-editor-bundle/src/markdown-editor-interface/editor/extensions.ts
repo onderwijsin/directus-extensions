@@ -66,7 +66,15 @@ export function createEditorExtensions(
 			getComponentLabel: (name: string) =>
 				getComponents().find((component) => component.name === name)?.label ?? name,
 		}),
-		MdcInline,
+		MdcInline.configure({
+			/**
+			 * Resolve the editor-facing label for a serialized component name.
+			 * @param name Serialized component name.
+			 * @returns Editor-facing component label.
+			 */
+			getComponentLabel: (name: string) =>
+				getComponents().find((component) => component.name === name)?.label ?? name,
+		}),
 		MdcSlot,
 		Placeholder.configure({
 			placeholder: "Start writing or type '/' for commands",

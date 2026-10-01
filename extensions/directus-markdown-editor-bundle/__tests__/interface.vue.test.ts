@@ -952,14 +952,20 @@ describe('Markdown editor interface', () => {
 		const { element } = mountEditor('Before :Icon{name="check"} after', false, undefined, {
 			useStaticComponentMeta: true,
 			staticComponentMeta: [
-				{ name: 'Icon', nodeType: 'inline', props: { name: { required: true } } },
+				{
+					name: 'Icon',
+					label: 'Icon symbol',
+					nodeType: 'inline',
+					props: { name: { required: true } },
+				},
 			],
 		})
 		await nextTick()
 		await nextTick()
 
-		const component = element.querySelector('[aria-label="Configure Icon component"]')
+		const component = element.querySelector('[aria-label="Configure Icon symbol component"]')
 		expect(component).not.toBeNull()
+		expect(component?.textContent).toContain('Icon symbol')
 		expect(component?.querySelector('[data-icon="tune"]')).toBeNull()
 		component?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 		await nextTick()

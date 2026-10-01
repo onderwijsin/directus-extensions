@@ -312,6 +312,18 @@ export const MdcInline = Node.create({
 	inline: true,
 	atom: true,
 	selectable: true,
+	/**
+	 * Configure the editor-facing component label resolver.
+	 * @returns MDC inline options.
+	 */
+	addOptions: () => ({
+		/**
+		 * Resolve the editor-facing label for a serialized component name.
+		 * @param name Serialized component name.
+		 * @returns Editor-facing component label.
+		 */
+		getComponentLabel: (name: string) => name,
+	}),
 	addNodeView: /**
 	 * Editor callback.
 	 * @returns Callback result.
