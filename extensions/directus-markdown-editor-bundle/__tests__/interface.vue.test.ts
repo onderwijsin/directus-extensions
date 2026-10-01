@@ -71,6 +71,9 @@ describe('object array input', () => {
 
 		element.querySelector<HTMLButtonElement>('[aria-label="Remove item 1"]')?.click()
 		await nextTick()
+		expect(
+			element.querySelector('[aria-label="Remove item 1"] i[data-icon="close"]'),
+		).toBeTruthy()
 		expect(rows.value).toHaveLength(2)
 		expect(element.textContent).toContain('Remove item?')
 		element.querySelector<HTMLButtonElement>('[role="alertdialog"] button')?.click()
@@ -116,6 +119,12 @@ describe('tags input', () => {
 		element.querySelector<HTMLButtonElement>('[aria-label="Simulate drag reorder"]')?.click()
 		await nextTick()
 		expect(tags.value).toEqual(['second', 'first'])
+		expect(
+			element.querySelector('[aria-label="Remove second"] i[data-icon="close"]'),
+		).toBeTruthy()
+		element.querySelector<HTMLButtonElement>('[aria-label="Remove second"]')?.click()
+		await nextTick()
+		expect(tags.value).toEqual(['first'])
 	})
 })
 

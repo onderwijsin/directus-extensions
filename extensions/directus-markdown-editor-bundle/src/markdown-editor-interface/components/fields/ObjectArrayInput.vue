@@ -150,14 +150,18 @@ function confirmRemove() {
 							>
 								↓
 							</button>
-							<button
-								type="button"
+							<VButton
+								icon
+								small
+								secondary
+								kind="danger"
+								class="object-array__remove"
 								:disabled="disabled"
 								:aria-label="`Remove item ${index + 1}`"
 								@click="removeIndex = index"
 							>
-								Remove
-							</button>
+								<VIcon name="close" />
+							</VButton>
 						</div>
 					</div>
 					<PropertyInput
@@ -224,7 +228,7 @@ function confirmRemove() {
 	gap: 0.25rem;
 	margin-inline-start: auto;
 }
-.object-array__actions button,
+.object-array__actions > button,
 .object-array__handle {
 	border: 0;
 	background: transparent;
@@ -233,5 +237,12 @@ function confirmRemove() {
 }
 .object-array__handle {
 	cursor: grab;
+}
+.object-array__remove {
+	--v-button-color: var(--danger-ondimmed, var(--theme--danger));
+	--v-button-color-hover: var(--danger-ondimmed, var(--theme--danger));
+	--v-button-background-color: var(--danger-dimmed, var(--theme--danger-background));
+	--v-button-background-color-hover: var(--theme--danger-background);
+	--v-button-background-color-active: var(--theme--danger-background);
 }
 </style>

@@ -77,14 +77,18 @@ function remove(index: number) {
 				<div class="tags-input__chip">
 					<VChip small label>
 						{{ tag }}
-						<button
-							type="button"
+						<VButton
+							icon
+							x-small
+							secondary
+							kind="danger"
+							class="tags-input__remove"
 							:disabled="disabled"
 							:aria-label="`Remove ${tag}`"
 							@click="remove(index)"
 						>
-							×
-						</button>
+							<VIcon name="close" x-small />
+						</VButton>
 					</VChip>
 				</div>
 			</template>
@@ -105,11 +109,12 @@ function remove(index: number) {
 .tags-input__chip {
 	cursor: grab;
 }
-.tags-input__chips button {
+.tags-input__remove {
 	margin-inline-start: 0.375rem;
-	border: 0;
-	background: none;
-	color: inherit;
-	cursor: pointer;
+	--v-button-color: var(--danger-ondimmed, var(--theme--danger));
+	--v-button-color-hover: var(--danger-ondimmed, var(--theme--danger));
+	--v-button-background-color: var(--danger-dimmed, var(--theme--danger-background));
+	--v-button-background-color-hover: var(--theme--danger-background);
+	--v-button-background-color-active: var(--theme--danger-background);
 }
 </style>
