@@ -187,6 +187,8 @@ function remove() {
 
 <style scoped>
 .media-drawer__content {
+	display: grid;
+	gap: 1rem;
 	min-width: 0;
 	min-height: 14rem;
 	padding: var(--content-padding, 1.125rem);

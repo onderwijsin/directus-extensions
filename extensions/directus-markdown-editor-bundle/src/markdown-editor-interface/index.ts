@@ -62,10 +62,10 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 		},
 		{
 			field: 'assetStorageMode',
-			name: 'Store assets as',
+			name: 'Store selected assets as',
 			type: 'string',
 			meta: {
-				width: 'half',
+				width: 'full',
 				interface: 'select-dropdown',
 				note: 'Format used when selecting Directus images in Markdown or component properties.',
 				options: {
@@ -84,7 +84,7 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			type: 'string',
 			required: true,
 			meta: {
-				width: 'half',
+				width: 'full',
 				note: 'HTTP(S) Directus base URL, for example https://directus.example.com.',
 				conditions: [{ rule: { assetStorageMode: { _neq: 'url' } }, hidden: true }],
 			},
@@ -94,7 +94,7 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			name: 'Use static component metadata',
 			type: 'boolean',
 			meta: {
-				width: 'half',
+				width: 'full',
 				interface: 'checkbox',
 				note: 'Use component metadata stored directly in this interface configuration.',
 			},
@@ -105,7 +105,7 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			name: 'Use item references',
 			type: 'boolean',
 			meta: {
-				width: 'half',
+				width: 'full',
 				interface: 'checkbox',
 				note: 'Allow authors to insert permission-aware references to configured Directus items.',
 			},
