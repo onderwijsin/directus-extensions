@@ -239,6 +239,7 @@ function confirmRemove() {
 	cursor: grab;
 }
 .object-array__remove {
+	margin-inline-start: 0.5rem;
 	--v-button-color: var(--danger-ondimmed, var(--theme--danger));
 	--v-button-color-hover: var(--danger-ondimmed, var(--theme--danger));
 	--v-button-background-color: var(--danger-dimmed, var(--theme--danger-background));

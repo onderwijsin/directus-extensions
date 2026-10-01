@@ -331,9 +331,11 @@ editor behavior. Refreshing newly added slots converts a legacy inline occurrenc
 inline MDC cannot contain slots; other metadata changes preserve its node type.
 
 For remote metadata, ensure the Directus user’s browser can fetch the URL over HTTPS. Configure CORS
-for the Studio origin and return JSON. The editor adds no authentication header. Verify the endpoint
-in browser developer tools from the deployed Studio origin. The process that derives or publishes
-this payload is outside this skill.
+for the Studio origin and return JSON. Add the remote metadata host to Directus’s CSP `connect-src`
+directive with `CONTENT_SECURITY_POLICY_DIRECTIVES__CONNECT_SRC` (see
+[Directus CSP configuration](https://directus.com/docs/configuration/security-limits#csp)). The
+editor adds no authentication header. Verify the endpoint in browser developer tools from the
+deployed Studio origin. The process that derives or publishes this payload is outside this skill.
 
 ## Understand the MDC contract
 

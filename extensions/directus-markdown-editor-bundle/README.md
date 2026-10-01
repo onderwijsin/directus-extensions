@@ -308,8 +308,11 @@ to a block because inline MDC cannot contain slots; other metadata changes prese
 
 When using **Component metadata URL**, the Directus user’s browser fetches the URL. Serve valid JSON
 over HTTPS with CORS headers that allow the Studio origin. Authentication headers are not added by
-the editor. How a frontend generates, publishes, or transports this metadata is intentionally
-outside this package; static JSON and the URL are equivalent inputs to the same contract.
+the editor. Add the remote metadata host to Directus’s CSP `connect-src` directive with
+`CONTENT_SECURITY_POLICY_DIRECTIVES__CONNECT_SRC` (see
+[Directus CSP configuration](https://directus.com/docs/configuration/security-limits#csp)). How a
+frontend generates, publishes, or transports this metadata is intentionally outside this package;
+static JSON and the URL are equivalent inputs to the same contract.
 
 ## MDC storage examples
 
