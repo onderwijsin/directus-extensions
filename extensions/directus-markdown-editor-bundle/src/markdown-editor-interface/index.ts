@@ -131,7 +131,7 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			meta: {
 				width: 'full',
 				interface: 'select-dropdown',
-				note: 'Choose whether source snapshots are stored, checked, or synchronized when a document loads.',
+				note: 'References store a copy of the source label and data when inserted. Snapshot only checks whether the source is available or archived. Detect source changes (default) also flags changed labels or data for manual refresh. Synchronize on load updates changed labels and data in the editor; you must still save the document.',
 				conditions: [{ rule: { useReferences: { _eq: false } }, hidden: true }],
 				options: {
 					choices: [
