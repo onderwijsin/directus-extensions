@@ -2,8 +2,8 @@
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
 import type { Editor } from '@tiptap/core'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
-import type { EditorAiScope, EditorSkillMenuItem } from '../ai/types'
-import type { EditorCommand } from '../editor/commands'
+import type { EditorAiScope, EditorSkillMenuItem } from '../../ai/types'
+import type { EditorCommand } from '../../editor/commands'
 
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
@@ -11,9 +11,9 @@ import { DragHandle } from '@tiptap/extension-drag-handle-vue-3'
 import { NodeSelection, TextSelection } from '@tiptap/pm/state'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 
-import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp } from '../editor/block'
-import { isEditorToolEnabled, resolveCommands } from '../editor/commands'
-import { getDragHandleOffset } from '../editor/drag-handle'
+import { deleteBlock, duplicateBlock, moveBlockDown, moveBlockUp } from '../../editor/block'
+import { isEditorToolEnabled, resolveCommands } from '../../editor/commands'
+import { getDragHandleOffset } from '../../editor/drag-handle'
 
 const props = defineProps<{
 	editor: Editor

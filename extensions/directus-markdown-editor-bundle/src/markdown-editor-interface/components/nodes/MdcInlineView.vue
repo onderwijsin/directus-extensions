@@ -1,23 +1,29 @@
 <script setup lang="ts">
-import type { ComponentIntegrityState } from '../component-meta/freshness'
+import type { ComponentIntegrityState } from '../../component-meta/freshness'
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
-import type { ReferenceIntegrityState } from '../reference/editor'
+import type { ReferenceIntegrityState } from '../../reference/editor'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
-import { isFunction, isInteger } from '@onderwijsin/directus-extension-utils'
+import { isFunction, isInteger, isString } from '@onderwijsin/directus-extension-utils'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 
-import { getEditorComponentState } from '../component-meta/status'
-import { useEditorEditable } from '../composables/useEditorEditable'
-import { parseReferenceProps } from '../reference/schema'
-import { getEditorReferenceState } from '../reference/status'
+import { getEditorComponentState } from '../../component-meta/status'
+import { useEditorEditable } from '../../composables/useEditorEditable'
+import { parseReferenceProps } from '../../reference/schema'
+import { getEditorReferenceState } from '../../reference/status'
 import { mdcNodeViewProps } from './mdcNodeViewProps'
 
 const props = defineProps(mdcNodeViewProps)
 const editable = useEditorEditable(props.editor)
 const referenceProblemState = shallowRef<ReferenceIntegrityState>()
 const componentProblemState = shallowRef<ComponentIntegrityState>()
+const componentName = computed(() =>
+	isString(props.node.attrs.name) ? props.node.attrs.name : 'Unknown component',
+)
+const componentLabel = computed(() =>
+	props.extension.options.getComponentLabel(componentName.value),
+)
 
 function setReferenceProblemState(value: unknown) {
 	referenceProblemState.value =
@@ -89,7 +95,7 @@ function editComponent() {
 	const position = props.getPos()
 	if (!isInteger(position)) return
 	if (!props.editor.chain().focus().setNodeSelection(position).run()) return
-	const reference = props.node.attrs.name === 'Reference'
+	const reference = componentName.value === 'Reference'
 	props.editor.view.dom.dispatchEvent(
 		new CustomEvent(
 			reference ? 'markdown-editor-edit-reference' : 'markdown-editor-edit-component',
@@ -107,7 +113,7 @@ function editComponent() {
 }
 
 const reference = computed(() =>
-	props.node.attrs.name === 'Reference' ? parseReferenceProps(props.node.attrs.props) : undefined,
+	componentName.value === 'Reference' ? parseReferenceProps(props.node.attrs.props) : undefined,
 )
 </script>
 
@@ -129,9 +135,9 @@ const reference = computed(() =>
 			}"
 			:disabled="!editable"
 			:aria-label="
-				props.node.attrs.name === 'Reference'
+				componentName === 'Reference'
 					? 'Edit reference'
-					: `Configure ${props.node.attrs.name} component`
+					: `Configure ${componentLabel} component`
 			"
 			:title="
 				referenceProblemState === 'archived'
@@ -178,7 +184,7 @@ const reference = computed(() =>
 			/>
 			<span v-if="reference?.success">{{ reference.data.text || reference.data.label }}</span>
 			<span v-else-if="reference">Invalid reference</span>
-			<span v-else>{{ props.node.attrs.name }}</span>
+			<span v-else>{{ componentLabel }}</span>
 		</button>
 	</NodeViewWrapper>
 </template>

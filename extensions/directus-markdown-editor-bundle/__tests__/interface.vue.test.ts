@@ -6,16 +6,127 @@ import { Editor } from '@tiptap/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createMarkdownEditorOptions } from '../src/markdown-editor-interface'
-import ComponentPropsDrawer from '../src/markdown-editor-interface/components/ComponentPropsDrawer.vue'
-import EditorTableMenu from '../src/markdown-editor-interface/components/EditorTableMenu.vue'
-import EditorToolbar from '../src/markdown-editor-interface/components/EditorToolbar.vue'
-import ImageUploadField from '../src/markdown-editor-interface/components/ImageUploadField.vue'
-import VideoUploadField from '../src/markdown-editor-interface/components/VideoUploadField.vue'
+import ComponentPropsDrawer from '../src/markdown-editor-interface/components/drawers/ComponentPropsDrawer.vue'
+import MediaDrawer from '../src/markdown-editor-interface/components/drawers/MediaDrawer.vue'
+import Field from '../src/markdown-editor-interface/components/fields/Field.vue'
+import ImageUploadField from '../src/markdown-editor-interface/components/fields/ImageUploadField.vue'
+import NumberInput from '../src/markdown-editor-interface/components/fields/NumberInput.vue'
+import ObjectArrayInput from '../src/markdown-editor-interface/components/fields/ObjectArrayInput.vue'
+import StringInput from '../src/markdown-editor-interface/components/fields/StringInput.vue'
+import TagsInput from '../src/markdown-editor-interface/components/fields/TagsInput.vue'
+import VideoUploadField from '../src/markdown-editor-interface/components/fields/VideoUploadField.vue'
+import EditorTableMenu from '../src/markdown-editor-interface/components/toolbar/EditorTableMenu.vue'
+import EditorToolbar from '../src/markdown-editor-interface/components/toolbar/EditorToolbar.vue'
 import { createEditorCommands } from '../src/markdown-editor-interface/editor/commands'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
 import MarkdownEditor from '../src/markdown-editor-interface/MarkdownEditor.vue'
 
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement }[] = []
+
+vi.mock('vuedraggable', () => ({
+	default: defineComponent({
+		props: ['modelValue', 'disabled'],
+		emits: ['update:modelValue'],
+		setup(props, { emit, slots }) {
+			return () => {
+				const values: unknown[] = Array.isArray(props.modelValue) ? props.modelValue : []
+				return h('div', { class: 'sortable-test' }, [
+					...values.map((element, index) => slots.item?.({ element, index })),
+					h('button', {
+						'aria-label': 'Simulate drag reorder',
+						disabled: props.disabled,
+						onClick: () => emit('update:modelValue', [...values].reverse()),
+					}),
+				])
+			}
+		},
+	}),
+}))
+
+describe('object array input', () => {
+	it('adds, reorders, and confirms removal of rows', async () => {
+		const rows = shallowRef<unknown[]>([{ label: 'First' }, { label: 'Second' }])
+		const element = document.createElement('div')
+		const app = createApp(
+			defineComponent({
+				components: { ObjectArrayInput },
+				setup: () => ({
+					rows,
+					definition: {
+						type: 'object',
+						properties: { label: { type: 'string', required: true } },
+					},
+				}),
+				template:
+					'<ObjectArrayInput v-model="rows" :definition="definition" path="actions" :errors="{}" asset-storage-mode="path" />',
+			}),
+		)
+		registerDirectusPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+
+		element.querySelector<HTMLButtonElement>('[aria-label="Move item 2 up"]')?.click()
+		await nextTick()
+		expect(rows.value).toEqual([{ label: 'Second' }, { label: 'First' }])
+
+		element.querySelector<HTMLButtonElement>('[aria-label="Remove item 1"]')?.click()
+		await nextTick()
+		expect(
+			element.querySelector('[aria-label="Remove item 1"] i[data-icon="close"]'),
+		).toBeTruthy()
+		expect(rows.value).toHaveLength(2)
+		expect(element.textContent).toContain('Remove item?')
+		element.querySelector<HTMLButtonElement>('[role="alertdialog"] button')?.click()
+		await nextTick()
+		expect(rows.value).toHaveLength(2)
+
+		element.querySelector<HTMLButtonElement>('[aria-label="Remove item 1"]')?.click()
+		await nextTick()
+		const confirm = [
+			...element.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+		].find((button) => button.textContent?.includes('Remove'))
+		confirm?.click()
+		await nextTick()
+		expect(rows.value).toEqual([{ label: 'First' }])
+
+		const add = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+			button.textContent?.includes('Add item'),
+		)
+		add?.click()
+		await nextTick()
+		expect(rows.value).toEqual([{ label: 'First' }, { label: '' }])
+
+		element.querySelector<HTMLButtonElement>('[aria-label="Simulate drag reorder"]')?.click()
+		await nextTick()
+		expect(rows.value).toEqual([{ label: '' }, { label: 'First' }])
+	})
+})
+
+describe('tags input', () => {
+	it('persists chip drag order', async () => {
+		const tags = shallowRef(['first', 'second'])
+		const element = document.createElement('div')
+		const app = createApp(
+			defineComponent({
+				components: { TagsInput },
+				setup: () => ({ tags }),
+				template: '<TagsInput v-model="tags" />',
+			}),
+		)
+		registerDirectusPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+		element.querySelector<HTMLButtonElement>('[aria-label="Simulate drag reorder"]')?.click()
+		await nextTick()
+		expect(tags.value).toEqual(['second', 'first'])
+		expect(
+			element.querySelector('[aria-label="Remove second"] i[data-icon="close"]'),
+		).toBeTruthy()
+		element.querySelector<HTMLButtonElement>('[aria-label="Remove second"]')?.click()
+		await nextTick()
+		expect(tags.value).toEqual(['first'])
+	})
+})
 
 function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 	app.component(
@@ -169,6 +280,124 @@ afterEach(() => {
 })
 
 describe('Markdown editor interface', () => {
+	it('persists image alt text when inserting and editing through the media drawer', async () => {
+		const editor = new Editor({ extensions: createEditorExtensions() })
+		const open = shallowRef(true)
+		const element = document.createElement('div')
+		const app = createApp(
+			defineComponent({
+				setup: () => () =>
+					h(MediaDrawer, {
+						editor,
+						modelValue: open.value,
+						'onUpdate:modelValue': (value: boolean) => (open.value = value),
+						initialType: 'image',
+					}),
+			}),
+		)
+		registerDirectusPrimitives(app)
+		app.component(
+			'VUpload',
+			defineComponent({
+				emits: ['input'],
+				template:
+					'<button class="select-image" @click="$emit(\'input\', { id: \'image-1\' })">Select image</button>',
+			}),
+		)
+		app.component(
+			'VInput',
+			defineComponent({
+				props: ['modelValue'],
+				emits: ['update:modelValue'],
+				template:
+					'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+			}),
+		)
+		app.mount(element)
+		mounted.push({ app, element })
+		await nextTick()
+		const initialAltInput = element.querySelector<HTMLInputElement>('input')
+		if (!initialAltInput) throw new Error('Alt text input was not rendered')
+		element.querySelector<HTMLButtonElement>('.select-image')?.click()
+		initialAltInput.value = 'A blue bird'
+		initialAltInput.dispatchEvent(new Event('input', { bubbles: true }))
+		await nextTick()
+		;[...element.querySelectorAll('button')]
+			.find((button) => button.textContent?.includes('Save Image'))
+			?.click()
+		expect(editor.getMarkdown()).toContain('![A blue bird](/assets/image-1)')
+
+		editor.commands.setNodeSelection(1)
+		open.value = true
+		await nextTick()
+		const altInput = element.querySelector<HTMLInputElement>('input')
+		expect(altInput?.value).toBe('A blue bird')
+		if (!altInput) throw new Error('Alt text input was not rendered')
+		altInput.value = 'A red bird'
+		altInput.dispatchEvent(new Event('input', { bubbles: true }))
+		await nextTick()
+		;[...element.querySelectorAll('button')]
+			.find((button) => button.textContent?.includes('Save Image'))
+			?.click()
+		expect(editor.getMarkdown()).toContain('![A red bird](/assets/image-1)')
+		editor.destroy()
+	})
+
+	it('associates field labels, descriptions, and errors with the input', () => {
+		const root = defineComponent({
+			components: { Field, StringInput },
+			template:
+				'<Field label="Title" description="Shown above the body" error="Title is required" required><template #default="field"><StringInput v-bind="field" model-value="" /></template></Field>',
+		})
+		const element = document.createElement('div')
+		document.body.appendChild(element)
+		const app = createApp(root)
+		registerDirectusPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+		const input = element.querySelector('input')
+		const label = element.querySelector('label')
+		expect(label?.htmlFor).toBe(input?.id)
+		expect(input?.getAttribute('aria-describedby')).toBe(
+			`${input?.id}-description ${input?.id}-error`,
+		)
+		expect(input?.getAttribute('aria-invalid')).toBe('true')
+		expect(input?.getAttribute('aria-required')).toBe('true')
+		expect(element.querySelector('[role="alert"]')?.textContent).toBe('Title is required')
+	})
+
+	it('keeps empty numeric inputs empty and emits only finite numbers', async () => {
+		const update = vi.fn()
+		const root = defineComponent({
+			setup: () => () => h(NumberInput, { modelValue: '', 'onUpdate:modelValue': update }),
+		})
+		const element = document.createElement('div')
+		document.body.appendChild(element)
+		const app = createApp(root)
+		registerDirectusPrimitives(app)
+		app.component(
+			'VInput',
+			defineComponent({
+				props: ['modelValue'],
+				emits: ['update:modelValue'],
+				template:
+					'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+			}),
+		)
+		app.mount(element)
+		mounted.push({ app, element })
+		const input = element.querySelector('input')
+		if (!input) throw new Error('Number input was not rendered')
+		for (const value of ['42', '', 'not-a-number']) {
+			input.value = value
+			input.dispatchEvent(new Event('input', { bubbles: true }))
+		}
+		await nextTick()
+		expect(update).toHaveBeenCalledTimes(2)
+		expect(update).toHaveBeenNthCalledWith(1, 42)
+		expect(update).toHaveBeenNthCalledWith(2, '')
+	})
+
 	it('renders the selected image preview and forwards image selections', async () => {
 		const selected = vi.fn()
 		const cleared = vi.fn()
@@ -293,7 +522,7 @@ describe('Markdown editor interface', () => {
 		expect(upload?.getAttribute('data-filter')).toBe('{"type":{"_contains":"video"}}')
 	})
 
-	it('persists only the selected image asset ID for tagged string properties', async () => {
+	it('persists the selected image asset path for tagged string properties', async () => {
 		const editor = new Editor({ extensions: createEditorExtensions() })
 		const root = defineComponent({
 			setup: () => () =>
@@ -307,7 +536,7 @@ describe('Markdown editor interface', () => {
 						props: {
 							image: {
 								type: 'string',
-								tags: [{ name: 'editor', text: 'image' }],
+								tags: [{ name: 'specialInputType', text: 'image' }],
 							},
 						},
 						slots: [],
@@ -340,7 +569,7 @@ describe('Markdown editor interface', () => {
 			type: 'mdcBlock',
 			attrs: {
 				name: 'Hero',
-				props: { image: 'asset-id' },
+				props: { image: '/assets/asset-id' },
 				depth: 2,
 				propsFormat: 'inline',
 			},
@@ -355,6 +584,17 @@ describe('Markdown editor interface', () => {
 				schema: { default_value: false },
 			},
 		)
+	})
+	it('configures path storage by default and shows base URL for absolute URL storage', () => {
+		const options = createMarkdownEditorOptions()
+		expect(options.find((option) => option.field === 'assetStorageMode')).toMatchObject({
+			type: 'string',
+			schema: { default_value: 'path' },
+		})
+		expect(options.find((option) => option.field === 'assetBaseUrl')).toMatchObject({
+			type: 'string',
+			meta: { conditions: [{ rule: { assetStorageMode: { _neq: 'url' } }, hidden: true }] },
+		})
 	})
 	it('exposes a Directus multiselect for all configurable tools', () => {
 		const options = createMarkdownEditorOptions()
@@ -562,6 +802,33 @@ describe('Markdown editor interface', () => {
 
 		expect(element.textContent).toContain('Apply')
 		expect(element.textContent).toContain('warning')
+	})
+
+	it('renders the component label in the block card while preserving the serialized name', async () => {
+		const { element, input } = mountEditor('::Callout\n::', false, undefined, {
+			useStaticComponentMeta: true,
+			staticComponentMeta: [{ name: 'Callout', label: 'Highlight box', nodeType: 'block' }],
+		})
+		await nextTick()
+		await nextTick()
+
+		expect(element.querySelector('.mdc-block__identity strong')?.textContent).toBe(
+			'Highlight box',
+		)
+		expect(input).not.toHaveBeenCalled()
+
+		element
+			.querySelector('[aria-label="Component actions"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+		const settings = [...element.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Settings',
+		)
+		settings?.click()
+		await nextTick()
+
+		expect(element.textContent).toContain('Highlight box')
+		expect(element.textContent).not.toContain('Unsupported component')
 	})
 
 	it('reports stale component properties and routes refresh through the component drawer', async () => {
@@ -925,14 +1192,20 @@ describe('Markdown editor interface', () => {
 		const { element } = mountEditor('Before :Icon{name="check"} after', false, undefined, {
 			useStaticComponentMeta: true,
 			staticComponentMeta: [
-				{ name: 'Icon', nodeType: 'inline', props: { name: { required: true } } },
+				{
+					name: 'Icon',
+					label: 'Icon symbol',
+					nodeType: 'inline',
+					props: { name: { required: true } },
+				},
 			],
 		})
 		await nextTick()
 		await nextTick()
 
-		const component = element.querySelector('[aria-label="Configure Icon component"]')
+		const component = element.querySelector('[aria-label="Configure Icon symbol component"]')
 		expect(component).not.toBeNull()
+		expect(component?.textContent).toContain('Icon symbol')
 		expect(component?.querySelector('[data-icon="tune"]')).toBeNull()
 		component?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 		await nextTick()

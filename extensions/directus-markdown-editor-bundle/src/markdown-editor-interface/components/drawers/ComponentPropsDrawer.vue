@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
-import type { ComponentMetadata, ComponentProp } from '../component-meta/schema'
+import type { ComponentMetadata } from '../../component-meta/schema'
 
 // Metadata has already crossed the Zod boundary before it reaches this form.
 import { computed, reactive, shallowRef, watch } from 'vue'
 
-import { isString, keys, toEntries } from '@onderwijsin/directus-extension-utils'
+import { keys, toEntries } from '@onderwijsin/directus-extension-utils'
 
-import { isRequiredComponentPropEmpty } from '../component-meta/freshness'
 import {
-	componentPropDeprecation,
-	componentPropEditor,
-	metadataDeprecation,
-} from '../component-meta/schema'
-import { insertComponent, refreshComponentAt, updateComponent } from '../editor/insertion'
-import { linkValueError } from '../editor/link'
-import { directusAssetId, directusAssetUrl } from '../editor/media'
-import ImageUploadField from './ImageUploadField.vue'
+	createPropertyDraft,
+	hasImageProperty,
+	refreshPropertyDraft,
+	validatePropertyDrafts,
+} from '../../component-meta/property-form'
+import { metadataDeprecation } from '../../component-meta/schema'
+import { insertComponent, refreshComponentAt, updateComponent } from '../../editor/insertion'
+import { normalizeAssetBaseUrl, type AssetStorageMode } from '../../editor/media'
+import PropertyInput from '../fields/PropertyInput.vue'
 
 const props = defineProps<{
 	editor: Editor
@@ -29,29 +29,33 @@ const props = defineProps<{
 	staleProperties?: boolean
 	staleSlots?: boolean
 	deletedName?: string
+	assetStorageMode?: AssetStorageMode
+	assetBaseUrl?: string
 }>()
 const open = defineModel<boolean>('open', { default: false })
 const form = reactive<Record<string, unknown>>({})
-const missingRequired = computed(() => {
-	if (!props.component) return []
-	return toEntries(props.component.props)
-		.filter(
-			([name, definition]) => definition.required && isRequiredComponentPropEmpty(form[name]),
-		)
-		.map(([name]) => name)
-})
-const invalidUrlProps = computed(() => {
-	if (!props.component) return []
-	return toEntries(props.component.props)
-		.filter(([name, definition]) => urlPropError(name, definition) !== undefined)
-		.map(([name]) => name)
-})
+const fieldErrors = computed(() =>
+	props.component ? validatePropertyDrafts(props.component.props, form) : {},
+)
+const invalidFields = computed(() => Object.keys(fieldErrors.value))
+const missingRequired = computed(() =>
+	invalidFields.value.filter((path) => fieldErrors.value[path] === 'This field is required.'),
+)
+const invalidUrlProps = computed(() =>
+	invalidFields.value.filter((path) => fieldErrors.value[path] !== 'This field is required.'),
+)
+const invalidAssetBase = computed(
+	() =>
+		props.assetStorageMode === 'url' &&
+		Boolean(props.component && hasImageProperty(props.component.props)) &&
+		!normalizeAssetBaseUrl(props.assetBaseUrl ?? ''),
+)
 const canSave = computed(
 	() =>
 		Boolean(props.component) &&
 		!props.disabled &&
-		missingRequired.value.length === 0 &&
-		invalidUrlProps.value.length === 0,
+		invalidFields.value.length === 0 &&
+		!invalidAssetBase.value,
 )
 const refreshed = shallowRef(false)
 const refreshSlotsRequested = shallowRef(false)
@@ -81,7 +85,7 @@ function refreshProperties() {
 	if (!props.component || props.disabled) return
 	const previous = { ...form }
 	for (const key of keys(form)) delete form[key]
-	populateCurrentProperties(props.component, previous)
+	populateCurrentProperties(props.component, previous, true)
 	refreshed.value = true
 }
 
@@ -98,18 +102,19 @@ function refreshSlots() {
  * Populate a form draft from current metadata and existing known values.
  * @param component Current component metadata.
  * @param previous Previously persisted or drafted properties.
+ * @param refresh Whether to reconcile nested keys with current metadata.
  * @returns Nothing.
  */
 function populateCurrentProperties(
 	component: ComponentMetadata,
 	previous: Record<string, unknown> = props.initialProps ?? {},
+	refresh = false,
 ) {
 	for (const [name, definition] of toEntries(component.props)) {
-		if (previous[name] !== undefined) form[name] = previous[name]
+		if (previous[name] !== undefined)
+			form[name] = refresh ? refreshPropertyDraft(definition, previous[name]) : previous[name]
 		else if (definition.default !== undefined) form[name] = definition.default
-		else if (definition.type === 'boolean') form[name] = false
-		else if (definition.type === 'array') form[name] = []
-		else form[name] = ''
+		else form[name] = createPropertyDraft(definition)
 	}
 }
 
@@ -125,93 +130,6 @@ watch(
 		if (isOpen && component) resetForm(component)
 	},
 )
-
-/**
- * Editor callback.
- * @param name Parameter value.
- * @returns Callback result.
- */
-function textValue(name: string) {
-	const value = form[name]
-	return isString(value) ? value : value == null ? '' : String(value)
-}
-
-/**
- * Editor callback.
- * @param name Parameter value.
- * @param value Parameter value.
- * @returns Callback result.
- */
-function setTextValue(name: string, value: string) {
-	form[name] = value
-}
-
-/**
- * Validate a metadata property rendered with the URL editor control.
- * @param name Property name.
- * @param definition Property metadata.
- * @returns Validation message, or nothing for a valid or empty optional value.
- */
-function urlPropError(name: string, definition: ComponentProp): string | undefined {
-	if (definition.type !== 'string' || componentPropEditor(definition) !== 'url') return undefined
-	const value = textValue(name).trim()
-	return value ? linkValueError('url', value) : undefined
-}
-
-/**
- * Store a numeric input as a number while retaining an empty optional field.
- * @param name Property name.
- * @param value Current input value.
- * @returns Nothing.
- */
-function setNumberValue(name: string, value: unknown) {
-	if (value === '') {
-		form[name] = ''
-		return
-	}
-	const number = Number(value)
-	if (Number.isFinite(number)) form[name] = number
-}
-
-/**
- * Store the selected values for an array property.
- * @param name Property name.
- * @param value Current select value.
- * @returns Nothing.
- */
-function setArrayValue(name: string, value: unknown) {
-	form[name] = Array.isArray(value) ? value.filter(isString) : []
-}
-
-/**
- * Store a selected Directus image asset as its identifier.
- * @param name Property name.
- * @param value File selection emitted by Directus.
- * @returns Nothing.
- */
-function setImageValue(name: string, value: unknown) {
-	const id = directusAssetId(value)
-	if (id) form[name] = id
-}
-
-/**
- * Clear a selected Directus image asset from the draft.
- * @param name Property name.
- * @returns Nothing.
- */
-function clearImageValue(name: string) {
-	form[name] = ''
-}
-
-/**
- * Resolve a stored Directus image identifier to its preview URL.
- * @param name Property name.
- * @returns Directus asset URL when the property contains a valid identifier.
- */
-function imagePreview(name: string) {
-	const value = form[name]
-	return isString(value) ? directusAssetUrl(value) : undefined
-}
 
 /**
  * Editor callback.
@@ -296,89 +214,28 @@ function remove() {
 			<VNotice v-if="invalidUrlProps.length" type="warning"
 				>Enter valid URLs for: {{ invalidUrlProps.join(', ') }}.</VNotice
 			>
+			<VNotice v-if="invalidAssetBase" type="warning"
+				>Configure a valid HTTP(S) asset base URL.</VNotice
+			>
 			<VNotice v-if="refreshed" type="info"
 				>Properties now match the current metadata. Review them and apply to save.</VNotice
 			>
 			<VNotice v-if="refreshSlotsRequested" type="info">
 				Slots will match the current metadata when you apply these changes.
 			</VNotice>
-			<div
+			<PropertyInput
 				v-for="(definition, name) in component.props"
 				:key="name"
-				class="component-props-form__field"
-			>
-				<label :for="`component-prop-${name}`">
-					{{ definition.name ?? name }}<span v-if="definition.required"> *</span>
-					<VChip v-if="componentPropDeprecation(definition)" x-small>Deprecated</VChip>
-				</label>
-				<p
-					v-if="componentPropDeprecation(definition)?.text"
-					class="component-props-form__deprecated"
-				>
-					{{ componentPropDeprecation(definition)?.text }}
-				</p>
-				<ImageUploadField
-					v-if="
-						definition.type === 'string' && componentPropEditor(definition) === 'image'
-					"
-					:preview-source="imagePreview(name)"
-					:disabled="disabled"
-					@select="setImageValue(name, $event)"
-					@clear="clearImageValue(name)"
-				/>
-				<template
-					v-else-if="
-						definition.type === 'string' && componentPropEditor(definition) === 'url'
-					"
-				>
-					<VInput
-						:id="`component-prop-${name}`"
-						:model-value="textValue(name)"
-						placeholder="https://example.com"
-						:error="Boolean(urlPropError(name, definition))"
-						:disabled="disabled"
-						@update:model-value="setTextValue(name, $event)"
-					/>
-					<p v-if="urlPropError(name, definition)" class="component-props-form__error">
-						{{ urlPropError(name, definition) }}
-					</p>
-				</template>
-				<VSelect
-					v-else-if="definition.type === 'array'"
-					:model-value="form[name]"
-					:items="definition.values?.map((value) => ({ text: value, value })) ?? []"
-					:disabled="disabled"
-					multiple
-					@update:model-value="setArrayValue(name, $event)"
-				/>
-				<VSelect
-					v-else-if="definition.values?.length"
-					:model-value="textValue(name)"
-					:items="definition.values.map((value) => ({ text: value, value }))"
-					:disabled="disabled"
-					@update:model-value="setTextValue(name, $event)"
-				/>
-				<VCheckbox
-					v-else-if="definition.type === 'boolean'"
-					:model-value="form[name] === true"
-					:label="definition.description ?? name"
-					:disabled="disabled"
-					@update:model-value="form[name] = $event"
-				/>
-				<VInput
-					v-else
-					:id="`component-prop-${name}`"
-					:model-value="textValue(name)"
-					:type="definition.type === 'number' ? 'number' : 'text'"
-					:placeholder="definition.description"
-					:disabled="disabled"
-					@update:model-value="
-						definition.type === 'number'
-							? setNumberValue(name, $event)
-							: setTextValue(name, $event)
-					"
-				/>
-			</div>
+				:name="name"
+				:definition="definition"
+				:path="name"
+				:errors="fieldErrors"
+				:model-value="form[name]"
+				:disabled="disabled"
+				:asset-storage-mode="assetStorageMode ?? 'path'"
+				:asset-base-url="assetBaseUrl"
+				@update:model-value="form[name] = $event"
+			/>
 		</div>
 		<div v-else-if="editExisting" class="component-props-form">
 			<VNotice type="danger">
@@ -430,22 +287,9 @@ function remove() {
 	color: var(--theme--foreground-subdued, #8b98a5);
 	font-size: 0.75rem;
 }
-.component-props-form__field {
-	display: grid;
-	gap: 0.35rem;
-}
-.component-props-form__field > label {
-	font-size: 0.8rem;
-	font-weight: 600;
-}
 .component-props-form__deprecated {
 	margin: 0;
 	color: var(--theme--warning-foreground, #7a5b00);
-	font-size: 0.75rem;
-}
-.component-props-form__error {
-	margin: 0;
-	color: var(--theme--danger, var(--danger));
 	font-size: 0.75rem;
 }
 </style>

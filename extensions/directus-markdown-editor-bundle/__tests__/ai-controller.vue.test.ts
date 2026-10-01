@@ -16,14 +16,14 @@ vi.mock('@directus/extensions-sdk', () => ({
 	useStores: () => ({ useNotificationsStore: () => ({ add: mocks.notify }) }),
 }))
 
-vi.mock('../src/markdown-editor-interface/components/MarkdownPreview.vue', () => ({
+vi.mock('../src/markdown-editor-interface/components/preview/MarkdownPreview.vue', () => ({
 	default: {
 		props: ['content', 'label'],
 		template: '<pre :aria-label="label">{{ content }}</pre>',
 	},
 }))
 
-import AiController from '../src/markdown-editor-interface/components/AiController.vue'
+import AiController from '../src/markdown-editor-interface/components/ai/AiController.vue'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
 
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement; editor: Editor }[] = []

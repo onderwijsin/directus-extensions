@@ -14,7 +14,7 @@ interface MarkdownEditorOption {
 		interface?: string
 		note: string
 		conditions?: {
-			rule: Record<string, { _eq: boolean }>
+			rule: Record<string, { _eq?: boolean | string; _neq?: string }>
 			hidden: boolean
 		}[]
 		options?: {
@@ -61,11 +61,40 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			schema: { default_value: [] },
 		},
 		{
+			field: 'assetStorageMode',
+			name: 'Store selected assets as',
+			type: 'string',
+			meta: {
+				width: 'full',
+				interface: 'select-dropdown',
+				note: 'Format used when selecting Directus images in Markdown or component properties.',
+				options: {
+					choices: [
+						{ text: 'Asset ID', value: 'id' },
+						{ text: 'Relative asset path', value: 'path' },
+						{ text: 'Absolute asset URL', value: 'url' },
+					],
+				},
+			},
+			schema: { default_value: 'path' },
+		},
+		{
+			field: 'assetBaseUrl',
+			name: 'Asset base URL',
+			type: 'string',
+			required: true,
+			meta: {
+				width: 'full',
+				note: 'HTTP(S) Directus base URL, for example https://directus.example.com.',
+				conditions: [{ rule: { assetStorageMode: { _neq: 'url' } }, hidden: true }],
+			},
+		},
+		{
 			field: 'useStaticComponentMeta',
 			name: 'Use static component metadata',
 			type: 'boolean',
 			meta: {
-				width: 'half',
+				width: 'full',
 				interface: 'checkbox',
 				note: 'Use component metadata stored directly in this interface configuration.',
 			},
@@ -76,7 +105,7 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			name: 'Use item references',
 			type: 'boolean',
 			meta: {
-				width: 'half',
+				width: 'full',
 				interface: 'checkbox',
 				note: 'Allow authors to insert permission-aware references to configured Directus items.',
 			},
@@ -102,7 +131,7 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			meta: {
 				width: 'full',
 				interface: 'select-dropdown',
-				note: 'Choose whether source snapshots are stored, checked, or synchronized when a document loads.',
+				note: 'References store a copy of the source label and data when inserted. Snapshot only checks whether the source is available or archived. Detect source changes (default) also flags changed labels or data for manual refresh. Synchronize on load updates changed labels and data in the editor; you must still save the document.',
 				conditions: [{ rule: { useReferences: { _eq: false } }, hidden: true }],
 				options: {
 					choices: [

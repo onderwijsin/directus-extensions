@@ -4,6 +4,8 @@ import type { ComponentMetadata } from '../component-meta/schema'
 import { fromEntries, toEntries } from '@onderwijsin/directus-extension-utils'
 import { TextSelection } from '@tiptap/pm/state'
 
+import { validatePropertyDrafts } from '../component-meta/property-form'
+
 export type ComponentNodeType = 'mdcBlock' | 'mdcInline'
 
 /**
@@ -36,8 +38,10 @@ export function resolveComponentDefaultProps(
  * @returns Whether at least one required prop has no explicit default.
  */
 export function componentRequiresProps(component: ComponentMetadata): boolean {
-	return toEntries(component.props).some(
-		([, definition]) => definition.required && definition.default === undefined,
+	return (
+		Object.keys(
+			validatePropertyDrafts(component.props, resolveComponentDefaultProps(component)),
+		).length > 0
 	)
 }
 

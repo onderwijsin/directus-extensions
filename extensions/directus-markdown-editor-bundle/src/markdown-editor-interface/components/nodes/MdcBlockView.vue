@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
-import type { ComponentIntegrityState } from '../component-meta/freshness'
+import type { ComponentIntegrityState } from '../../component-meta/freshness'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
@@ -13,17 +13,22 @@ import {
 } from '@onderwijsin/directus-extension-utils'
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/vue-3'
 
-import { getEditorComponentState } from '../component-meta/status'
-import { useEditorEditable } from '../composables/useEditorEditable'
+import { getEditorComponentState } from '../../component-meta/status'
+import { useEditorEditable } from '../../composables/useEditorEditable'
 import { mdcNodeViewProps } from './mdcNodeViewProps'
 
 const props = defineProps(mdcNodeViewProps)
 const editable = useEditorEditable(props.editor)
 const menuOpen = shallowRef(false)
 const integrityState = shallowRef<ComponentIntegrityState>()
+
 const componentName = computed(() =>
 	isString(props.node.attrs.name) ? props.node.attrs.name : 'Unknown component',
 )
+const componentLabel = computed(() => {
+	const getComponentLabel = props.extension.options.getComponentLabel
+	return getComponentLabel(componentName.value)
+})
 const componentProps = computed(() => {
 	const value = props.node.attrs.props
 	return isRecord(value) ? toEntries(value) : []
@@ -123,7 +128,7 @@ function deleteComponent() {
 									: 'widgets'
 						"
 				/></span>
-				<strong>{{ componentName }}</strong>
+				<strong>{{ componentLabel }}</strong>
 			</div>
 			<div class="mdc-block__summary">
 				<VMenu v-model="menuOpen" placement="bottom-end" show-arrow>

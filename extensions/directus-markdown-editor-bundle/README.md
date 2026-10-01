@@ -93,6 +93,8 @@ Configure these options on each field using the **Markdown (MDC)** interface.
 | Option                            | Default  | Description                                                                                                                                                                                                                                                                                                |
 | --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Available editor tools**        | empty    | Selects the toolbar, `/` menu, block actions, insertion controls, and native shortcuts available on this field. An empty selection enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
+| **Store assets as**               | `path`   | Format for newly selected Directus images in Markdown and MDC image properties: `id`, `path` (`/assets/{id}`), or `url`. Existing image values are not rewritten.                                                                                                                                          |
+| **Asset base URL**                | unset    | Required in `url` mode. HTTP(S) Directus base URL, for example `https://directus.example.com`; selected images are stored as `https://directus.example.com/assets/{id}`.                                                                                                                                   |
 | **Use static component metadata** | `false`  | Chooses static JSON instead of loading component metadata from a URL.                                                                                                                                                                                                                                      |
 | **Component metadata URL**        | unset    | Browser-accessible JSON URL used while static metadata is disabled.                                                                                                                                                                                                                                        |
 | **Static component metadata**     | unset    | Required JSON value while static metadata is enabled.                                                                                                                                                                                                                                                      |
@@ -215,7 +217,7 @@ framework and accepts either an array or an object with a `components` array:
         "image": {
           "name": "Image",
           "type": "string",
-          "tags": [{ "name": "editor", "text": "image" }]
+          "tags": [{ "name": "specialInputType", "text": "image" }]
         }
       },
       "slots": ["default"]
@@ -244,26 +246,41 @@ framework and accepts either an array or an object with a `components` array:
 
 ### Property fields
 
-| Field         | Required           | Contract                                                                                                                      |
-| ------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                                      |
-| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, or `array`. Unknown values fall back to text.                               |
-| `description` | no                 | Help text for the property.                                                                                                   |
-| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                                    |
-| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                                       |
-| `values`      | for `array`        | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                               |
-| `tags`        | no                 | JSDoc tags from component metadata; `deprecated` adds a hint, while `editor: image` and `editor: url` select richer controls. |
+| Field         | Required           | Contract                                                                                                                                                                                                            |
+| ------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                                                                                                                            |
+| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, `object`, or `array`. Unknown legacy values fall back to text.                                                                                                    |
+| `description` | no                 | Help text for the property.                                                                                                                                                                                         |
+| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                                                                                                                          |
+| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                                                                                                                             |
+| `values`      | no                 | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                                                                                                                     |
+| `properties`  | no                 | Child property map for an `object`, rendered as a labeled group. Children may themselves be objects or arrays.                                                                                                      |
+| `items`       | no                 | Item definition for an `array`. Object items render a reorderable repeater; string items without `values` render editable tags.                                                                                     |
+| `tags`        | no                 | JSDoc tags from component metadata, with optional `config`; `deprecated` adds a hint, while `specialInputType: image` and `specialInputType: url` select richer controls. The former `editor` tag remains readable. |
 
 The primitive controls preserve their corresponding values: `string` stores a string, `number`
-stores a number, `boolean` stores a boolean, and `array` stores a string array. A string property
-with `values` is the select form of the string control; `select` is not a separate property type.
+stores a number, `boolean` stores a boolean, and a primitive `array` stores a string array. A string
+property with `values` is the select form of the string control; `select` is not a separate property
+type. Arrays without `values` accept free-form tags that can be dragged into order. Object arrays
+render rows with Add, drag to reorder, keyboard move controls, and confirmed removal. Nested
+required fields and URL hints block Apply/Insert when invalid. Objects and object arrays persist as
+JSON-backed MDC attributes.
+
+For example, a Hero can define `image` as
+`{ "type": "object", "properties": { "src": { "type": "string", "required": true, "tags": [{ "name": "specialInputType", "text": "image" }] } } }`
+and `actions` as
+`{ "type": "array", "items": { "type": "object", "properties": { "label": { "type": "string", "required": true }, "to": { "type": "string", "tags": [{ "name": "specialInputType", "text": "url" }] } } } }`.
+The `icon` hint is accepted with its `config` metadata and currently uses the string control.
 
 For an image asset property, keep the component prop typed as `string` and add the Vue-compatible
-JSDoc tag `@editor image`. In JSON this is `{ "name": "editor", "text": "image" }`. The drawer uses
-the Directus image selector, shows the selected asset as a removable thumbnail, and persists only
-the Directus file ID. Use `@editor url` for a string control that requires a valid HTTP(S) URL with
-its protocol. Both hints keep the metadata compatible with `nuxt-component-meta`; arbitrary JSDoc
-tags remain available, while the editor interprets only documented hints and `deprecated`.
+JSDoc tag `@specialInputType image`. In JSON this is
+`{ "name": "specialInputType", "text": "image" }`. The drawer uses the Directus image selector,
+shows the selected asset as a removable thumbnail, and persists the selected format from **Store
+assets as**. The default is now `/assets/{id}` for newly selected MDC image properties; existing
+stored IDs remain unchanged. Use `@specialInputType url` for a string control that requires a valid
+HTTP(S) URL with its protocol. Existing metadata with `@editor image` or `@editor url` still works;
+when both tags are supplied, `specialInputType` wins. Arbitrary JSDoc tags remain available, while
+the editor interprets only documented hints and `deprecated`.
 
 When a static value or metadata URL loads successfully, the editor treats that metadata as
 authoritative and checks components after hydration. Missing required properties, required
@@ -291,8 +308,11 @@ to a block because inline MDC cannot contain slots; other metadata changes prese
 
 When using **Component metadata URL**, the Directus user’s browser fetches the URL. Serve valid JSON
 over HTTPS with CORS headers that allow the Studio origin. Authentication headers are not added by
-the editor. How a frontend generates, publishes, or transports this metadata is intentionally
-outside this package; static JSON and the URL are equivalent inputs to the same contract.
+the editor. Add the remote metadata host to Directus’s CSP `connect-src` directive with
+`CONTENT_SECURITY_POLICY_DIRECTIVES__CONNECT_SRC` (see
+[Directus CSP configuration](https://directus.com/docs/configuration/security-limits#csp)). How a
+frontend generates, publishes, or transports this metadata is intentionally outside this package;
+static JSON and the URL are equivalent inputs to the same contract.
 
 ## MDC storage examples
 
@@ -332,8 +352,9 @@ Hero content
 ```
 
 String attributes preserve escaped quotes and backslashes. Shorthand booleans and dynamic JSON
-bindings preserve their value types. Unknown component names remain generic MDC nodes so stored
-content is not tied to the current metadata list.
+bindings preserve their value types. Dynamic bindings use single outer quotes, so JSON objects and
+arrays retain their standard double-quoted JSON syntax. Unknown component names remain generic MDC
+nodes so stored content is not tied to the current metadata list.
 
 ## Item references
 
@@ -393,7 +414,7 @@ A stored Reference looks like this:
 
 ```md
 :Reference{collection="articles" item="article-7" label="Becoming a teacher" text="this article"
-icon="school" :data="{\"slug\":\"becoming-a-teacher\"}"}
+icon="school" :data='{"slug":"becoming-a-teacher"}'}
 ```
 
 `collection`, `item`, `label`, and object `data` are required on new References. `item` can be a
@@ -430,11 +451,15 @@ Collapsible code uses an MDC `::code-collapse` wrapper. Inside code blocks, Tab 
 indent/outdent and Enter preserves indentation.
 
 Images and video can be selected from the Directus file library or entered as HTTP(S), relative, or
-`/assets/{id}` URLs. Image library browsing is filtered to image MIME types and video browsing to
-video MIME types. Selected images and videos show a removable preview; video previews include native
-playback controls. Existing image and video blocks expose **Edit image** or **Edit video** in their
-drag-handle action menu. Executable and data protocols are rejected. The extension does not
-transform images, generate captions, or provide a frontend media renderer.
+`/assets/{id}` URLs. Newly selected images follow **Store assets as**; `id` values are previewed
+through the current Directus `/assets/` path while their Markdown keeps the bare ID. Image library
+browsing is filtered to image MIME types and video browsing to video MIME types. Selected images and
+videos show a removable preview; video previews include native playback controls. Existing image and
+video blocks expose **Edit image** or **Edit video** in their drag-handle action menu. The image
+drawer also accepts optional alt text, which is stored in the image Markdown and can be edited
+later. Videos are constrained to the editor or preview width while retaining their natural size when
+smaller. Executable and data protocols are rejected. The extension does not transform images,
+generate captions, or provide a frontend media renderer.
 
 ## Studio Docs article
 
@@ -479,16 +504,16 @@ published article.
 
 ## Troubleshooting
 
-| Symptom                              | Check                                                                                                                |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| **Markdown (MDC)** is missing        | Confirm the package is installed in the Directus runtime, the app entry is enabled, and Directus was restarted.      |
-| Component insertion is missing       | Enable the **Component insert** tool and provide valid static metadata or a reachable metadata URL.                  |
-| Remote metadata fails                | Check HTTPS, CORS, JSON validity, and browser network errors. The endpoint receives no custom authentication header. |
-| A Reference collection is disabled   | Check collection uniqueness, direct field names, primary-key metadata, field types, and relational fields.           |
-| Authors cannot find a Reference item | Check their read permissions and whether the item is archived. Search starts after text is entered.                  |
-| A Reference is unavailable           | The source is missing or hidden by permissions; replace or remove it from the integrity report.                      |
-| Updated Studio docs are not visible  | Inspect the `incoming` content version when the Studio Docs seeding strategy is `versioning`.                        |
-| Startup reports a lock skip/error    | Configure Redis or a shared filesystem lock for multi-process deployments.                                           |
+| Symptom                              | Check                                                                                                                                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Markdown (MDC)** is missing        | Confirm the package is installed in the Directus runtime, the app entry is enabled, and Directus was restarted.                                                                                                                     |
+| Component insertion is missing       | Enable the **Component insert** tool and provide valid static metadata or a reachable metadata URL.                                                                                                                                 |
+| Remote metadata fails                | Check the browser console for the source URL and validation path, then verify HTTPS, CORS, and JSON validity. A successful HTTP response can still fail metadata validation. The endpoint receives no custom authentication header. |
+| A Reference collection is disabled   | Check collection uniqueness, direct field names, primary-key metadata, field types, and relational fields.                                                                                                                          |
+| Authors cannot find a Reference item | Check their read permissions and whether the item is archived. Search starts after text is entered.                                                                                                                                 |
+| A Reference is unavailable           | The source is missing or hidden by permissions; replace or remove it from the integrity report.                                                                                                                                     |
+| Updated Studio docs are not visible  | Inspect the `incoming` content version when the Studio Docs seeding strategy is `versioning`.                                                                                                                                       |
+| Startup reports a lock skip/error    | Configure Redis or a shared filesystem lock for multi-process deployments.                                                                                                                                                          |
 
 ## License
 

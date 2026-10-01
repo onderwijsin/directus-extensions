@@ -1,6 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
-import type { ComponentMetadata } from './schema'
+import type { ComponentMetadata, ComponentProp } from './schema'
 
 import { isArray, isRecord, isString, keys } from '@onderwijsin/directus-extension-utils'
 
@@ -36,6 +36,58 @@ export function isRequiredComponentPropEmpty(value: unknown) {
 		value === '' ||
 		(isArray(value) && value.length === 0)
 	)
+}
+
+/**
+ * Collect nested required and removed property paths without changing persisted values.
+ * @param definitions Current property metadata.
+ * @param values Persisted property values.
+ * @param prefix Parent property path.
+ * @returns Missing, empty, and removed paths.
+ */
+function propertyDrift(
+	definitions: Record<string, ComponentProp>,
+	values: Record<string, unknown>,
+	prefix = '',
+) {
+	const missing: string[] = []
+	const empty: string[] = []
+	const removed: string[] = []
+	for (const name of keys(values)) {
+		if (!Object.hasOwn(definitions, name)) removed.push(`${prefix}${name}`)
+	}
+	for (const [name, definition] of Object.entries(definitions)) {
+		const path = `${prefix}${name}`
+		if (!Object.hasOwn(values, name)) {
+			if (definition.required) missing.push(path)
+			continue
+		}
+		const value = values[name]
+		if (definition.required && isRequiredComponentPropEmpty(value)) {
+			empty.push(path)
+			continue
+		}
+		if (definition.type === 'object' && isRecord(value)) {
+			const nested = propertyDrift(definition.properties ?? {}, value, `${path}.`)
+			missing.push(...nested.missing)
+			empty.push(...nested.empty)
+			removed.push(...nested.removed)
+		}
+		if (definition.type === 'array' && isArray(value) && definition.items?.type === 'object') {
+			for (const [index, row] of value.entries()) {
+				if (!isRecord(row)) continue
+				const nested = propertyDrift(
+					definition.items.properties ?? {},
+					row,
+					`${path}.${index}.`,
+				)
+				missing.push(...nested.missing)
+				empty.push(...nested.empty)
+				removed.push(...nested.removed)
+			}
+		}
+	}
+	return { missing, empty, removed }
 }
 
 /**
@@ -87,18 +139,10 @@ export function scanComponentIntegrity(
 			return
 		}
 		const storedSlots = componentSlots(node)
-		const missingProps = keys(component.props).filter(
-			(name) => component.props[name]?.required === true && !Object.hasOwn(storedProps, name),
-		)
-		const emptyRequiredProps = keys(component.props).filter(
-			(name) =>
-				component.props[name]?.required === true &&
-				Object.hasOwn(storedProps, name) &&
-				isRequiredComponentPropEmpty(storedProps[name]),
-		)
-		const removedProps = keys(storedProps).filter(
-			(name) => !Object.hasOwn(component.props, name),
-		)
+		const drift = propertyDrift(component.props, storedProps)
+		const missingProps = drift.missing
+		const emptyRequiredProps = drift.empty
+		const removedProps = drift.removed
 		const missingSlots = component.slots.filter((name) => !storedSlots.includes(name))
 		const removedSlots = storedSlots.filter((name) => !component.slots.includes(name))
 		const deprecation = metadataDeprecation(component)

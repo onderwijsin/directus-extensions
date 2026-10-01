@@ -2,7 +2,10 @@ import { MarkdownManager } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 import { describe, expect, it } from 'vitest'
 
-import { normalizeComponentMetadata } from '../src/markdown-editor-interface/component-meta/schema'
+import {
+	componentPropSpecialInputType,
+	normalizeComponentMetadata,
+} from '../src/markdown-editor-interface/component-meta/schema'
 import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown-editor-interface/markdown'
 import {
 	parseMdcAttributes,
@@ -75,10 +78,14 @@ describe('generic MDC Markdown boundary', () => {
 			disabled: false,
 			count: 3,
 			items: ['one', 'two'],
+			config: { id: 'article-7', label: "O'Connor", nested: [{ enabled: true }] },
 		}
 		const serialized = serializeMdcAttributes(properties)
 		const attributeSource = serialized.slice(1, -1)
 
+		expect(serialized).toContain(
+			`:config='{"id":"article-7","label":"O\\'Connor","nested":[{"enabled":true}]}'`,
+		)
 		expect(parseMdcAttributes(attributeSource)).toEqual(properties)
 
 		const markdown = manager()
@@ -215,30 +222,42 @@ describe('component metadata boundary', () => {
 		})
 	})
 
-	it('rejects array properties without allowed values', () => {
-		expect(() =>
+	it('accepts free-form array properties without allowed values', () => {
+		expect(
 			normalizeComponentMetadata([
 				{
 					name: 'CardGrid',
 					nodeType: 'block',
 					props: { columns: { type: 'array' } },
 				},
-			]),
-		).toThrow('unsupported shape')
+			])[0]?.props.columns,
+		).toEqual({ type: 'array' })
 	})
 
-	it('preserves Vue-compatible editor tags for non-primitive controls', () => {
+	it('uses specialInputType tags while accepting legacy editor tags', () => {
 		const component = normalizeComponentMetadata([
 			{
 				name: 'Hero',
 				nodeType: 'block',
 				props: {
-					image: { type: 'string', tags: [{ name: 'editor', text: 'image' }] },
+					image: {
+						type: 'string',
+						tags: [
+							{ name: 'editor', text: 'url' },
+							{ name: 'specialInputType', text: 'image' },
+						],
+					},
+					legacy: { type: 'string', tags: [{ name: 'editor', text: 'url' }] },
 				},
 			},
 		])[0]
 
-		expect(component?.props.image?.tags).toEqual([{ name: 'editor', text: 'image' }])
+		expect(component?.props.image && componentPropSpecialInputType(component.props.image)).toBe(
+			'image',
+		)
+		expect(
+			component?.props.legacy && componentPropSpecialInputType(component.props.legacy),
+		).toBe('url')
 	})
 
 	it('preserves standard JSDoc deprecation tags on components', () => {

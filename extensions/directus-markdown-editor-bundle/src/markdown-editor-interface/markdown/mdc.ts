@@ -5,9 +5,9 @@ import { attemptSync, isRecord, isString } from '@onderwijsin/directus-extension
 import { Node } from '@tiptap/core'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 
-import MdcBlockView from '../components/MdcBlockView.vue'
-import MdcInlineView from '../components/MdcInlineView.vue'
-import MdcSlotView from '../components/MdcSlotView.vue'
+import MdcBlockView from '../components/nodes/MdcBlockView.vue'
+import MdcInlineView from '../components/nodes/MdcInlineView.vue'
+import MdcSlotView from '../components/nodes/MdcSlotView.vue'
 import { parseCodeBlockToken } from '../editor/code-block'
 import { createVueNodeView } from '../editor/node-view'
 import { parseMdcAttributes, readMdcAttributeBlock, serializeMdcAttributes } from './attributes'
@@ -186,6 +186,18 @@ export const MdcBlock = Node.create({
 	defining: true,
 	isolating: true,
 	allowGapCursor: false,
+	/**
+	 * Configure the editor-facing component label resolver.
+	 * @returns MDC block options.
+	 */
+	addOptions: () => ({
+		/**
+		 * Resolve the editor-facing label for a serialized component name.
+		 * @param name Serialized component name.
+		 * @returns Editor-facing component label.
+		 */
+		getComponentLabel: (name: string) => name,
+	}),
 	addNodeView: /**
 	 * Editor callback.
 	 * @returns Callback result.
@@ -300,6 +312,18 @@ export const MdcInline = Node.create({
 	inline: true,
 	atom: true,
 	selectable: true,
+	/**
+	 * Configure the editor-facing component label resolver.
+	 * @returns MDC inline options.
+	 */
+	addOptions: () => ({
+		/**
+		 * Resolve the editor-facing label for a serialized component name.
+		 * @param name Serialized component name.
+		 * @returns Editor-facing component label.
+		 */
+		getComponentLabel: (name: string) => name,
+	}),
 	addNodeView: /**
 	 * Editor callback.
 	 * @returns Callback result.

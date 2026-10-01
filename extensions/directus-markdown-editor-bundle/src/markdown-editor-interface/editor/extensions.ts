@@ -1,6 +1,7 @@
 import type { EditorSkillMenuItem } from '../ai/types'
 import type { ComponentMetadata } from '../component-meta/schema'
 
+import { isString } from '@onderwijsin/directus-extension-utils'
 import Image from '@tiptap/extension-image'
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import { Markdown } from '@tiptap/markdown'
@@ -11,6 +12,7 @@ import { Video } from '../markdown/video'
 import { MarkdownCodeBlock } from './code-block'
 import { isEditorToolEnabled } from './commands'
 import { ClearMarksOnEnter } from './enter'
+import { imagePreviewUrl } from './media'
 import { Placeholder } from './placeholder'
 import { createReferenceTrigger } from './reference-trigger'
 import { createConfiguredShortcutGuard } from './shortcuts'
@@ -54,11 +56,44 @@ export function createEditorExtensions(
 		TableRow,
 		TableHeader,
 		TableCell,
-		Image.configure({ allowBase64: false }),
+		Image.extend({
+			/**
+			 * Render bare asset IDs as local images while retaining the ID in Markdown.
+			 * @param context Tiptap render context.
+			 * @returns Rendered image specification.
+			 */
+			renderHTML(context) {
+				const attributes = context.HTMLAttributes
+				const source = attributes.src
+				return [
+					'img',
+					{
+						...attributes,
+						src: isString(source) ? imagePreviewUrl(source) : undefined,
+					},
+				]
+			},
+		}).configure({ allowBase64: false }),
 		Video,
 		MarkdownCodeBlock.configure({ enableTabIndentation: true }),
-		MdcBlock,
-		MdcInline,
+		MdcBlock.configure({
+			/**
+			 * Resolve the editor-facing label for a serialized component name.
+			 * @param name Serialized component name.
+			 * @returns Editor-facing component label.
+			 */
+			getComponentLabel: (name: string) =>
+				getComponents().find((component) => component.name === name)?.label ?? name,
+		}),
+		MdcInline.configure({
+			/**
+			 * Resolve the editor-facing label for a serialized component name.
+			 * @param name Serialized component name.
+			 * @returns Editor-facing component label.
+			 */
+			getComponentLabel: (name: string) =>
+				getComponents().find((component) => component.name === name)?.label ?? name,
+		}),
 		MdcSlot,
 		Placeholder.configure({
 			placeholder: "Start writing or type '/' for commands",

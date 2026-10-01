@@ -1,26 +1,40 @@
-import { fromEntries, isString, isArray } from '@onderwijsin/directus-extension-utils'
+import { fromEntries, isString, isArray, isRecord } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
-const PropSchema = z
-	.looseObject({
-		name: z.string().min(1).optional(),
-		type: z.string().optional(),
-		description: z.string().optional(),
-		required: z.boolean().optional(),
-		default: z.unknown().optional(),
-		values: z.array(z.string()).optional(),
-		tags: z
-			.array(z.looseObject({ name: z.string().min(1), text: z.string().optional() }))
-			.optional(),
-	})
-	.superRefine((prop, context) => {
-		if (prop.type !== 'array' || prop.values?.length) return
-		context.addIssue({
-			code: 'custom',
-			message: 'Array properties require at least one allowed value.',
-			path: ['values'],
-		})
-	})
+const PropFields = z.looseObject({
+	name: z.string().min(1).optional(),
+	type: z.string().optional(),
+	description: z.string().optional(),
+	required: z.boolean().optional(),
+	default: z.unknown().optional(),
+	values: z.array(z.string()).optional(),
+	tags: z
+		.array(
+			z.looseObject({
+				name: z.string().min(1),
+				text: z.string().optional(),
+				config: z.unknown().optional(),
+			}),
+		)
+		.optional(),
+})
+
+type RecursiveProp = z.infer<typeof PropFields> & {
+	properties?: Record<string, RecursiveProp>
+	items?: RecursiveProp
+}
+
+const PropSchema: z.ZodType<RecursiveProp> = z.looseObject({
+	...PropFields.shape,
+	/** @returns Recursive child property definitions. */
+	get properties() {
+		return z.record(z.string(), PropSchema).optional()
+	},
+	/** @returns Recursive array item definition. */
+	get items() {
+		return PropSchema.optional()
+	},
+})
 
 export type ComponentProp = z.infer<typeof PropSchema>
 
@@ -29,32 +43,49 @@ const ComponentSchema = z.looseObject({
 	label: z.string().optional(),
 	description: z.string().optional(),
 	tags: z
-		.array(z.looseObject({ name: z.string().min(1), text: z.string().optional() }))
+		.array(
+			z.looseObject({
+				name: z.string().min(1),
+				text: z.string().optional(),
+				config: z.unknown().optional(),
+			}),
+		)
 		.optional(),
 	nodeType: z.enum(['block', 'inline']),
-	props: z.union([z.record(z.string(), PropSchema), z.array(PropSchema)]).optional(),
+	props: z.preprocess(
+		(value) =>
+			isArray(value)
+				? fromEntries(
+						value
+							.filter(isRecord)
+							.filter((item): item is Record<string, unknown> & { name: string } =>
+								isString(item.name),
+							)
+							.map((item) => [item.name, item]),
+					)
+				: value,
+		z.record(z.string(), PropSchema).optional(),
+	),
 	slots: z
 		.union([z.array(z.string()), z.array(z.looseObject({ name: z.string().min(1) }))])
 		.optional(),
 })
 
-const MetadataResponseSchema = z.union([
-	z.array(ComponentSchema),
-	z.looseObject({ components: z.array(ComponentSchema) }),
-])
+const ComponentListSchema = z.array(ComponentSchema)
+const MetadataResponseSchema = z.looseObject({ components: ComponentListSchema })
 
 export interface ComponentMetadata {
 	name: string
 	label: string
 	description?: string
-	tags?: { name: string; text?: string }[]
+	tags?: { name: string; text?: string; config?: unknown }[]
 	nodeType: 'block' | 'inline'
 	props: Record<string, ComponentProp>
 	slots: string[]
 }
 
 interface TaggedMetadata {
-	tags?: { name: string; text?: string }[]
+	tags?: { name: string; text?: string; config?: unknown }[]
 }
 
 /**
@@ -67,14 +98,17 @@ export function componentPropDeprecation(prop: ComponentProp) {
 }
 
 /**
- * Resolve the optional editor control hint supplied through Vue-compatible JSDoc tags.
+ * Resolve the optional special input hint supplied through Vue-compatible JSDoc tags.
+ * The older editor tag remains readable for existing component metadata.
  * @param prop Normalized component property metadata.
  * @returns The normalized editor control name when present.
  */
-export function componentPropEditor(prop: ComponentProp) {
-	return prop.tags
-		?.find((tag) => tag.name === 'editor')
-		?.text?.trim()
+export function componentPropSpecialInputType(prop: ComponentProp) {
+	return (
+		prop.tags?.find((tag) => tag.name === 'specialInputType') ??
+		prop.tags?.find((tag) => tag.name === 'editor')
+	)?.text
+		?.trim()
 		.toLowerCase()
 }
 
@@ -94,8 +128,14 @@ export function metadataDeprecation(metadata: TaggedMetadata) {
  * @throws {Error} When the payload does not match the supported metadata shape.
  */
 export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[] {
-	const result = MetadataResponseSchema.safeParse(payload)
-	if (!result.success) throw new Error('Component metadata has an unsupported shape.')
+	const result = (isArray(payload) ? ComponentListSchema : MetadataResponseSchema).safeParse(
+		payload,
+	)
+	if (!result.success) {
+		throw new Error(
+			`Component metadata has an unsupported shape.\n${z.prettifyError(result.error)}`,
+		)
+	}
 	const components = (isArray(result.data) ? result.data : result.data.components).filter(
 		(component) => component.name !== 'Reference',
 	)
@@ -111,28 +151,7 @@ export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[
 			description: component.description,
 			tags: component.tags,
 			nodeType: component.nodeType,
-			props: isArray(component.props)
-				? fromEntries(
-						component.props
-							.filter(
-								/**
-								 * Editor callback.
-								 * @param prop Parameter value.
-								 * @returns Callback result.
-								 */
-								(prop): prop is typeof prop & { name: string } =>
-									Boolean(prop.name),
-							)
-							.map(
-								/**
-								 * Editor callback.
-								 * @param prop Parameter value.
-								 * @returns Callback result.
-								 */
-								(prop) => [prop.name, prop],
-							),
-					)
-				: (component.props ?? {}),
+			props: component.props ?? {},
 			slots:
 				component.slots?.map(
 					/**

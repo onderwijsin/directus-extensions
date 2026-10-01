@@ -12,7 +12,10 @@ import {
 	type LinkType,
 	type LinkRange,
 	type LinkSelection,
-} from '../editor/link'
+} from '../../editor/link'
+import Field from '../fields/Field.vue'
+import StringInput from '../fields/StringInput.vue'
+import UrlInput from '../fields/UrlInput.vue'
 
 const props = defineProps<{ editor: Editor; disabled?: boolean }>()
 const open = defineModel<boolean>({ default: false })
@@ -92,35 +95,44 @@ function unlink() {
 		@apply="save"
 	>
 		<div class="link-drawer__form">
-			<label for="link-type">Link type</label>
-			<VSelect
-				id="link-type"
-				v-model="selection.type"
-				:items="linkTypes"
-				:disabled="disabled"
-			/>
-			<label for="link-value">Link value</label>
-			<VInput
-				id="link-value"
-				v-model="selection.url"
-				:label="valueLabel"
-				:placeholder="selection.type === 'internal' ? '/about' : 'https://example.com'"
-				:error="Boolean(valueError)"
-				autofocus
-				:disabled="disabled"
-			/>
-			<p v-if="valueError" class="link-drawer__error">{{ valueError }}</p>
-			<label for="link-text">Link text</label>
-			<VInput
-				v-model="selection.text"
-				placeholder="Link text"
+			<Field id="link-type" label="Link type" :disabled="disabled">
+				<template #default="field">
+					<VSelect
+						v-model="selection.type"
+						:id="field.id"
+						:items="linkTypes"
+						:disabled="field.disabled"
+						:aria-describedby="field.describedBy"
+					/>
+				</template>
+			</Field>
+			<Field id="link-value" :label="valueLabel" :error="valueError" :disabled="disabled">
+				<template #default="field">
+					<UrlInput
+						v-if="selection.type === 'url'"
+						v-model="selection.url"
+						v-bind="field"
+						autofocus
+					/>
+					<StringInput
+						v-else
+						v-model="selection.url"
+						v-bind="field"
+						:placeholder="selection.type === 'internal' ? '/about' : undefined"
+						autofocus
+					/>
+				</template>
+			</Field>
+			<Field
 				id="link-text"
-				:error="selection.text.trim().length === 0"
+				label="Link text"
+				:error="selection.text.trim().length === 0 ? 'Link text is required.' : undefined"
 				:disabled="disabled"
-			/>
-			<p v-if="selection.text.trim().length === 0" class="link-drawer__error">
-				Link text is required.
-			</p>
+			>
+				<template #default="field">
+					<StringInput v-model="selection.text" v-bind="field" placeholder="Link text" />
+				</template>
+			</Field>
 		</div>
 
 		<template #actions>
@@ -139,15 +151,5 @@ function unlink() {
 	display: grid;
 	gap: 1rem;
 	padding: var(--content-padding, 1.125rem);
-}
-.link-drawer__error {
-	margin: -0.65rem 0 0;
-	color: var(--theme--danger, var(--danger));
-	font-size: 0.75rem;
-}
-
-.link-drawer__form > label {
-	font-size: 0.8rem;
-	font-weight: 600;
 }
 </style>

@@ -1,19 +1,19 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
 import type { Editor } from '@tiptap/core'
-import type { EditorAiScope, EditorSkillMenuItem, SelectionSnapshot } from '../ai/types'
-import type { ComponentMetadata } from '../component-meta/schema'
+import type { EditorAiScope, EditorSkillMenuItem, SelectionSnapshot } from '../../ai/types'
+import type { ComponentMetadata } from '../../component-meta/schema'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
 import { useApi, useStores } from '@directus/extensions-sdk'
 import { z } from 'zod'
 
-import { editorSkillMenuItemSchema } from '../../shared/editor-skill'
-import { createInsertionDocument } from '../ai/insertion'
-import { normalizeAiPrompt, shouldSubmitAiPrompt } from '../ai/prompt'
-import { captureSelection, isSelectionCurrent, replaceSelection } from '../ai/selection'
-import MarkdownPreview from './MarkdownPreview.vue'
+import { editorSkillMenuItemSchema } from '../../../shared/editor-skill'
+import { createInsertionDocument } from '../../ai/insertion'
+import { normalizeAiPrompt, shouldSubmitAiPrompt } from '../../ai/prompt'
+import { captureSelection, isSelectionCurrent, replaceSelection } from '../../ai/selection'
+import MarkdownPreview from '../preview/MarkdownPreview.vue'
 
 const props = defineProps<{
 	editor: Editor

@@ -2,6 +2,10 @@
 defineProps<{
 	previewSource?: string
 	disabled?: boolean
+	id?: string
+	describedBy?: string
+	invalid?: boolean
+	required?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -28,6 +32,11 @@ const emit = defineEmits<{
 			</VButton>
 		</div>
 		<VUpload
+			:id="id"
+			aria-label="Select image"
+			:aria-describedby="describedBy"
+			:aria-invalid="invalid || undefined"
+			:aria-required="required || undefined"
 			:disabled="disabled"
 			:multiple="false"
 			from-library

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
-import type { SlashItem } from '../editor/slash'
+import type { SlashItem } from '../../editor/slash'
 
 import { computed, nextTick, shallowRef, watch } from 'vue'
 

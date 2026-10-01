@@ -102,6 +102,9 @@ services:
         "${CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_SRC:-'self' http://localhost:*}"
       CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_ANCESTORS:
         "${CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_ANCESTORS:-'self' http://localhost:*}"
+      CONTENT_SECURITY_POLICY_DIRECTIVES__CONNECT_SRC:
+        "${CONTENT_SECURITY_POLICY_DIRECTIVES__CONNECT_SRC:-'self' http://localhost:* https://*
+        wss://*}"
       HSTS_ENABLED: ${HSTS_ENABLED:-true}
 
       # Misc

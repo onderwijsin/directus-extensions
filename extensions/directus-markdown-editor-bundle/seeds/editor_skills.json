@@ -14,7 +14,7 @@
 			"id": "aeb1ef5e-a779-4b6a-b804-a5b6cf16a031",
 			"name": "Improve clarity",
 			"description": "Make content clearer, more concise, and easier to understand.",
-			"icon": "readability",
+			"icon": "lightbulb",
 			"scopes": ["document", "selection"],
 			"prompt": "Rewrite the content to make it clearer, more concise, and easier to understand.\n\nRemove unnecessary words, repetition, vague phrasing, filler, and overly complicated sentence structures.\n\nPrefer direct, concrete language and natural sentence flow.\n\nPreserve all important meaning, nuance, facts, terminology, links, and relevant details. Do not simplify away information that is necessary to understand the content.\n\nDo not substantially change the tone or intent unless doing so is necessary for clarity.",
 			"archived": false,

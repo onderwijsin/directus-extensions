@@ -1,20 +1,21 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
 import type { Editor } from '@tiptap/core'
-import type { ComponentOccurrence } from '../component-meta/freshness'
-import type { ComponentMetadata } from '../component-meta/schema'
+import type { ComponentOccurrence } from '../../component-meta/freshness'
+import type { ComponentMetadata } from '../../component-meta/schema'
+import type { AssetStorageMode } from '../../editor/media'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
 import { fromEntries, isInteger, isRecord, isString } from '@onderwijsin/directus-extension-utils'
 import { exitSuggestion } from '@tiptap/suggestion'
 
-import { scanComponentIntegrity } from '../component-meta/freshness'
-import { metadataDeprecation } from '../component-meta/schema'
-import { setEditorComponentStates } from '../component-meta/status'
-import { resolveComponentNodeType } from '../editor/insertion'
-import ComponentPropsDrawer from './ComponentPropsDrawer.vue'
-import ComponentPropsReport from './ComponentPropsReport.vue'
+import { scanComponentIntegrity } from '../../component-meta/freshness'
+import { metadataDeprecation } from '../../component-meta/schema'
+import { setEditorComponentStates } from '../../component-meta/status'
+import { resolveComponentNodeType } from '../../editor/insertion'
+import ComponentPropsDrawer from '../drawers/ComponentPropsDrawer.vue'
+import ComponentPropsReport from '../preview/ComponentPropsReport.vue'
 
 const props = withDefaults(
 	defineProps<{
@@ -24,6 +25,8 @@ const props = withDefaults(
 		disabled?: boolean
 		insertionEnabled?: boolean
 		metadataAuthoritative?: boolean
+		assetStorageMode?: AssetStorageMode
+		assetBaseUrl?: string
 	}>(),
 	{
 		insertionEnabled: true,
@@ -221,6 +224,8 @@ watch(
 		:editor="editor"
 		:component="selected"
 		:disabled="disabled"
+		:asset-storage-mode="assetStorageMode"
+		:asset-base-url="assetBaseUrl"
 		:edit-existing="editExisting"
 		:initial-props="initialProps"
 		:target-node-type="targetNodeType"

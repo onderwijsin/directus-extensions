@@ -65,16 +65,18 @@ enabled.
 
 Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configure every option:
 
-| Option                               | Default  | Accepted value and effect                                                                                                                                                                                                                                                                              |
-| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tools` / **Available editor tools** | `[]`     | JSON array of individual tool IDs. Controls toolbar, slash menu, contextual controls, insertion, and shortcuts. An empty array enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
-| `useStaticComponentMeta`             | `false`  | Boolean. Chooses `staticComponentMeta`; otherwise `metadataUrl` is used.                                                                                                                                                                                                                               |
-| `metadataUrl`                        | unset    | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                                                                                                                                              |
-| `staticComponentMeta`                | unset    | Required JSON while static mode is enabled. No metadata request is made.                                                                                                                                                                                                                               |
-| `useReferences`                      | `false`  | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                                                                                                                                          |
-| `referenceCollections`               | unset    | Required non-empty JSON array while References are enabled.                                                                                                                                                                                                                                            |
-| `referenceSnapshotMode`              | `detect` | `snapshot`, `detect`, or `sync`.                                                                                                                                                                                                                                                                       |
-| `ai` / **Enable AI editing**         | `false`  | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                                                                                                                                               |
+| Option                                   | Default  | Accepted value and effect                                                                                                                                                                                                                                                                              |
+| ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tools` / **Available editor tools**     | `[]`     | JSON array of individual tool IDs. Controls toolbar, slash menu, contextual controls, insertion, and shortcuts. An empty array enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
+| `assetStorageMode` / **Store assets as** | `path`   | `id`, `path`, or `url` for newly selected Directus images in Markdown and MDC image properties. Existing image values are not rewritten.                                                                                                                                                               |
+| `assetBaseUrl` / **Asset base URL**      | unset    | Required when `assetStorageMode` is `url`; use an HTTP(S) Directus base URL.                                                                                                                                                                                                                           |
+| `useStaticComponentMeta`                 | `false`  | Boolean. Chooses `staticComponentMeta`; otherwise `metadataUrl` is used.                                                                                                                                                                                                                               |
+| `metadataUrl`                            | unset    | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                                                                                                                                              |
+| `staticComponentMeta`                    | unset    | Required JSON while static mode is enabled. No metadata request is made.                                                                                                                                                                                                                               |
+| `useReferences`                          | `false`  | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                                                                                                                                          |
+| `referenceCollections`                   | unset    | Required non-empty JSON array while References are enabled.                                                                                                                                                                                                                                            |
+| `referenceSnapshotMode`                  | `detect` | `snapshot`, `detect`, or `sync`.                                                                                                                                                                                                                                                                       |
+| `ai` / **Enable AI editing**             | `false`  | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                                                                                                                                               |
 
 ## Configure AI editing
 
@@ -151,7 +153,14 @@ surfaces.
 Image and video library selection is MIME-filtered to the matching media type. Selected images and
 videos show a removable preview; video previews include native playback controls. Existing media
 nodes expose **Edit image** or **Edit video** in the drag-handle action menu and reopen the same
-media drawer used for insertion.
+media drawer used for insertion. The image drawer accepts optional alt text and stores it in image
+Markdown; editing an image loads its current alt text. Videos fit within the editor and preview
+width while retaining their natural size when smaller.
+
+For metadata image and URL controls, use `{ "name": "specialInputType", "text": "image" }` or
+`{ "name": "specialInputType", "text": "url" }` on a `string` property. The former `editor` tag
+remains readable, with `specialInputType` taking precedence. The default image storage format is now
+`/assets/{id}` for newly selected component images; existing ID values remain untouched.
 
 The endpoint reads the target field's `tools` option and constructs the system prompt for that
 specific editor instance. AI may introduce only currently enabled authoring syntax, while existing
@@ -272,24 +281,35 @@ or `{ "components": [...] }`.
 For a property definition:
 
 - `name` is required in array form and is an optional display label in object form;
-- `type` supports `string`, `number`, `boolean`, and `array`; unknown values fall back to text;
-- a `string` with `values` renders a single select, while an `array` renders a multiselect and
-  requires at least one entry in `values`;
+- `type` supports `string`, `number`, `boolean`, `object`, and `array`; unknown legacy values fall
+  back to text;
+- a `string` with `values` renders a single select, while an `array` with `values` renders a
+  multiselect;
+- an `object` uses `properties` for nested fields in a labeled group;
+- an `array` with object `items` renders repeatable property groups with add, drag reorder, keyboard
+  move, and confirmed remove controls;
+- an `array` without `values` or object `items` renders a free-form string tag input with draggable
+  chips;
 - `description` is optional help text;
 - `required: true` blocks insertion while empty unless a default exists;
 - `default` may contain a JSON-compatible initial value; and
-- `values` is an array of string choices and is required for `type: "array"`;
-- `tags: [{ "name": "editor", "text": "image" }]` (the JSON form of `@editor image`) keeps a prop
-  typed and persisted as a `string` while rendering a Directus image selector with a removable
-  thumbnail; and
-- `tags: [{ "name": "editor", "text": "url" }]` (the JSON form of `@editor url`) keeps a prop typed
-  and persisted as a `string` while requiring a valid HTTP(S) URL with its protocol.
+- `values` is an optional array of string choices;
+- `tags: [{ "name": "specialInputType", "text": "image" }]` (the JSON form of
+  `@specialInputType image`) keeps a prop typed and persisted as a `string` while rendering a
+  Directus image selector with a removable thumbnail; and
+- `tags: [{ "name": "specialInputType", "text": "url" }]` (the JSON form of `@specialInputType url`)
+  keeps a prop typed and persisted as a `string` while requiring a valid HTTP(S) URL with its
+  protocol.
 
-Primitive controls persist their matching JSON value types. The image editor hint persists only the
-selected Directus file ID, not an asset URL or file object. Editor hints are carried as JSDoc tags
-so the metadata remains compatible with `nuxt-component-meta`; arbitrary upstream tags continue to
-pass through unchanged. `@editor` is the extensible editor-control namespace; `image` and `url` are
-currently supported.
+Primitive controls persist their matching JSON value types. The image hint persists a selected
+Directus asset as an ID, `/assets/{id}` path, or absolute URL according to `assetStorageMode` (path
+by default), never as a file object. Hints are carried as JSDoc tags so the metadata remains
+compatible with `nuxt-component-meta`; arbitrary upstream tags and their optional `config` continue
+to pass through unchanged. `@specialInputType` is the control namespace; `image` and `url` have
+specialized controls. The `icon` hint currently renders a plain string input. Older `@editor` tags
+remain readable, and `specialInputType` takes precedence if both are supplied. Nested required
+fields and URL hints participate in Apply/Insert validation. Object and object-array values persist
+as JSON-backed MDC attributes. Optional object fields may remain absent until edited.
 
 - `tags` preserves JSDoc tags; `{ "name": "deprecated", "text": "Use newProp instead." }` displays a
   deprecation hint without changing runtime behavior.
@@ -311,9 +331,11 @@ editor behavior. Refreshing newly added slots converts a legacy inline occurrenc
 inline MDC cannot contain slots; other metadata changes preserve its node type.
 
 For remote metadata, ensure the Directus user’s browser can fetch the URL over HTTPS. Configure CORS
-for the Studio origin and return JSON. The editor adds no authentication header. Verify the endpoint
-in browser developer tools from the deployed Studio origin. The process that derives or publishes
-this payload is outside this skill.
+for the Studio origin and return JSON. Add the remote metadata host to Directus’s CSP `connect-src`
+directive with `CONTENT_SECURITY_POLICY_DIRECTIVES__CONNECT_SRC` (see
+[Directus CSP configuration](https://directus.com/docs/configuration/security-limits#csp)). The
+editor adds no authentication header. Verify the endpoint in browser developer tools from the
+deployed Studio origin. The process that derives or publishes this payload is outside this skill.
 
 ## Understand the MDC contract
 
@@ -344,9 +366,10 @@ Content
 ```
 
 The parser preserves escaped string quotes/backslashes, shorthand booleans, dynamic JSON bindings,
-unknown component names, and nested delimiter depth. Empty inline nodes serialize with `{}` to keep
-adjacent text separate. Component slots are structural editable regions; the editor prevents gap
-content between slots and focuses the first slot after insertion.
+unknown component names, and nested delimiter depth. Dynamic bindings serialize with single outer
+quotes, leaving object and array JSON in its standard double-quoted form. Empty inline nodes
+serialize with `{}` to keep adjacent text separate. Component slots are structural editable regions;
+the editor prevents gap content between slots and focuses the first slot after insertion.
 
 Implement matching MDC renderers in the consumer and decide how unknown components are handled
 safely. The editor does not provide frontend components.
@@ -405,7 +428,7 @@ The stored contract is:
 
 ```md
 :Reference{collection="articles" item="article-7" label="Becoming a teacher" text="this article"
-icon="school" :data="{\"slug\":\"becoming-a-teacher\"}"}
+icon="school" :data='{"slug":"becoming-a-teacher"}'}
 ```
 
 - Required: `collection`, string/finite-number `item`, `label`, and JSON-compatible object `data`.
@@ -462,17 +485,17 @@ Complete every applicable check:
 
 ## Troubleshoot deterministically
 
-| Symptom                           | Resolve                                                                                            |
-| --------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Interface absent                  | Verify runtime installation, supported Directus version, enabled app entry, and restart.           |
-| Components absent                 | Verify `component` tool, selected metadata source, JSON schema, HTTPS/CORS, and browser console.   |
-| Stored component has no metadata  | Restore its metadata entry to regain typed choices; generic editing remains available.             |
-| Reference configuration warning   | Check unique collections, primary keys, direct fields, search field types, and relation exclusion. |
-| Reference picker empty            | Enter a query, verify author permissions, and check archive state.                                 |
-| Reference unavailable             | Treat as missing or permission-hidden; replace/remove it or correct permissions.                   |
-| Source mode requests confirmation | Compare normalization; accept only when the syntax change is intended.                             |
-| Studio article unchanged          | Inspect/promote `incoming`, then check contributor and Studio Docs seed gates.                     |
-| Startup lock errors               | Use shared Redis/filesystem storage and validate connection/directory access.                      |
+| Symptom                           | Resolve                                                                                                                                                                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Interface absent                  | Verify runtime installation, supported Directus version, enabled app entry, and restart.                                                                                                                                            |
+| Components absent                 | Verify `component` tool and selected metadata source. The browser console logs the source URL and validation path on failure; a successful HTTP response can still contain invalid metadata. Verify the JSON schema and HTTPS/CORS. |
+| Stored component has no metadata  | Restore its metadata entry to regain typed choices; generic editing remains available.                                                                                                                                              |
+| Reference configuration warning   | Check unique collections, primary keys, direct fields, search field types, and relation exclusion.                                                                                                                                  |
+| Reference picker empty            | Enter a query, verify author permissions, and check archive state.                                                                                                                                                                  |
+| Reference unavailable             | Treat as missing or permission-hidden; replace/remove it or correct permissions.                                                                                                                                                    |
+| Source mode requests confirmation | Compare normalization; accept only when the syntax change is intended.                                                                                                                                                              |
+| Studio article unchanged          | Inspect/promote `incoming`, then check contributor and Studio Docs seed gates.                                                                                                                                                      |
+| Startup lock errors               | Use shared Redis/filesystem storage and validate connection/directory access.                                                                                                                                                       |
 
 Keep metadata delivery in the consuming project. Do not add undocumented extension endpoints or
 privileged browser credentials to transport it.

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import type { ComponentMetadata } from '../component-meta/schema'
+import type { ComponentMetadata } from '../../component-meta/schema'
 
 import { watch } from 'vue'
 
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 
-import '../editor/content.css'
-import { createEditorExtensions } from '../editor/extensions'
-import { synchronizeEditorMarkdown } from '../editor/synchronization'
+import '../../editor/content.css'
+import { createEditorExtensions } from '../../editor/extensions'
+import { synchronizeEditorMarkdown } from '../../editor/synchronization'
 
 const props = defineProps<{
 	content: string

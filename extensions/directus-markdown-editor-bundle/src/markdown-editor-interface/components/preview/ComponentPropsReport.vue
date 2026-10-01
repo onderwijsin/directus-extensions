@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
-import type { ComponentOccurrence } from '../component-meta/freshness'
+import type { ComponentOccurrence } from '../../component-meta/freshness'
 
 defineProps<{ occurrences: ComponentOccurrence[]; disabled?: boolean }>()
 const open = defineModel<boolean>({ default: false })

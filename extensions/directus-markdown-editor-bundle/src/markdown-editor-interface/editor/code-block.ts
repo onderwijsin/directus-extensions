@@ -14,7 +14,7 @@ import CodeBlock from '@tiptap/extension-code-block'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 
-import CodeBlockView from '../components/CodeBlockView.vue'
+import CodeBlockView from '../components/nodes/CodeBlockView.vue'
 import {
 	isSupportedCodeLanguage,
 	loadCodeHighlighter,

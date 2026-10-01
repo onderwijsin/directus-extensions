@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { describe, expect, it, vi } from 'vitest'
 
 import { scanComponentIntegrity } from '../src/markdown-editor-interface/component-meta/freshness'
+import { normalizeComponentMetadata } from '../src/markdown-editor-interface/component-meta/schema'
 import {
 	deleteBlock,
 	duplicateBlock,
@@ -46,6 +47,9 @@ import {
 import {
 	directusAssetId,
 	directusAssetUrl,
+	formatAssetValue,
+	imagePreviewUrl,
+	normalizeAssetBaseUrl,
 	sanitizeImageUrl,
 } from '../src/markdown-editor-interface/editor/media'
 import { createSlashItems, filterSlashItems } from '../src/markdown-editor-interface/editor/slash'
@@ -126,6 +130,57 @@ describe('component property freshness', () => {
 
 		expect(scanComponentIntegrity(editor, metadata)).toMatchObject([
 			{ emptyRequiredProps: ['title'] },
+		])
+		editor.destroy()
+	})
+
+	it('reports nested drift in objects and repeater rows', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+			content: {
+				type: 'doc',
+				content: [
+					{
+						type: 'mdcBlock',
+						attrs: {
+							name: 'Hero',
+							props: {
+								image: { alt: 'Landscape', obsolete: 'old' },
+								actions: [{ label: '', extra: true }],
+							},
+						},
+					},
+				],
+			},
+		})
+		const hero = normalizeComponentMetadata([
+			{
+				name: 'Hero',
+				nodeType: 'block',
+				props: {
+					image: {
+						type: 'object',
+						properties: {
+							src: { type: 'string', required: true },
+							alt: { type: 'string' },
+						},
+					},
+					actions: {
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: { label: { type: 'string', required: true } },
+						},
+					},
+				},
+			},
+		])
+		expect(scanComponentIntegrity(editor, hero)).toMatchObject([
+			{
+				missingProps: ['image.src'],
+				emptyRequiredProps: ['actions.0.label'],
+				removedProps: ['image.obsolete', 'actions.0.extra'],
+			},
 		])
 		editor.destroy()
 	})
@@ -1083,6 +1138,29 @@ describe('editor commands', () => {
 		expect(directusAssetId({ id: 'abc-123' })).toBe('abc-123')
 		expect(directusAssetId([{ id: 'abc-123' }])).toBe('abc-123')
 		expect(directusAssetId({ id: 'bad/id' })).toBeUndefined()
+		expect(formatAssetValue('abc-123', 'id')).toBe('abc-123')
+		expect(formatAssetValue('abc-123', 'path')).toBe('/assets/abc-123')
+		expect(formatAssetValue('abc-123', 'url', 'https://directus.example.com/')).toBe(
+			'https://directus.example.com/assets/abc-123',
+		)
+		expect(formatAssetValue('abc-123', 'url')).toBeUndefined()
+		expect(normalizeAssetBaseUrl('javascript:alert(1)')).toBeUndefined()
+		expect(normalizeAssetBaseUrl('https://user:pass@example.com')).toBeUndefined()
+		expect(imagePreviewUrl('abc-123')).toBe('/assets/abc-123')
+		expect(imagePreviewUrl('https://example.com/image.png')).toBe(
+			'https://example.com/image.png',
+		)
+	})
+
+	it('renders stored image IDs as local previews without changing Markdown', () => {
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: '![](abc-123)',
+			contentType: 'markdown',
+		})
+		expect(editor.getMarkdown()).toContain('![](abc-123)')
+		expect(editor.getHTML()).toContain('src="/assets/abc-123"')
+		editor.destroy()
 	})
 
 	it('filters slash commands by alternate names and component names', () => {

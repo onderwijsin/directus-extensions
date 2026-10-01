@@ -5,7 +5,7 @@ import { createApp, defineComponent, h } from 'vue'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import SlashMenu from '../src/markdown-editor-interface/components/SlashMenu.vue'
+import SlashMenu from '../src/markdown-editor-interface/components/toolbar/SlashMenu.vue'
 import { createSlashItems } from '../src/markdown-editor-interface/editor/slash'
 
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement }[] = []

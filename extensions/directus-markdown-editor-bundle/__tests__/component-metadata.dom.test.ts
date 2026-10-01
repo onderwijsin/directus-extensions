@@ -87,6 +87,7 @@ describe('component metadata sources', () => {
 	})
 
 	it('reports invalid static metadata through the shared error state', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 		const metadata = mountMetadata({
 			useStaticComponentMeta: shallowRef(true),
 			staticComponentMeta: shallowRef({ components: [{ label: 'Missing name' }] }),
@@ -97,7 +98,45 @@ describe('component metadata sources', () => {
 		expect(metadata.components.value).toEqual([])
 		expect(metadata.state.value).toBe('error')
 		expect(metadata.error.value?.message).toContain('unsupported shape')
+		expect(consoleError).toHaveBeenCalledWith(
+			'Failed to load component metadata',
+			'(static metadata)',
+			metadata.error.value,
+		)
 		expect(fetchMetadata).not.toHaveBeenCalled()
+		consoleError.mockRestore()
+	})
+
+	it('logs a URL and validation path when remote metadata is invalid', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+		fetchMetadata.mockResolvedValue([
+			{
+				name: 'Hero',
+				nodeType: 'block',
+				props: {
+					actions: {
+						type: 'array',
+						items: { type: 'object', properties: { label: { required: 'yes' } } },
+					},
+				},
+			},
+		])
+		const metadata = mountMetadata({
+			metadataUrl: shallowRef('https://example.com/components.json'),
+		})
+
+		await flushMetadata()
+
+		expect(metadata.state.value).toBe('error')
+		expect(metadata.error.value?.message).toContain(
+			'[0].props.actions.items.properties.label.required',
+		)
+		expect(consoleError).toHaveBeenCalledWith(
+			'Failed to load component metadata',
+			'from https://example.com/components.json',
+			metadata.error.value,
+		)
+		consoleError.mockRestore()
 	})
 
 	it('loads and normalizes remote metadata when static mode is disabled', async () => {
