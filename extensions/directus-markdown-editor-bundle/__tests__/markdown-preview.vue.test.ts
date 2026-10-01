@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import MarkdownPreview from '../src/markdown-editor-interface/components/MarkdownPreview.vue'
+import MarkdownPreview from '../src/markdown-editor-interface/components/preview/MarkdownPreview.vue'
 
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement }[] = []
 const stylesheetPath = [

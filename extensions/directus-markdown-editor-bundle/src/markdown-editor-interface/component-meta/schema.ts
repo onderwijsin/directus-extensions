@@ -67,14 +67,17 @@ export function componentPropDeprecation(prop: ComponentProp) {
 }
 
 /**
- * Resolve the optional editor control hint supplied through Vue-compatible JSDoc tags.
+ * Resolve the optional special input hint supplied through Vue-compatible JSDoc tags.
+ * The older editor tag remains readable for existing component metadata.
  * @param prop Normalized component property metadata.
  * @returns The normalized editor control name when present.
  */
-export function componentPropEditor(prop: ComponentProp) {
-	return prop.tags
-		?.find((tag) => tag.name === 'editor')
-		?.text?.trim()
+export function componentPropSpecialInputType(prop: ComponentProp) {
+	return (
+		prop.tags?.find((tag) => tag.name === 'specialInputType') ??
+		prop.tags?.find((tag) => tag.name === 'editor')
+	)?.text
+		?.trim()
 		.toLowerCase()
 }
 

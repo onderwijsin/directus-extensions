@@ -5,9 +5,9 @@ import { attemptSync, isRecord, isString } from '@onderwijsin/directus-extension
 import { Node } from '@tiptap/core'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 
-import MdcBlockView from '../components/MdcBlockView.vue'
-import MdcInlineView from '../components/MdcInlineView.vue'
-import MdcSlotView from '../components/MdcSlotView.vue'
+import MdcBlockView from '../components/nodes/MdcBlockView.vue'
+import MdcInlineView from '../components/nodes/MdcInlineView.vue'
+import MdcSlotView from '../components/nodes/MdcSlotView.vue'
 import { parseCodeBlockToken } from '../editor/code-block'
 import { createVueNodeView } from '../editor/node-view'
 import { parseMdcAttributes, readMdcAttributeBlock, serializeMdcAttributes } from './attributes'

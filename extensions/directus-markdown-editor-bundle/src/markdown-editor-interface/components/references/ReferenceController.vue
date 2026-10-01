@@ -1,26 +1,26 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue controller callbacks are private component behavior. */
 import type { Editor } from '@tiptap/core'
-import type { ReferenceSearchResult } from '../reference/api'
-import type { ReferenceBookmark, ReferenceOccurrence } from '../reference/editor'
-import type { ReferenceProps, ReferenceSnapshotMode } from '../reference/schema'
+import type { ReferenceSearchResult } from '../../reference/api'
+import type { ReferenceBookmark, ReferenceOccurrence } from '../../reference/editor'
+import type { ReferenceProps, ReferenceSnapshotMode } from '../../reference/schema'
 
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
 import { useApi, useStores } from '@directus/extensions-sdk'
 import { isInteger } from '@onderwijsin/directus-extension-utils'
 
-import { resolveReferences } from '../reference/api'
+import { resolveReferences } from '../../reference/api'
 import {
 	insertReference,
 	removeReferenceAt,
 	scanReferences,
 	selectionBookmark,
 	updateReferenceAt,
-} from '../reference/editor'
-import { parseReferenceProps, resolveReferenceCollections } from '../reference/schema'
-import { setEditorReferenceStates } from '../reference/status'
-import ReferenceDrawer from './ReferenceDrawer.vue'
+} from '../../reference/editor'
+import { parseReferenceProps, resolveReferenceCollections } from '../../reference/schema'
+import { setEditorReferenceStates } from '../../reference/status'
+import ReferenceDrawer from '../drawers/ReferenceDrawer.vue'
 import ReferencePicker from './ReferencePicker.vue'
 import ReferenceReport from './ReferenceReport.vue'
 

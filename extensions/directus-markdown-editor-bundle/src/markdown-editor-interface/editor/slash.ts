@@ -9,7 +9,7 @@ import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from '@
 import { VueRenderer } from '@tiptap/vue-3'
 
 import { metadataDeprecation } from '../component-meta/schema'
-import SlashMenu from '../components/SlashMenu.vue'
+import SlashMenu from '../components/toolbar/SlashMenu.vue'
 import {
 	createEditorCommands,
 	filterEditorCommands,

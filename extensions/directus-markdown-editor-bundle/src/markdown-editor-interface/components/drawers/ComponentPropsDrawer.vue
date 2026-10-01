@@ -1,22 +1,29 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
-import type { ComponentMetadata, ComponentProp } from '../component-meta/schema'
+import type { ComponentMetadata, ComponentProp } from '../../component-meta/schema'
 
 // Metadata has already crossed the Zod boundary before it reaches this form.
 import { computed, reactive, shallowRef, watch } from 'vue'
 
 import { isString, keys, toEntries } from '@onderwijsin/directus-extension-utils'
 
-import { isRequiredComponentPropEmpty } from '../component-meta/freshness'
+import { isRequiredComponentPropEmpty } from '../../component-meta/freshness'
 import {
 	componentPropDeprecation,
-	componentPropEditor,
+	componentPropSpecialInputType,
 	metadataDeprecation,
-} from '../component-meta/schema'
-import { insertComponent, refreshComponentAt, updateComponent } from '../editor/insertion'
-import { linkValueError } from '../editor/link'
-import { directusAssetId, directusAssetUrl } from '../editor/media'
-import ImageUploadField from './ImageUploadField.vue'
+} from '../../component-meta/schema'
+import { insertComponent, refreshComponentAt, updateComponent } from '../../editor/insertion'
+import { linkValueError } from '../../editor/link'
+import { normalizeAssetBaseUrl, type AssetStorageMode } from '../../editor/media'
+import BooleanInput from '../fields/BooleanInput.vue'
+import Field from '../fields/Field.vue'
+import ImageInput from '../fields/ImageInput.vue'
+import MultiSelectInput from '../fields/MultiSelectInput.vue'
+import NumberInput from '../fields/NumberInput.vue'
+import SelectInput from '../fields/SelectInput.vue'
+import StringInput from '../fields/StringInput.vue'
+import UrlInput from '../fields/UrlInput.vue'
 
 const props = defineProps<{
 	editor: Editor
@@ -29,6 +36,8 @@ const props = defineProps<{
 	staleProperties?: boolean
 	staleSlots?: boolean
 	deletedName?: string
+	assetStorageMode?: AssetStorageMode
+	assetBaseUrl?: string
 }>()
 const open = defineModel<boolean>('open', { default: false })
 const form = reactive<Record<string, unknown>>({})
@@ -46,12 +55,26 @@ const invalidUrlProps = computed(() => {
 		.filter(([name, definition]) => urlPropError(name, definition) !== undefined)
 		.map(([name]) => name)
 })
+const invalidAssetBase = computed(
+	() =>
+		props.assetStorageMode === 'url' &&
+		Boolean(
+			props.component &&
+			Object.values(props.component.props).some(
+				(definition) =>
+					definition.type === 'string' &&
+					componentPropSpecialInputType(definition) === 'image',
+			),
+		) &&
+		!normalizeAssetBaseUrl(props.assetBaseUrl ?? ''),
+)
 const canSave = computed(
 	() =>
 		Boolean(props.component) &&
 		!props.disabled &&
 		missingRequired.value.length === 0 &&
-		invalidUrlProps.value.length === 0,
+		invalidUrlProps.value.length === 0 &&
+		!invalidAssetBase.value,
 )
 const refreshed = shallowRef(false)
 const refreshSlotsRequested = shallowRef(false)
@@ -153,64 +176,44 @@ function setTextValue(name: string, value: string) {
  * @returns Validation message, or nothing for a valid or empty optional value.
  */
 function urlPropError(name: string, definition: ComponentProp): string | undefined {
-	if (definition.type !== 'string' || componentPropEditor(definition) !== 'url') return undefined
+	if (definition.type !== 'string' || componentPropSpecialInputType(definition) !== 'url')
+		return undefined
 	const value = textValue(name).trim()
 	return value ? linkValueError('url', value) : undefined
 }
 
 /**
- * Store a numeric input as a number while retaining an empty optional field.
+ * Read a numeric input as a number or an empty optional field.
  * @param name Property name.
- * @param value Current input value.
- * @returns Nothing.
+ * @returns Current numeric or empty value.
  */
-function setNumberValue(name: string, value: unknown) {
-	if (value === '') {
-		form[name] = ''
-		return
-	}
-	const number = Number(value)
-	if (Number.isFinite(number)) form[name] = number
+function numberValue(name: string): number | '' {
+	return typeof form[name] === 'number' ? form[name] : ''
 }
 
 /**
- * Store the selected values for an array property.
+ * Read the selected string values for an array property.
  * @param name Property name.
- * @param value Current select value.
- * @returns Nothing.
+ * @returns Selected string values.
  */
-function setArrayValue(name: string, value: unknown) {
-	form[name] = Array.isArray(value) ? value.filter(isString) : []
-}
-
-/**
- * Store a selected Directus image asset as its identifier.
- * @param name Property name.
- * @param value File selection emitted by Directus.
- * @returns Nothing.
- */
-function setImageValue(name: string, value: unknown) {
-	const id = directusAssetId(value)
-	if (id) form[name] = id
-}
-
-/**
- * Clear a selected Directus image asset from the draft.
- * @param name Property name.
- * @returns Nothing.
- */
-function clearImageValue(name: string) {
-	form[name] = ''
-}
-
-/**
- * Resolve a stored Directus image identifier to its preview URL.
- * @param name Property name.
- * @returns Directus asset URL when the property contains a valid identifier.
- */
-function imagePreview(name: string) {
+function arrayValue(name: string): string[] {
 	const value = form[name]
-	return isString(value) ? directusAssetUrl(value) : undefined
+	return Array.isArray(value) ? value.filter(isString) : []
+}
+
+/**
+ * Resolve the error displayed for a component property.
+ * @param name Property name.
+ * @param definition Property metadata.
+ * @returns Validation error when the property is invalid.
+ */
+function fieldError(name: string, definition: ComponentProp): string | undefined {
+	if (definition.required && isRequiredComponentPropEmpty(form[name]))
+		return 'This field is required.'
+	if (definition.type === 'string' && componentPropSpecialInputType(definition) === 'image') {
+		return invalidAssetBase.value ? 'Configure a valid HTTP(S) asset base URL.' : undefined
+	}
+	return urlPropError(name, definition)
 }
 
 /**
@@ -302,83 +305,81 @@ function remove() {
 			<VNotice v-if="refreshSlotsRequested" type="info">
 				Slots will match the current metadata when you apply these changes.
 			</VNotice>
-			<div
+			<Field
 				v-for="(definition, name) in component.props"
 				:key="name"
-				class="component-props-form__field"
+				:id="`component-prop-${name}`"
+				:label="definition.name ?? name"
+				:description="definition.description"
+				:error="fieldError(name, definition)"
+				:required="definition.required"
+				:disabled="disabled"
 			>
-				<label :for="`component-prop-${name}`">
-					{{ definition.name ?? name }}<span v-if="definition.required"> *</span>
+				<template #label>
+					{{ definition.name ?? name }}
 					<VChip v-if="componentPropDeprecation(definition)" x-small>Deprecated</VChip>
-				</label>
-				<p
-					v-if="componentPropDeprecation(definition)?.text"
-					class="component-props-form__deprecated"
-				>
-					{{ componentPropDeprecation(definition)?.text }}
-				</p>
-				<ImageUploadField
-					v-if="
-						definition.type === 'string' && componentPropEditor(definition) === 'image'
-					"
-					:preview-source="imagePreview(name)"
-					:disabled="disabled"
-					@select="setImageValue(name, $event)"
-					@clear="clearImageValue(name)"
-				/>
-				<template
-					v-else-if="
-						definition.type === 'string' && componentPropEditor(definition) === 'url'
-					"
-				>
-					<VInput
-						:id="`component-prop-${name}`"
+				</template>
+				<template #default="field">
+					<p
+						v-if="componentPropDeprecation(definition)?.text"
+						class="component-props-form__deprecated"
+					>
+						{{ componentPropDeprecation(definition)?.text }}
+					</p>
+					<ImageInput
+						v-if="
+							definition.type === 'string' &&
+							componentPropSpecialInputType(definition) === 'image'
+						"
+						v-bind="field"
 						:model-value="textValue(name)"
-						placeholder="https://example.com"
-						:error="Boolean(urlPropError(name, definition))"
-						:disabled="disabled"
+						:storage-mode="assetStorageMode ?? 'path'"
+						:base-url="assetBaseUrl"
 						@update:model-value="setTextValue(name, $event)"
 					/>
-					<p v-if="urlPropError(name, definition)" class="component-props-form__error">
-						{{ urlPropError(name, definition) }}
-					</p>
+					<UrlInput
+						v-else-if="
+							definition.type === 'string' &&
+							componentPropSpecialInputType(definition) === 'url'
+						"
+						v-bind="field"
+						:model-value="textValue(name)"
+						@update:model-value="setTextValue(name, $event)"
+					/>
+					<MultiSelectInput
+						v-else-if="definition.type === 'array'"
+						v-bind="field"
+						:model-value="arrayValue(name)"
+						:values="definition.values ?? []"
+						@update:model-value="form[name] = $event"
+					/>
+					<SelectInput
+						v-else-if="definition.values?.length"
+						v-bind="field"
+						:model-value="textValue(name)"
+						:values="definition.values"
+						@update:model-value="setTextValue(name, $event)"
+					/>
+					<BooleanInput
+						v-else-if="definition.type === 'boolean'"
+						v-bind="field"
+						:model-value="form[name] === true"
+						@update:model-value="form[name] = $event"
+					/>
+					<NumberInput
+						v-else-if="definition.type === 'number'"
+						v-bind="field"
+						:model-value="numberValue(name)"
+						@update:model-value="form[name] = $event"
+					/>
+					<StringInput
+						v-else
+						v-bind="field"
+						:model-value="textValue(name)"
+						@update:model-value="setTextValue(name, $event)"
+					/>
 				</template>
-				<VSelect
-					v-else-if="definition.type === 'array'"
-					:model-value="form[name]"
-					:items="definition.values?.map((value) => ({ text: value, value })) ?? []"
-					:disabled="disabled"
-					multiple
-					@update:model-value="setArrayValue(name, $event)"
-				/>
-				<VSelect
-					v-else-if="definition.values?.length"
-					:model-value="textValue(name)"
-					:items="definition.values.map((value) => ({ text: value, value }))"
-					:disabled="disabled"
-					@update:model-value="setTextValue(name, $event)"
-				/>
-				<VCheckbox
-					v-else-if="definition.type === 'boolean'"
-					:model-value="form[name] === true"
-					:label="definition.description ?? name"
-					:disabled="disabled"
-					@update:model-value="form[name] = $event"
-				/>
-				<VInput
-					v-else
-					:id="`component-prop-${name}`"
-					:model-value="textValue(name)"
-					:type="definition.type === 'number' ? 'number' : 'text'"
-					:placeholder="definition.description"
-					:disabled="disabled"
-					@update:model-value="
-						definition.type === 'number'
-							? setNumberValue(name, $event)
-							: setTextValue(name, $event)
-					"
-				/>
-			</div>
+			</Field>
 		</div>
 		<div v-else-if="editExisting" class="component-props-form">
 			<VNotice type="danger">
@@ -430,22 +431,9 @@ function remove() {
 	color: var(--theme--foreground-subdued, #8b98a5);
 	font-size: 0.75rem;
 }
-.component-props-form__field {
-	display: grid;
-	gap: 0.35rem;
-}
-.component-props-form__field > label {
-	font-size: 0.8rem;
-	font-weight: 600;
-}
 .component-props-form__deprecated {
 	margin: 0;
 	color: var(--theme--warning-foreground, #7a5b00);
-	font-size: 0.75rem;
-}
-.component-props-form__error {
-	margin: 0;
-	color: var(--theme--danger, var(--danger));
 	font-size: 0.75rem;
 }
 </style>

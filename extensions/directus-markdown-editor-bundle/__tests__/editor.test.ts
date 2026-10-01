@@ -46,6 +46,9 @@ import {
 import {
 	directusAssetId,
 	directusAssetUrl,
+	formatAssetValue,
+	imagePreviewUrl,
+	normalizeAssetBaseUrl,
 	sanitizeImageUrl,
 } from '../src/markdown-editor-interface/editor/media'
 import { createSlashItems, filterSlashItems } from '../src/markdown-editor-interface/editor/slash'
@@ -1083,6 +1086,29 @@ describe('editor commands', () => {
 		expect(directusAssetId({ id: 'abc-123' })).toBe('abc-123')
 		expect(directusAssetId([{ id: 'abc-123' }])).toBe('abc-123')
 		expect(directusAssetId({ id: 'bad/id' })).toBeUndefined()
+		expect(formatAssetValue('abc-123', 'id')).toBe('abc-123')
+		expect(formatAssetValue('abc-123', 'path')).toBe('/assets/abc-123')
+		expect(formatAssetValue('abc-123', 'url', 'https://directus.example.com/')).toBe(
+			'https://directus.example.com/assets/abc-123',
+		)
+		expect(formatAssetValue('abc-123', 'url')).toBeUndefined()
+		expect(normalizeAssetBaseUrl('javascript:alert(1)')).toBeUndefined()
+		expect(normalizeAssetBaseUrl('https://user:pass@example.com')).toBeUndefined()
+		expect(imagePreviewUrl('abc-123')).toBe('/assets/abc-123')
+		expect(imagePreviewUrl('https://example.com/image.png')).toBe(
+			'https://example.com/image.png',
+		)
+	})
+
+	it('renders stored image IDs as local previews without changing Markdown', () => {
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: '![](abc-123)',
+			contentType: 'markdown',
+		})
+		expect(editor.getMarkdown()).toContain('![](abc-123)')
+		expect(editor.getHTML()).toContain('src="/assets/abc-123"')
+		editor.destroy()
 	})
 
 	it('filters slash commands by alternate names and component names', () => {

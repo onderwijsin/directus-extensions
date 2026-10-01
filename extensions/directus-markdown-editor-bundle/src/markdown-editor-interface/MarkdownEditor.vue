@@ -9,16 +9,16 @@ import { exitSuggestion } from '@tiptap/suggestion'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 
 import { replaceDocument } from './ai/document'
-import AiController from './components/AiController.vue'
-import ComponentInsertMenu from './components/ComponentInsertMenu.vue'
-import EditorContextMenus from './components/EditorContextMenus.vue'
-import EditorNotices from './components/EditorNotices.vue'
-import EditorTableMenu from './components/EditorTableMenu.vue'
-import EditorToolbar from './components/EditorToolbar.vue'
-import LinkDrawer from './components/LinkDrawer.vue'
-import MediaDrawer from './components/MediaDrawer.vue'
-import ReferenceController from './components/ReferenceController.vue'
-import SourceDrawer from './components/SourceDrawer.vue'
+import AiController from './components/ai/AiController.vue'
+import LinkDrawer from './components/drawers/LinkDrawer.vue'
+import MediaDrawer from './components/drawers/MediaDrawer.vue'
+import SourceDrawer from './components/drawers/SourceDrawer.vue'
+import EditorNotices from './components/preview/EditorNotices.vue'
+import ReferenceController from './components/references/ReferenceController.vue'
+import ComponentInsertMenu from './components/toolbar/ComponentInsertMenu.vue'
+import EditorContextMenus from './components/toolbar/EditorContextMenus.vue'
+import EditorTableMenu from './components/toolbar/EditorTableMenu.vue'
+import EditorToolbar from './components/toolbar/EditorToolbar.vue'
 import { useComponentMetadata } from './composables/useComponentMetadata'
 import { useEditorOverlays } from './composables/useEditorOverlays'
 import { useEditorShell } from './composables/useEditorShell'
@@ -26,6 +26,7 @@ import { refreshCodeHighlighting } from './editor/code-block'
 import { createEditorCommands, filterEditorCommands, isEditorToolEnabled } from './editor/commands'
 import { createEditorExtensions } from './editor/extensions'
 import { createLinkShortcut } from './editor/link'
+import { AssetStorageModeSchema, type AssetStorageMode } from './editor/media'
 import { synchronizeEditorMarkdown } from './editor/synchronization'
 
 const props = withDefaults(
@@ -43,6 +44,8 @@ const props = withDefaults(
 		comparisonActive?: boolean
 		comparisonSide?: 'base' | 'incoming'
 		ai?: boolean
+		assetStorageMode?: AssetStorageMode
+		assetBaseUrl?: string
 		collection?: string
 		field?: string
 		options?: {
@@ -52,6 +55,8 @@ const props = withDefaults(
 			tools?: string[] | null
 			useReferences?: boolean
 			ai?: boolean
+			assetStorageMode?: AssetStorageMode
+			assetBaseUrl?: string
 			referenceCollections?: unknown
 			referenceSnapshotMode?: ReferenceSnapshotMode
 		}
@@ -69,6 +74,12 @@ const lastEmittedValue = shallowRef<string>()
 const disabled = toRef(() => props.disabled)
 const { darkMode, fullscreen, toggleFullscreen } = useEditorShell(disabled)
 const enabledTools = computed(() => props.tools ?? props.options?.tools)
+const assetStorageMode = computed(
+	() =>
+		AssetStorageModeSchema.safeParse(props.assetStorageMode ?? props.options?.assetStorageMode)
+			.data ?? 'path',
+)
+const assetBaseUrl = computed(() => props.assetBaseUrl ?? props.options?.assetBaseUrl)
 const aiEnabled = computed(() => props.ai ?? props.options?.ai ?? false)
 const referencesEnabled = computed(
 	() => props.useReferences ?? props.options?.useReferences ?? false,
@@ -493,6 +504,8 @@ watch(
 				:editor="editor"
 				:disabled="disabled"
 				:initial-type="mediaDrawerType"
+				:asset-storage-mode="assetStorageMode"
+				:asset-base-url="assetBaseUrl"
 			/>
 			<SourceDrawer
 				v-if="isEditorToolEnabled(enabledTools, 'source')"
@@ -510,6 +523,8 @@ watch(
 				:disabled="disabled"
 				:insertion-enabled="componentInsertionEnabled"
 				:metadata-authoritative="componentMetadataAuthoritative"
+				:asset-storage-mode="assetStorageMode"
+				:asset-base-url="assetBaseUrl"
 				@attention-change="componentPropsNeedAttention = $event"
 			/>
 			<ReferenceController

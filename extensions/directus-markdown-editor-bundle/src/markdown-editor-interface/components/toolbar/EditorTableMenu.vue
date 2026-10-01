@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
 import type { Editor } from '@tiptap/core'
-import type { EditorCommand } from '../editor/commands'
+import type { EditorCommand } from '../../editor/commands'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 
-import { editorTableToolbarConfig, resolveCommands } from '../editor/commands'
+import { editorTableToolbarConfig, resolveCommands } from '../../editor/commands'
 
 const props = defineProps<{
 	editor: Editor

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
-import type { ReferenceIntegrityState } from '../reference/editor'
-import type { ReferenceProps } from '../reference/schema'
+import type { ReferenceIntegrityState } from '../../reference/editor'
+import type { ReferenceProps } from '../../reference/schema'
 
 import { computed, reactive, watch } from 'vue'
 
 import { useExtensions } from '@directus/extensions-sdk'
 import { isString } from '@onderwijsin/directus-extension-utils'
+
+import Field from '../fields/Field.vue'
+import StringInput from '../fields/StringInput.vue'
 
 const props = defineProps<{
 	reference?: ReferenceProps
@@ -113,27 +116,34 @@ function setIcon(value: unknown) {
 				</div>
 			</section>
 			<section class="reference-drawer__form">
-				<label for="reference-text">Link text</label>
-				<VInput
-					id="reference-text"
-					v-model="form.text"
-					:placeholder="reference.label"
-					:disabled="disabled"
-				/>
-				<label>Icon</label>
-				<component
-					:is="iconInterface"
-					v-if="iconInterface"
-					:value="form.icon || null"
-					:disabled="disabled"
-					@input="setIcon"
-				/>
-				<VInput
-					v-else
-					v-model="form.icon"
-					placeholder="Material icon name"
-					:disabled="disabled"
-				/>
+				<Field id="reference-text" label="Link text" :disabled="disabled">
+					<template #default="field">
+						<StringInput
+							v-model="form.text"
+							v-bind="field"
+							:placeholder="reference.label"
+						/>
+					</template>
+				</Field>
+				<Field id="reference-icon" label="Icon" :disabled="disabled">
+					<template #default="field">
+						<component
+							:is="iconInterface"
+							v-if="iconInterface"
+							:id="field.id"
+							:aria-describedby="field.describedBy"
+							:value="form.icon || null"
+							:disabled="field.disabled"
+							@input="setIcon"
+						/>
+						<StringInput
+							v-else
+							v-model="form.icon"
+							v-bind="field"
+							placeholder="Material icon name"
+						/>
+					</template>
+				</Field>
 			</section>
 		</div>
 		<template #actions>
@@ -217,10 +227,6 @@ function setIcon(value: unknown) {
 .reference-drawer__form {
 	display: grid;
 	gap: 0.75rem;
-}
-.reference-drawer label {
-	font-size: 0.8rem;
-	font-weight: 600;
 }
 .reference-drawer__identity {
 	color: var(--theme--foreground-subdued, #8b98a5);

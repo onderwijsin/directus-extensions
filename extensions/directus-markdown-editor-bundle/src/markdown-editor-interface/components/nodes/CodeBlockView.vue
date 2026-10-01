@@ -5,8 +5,8 @@ import { computed } from 'vue'
 import { isString } from '@onderwijsin/directus-extension-utils'
 import { NodeViewContent, NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 
-import { useEditorEditable } from '../composables/useEditorEditable'
-import { codeLanguageOptions } from '../editor/code-languages'
+import { useEditorEditable } from '../../composables/useEditorEditable'
+import { codeLanguageOptions } from '../../editor/code-languages'
 
 const props = defineProps(nodeViewProps)
 const editable = useEditorEditable(props.editor)

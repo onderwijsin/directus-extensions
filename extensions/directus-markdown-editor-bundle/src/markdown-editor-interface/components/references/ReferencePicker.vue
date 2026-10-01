@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
-import type { ReferenceApiClient, ReferenceSearchResult } from '../reference/api'
-import type { ResolvedReferenceCollectionConfig } from '../reference/schema'
+import type { ReferenceApiClient, ReferenceSearchResult } from '../../reference/api'
+import type { ResolvedReferenceCollectionConfig } from '../../reference/schema'
 
 import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 
-import { searchReferences } from '../reference/api'
+import { searchReferences } from '../../reference/api'
 
 const props = defineProps<{
 	api: ReferenceApiClient

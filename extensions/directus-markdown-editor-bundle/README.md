@@ -93,6 +93,8 @@ Configure these options on each field using the **Markdown (MDC)** interface.
 | Option                            | Default  | Description                                                                                                                                                                                                                                                                                                |
 | --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Available editor tools**        | empty    | Selects the toolbar, `/` menu, block actions, insertion controls, and native shortcuts available on this field. An empty selection enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
+| **Store assets as**               | `path`   | Format for newly selected Directus images in Markdown and MDC image properties: `id`, `path` (`/assets/{id}`), or `url`. Existing image values are not rewritten.                                                                                                                                          |
+| **Asset base URL**                | unset    | Required in `url` mode. HTTP(S) Directus base URL, for example `https://directus.example.com`; selected images are stored as `https://directus.example.com/assets/{id}`.                                                                                                                                   |
 | **Use static component metadata** | `false`  | Chooses static JSON instead of loading component metadata from a URL.                                                                                                                                                                                                                                      |
 | **Component metadata URL**        | unset    | Browser-accessible JSON URL used while static metadata is disabled.                                                                                                                                                                                                                                        |
 | **Static component metadata**     | unset    | Required JSON value while static metadata is enabled.                                                                                                                                                                                                                                                      |
@@ -215,7 +217,7 @@ framework and accepts either an array or an object with a `components` array:
         "image": {
           "name": "Image",
           "type": "string",
-          "tags": [{ "name": "editor", "text": "image" }]
+          "tags": [{ "name": "specialInputType", "text": "image" }]
         }
       },
       "slots": ["default"]
@@ -244,26 +246,29 @@ framework and accepts either an array or an object with a `components` array:
 
 ### Property fields
 
-| Field         | Required           | Contract                                                                                                                      |
-| ------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                                      |
-| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, or `array`. Unknown values fall back to text.                               |
-| `description` | no                 | Help text for the property.                                                                                                   |
-| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                                    |
-| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                                       |
-| `values`      | for `array`        | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                               |
-| `tags`        | no                 | JSDoc tags from component metadata; `deprecated` adds a hint, while `editor: image` and `editor: url` select richer controls. |
+| Field         | Required           | Contract                                                                                                                                                                                    |
+| ------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                                                                                                    |
+| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, or `array`. Unknown values fall back to text.                                                                                             |
+| `description` | no                 | Help text for the property.                                                                                                                                                                 |
+| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                                                                                                  |
+| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                                                                                                     |
+| `values`      | for `array`        | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                                                                                             |
+| `tags`        | no                 | JSDoc tags from component metadata; `deprecated` adds a hint, while `specialInputType: image` and `specialInputType: url` select richer controls. The former `editor` tag remains readable. |
 
 The primitive controls preserve their corresponding values: `string` stores a string, `number`
 stores a number, `boolean` stores a boolean, and `array` stores a string array. A string property
 with `values` is the select form of the string control; `select` is not a separate property type.
 
 For an image asset property, keep the component prop typed as `string` and add the Vue-compatible
-JSDoc tag `@editor image`. In JSON this is `{ "name": "editor", "text": "image" }`. The drawer uses
-the Directus image selector, shows the selected asset as a removable thumbnail, and persists only
-the Directus file ID. Use `@editor url` for a string control that requires a valid HTTP(S) URL with
-its protocol. Both hints keep the metadata compatible with `nuxt-component-meta`; arbitrary JSDoc
-tags remain available, while the editor interprets only documented hints and `deprecated`.
+JSDoc tag `@specialInputType image`. In JSON this is
+`{ "name": "specialInputType", "text": "image" }`. The drawer uses the Directus image selector,
+shows the selected asset as a removable thumbnail, and persists the selected format from **Store
+assets as**. The default is now `/assets/{id}` for newly selected MDC image properties; existing
+stored IDs remain unchanged. Use `@specialInputType url` for a string control that requires a valid
+HTTP(S) URL with its protocol. Existing metadata with `@editor image` or `@editor url` still works;
+when both tags are supplied, `specialInputType` wins. Arbitrary JSDoc tags remain available, while
+the editor interprets only documented hints and `deprecated`.
 
 When a static value or metadata URL loads successfully, the editor treats that metadata as
 authoritative and checks components after hydration. Missing required properties, required
@@ -431,11 +436,13 @@ Collapsible code uses an MDC `::code-collapse` wrapper. Inside code blocks, Tab 
 indent/outdent and Enter preserves indentation.
 
 Images and video can be selected from the Directus file library or entered as HTTP(S), relative, or
-`/assets/{id}` URLs. Image library browsing is filtered to image MIME types and video browsing to
-video MIME types. Selected images and videos show a removable preview; video previews include native
-playback controls. Existing image and video blocks expose **Edit image** or **Edit video** in their
-drag-handle action menu. Executable and data protocols are rejected. The extension does not
-transform images, generate captions, or provide a frontend media renderer.
+`/assets/{id}` URLs. Newly selected images follow **Store assets as**; `id` values are previewed
+through the current Directus `/assets/` path while their Markdown keeps the bare ID. Image library
+browsing is filtered to image MIME types and video browsing to video MIME types. Selected images and
+videos show a removable preview; video previews include native playback controls. Existing image and
+video blocks expose **Edit image** or **Edit video** in their drag-handle action menu. Executable
+and data protocols are rejected. The extension does not transform images, generate captions, or
+provide a frontend media renderer.
 
 ## Studio Docs article
 

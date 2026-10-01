@@ -5,20 +5,45 @@ import { computed, ref, shallowRef, watch } from 'vue'
 
 import { isString } from '@onderwijsin/directus-extension-utils'
 
-import { directusAssetId, directusAssetUrl, sanitizeImageUrl } from '../editor/media'
-import ImageUploadField from './ImageUploadField.vue'
-import VideoUploadField from './VideoUploadField.vue'
+import {
+	directusAssetId,
+	directusAssetUrl,
+	imagePreviewUrl,
+	normalizeAssetBaseUrl,
+	sanitizeImageUrl,
+	type AssetStorageMode,
+} from '../../editor/media'
+import Field from '../fields/Field.vue'
+import ImageInput from '../fields/ImageInput.vue'
+import VideoUploadField from '../fields/VideoUploadField.vue'
 
 const props = defineProps<{
 	editor: Editor
 	disabled?: boolean
 	initialType?: 'image' | 'video'
+	assetStorageMode?: AssetStorageMode
+	assetBaseUrl?: string
 }>()
 const open = defineModel<boolean>({ default: false })
 const activeTab = ref('image')
 const source = ref('')
 const editing = shallowRef(false)
-const canApply = computed(() => Boolean(sanitizeImageUrl(source.value)))
+const assetBaseError = computed(() =>
+	activeTab.value === 'image' &&
+	props.assetStorageMode === 'url' &&
+	!normalizeAssetBaseUrl(props.assetBaseUrl ?? '')
+		? 'Configure a valid HTTP(S) asset base URL.'
+		: undefined,
+)
+const canApply = computed(
+	() =>
+		!assetBaseError.value &&
+		Boolean(
+			activeTab.value === 'image'
+				? imagePreviewUrl(source.value)
+				: sanitizeImageUrl(source.value),
+		),
+)
 const drawerTitle = computed(() =>
 	activeTab.value === 'image' ? 'Add/Edit Image' : 'Add/Edit Media',
 )
@@ -72,7 +97,10 @@ function clearSource() {
  */
 function save() {
 	if (!canApply.value || props.disabled) return
-	const src = sanitizeImageUrl(source.value)
+	const src =
+		activeTab.value === 'image'
+			? imagePreviewUrl(source.value) && source.value.trim()
+			: sanitizeImageUrl(source.value)
 	if (!src) return
 	const nodeType = activeTab.value === 'video' ? 'video' : 'image'
 	const chain = props.editor.chain().focus()
@@ -107,13 +135,21 @@ function remove() {
 		@apply="save"
 	>
 		<div class="media-drawer__content">
-			<ImageUploadField
+			<Field
 				v-if="activeTab === 'image'"
-				:preview-source="sanitizeImageUrl(source)"
+				label="Image"
+				:error="assetBaseError"
 				:disabled="disabled"
-				@select="onFileSelect"
-				@clear="clearSource"
-			/>
+			>
+				<template #default="field">
+					<ImageInput
+						v-model="source"
+						v-bind="field"
+						:storage-mode="assetStorageMode ?? 'path'"
+						:base-url="assetBaseUrl"
+					/>
+				</template>
+			</Field>
 			<VideoUploadField
 				v-else
 				:preview-source="sanitizeImageUrl(source)"

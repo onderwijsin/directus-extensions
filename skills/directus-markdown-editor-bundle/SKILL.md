@@ -65,16 +65,18 @@ enabled.
 
 Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configure every option:
 
-| Option                               | Default  | Accepted value and effect                                                                                                                                                                                                                                                                              |
-| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tools` / **Available editor tools** | `[]`     | JSON array of individual tool IDs. Controls toolbar, slash menu, contextual controls, insertion, and shortcuts. An empty array enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
-| `useStaticComponentMeta`             | `false`  | Boolean. Chooses `staticComponentMeta`; otherwise `metadataUrl` is used.                                                                                                                                                                                                                               |
-| `metadataUrl`                        | unset    | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                                                                                                                                              |
-| `staticComponentMeta`                | unset    | Required JSON while static mode is enabled. No metadata request is made.                                                                                                                                                                                                                               |
-| `useReferences`                      | `false`  | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                                                                                                                                          |
-| `referenceCollections`               | unset    | Required non-empty JSON array while References are enabled.                                                                                                                                                                                                                                            |
-| `referenceSnapshotMode`              | `detect` | `snapshot`, `detect`, or `sync`.                                                                                                                                                                                                                                                                       |
-| `ai` / **Enable AI editing**         | `false`  | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                                                                                                                                               |
+| Option                                   | Default  | Accepted value and effect                                                                                                                                                                                                                                                                              |
+| ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tools` / **Available editor tools**     | `[]`     | JSON array of individual tool IDs. Controls toolbar, slash menu, contextual controls, insertion, and shortcuts. An empty array enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
+| `assetStorageMode` / **Store assets as** | `path`   | `id`, `path`, or `url` for newly selected Directus images in Markdown and MDC image properties. Existing image values are not rewritten.                                                                                                                                                               |
+| `assetBaseUrl` / **Asset base URL**      | unset    | Required when `assetStorageMode` is `url`; use an HTTP(S) Directus base URL.                                                                                                                                                                                                                           |
+| `useStaticComponentMeta`                 | `false`  | Boolean. Chooses `staticComponentMeta`; otherwise `metadataUrl` is used.                                                                                                                                                                                                                               |
+| `metadataUrl`                            | unset    | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                                                                                                                                              |
+| `staticComponentMeta`                    | unset    | Required JSON while static mode is enabled. No metadata request is made.                                                                                                                                                                                                                               |
+| `useReferences`                          | `false`  | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                                                                                                                                          |
+| `referenceCollections`                   | unset    | Required non-empty JSON array while References are enabled.                                                                                                                                                                                                                                            |
+| `referenceSnapshotMode`                  | `detect` | `snapshot`, `detect`, or `sync`.                                                                                                                                                                                                                                                                       |
+| `ai` / **Enable AI editing**             | `false`  | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                                                                                                                                               |
 
 ## Configure AI editing
 
@@ -152,6 +154,11 @@ Image and video library selection is MIME-filtered to the matching media type. S
 videos show a removable preview; video previews include native playback controls. Existing media
 nodes expose **Edit image** or **Edit video** in the drag-handle action menu and reopen the same
 media drawer used for insertion.
+
+For metadata image and URL controls, use `{ "name": "specialInputType", "text": "image" }` or
+`{ "name": "specialInputType", "text": "url" }` on a `string` property. The former `editor` tag
+remains readable, with `specialInputType` taking precedence. The default image storage format is now
+`/assets/{id}` for newly selected component images; existing ID values remain untouched.
 
 The endpoint reads the target field's `tools` option and constructs the system prompt for that
 specific editor instance. AI may introduce only currently enabled authoring syntax, while existing
@@ -279,17 +286,19 @@ For a property definition:
 - `required: true` blocks insertion while empty unless a default exists;
 - `default` may contain a JSON-compatible initial value; and
 - `values` is an array of string choices and is required for `type: "array"`;
-- `tags: [{ "name": "editor", "text": "image" }]` (the JSON form of `@editor image`) keeps a prop
-  typed and persisted as a `string` while rendering a Directus image selector with a removable
-  thumbnail; and
-- `tags: [{ "name": "editor", "text": "url" }]` (the JSON form of `@editor url`) keeps a prop typed
-  and persisted as a `string` while requiring a valid HTTP(S) URL with its protocol.
+- `tags: [{ "name": "specialInputType", "text": "image" }]` (the JSON form of
+  `@specialInputType image`) keeps a prop typed and persisted as a `string` while rendering a
+  Directus image selector with a removable thumbnail; and
+- `tags: [{ "name": "specialInputType", "text": "url" }]` (the JSON form of `@specialInputType url`)
+  keeps a prop typed and persisted as a `string` while requiring a valid HTTP(S) URL with its
+  protocol.
 
-Primitive controls persist their matching JSON value types. The image editor hint persists only the
-selected Directus file ID, not an asset URL or file object. Editor hints are carried as JSDoc tags
-so the metadata remains compatible with `nuxt-component-meta`; arbitrary upstream tags continue to
-pass through unchanged. `@editor` is the extensible editor-control namespace; `image` and `url` are
-currently supported.
+Primitive controls persist their matching JSON value types. The image hint persists a selected
+Directus asset as an ID, `/assets/{id}` path, or absolute URL according to `assetStorageMode` (path
+by default), never as a file object. Hints are carried as JSDoc tags so the metadata remains
+compatible with `nuxt-component-meta`; arbitrary upstream tags continue to pass through unchanged.
+`@specialInputType` is the control namespace; `image` and `url` are currently supported. Older
+`@editor` tags remain readable, and `specialInputType` takes precedence if both are supplied.
 
 - `tags` preserves JSDoc tags; `{ "name": "deprecated", "text": "Use newProp instead." }` displays a
   deprecation hint without changing runtime behavior.

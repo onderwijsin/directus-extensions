@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue template callbacks are private component behavior. */
-import type { ReferenceOccurrence } from '../reference/editor'
+import type { ReferenceOccurrence } from '../../reference/editor'
 
 import { isNumber, isRecord, isString } from '@onderwijsin/directus-extension-utils'
 

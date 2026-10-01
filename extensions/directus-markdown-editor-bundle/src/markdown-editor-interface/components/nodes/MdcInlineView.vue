@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import type { ComponentIntegrityState } from '../component-meta/freshness'
+import type { ComponentIntegrityState } from '../../component-meta/freshness'
 /* eslint-disable jsdoc-js/require-jsdoc -- Vue NodeView callbacks are private component behavior. */
-import type { ReferenceIntegrityState } from '../reference/editor'
+import type { ReferenceIntegrityState } from '../../reference/editor'
 
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
 import { isFunction, isInteger, isString } from '@onderwijsin/directus-extension-utils'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 
-import { getEditorComponentState } from '../component-meta/status'
-import { useEditorEditable } from '../composables/useEditorEditable'
-import { parseReferenceProps } from '../reference/schema'
-import { getEditorReferenceState } from '../reference/status'
+import { getEditorComponentState } from '../../component-meta/status'
+import { useEditorEditable } from '../../composables/useEditorEditable'
+import { parseReferenceProps } from '../../reference/schema'
+import { getEditorReferenceState } from '../../reference/status'
 import { mdcNodeViewProps } from './mdcNodeViewProps'
 
 const props = defineProps(mdcNodeViewProps)

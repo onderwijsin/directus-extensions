@@ -14,7 +14,7 @@ interface MarkdownEditorOption {
 		interface?: string
 		note: string
 		conditions?: {
-			rule: Record<string, { _eq: boolean }>
+			rule: Record<string, { _eq?: boolean | string; _neq?: string }>
 			hidden: boolean
 		}[]
 		options?: {
@@ -59,6 +59,35 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 				},
 			},
 			schema: { default_value: [] },
+		},
+		{
+			field: 'assetStorageMode',
+			name: 'Store assets as',
+			type: 'string',
+			meta: {
+				width: 'half',
+				interface: 'select-dropdown',
+				note: 'Format used when selecting Directus images in Markdown or component properties.',
+				options: {
+					choices: [
+						{ text: 'Asset ID', value: 'id' },
+						{ text: 'Relative asset path', value: 'path' },
+						{ text: 'Absolute asset URL', value: 'url' },
+					],
+				},
+			},
+			schema: { default_value: 'path' },
+		},
+		{
+			field: 'assetBaseUrl',
+			name: 'Asset base URL',
+			type: 'string',
+			required: true,
+			meta: {
+				width: 'half',
+				note: 'HTTP(S) Directus base URL, for example https://directus.example.com.',
+				conditions: [{ rule: { assetStorageMode: { _neq: 'url' } }, hidden: true }],
+			},
 		},
 		{
 			field: 'useStaticComponentMeta',

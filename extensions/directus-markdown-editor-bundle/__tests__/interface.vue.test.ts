@@ -6,11 +6,14 @@ import { Editor } from '@tiptap/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createMarkdownEditorOptions } from '../src/markdown-editor-interface'
-import ComponentPropsDrawer from '../src/markdown-editor-interface/components/ComponentPropsDrawer.vue'
-import EditorTableMenu from '../src/markdown-editor-interface/components/EditorTableMenu.vue'
-import EditorToolbar from '../src/markdown-editor-interface/components/EditorToolbar.vue'
-import ImageUploadField from '../src/markdown-editor-interface/components/ImageUploadField.vue'
-import VideoUploadField from '../src/markdown-editor-interface/components/VideoUploadField.vue'
+import ComponentPropsDrawer from '../src/markdown-editor-interface/components/drawers/ComponentPropsDrawer.vue'
+import Field from '../src/markdown-editor-interface/components/fields/Field.vue'
+import ImageUploadField from '../src/markdown-editor-interface/components/fields/ImageUploadField.vue'
+import NumberInput from '../src/markdown-editor-interface/components/fields/NumberInput.vue'
+import StringInput from '../src/markdown-editor-interface/components/fields/StringInput.vue'
+import VideoUploadField from '../src/markdown-editor-interface/components/fields/VideoUploadField.vue'
+import EditorTableMenu from '../src/markdown-editor-interface/components/toolbar/EditorTableMenu.vue'
+import EditorToolbar from '../src/markdown-editor-interface/components/toolbar/EditorToolbar.vue'
 import { createEditorCommands } from '../src/markdown-editor-interface/editor/commands'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
 import MarkdownEditor from '../src/markdown-editor-interface/MarkdownEditor.vue'
@@ -169,6 +172,61 @@ afterEach(() => {
 })
 
 describe('Markdown editor interface', () => {
+	it('associates field labels, descriptions, and errors with the input', () => {
+		const root = defineComponent({
+			components: { Field, StringInput },
+			template:
+				'<Field label="Title" description="Shown above the body" error="Title is required" required><template #default="field"><StringInput v-bind="field" model-value="" /></template></Field>',
+		})
+		const element = document.createElement('div')
+		document.body.appendChild(element)
+		const app = createApp(root)
+		registerDirectusPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+		const input = element.querySelector('input')
+		const label = element.querySelector('label')
+		expect(label?.htmlFor).toBe(input?.id)
+		expect(input?.getAttribute('aria-describedby')).toBe(
+			`${input?.id}-description ${input?.id}-error`,
+		)
+		expect(input?.getAttribute('aria-invalid')).toBe('true')
+		expect(input?.getAttribute('aria-required')).toBe('true')
+		expect(element.querySelector('[role="alert"]')?.textContent).toBe('Title is required')
+	})
+
+	it('keeps empty numeric inputs empty and emits only finite numbers', async () => {
+		const update = vi.fn()
+		const root = defineComponent({
+			setup: () => () => h(NumberInput, { modelValue: '', 'onUpdate:modelValue': update }),
+		})
+		const element = document.createElement('div')
+		document.body.appendChild(element)
+		const app = createApp(root)
+		registerDirectusPrimitives(app)
+		app.component(
+			'VInput',
+			defineComponent({
+				props: ['modelValue'],
+				emits: ['update:modelValue'],
+				template:
+					'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+			}),
+		)
+		app.mount(element)
+		mounted.push({ app, element })
+		const input = element.querySelector('input')
+		if (!input) throw new Error('Number input was not rendered')
+		for (const value of ['42', '', 'not-a-number']) {
+			input.value = value
+			input.dispatchEvent(new Event('input', { bubbles: true }))
+		}
+		await nextTick()
+		expect(update).toHaveBeenCalledTimes(2)
+		expect(update).toHaveBeenNthCalledWith(1, 42)
+		expect(update).toHaveBeenNthCalledWith(2, '')
+	})
+
 	it('renders the selected image preview and forwards image selections', async () => {
 		const selected = vi.fn()
 		const cleared = vi.fn()
@@ -293,7 +351,7 @@ describe('Markdown editor interface', () => {
 		expect(upload?.getAttribute('data-filter')).toBe('{"type":{"_contains":"video"}}')
 	})
 
-	it('persists only the selected image asset ID for tagged string properties', async () => {
+	it('persists the selected image asset path for tagged string properties', async () => {
 		const editor = new Editor({ extensions: createEditorExtensions() })
 		const root = defineComponent({
 			setup: () => () =>
@@ -307,7 +365,7 @@ describe('Markdown editor interface', () => {
 						props: {
 							image: {
 								type: 'string',
-								tags: [{ name: 'editor', text: 'image' }],
+								tags: [{ name: 'specialInputType', text: 'image' }],
 							},
 						},
 						slots: [],
@@ -340,7 +398,7 @@ describe('Markdown editor interface', () => {
 			type: 'mdcBlock',
 			attrs: {
 				name: 'Hero',
-				props: { image: 'asset-id' },
+				props: { image: '/assets/asset-id' },
 				depth: 2,
 				propsFormat: 'inline',
 			},
@@ -355,6 +413,17 @@ describe('Markdown editor interface', () => {
 				schema: { default_value: false },
 			},
 		)
+	})
+	it('configures path storage by default and shows base URL for absolute URL storage', () => {
+		const options = createMarkdownEditorOptions()
+		expect(options.find((option) => option.field === 'assetStorageMode')).toMatchObject({
+			type: 'string',
+			schema: { default_value: 'path' },
+		})
+		expect(options.find((option) => option.field === 'assetBaseUrl')).toMatchObject({
+			type: 'string',
+			meta: { conditions: [{ rule: { assetStorageMode: { _neq: 'url' } }, hidden: true }] },
+		})
 	})
 	it('exposes a Directus multiselect for all configurable tools', () => {
 		const options = createMarkdownEditorOptions()
