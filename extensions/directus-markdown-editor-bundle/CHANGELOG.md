@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- ce2cb7f: Allow authors to add and edit image alt text in the media drawer and persist it in
+  Markdown.
+- 3725221: Add configurable ID, asset path, and absolute URL storage for selected images in Markdown
+  and component properties.
+- 26e6275: Support nested object properties, draggable object arrays, and draggable free-form tag
+  chips in component metadata forms.
+- 3725221: Use `specialInputType` metadata tags for image and URL component controls while retaining
+  support for existing `editor` tags.
+
+### Patch Changes
+
+- ce2cb7f: Keep video nodes within the Markdown editor and preview width.
+- e681695: Serialize MDC dynamic JSON bindings with single outer quotes so nested objects and arrays
+  retain standard JSON syntax.
+- cef4b4f: Left-align table header content in the Markdown editor and preview.
+- 915a7db: Render the configured component label in Markdown editor block cards while preserving the
+  component name in serialized Markdown.
+- f8f663f: Add spacing between the image picker and alt text field in the media drawer.
+- ce2cb7f: Add space before the object repeater's remove button.
+- 18060e7: Use soft danger-toned X buttons to remove component repeater rows and free-form tags.
+- 817c411: Report component metadata validation paths and log load failures with their source in the
+  browser console.
+
 ## 0.3.0
 
 ### Minor Changes
