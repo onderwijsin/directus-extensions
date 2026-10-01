@@ -222,16 +222,16 @@ describe('component metadata boundary', () => {
 		})
 	})
 
-	it('rejects array properties without allowed values', () => {
-		expect(() =>
+	it('accepts free-form array properties without allowed values', () => {
+		expect(
 			normalizeComponentMetadata([
 				{
 					name: 'CardGrid',
 					nodeType: 'block',
 					props: { columns: { type: 'array' } },
 				},
-			]),
-		).toThrow('[0].props.columns.values')
+			])[0]?.props.columns,
+		).toEqual({ type: 'array' })
 	})
 
 	it('uses specialInputType tags while accepting legacy editor tags', () => {

@@ -110,7 +110,16 @@ describe('component metadata sources', () => {
 	it('logs a URL and validation path when remote metadata is invalid', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 		fetchMetadata.mockResolvedValue([
-			{ name: 'Hero', nodeType: 'block', props: { actions: { type: 'array' } } },
+			{
+				name: 'Hero',
+				nodeType: 'block',
+				props: {
+					actions: {
+						type: 'array',
+						items: { type: 'object', properties: { label: { required: 'yes' } } },
+					},
+				},
+			},
 		])
 		const metadata = mountMetadata({
 			metadataUrl: shallowRef('https://example.com/components.json'),
@@ -119,7 +128,9 @@ describe('component metadata sources', () => {
 		await flushMetadata()
 
 		expect(metadata.state.value).toBe('error')
-		expect(metadata.error.value?.message).toContain('[0].props.actions.values')
+		expect(metadata.error.value?.message).toContain(
+			'[0].props.actions.items.properties.label.required',
+		)
 		expect(consoleError).toHaveBeenCalledWith(
 			'Failed to load component metadata',
 			'from https://example.com/components.json',

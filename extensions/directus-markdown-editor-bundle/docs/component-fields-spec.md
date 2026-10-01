@@ -151,12 +151,12 @@ No dependency is needed. The new metadata hint and storage options change the pu
 update the package README and matching consumer skill. Add a scoped Changeset for the published
 extension. The spec itself is documentation only.
 
-## Future compatibility seam
+## Subsequent recursive metadata expansion
 
-The supplied Hero metadata contains `image` as an object and `actions` as an array of objects. Today
-the metadata schema requires `values` for arrays and does not model nested `properties` or `items`;
-the current drawer cannot edit those structures. Keep field keys and draft values capable of
-identifying nested paths later, but do not infer nested schemas, add recursive rendering, relax
-array validation, or claim this JSON is accepted in the current change. A separate spec should
-define nested value serialization, array item identity/reordering, defaults, required semantics,
-errors by path, and freshness behavior before implementation.
+The editor now accepts recursive `properties` and `items` in component metadata. Object properties
+render as labeled dashed groups. Arrays of objects render repeatable groups with Add, drag reorder,
+keyboard move controls, and confirmed Remove. Arrays with `values` remain multiselects; arrays
+without `values` use a free-form string tag input with draggable chips. Nested required and URL
+fields use dotted error paths, including row indexes. Nested objects and arrays persist in MDC
+attributes as dynamic JSON bindings. The `icon` special input hint and its `config` are retained,
+while its control remains a plain string input pending a dedicated icon picker.

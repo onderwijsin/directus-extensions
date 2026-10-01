@@ -246,19 +246,31 @@ framework and accepts either an array or an object with a `components` array:
 
 ### Property fields
 
-| Field         | Required           | Contract                                                                                                                                                                                    |
-| ------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                                                                                                    |
-| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, or `array`. Unknown values fall back to text.                                                                                             |
-| `description` | no                 | Help text for the property.                                                                                                                                                                 |
-| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                                                                                                  |
-| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                                                                                                     |
-| `values`      | for `array`        | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                                                                                             |
-| `tags`        | no                 | JSDoc tags from component metadata; `deprecated` adds a hint, while `specialInputType: image` and `specialInputType: url` select richer controls. The former `editor` tag remains readable. |
+| Field         | Required           | Contract                                                                                                                                                                                                            |
+| ------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                                                                                                                            |
+| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, `object`, or `array`. Unknown legacy values fall back to text.                                                                                                    |
+| `description` | no                 | Help text for the property.                                                                                                                                                                                         |
+| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                                                                                                                          |
+| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                                                                                                                             |
+| `values`      | no                 | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                                                                                                                     |
+| `properties`  | no                 | Child property map for an `object`, rendered as a labeled group. Children may themselves be objects or arrays.                                                                                                      |
+| `items`       | no                 | Item definition for an `array`. Object items render a reorderable repeater; string items without `values` render editable tags.                                                                                     |
+| `tags`        | no                 | JSDoc tags from component metadata, with optional `config`; `deprecated` adds a hint, while `specialInputType: image` and `specialInputType: url` select richer controls. The former `editor` tag remains readable. |
 
 The primitive controls preserve their corresponding values: `string` stores a string, `number`
-stores a number, `boolean` stores a boolean, and `array` stores a string array. A string property
-with `values` is the select form of the string control; `select` is not a separate property type.
+stores a number, `boolean` stores a boolean, and a primitive `array` stores a string array. A string
+property with `values` is the select form of the string control; `select` is not a separate property
+type. Arrays without `values` accept free-form tags that can be dragged into order. Object arrays
+render rows with Add, drag to reorder, keyboard move controls, and confirmed removal. Nested
+required fields and URL hints block Apply/Insert when invalid. Objects and object arrays persist as
+JSON-backed MDC attributes.
+
+For example, a Hero can define `image` as
+`{ "type": "object", "properties": { "src": { "type": "string", "required": true, "tags": [{ "name": "specialInputType", "text": "image" }] } } }`
+and `actions` as
+`{ "type": "array", "items": { "type": "object", "properties": { "label": { "type": "string", "required": true }, "to": { "type": "string", "tags": [{ "name": "specialInputType", "text": "url" }] } } } }`.
+The `icon` hint is accepted with its `config` metadata and currently uses the string control.
 
 For an image asset property, keep the component prop typed as `string` and add the Vue-compatible
 JSDoc tag `@specialInputType image`. In JSON this is

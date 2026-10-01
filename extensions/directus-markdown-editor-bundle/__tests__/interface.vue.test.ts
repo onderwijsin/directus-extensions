@@ -10,7 +10,9 @@ import ComponentPropsDrawer from '../src/markdown-editor-interface/components/dr
 import Field from '../src/markdown-editor-interface/components/fields/Field.vue'
 import ImageUploadField from '../src/markdown-editor-interface/components/fields/ImageUploadField.vue'
 import NumberInput from '../src/markdown-editor-interface/components/fields/NumberInput.vue'
+import ObjectArrayInput from '../src/markdown-editor-interface/components/fields/ObjectArrayInput.vue'
 import StringInput from '../src/markdown-editor-interface/components/fields/StringInput.vue'
+import TagsInput from '../src/markdown-editor-interface/components/fields/TagsInput.vue'
 import VideoUploadField from '../src/markdown-editor-interface/components/fields/VideoUploadField.vue'
 import EditorTableMenu from '../src/markdown-editor-interface/components/toolbar/EditorTableMenu.vue'
 import EditorToolbar from '../src/markdown-editor-interface/components/toolbar/EditorToolbar.vue'
@@ -19,6 +21,102 @@ import { createEditorExtensions } from '../src/markdown-editor-interface/editor/
 import MarkdownEditor from '../src/markdown-editor-interface/MarkdownEditor.vue'
 
 const mounted: { app: ReturnType<typeof createApp>; element: HTMLElement }[] = []
+
+vi.mock('vuedraggable', () => ({
+	default: defineComponent({
+		props: ['modelValue', 'disabled'],
+		emits: ['update:modelValue'],
+		setup(props, { emit, slots }) {
+			return () => {
+				const values: unknown[] = Array.isArray(props.modelValue) ? props.modelValue : []
+				return h('div', { class: 'sortable-test' }, [
+					...values.map((element, index) => slots.item?.({ element, index })),
+					h('button', {
+						'aria-label': 'Simulate drag reorder',
+						disabled: props.disabled,
+						onClick: () => emit('update:modelValue', [...values].reverse()),
+					}),
+				])
+			}
+		},
+	}),
+}))
+
+describe('object array input', () => {
+	it('adds, reorders, and confirms removal of rows', async () => {
+		const rows = shallowRef<unknown[]>([{ label: 'First' }, { label: 'Second' }])
+		const element = document.createElement('div')
+		const app = createApp(
+			defineComponent({
+				components: { ObjectArrayInput },
+				setup: () => ({
+					rows,
+					definition: {
+						type: 'object',
+						properties: { label: { type: 'string', required: true } },
+					},
+				}),
+				template:
+					'<ObjectArrayInput v-model="rows" :definition="definition" path="actions" :errors="{}" asset-storage-mode="path" />',
+			}),
+		)
+		registerDirectusPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+
+		element.querySelector<HTMLButtonElement>('[aria-label="Move item 2 up"]')?.click()
+		await nextTick()
+		expect(rows.value).toEqual([{ label: 'Second' }, { label: 'First' }])
+
+		element.querySelector<HTMLButtonElement>('[aria-label="Remove item 1"]')?.click()
+		await nextTick()
+		expect(rows.value).toHaveLength(2)
+		expect(element.textContent).toContain('Remove item?')
+		element.querySelector<HTMLButtonElement>('[role="alertdialog"] button')?.click()
+		await nextTick()
+		expect(rows.value).toHaveLength(2)
+
+		element.querySelector<HTMLButtonElement>('[aria-label="Remove item 1"]')?.click()
+		await nextTick()
+		const confirm = [
+			...element.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+		].find((button) => button.textContent?.includes('Remove'))
+		confirm?.click()
+		await nextTick()
+		expect(rows.value).toEqual([{ label: 'First' }])
+
+		const add = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+			button.textContent?.includes('Add item'),
+		)
+		add?.click()
+		await nextTick()
+		expect(rows.value).toEqual([{ label: 'First' }, { label: '' }])
+
+		element.querySelector<HTMLButtonElement>('[aria-label="Simulate drag reorder"]')?.click()
+		await nextTick()
+		expect(rows.value).toEqual([{ label: '' }, { label: 'First' }])
+	})
+})
+
+describe('tags input', () => {
+	it('persists chip drag order', async () => {
+		const tags = shallowRef(['first', 'second'])
+		const element = document.createElement('div')
+		const app = createApp(
+			defineComponent({
+				components: { TagsInput },
+				setup: () => ({ tags }),
+				template: '<TagsInput v-model="tags" />',
+			}),
+		)
+		registerDirectusPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+		element.querySelector<HTMLButtonElement>('[aria-label="Simulate drag reorder"]')?.click()
+		await nextTick()
+		expect(tags.value).toEqual(['second', 'first'])
+	})
+})
 
 function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 	app.component(

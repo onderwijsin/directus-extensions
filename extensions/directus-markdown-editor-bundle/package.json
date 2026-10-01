@@ -76,6 +76,7 @@
 		"ai": "catalog:",
 		"ofetch": "catalog:",
 		"shiki": "catalog:",
+		"vuedraggable": "catalog:",
 		"yaml": "catalog:",
 		"zod": "catalog:"
 	},

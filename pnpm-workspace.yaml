@@ -69,6 +69,7 @@ catalog:
   '@ai-sdk/anthropic': 4.0.51
   '@ai-sdk/google': 4.0.66
   '@ai-sdk/mistral': 4.0.41
+  vuedraggable: 4.1.0
 catalogs:
   node24:
     '@types/node': 24.13.3

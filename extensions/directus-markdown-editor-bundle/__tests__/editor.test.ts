@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { describe, expect, it, vi } from 'vitest'
 
 import { scanComponentIntegrity } from '../src/markdown-editor-interface/component-meta/freshness'
+import { normalizeComponentMetadata } from '../src/markdown-editor-interface/component-meta/schema'
 import {
 	deleteBlock,
 	duplicateBlock,
@@ -129,6 +130,57 @@ describe('component property freshness', () => {
 
 		expect(scanComponentIntegrity(editor, metadata)).toMatchObject([
 			{ emptyRequiredProps: ['title'] },
+		])
+		editor.destroy()
+	})
+
+	it('reports nested drift in objects and repeater rows', () => {
+		const editor = new Editor({
+			extensions: [StarterKit, MdcBlock, MdcInline, MdcSlot, Markdown],
+			content: {
+				type: 'doc',
+				content: [
+					{
+						type: 'mdcBlock',
+						attrs: {
+							name: 'Hero',
+							props: {
+								image: { alt: 'Landscape', obsolete: 'old' },
+								actions: [{ label: '', extra: true }],
+							},
+						},
+					},
+				],
+			},
+		})
+		const hero = normalizeComponentMetadata([
+			{
+				name: 'Hero',
+				nodeType: 'block',
+				props: {
+					image: {
+						type: 'object',
+						properties: {
+							src: { type: 'string', required: true },
+							alt: { type: 'string' },
+						},
+					},
+					actions: {
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: { label: { type: 'string', required: true } },
+						},
+					},
+				},
+			},
+		])
+		expect(scanComponentIntegrity(editor, hero)).toMatchObject([
+			{
+				missingProps: ['image.src'],
+				emptyRequiredProps: ['actions.0.label'],
+				removedProps: ['image.obsolete', 'actions.0.extra'],
+			},
 		])
 		editor.destroy()
 	})

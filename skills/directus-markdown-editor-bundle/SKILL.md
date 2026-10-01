@@ -279,13 +279,19 @@ or `{ "components": [...] }`.
 For a property definition:
 
 - `name` is required in array form and is an optional display label in object form;
-- `type` supports `string`, `number`, `boolean`, and `array`; unknown values fall back to text;
-- a `string` with `values` renders a single select, while an `array` renders a multiselect and
-  requires at least one entry in `values`;
+- `type` supports `string`, `number`, `boolean`, `object`, and `array`; unknown legacy values fall
+  back to text;
+- a `string` with `values` renders a single select, while an `array` with `values` renders a
+  multiselect;
+- an `object` uses `properties` for nested fields in a labeled group;
+- an `array` with object `items` renders repeatable property groups with add, drag reorder, keyboard
+  move, and confirmed remove controls;
+- an `array` without `values` or object `items` renders a free-form string tag input with draggable
+  chips;
 - `description` is optional help text;
 - `required: true` blocks insertion while empty unless a default exists;
 - `default` may contain a JSON-compatible initial value; and
-- `values` is an array of string choices and is required for `type: "array"`;
+- `values` is an optional array of string choices;
 - `tags: [{ "name": "specialInputType", "text": "image" }]` (the JSON form of
   `@specialInputType image`) keeps a prop typed and persisted as a `string` while rendering a
   Directus image selector with a removable thumbnail; and
@@ -296,9 +302,12 @@ For a property definition:
 Primitive controls persist their matching JSON value types. The image hint persists a selected
 Directus asset as an ID, `/assets/{id}` path, or absolute URL according to `assetStorageMode` (path
 by default), never as a file object. Hints are carried as JSDoc tags so the metadata remains
-compatible with `nuxt-component-meta`; arbitrary upstream tags continue to pass through unchanged.
-`@specialInputType` is the control namespace; `image` and `url` are currently supported. Older
-`@editor` tags remain readable, and `specialInputType` takes precedence if both are supplied.
+compatible with `nuxt-component-meta`; arbitrary upstream tags and their optional `config` continue
+to pass through unchanged. `@specialInputType` is the control namespace; `image` and `url` have
+specialized controls. The `icon` hint currently renders a plain string input. Older `@editor` tags
+remain readable, and `specialInputType` takes precedence if both are supplied. Nested required
+fields and URL hints participate in Apply/Insert validation. Object and object-array values persist
+as JSON-backed MDC attributes. Optional object fields may remain absent until edited.
 
 - `tags` preserves JSDoc tags; `{ "name": "deprecated", "text": "Use newProp instead." }` displays a
   deprecation hint without changing runtime behavior.
