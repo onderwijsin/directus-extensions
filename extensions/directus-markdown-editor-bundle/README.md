@@ -480,16 +480,16 @@ published article.
 
 ## Troubleshooting
 
-| Symptom                              | Check                                                                                                                |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| **Markdown (MDC)** is missing        | Confirm the package is installed in the Directus runtime, the app entry is enabled, and Directus was restarted.      |
-| Component insertion is missing       | Enable the **Component insert** tool and provide valid static metadata or a reachable metadata URL.                  |
-| Remote metadata fails                | Check HTTPS, CORS, JSON validity, and browser network errors. The endpoint receives no custom authentication header. |
-| A Reference collection is disabled   | Check collection uniqueness, direct field names, primary-key metadata, field types, and relational fields.           |
-| Authors cannot find a Reference item | Check their read permissions and whether the item is archived. Search starts after text is entered.                  |
-| A Reference is unavailable           | The source is missing or hidden by permissions; replace or remove it from the integrity report.                      |
-| Updated Studio docs are not visible  | Inspect the `incoming` content version when the Studio Docs seeding strategy is `versioning`.                        |
-| Startup reports a lock skip/error    | Configure Redis or a shared filesystem lock for multi-process deployments.                                           |
+| Symptom                              | Check                                                                                                                                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Markdown (MDC)** is missing        | Confirm the package is installed in the Directus runtime, the app entry is enabled, and Directus was restarted.                                                                                                                     |
+| Component insertion is missing       | Enable the **Component insert** tool and provide valid static metadata or a reachable metadata URL.                                                                                                                                 |
+| Remote metadata fails                | Check the browser console for the source URL and validation path, then verify HTTPS, CORS, and JSON validity. A successful HTTP response can still fail metadata validation. The endpoint receives no custom authentication header. |
+| A Reference collection is disabled   | Check collection uniqueness, direct field names, primary-key metadata, field types, and relational fields.                                                                                                                          |
+| Authors cannot find a Reference item | Check their read permissions and whether the item is archived. Search starts after text is entered.                                                                                                                                 |
+| A Reference is unavailable           | The source is missing or hidden by permissions; replace or remove it from the integrity report.                                                                                                                                     |
+| Updated Studio docs are not visible  | Inspect the `incoming` content version when the Studio Docs seeding strategy is `versioning`.                                                                                                                                       |
+| Startup reports a lock skip/error    | Configure Redis or a shared filesystem lock for multi-process deployments.                                                                                                                                                          |
 
 ## License
 

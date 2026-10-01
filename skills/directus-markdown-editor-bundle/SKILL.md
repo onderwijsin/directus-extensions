@@ -463,17 +463,17 @@ Complete every applicable check:
 
 ## Troubleshoot deterministically
 
-| Symptom                           | Resolve                                                                                            |
-| --------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Interface absent                  | Verify runtime installation, supported Directus version, enabled app entry, and restart.           |
-| Components absent                 | Verify `component` tool, selected metadata source, JSON schema, HTTPS/CORS, and browser console.   |
-| Stored component has no metadata  | Restore its metadata entry to regain typed choices; generic editing remains available.             |
-| Reference configuration warning   | Check unique collections, primary keys, direct fields, search field types, and relation exclusion. |
-| Reference picker empty            | Enter a query, verify author permissions, and check archive state.                                 |
-| Reference unavailable             | Treat as missing or permission-hidden; replace/remove it or correct permissions.                   |
-| Source mode requests confirmation | Compare normalization; accept only when the syntax change is intended.                             |
-| Studio article unchanged          | Inspect/promote `incoming`, then check contributor and Studio Docs seed gates.                     |
-| Startup lock errors               | Use shared Redis/filesystem storage and validate connection/directory access.                      |
+| Symptom                           | Resolve                                                                                                                                                                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Interface absent                  | Verify runtime installation, supported Directus version, enabled app entry, and restart.                                                                                                                                            |
+| Components absent                 | Verify `component` tool and selected metadata source. The browser console logs the source URL and validation path on failure; a successful HTTP response can still contain invalid metadata. Verify the JSON schema and HTTPS/CORS. |
+| Stored component has no metadata  | Restore its metadata entry to regain typed choices; generic editing remains available.                                                                                                                                              |
+| Reference configuration warning   | Check unique collections, primary keys, direct fields, search field types, and relation exclusion.                                                                                                                                  |
+| Reference picker empty            | Enter a query, verify author permissions, and check archive state.                                                                                                                                                                  |
+| Reference unavailable             | Treat as missing or permission-hidden; replace/remove it or correct permissions.                                                                                                                                                    |
+| Source mode requests confirmation | Compare normalization; accept only when the syntax change is intended.                                                                                                                                                              |
+| Studio article unchanged          | Inspect/promote `incoming`, then check contributor and Studio Docs seed gates.                                                                                                                                                      |
+| Startup lock errors               | Use shared Redis/filesystem storage and validate connection/directory access.                                                                                                                                                       |
 
 Keep metadata delivery in the consuming project. Do not add undocumented extension endpoints or
 privileged browser credentials to transport it.

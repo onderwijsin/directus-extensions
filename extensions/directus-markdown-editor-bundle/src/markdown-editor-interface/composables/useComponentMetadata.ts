@@ -60,6 +60,11 @@ export function useComponentMetadata(options: ComponentMetadataOptions) {
 				state.value = 'error'
 				error.value =
 					cause instanceof Error ? cause : new Error('Unable to load component metadata.')
+				console.error(
+					'Failed to load component metadata',
+					useStatic ? '(static metadata)' : `from ${url ?? '(no URL configured)'}`,
+					error.value,
+				)
 			}
 		}
 

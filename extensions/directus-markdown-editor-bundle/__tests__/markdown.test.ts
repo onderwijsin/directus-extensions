@@ -228,7 +228,7 @@ describe('component metadata boundary', () => {
 					props: { columns: { type: 'array' } },
 				},
 			]),
-		).toThrow('unsupported shape')
+		).toThrow('[0].props.columns.values')
 	})
 
 	it('preserves Vue-compatible editor tags for non-primitive controls', () => {

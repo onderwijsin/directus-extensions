@@ -95,7 +95,11 @@ export function metadataDeprecation(metadata: TaggedMetadata) {
  */
 export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[] {
 	const result = MetadataResponseSchema.safeParse(payload)
-	if (!result.success) throw new Error('Component metadata has an unsupported shape.')
+	if (!result.success) {
+		throw new Error(
+			`Component metadata has an unsupported shape.\n${z.prettifyError(result.error)}`,
+		)
+	}
 	const components = (isArray(result.data) ? result.data : result.data.components).filter(
 		(component) => component.name !== 'Reference',
 	)
