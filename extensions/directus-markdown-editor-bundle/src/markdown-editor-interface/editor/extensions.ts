@@ -29,6 +29,7 @@ export interface EditorExtensionActions {
 	openAiInsert?: (skillId?: string) => void
 	getAiSkills?: () => EditorSkillMenuItem[]
 	canOpenAi?: () => boolean
+	getUseIconifyProxy?: () => boolean
 }
 
 /**
@@ -86,6 +87,7 @@ export function createEditorExtensions(
 				getComponents().find((component) => component.name === name)?.label ?? name,
 		}),
 		MdcInline.configure({
+			getUseIconifyProxy: actions.getUseIconifyProxy ?? (() => false),
 			/**
 			 * Resolve the editor-facing label for a serialized component name.
 			 * @param name Serialized component name.

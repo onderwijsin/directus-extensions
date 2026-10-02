@@ -6,6 +6,8 @@ import type { ReferenceIntegrityState } from '../../reference/editor'
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 
 import { isFunction, isInteger, isString } from '@onderwijsin/directus-extension-utils'
+import { isIconName } from '@onderwijsin/directus-extension-utils/app/iconify'
+import IconImage from '@onderwijsin/directus-extension-utils/app/iconify-image'
 import { NodeViewWrapper } from '@tiptap/vue-3'
 
 import { getEditorComponentState } from '../../component-meta/status'
@@ -115,6 +117,15 @@ function editComponent() {
 const reference = computed(() =>
 	componentName.value === 'Reference' ? parseReferenceProps(props.node.attrs.props) : undefined,
 )
+const referenceIcon = computed(() => {
+	if (
+		!reference.value?.success ||
+		referenceProblemState.value ||
+		!isIconName(reference.value.data.icon)
+	)
+		return undefined
+	return reference.value.data.icon
+})
 </script>
 
 <template>
@@ -162,7 +173,14 @@ const reference = computed(() =>
 			"
 			@click="editComponent"
 		>
+			<IconImage
+				v-if="referenceIcon"
+				class="mdc-inline__icon"
+				:icon="referenceIcon"
+				:use-proxy="extension.options.getUseIconifyProxy()"
+			/>
 			<VIcon
+				v-else
 				:name="
 					reference?.success
 						? referenceProblemState === 'archived'
@@ -206,6 +224,11 @@ const reference = computed(() =>
 	font: inherit;
 	font-size: 0.8em;
 	cursor: pointer;
+}
+.mdc-inline__icon {
+	width: 16px;
+	height: 16px;
+	flex: none;
 }
 .mdc-inline__button:hover,
 .ProseMirror-selectednode .mdc-inline__button {

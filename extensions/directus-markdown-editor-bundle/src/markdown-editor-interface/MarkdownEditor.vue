@@ -298,6 +298,10 @@ const extensions = createEditorExtensions(
 	 */
 	() => metadata.components.value,
 	{
+		/**
+		 *
+		 */
+		getUseIconifyProxy: () => useIconifyProxy.value,
 		openLink: openLinkDrawer,
 		openImage: openImageDrawer,
 		openVideo: openVideoDrawer,
