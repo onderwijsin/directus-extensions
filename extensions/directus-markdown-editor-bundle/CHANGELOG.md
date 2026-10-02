@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+### Minor Changes
+
+- 242b22a: Add opt-in Reference icons, Iconify collection choices, component icon property pickers,
+  and an optional Iconify API proxy setting.
+
+### Patch Changes
+
+- Updated dependencies [242b22a]
+  - @onderwijsin/directus-extension-utils@0.6.0
+
 ## 0.4.0
 
 ### Minor Changes
