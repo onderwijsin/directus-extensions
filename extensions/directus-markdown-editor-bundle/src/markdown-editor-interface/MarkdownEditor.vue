@@ -299,7 +299,8 @@ const extensions = createEditorExtensions(
 	() => metadata.components.value,
 	{
 		/**
-		 *
+		 * Resolve whether the editor should use the Iconify proxy.
+		 * @returns Whether the editor should use the Iconify proxy.
 		 */
 		getUseIconifyProxy: () => useIconifyProxy.value,
 		openLink: openLinkDrawer,
