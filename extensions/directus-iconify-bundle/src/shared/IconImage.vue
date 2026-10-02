@@ -5,7 +5,7 @@ import { Icon, addAPIProvider } from '@iconify/vue'
 
 import { isIconName } from './icon'
 
-const props = defineProps<{ icon: string; useProxy?: boolean }>()
+const props = withDefaults(defineProps<{ icon: string; useProxy?: boolean }>(), { useProxy: true })
 addAPIProvider('directus-iconify', {
 	resources: [`${window.location.origin}/iconify`],
 })

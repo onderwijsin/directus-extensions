@@ -21,11 +21,17 @@ describe('Iconify collection API routing', () => {
 		expect(await api.getCollections(true)).toEqual(collections)
 		expect(mocks.get).toHaveBeenCalledWith('/iconify/collections')
 		expect(mocks.ofetch).not.toHaveBeenCalled()
+
+		const collection = { title: 'Material Design Icons', uncategorized: ['home'] }
+		mocks.get.mockResolvedValueOnce({ data: collection })
+		expect(await api.getCollection('mdi', true)).toEqual(collection)
+		expect(mocks.get).toHaveBeenCalledWith('/iconify/collection/mdi')
 	})
 
 	it('uses the public Iconify API when the proxy is disabled', async () => {
+		const collections = { mdi: { name: 'Material Design Icons' } }
 		const collection = { title: 'Material Design Icons', uncategorized: ['home'] }
-		mocks.ofetch.mockResolvedValue(collection)
+		mocks.ofetch.mockResolvedValueOnce(collection).mockResolvedValueOnce(collections)
 		const api = useIconifyApi()
 
 		expect(await api.getCollection('mdi', false)).toEqual(collection)
@@ -33,5 +39,7 @@ describe('Iconify collection API routing', () => {
 			'https://api.iconify.design/collection?prefix=mdi',
 		)
 		expect(mocks.get).not.toHaveBeenCalled()
+		expect(await api.getCollections(false)).toEqual(collections)
+		expect(mocks.ofetch).toHaveBeenCalledWith('https://api.iconify.design/collections')
 	})
 })
