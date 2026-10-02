@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+### Minor Changes
+
+- 242b22a: Export a shared Iconify picker, image renderer, and curated collection choices for
+  Directus app extensions.
+
 ## 0.5.0
 
 ### Minor Changes
