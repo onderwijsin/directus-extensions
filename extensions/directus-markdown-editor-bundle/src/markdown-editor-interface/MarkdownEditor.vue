@@ -38,6 +38,9 @@ const props = withDefaults(
 		staticComponentMeta?: unknown
 		tools?: string[] | null
 		useReferences?: boolean
+		enableReferenceIcon?: boolean
+		iconifyCollections?: string[]
+		useIconifyProxy?: boolean
 		referenceCollections?: unknown
 		referenceSnapshotMode?: ReferenceSnapshotMode
 		comparisonMode?: boolean
@@ -54,6 +57,9 @@ const props = withDefaults(
 			staticComponentMeta?: unknown
 			tools?: string[] | null
 			useReferences?: boolean
+			enableReferenceIcon?: boolean
+			iconifyCollections?: string[]
+			useIconifyProxy?: boolean
 			ai?: boolean
 			assetStorageMode?: AssetStorageMode
 			assetBaseUrl?: string
@@ -83,6 +89,15 @@ const assetBaseUrl = computed(() => props.assetBaseUrl ?? props.options?.assetBa
 const aiEnabled = computed(() => props.ai ?? props.options?.ai ?? false)
 const referencesEnabled = computed(
 	() => props.useReferences ?? props.options?.useReferences ?? false,
+)
+const referenceIconEnabled = computed(
+	() => props.enableReferenceIcon ?? props.options?.enableReferenceIcon ?? false,
+)
+const iconifyCollections = computed(
+	() => props.iconifyCollections ?? props.options?.iconifyCollections ?? [],
+)
+const useIconifyProxy = computed(
+	() => props.useIconifyProxy ?? props.options?.useIconifyProxy ?? false,
 )
 const referenceCollections = computed(
 	() => props.referenceCollections ?? props.options?.referenceCollections,
@@ -525,6 +540,7 @@ watch(
 				:metadata-authoritative="componentMetadataAuthoritative"
 				:asset-storage-mode="assetStorageMode"
 				:asset-base-url="assetBaseUrl"
+				:use-iconify-proxy="useIconifyProxy"
 				@attention-change="componentPropsNeedAttention = $event"
 			/>
 			<ReferenceController
@@ -532,6 +548,9 @@ watch(
 				:editor="editor"
 				:collections="referenceCollections"
 				:mode="referenceSnapshotMode"
+				:enable-icon="referenceIconEnabled"
+				:iconify-collections="iconifyCollections"
+				:use-iconify-proxy="useIconifyProxy"
 				:disabled="disabled"
 				:insertion-enabled="isEditorToolEnabled(enabledTools, 'reference')"
 				:scan-revision="referenceScanRevision"

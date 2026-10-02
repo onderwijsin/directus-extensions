@@ -323,6 +323,19 @@ describe('Reference interface', () => {
 			'Change source',
 		)
 		expect(element.querySelector('header')?.textContent).toBe('Delete referenceApply')
+		expect(element.querySelector('.reference-drawer__form')?.textContent).not.toContain('Icon')
+	})
+
+	it('shows the Iconify input only when reference icons are enabled', () => {
+		const element = mount(ReferenceDrawer, {
+			modelValue: true,
+			enableIcon: true,
+			iconifyCollections: ['lucide'],
+			useIconifyProxy: false,
+			reference: { collection: 'articles', item: 7, label: 'Article', data: {} },
+		})
+		expect(element.querySelector('.reference-drawer__form')?.textContent).toContain('Icon')
+		expect(element.querySelector('.reference-drawer__form input')).not.toBeNull()
 	})
 
 	it('shows loading on the item refresh action', () => {

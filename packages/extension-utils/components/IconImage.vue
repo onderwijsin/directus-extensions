@@ -2,8 +2,7 @@
 import { computed } from 'vue'
 
 import { Icon, addAPIProvider } from '@iconify/vue'
-
-import { isIconName } from './icon'
+import { isIconName } from '@onderwijsin/directus-extension-utils/app/iconify'
 
 const props = withDefaults(defineProps<{ icon: string; useProxy?: boolean }>(), { useProxy: true })
 addAPIProvider('directus-iconify', {

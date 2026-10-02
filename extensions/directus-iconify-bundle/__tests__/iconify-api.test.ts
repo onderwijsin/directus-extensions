@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({ get: vi.fn(), ofetch: vi.fn() }))
 vi.mock('@directus/extensions-sdk', () => ({ useApi: () => ({ get: mocks.get }) }))
 vi.mock('ofetch', () => ({ ofetch: mocks.ofetch }))
 
-import { useIconifyApi } from '../src/shared/useIconifyApi'
+import { useIconifyApi } from '../../../packages/extension-utils/src/app/iconify/useIconifyApi'
 
 describe('Iconify collection API routing', () => {
 	beforeEach(() => {

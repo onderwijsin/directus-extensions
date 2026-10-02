@@ -31,6 +31,7 @@ const props = defineProps<{
 	deletedName?: string
 	assetStorageMode?: AssetStorageMode
 	assetBaseUrl?: string
+	useIconifyProxy?: boolean
 }>()
 const open = defineModel<boolean>('open', { default: false })
 const form = reactive<Record<string, unknown>>({})
@@ -234,6 +235,7 @@ function remove() {
 				:disabled="disabled"
 				:asset-storage-mode="assetStorageMode ?? 'path'"
 				:asset-base-url="assetBaseUrl"
+				:use-iconify-proxy="useIconifyProxy"
 				@update:model-value="form[name] = $event"
 			/>
 		</div>

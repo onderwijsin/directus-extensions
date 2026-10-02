@@ -24,16 +24,19 @@ visible.
 
 Use public package subpaths rather than source paths:
 
-| Subpath                                           | Contents                                                           | Intended use                                                    |
-| ------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------- |
-| `@onderwijsin/directus-extension-utils`           | Common helpers                                                     | Server and app code that does not need server-only coordination |
-| `@onderwijsin/directus-extension-utils/shared`    | Common helpers                                                     | Explicit shared/runtime imports                                 |
-| `@onderwijsin/directus-extension-utils/app`       | Common helpers                                                     | App extensions; no server-only utilities                        |
-| `@onderwijsin/directus-extension-utils/server`    | Common helpers plus locks, auto-tasks, storage, logging, and setup | Directus server extensions and server lifecycle code            |
-| `@onderwijsin/directus-extension-utils/constants` | Deployment constants                                               | Environment schemas and deployment-value validation             |
-| `@onderwijsin/directus-extension-utils/sentry`    | Sentry capture and context helpers                                 | Server extensions that explicitly use Sentry                    |
-| `@onderwijsin/directus-extension-utils/hook`      | Corrected Directus hook and async action-handler types             | API hooks with asynchronous action handlers                     |
-| `@onderwijsin/directus-extension-utils/types`     | Corrected hook type contracts                                      | Type-only imports without hook runtime dependencies             |
+| Subpath                                                    | Contents                                                           | Intended use                                                    |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `@onderwijsin/directus-extension-utils`                    | Common helpers                                                     | Server and app code that does not need server-only coordination |
+| `@onderwijsin/directus-extension-utils/shared`             | Common helpers                                                     | Explicit shared/runtime imports                                 |
+| `@onderwijsin/directus-extension-utils/app`                | Common helpers                                                     | App extensions; no server-only utilities                        |
+| `@onderwijsin/directus-extension-utils/app/iconify-picker` | Shared Vue Iconify picker from `components/`                       | Directus app bundles compiled with Vue SFC support              |
+| `@onderwijsin/directus-extension-utils/app/iconify-image`  | Shared Vue Iconify image from `components/`                        | Directus app bundles compiled with Vue SFC support              |
+| `@onderwijsin/directus-extension-utils/app/iconify`        | Compiled Iconify picker helpers                                    | Shared Vue components and app consumers                         |
+| `@onderwijsin/directus-extension-utils/server`             | Common helpers plus locks, auto-tasks, storage, logging, and setup | Directus server extensions and server lifecycle code            |
+| `@onderwijsin/directus-extension-utils/constants`          | Deployment constants                                               | Environment schemas and deployment-value validation             |
+| `@onderwijsin/directus-extension-utils/sentry`             | Sentry capture and context helpers                                 | Server extensions that explicitly use Sentry                    |
+| `@onderwijsin/directus-extension-utils/hook`               | Corrected Directus hook and async action-handler types             | API hooks with asynchronous action handlers                     |
+| `@onderwijsin/directus-extension-utils/types`              | Corrected hook type contracts                                      | Type-only imports without hook runtime dependencies             |
 
 The `/sentry` entry point is intentionally separate from `/server`. This prevents consumers that
 only import server utilities such as `createLogger` from loading the Sentry integration.
@@ -54,6 +57,16 @@ configuration or used to add extension-specific externals with `createExtensionC
 The root, `/shared`, and `/app` exports are the common browser-safe surface. The `/server` export
 adds Node/server utilities and re-exports the common surface. Keep server-only imports out of app
 bundles.
+
+The `/app` entry point also exports `iconifyCollections` and `iconifyCollectionChoices`, a curated
+static list for searchable Directus interface options. Only the Vue components in `components/` ship
+as source; their TypeScript helpers are compiled into `dist/app/iconify`. Each consuming extension
+compiles the components in its app build. They use Directus Studio's registered UI components and do
+not require `@directus/ui`. The picker accepts `value`, `collections`, and `useProxy` and emits
+`input`; its default proxy behavior is enabled for existing Iconify bundle fields. Other consumers
+can set `useProxy` to `false` to call the public Iconify API without installing the proxy extension.
+See the [source component decision](../decisions/publish-vue-components-as-source.md) for the
+packaging boundary.
 
 ## Import from the right runtime
 

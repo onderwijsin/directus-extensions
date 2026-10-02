@@ -1,8 +1,7 @@
 import { computed, shallowRef, watch, type Ref } from 'vue'
 
-import { attempt } from '@onderwijsin/directus-extension-utils/app'
-
-import { useIconifyApi } from '../shared/useIconifyApi'
+import { attempt } from '../../shared/index'
+import { useIconifyApi } from './useIconifyApi'
 interface IconGroup {
 	name: string
 	icons: string[]

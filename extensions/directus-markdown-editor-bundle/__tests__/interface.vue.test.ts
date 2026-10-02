@@ -669,6 +669,21 @@ describe('Markdown editor interface', () => {
 		expect(options.find((option) => option.field === 'referenceSnapshotMode')).toMatchObject({
 			schema: { default_value: 'detect' },
 		})
+		expect(options.find((option) => option.field === 'enableReferenceIcon')).toMatchObject({
+			meta: { conditions: [{ rule: { useReferences: { _eq: false } }, hidden: true }] },
+			schema: { default_value: false },
+		})
+		expect(options.find((option) => option.field === 'iconifyCollections')).toMatchObject({
+			meta: {
+				interface: 'select-multiple-dropdown',
+				options: {
+					choices: expect.arrayContaining([{ text: 'lucide', value: 'lucide' }]),
+				},
+			},
+		})
+		expect(options.find((option) => option.field === 'useIconifyProxy')).toMatchObject({
+			schema: { default_value: false },
+		})
 		expect(
 			options.find((option) => option.field === 'tools')?.meta.options?.choices,
 		).toContainEqual({ text: 'Reference', value: 'reference' })

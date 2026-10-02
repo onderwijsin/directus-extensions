@@ -32,6 +32,9 @@ recommended because loading every collection can take time and creates many requ
 stores a single `collection:name` value, for example `mdi:home`, or `null` when cleared. It has a
 searchable input, grouped icon rows, a clear action, and virtual scrolling.
 
+The collection option is a searchable static list; it does not call the Iconify API while
+configuring the field.
+
 Select the **Iconify Icon** display for list or detail views. It renders only the icon for a valid
 stored value. Empty or malformed values render nothing. Missing icons produce an unavailable image.
 Both the interface and display offer **Use Iconify proxy**, enabled by default. Disable it

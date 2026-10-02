@@ -18,6 +18,7 @@ They are binding for the feature they cover until explicitly revisited.
 | [Enforce concurrent Sluggernaut redirect integrity in the database](sluggernaut-database-integrity-constraints.md) | Accepted | Sluggernaut redirect uniqueness and consumer migrations   |
 | [Use a custom image for Garage initialization](custom-garage-init-image.md)                                        | Accepted | Local and E2E Compose Garage initialization               |
 | [Run startup schema preparation during `app.before`](startup-schema-preparation-app-before.md)                     | Accepted | Shared extension startup coordination                     |
+| [Publish shared Vue components as source](publish-vue-components-as-source.md)                                     | Accepted | Shared app components and package archives                |
 
 ## Create or revisit a decision
 

@@ -11,6 +11,7 @@ export default defineConfig({
 		'src/hook.ts',
 		'src/types.ts',
 		'src/app/index.ts',
+		'src/app/iconify/index.ts',
 		'src/server/index.ts',
 		'src/shared/index.ts',
 		'src/server/sentry.ts',

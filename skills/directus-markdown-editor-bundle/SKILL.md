@@ -75,6 +75,9 @@ Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configur
 | `staticComponentMeta`                    | unset    | Required JSON while static mode is enabled. No metadata request is made.                                                                                                                                                                                                                               |
 | `useReferences`                          | `false`  | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                                                                                                                                          |
 | `referenceCollections`                   | unset    | Required non-empty JSON array while References are enabled.                                                                                                                                                                                                                                            |
+| `enableReferenceIcon`                    | `false`  | Show an Iconify picker in the Reference drawer when References are enabled. Hidden icons in existing content are preserved.                                                                                                                                                                            |
+| `iconifyCollections`                     | all      | Searchable static collection choices for Reference icons; an empty selection includes all. Component icon properties use their own tag config.                                                                                                                                                         |
+| `useIconifyProxy`                        | `false`  | Request icons through `/iconify`. Requires `@onderwijsin/directus-iconify-bundle` installed in the same Directus instance; this editor does not register the endpoint.                                                                                                                                 |
 | `referenceSnapshotMode`                  | `detect` | `snapshot`, `detect`, or `sync`.                                                                                                                                                                                                                                                                       |
 | `ai` / **Enable AI editing**             | `false`  | Enables document, selection, and slash-menu insertion AI surfaces and authorizes field-context requests to `/editor/ai`.                                                                                                                                                                               |
 
@@ -306,10 +309,11 @@ Directus asset as an ID, `/assets/{id}` path, or absolute URL according to `asse
 by default), never as a file object. Hints are carried as JSDoc tags so the metadata remains
 compatible with `nuxt-component-meta`; arbitrary upstream tags and their optional `config` continue
 to pass through unchanged. `@specialInputType` is the control namespace; `image` and `url` have
-specialized controls. The `icon` hint currently renders a plain string input. Older `@editor` tags
-remain readable, and `specialInputType` takes precedence if both are supplied. Nested required
-fields and URL hints participate in Apply/Insert validation. Object and object-array values persist
-as JSON-backed MDC attributes. Optional object fields may remain absent until edited.
+specialized controls. The `icon` hint renders an Iconify picker and reads its collection restriction
+from `config.collections`, for example `{ "collections": ["lucide"] }`. Older `@editor` tags remain
+readable, and `specialInputType` takes precedence if both are supplied. Nested required fields and
+URL hints participate in Apply/Insert validation. Object and object-array values persist as
+JSON-backed MDC attributes. Optional object fields may remain absent until edited.
 
 - `tags` preserves JSDoc tags; `{ "name": "deprecated", "text": "Use newProp instead." }` displays a
   deprecation hint without changing runtime behavior.

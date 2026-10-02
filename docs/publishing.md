@@ -15,8 +15,10 @@ status.
 
 Sandbox compatibility is optional in this repository. When an extension is non-sandboxed, document
 that it requires a trusted Directus installation and cannot be installed where only sandboxed
-extensions are permitted. Never publish secrets, local data, source-only files, or private test
-dependencies.
+extensions are permitted. Never publish secrets, local data, unrelated source files, or private test
+dependencies. `@onderwijsin/directus-extension-utils` deliberately publishes the two exported Vue
+components and their declarations under `components/`; Directus app consumers compile those files.
+The package validator permits only those declared component files and continues to reject `src/`.
 
 ## Local developer workflow
 

@@ -5,8 +5,8 @@ import type { ReferenceProps } from '../../reference/schema'
 
 import { computed, reactive, watch } from 'vue'
 
-import { useExtensions } from '@directus/extensions-sdk'
 import { isString } from '@onderwijsin/directus-extension-utils'
+import IconifyPicker from '@onderwijsin/directus-extension-utils/app/iconify-picker'
 
 import Field from '../fields/Field.vue'
 import StringInput from '../fields/StringInput.vue'
@@ -16,6 +16,9 @@ const props = defineProps<{
 	status?: ReferenceIntegrityState
 	disabled?: boolean
 	refreshing?: boolean
+	enableIcon?: boolean
+	iconifyCollections?: string[]
+	useIconifyProxy?: boolean
 }>()
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{
@@ -25,10 +28,6 @@ const emit = defineEmits<{
 	remove: []
 }>()
 const form = reactive({ text: '', icon: '' })
-const { interfaces } = useExtensions()
-const iconInterface = computed(
-	() => interfaces.value.find((candidate) => candidate.id === 'select-icon')?.component,
-)
 const statusNotice = computed(() => {
 	if (props.status === 'archived') return 'This referenced item is archived.'
 	if (props.status === 'outdated') {
@@ -62,7 +61,7 @@ watch(
 
 function apply() {
 	const text = form.text.trim() ? form.text : undefined
-	const icon = form.icon.trim() ? form.icon : undefined
+	const icon = props.enableIcon ? form.icon.trim() || undefined : props.reference?.icon
 	emit('apply', { text, icon })
 }
 
@@ -125,22 +124,16 @@ function setIcon(value: unknown) {
 						/>
 					</template>
 				</Field>
-				<Field id="reference-icon" label="Icon" :disabled="disabled">
+				<Field v-if="enableIcon" id="reference-icon" label="Icon" :disabled="disabled">
 					<template #default="field">
-						<component
-							:is="iconInterface"
-							v-if="iconInterface"
+						<IconifyPicker
 							:id="field.id"
 							:aria-describedby="field.describedBy"
 							:value="form.icon || null"
 							:disabled="field.disabled"
+							:collections="iconifyCollections"
+							:use-proxy="useIconifyProxy"
 							@input="setIcon"
-						/>
-						<StringInput
-							v-else
-							v-model="form.icon"
-							v-bind="field"
-							placeholder="Material icon name"
 						/>
 					</template>
 				</Field>

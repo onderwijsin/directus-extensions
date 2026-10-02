@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import IconImage from '../shared/IconImage.vue'
+import IconImage from '@onderwijsin/directus-extension-utils/app/iconify-image'
 
 withDefaults(defineProps<{ value?: string | null; useProxy?: boolean }>(), { useProxy: true })
 </script>
