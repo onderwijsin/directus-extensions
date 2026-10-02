@@ -5,6 +5,7 @@ packages:
 
 catalog:
   '@types/express': 4.17.21
+  '@iconify/vue': 5.0.3
   '@directus/errors': 2.5.0
   '@directus/memory': 4.0.2
   '@directus/types': 16.1.0
@@ -70,6 +71,7 @@ catalog:
   '@ai-sdk/google': 4.0.66
   '@ai-sdk/mistral': 4.0.41
   vuedraggable: 4.1.0
+  vue-virtual-scroller: 3.0.5
 catalogs:
   node24:
     '@types/node': 24.13.3

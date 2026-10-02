@@ -21,9 +21,10 @@ trusted, non-sandboxed runtime require a trusted self-hosted installation.
 | [`@onderwijsin/directus-loops-bundle`](extensions/directus-loops-bundle/README.md)                                       | Synchronize Loops contact profiles and archive email campaigns in Directus. |
 | [`@onderwijsin/directus-sluggernaut-bundle`](extensions/directus-sluggernaut-bundle/README.md)                           | Field-driven slugs, permalinks, redirects, and recalculation for Directus.  |
 | [`@onderwijsin/directus-quick-copy-bundle`](extensions/directus-quick-copy-bundle/README.md)                             | Readonly copy-enabled interface and display for Directus fields.            |
-| [`@onderwijsin/directus-markdown-editor-bundle`](extensions/directus-markdown-editor-bundle/README.md)                   | Markdown/MDC editor with coordinated documentation seeding.                 |
+| [`@onderwijsin/directus-markdown-editor-bundle`](extensions/directus-markdown-editor-bundle/README.md)                   | Markdown editor with AI skills and dynamic component schema's.              |
 | [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.                 |
 | [`@onderwijsin/directus-studio-docs-bundle`](extensions/directus-studio-docs-bundle/README.md)                           | In-Studio documentation bundle scaffold for Directus.                       |
+| [`@onderwijsin/directus-iconify-bundle`](extensions/directus-iconify-bundle/README.md)                                   | Icon picker integration with support for any Iconify icon set.              |
 
 The repository also contains supporting workspace packages and private infrastructure for shared
 TypeScript configuration and test execution.
