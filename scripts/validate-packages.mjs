@@ -413,6 +413,46 @@ export async function inspectPackedArchive(
 				report(packageName, `packed package contains forbidden ${forbidden}`)
 			}
 		}
+		const sourceComponents = entries.filter((entry) => entry.startsWith('package/components/'))
+		if (sourceComponents.length > 0) {
+			if (packageName !== '@onderwijsin/directus-extension-utils') {
+				report(packageName, 'packed package contains forbidden package/components/')
+			} else {
+				const componentExports = [
+					['./app/iconify-picker', 'IconifyPicker'],
+					['./app/iconify-image', 'IconImage'],
+				]
+				const allowed = componentExports.flatMap(([, name]) => [
+					`package/components/${name}.vue`,
+					`package/components/${name}.d.ts`,
+				])
+				for (const file of sourceComponents) {
+					if (!allowed.includes(file))
+						report(packageName, `packed package contains unexpected ${file}`)
+				}
+				for (const [subpath, name] of componentExports) {
+					const source = `package/components/${name}.vue`
+					const types = `package/components/${name}.d.ts`
+					if (!entries.includes(source) || !entries.includes(types)) {
+						report(packageName, `packed package is missing ${source} or ${types}`)
+					}
+					const exports = manifest.exports
+					const entry =
+						exports && typeof exports === 'object' && !Array.isArray(exports)
+							? exports[subpath]
+							: undefined
+					if (
+						!entry ||
+						typeof entry !== 'object' ||
+						Array.isArray(entry) ||
+						entry.import !== `./components/${name}.vue` ||
+						entry.types !== `./components/${name}.d.ts`
+					) {
+						report(packageName, `must export ${source} with its declaration`)
+					}
+				}
+			}
+		}
 		for (const file of entries.filter((entry) =>
 			/^package\/dist\/.*\.(?:c|m)?js$/u.test(entry),
 		)) {

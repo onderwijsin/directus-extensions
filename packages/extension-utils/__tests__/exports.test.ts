@@ -22,7 +22,9 @@ describe('runtime-aware exports', () => {
 	})
 
 	it('keeps Directus coordination utilities on the server subpath', () => {
-		expect(Object.keys(app).sort()).toEqual(Object.keys(shared).sort())
+		expect(Object.keys(app).sort()).toEqual(
+			[...Object.keys(shared), 'iconifyCollections', 'iconifyCollectionChoices'].sort(),
+		)
 		expect(Object.keys(server).sort()).toEqual(
 			[
 				...Object.keys(shared),

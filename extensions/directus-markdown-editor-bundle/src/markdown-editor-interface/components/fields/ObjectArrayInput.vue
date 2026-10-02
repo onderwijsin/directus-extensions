@@ -21,6 +21,7 @@ const props = defineProps<{
 	errors: Record<string, string>
 	assetStorageMode: AssetStorageMode
 	assetBaseUrl?: string
+	useIconifyProxy?: boolean
 }>()
 const model = defineModel<unknown[]>({ required: true })
 let nextRowId = 0
@@ -175,6 +176,7 @@ function confirmRemove() {
 						:disabled="disabled"
 						:asset-storage-mode="assetStorageMode"
 						:asset-base-url="assetBaseUrl"
+						:use-iconify-proxy="useIconifyProxy"
 						@update:model-value="update(index, childName, $event)"
 					/>
 				</div>

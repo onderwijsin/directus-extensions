@@ -30,6 +30,7 @@
 	},
 	"files": [
 		"dist",
+		"components",
 		"extension.config.js",
 		"README.md",
 		"CHANGELOG.md"
@@ -62,6 +63,18 @@
 			"types": "./dist/app/index.d.ts",
 			"import": "./dist/app/index.js"
 		},
+		"./app/iconify-picker": {
+			"types": "./components/IconifyPicker.d.ts",
+			"import": "./components/IconifyPicker.vue"
+		},
+		"./app/iconify-image": {
+			"types": "./components/IconImage.d.ts",
+			"import": "./components/IconImage.vue"
+		},
+		"./app/iconify": {
+			"types": "./dist/app/iconify/index.d.ts",
+			"import": "./dist/app/iconify/index.js"
+		},
 		"./shared": {
 			"types": "./dist/shared/index.d.ts",
 			"import": "./dist/shared/index.js"
@@ -87,10 +100,14 @@
 		"@directus/extensions-sdk": "catalog:",
 		"@directus/memory": "catalog:",
 		"@directus/utils": "catalog:",
+		"@iconify/vue": "catalog:",
 		"@sentry/node": "catalog:",
 		"ioredis": "catalog:",
+		"ofetch": "catalog:",
 		"pino": "catalog:",
 		"uuid": "catalog:",
+		"vue": "catalog:",
+		"vue-virtual-scroller": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

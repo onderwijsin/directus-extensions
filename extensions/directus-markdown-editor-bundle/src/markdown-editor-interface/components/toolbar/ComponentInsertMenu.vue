@@ -27,6 +27,7 @@ const props = withDefaults(
 		metadataAuthoritative?: boolean
 		assetStorageMode?: AssetStorageMode
 		assetBaseUrl?: string
+		useIconifyProxy?: boolean
 	}>(),
 	{
 		insertionEnabled: true,
@@ -226,6 +227,7 @@ watch(
 		:disabled="disabled"
 		:asset-storage-mode="assetStorageMode"
 		:asset-base-url="assetBaseUrl"
+		:use-iconify-proxy="useIconifyProxy"
 		:edit-existing="editExisting"
 		:initial-props="initialProps"
 		:target-node-type="targetNodeType"

@@ -31,6 +31,9 @@ and virtual icon rows as Directus's native icon picker. Selecting an icon stores
 `mdi:home`. Use the **Iconify Icon** display to render only the selected icon in lists and item
 views.
 
+The collection option uses a static, searchable selection of curated Iconify prefixes. The picker
+still requests icon names when opened; the options screen makes no collection metadata request.
+
 Both the interface and display have a **Use Iconify proxy** checkbox, enabled by default. Turn it
 off to request collection metadata and icon data directly from `https://api.iconify.design` in the
 browser. Configure this option separately for the interface and display. Direct browser requests

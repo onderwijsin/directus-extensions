@@ -4,10 +4,9 @@ import { computed, nextTick, onUnmounted, shallowRef, watch } from 'vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
+import { isIconName, useIconCollections } from '@onderwijsin/directus-extension-utils/app/iconify'
 
-import { isIconName } from '../shared/icon'
-import IconImage from '../shared/IconImage.vue'
-import { useIconCollections } from './useIconCollections'
+import IconImage from './IconImage.vue'
 
 interface Row {
 	id: string
@@ -24,6 +23,8 @@ const props = withDefaults(
 		width?: string
 		collections?: string[]
 		useProxy?: boolean
+		id?: string
+		ariaDescribedby?: string
 	}>(),
 	{ value: null, width: 'half' },
 )
@@ -103,6 +104,8 @@ function onKeydownInput(event: KeyboardEvent, activate: () => void) {
 	>
 		<template #activator="{ active, activate, deactivate, toggle }">
 			<VInput
+				:id="id"
+				:aria-describedby="ariaDescribedby"
 				v-model="searchQuery"
 				:disabled="disabled"
 				:non-editable="nonEditable"

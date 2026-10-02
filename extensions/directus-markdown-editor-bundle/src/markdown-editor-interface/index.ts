@@ -1,4 +1,5 @@
 import { defineInterface } from '@directus/extensions-sdk'
+import { iconifyCollectionChoices } from '@onderwijsin/directus-extension-utils/app'
 
 import { editorToolOptions } from './editor/commands'
 import MarkdownEditor from './MarkdownEditor.vue'
@@ -22,6 +23,7 @@ interface MarkdownEditorOption {
 			showDeselect?: boolean
 			choices?: { text: string; value: string }[]
 			language?: string
+			allowOther?: boolean
 		}
 	}
 	schema?: { default_value: string[] | boolean | string }
@@ -123,6 +125,45 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 				conditions: [{ rule: { useReferences: { _eq: false } }, hidden: true }],
 				options: { language: 'json' },
 			},
+		},
+		{
+			field: 'enableReferenceIcon',
+			name: 'Enable reference icon',
+			type: 'boolean',
+			meta: {
+				width: 'full',
+				interface: 'checkbox',
+				note: 'Allow authors to choose an Iconify icon for references.',
+				conditions: [{ rule: { useReferences: { _eq: false } }, hidden: true }],
+			},
+			schema: { default_value: false },
+		},
+		{
+			field: 'iconifyCollections',
+			name: 'Iconify collections',
+			type: 'json',
+			meta: {
+				width: 'full',
+				interface: 'select-multiple-dropdown',
+				note: 'Collections available for reference icons. Component icon properties use their own metadata config. Leave empty for all collections.',
+				options: {
+					choices: iconifyCollectionChoices,
+					allowNone: true,
+					allowOther: false,
+				},
+			},
+			schema: { default_value: [] },
+		},
+		{
+			field: 'useIconifyProxy',
+			name: 'Use Iconify API proxy',
+			type: 'boolean',
+			meta: {
+				width: 'full',
+				interface: 'checkbox',
+				note: 'Requires directus-iconify-bundle to be installed. Otherwise icons load directly from Iconify.',
+			},
+			schema: { default_value: false },
 		},
 		{
 			field: 'referenceSnapshotMode',

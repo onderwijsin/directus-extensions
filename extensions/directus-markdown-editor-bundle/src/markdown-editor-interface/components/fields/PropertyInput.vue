@@ -5,9 +5,11 @@ import type { AssetStorageMode } from '../../editor/media'
 import { computed } from 'vue'
 
 import { isRecord, isString } from '@onderwijsin/directus-extension-utils'
+import IconifyPicker from '@onderwijsin/directus-extension-utils/app/iconify-picker'
 
 import {
 	componentPropDeprecation,
+	componentPropIconCollections,
 	componentPropSpecialInputType,
 } from '../../component-meta/schema'
 import BooleanInput from './BooleanInput.vue'
@@ -29,6 +31,7 @@ const props = defineProps<{
 	disabled?: boolean
 	assetStorageMode: AssetStorageMode
 	assetBaseUrl?: string
+	useIconifyProxy?: boolean
 }>()
 const model = defineModel<unknown>({ required: true })
 const label = computed(() => props.definition.name ?? props.name)
@@ -86,6 +89,7 @@ function updateChild(name: string, value: unknown) {
 					:disabled="disabled"
 					:asset-storage-mode="assetStorageMode"
 					:asset-base-url="assetBaseUrl"
+					:use-iconify-proxy="useIconifyProxy"
 					@update:model-value="updateChild(childName, $event)"
 				/>
 			</div>
@@ -99,6 +103,7 @@ function updateChild(name: string, value: unknown) {
 				:disabled="disabled"
 				:asset-storage-mode="assetStorageMode"
 				:asset-base-url="assetBaseUrl"
+				:use-iconify-proxy="useIconifyProxy"
 				@update:model-value="model = $event"
 			/>
 			<MultiSelectInput
@@ -121,6 +126,14 @@ function updateChild(name: string, value: unknown) {
 				:storage-mode="assetStorageMode"
 				:base-url="assetBaseUrl"
 				@update:model-value="model = $event"
+			/>
+			<IconifyPicker
+				v-else-if="definition.type === 'string' && specialInput === 'icon'"
+				v-bind="field"
+				:value="textValue || null"
+				:collections="componentPropIconCollections(definition)"
+				:use-proxy="useIconifyProxy"
+				@input="model = $event ?? ''"
 			/>
 			<UrlInput
 				v-else-if="definition.type === 'string' && specialInput === 'url'"

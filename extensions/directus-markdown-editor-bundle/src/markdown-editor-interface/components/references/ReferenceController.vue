@@ -29,6 +29,9 @@ const props = withDefaults(
 		editor: Editor
 		collections: unknown
 		mode?: ReferenceSnapshotMode
+		enableIcon?: boolean
+		iconifyCollections?: string[]
+		useIconifyProxy?: boolean
 		disabled?: boolean
 		insertionEnabled?: boolean
 		scanRevision?: number
@@ -314,6 +317,9 @@ watch(pickerOpen, (isOpen) => {
 		:status="selectedStatus"
 		:disabled="disabled"
 		:refreshing="refreshingSelectedSource"
+		:enable-icon="enableIcon"
+		:iconify-collections="iconifyCollections"
+		:use-iconify-proxy="useIconifyProxy"
 		@apply="applyPresentation"
 		@change-source="changeSource"
 		@refresh-source="refreshSelectedSource"

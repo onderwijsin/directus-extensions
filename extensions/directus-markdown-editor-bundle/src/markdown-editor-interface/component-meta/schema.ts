@@ -113,6 +113,19 @@ export function componentPropSpecialInputType(prop: ComponentProp) {
 }
 
 /**
+ * Read the collection prefixes from a component property's icon input tag.
+ * @param prop Validated component property metadata.
+ * @returns Configured prefixes, or an empty list for all collections.
+ */
+export function componentPropIconCollections(prop: ComponentProp): string[] {
+	const tag =
+		prop.tags?.find((item) => item.name === 'specialInputType') ??
+		prop.tags?.find((item) => item.name === 'editor')
+	const result = z.object({ collections: z.array(z.string().min(1)) }).safeParse(tag?.config)
+	return result.success ? result.data.collections : []
+}
+
+/**
  * Resolve the standard deprecation tag supplied by Vue component metadata.
  * @param metadata Component or property metadata.
  * @returns The deprecation tag when present.

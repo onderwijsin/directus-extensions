@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ getCollections: vi.fn(), getCollection: vi.fn() }))
 
-vi.mock('../src/shared/useIconifyApi', () => ({ useIconifyApi: () => mocks }))
+vi.mock('../../../packages/extension-utils/src/app/iconify/useIconifyApi', () => ({
+	useIconifyApi: () => mocks,
+}))
 
-import { useIconCollections } from '../src/iconify-interface/useIconCollections'
+import { useIconCollections } from '../../../packages/extension-utils/src/app/iconify/useIconCollections'
 
 describe('Iconify picker collections', () => {
 	beforeEach(() => {

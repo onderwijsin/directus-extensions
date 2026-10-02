@@ -1,11 +1,17 @@
 <script setup lang="ts">
-defineProps<{
-	id?: string
-	describedBy?: string
-	invalid?: boolean
-	required?: boolean
-	disabled?: boolean
-}>()
+withDefaults(
+	defineProps<{
+		id?: string
+		describedBy?: string
+		invalid?: boolean
+		required?: boolean
+		disabled?: boolean
+		block?: boolean
+	}>(),
+	{
+		block: true,
+	},
+)
 const model = defineModel<boolean>({ required: true })
 </script>
 
@@ -17,5 +23,7 @@ const model = defineModel<boolean>({ required: true })
 		:aria-invalid="invalid || undefined"
 		:aria-required="required || undefined"
 		:disabled="disabled"
+		:block="block"
+		label="Enabled"
 	/>
 </template>

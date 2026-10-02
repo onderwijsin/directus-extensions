@@ -5,7 +5,10 @@ import {
 	hasImageProperty,
 	validatePropertyDrafts,
 } from '../src/markdown-editor-interface/component-meta/property-form'
-import { normalizeComponentMetadata } from '../src/markdown-editor-interface/component-meta/schema'
+import {
+	componentPropIconCollections,
+	normalizeComponentMetadata,
+} from '../src/markdown-editor-interface/component-meta/schema'
 import { componentRequiresProps } from '../src/markdown-editor-interface/editor/insertion'
 import {
 	parseMdcAttributes,
@@ -67,6 +70,8 @@ describe('recursive component properties', () => {
 		expect(component.props.actions?.items?.properties?.icon?.tags?.[0]?.config).toEqual({
 			collections: ['lucide'],
 		})
+		const iconProperty = component.props.actions?.items?.properties?.icon
+		expect(iconProperty && componentPropIconCollections(iconProperty)).toEqual(['lucide'])
 		expect(componentRequiresProps(component)).toBe(false)
 		expect(hasImageProperty(component.props)).toBe(true)
 	})

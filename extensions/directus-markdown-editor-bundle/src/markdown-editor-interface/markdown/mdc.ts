@@ -323,6 +323,8 @@ export const MdcInline = Node.create({
 		 * @returns Editor-facing component label.
 		 */
 		getComponentLabel: (name: string) => name,
+		/** @returns Whether reference icons use the configured Iconify proxy. */
+		getUseIconifyProxy: (): boolean => false,
 	}),
 	addNodeView: /**
 	 * Editor callback.

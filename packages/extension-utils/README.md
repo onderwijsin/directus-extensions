@@ -3,6 +3,13 @@
 Small, reusable utilities for Directus extensions. The package is runtime-portable across Directus
 setups, but is intended to run inside Directus—not as a framework-agnostic utility library.
 
+The `/app` entry point exports curated `iconifyCollections` and `iconifyCollectionChoices` for
+Directus interface options. Vue app extensions can import the shared picker from
+`@onderwijsin/directus-extension-utils/app/iconify-picker` and the image renderer from
+`@onderwijsin/directus-extension-utils/app/iconify-image`. These source components live in
+`components/` and are compiled by the consuming extension's Vue build. Their TypeScript helpers come
+from the compiled `/app/iconify` subpath. They use Directus Studio's registered UI components.
+
 The public surface includes:
 
 - runtime guards (including Directus primary-key narrowing), attempt/retry helpers, object helpers,

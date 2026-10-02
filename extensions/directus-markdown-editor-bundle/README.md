@@ -100,6 +100,9 @@ Configure these options on each field using the **Markdown (MDC)** interface.
 | **Static component metadata**     | unset    | Required JSON value while static metadata is enabled.                                                                                                                                                                                                                                                      |
 | **Use item references**           | `false`  | Enables the Reference picker, Reference editing, and document integrity checks.                                                                                                                                                                                                                            |
 | **Reference collections**         | unset    | Required non-empty JSON array when item references are enabled.                                                                                                                                                                                                                                            |
+| **Enable reference icon**         | `false`  | Shows an Iconify picker in the Reference drawer when item references are enabled. Existing stored icons remain intact when disabled.                                                                                                                                                                       |
+| **Iconify collections**           | all      | Searchable collection selection for Reference icons. Leave empty to include every collection. Component icon properties use their own tag config.                                                                                                                                                          |
+| **Use Iconify API proxy**         | `false`  | Uses `/iconify` for icons. Requires `@onderwijsin/directus-iconify-bundle` installed on this Directus instance; the editor does not provide the proxy.                                                                                                                                                     |
 | **Reference snapshot mode**       | `detect` | Chooses `snapshot`, `detect`, or `sync` behavior for source snapshots.                                                                                                                                                                                                                                     |
 | **Enable AI editing**             | `false`  | Shows AI actions for this field and allows authenticated `/editor/ai` requests for it.                                                                                                                                                                                                                     |
 
@@ -270,7 +273,10 @@ For example, a Hero can define `image` as
 `{ "type": "object", "properties": { "src": { "type": "string", "required": true, "tags": [{ "name": "specialInputType", "text": "image" }] } } }`
 and `actions` as
 `{ "type": "array", "items": { "type": "object", "properties": { "label": { "type": "string", "required": true }, "to": { "type": "string", "tags": [{ "name": "specialInputType", "text": "url" }] } } } }`.
-The `icon` hint is accepted with its `config` metadata and currently uses the string control.
+The `icon` hint renders an Iconify picker. Set its tag config to `{ "collections": ["lucide"] }` to
+limit that property to a collection. Without configured collections, the picker offers all
+collections. This setting is separate from the editor's **Iconify collections** option for Reference
+icons.
 
 For an image asset property, keep the component prop typed as `string` and add the Vue-compatible
 JSDoc tag `@specialInputType image`. In JSON this is
