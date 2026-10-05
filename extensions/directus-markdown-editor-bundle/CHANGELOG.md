@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1
+
+### Patch Changes
+
+- 31952e9: Keep ordinary colon text as Markdown by recognizing bare inline components only from
+  current inline metadata. Preserve explicit unknown inline components and existing nodes when
+  metadata is unavailable.
+
 ## 0.5.0
 
 ### Minor Changes
