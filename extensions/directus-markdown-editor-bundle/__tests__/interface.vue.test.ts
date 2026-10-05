@@ -262,6 +262,11 @@ function mountEditor(
 	const element = document.createElement('div')
 	document.body.appendChild(element)
 	const app = createApp(root)
+	app.provide('api', { get: vi.fn().mockResolvedValue({ data: { data: [] } }) })
+	app.provide('stores', {
+		useFieldsStore: () => ({ getFieldsForCollection: () => [] }),
+		useCollectionsStore: () => ({ getCollection: () => undefined }),
+	})
 	registerDirectusPrimitives(app)
 	app.mount(element)
 	mounted.push({ app, element })
