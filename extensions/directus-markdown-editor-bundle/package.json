@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-markdown-editor-bundle",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"description": "Directus Markdown/MDC editor interface with coordinated documentation seeding",
 	"keywords": [
 		"directus",
