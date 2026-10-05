@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.2
+
+### Patch Changes
+
+- c0f8a38: Remove components and references from the editor tool selection. Component insertion
+  follows available metadata, and references follow the Use item references setting across toolbar,
+  context menus, triggers, and AI authoring guidance. Existing saved component and reference tool
+  IDs no longer affect insertion.
+
 ## 0.5.1
 
 ### Patch Changes
