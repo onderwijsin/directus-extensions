@@ -46,14 +46,10 @@ const specialCommands = computed(() =>
 	resolveCommands(props.commands, editorToolbarConfig.specialCommandIds),
 )
 const linkEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'link'))
-const referenceEnabled = computed(
-	() => props.referencesEnabled && isEditorToolEnabled(props.enabledTools, 'reference'),
-)
+const referenceEnabled = computed(() => props.referencesEnabled)
 const imageEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'image'))
 const videoEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'video'))
-const componentsEnabled = computed(
-	() => props.componentsAvailable && isEditorToolEnabled(props.enabledTools, 'component'),
-)
+const componentsEnabled = computed(() => props.componentsAvailable)
 const sourceEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'source'))
 const fullscreenEnabled = computed(() => isEditorToolEnabled(props.enabledTools, 'fullscreen'))
 const activeBlockCommand = computed(() => {

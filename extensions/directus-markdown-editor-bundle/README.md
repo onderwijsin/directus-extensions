@@ -171,18 +171,21 @@ sending there.
 
 Requests also include a bounded, normalized description of the field's configured MDC components.
 This lets the model preserve component names, properties, and slots. The hardcoded system prompt is
-created per request from the target field's server-read **Available editor tools** configuration. It
-describes only syntax enabled for new authoring in that editor instance, while requiring existing
-syntax to be preserved. It also preserves every natural language used by the input unless the
-editing task explicitly requests another language, treats code as literal by default, and returns
-provider output without trimming intentional boundary whitespace.
+created per request from the target field's server-read **Available editor tools**, selected
+component metadata source, and **Use item references** configuration. It describes only syntax
+enabled for new authoring in that editor instance, while requiring existing syntax to be preserved.
+It also preserves every natural language used by the input unless the editing task explicitly
+requests another language, treats code as literal by default, and returns provider output without
+trimming intentional boundary whitespace.
 
 **Available editor tools** can independently expose paragraphs, heading levels 1–6, bold, italic,
 strikethrough, inline code, blockquotes, code blocks, unordered and numbered lists, images, video,
-links, references, dividers, hard breaks, tables, clear formatting, history, components, source
-mode, and full-screen mode. Existing components and References remain readable when their insertion
-tool is hidden. Existing components can still be configured; item-reference behavior additionally
-requires **Use item references**.
+links, dividers, hard breaks, tables, clear formatting, history, source mode, and full-screen mode.
+
+Component insertion is available whenever the selected metadata source provides components.
+Reference insertion and integrity checks are controlled by **Use item references**. These features
+are independent of **Available editor tools**. Saved `component` and `reference` tool IDs are
+ignored.
 
 ## Component metadata contract
 
@@ -374,8 +377,7 @@ nodes so stored content is not tied to the current metadata list.
 References let authors select Directus items without creating a relational field. They are inline
 MDC snapshots, not database relations.
 
-Enable **Use item references**, keep the **Reference** editor tool enabled, and configure direct
-fields only:
+Enable **Use item references** and configure direct fields only:
 
 ```json
 [
@@ -520,7 +522,7 @@ published article.
 | Symptom                              | Check                                                                                                                                                                                                                               |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Markdown (MDC)** is missing        | Confirm the package is installed in the Directus runtime, the app entry is enabled, and Directus was restarted.                                                                                                                     |
-| Component insertion is missing       | Enable the **Component insert** tool and provide valid static metadata or a reachable metadata URL.                                                                                                                                 |
+| Component insertion is missing       | Provide valid metadata through the selected static or URL source.                                                                                                                                                                   |
 | Remote metadata fails                | Check the browser console for the source URL and validation path, then verify HTTPS, CORS, and JSON validity. A successful HTTP response can still fail metadata validation. The endpoint receives no custom authentication header. |
 | A Reference collection is disabled   | Check collection uniqueness, direct field names, primary-key metadata, field types, and relational fields.                                                                                                                          |
 | Authors cannot find a Reference item | Check their read permissions and whether the item is archived. Search starts after text is entered.                                                                                                                                 |

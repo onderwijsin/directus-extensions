@@ -253,9 +253,7 @@ const metadata = useComponentMetadata({
 		() => props.staticComponentMeta ?? props.options?.staticComponentMeta,
 	),
 })
-const componentInsertionEnabled = computed(
-	() => metadata.hasComponents.value && isEditorToolEnabled(enabledTools.value, 'component'),
-)
+const componentInsertionEnabled = metadata.hasComponents
 const componentMetadataAuthoritative = computed(
 	() =>
 		metadata.state.value === 'ready' &&
@@ -557,7 +555,7 @@ watch(
 				:iconify-collections="iconifyCollections"
 				:use-iconify-proxy="useIconifyProxy"
 				:disabled="disabled"
-				:insertion-enabled="isEditorToolEnabled(enabledTools, 'reference')"
+				:insertion-enabled="referencesEnabled"
 				:scan-revision="referenceScanRevision"
 				v-model:report-open="referenceReportOpen"
 				@attention-change="referenceNeedsAttention = $event"

@@ -22,7 +22,7 @@ function createReferenceEditor(content = '') {
 		extensions: createEditorExtensions(
 			() => [],
 			{ openReference },
-			() => ['reference'],
+			() => ['paragraph'],
 		),
 	})
 	editors.push(editor)
@@ -95,7 +95,7 @@ describe('Reference @ trigger', () => {
 			extensions: createEditorExtensions(
 				() => [],
 				{ openReference, canOpenReference: () => false },
-				() => ['reference'],
+				() => ['paragraph'],
 			),
 		})
 		editors.push(editor)

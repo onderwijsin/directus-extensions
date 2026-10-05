@@ -1,11 +1,12 @@
 import type { Accountability, ApiExtensionContext, SchemaOverview } from '@directus/types'
 
-import { attempt, hasKey, isRecord } from '@onderwijsin/directus-extension-utils'
+import { attempt, isRecord } from '@onderwijsin/directus-extension-utils'
 import { hasPolicies } from '@onderwijsin/directus-extension-utils/server'
 
 import { CAN_USE_EDITOR_SKILLS_POLICY_ID } from '../shared/editor-skill'
 import { isEditorAiAdministrator } from './authorization'
 import { EditorAiForbiddenError, toEditorAiError } from './errors'
+import { resolveEditorAiTools } from './system-prompt'
 
 interface EditorAiAccessInput {
 	accountability: Accountability
@@ -62,5 +63,5 @@ export async function readEditorAiFieldTools(input: EditorAiFieldInput): Promise
 	)
 		throw new EditorAiForbiddenError({ reason: 'Editor AI is not enabled for this field.' })
 
-	return hasKey(interfaceOptions, 'tools') ? interfaceOptions.tools : undefined
+	return resolveEditorAiTools(interfaceOptions)
 }

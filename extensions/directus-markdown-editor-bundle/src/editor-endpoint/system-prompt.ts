@@ -1,4 +1,4 @@
-import { isArray, isDefined, isString } from '@onderwijsin/directus-extension-utils'
+import { isArray, isDefined, isRecord, isString } from '@onderwijsin/directus-extension-utils'
 
 import { EDITOR_AI_INSERTION_MARKER } from '../shared/editor-ai'
 
@@ -26,6 +26,32 @@ const syntaxByTool: Record<string, string> = {
 	'hard-break': 'hard breaks',
 	table: 'GitHub-style tables',
 	component: 'Nuxt Content MDC components',
+}
+
+/**
+ * Resolve authoring capabilities from field options, independently of legacy insertion tool IDs.
+ * @param options Stored Markdown interface options.
+ * @returns Tool syntax IDs plus the separately configured component and Reference capabilities.
+ */
+export function resolveEditorAiTools(options: Record<string, unknown>): string[] {
+	const configured = isArray(options.tools) ? options.tools.filter(isString) : []
+	const tools =
+		configured.length === 0 || configured.includes('all')
+			? Object.keys(syntaxByTool)
+			: configured
+	const enabled = tools.filter((tool) => tool !== 'component' && tool !== 'reference')
+	if (options.useReferences === true) enabled.push('reference')
+	const staticComponents = isArray(options.staticComponentMeta)
+		? options.staticComponentMeta
+		: isRecord(options.staticComponentMeta) && isArray(options.staticComponentMeta.components)
+			? options.staticComponentMeta.components
+			: []
+	const componentsConfigured =
+		options.useStaticComponentMeta === true
+			? staticComponents.length > 0
+			: isString(options.metadataUrl) && options.metadataUrl.length > 0
+	if (componentsConfigured) enabled.push('component')
+	return enabled.length > 0 ? enabled : ['paragraph']
 }
 
 /**

@@ -262,6 +262,11 @@ function mountEditor(
 	const element = document.createElement('div')
 	document.body.appendChild(element)
 	const app = createApp(root)
+	app.provide('api', { get: vi.fn().mockResolvedValue({ data: { data: [] } }) })
+	app.provide('stores', {
+		useFieldsStore: () => ({ getFieldsForCollection: () => [] }),
+		useCollectionsStore: () => ({ getCollection: () => undefined }),
+	})
 	registerDirectusPrimitives(app)
 	app.mount(element)
 	mounted.push({ app, element })
@@ -616,6 +621,10 @@ describe('Markdown editor interface', () => {
 			]),
 		)
 		expect(tools?.meta?.options?.choices).not.toContainEqual({
+			text: 'Component insert',
+			value: 'component',
+		})
+		expect(tools?.meta?.options?.choices).not.toContainEqual({
 			text: 'All tools',
 			value: 'all',
 		})
@@ -686,7 +695,7 @@ describe('Markdown editor interface', () => {
 		})
 		expect(
 			options.find((option) => option.field === 'tools')?.meta.options?.choices,
-		).toContainEqual({ text: 'Reference', value: 'reference' })
+		).not.toContainEqual({ text: 'Reference', value: 'reference' })
 	})
 
 	it('does not mount Reference integrity reporting in a Directus comparison view', async () => {
@@ -780,6 +789,21 @@ describe('Markdown editor interface', () => {
 		expect(element.querySelector('[aria-label="Block type"]')).toBeNull()
 	})
 
+	it('shows Reference insertion with restricted tools only when references are enabled', async () => {
+		const enabled = mountEditor('References', false, ['paragraph'], {
+			useReferences: true,
+			referenceCollections: [],
+		})
+		const disabled = mountEditor('References', false, ['paragraph', 'reference'], {
+			useReferences: false,
+		})
+		await nextTick()
+		await nextTick()
+
+		expect(enabled.element.querySelector('[aria-label="Insert reference"]')).not.toBeNull()
+		expect(disabled.element.querySelector('[aria-label="Insert reference"]')).toBeNull()
+	})
+
 	it('treats an empty tool selection as all tools', async () => {
 		const { element } = mountEditor('All tools', false, [])
 		await nextTick()
@@ -789,7 +813,7 @@ describe('Markdown editor interface', () => {
 		expect(element.querySelector('[aria-label="Block type"]')).not.toBeNull()
 	})
 
-	it('keeps persisted component settings functional when component insertion is hidden', async () => {
+	it('keeps component insertion and settings available with a restricted tool selection', async () => {
 		const { element } = mountEditor(
 			'::Callout{tone="warning"}\n#default\nContent\n::',
 			false,
@@ -804,7 +828,7 @@ describe('Markdown editor interface', () => {
 		await nextTick()
 		await nextTick()
 
-		expect(element.querySelector('[aria-label="Insert component"]')).toBeNull()
+		expect(element.querySelector('[aria-label="Insert component"]')).not.toBeNull()
 		element
 			.querySelector('[aria-label="Component actions"]')
 			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))

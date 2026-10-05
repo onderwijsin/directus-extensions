@@ -227,7 +227,7 @@ describe('Reference interface', () => {
 		const element = mount(EditorContextMenus, {
 			editor,
 			commands: [],
-			enabledTools: ['reference', 'component'],
+			enabledTools: ['paragraph'],
 			referencesEnabled: true,
 			componentsAvailable: false,
 		})
@@ -244,6 +244,26 @@ describe('Reference interface', () => {
 			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 		await nextTick()
 		expect(element.textContent).toContain('Duplicate')
+		expect(element.textContent).not.toContain('Reference')
+	})
+
+	it('offers configured components in the context menu with restricted tools', async () => {
+		const editor = new Editor({ extensions: createEditorExtensions() })
+		editors.push(editor)
+		const element = mount(EditorContextMenus, {
+			editor,
+			commands: [],
+			enabledTools: ['paragraph'],
+			componentsAvailable: true,
+			referencesEnabled: false,
+		})
+
+		element
+			.querySelector('[aria-label="Insert block"]')
+			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+		await nextTick()
+
+		expect(element.textContent).toContain('Component')
 		expect(element.textContent).not.toContain('Reference')
 	})
 

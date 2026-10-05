@@ -13,7 +13,7 @@ import { isEditorAiAdministrator } from '../src/editor-endpoint/authorization'
 import { envSchema as endpointEnvSchema } from '../src/editor-endpoint/env.schema'
 import { EditorAiInvalidPayloadError, toEditorAiError } from '../src/editor-endpoint/errors'
 import { editorAiRequestSchema } from '../src/editor-endpoint/request'
-import { createSystemPrompt } from '../src/editor-endpoint/system-prompt'
+import { createSystemPrompt, resolveEditorAiTools } from '../src/editor-endpoint/system-prompt'
 import { envSchema as hookEnvSchema } from '../src/markdown-editor-hook/env.schema'
 import { replaceDocument } from '../src/markdown-editor-interface/ai/document'
 import { createInsertionDocument } from '../src/markdown-editor-interface/ai/insertion'
@@ -362,5 +362,47 @@ describe('editor AI domain', () => {
 		expect(editor.getMarkdown()).toBe('# After')
 		expect(transactions).toBe(1)
 		editor.destroy()
+	})
+})
+
+describe('AI insertion capabilities', () => {
+	it('uses dedicated settings even when insertion tools are absent or saved legacy IDs remain', () => {
+		expect(
+			resolveEditorAiTools({
+				tools: ['paragraph'],
+				useReferences: true,
+				useStaticComponentMeta: true,
+				staticComponentMeta: [{ name: 'Callout', nodeType: 'block' }],
+			}),
+		).toEqual(['paragraph', 'reference', 'component'])
+		expect(resolveEditorAiTools({ tools: ['paragraph', 'component', 'reference'] })).toEqual([
+			'paragraph',
+		])
+	})
+
+	it('does not re-enable optional syntax when legacy insertion IDs are the only saved tools', () => {
+		const prompt = createSystemPrompt(
+			resolveEditorAiTools({ tools: ['component', 'reference'] }),
+		)
+
+		expect(prompt).toContain('allows new content using: paragraphs.')
+	})
+
+	it('uses the selected metadata source and disables References by default with all tools', () => {
+		const tools = resolveEditorAiTools({
+			tools: [],
+			useStaticComponentMeta: true,
+			staticComponentMeta: { components: [] },
+			metadataUrl: 'https://example.com/components.json',
+		})
+
+		expect(tools).not.toContain('component')
+		expect(tools).not.toContain('reference')
+		expect(
+			resolveEditorAiTools({
+				tools: ['paragraph'],
+				metadataUrl: 'https://example.com/components.json',
+			}),
+		).toEqual(['paragraph', 'component'])
 	})
 })

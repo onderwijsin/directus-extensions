@@ -165,9 +165,10 @@ For metadata image and URL controls, use `{ "name": "specialInputType", "text": 
 remains readable, with `specialInputType` taking precedence. The default image storage format is now
 `/assets/{id}` for newly selected component images; existing ID values remain untouched.
 
-The endpoint reads the target field's `tools` option and constructs the system prompt for that
-specific editor instance. AI may introduce only currently enabled authoring syntax, while existing
-syntax remains preservation-safe even when its corresponding toolbar action is disabled.
+The endpoint reads the target field's `tools`, selected component metadata source, and
+`useReferences` options to construct the system prompt for that specific editor instance. AI may
+introduce only currently enabled authoring syntax, while existing syntax remains preservation-safe
+even when its corresponding toolbar action is disabled.
 
 Treat provider data handling as an operator decision: document content and custom instructions leave
 Directus for the configured provider/model. Keep credentials in environment secrets and grant skill
@@ -195,21 +196,22 @@ Valid tool IDs are:
   "image",
   "video",
   "link",
-  "reference",
   "horizontal-rule",
   "hard-break",
   "table",
   "clear-formatting",
   "history",
-  "component",
   "source",
   "fullscreen"
 ]
 ```
 
-Leave the selection empty unless the content model deliberately restricts authors. Hiding
-`component` preserves settings for stored components. Hiding `reference` preserves stored Reference
-MDC; turning `useReferences` off removes Reference-specific UI and integrity checks.
+Leave the selection empty unless the content model deliberately restricts authors.
+
+Component insertion is available whenever the selected metadata source provides components.
+Reference insertion and integrity checks are controlled by `useReferences`. Both features are
+independent of `tools`; saved `component` and `reference` tool IDs are ignored. Turning
+`useReferences` off preserves stored Reference MDC.
 
 The saved API value must remain a Markdown string:
 
@@ -386,8 +388,8 @@ safely. The editor does not provide frontend components.
 
 ## Configure Directus item References
 
-References are inline snapshots, not Directus relations. Enable `useReferences`, include `reference`
-in `tools` (or leave the selection empty), and configure unique collections:
+References are inline snapshots, not Directus relations. Enable `useReferences` and configure unique
+collections:
 
 ```json
 [
@@ -495,17 +497,17 @@ Complete every applicable check:
 
 ## Troubleshoot deterministically
 
-| Symptom                           | Resolve                                                                                                                                                                                                                             |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Interface absent                  | Verify runtime installation, supported Directus version, enabled app entry, and restart.                                                                                                                                            |
-| Components absent                 | Verify `component` tool and selected metadata source. The browser console logs the source URL and validation path on failure; a successful HTTP response can still contain invalid metadata. Verify the JSON schema and HTTPS/CORS. |
-| Stored component has no metadata  | Restore its metadata entry to regain typed choices; generic editing remains available.                                                                                                                                              |
-| Reference configuration warning   | Check unique collections, primary keys, direct fields, search field types, and relation exclusion.                                                                                                                                  |
-| Reference picker empty            | Enter a query, verify author permissions, and check archive state.                                                                                                                                                                  |
-| Reference unavailable             | Treat as missing or permission-hidden; replace/remove it or correct permissions.                                                                                                                                                    |
-| Source mode requests confirmation | Compare normalization; accept only when the syntax change is intended.                                                                                                                                                              |
-| Studio article unchanged          | Inspect/promote `incoming`, then check contributor and Studio Docs seed gates.                                                                                                                                                      |
-| Startup lock errors               | Use shared Redis/filesystem storage and validate connection/directory access.                                                                                                                                                       |
+| Symptom                           | Resolve                                                                                                                                                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Interface absent                  | Verify runtime installation, supported Directus version, enabled app entry, and restart.                                                                                                                           |
+| Components absent                 | Verify the selected metadata source. The browser console logs the source URL and validation path on failure; a successful HTTP response can still contain invalid metadata. Verify the JSON schema and HTTPS/CORS. |
+| Stored component has no metadata  | Restore its metadata entry to regain typed choices; generic editing remains available.                                                                                                                             |
+| Reference configuration warning   | Check unique collections, primary keys, direct fields, search field types, and relation exclusion.                                                                                                                 |
+| Reference picker empty            | Enter a query, verify author permissions, and check archive state.                                                                                                                                                 |
+| Reference unavailable             | Treat as missing or permission-hidden; replace/remove it or correct permissions.                                                                                                                                   |
+| Source mode requests confirmation | Compare normalization; accept only when the syntax change is intended.                                                                                                                                             |
+| Studio article unchanged          | Inspect/promote `incoming`, then check contributor and Studio Docs seed gates.                                                                                                                                     |
+| Startup lock errors               | Use shared Redis/filesystem storage and validate connection/directory access.                                                                                                                                      |
 
 Keep metadata delivery in the consuming project. Do not add undocumented extension endpoints or
 privileged browser credentials to transport it.

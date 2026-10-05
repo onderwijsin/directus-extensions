@@ -381,9 +381,8 @@ function runAi(skillId?: string) {
 					<VDivider
 						v-if="
 							isEditorToolEnabled(enabledTools, 'link') ||
-							(componentsAvailable &&
-								isEditorToolEnabled(enabledTools, 'component')) ||
-							(referencesEnabled && isEditorToolEnabled(enabledTools, 'reference'))
+							componentsAvailable ||
+							referencesEnabled
 						"
 					/>
 					<VListItem
@@ -396,21 +395,13 @@ function runAi(skillId?: string) {
 						</VListItemIcon>
 						<VListItemContent>Link</VListItemContent>
 					</VListItem>
-					<VListItem
-						v-if="componentsAvailable && isEditorToolEnabled(enabledTools, 'component')"
-						clickable
-						@click="openComponentInsert"
-					>
+					<VListItem v-if="componentsAvailable" clickable @click="openComponentInsert">
 						<VListItemIcon>
 							<VIcon name="widgets" />
 						</VListItemIcon>
 						<VListItemContent>Component</VListItemContent>
 					</VListItem>
-					<VListItem
-						v-if="referencesEnabled && isEditorToolEnabled(enabledTools, 'reference')"
-						clickable
-						@click="openReferenceInsert"
-					>
+					<VListItem v-if="referencesEnabled" clickable @click="openReferenceInsert">
 						<VListItemIcon>
 							<VIcon name="alternate_email" />
 						</VListItemIcon>

@@ -10,7 +10,6 @@ import StarterKit from '@tiptap/starter-kit'
 import { createMdcInline, MdcBlock, MdcSlot } from '../markdown'
 import { Video } from '../markdown/video'
 import { MarkdownCodeBlock } from './code-block'
-import { isEditorToolEnabled } from './commands'
 import { ClearMarksOnEnter } from './enter'
 import { imagePreviewUrl } from './media'
 import { Placeholder } from './placeholder'
@@ -109,9 +108,7 @@ export function createEditorExtensions(
 			? [
 					createReferenceTrigger(
 						actions.openReference,
-						() =>
-							isEditorToolEnabled(getEnabledTools(), 'reference') &&
-							(actions.canOpenReference?.() ?? true),
+						() => actions.canOpenReference?.() ?? true,
 					),
 				]
 			: []),

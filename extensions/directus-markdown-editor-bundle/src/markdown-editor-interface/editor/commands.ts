@@ -95,7 +95,6 @@ export const editorToolOptions: EditorToolOption[] = [
 	{ text: 'Image', value: 'image', commandIds: [] },
 	{ text: 'Video / media', value: 'video', commandIds: [] },
 	{ text: 'Link insert', value: 'link', commandIds: [] },
-	{ text: 'Reference', value: 'reference', commandIds: [] },
 	{ text: 'Divider', value: 'horizontal-rule', commandIds: ['horizontal-rule'] },
 	{ text: 'Hard break', value: 'hard-break', commandIds: ['hard-break'] },
 	{
@@ -105,7 +104,6 @@ export const editorToolOptions: EditorToolOption[] = [
 	},
 	{ text: 'Clear formatting', value: 'clear-formatting', commandIds: ['clear-formatting'] },
 	{ text: 'Undo / redo', value: 'history', commandIds: ['undo', 'redo'] },
-	{ text: 'Component insert', value: 'component', commandIds: [] },
 	{ text: 'Edit source', value: 'source', commandIds: [] },
 	{ text: 'Full screen', value: 'fullscreen', commandIds: [] },
 ]
