@@ -1247,6 +1247,18 @@ describe('editor commands', () => {
 		)
 	})
 
+	it('offers metadata components in the slash menu with restricted tools', () => {
+		const items = createSlashItems(
+			normalizeComponentMetadata([{ name: 'Callout', nodeType: 'block' }]),
+			{},
+			['paragraph'],
+		)
+
+		expect(items.map((item) => item.id)).toEqual(['paragraph', 'component:Callout'])
+		expect(editorToolOptions.map((option) => option.value)).not.toContain('component')
+		expect(editorToolOptions.map((option) => option.value)).not.toContain('reference')
+	})
+
 	it('uses all tools for an empty selection and keeps paragraph available for non-block selections', () => {
 		expect(resolveEditorTools([])).toBeUndefined()
 		expect(resolveEditorTools(['bold'])).toEqual(['bold', 'paragraph'])

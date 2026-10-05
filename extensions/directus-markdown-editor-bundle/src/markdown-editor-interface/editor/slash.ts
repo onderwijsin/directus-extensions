@@ -95,28 +95,22 @@ export function createSlashItems(
 			command: item.execute,
 		})),
 	)
-	const componentItems = isEditorToolEnabled(enabledTools, 'component')
-		? components.map((component) => ({
-				id: `component:${component.name}`,
-				label: component.label,
-				description: component.description ?? `Insert the ${component.label} component`,
-				icon: 'widgets',
-				group: 'Components',
-				aliases: [component.name, 'component', 'mdc', 'block'],
-				deprecated: Boolean(metadataDeprecation(component)),
-				command: (editor: Editor) => {
-					if (componentRequiresProps(component)) {
-						actions.openComponent?.(component)
-						return Boolean(actions.openComponent)
-					}
-					return insertComponent(
-						editor,
-						component,
-						resolveComponentDefaultProps(component),
-					)
-				},
-			}))
-		: []
+	const componentItems = components.map((component) => ({
+		id: `component:${component.name}`,
+		label: component.label,
+		description: component.description ?? `Insert the ${component.label} component`,
+		icon: 'widgets',
+		group: 'Components',
+		aliases: [component.name, 'component', 'mdc', 'block'],
+		deprecated: Boolean(metadataDeprecation(component)),
+		command: (editor: Editor) => {
+			if (componentRequiresProps(component)) {
+				actions.openComponent?.(component)
+				return Boolean(actions.openComponent)
+			}
+			return insertComponent(editor, component, resolveComponentDefaultProps(component))
+		},
+	}))
 	const mediaItems: SlashItem[] = [
 		{
 			id: 'insert-link',
