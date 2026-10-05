@@ -305,92 +305,103 @@ export const MdcBlock = Node.create({
 	},
 })
 
-/** Generic inline MDC support for self-closing components. */
-export const MdcInline = Node.create({
-	name: 'mdcInline',
-	group: 'inline',
-	inline: true,
-	atom: true,
-	selectable: true,
-	/**
-	 * Configure the editor-facing component label resolver.
-	 * @returns MDC inline options.
-	 */
-	addOptions: () => ({
-		/**
-		 * Resolve the editor-facing label for a serialized component name.
-		 * @param name Serialized component name.
-		 * @returns Editor-facing component label.
-		 */
-		getComponentLabel: (name: string) => name,
-		/** @returns Whether reference icons use the configured Iconify proxy. */
-		getUseIconifyProxy: (): boolean => false,
-	}),
-	addNodeView: /**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */ () => createVueNodeView(MdcInlineView),
-
-	addAttributes: /**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */ () => ({ name: { default: 'unknown' }, props: { default: {} } }),
-
-	parseHTML: /**
-	 * Editor callback.
-	 * @returns Callback result.
-	 */ () => [{ tag: 'span[data-mdc-inline]' }],
-
-	renderHTML: /**
-	 * Editor callback.
-	 * @param { node, HTMLAttributes } Parameter value.
-	 * @returns Callback result.
-	 */ ({ node, HTMLAttributes }) => [
-		'span',
-		{ ...HTMLAttributes, 'data-mdc-inline': node.attrs.name },
-		`:${isString(node.attrs.name) ? node.attrs.name : 'unknown'}`,
-	],
-	markdownTokenName: 'mdcInline',
-
-	parseMarkdown: /**
-	 * Editor callback.
-	 * @param token Parameter value.
-	 * @returns Callback result.
-	 */ (token) => ({
-		type: 'mdcInline',
-		attrs: {
-			name: (token as MdcToken).name ?? 'unknown',
-			props: (token as MdcToken).attributes ?? {},
-		},
-	}),
-	markdownTokenizer: {
+/**
+ * Create inline MDC support with metadata-aware shorthand recognition.
+ * @param isKnownInlineComponent Resolve whether a bare name identifies an inline component.
+ * @returns Inline MDC extension preserving explicit components independently of metadata.
+ */
+export function createMdcInline(isKnownInlineComponent: (name: string) => boolean = () => false) {
+	return Node.create({
 		name: 'mdcInline',
-		level: 'inline' as const,
-		start: ':',
-
-		tokenize: /**
+		group: 'inline',
+		inline: true,
+		atom: true,
+		selectable: true,
+		/**
+		 * Configure the editor-facing component label resolver.
+		 * @returns MDC inline options.
+		 */
+		addOptions: () => ({
+			/**
+			 * Resolve the editor-facing label for a serialized component name.
+			 * @param name Serialized component name.
+			 * @returns Editor-facing component label.
+			 */
+			getComponentLabel: (name: string) => name,
+			/** @returns Whether reference icons use the configured Iconify proxy. */
+			getUseIconifyProxy: (): boolean => false,
+		}),
+		addNodeView: /**
 		 * Editor callback.
-		 * @param source Parameter value.
 		 * @returns Callback result.
-		 */ (source: string) => {
-			const match = /^:([\w-]+)/u.exec(source)
-			if (!match) return undefined
-			const attributeBlock = readMdcAttributeBlock(source.slice(match[0].length))
-			return {
-				type: 'mdcInline',
-				raw: source.slice(0, match[0].length + (attributeBlock?.length ?? 0)),
-				name: match[1],
-				attributes: parseMdcAttributes(attributeBlock?.source),
-			}
-		},
-	},
+		 */ () => createVueNodeView(MdcInlineView),
 
-	renderMarkdown: /**
-	 * Editor callback.
-	 * @param node Parameter value.
-	 * @returns Callback result.
-	 */ (node: MdcNode) => {
-		const name = isString(node.attrs?.name) ? node.attrs.name : 'unknown'
-		return `:${name}${serializeMdcAttributes(node.attrs?.props) || '{}'}`
-	},
-})
+		addAttributes: /**
+		 * Editor callback.
+		 * @returns Callback result.
+		 */ () => ({ name: { default: 'unknown' }, props: { default: {} } }),
+
+		parseHTML: /**
+		 * Editor callback.
+		 * @returns Callback result.
+		 */ () => [{ tag: 'span[data-mdc-inline]' }],
+
+		renderHTML: /**
+		 * Editor callback.
+		 * @param { node, HTMLAttributes } Parameter value.
+		 * @returns Callback result.
+		 */ ({ node, HTMLAttributes }) => [
+			'span',
+			{ ...HTMLAttributes, 'data-mdc-inline': node.attrs.name },
+			`:${isString(node.attrs.name) ? node.attrs.name : 'unknown'}`,
+		],
+		markdownTokenName: 'mdcInline',
+
+		parseMarkdown: /**
+		 * Editor callback.
+		 * @param token Parameter value.
+		 * @returns Callback result.
+		 */ (token) => ({
+			type: 'mdcInline',
+			attrs: {
+				name: (token as MdcToken).name ?? 'unknown',
+				props: (token as MdcToken).attributes ?? {},
+			},
+		}),
+		markdownTokenizer: {
+			name: 'mdcInline',
+			level: 'inline' as const,
+			start: ':',
+
+			tokenize: /**
+			 * Editor callback.
+			 * @param source Parameter value.
+			 * @returns Callback result.
+			 */ (source: string) => {
+				const match = /^:([\w-]+)/u.exec(source)
+				if (!match) return undefined
+				const attributeBlock = readMdcAttributeBlock(source.slice(match[0].length))
+				if (!attributeBlock && (!match[1] || !isKnownInlineComponent(match[1])))
+					return undefined
+				return {
+					type: 'mdcInline',
+					raw: source.slice(0, match[0].length + (attributeBlock?.length ?? 0)),
+					name: match[1],
+					attributes: parseMdcAttributes(attributeBlock?.source),
+				}
+			},
+		},
+
+		renderMarkdown: /**
+		 * Editor callback.
+		 * @param node Parameter value.
+		 * @returns Callback result.
+		 */ (node: MdcNode) => {
+			const name = isString(node.attrs?.name) ? node.attrs.name : 'unknown'
+			return `:${name}${serializeMdcAttributes(node.attrs?.props) || '{}'}`
+		},
+	})
+}
+
+/** Generic inline MDC support preserving explicit self-closing components. */
+export const MdcInline = createMdcInline()

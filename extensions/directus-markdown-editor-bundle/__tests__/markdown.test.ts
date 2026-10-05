@@ -6,7 +6,12 @@ import {
 	componentPropSpecialInputType,
 	normalizeComponentMetadata,
 } from '../src/markdown-editor-interface/component-meta/schema'
-import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown-editor-interface/markdown'
+import {
+	createMdcInline,
+	MdcBlock,
+	MdcInline,
+	MdcSlot,
+} from '../src/markdown-editor-interface/markdown'
 import {
 	parseMdcAttributes,
 	serializeMdcAttributes,
@@ -17,6 +22,48 @@ function manager() {
 }
 
 describe('generic MDC Markdown boundary', () => {
+	it.each([
+		'14:00 uur',
+		'- A list:with content',
+		'14 : 00 uur',
+		'- A list: with content',
+		':Unknown',
+	])('preserves ordinary colon text: %s', (input) => {
+		const markdown = manager()
+		expect(markdown.serialize(markdown.parse(input))).toBe(input)
+	})
+
+	it.each([':Unknown{}', ':Unknown{label="kept"}'])(
+		'preserves explicit unknown inline components without metadata: %s',
+		(input) => {
+			const markdown = manager()
+			const document = markdown.parse(input)
+			expect(document.content?.[0]?.content?.[0]).toMatchObject({
+				type: 'mdcInline',
+				attrs: { name: 'Unknown' },
+			})
+			expect(markdown.serialize(document)).toBe(input)
+		},
+	)
+
+	it('uses current metadata for shorthand without losing explicit components during an outage', () => {
+		let known = false
+		const markdown = new MarkdownManager({
+			extensions: [StarterKit, createMdcInline((name) => known && name === 'Icon')],
+		})
+		expect(markdown.serialize(markdown.parse(':Icon'))).toBe(':Icon')
+		known = true
+		const document = markdown.parse(':Icon')
+		expect(document.content?.[0]?.content?.[0]).toMatchObject({
+			type: 'mdcInline',
+			attrs: { name: 'Icon' },
+		})
+		expect(markdown.serialize(markdown.parse(':Other'))).toBe(':Other')
+		known = false
+		expect(markdown.serialize(document)).toBe(':Icon{}')
+		expect(markdown.parse(':Icon{}')).toMatchObject(document)
+	})
+
 	it('round-trips ordinary Markdown and a generic block', () => {
 		const input = 'A **portable** paragraph.\n\n::callout{tone="warning"}\nHello *world*.\n::'
 		const markdown = manager()

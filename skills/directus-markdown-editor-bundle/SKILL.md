@@ -372,8 +372,14 @@ Content
 The parser preserves escaped string quotes/backslashes, shorthand booleans, dynamic JSON bindings,
 unknown component names, and nested delimiter depth. Dynamic bindings serialize with single outer
 quotes, leaving object and array JSON in its standard double-quoted form. Empty inline nodes
-serialize with `{}` to keep adjacent text separate. Component slots are structural editable regions;
-the editor prevents gap content between slots and focuses the first slot after insertion.
+serialize with `{}` to keep adjacent text separate. Bare inline syntax such as `:Icon` is recognized
+only when currently loaded metadata identifies that name as an inline component. Ordinary colon text
+such as `14:00 uur` or `list:with content` stays text. Explicit inline syntax (`:Name{}` or
+`:Name{prop="value"}`) remains supported for unknown components, including when metadata is loading
+or unavailable. Existing component nodes always serialize independently of metadata. Unknown bare
+syntax remains text; use `{}` to make an unknown component explicit. Component slots are structural
+editable regions; the editor prevents gap content between slots and focuses the first slot after
+insertion.
 
 Implement matching MDC renderers in the consumer and decide how unknown components are handled
 safely. The editor does not provide frontend components.

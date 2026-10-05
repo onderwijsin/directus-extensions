@@ -1,2 +1,2 @@
 export { parseMdcAttributes, serializeMdcAttributes } from './attributes'
-export { MdcBlock, MdcInline, MdcSlot } from './mdc'
+export { createMdcInline, MdcBlock, MdcInline, MdcSlot } from './mdc'

@@ -56,6 +56,32 @@ import { createSlashItems, filterSlashItems } from '../src/markdown-editor-inter
 import { synchronizeEditorMarkdown } from '../src/markdown-editor-interface/editor/synchronization'
 import { MdcBlock, MdcInline, MdcSlot } from '../src/markdown-editor-interface/markdown'
 
+describe('metadata-aware inline parsing', () => {
+	it('recognizes only inline metadata shorthand and preserves explicit nodes after metadata failure', () => {
+		let components = normalizeComponentMetadata([
+			{ name: 'Icon', nodeType: 'inline' },
+			{ name: 'Card', nodeType: 'block' },
+		])
+		const editor = new Editor({
+			extensions: createEditorExtensions(() => components),
+			contentType: 'markdown',
+			content: '14:00 uur\n\n- A list:with content\n\n:Icon :Card :Future{}',
+		})
+		try {
+			expect(editor.getMarkdown()).toBe(
+				'14:00 uur\n\n- A list:with content\n\n:Icon{} :Card :Future{}',
+			)
+			components = []
+			const stored = editor.getMarkdown()
+			expect(synchronizeEditorMarkdown(editor, stored + ' updated')).toBe(true)
+			expect(editor.getMarkdown()).toBe(stored + ' updated')
+			expect(editor.state.doc.lastChild?.child(0).type.name).toBe('mdcInline')
+		} finally {
+			editor.destroy()
+		}
+	})
+})
+
 describe('component property freshness', () => {
 	const metadata = [
 		{

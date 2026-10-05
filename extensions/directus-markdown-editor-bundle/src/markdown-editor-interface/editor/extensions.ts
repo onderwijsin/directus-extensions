@@ -7,7 +7,7 @@ import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table
 import { Markdown } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 
-import { MdcBlock, MdcInline, MdcSlot } from '../markdown'
+import { createMdcInline, MdcBlock, MdcSlot } from '../markdown'
 import { Video } from '../markdown/video'
 import { MarkdownCodeBlock } from './code-block'
 import { isEditorToolEnabled } from './commands'
@@ -86,7 +86,11 @@ export function createEditorExtensions(
 			getComponentLabel: (name: string) =>
 				getComponents().find((component) => component.name === name)?.label ?? name,
 		}),
-		MdcInline.configure({
+		createMdcInline((name) =>
+			getComponents().some(
+				(component) => component.name === name && component.nodeType === 'inline',
+			),
+		).configure({
 			getUseIconifyProxy: actions.getUseIconifyProxy ?? (() => false),
 			/**
 			 * Resolve the editor-facing label for a serialized component name.
