@@ -247,17 +247,20 @@ export function createDirectusStartupCoordinator(
 
 	/**
 	 * Registers a middleware listener when a group receives its first callback.
+	 * The first middlewares.before listener is the stable primary slot: it must select data
+	 * at execution when present, even if documentation() registered it first. When both
+	 * groups are used, the second listener runs documentation. This preserves the previous
+	 * data-before-documentation listener semantics regardless of consumer call order, while
+	 * synchronous registration lets Directus collect all unregister callbacks during setup.
 	 * @returns Nothing.
 	 */
 	const registerMiddlewareListener = (): void => {
 		if (dataCallbacks.length > 0 && documentationCallbacks.length > 0) {
-			// Both groups are now used: the first slot runs data, so the second runs documentation.
 			hook.init('middlewares.before', async () =>
 				runCallbacks(documentationCallbacks, 'documentation'),
 			)
 			return
 		}
-		// The first slot selects data when used, regardless of which group registered first.
 		hook.init('middlewares.before', async () =>
 			dataCallbacks.length > 0
 				? runCallbacks(dataCallbacks, 'data')

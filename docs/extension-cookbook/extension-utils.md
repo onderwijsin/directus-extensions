@@ -487,14 +487,15 @@ Schema callbacks always register on Directus's awaited `app.before` event, while
 `documentation` callbacks register on Directus's awaited `middlewares.before` event. This ensures
 schema preparation completes before data seeding begins, and startup seeding completes before
 middleware and route setup continues. Documentation callbacks are independent of the ordinary global
-schema/data gates. Register callbacks synchronously during extension setup, in any order. Lifecycle
-listeners register synchronously on each group's first callback so Directus collects their
-unregister callbacks during setup. Further callbacks reuse the existing listeners and run in
-callback registration order within their group. Unused groups register no listener and perform no
-startup coordination. The first `middlewares.before` listener runs data when used, otherwise
-documentation. When both groups are used, documentation runs in a separate second listener,
-preserving data before documentation regardless of consumer call order. These independent init
-listeners do not establish sequential execution between groups.
+schema/data gates.
+
+Register `startup.schema()`, `startup.data()`, and `startup.documentation()` callbacks synchronously
+during extension setup, in any order. The coordinator registers lifecycle listeners synchronously
+only for used phases. Further callbacks reuse the existing listeners and run in callback
+registration order within their group. Unused phases register no listener and perform no startup
+coordination. Existing lifecycle events, gates, locking, and error handling remain unchanged,
+regardless of consumer call order. Independent init listeners do not guarantee sequential execution
+between groups.
 
 `ensureDirectusDocumentation(article, context, options?)` is the server-only shared contract for
 contributing articles to the fixed `studio_docs` collection. Article definitions require a stable

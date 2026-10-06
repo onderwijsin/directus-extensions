@@ -18,7 +18,8 @@ The required invariants are:
 > data callback registered through that coordinator can begin, and every coordinator-managed data
 > callback must finish before Directus starts serving requests.
 
-The relevant Directus lifecycle behavior was verified against Directus v12.2.0:
+The relevant Directus lifecycle and unregister-collection behavior was verified in the source for
+Directus v12.2.0 (the existing E2E baseline) and v12.4.1:
 
 - Extension registration is concurrent across sources and extensions; there is no supported global
   extension priority or dependency ordering mechanism.
@@ -33,10 +34,17 @@ The relevant Directus lifecycle behavior was verified against Directus v12.2.0:
   listeners must therefore register during synchronous hook setup to be included in that cleanup.
 
 Primary source references:
-[Directus extension manager](https://github.com/directus/directus/blob/v12.2.0/api/src/extensions/manager.ts),
-[Directus emitter](https://github.com/directus/directus/blob/v12.2.0/api/src/emitter.ts),
-[Directus app lifecycle](https://github.com/directus/directus/blob/v12.2.0/api/src/app.ts), and
-[Directus server lifecycle](https://github.com/directus/directus/blob/v12.2.0/api/src/server.ts).
+
+- Directus v12.2.0:
+  [extension manager](https://github.com/directus/directus/blob/v12.2.0/api/src/extensions/manager.ts),
+  [emitter](https://github.com/directus/directus/blob/v12.2.0/api/src/emitter.ts),
+  [app lifecycle](https://github.com/directus/directus/blob/v12.2.0/api/src/app.ts), and
+  [server lifecycle](https://github.com/directus/directus/blob/v12.2.0/api/src/server.ts).
+- Directus v12.4.1:
+  [extension manager](https://github.com/directus/directus/blob/v12.4.1/api/src/extensions/manager.ts),
+  [emitter](https://github.com/directus/directus/blob/v12.4.1/api/src/emitter.ts),
+  [app lifecycle](https://github.com/directus/directus/blob/v12.4.1/api/src/app.ts), and
+  [server lifecycle](https://github.com/directus/directus/blob/v12.4.1/api/src/server.ts).
 
 ## Decision
 
@@ -58,6 +66,21 @@ handler, and additional callbacks reuse the existing handlers:
   within that coordinator.
 - Data callbacks retain their existing lock, gate, renewal, error handling, and registration-order
   behavior while becoming part of the awaited application startup path.
+
+The first middleware listener is a stable primary slot whose callback group is selected at
+execution, not captured when the listener is registered. If `startup.documentation()` is called
+first, that listener initially has only documentation work available. A later synchronous
+`startup.data()` call must leave the primary listener in place but make it execute data, and
+register a separate second listener for documentation. The same two roles result when data is
+registered first. Capturing the first caller's group would instead make listener semantics depend on
+consumer call order and reverse the previous data-before-documentation behavior for
+documentation-first consumers.
+
+This dynamic selection allows each first callback to register its listener immediately, without
+registering a listener for an unused group or deferring registration until all groups are known.
+Synchronous registration also ensures Directus's immediate bundle cleanup snapshot includes every
+unregister callback. Data and documentation keep separate listeners when both are used; the primary
+slot preserves listener registration semantics, not a sequential execution guarantee between groups.
 
 This decision applies to schema and data work registered through the shared coordinator. It does not
 create an ordering guarantee between independent init listeners, nor does it make one extension load
