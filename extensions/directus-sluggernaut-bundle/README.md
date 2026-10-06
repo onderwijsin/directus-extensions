@@ -440,6 +440,10 @@ Add `Sluggernaut: Recalculate Fields` to a Directus Flow:
 | `fields`          | no       | all derived fields | Exact slug/permalink field keys to recalculate. Unknown/non-derived keys are ignored.                              |
 | `createRedirects` | no       |             `true` | Uses item-service updates when true and redirects are enabled; otherwise writes directly without redirect history. |
 
+`createRedirects` controls redirect history only; it never expands the selected `fields`. With
+`fields: ["slug"]`, dependent permalinks remain unchanged even when their normal update
+synchronization is enabled. Redirects reflect only canonical changes caused by selected fields.
+
 Existing flows using the previous `fieldKeys` option remain supported as a legacy alias; new flows
 use `fields`.
 

@@ -562,6 +562,10 @@ Add `Sluggernaut: Recalculate Fields` to a Flow. The operation API accepts:
 | `fields`          | no       | all derived fields | Exact keys. Only configured slug fields and template-generated permalink fields are eligible.                      |
 | `createRedirects` | no       |             `true` | Uses item-service updates when true and redirects are enabled; otherwise writes directly without redirect history. |
 
+`createRedirects` controls redirect history only; it never expands the selected `fields`. With
+`fields: ["slug"]`, dependent permalinks remain unchanged even when their normal update
+synchronization is enabled. Redirects reflect only canonical changes caused by selected fields.
+
 Existing flows may still send the previous `fieldKeys` option as a legacy alias; new flows should
 use `fields`.
 

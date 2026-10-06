@@ -48,6 +48,16 @@ The source marker bypasses ownership transfer for internal history writes only. 
 validation remains applicable, while the established history planner remains authoritative for the
 structural coordination of its own concurrent writes.
 
+## Recalculation field scope
+
+The recalculation operation uses a separate async-local scope around each awaited item-service write
+to carry its selected fields into the normal item update filter. The scope matches both the
+collection and primary key, so unrelated nested updates retain normal derivation. Only derivation is
+constrained: validation, lifecycle handling, and canonical redirect processing remain active. This
+keeps `createRedirects` independent of field selection without suppressing Directus events or adding
+internal markers to persisted payloads. The same request-local and replica-safety reasoning applies;
+completion or rejection of the awaited write restores the previous scope.
+
 ## Reconsideration criteria
 
 Revisit this decision if Directus exposes a stable internal-mutation event marker, if Sluggernaut

@@ -924,6 +924,42 @@ describe('Sluggernaut Directus integration', () => {
 		}
 	})
 
+	it.each([false, true])(
+		'keeps slug-only recalculation scoped with createRedirects=%s',
+		async (createRedirects) => {
+			const fixture = await createSluggernautCollection()
+			try {
+				const item = await client.request(
+					createItem(fixture.collection, {
+						title: 'New slug',
+						slug: 'old-slug',
+						permalink: '/news/old-slug',
+					}),
+				)
+				const result = await runRecalculation(fixture.collection, {
+					fields: ['slug'],
+					createRedirects,
+				})
+				expect(result.failed).toBe(0)
+				const stored = await client.request(
+					readItems(fixture.collection, { fields: ['slug', 'permalink'] }),
+				)
+				expect(stored).toEqual([
+					expect.objectContaining({ slug: 'new-slug', permalink: '/news/old-slug' }),
+				])
+				expect(await readRedirects(fixture.collection, String(item.id))).toEqual([])
+
+				// Ordinary updates must still synchronize the permalink after the operation completes.
+				const updated = await client.request(
+					updateItem(fixture.collection, item.id, { slug: 'normal-update' }),
+				)
+				expect(updated.permalink).toBe('/articles/normal-update')
+			} finally {
+				await fixture.dispose()
+			}
+		},
+	)
+
 	it('creates redirect history during recalculation when requested', async () => {
 		const fixture = await createSluggernautCollection()
 		let itemId: string | undefined
