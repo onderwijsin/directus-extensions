@@ -93,8 +93,8 @@ const createLeaseLostError = (error: unknown): Error =>
 		: new Error('Directus startup lock renewal failed', { cause: error })
 
 /**
- * Creates a startup coordinator that registers only used phases in canonical order.
- * Register callbacks synchronously during extension setup; listeners are registered in a microtask.
+ * Creates a startup coordinator that synchronously registers listeners only for used phases.
+ * Register callbacks during synchronous extension setup, in any phase order.
  * @param hook - Directus hook registration functions.
  * @param logger - Logger used for lifecycle and failure messages.
  * @param options - Enablement and lock configuration.
@@ -245,21 +245,25 @@ export function createDirectusStartupCoordinator(
 		}
 	}
 
-	// Batch synchronous setup so consumer call order cannot change lifecycle listener order.
-	// Directus awaits extension registration before emitting either startup init event.
-	queueMicrotask(() => {
-		if (schemaCallbacks.length > 0) {
-			hook.init('app.before', async () => runCallbacks(schemaCallbacks, 'schema'))
-		}
-		if (dataCallbacks.length > 0) {
-			hook.init('middlewares.before', async () => runCallbacks(dataCallbacks, 'data'))
-		}
-		if (documentationCallbacks.length > 0) {
+	/**
+	 * Registers a middleware listener when a group receives its first callback.
+	 * @returns Nothing.
+	 */
+	const registerMiddlewareListener = (): void => {
+		if (dataCallbacks.length > 0 && documentationCallbacks.length > 0) {
+			// Both groups are now used: the first slot runs data, so the second runs documentation.
 			hook.init('middlewares.before', async () =>
 				runCallbacks(documentationCallbacks, 'documentation'),
 			)
+			return
 		}
-	})
+		// The first slot selects data when used, regardless of which group registered first.
+		hook.init('middlewares.before', async () =>
+			dataCallbacks.length > 0
+				? runCallbacks(dataCallbacks, 'data')
+				: runCallbacks(documentationCallbacks, 'documentation'),
+		)
+	}
 
 	return {
 		/**
@@ -268,6 +272,9 @@ export function createDirectusStartupCoordinator(
 		 */
 		schema: (callback) => {
 			schemaCallbacks.push(callback)
+			if (schemaCallbacks.length === 1) {
+				hook.init('app.before', async () => runCallbacks(schemaCallbacks, 'schema'))
+			}
 		},
 		/**
 		 * @param callback - Startup data callback.
@@ -275,6 +282,7 @@ export function createDirectusStartupCoordinator(
 		 */
 		data: (callback) => {
 			dataCallbacks.push(callback)
+			if (dataCallbacks.length === 1) registerMiddlewareListener()
 		},
 		/**
 		 * @param callback - Startup documentation callback.
@@ -282,6 +290,7 @@ export function createDirectusStartupCoordinator(
 		 */
 		documentation: (callback) => {
 			documentationCallbacks.push(callback)
+			if (documentationCallbacks.length === 1) registerMiddlewareListener()
 		},
 	}
 }

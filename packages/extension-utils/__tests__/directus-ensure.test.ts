@@ -908,7 +908,7 @@ describe('createDirectusStartupCoordinator', () => {
 		{ phase: 'schema', event: 'app.before' },
 		{ phase: 'data', event: 'middlewares.before' },
 		{ phase: 'documentation', event: 'middlewares.before' },
-	])('registers only the used $phase listener after a microtask', async ({ phase, event }) => {
+	])('registers only the used $phase listener synchronously', async ({ phase, event }) => {
 		const action = vi.fn<ActionRegistrar>()
 		const init = vi.fn<InitRegistrar>()
 		const callback = vi.fn(() => Promise.resolve())
@@ -921,8 +921,6 @@ describe('createDirectusStartupCoordinator', () => {
 		})
 
 		expect(startup[phase](callback)).toBeUndefined()
-		expect(init).not.toHaveBeenCalled()
-		await Promise.resolve()
 		expect(init).toHaveBeenCalledExactlyOnceWith(event, expect.any(Function))
 		expect(action).not.toHaveBeenCalled()
 		expect(callback).not.toHaveBeenCalled()
@@ -962,22 +960,21 @@ describe('createDirectusStartupCoordinator', () => {
 			await firstGate
 			order.push('first:end')
 		})
+		expect(init).toHaveBeenCalledExactlyOnceWith(event, expect.any(Function))
+		const listener = init.mock.calls[0]?.[1]
+		if (!listener) throw new Error('Expected startup init listener')
+
 		startup[phase](async () => {
 			order.push('second:start')
 			await secondGate
 			order.push('second:end')
 		})
-		expect(init).not.toHaveBeenCalled()
-		await Promise.resolve()
-		expect(init).toHaveBeenCalledExactlyOnceWith(event, expect.any(Function))
-		const listener = init.mock.calls.find(([registeredEvent]) => registeredEvent === event)?.[1]
-		if (!listener) throw new Error('Expected startup init listener')
+		expect(init).toHaveBeenCalledExactlyOnceWith(event, listener)
 
 		startup[phase](() => {
 			order.push('third')
 			return Promise.resolve()
 		})
-		await Promise.resolve()
 		expect(init).toHaveBeenCalledExactlyOnceWith(event, listener)
 		expect(action).not.toHaveBeenCalled()
 		expect(order).toEqual([])
@@ -1011,7 +1008,7 @@ describe('createDirectusStartupCoordinator', () => {
 		{ registrationOrder: ['documentation', 'schema', 'data'] },
 		{ registrationOrder: ['documentation', 'data', 'schema'] },
 	])(
-		'registers listeners canonically for $registrationOrder callbacks',
+		'preserves lifecycle phases and middleware listener order for $registrationOrder callbacks',
 		async ({ registrationOrder }) => {
 			const action = vi.fn<ActionRegistrar>()
 			const init = vi.fn<InitRegistrar>()
@@ -1045,12 +1042,9 @@ describe('createDirectusStartupCoordinator', () => {
 				})
 			}
 
-			await Promise.resolve()
-			expect(init.mock.calls.map(([event]) => event)).toEqual([
-				'app.before',
-				'middlewares.before',
-				'middlewares.before',
-			])
+			expect(init).toHaveBeenCalledTimes(3)
+			const schemaListeners = init.mock.calls.filter(([event]) => event === 'app.before')
+			expect(schemaListeners).toHaveLength(1)
 			expect(action).not.toHaveBeenCalled()
 			expect(order).toEqual([])
 			const middlewareListeners = init.mock.calls.filter(
@@ -1058,7 +1052,7 @@ describe('createDirectusStartupCoordinator', () => {
 			)
 			expect(middlewareListeners).toHaveLength(2)
 			expect(middlewareListeners[0]?.[1]).not.toBe(middlewareListeners[1]?.[1])
-			await init.mock.calls.find(([event]) => event === 'app.before')?.[1]()
+			await schemaListeners[0]?.[1]()
 			expect(order).toEqual(['schema'])
 			await middlewareListeners[0]?.[1]()
 			expect(order).toEqual(['schema', 'data'])
@@ -1067,38 +1061,126 @@ describe('createDirectusStartupCoordinator', () => {
 		},
 	)
 
-	it('registers data before documentation without an unused schema listener', async () => {
-		const action = vi.fn<ActionRegistrar>()
-		const init = vi.fn<InitRegistrar>()
-		const order: string[] = []
-		const startup = createDirectusStartupCoordinator(createHook(action, init), createLogger(), {
-			id: 'documentation-before-data-test',
-			name: 'Documentation before data test',
-			disabled: false,
-			disabledGlobally: false,
-			autoRenew: false,
-		})
-		startup.documentation(() => {
-			order.push('documentation')
-			return Promise.resolve()
-		})
-		startup.data(() => {
-			order.push('data')
-			return Promise.resolve()
-		})
+	it.each<{
+		firstPhase: 'data' | 'documentation'
+		secondPhase: 'data' | 'documentation'
+	}>([
+		{ firstPhase: 'data', secondPhase: 'documentation' },
+		{ firstPhase: 'documentation', secondPhase: 'data' },
+	])(
+		'reuses the first middleware listener when $firstPhase is followed by $secondPhase',
+		async ({ firstPhase, secondPhase }) => {
+			const action = vi.fn<ActionRegistrar>()
+			const init = vi.fn<InitRegistrar>()
+			const order: string[] = []
+			const startup = createDirectusStartupCoordinator(
+				createHook(action, init),
+				createLogger(),
+				{
+					id: `middleware-${firstPhase}-first-test`,
+					name: 'Middleware listener test',
+					disabled: false,
+					disabledGlobally: false,
+					autoRenew: false,
+				},
+			)
+			expect(
+				startup[firstPhase](() => {
+					order.push(firstPhase)
+					return Promise.resolve()
+				}),
+			).toBeUndefined()
+			expect(init).toHaveBeenCalledExactlyOnceWith('middlewares.before', expect.any(Function))
+			const firstListener = init.mock.calls[0]?.[1]
+			if (!firstListener) throw new Error('Expected first middleware listener')
 
-		await Promise.resolve()
-		expect(init.mock.calls.map(([event]) => event)).toEqual([
-			'middlewares.before',
-			'middlewares.before',
-		])
-		expect(init.mock.calls[0]?.[1]).not.toBe(init.mock.calls[1]?.[1])
-		expect(action).not.toHaveBeenCalled()
-		await init.mock.calls[0]?.[1]()
-		expect(order).toEqual(['data'])
-		await init.mock.calls[1]?.[1]()
-		expect(order).toEqual(['data', 'documentation'])
-	})
+			expect(
+				startup[secondPhase](() => {
+					order.push(secondPhase)
+					return Promise.resolve()
+				}),
+			).toBeUndefined()
+			expect(init.mock.calls.map(([event]) => event)).toEqual([
+				'middlewares.before',
+				'middlewares.before',
+			])
+			expect(init.mock.calls[0]?.[1]).toBe(firstListener)
+			const secondListener = init.mock.calls[1]?.[1]
+			if (!secondListener) throw new Error('Expected second middleware listener')
+			expect(secondListener).not.toBe(firstListener)
+
+			startup.data(() => {
+				order.push('data-second')
+				return Promise.resolve()
+			})
+			startup.documentation(() => {
+				order.push('documentation-second')
+				return Promise.resolve()
+			})
+			expect(init).toHaveBeenCalledTimes(2)
+			expect(init.mock.calls[0]?.[1]).toBe(firstListener)
+			expect(init.mock.calls[1]?.[1]).toBe(secondListener)
+			expect(action).not.toHaveBeenCalled()
+			expect(order).toEqual([])
+			await firstListener()
+			expect(order).toEqual(['data', 'data-second'])
+			await secondListener()
+			expect(order).toEqual(['data', 'data-second', 'documentation', 'documentation-second'])
+		},
+	)
+
+	it.each<{
+		registrationOrder: (keyof ReturnType<typeof createDirectusStartupCoordinator>)[]
+	}>([
+		{ registrationOrder: ['schema', 'data', 'documentation'] },
+		{ registrationOrder: ['documentation', 'data', 'schema'] },
+	])(
+		'cleans up $registrationOrder listeners through the synchronous bundle unregister snapshot',
+		async ({ registrationOrder }) => {
+			const action = vi.fn<ActionRegistrar>()
+			const activeListeners = new Set<Parameters<InitRegistrar>[1]>()
+			const unregisterCallbacks: (() => void)[] = []
+			const init = vi.fn<InitRegistrar>((_event, listener) => {
+				activeListeners.add(listener)
+				unregisterCallbacks.push(() => {
+					activeListeners.delete(listener)
+				})
+			})
+			/**
+			 * Mirrors Directus v12.2.0 registerHook's synchronous setup and returned cleanup array.
+			 * @returns The unregister callbacks collected during hook setup.
+			 */
+			const registerHook = (): (() => void)[] => {
+				const startup = createDirectusStartupCoordinator(
+					createHook(action, init),
+					createLogger(),
+					{
+						id: `cleanup-${registrationOrder.join('-')}-test`,
+						name: 'Bundle cleanup test',
+						disabled: false,
+						disabledGlobally: false,
+					},
+				)
+				for (const phase of registrationOrder) startup[phase](() => Promise.resolve())
+				return unregisterCallbacks
+			}
+
+			// Directus v12.2.0 registerBundleExtension immediately copies registerHook's callbacks.
+			// https://github.com/directus/directus/blob/v12.2.0/api/src/extensions/manager.ts
+			const bundleUnregisterCallbacks = [...registerHook()]
+			await Promise.resolve()
+			for (const unregister of bundleUnregisterCallbacks) unregister()
+
+			// Check cleanup first so deferred registration fails through leaked active listeners.
+			expect(activeListeners.size).toBe(0)
+			expect(bundleUnregisterCallbacks).toHaveLength(3)
+			expect(init.mock.calls.filter(([event]) => event === 'app.before')).toHaveLength(1)
+			expect(
+				init.mock.calls.filter(([event]) => event === 'middlewares.before'),
+			).toHaveLength(2)
+			expect(action).not.toHaveBeenCalled()
+		},
+	)
 
 	it('runs schema callbacks before data callbacks in their lifecycle phases', async () => {
 		const action = vi.fn<ActionRegistrar>()
@@ -1124,7 +1206,6 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
-		await Promise.resolve()
 		await init.mock.calls.find(([event]) => event === 'app.before')?.[1]()
 		expect(order).toEqual(['schema-1', 'schema-2'])
 		await init.mock.calls.find(([event]) => event === 'middlewares.before')?.[1]()
@@ -1151,7 +1232,6 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
-		await Promise.resolve()
 		await init.mock.calls.find(([event]) => event === 'app.before')?.[1]()
 		expect(order).toEqual(['schema'])
 		await init.mock.calls.find(([event]) => event === 'middlewares.before')?.[1]()
@@ -1179,7 +1259,6 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
-		await Promise.resolve()
 		for (const [event, listener] of init.mock.calls) {
 			if (event === 'middlewares.before') await listener()
 		}
@@ -1207,7 +1286,6 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
-		await Promise.resolve()
 		for (const [event, listener] of init.mock.calls) {
 			if (event === 'middlewares.before') await listener()
 		}
@@ -1241,7 +1319,6 @@ describe('createDirectusStartupCoordinator', () => {
 			const nestedLease = await heldProvider.tryAcquire(lease.name)
 			expect(await nestedLease?.release()).toBe(false)
 		})
-		await Promise.resolve()
 		await init.mock.calls.find(([event]) => event === 'app.before')?.[1]()
 		await vi.waitFor(() => expect(release).toHaveBeenCalledOnce())
 	})
@@ -1270,7 +1347,6 @@ describe('createDirectusStartupCoordinator', () => {
 		})
 
 		startup.schema(() => new Promise((resolve) => setTimeout(resolve, 20)))
-		await Promise.resolve()
 		await init.mock.calls.find(([event]) => event === 'app.before')?.[1]()
 		await vi.waitFor(() => expect(renew).toHaveBeenCalled())
 	})
@@ -1302,7 +1378,6 @@ describe('createDirectusStartupCoordinator', () => {
 
 		startup.schema(() => Promise.reject(callbackError))
 
-		await Promise.resolve()
 		await expect(init.mock.calls.find(([event]) => event === 'app.before')?.[1]()).rejects.toBe(
 			callbackError,
 		)
@@ -1340,7 +1415,6 @@ describe('createDirectusStartupCoordinator', () => {
 
 		startup.schema(() => Promise.resolve())
 
-		await Promise.resolve()
 		await expect(
 			init.mock.calls.find(([event]) => event === 'app.before')?.[1](),
 		).rejects.toThrow('Directus startup lock ownership was lost before release')

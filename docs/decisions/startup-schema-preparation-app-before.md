@@ -28,10 +28,9 @@ The relevant Directus lifecycle behavior was verified against Directus v12.2.0:
   HTTP server or emit `server.start`.
 - `middlewares.before` is the next awaited init phase after `app.before`. It is the earliest
   coordinator phase after schema preparation and before middleware and route registration continue.
-- Hook setup is synchronous inside awaited hook and bundle registration. The extension manager
-  awaits this registration before its initialization resolves, and application creation awaits
-  extension manager initialization before emitting either startup init event. A microtask queued
-  during synchronous hook setup therefore runs before these events.
+- `registerHook()` invokes hook setup synchronously and returns the collected unregister callbacks.
+  Bundle registration immediately copies those callbacks into its own cleanup array. Lifecycle
+  listeners must therefore register during synchronous hook setup to be included in that cleanup.
 
 Primary source references:
 [Directus extension manager](https://github.com/directus/directus/blob/v12.2.0/api/src/extensions/manager.ts),
@@ -41,17 +40,18 @@ Primary source references:
 
 ## Decision
 
-The shared `createDirectusStartupCoordinator` collects synchronously registered callbacks and
-registers lifecycle handlers in a microtask after synchronous extension setup. Only used groups
-receive a handler, always in canonical schema, data, documentation order, regardless of consumer
-call order. Creating a coordinator registers no handlers synchronously, and additional callbacks in
-the same group reuse its handler:
+The shared `createDirectusStartupCoordinator` registers lifecycle handlers synchronously as callback
+groups first become used. Creating a coordinator registers no handlers, unused groups receive no
+handler, and additional callbacks reuse the existing handlers:
 
 - All `startup.schema()` callbacks run from one `hook.init('app.before', ...)` handler.
-- All `startup.data()` callbacks run from one `hook.init('middlewares.before', ...)` handler.
-- All `startup.documentation()` callbacks run from a separate `hook.init('middlewares.before', ...)`
-  handler. Documentation callbacks are a distinct coordinator group, but do not introduce a new
-  Directus lifecycle phase.
+- The first `startup.data()` or `startup.documentation()` callback registers one
+  `hook.init('middlewares.before', ...)` handler. At execution, this first slot runs data when used,
+  otherwise documentation.
+- When both middleware groups become used, a separate second `middlewares.before` handler runs
+  documentation. Data therefore retains the first listener regardless of consumer call order.
+  Documentation callbacks remain a distinct coordinator group without introducing a new lifecycle
+  phase or sharing a handler with data when both are used.
 - The coordinator accepts the complete `RegisterFunctions` object rather than only an action
   registrar, so it can register the phase lifecycle handlers.
 - Schema callbacks run under the existing coordinator lock and are awaited in registration order
@@ -63,12 +63,12 @@ This decision applies to schema and data work registered through the shared coor
 create an ordering guarantee between independent init listeners, nor does it make one extension load
 before another. Extensions must continue to use the coordinator for schema-dependent startup work.
 
-Callbacks must be registered synchronously during extension setup, before the registration microtask
-runs. Consumers may call the phase methods in any order. The existing Magic Links, Coolify
-Deployments, Markdown Editor, Studio Docs, Loops, Sluggernaut, and E2E playground consumers already
-do this, either directly in their hook entrypoint or through a synchronously invoked registration
-helper. Lazy registration requires no consumer source changes and leaves the public `schema()`,
-`data()`, and `documentation()` API unchanged.
+Callbacks must be registered synchronously during extension setup. Consumers may call the phase
+methods in any order. The existing Magic Links, Coolify Deployments, Markdown Editor, Studio Docs,
+Loops, Sluggernaut, and E2E playground consumers already do this, either directly in their hook
+entrypoint or through a synchronously invoked registration helper. Lazy registration requires no
+consumer source changes and leaves the public `schema()`, `data()`, and `documentation()` API
+unchanged.
 
 ## Alternatives considered
 
@@ -91,6 +91,8 @@ helper. Lazy registration requires no consumer source changes and leaves the pub
   `startup.documentation()` is therefore a separate coordinator registration group, while still
   using the existing awaited `middlewares.before` lifecycle phase rather than adding a new Directus
   lifecycle phase.
+- **Defer lifecycle listener registration:** Rejected because Directus copies bundle unregister
+  callbacks synchronously after hook setup. Later listener registrations miss that cleanup snapshot.
 
 ## Consequences
 
@@ -102,8 +104,9 @@ Positive consequences:
 - Existing schema and data callbacks keep their lock ownership, feature gates, and error reporting.
 - Documentation callbacks remain independently available while ordinary startup gates are disabled.
 - Unused callback groups add no lifecycle listeners and perform no startup coordination.
-- Canonical listener registration order remains internal to the coordinator; consumers do not need
-  to register data callbacks before documentation callbacks.
+- Data before documentation remains internal to the coordinator; consumers do not need to register
+  data callbacks before documentation callbacks.
+- Listener unregister callbacks are available when Directus collects them for extension cleanup.
 - The lifecycle contract is explicit in the coordinator API and its documentation.
 
 Costs and limitations:
@@ -112,9 +115,9 @@ Costs and limitations:
   all existing consumers must pass the complete hook object.
 - Multiple listeners within an init phase remain concurrent with one another. This decision does not
   establish ordering between independent `app.before` or `middlewares.before` listeners.
-- Documentation callbacks are not ordered against data callbacks or other `middlewares.before`
-  listeners; they are separated for gating and ownership, not for a new global lifecycle ordering
-  guarantee.
+- The data and documentation listener slots preserve their prior registration semantics, but do not
+  guarantee sequential execution between those listeners or other `middlewares.before` listeners.
+  The callback groups remain separate for gating and ownership.
 - Directus logs init-handler failures and continues application startup. This decision provides an
   ordering and completion barrier, not a general fail-fast guarantee. Deployments that require
   preparation to succeed before Directus starts should perform that preparation outside the
