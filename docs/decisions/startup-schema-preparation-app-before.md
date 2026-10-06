@@ -37,8 +37,9 @@ Primary source references:
 
 ## Decision
 
-The shared `createDirectusStartupCoordinator` registers lifecycle handlers immediately when it is
-created:
+The shared `createDirectusStartupCoordinator` registers each lifecycle handler lazily when the first
+callback for its group is added. Creating a coordinator registers no handlers, and additional
+callbacks in the same group reuse its handler:
 
 - All `startup.schema()` callbacks run from one `hook.init('app.before', ...)` handler.
 - All `startup.data()` callbacks run from one `hook.init('middlewares.before', ...)` handler.
@@ -46,7 +47,7 @@ created:
   handler. Documentation callbacks are a distinct coordinator group, but do not introduce a new
   Directus lifecycle phase.
 - The coordinator accepts the complete `RegisterFunctions` object rather than only an action
-  registrar, so it can register both lifecycle handlers.
+  registrar, so it can register the phase lifecycle handlers.
 - Schema callbacks run under the existing coordinator lock and are awaited in registration order
   within that coordinator.
 - Data callbacks retain their existing lock, gate, renewal, error handling, and registration-order
@@ -55,6 +56,12 @@ created:
 This decision applies to schema and data work registered through the shared coordinator. It does not
 create an ordering guarantee between independent init listeners, nor does it make one extension load
 before another. Extensions must continue to use the coordinator for schema-dependent startup work.
+
+Callbacks must be registered synchronously during extension setup, before their lifecycle events
+fire. The existing Magic Links, Coolify Deployments, Markdown Editor, Studio Docs, Loops,
+Sluggernaut, and E2E playground consumers already do this, either directly in their hook entrypoint
+or through a synchronously invoked registration helper. Lazy registration requires no consumer
+source changes and leaves the public `schema()`, `data()`, and `documentation()` API unchanged.
 
 ## Alternatives considered
 
@@ -87,6 +94,7 @@ Positive consequences:
 - Extensions no longer need to coordinate schema readiness through load order or timing assumptions.
 - Existing schema and data callbacks keep their lock ownership, feature gates, and error reporting.
 - Documentation callbacks remain independently available while ordinary startup gates are disabled.
+- Unused callback groups add no lifecycle listeners and perform no startup coordination.
 - The lifecycle contract is explicit in the coordinator API and its documentation.
 
 Costs and limitations:

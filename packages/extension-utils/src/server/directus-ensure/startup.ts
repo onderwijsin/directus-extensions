@@ -93,11 +93,12 @@ const createLeaseLostError = (error: unknown): Error =>
 		: new Error('Directus startup lock renewal failed', { cause: error })
 
 /**
- * Creates a startup coordinator with one ordered, shared startup lock.
+ * Creates a startup coordinator that registers each phase's listener on its first callback.
+ * Register callbacks synchronously during extension setup, before their lifecycle events fire.
  * @param hook - Directus hook registration functions.
  * @param logger - Logger used for lifecycle and failure messages.
  * @param options - Enablement and lock configuration.
- * @returns A coordinator for registering schema and data callbacks.
+ * @returns A coordinator for registering schema, data, and documentation callbacks.
  */
 export function createDirectusStartupCoordinator(
 	hook: RegisterFunctions,
@@ -244,27 +245,38 @@ export function createDirectusStartupCoordinator(
 		}
 	}
 
-	hook.init('app.before', async () => runCallbacks(schemaCallbacks, 'schema'))
-	hook.init('middlewares.before', async () => runCallbacks(dataCallbacks, 'data'))
-	hook.init('middlewares.before', async () =>
-		runCallbacks(documentationCallbacks, 'documentation'),
-	)
-
 	return {
 		/**
 		 * @param callback - Startup schema callback.
 		 * @returns Nothing.
 		 */
-		schema: (callback) => schemaCallbacks.push(callback),
+		schema: (callback) => {
+			schemaCallbacks.push(callback)
+			if (schemaCallbacks.length === 1) {
+				hook.init('app.before', async () => runCallbacks(schemaCallbacks, 'schema'))
+			}
+		},
 		/**
 		 * @param callback - Startup data callback.
 		 * @returns Nothing.
 		 */
-		data: (callback) => dataCallbacks.push(callback),
+		data: (callback) => {
+			dataCallbacks.push(callback)
+			if (dataCallbacks.length === 1) {
+				hook.init('middlewares.before', async () => runCallbacks(dataCallbacks, 'data'))
+			}
+		},
 		/**
 		 * @param callback - Startup documentation callback.
 		 * @returns Nothing.
 		 */
-		documentation: (callback) => documentationCallbacks.push(callback),
+		documentation: (callback) => {
+			documentationCallbacks.push(callback)
+			if (documentationCallbacks.length === 1) {
+				hook.init('middlewares.before', async () =>
+					runCallbacks(documentationCallbacks, 'documentation'),
+				)
+			}
+		},
 	}
 }

@@ -559,7 +559,13 @@ separate future seeds.
 Register startup work through `createDirectusStartupCoordinator`. It coordinates each phase with a
 lock, registers schema callbacks on `app.before`, and registers data and documentation callbacks on
 the awaited `middlewares.before` lifecycle event. Documentation callbacks are independent of the
-ordinary global schema/data gates:
+ordinary global schema/data gates.
+
+Register `startup.schema()`, `startup.data()`, and `startup.documentation()` callbacks synchronously
+during extension setup. Each phase registers its lifecycle listener when its first callback is
+added; further callbacks reuse that listener and run in registration order. Unused phases register
+no listeners and perform no startup coordination. Data and documentation keep separate listeners on
+`middlewares.before`; neither group is ordered against the other.
 
 ```ts
 const startup = createDirectusStartupCoordinator(hook, logger, {
