@@ -218,6 +218,10 @@ function-call string defaults are unsupported and remain missing dependencies. L
 defaults containing parentheses, such as `Article (news)`, are supported. Known SQL functions
 (`now`, `gen_random_uuid`, and `CURRENT_TIMESTAMP`) are excluded even with whitespace before `(`.
 
+When `generateFromTemplate` is `false`, hidden `pathTemplate`, `templateVariables`, and
+`updateOnDependencyChange` settings are ignored. Manual path normalization and automatic redirects
+remain active, and shared normalization and redirect options are still validated.
+
 The Template variables code editor provides an example template using `map`, `slugify`, and
 `lowercase`. Adapt its field names and map values to your collection before using it.
 

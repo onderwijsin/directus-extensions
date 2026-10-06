@@ -97,24 +97,33 @@ function isSlugInterfaceOptions(
 	)
 }
 
-/** Persisted permalink options, including Studio defaults and structured transformations. */
-const permalinkOptionsSchema = z.object({
-	generateFromTemplate: z.boolean().default(true),
-	pathTemplate: z
-		.string()
-		.nullish()
-		.transform((value) => value ?? undefined),
-	templateVariables: z
-		.array(pathTemplateVariableSchema)
-		.nullish()
-		.transform((value) => value ?? []),
-	updateOnDependencyChange: z.boolean().default(false),
+/** Shared permalink options remain validated in generated and standalone modes. */
+const sharedPermalinkOptionsSchema = z.object({
 	trailingSlash: z.boolean().default(false),
 	enforceTrailingSlashOnManualInput: z.boolean().default(false),
 	automaticRedirects: z.boolean().default(false),
 	includeUnmanagedRedirectsInPlanning: z.boolean().default(true),
 	unmanagedRedirectConflictBehavior: z.enum(['block', 'override']).default('override'),
 })
+
+/** Hidden template-only settings are ignored while generation is explicitly disabled. */
+const permalinkOptionsSchema = z.union([
+	sharedPermalinkOptionsSchema
+		.extend({ generateFromTemplate: z.literal(false) })
+		.transform((options) => ({ ...options, updateOnDependencyChange: false })),
+	sharedPermalinkOptionsSchema.extend({
+		generateFromTemplate: z.literal(true).default(true),
+		pathTemplate: z
+			.string()
+			.nullish()
+			.transform((value) => value ?? undefined),
+		templateVariables: z
+			.array(pathTemplateVariableSchema)
+			.nullish()
+			.transform((value) => value ?? []),
+		updateOnDependencyChange: z.boolean().default(false),
+	}),
+])
 
 /**
  * Applies the defaults declared by the Studio slug interface.

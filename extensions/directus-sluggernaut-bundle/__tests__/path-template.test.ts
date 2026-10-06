@@ -193,6 +193,88 @@ describe('dynamic permalink templates', () => {
 		},
 	)
 
+	it('ignores stale hidden template settings in standalone mode without bypassing normalization or redirects', () => {
+		const standalone = discoverCollectionConfiguration(
+			fields.map((field) =>
+				field.field === 'route'
+					? {
+							...field,
+							meta: {
+								...field.meta,
+								options: {
+									...options,
+									generateFromTemplate: false,
+									pathTemplate: 123,
+									templateVariables: [{ malformed: true }],
+									updateOnDependencyChange: 'invalid',
+								},
+							},
+						}
+					: field,
+			),
+		)
+		expect(standalone.warnings).toEqual([])
+		expect(standalone.permalinks).toHaveLength(1)
+		const result = coordinateMutation({
+			kind: 'create',
+			payload: { route: ' /manual/path ' },
+			existingItem: {},
+			configuration: standalone,
+		})
+		expect(result.payload.route).toBe('/manual/path')
+		const source = selectRedirectSource(standalone)
+		expect(source).toMatchObject({ field: 'route', type: 'permalink' })
+		if (!source) throw new Error('Expected standalone redirect source')
+		expect(canonicalUrlForItem(source, result.payload)).toBe('/manual/path')
+	})
+
+	it.each([true, undefined])(
+		'validates template-only settings when generation is %j',
+		(generateFromTemplate) => {
+			const invalid = discoverCollectionConfiguration(
+				fields.map((field) =>
+					field.field === 'route'
+						? {
+								...field,
+								meta: {
+									...field.meta,
+									options: {
+										...options,
+										generateFromTemplate,
+										templateVariables: [{ malformed: true }],
+									},
+								},
+							}
+						: field,
+				),
+			)
+			expect(invalid.permalinks).toEqual([])
+			expect(invalid.warnings).toContainEqual(
+				expect.objectContaining({ field: 'route', code: 'invalid-interface-options' }),
+			)
+		},
+	)
+
+	it('still validates shared options in standalone mode', () => {
+		const invalid = discoverCollectionConfiguration(
+			fields.map((field) =>
+				field.field === 'route'
+					? {
+							...field,
+							meta: {
+								...field.meta,
+								options: { generateFromTemplate: false, trailingSlash: 'invalid' },
+							},
+						}
+					: field,
+			),
+		)
+		expect(invalid.permalinks).toEqual([])
+		expect(invalid.warnings).toContainEqual(
+			expect.objectContaining({ field: 'route', code: 'invalid-interface-options' }),
+		)
+	})
+
 	it('renders the slug generated during the same create and update', () => {
 		expect(
 			coordinateMutation({
