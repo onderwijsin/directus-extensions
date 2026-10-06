@@ -49,17 +49,17 @@ Primary source references:
 ## Decision
 
 The shared `createDirectusStartupCoordinator` registers lifecycle handlers synchronously as callback
-groups first become used. Creating a coordinator registers no handlers, unused groups receive no
-handler, and additional callbacks reuse the existing handlers:
+groups first become used and enabled. Creating a coordinator registers no handlers, unused or
+disabled groups receive no handler, and additional callbacks reuse the existing handlers:
 
-- All `startup.schema()` callbacks run from one `hook.init('app.before', ...)` handler.
-- The first `startup.data()` or `startup.documentation()` callback registers one
+- All enabled `startup.schema()` callbacks run from one `hook.init('app.before', ...)` handler.
+- The first enabled `startup.data()` or `startup.documentation()` callback registers one
   `hook.init('middlewares.before', ...)` handler. At execution, this first slot runs data when used,
   otherwise documentation.
-- When both middleware groups become used, a separate second `middlewares.before` handler runs
-  documentation. Data therefore retains the first listener regardless of consumer call order.
-  Documentation callbacks remain a distinct coordinator group without introducing a new lifecycle
-  phase or sharing a handler with data when both are used.
+- When both middleware groups become used and enabled, a separate second `middlewares.before`
+  handler runs documentation. Data therefore retains the first listener regardless of consumer call
+  order. Documentation callbacks remain a distinct coordinator group without introducing a new
+  lifecycle phase or sharing a handler with data when both are used.
 - The coordinator accepts the complete `RegisterFunctions` object rather than only an action
   registrar, so it can register the phase lifecycle handlers.
 - Schema callbacks run under the existing coordinator lock and are awaited in registration order
@@ -69,18 +69,25 @@ handler, and additional callbacks reuse the existing handlers:
 
 The first middleware listener is a stable primary slot whose callback group is selected at
 execution, not captured when the listener is registered. If `startup.documentation()` is called
-first, that listener initially has only documentation work available. A later synchronous
+first, that listener initially has only documentation work available. A later enabled synchronous
 `startup.data()` call must leave the primary listener in place but make it execute data, and
 register a separate second listener for documentation. The same two roles result when data is
 registered first. Capturing the first caller's group would instead make listener semantics depend on
 consumer call order and reverse the previous data-before-documentation behavior for
 documentation-first consumers.
 
+Disabled schema and data callbacks are rejected before storage or listener registration. Schema uses
+`disabled` and `disabledGlobally`; data additionally uses `dataDisabledGlobally`. Documentation
+bypasses all three switches, so a disabled data registration cannot change a documentation-only
+primary slot. Existing disabled-phase messages are logged once per phase at registration, and the
+execution path retains defensive enablement checks.
+
 This dynamic selection allows each first callback to register its listener immediately, without
-registering a listener for an unused group or deferring registration until all groups are known.
-Synchronous registration also ensures Directus's immediate bundle cleanup snapshot includes every
-unregister callback. Data and documentation keep separate listeners when both are used; the primary
-slot preserves listener registration semantics, not a sequential execution guarantee between groups.
+registering a listener for an unused or disabled group or deferring registration until all groups
+are known. Synchronous registration also ensures Directus's immediate bundle cleanup snapshot
+includes every unregister callback. Data and documentation keep separate listeners when both are
+used; the primary slot preserves listener registration semantics, not a sequential execution
+guarantee between groups.
 
 This decision applies to schema and data work registered through the shared coordinator. It does not
 create an ordering guarantee between independent init listeners, nor does it make one extension load
@@ -126,7 +133,7 @@ Positive consequences:
 - Extensions no longer need to coordinate schema readiness through load order or timing assumptions.
 - Existing schema and data callbacks keep their lock ownership, feature gates, and error reporting.
 - Documentation callbacks remain independently available while ordinary startup gates are disabled.
-- Unused callback groups add no lifecycle listeners and perform no startup coordination.
+- Unused or disabled callback groups add no lifecycle listeners and perform no startup coordination.
 - Data before documentation remains internal to the coordinator; consumers do not need to register
   data callbacks before documentation callbacks.
 - Listener unregister callbacks are available when Directus collects them for extension cleanup.

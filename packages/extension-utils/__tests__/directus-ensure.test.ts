@@ -883,6 +883,167 @@ describe('getDirectusStartupStatus', () => {
 })
 
 describe('createDirectusStartupCoordinator', () => {
+	type DisabledGate = 'disabled' | 'disabledGlobally' | 'dataDisabledGlobally'
+	const disabledPhaseCases: {
+		phase: 'schema' | 'data'
+		gates: DisabledGate[]
+		message: string
+	}[] = [
+		{
+			phase: 'schema',
+			gates: ['disabledGlobally'],
+			message: 'Directus startup is disabled globally',
+		},
+		{
+			phase: 'schema',
+			gates: ['disabled'],
+			message: 'Directus startup is disabled for this extension',
+		},
+		{
+			phase: 'data',
+			gates: ['disabledGlobally'],
+			message: 'Directus startup is disabled globally',
+		},
+		{
+			phase: 'data',
+			gates: ['disabled'],
+			message: 'Directus startup is disabled for this extension',
+		},
+		{
+			phase: 'data',
+			gates: ['dataDisabledGlobally'],
+			message: 'Directus data seeds are disabled globally',
+		},
+		{
+			phase: 'data',
+			gates: ['disabledGlobally', 'disabled', 'dataDisabledGlobally'],
+			message: 'Directus startup is disabled globally',
+		},
+		{
+			phase: 'data',
+			gates: ['disabled', 'dataDisabledGlobally'],
+			message: 'Directus startup is disabled for this extension',
+		},
+	]
+
+	/**
+	 * Creates a coordinator fixture with the selected startup gates disabled.
+	 * @param gates - Startup switches to disable before coordinator creation.
+	 * @returns A coordinator with observable listeners, logging, and lease operations.
+	 */
+	const createGatedStartupFixture = (gates: DisabledGate[] = []) => {
+		const action = vi.fn<ActionRegistrar>()
+		const init = vi.fn<InitRegistrar>()
+		const logger = createLogger()
+		const lease = {
+			name: 'directus-extension-startup:gated-startup-test',
+			token: 'token',
+			renew: vi.fn(() => Promise.resolve(true)),
+			release: vi.fn(() => Promise.resolve(true)),
+		}
+		const lockProvider = {
+			tryAcquire: vi.fn(() => Promise.resolve(lease)),
+			isLocked: vi.fn(() => Promise.resolve(false)),
+		}
+		const options = {
+			id: 'gated-startup-test',
+			name: 'Gate test',
+			disabled: false,
+			disabledGlobally: false,
+			dataDisabledGlobally: false,
+			lockProvider,
+			autoRenew: false,
+		}
+		for (const gate of gates) options[gate] = true
+		const startup = createDirectusStartupCoordinator(createHook(action, init), logger, options)
+		return { startup, action, init, logger, lease, lockProvider, options }
+	}
+
+	it.each(disabledPhaseCases)(
+		'ignores $phase callbacks under $gates without retaining them after enablement',
+		async ({ phase, gates, message }) => {
+			const { startup, action, init, logger, lease, lockProvider, options } =
+				createGatedStartupFixture(gates)
+			const ignoredCallback = vi.fn(() => Promise.resolve())
+			const enabledCallback = vi.fn(() => Promise.resolve())
+
+			expect(startup[phase](ignoredCallback)).toBeUndefined()
+			expect(init).not.toHaveBeenCalled()
+			expect(logger.info).toHaveBeenCalledExactlyOnceWith(`Gate test ${message}`)
+			startup[phase](ignoredCallback)
+			await Promise.resolve()
+			expect(init).not.toHaveBeenCalled()
+			expect(action).not.toHaveBeenCalled()
+			expect(ignoredCallback).not.toHaveBeenCalled()
+			expect(lockProvider.tryAcquire).not.toHaveBeenCalled()
+			expect(lockProvider.isLocked).not.toHaveBeenCalled()
+			expect(lease.renew).not.toHaveBeenCalled()
+			expect(lease.release).not.toHaveBeenCalled()
+			expect(logger.info).toHaveBeenCalledExactlyOnceWith(`Gate test ${message}`)
+
+			for (const gate of gates) options[gate] = false
+			startup[phase](enabledCallback)
+			expect(init).toHaveBeenCalledExactlyOnceWith(
+				phase === 'schema' ? 'app.before' : 'middlewares.before',
+				expect.any(Function),
+			)
+			await init.mock.calls[0]?.[1]()
+			expect(enabledCallback).toHaveBeenCalledOnce()
+			expect(ignoredCallback).not.toHaveBeenCalled()
+			expect(lockProvider.tryAcquire).toHaveBeenCalledOnce()
+			expect(lease.release).toHaveBeenCalledOnce()
+			expect(logger.info).toHaveBeenCalledExactlyOnceWith(`Gate test ${message}`)
+		},
+	)
+
+	it('logs each disabled ordinary phase once on the same coordinator', () => {
+		const { startup, init, logger, lockProvider } = createGatedStartupFixture([
+			'disabledGlobally',
+		])
+		const callback = vi.fn(() => Promise.resolve())
+		startup.schema(callback)
+		startup.schema(callback)
+		expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+			'Gate test Directus startup is disabled globally',
+		)
+		startup.data(callback)
+		startup.data(callback)
+		expect(logger.info).toHaveBeenCalledTimes(2)
+		expect(logger.info).toHaveBeenNthCalledWith(
+			2,
+			'Gate test Directus startup is disabled globally',
+		)
+		expect(init).not.toHaveBeenCalled()
+		expect(callback).not.toHaveBeenCalled()
+		expect(lockProvider.tryAcquire).not.toHaveBeenCalled()
+	})
+
+	it.each(disabledPhaseCases.filter(({ gates }) => gates.length === 1))(
+		'rechecks $phase enablement when $gates changes after registration',
+		async ({ phase, gates, message }) => {
+			const { startup, init, logger, lease, lockProvider, options } =
+				createGatedStartupFixture()
+			const callback = vi.fn(() => Promise.resolve())
+			startup[phase](callback)
+			expect(init).toHaveBeenCalledExactlyOnceWith(
+				phase === 'schema' ? 'app.before' : 'middlewares.before',
+				expect.any(Function),
+			)
+			const listener = init.mock.calls[0]?.[1]
+			if (!listener) throw new Error('Expected startup init listener')
+			for (const gate of gates) options[gate] = true
+
+			await listener()
+			await listener()
+			expect(callback).not.toHaveBeenCalled()
+			expect(lockProvider.tryAcquire).not.toHaveBeenCalled()
+			expect(lockProvider.isLocked).not.toHaveBeenCalled()
+			expect(lease.renew).not.toHaveBeenCalled()
+			expect(lease.release).not.toHaveBeenCalled()
+			expect(logger.info).toHaveBeenCalledExactlyOnceWith(`Gate test ${message}`)
+		},
+	)
+
 	it('does not register lifecycle listeners for unused phases', async () => {
 		const action = vi.fn<ActionRegistrar>()
 		const init = vi.fn<InitRegistrar>()
@@ -1232,11 +1393,61 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
+		expect(init).toHaveBeenCalledExactlyOnceWith('app.before', expect.any(Function))
+		expect(action).not.toHaveBeenCalled()
 		await init.mock.calls.find(([event]) => event === 'app.before')?.[1]()
 		expect(order).toEqual(['schema'])
 		await init.mock.calls.find(([event]) => event === 'middlewares.before')?.[1]()
 		expect(order).toEqual(['schema'])
 	})
+
+	it.each(
+		disabledPhaseCases
+			.filter(({ phase, gates }) => phase === 'data' && gates.length === 1)
+			.flatMap(({ gates, message }) => [
+				{ gates, message, documentationFirst: true },
+				{ gates, message, documentationFirst: false },
+			]),
+	)(
+		'keeps one documentation listener under $gates with documentationFirst=$documentationFirst',
+		async ({ gates, message, documentationFirst }) => {
+			const { startup, action, init, logger, lease, lockProvider } =
+				createGatedStartupFixture(gates)
+			const data = vi.fn(() => Promise.resolve())
+			const documentation = vi.fn(() => Promise.resolve())
+			if (documentationFirst) {
+				startup.documentation(documentation)
+				expect(init).toHaveBeenCalledExactlyOnceWith(
+					'middlewares.before',
+					expect.any(Function),
+				)
+			} else {
+				startup.data(data)
+				expect(init).not.toHaveBeenCalled()
+			}
+			const firstListener = init.mock.calls[0]?.[1]
+			if (documentationFirst) startup.data(data)
+			else startup.documentation(documentation)
+			expect(init).toHaveBeenCalledExactlyOnceWith('middlewares.before', expect.any(Function))
+			const listener = init.mock.calls[0]?.[1]
+			if (!listener) throw new Error('Expected documentation init listener')
+			if (documentationFirst) expect(listener).toBe(firstListener)
+
+			startup.data(data)
+			expect(init).toHaveBeenCalledExactlyOnceWith('middlewares.before', listener)
+			expect(action).not.toHaveBeenCalled()
+			expect(data).not.toHaveBeenCalled()
+			expect(documentation).not.toHaveBeenCalled()
+			expect(lockProvider.tryAcquire).not.toHaveBeenCalled()
+			expect(logger.info).toHaveBeenCalledExactlyOnceWith(`Gate test ${message}`)
+			await listener()
+			expect(documentation).toHaveBeenCalledOnce()
+			expect(data).not.toHaveBeenCalled()
+			expect(lockProvider.tryAcquire).toHaveBeenCalledOnce()
+			expect(lease.release).toHaveBeenCalledOnce()
+			expect(logger.info).toHaveBeenCalledExactlyOnceWith(`Gate test ${message}`)
+		},
+	)
 
 	it('runs documentation callbacks when ordinary startup is disabled', async () => {
 		const action = vi.fn<ActionRegistrar>()
@@ -1259,6 +1470,7 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
+		expect(init).toHaveBeenCalledExactlyOnceWith('middlewares.before', expect.any(Function))
 		for (const [event, listener] of init.mock.calls) {
 			if (event === 'middlewares.before') await listener()
 		}
@@ -1286,6 +1498,7 @@ describe('createDirectusStartupCoordinator', () => {
 			return Promise.resolve()
 		})
 
+		expect(init).toHaveBeenCalledExactlyOnceWith('middlewares.before', expect.any(Function))
 		for (const [event, listener] of init.mock.calls) {
 			if (event === 'middlewares.before') await listener()
 		}
