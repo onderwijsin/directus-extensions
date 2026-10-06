@@ -18,11 +18,9 @@ const slugOptions = {
 }
 
 const permalinkOptions = {
-	generateFromSlug: true,
-	slugField: 'slug',
-	updateOnSlugChange: true,
-	prefix: '/articles',
-	validatePrefixOnManualInput: false,
+	generateFromTemplate: true,
+	pathTemplate: '/articles/{{slug}}',
+	updateOnDependencyChange: true,
 	trailingSlash: false,
 	enforceTrailingSlashOnManualInput: false,
 	automaticRedirects: false,
@@ -92,6 +90,7 @@ describe('Sluggernaut configuration and mutation coordination', () => {
 			{ field: 'título' },
 			{
 				field: 'z_slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: 1,
@@ -100,6 +99,7 @@ describe('Sluggernaut configuration and mutation coordination', () => {
 			},
 			{
 				field: 'a_slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: 1,
@@ -108,6 +108,7 @@ describe('Sluggernaut configuration and mutation coordination', () => {
 			},
 			{
 				field: 'slug_duplicate',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					options: { ...slugOptions, sourceFields: ['título'] },
@@ -223,8 +224,7 @@ describe('Sluggernaut configuration and mutation coordination', () => {
 						sort: 4,
 						options: {
 							...permalinkOptions,
-							slugField: 'slug_secondary',
-							prefix: '/secondary',
+							pathTemplate: '/secondary/{{slug_secondary}}',
 						},
 					},
 				],
@@ -242,26 +242,36 @@ describe('Sluggernaut configuration and mutation coordination', () => {
 	it('supports standalone permalinks and ignores malformed references while valid fields survive', () => {
 		const fields: SluggernautFieldMetadata[] = [
 			{ field: 'title' },
-			{ field: 'slug', meta: { interface: 'sluggernaut-slug', options: slugOptions } },
+			{
+				field: 'slug',
+				type: 'string',
+				meta: { interface: 'sluggernaut-slug', options: slugOptions },
+			},
 			{
 				field: 'standalone',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-permalink',
-					options: { ...permalinkOptions, generateFromSlug: false, slugField: undefined },
+					options: {
+						...permalinkOptions,
+						generateFromTemplate: false,
+						pathTemplate: undefined,
+					},
 				},
 			},
 			{
 				field: 'invalid',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-permalink',
-					options: { ...permalinkOptions, slugField: 'other_collection.slug' },
+					options: { ...permalinkOptions, pathTemplate: '/{{other_collection.slug}}' },
 				},
 			},
 		]
 		const result = discoverCollectionConfiguration(fields)
 		expect(result.slugs).toHaveLength(1)
 		expect(result.permalinks.map(({ field }) => field)).toEqual(['standalone'])
-		expect(result.warnings.some(({ code }) => code === 'invalid-slug-reference')).toBe(true)
+		expect(result.warnings.some(({ code }) => code === 'invalid-template-reference')).toBe(true)
 	})
 
 	it('rejects malformed bulk mutations before attempting item reads', () => {

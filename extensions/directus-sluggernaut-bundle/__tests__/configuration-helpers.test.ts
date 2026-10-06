@@ -12,6 +12,7 @@ describe('Sluggernaut configuration helper diagnostics', () => {
 				{ field: 'title' },
 				{
 					field: 'bad_slug',
+					type: 'string',
 					meta: {
 						interface: 'sluggernaut-slug',
 						options: {

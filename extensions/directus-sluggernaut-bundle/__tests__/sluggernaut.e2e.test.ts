@@ -1,3 +1,5 @@
+import type { PathTemplateVariable } from '../src/shared/configuration/path-template.schema'
+
 import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
 	createCollection,
@@ -73,11 +75,10 @@ const slugOptions = {
 }
 
 interface PermalinkTestOptions {
-	generateFromSlug: boolean
-	slugField: string
-	updateOnSlugChange: boolean
-	prefix: string
-	validatePrefixOnManualInput: boolean
+	generateFromTemplate: boolean
+	pathTemplate: string
+	templateVariables?: PathTemplateVariable[]
+	updateOnDependencyChange: boolean
 	trailingSlash: boolean
 	enforceTrailingSlashOnManualInput: boolean
 	automaticRedirects: boolean
@@ -86,11 +87,9 @@ interface PermalinkTestOptions {
 }
 
 const permalinkOptions: PermalinkTestOptions = {
-	generateFromSlug: true,
-	slugField: 'slug',
-	updateOnSlugChange: true,
-	prefix: '/articles',
-	validatePrefixOnManualInput: false,
+	generateFromTemplate: true,
+	pathTemplate: '/articles/{{slug}}',
+	updateOnDependencyChange: true,
 	trailingSlash: false,
 	enforceTrailingSlashOnManualInput: false,
 	automaticRedirects: true,
@@ -103,6 +102,8 @@ async function createSluggernautCollection(
 	slugOverrides: Partial<typeof slugOptions> = {},
 	fixtureOptions: {
 		slugSchema?: { max_length?: number }
+		typeSchema?: { default_value?: string }
+		permalinkSchema?: { is_nullable?: boolean }
 		archiveMetadata?: boolean
 	} = {},
 ): Promise<{
@@ -138,6 +139,14 @@ async function createSluggernautCollection(
 	)
 	await client.request(
 		createField(collection, {
+			field: 'type',
+			type: 'string',
+			meta: { interface: 'input' },
+			schema: { is_nullable: true, ...fixtureOptions.typeSchema },
+		}),
+	)
+	await client.request(
+		createField(collection, {
 			field: 'status',
 			type: 'string',
 			meta: { interface: 'input' },
@@ -163,7 +172,7 @@ async function createSluggernautCollection(
 				interface: 'sluggernaut-permalink',
 				options: { ...permalinkOptions, ...permalinkOverrides },
 			},
-			schema: { is_nullable: true },
+			schema: { is_nullable: true, ...fixtureOptions.permalinkSchema },
 		}),
 	)
 	return {
@@ -283,6 +292,73 @@ async function runRecalculation(
 }
 
 describe('Sluggernaut Directus integration', () => {
+	it('creates a non-nullable permalink from an omitted database default', async () => {
+		const fixture = await createSluggernautCollection(
+			{ pathTemplate: '/{{type}}/{{slug}}' },
+			{},
+			{ typeSchema: { default_value: 'article' }, permalinkSchema: { is_nullable: false } },
+		)
+		try {
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Some test' }),
+			)
+			expect(item).toMatchObject({
+				type: 'article',
+				slug: 'some-test',
+				permalink: '/article/some-test',
+			})
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
+	it('renders transformed templates, updates non-slug dependencies, and recalculates with redirect history', async () => {
+		const fixture = await createSluggernautCollection({
+			pathTemplate: '/{{type}}/{{slug}}',
+			templateVariables: [
+				{
+					name: 'type',
+					field: 'type',
+					transforms: [{ type: 'map', values: { news: 'nieuws', article: 'artikelen' } }],
+				},
+			],
+		})
+		try {
+			const draft = await client.request(createItem(fixture.collection, { title: 'Draft' }))
+			expect(draft.permalink).toBeNull()
+			const item = await client.request(
+				createItem(fixture.collection, { title: 'Hello World', type: 'news' }),
+			)
+			expect(item).toMatchObject({ slug: 'hello-world', permalink: '/nieuws/hello-world' })
+			const updated = await client.request(
+				updateItem(fixture.collection, item.id, { type: 'article' }),
+			)
+			expect(updated.permalink).toBe('/artikelen/hello-world')
+			expect(await readRedirects(fixture.collection, String(item.id))).toContainEqual(
+				expect.objectContaining({
+					origin: '/nieuws/hello-world',
+					destination: '/artikelen/hello-world',
+					is_active: true,
+				}),
+			)
+			await client.request(updateItem(fixture.collection, item.id, { permalink: '/manual' }))
+			const result = await runRecalculation(fixture.collection, {
+				fields: ['permalink'],
+				createRedirects: true,
+			})
+			expect(result.failed).toBe(0)
+			expect(await readRedirects(fixture.collection, String(item.id))).toContainEqual(
+				expect.objectContaining({
+					origin: '/manual',
+					destination: '/artikelen/hello-world',
+					is_active: true,
+				}),
+			)
+		} finally {
+			await fixture.dispose()
+		}
+	})
+
 	it('derives a normalized slug and permalink when creating an item', async () => {
 		const fixture = await createSluggernautCollection()
 		try {

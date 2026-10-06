@@ -25,8 +25,8 @@ when redirects are enabled. Chains are flattened. Archive and delete transitions
 history with `inactive_reason=archived` or `deleted`. With redirects disabled, only the field value
 changes.
 
-Consumers retain manual control: set `generateFromSlug=false`, send an explicit permalink value, or
-create an unmanaged redirect directly. Explicit values still pass server normalization and
+Consumers retain manual control: set `generateFromTemplate=false`, send an explicit permalink value,
+or create an unmanaged redirect directly. Explicit values still pass server normalization and
 validation.
 
 ## Contract at a glance
@@ -179,46 +179,99 @@ normalized too. Non-string explicit values are rejected.
 
 ### `sluggernaut-permalink`
 
-Create a string field and select `Sluggernaut Permalink`.
+Add a string field and choose `Sluggernaut Permalink`.
 
-| Option                                | Required       |    Default | Details                                                                                                                     |
-| ------------------------------------- | -------------- | ---------: | --------------------------------------------------------------------------------------------------------------------------- |
-| `generateFromSlug`                    | no             |     `true` | Derive the path from a Sluggernaut slug. Set false for standalone manual paths.                                             |
-| `slugField`                           | when generated |      unset | Sluggernaut slug field in the same collection. Invalid references disable this configuration.                               |
-| `updateOnSlugChange`                  | no             |    `false` | Synchronize an existing path when the source slug changes.                                                                  |
-| `prefix`                              | no             |      unset | Optional normalized path prefix, for example `/news`.                                                                       |
-| `validatePrefixOnManualInput`         | no             |    `false` | Reject manual paths outside `prefix` in generated mode.                                                                     |
-| `trailingSlash`                       | no             |    `false` | Add a trailing slash to generated non-root paths.                                                                           |
-| `enforceTrailingSlashOnManualInput`   | no             |    `false` | Apply the trailing-slash policy to manual values.                                                                           |
-| `automaticRedirects`                  | no             |    `false` | Opt this field into canonical redirect selection.                                                                           |
-| `includeUnmanagedRedirectsInPlanning` | no             |     `true` | Include non-Sluggernaut redirects in chain flattening, loop prevention, and conflict planning.                              |
-| `unmanagedRedirectConflictBehavior`   | no             | `override` | For included unmanaged conflicts, use `override` to let the latest canonical value win or `block` to preserve the conflict. |
+| Option                                | Default    | Behavior                                                                                                             |
+| ------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| `generateFromTemplate`                | `true`     | Generate from a path template. Set false for independent manual paths.                                               |
+| `pathTemplate`                        | unset      | Required when generation is enabled. Absolute path using `{{field}}` placeholders, for example `/{{type}}/{{slug}}`. |
+| `templateVariables`                   | unset      | Optional array of `{ name, field, transforms? }` configurations. Unconfigured variables read the same-named field.   |
+| `updateOnDependencyChange`            | `false`    | Regenerate on updates when any template source field changes, including a slug derived in that mutation.             |
+| `trailingSlash`                       | `false`    | Add a trailing slash to generated non-root paths.                                                                    |
+| `enforceTrailingSlashOnManualInput`   | `false`    | Apply the trailing-slash policy to explicit manual paths.                                                            |
+| `automaticRedirects`                  | `false`    | Allow this field to supply canonical redirect history.                                                               |
+| `includeUnmanagedRedirectsInPlanning` | `true`     | Include unmanaged redirects in chain flattening, loop prevention, and conflict planning.                             |
+| `unmanagedRedirectConflictBehavior`   | `override` | On an included unmanaged conflict, either `override` it or `block` the canonical transition.                         |
 
-Manual permalinks must be absolute paths without whitespace. Schemes, hosts, protocol-relative
-paths, query strings, fragments, backslashes, control characters, and `.`/`..` path segments are
-also rejected. Repeated slashes are normalized.
+The path template option uses Directus' field-template editor with relations disabled. Only scalar
+fields in the same collection are supported: strings, text, numbers, booleans, dates/times, and
+UUIDs. Placeholders use field identifiers (letters, digits, `_`, and `$`, beginning with a letter or
+`_`). Relational paths, JSON/alias fields, other permalink fields, expressions, and template filters
+are unsupported. Invalid configuration is warned about and excluded without disabling unrelated
+fields.
 
-When `generateFromSlug` is false, Directus hides the slug-derived options (`slugField`,
-`updateOnSlugChange`, `prefix`, and `validatePrefixOnManualInput`). Existing saved values are
-preserved and become visible again if generation is re-enabled.
+On create, omitted template dependencies use literal scalar field defaults before the database
+inserts the item. Explicit values, including `null`, take precedence; generated slugs take
+precedence over their defaults. Updates and recalculations use existing item values instead of
+defaults. Database expressions (such as `CURRENT_TIMESTAMP` or `gen_random_uuid()`) and
+function-shaped string defaults are unsupported and remain missing dependencies.
+
+The Template variables code editor provides an example template using `map`, `slugify`, and
+`lowercase`. Adapt its field names and map values to your collection before using it.
 
 ```json
 {
-  "generateFromSlug": true,
-  "slugField": "slug",
-  "updateOnSlugChange": true,
-  "prefix": "/news",
-  "validatePrefixOnManualInput": true,
-  "trailingSlash": false,
-  "enforceTrailingSlashOnManualInput": false,
+  "generateFromTemplate": true,
+  "pathTemplate": "/{{type}}/{{slug}}",
+  "updateOnDependencyChange": true,
+  "templateVariables": [
+    {
+      "name": "type",
+      "field": "type",
+      "transforms": [
+        {
+          "type": "map",
+          "values": {
+            "news": "nieuws",
+            "experience_story": "ervaringen",
+            "page": "pagina"
+          }
+        }
+      ]
+    }
+  ],
   "automaticRedirects": true
 }
 ```
 
-With `slug: "summer-news"`, the generated value is `/news/summer-news`. Permalinks must be absolute
-paths beginning with one slash. The server rejects full URLs, protocol-relative paths, schemes,
-queries, fragments, backslashes, control characters, and dot segments. Repeated slashes are
-collapsed.
+With `type: "news"` and `slug: "hello-world"`, this stores `/nieuws/hello-world`. Static paths use
+the same model: `/news/{{slug}}`, `/docs/{{section}}/{{slug}}`, or `/{{year}}/{{month}}/{{slug}}`.
+For a placeholder alias such as `{{section}}`, set `name: "section"` and `field: "type"`.
+
+Transformations run in array order. `map` performs an exact, case-sensitive lookup in `values` and
+returns an empty result for an unmapped value. `slugify` uses the normal slug normalization with
+English lowercasing; `lowercase` lowercases without slugification. For example,
+`[{"type":"lowercase"},{"type":"map","values":{"news":"nieuws"}}]` maps both `NEWS` and `news`.
+Variable names must be unique and must occur in the template. Transformations are separate from
+template syntax.
+
+Missing, null, blank, or unmapped dependencies produce `null`, including partially completed drafts.
+Numbers and booleans render as text (`0` and `false` are valid values). Every transformed variable
+must be one safe path segment: slashes, encoded slashes, dot segments, queries, fragments,
+backslashes, whitespace, and control characters are rejected. Template literals own the separators.
+The complete generated path passes through the normal permalink validation and trailing-slash rules.
+Manual paths pass through the same absolute-path safety boundary, and explicit values win over
+creation, update, and recalculation generation.
+
+Creates and recalculations always render when no explicit permalink is supplied. Updates render only
+when a dependency changes and `updateOnDependencyChange=true`. Slugs are derived first, so rendering
+sees their final values, including a cleared slug. A dependency change that produces a new canonical
+path uses the existing redirect planner to maintain history. Update reads retain the requesting
+user's accountability; users must be allowed to read the configured dependencies.
+
+When `generateFromTemplate=false`, the template options are hidden in the field editor and only
+explicit permalink values update the field. Saved template options remain available if generation is
+re-enabled. Generated paths do not require a Sluggernaut slug: any eligible scalar field can be
+used, and literal-only templates are supported.
+
+### Configuration change
+
+This replaces the pre-production prefix/slug options without runtime compatibility aliases.
+Reconfigure existing permalink fields: replace `generateFromSlug` with `generateFromTemplate`,
+`slugField` plus `prefix` with a single template (for example `/news/{{slug}}`), and
+`updateOnSlugChange` with `updateOnDependencyChange`. `validatePrefixOnManualInput` is removed;
+manual paths use absolute-path safety validation and optional trailing-slash enforcement. Stored
+permalink values are unchanged until explicitly edited, synchronized, or recalculated.
 
 ### Mutation rules
 
@@ -244,9 +297,9 @@ Results in the configured derived fields:
 ```
 
 Explicit payload values take precedence, but are still normalized. Existing generated permalinks do
-not change when a slug changes unless `updateOnSlugChange=true`. Bulk creates derive each object
-independently. Updates requiring an existing item key reject ambiguous multi-item mutations rather
-than applying one value to several items.
+not change when a template dependency changes unless `updateOnDependencyChange=true`. Bulk creates
+derive each object independently. Updates requiring an existing item key reject ambiguous multi-item
+mutations rather than applying one value to several items.
 
 The hook registers these Directus events:
 
@@ -261,7 +314,8 @@ configuration. Invalid explicit values and invalid paths fail the mutation.
 
 ## `sluggernaut-link` display
 
-Use `Sluggernaut Link` as the display for a slug or permalink field.
+Both Sluggernaut interfaces recommend `Sluggernaut Link` in the Directus display picker. Use it as
+the display for a slug or permalink field.
 
 | Option | Default | Details                                                          |
 | ------ | ------- | ---------------------------------------------------------------- |
@@ -499,7 +553,7 @@ Add `Sluggernaut: Recalculate Fields` to a Flow. The operation API accepts:
 | Input             | Required |            Default | Details                                                                                                            |
 | ----------------- | -------- | -----------------: | ------------------------------------------------------------------------------------------------------------------ |
 | `collection`      | yes      |                  — | Non-empty collection name.                                                                                         |
-| `fields`          | no       | all derived fields | Exact keys. Only configured slug fields and generated-from-slug permalink fields are eligible.                     |
+| `fields`          | no       | all derived fields | Exact keys. Only configured slug fields and template-generated permalink fields are eligible.                      |
 | `createRedirects` | no       |             `true` | Uses item-service updates when true and redirects are enabled; otherwise writes directly without redirect history. |
 
 Existing flows may still send the previous `fieldKeys` option as a legacy alias; new flows should
@@ -554,8 +608,8 @@ accountability for schema and metadata operations; item update reads retain muta
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Interfaces are missing                 | Package is installed in the Directus runtime, Directus restarted, and runtime is within `>=12.2.0 <13`.                 |
 | Slug is unchanged                      | `sourceFields` contains the changed field and `updateOnSourceChange=true`; explicit slug payloads override derivation.  |
-| Permalink is ignored                   | `slugField` points to a valid same-collection Sluggernaut slug; invalid references are excluded with a warning.         |
-| Manual permalink fails                 | Use a path without whitespace, not a URL; remove query/fragment/scheme/dot segments and check prefix options.           |
+| Permalink is ignored                   | `pathTemplate` references valid scalar fields in this collection; invalid references are excluded with a warning.       |
+| Manual permalink fails                 | Use a path without whitespace, not a URL; remove query/fragment/scheme/dot segments and check trailing-slash options.   |
 | Redirects are absent                   | Enable the global redirect switch, enable automatic redirects on the selected source, and verify the collection exists. |
 | Schema setup is absent                 | Both local and global schema switches must be true. Policy setup also needs the global data-seed switch.                |
 | Recalculation is forbidden             | Run with administrator or internal system accountability.                                                               |

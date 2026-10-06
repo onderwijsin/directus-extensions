@@ -16,6 +16,7 @@ const fieldMetadata = [
 	{ field: 'title' },
 	{
 		field: 'slug',
+		type: 'string',
 		meta: { interface: 'sluggernaut-slug', options: { sourceFields: ['title'] } },
 	},
 ]
@@ -224,6 +225,7 @@ describe('Sluggernaut item hook integration seams', () => {
 				{ field: 'title' },
 				{
 					field: 'slug',
+					type: 'string',
 					meta: {
 						interface: 'sluggernaut-slug',
 						options: {
@@ -237,13 +239,13 @@ describe('Sluggernaut item hook integration seams', () => {
 				},
 				{
 					field: 'path',
+					type: 'string',
 					meta: {
 						interface: 'sluggernaut-permalink',
 						options: {
-							generateFromSlug: true,
-							slugField: 'slug',
-							updateOnSlugChange: true,
-							validatePrefixOnManualInput: false,
+							generateFromTemplate: true,
+							pathTemplate: '/{{slug}}',
+							updateOnDependencyChange: true,
 							trailingSlash: false,
 							enforceTrailingSlashOnManualInput: false,
 							automaticRedirects: false,

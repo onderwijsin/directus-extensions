@@ -3,10 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
 	applyTrailingSlash,
 	deriveSlug,
-	joinPrefixAndSlug,
 	normalizeManualPermalink,
 	normalizePermalink,
-	normalizePrefix,
 } from '../src/shared/values/normalization'
 
 describe('Sluggernaut normalization', () => {
@@ -39,13 +37,7 @@ describe('Sluggernaut normalization', () => {
 		)
 	})
 
-	it('normalizes prefixes, generated empty slugs, and trailing-slash rules', () => {
-		for (const prefix of [undefined, '/news', 'news', '/news/'])
-			expect(joinPrefixAndSlug(prefix, 'Prefix Item')).toBe(
-				prefix === undefined ? '/prefix-item' : '/news/prefix-item',
-			)
-		expect(() => normalizePrefix('https://example.com/news')).toThrow()
-		expect(joinPrefixAndSlug('/news', '--- ... !!!')).toBe('/news')
+	it('normalizes trailing-slash rules', () => {
 		expect(applyTrailingSlash('/a//b', true)).toBe('/a/b/')
 		expect(
 			normalizeManualPermalink('/nested/path/item', {
@@ -72,16 +64,7 @@ describe('Sluggernaut normalization', () => {
 			expect(() => normalizePermalink(value)).toThrow()
 	})
 
-	it('enforces prefix boundaries and treats markup, controls, and bidi markers as data', () => {
-		expect(
-			normalizeManualPermalink('/news/item', { prefix: '/news', validatePrefix: true }),
-		).toBe('/news/item')
-		expect(() =>
-			normalizeManualPermalink('/newspaper/item', {
-				prefix: '/news',
-				validatePrefix: true,
-			}),
-		).toThrow()
+	it('treats markup, controls, and bidi markers as data', () => {
 		expect(deriveSlug(['<strong>Hello</strong> {{name}} \u202eWorld'])).toBe(
 			'strong-hello-strong-name-world',
 		)

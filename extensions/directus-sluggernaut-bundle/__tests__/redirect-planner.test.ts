@@ -32,10 +32,9 @@ const configuration: CollectionConfiguration = {
 			field: 'route',
 			sort: 1,
 			options: {
-				generateFromSlug: true,
-				slugField: 'slug',
-				updateOnSlugChange: true,
-				validatePrefixOnManualInput: false,
+				generateFromTemplate: true,
+				pathTemplate: '/{{slug}}',
+				updateOnDependencyChange: true,
 				trailingSlash: false,
 				enforceTrailingSlashOnManualInput: false,
 				automaticRedirects: true,

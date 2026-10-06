@@ -65,6 +65,7 @@ interface E2ERedirect {
 }
 
 interface E2ESluggernautItem {
+	type: string | null
 	id: string
 	title: string | null
 	status: string | null

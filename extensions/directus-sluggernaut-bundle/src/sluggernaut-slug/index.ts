@@ -13,6 +13,7 @@ export default defineInterface({
 	component: SlugInterface,
 	types: ['string'],
 	group: 'standard',
+	recommendedDisplays: ['sluggernaut-link'],
 	/**
 	 * Defines the field configuration shown in Directus Studio.
 	 * @param context - Interface context.

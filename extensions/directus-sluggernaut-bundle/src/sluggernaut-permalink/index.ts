@@ -4,10 +4,10 @@ import { defineInterface } from '@directus/extensions-sdk'
 import { createRedirectInterfaceOptions } from '../shared/configuration/interface-options'
 import PermalinkInterface from './interface.vue'
 
-const generatedFromSlugCondition = [
+const generatedFromTemplateCondition = [
 	{
 		rule: {
-			generateFromSlug: {
+			generateFromTemplate: {
 				_eq: false,
 			},
 		},
@@ -23,6 +23,7 @@ export default defineInterface({
 	component: PermalinkInterface,
 	types: ['string'],
 	group: 'standard',
+	recommendedDisplays: ['sluggernaut-link'],
 	/**
 	 * Defines the field configuration shown in Directus Studio.
 	 * @param context - Interface context.
@@ -33,58 +34,68 @@ export default defineInterface({
 
 		return [
 			{
-				field: 'generateFromSlug',
-				name: 'Generate from slug',
+				field: 'generateFromTemplate',
+				name: 'Generate from template',
 				type: 'boolean',
-				meta: { width: 'half', interface: 'checkbox' },
+				meta: { width: 'full', interface: 'checkbox' },
 				schema: { default_value: true },
 			},
 			{
-				field: 'slugField',
-				name: 'Slug field',
+				field: 'pathTemplate',
+				name: 'Path template',
 				type: 'string',
 				meta: {
-					width: 'half',
-					interface: 'system-field',
-					conditions: generatedFromSlugCondition,
+					width: 'full',
+					interface: 'system-display-template',
+					conditions: generatedFromTemplateCondition,
 					options: {
 						collectionName: collection,
-						typeAllowList: ['string'],
-						allowNone: true,
-						multiple: false,
+						includeRelations: false,
+						placeholder: '/{{type}}/{{slug}}',
 					},
-					note: 'Must reference a Sluggernaut slug field in this collection.',
+					note: 'Use scalar fields in this collection. Missing values produce an empty permalink.',
 				},
 			},
 			{
-				field: 'updateOnSlugChange',
-				name: 'Update on slug change',
+				field: 'templateVariables',
+				name: 'Template variables',
+				type: 'json',
+				meta: {
+					width: 'full',
+					interface: 'input-code',
+					conditions: generatedFromTemplateCondition,
+					options: {
+						language: 'json',
+						template: JSON.stringify(
+							[
+								{
+									name: 'type',
+									field: 'type',
+									transforms: [
+										{
+											type: 'map',
+											values: { article: 'News Articles', page: 'Pages' },
+										},
+										{ type: 'slugify' },
+										{ type: 'lowercase' },
+									],
+								},
+							],
+							null,
+							2,
+						),
+					},
+					note: 'Optional array of { name, field, transforms }. Transforms run in order: map (values), slugify, lowercase.',
+				},
+			},
+			{
+				field: 'updateOnDependencyChange',
+				name: 'Update on dependency change',
 				type: 'boolean',
 				meta: {
 					width: 'half',
 					interface: 'checkbox',
-					conditions: generatedFromSlugCondition,
-				},
-				schema: { default_value: false },
-			},
-			{
-				field: 'prefix',
-				name: 'Prefix',
-				type: 'string',
-				meta: {
-					width: 'half',
-					interface: 'input',
-					conditions: generatedFromSlugCondition,
-				},
-			},
-			{
-				field: 'validatePrefixOnManualInput',
-				name: 'Validate prefix on manual input',
-				type: 'boolean',
-				meta: {
-					width: 'half',
-					interface: 'checkbox',
-					conditions: generatedFromSlugCondition,
+					conditions: generatedFromTemplateCondition,
 				},
 				schema: { default_value: false },
 			},

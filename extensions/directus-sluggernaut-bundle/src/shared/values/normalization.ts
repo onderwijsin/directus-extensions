@@ -1,5 +1,5 @@
 /**
- * @fileoverview Defines the canonical slug, path, prefix, and host normalization rules.
+ * @fileoverview Defines the canonical slug, path, and host normalization rules.
  *
  * These helpers define the canonical representation used by both the mutation coordinator and
  * redirect planner. They reject absolute URLs and unsafe path syntax where the field contract
@@ -12,13 +12,7 @@ import {
 	isDefined,
 	isNonBlankString,
 } from '@onderwijsin/directus-extension-utils'
-import {
-	cleanDoubleSlashes,
-	joinURL,
-	withLeadingSlash,
-	withTrailingSlash,
-	withoutTrailingSlash,
-} from 'ufo'
+import { cleanDoubleSlashes, withTrailingSlash, withoutTrailingSlash } from 'ufo'
 
 import { sluggernautValidationError } from '../errors'
 
@@ -185,22 +179,6 @@ export function normalizePermalink(value: string | null | undefined): string | n
 }
 
 /**
- * Normalizes a configured path prefix.
- * @param prefix - Candidate prefix.
- * @returns A normalized prefix or null when none is configured.
- */
-export function normalizePrefix(prefix: string | null | undefined): string | null {
-	if (prefix === null || prefix === undefined || prefix.trim() === '') return null
-	if (prefix.trim().startsWith('//') || /^[a-z][a-z\d+.-]*:/iu.test(prefix.trim())) {
-		throw sluggernautValidationError('A permalink prefix must be a path, not a URL.')
-	}
-	const normalized = normalizePermalink(withLeadingSlash(prefix))
-	if (normalized === null) return null
-	if (normalized === '/') return '/'
-	return withoutTrailingSlash(normalized)
-}
-
-/**
  * Applies a trailing-slash policy to a path.
  * @param value - Candidate path.
  * @param trailingSlash - Whether the result should end with a slash.
@@ -213,60 +191,19 @@ export function applyTrailingSlash(value: string, trailingSlash: boolean): strin
 }
 
 /**
- * Joins a prefix and slug into a permalink.
- * @param prefix - Optional path prefix.
- * @param slug - Slug value.
- * @param locale - Locale used for transliteration.
- * @param lowercase - Whether the normalized slug should be lowercase.
- * @returns A permalink path.
- */
-export function joinPrefixAndSlug(
-	prefix: string | null | undefined,
-	slug: string,
-	locale = 'en',
-	lowercase = true,
-): string {
-	const normalizedSlug = normalizeSlug(slug, locale, lowercase)
-	if (normalizedSlug === null) return normalizePrefix(prefix) ?? '/'
-	const normalizedPrefix = normalizePrefix(prefix)
-	return joinURL(normalizedPrefix ?? '/', normalizedSlug)
-}
-
-/**
- * Checks prefix membership using path-segment boundaries.
- * @param value - Candidate permalink.
- * @param prefix - Configured prefix.
- * @returns Whether the value belongs below the prefix.
- */
-export function isWithinPrefix(value: string, prefix: string | null | undefined): boolean {
-	const normalizedValue = normalizePermalink(value)
-	const normalizedPrefix = normalizePrefix(prefix)
-	if (normalizedValue === null || normalizedPrefix === null || normalizedPrefix === '/')
-		return true
-	return (
-		normalizedValue === normalizedPrefix || normalizedValue.startsWith(`${normalizedPrefix}/`)
-	)
-}
-
-/**
  * Normalizes a manually supplied permalink according to interface options.
  * @param value - Candidate manual value.
- * @param options - Prefix and trailing-slash rules.
+ * @param options - Trailing-slash rules.
  * @returns A normalized manual permalink.
  */
 export function normalizeManualPermalink(
 	value: string | null | undefined,
 	options: PathNormalizationOptions & {
-		prefix?: string | null
-		validatePrefix?: boolean
 		enforceTrailingSlash?: boolean
 	},
 ): string | null {
 	const normalized = normalizePermalink(value)
 	if (normalized === null) return null
-	if (options.validatePrefix && !isWithinPrefix(normalized, options.prefix)) {
-		throw sluggernautValidationError('The permalink is outside the configured prefix.')
-	}
 	return options.enforceTrailingSlash
 		? applyTrailingSlash(normalized, options.trailingSlash ?? false)
 		: normalized

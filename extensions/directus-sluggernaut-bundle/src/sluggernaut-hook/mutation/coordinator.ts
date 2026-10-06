@@ -17,13 +17,12 @@ import { hasKey, isDefined, isString } from '@onderwijsin/directus-extension-uti
 
 import { sluggernautValidationError } from '../../shared/errors'
 import {
-	applyTrailingSlash,
 	deriveSlug,
 	normalizeManualPermalink,
-	joinPrefixAndSlug,
 	normalizeSlug,
 	resolveEffectiveFieldValue,
 } from '../../shared/values/normalization'
+import { compilePathTemplate, renderPathTemplate } from '../../shared/values/path-template'
 
 /** Mutation context that determines when derived values should be refreshed. */
 export type MutationKind = 'create' | 'update' | 'recalculate'
@@ -121,45 +120,6 @@ function resolveSlugValue(
 }
 
 /**
- * Resolves the slug value that a generated permalink should use.
- *
- * A slug may come from this mutation's derived values, from an explicitly supplied payload value,
- * or from the stored item. The derived-value map takes precedence because it contains the value that
- * will actually be persisted by this coordinator run.
- * @param input - Mutation input.
- * @param field - Slug field configuration.
- * @param derivedValues - Values already derived in this mutation.
- * @returns Final slug value.
- */
-function resolveSlugForPermalink(
-	input: MutationCoordinatorInput,
-	field: DiscoveredSlugField,
-	derivedValues: ReadonlyMap<string, string | null>,
-): string | null {
-	const derivedValue = derivedValues.get(field.field)
-	if (isDefined(derivedValue)) return derivedValue
-	const value = resolveEffectiveFieldValue(input.payload, input.existingItem, field.field)
-	return isString(value) ? value : null
-}
-
-/**
- * Compares a final slug with its stored value.
- * @param input - Mutation input.
- * @param field - Slug field configuration.
- * @param value - Final slug value.
- * @returns Whether the slug changed.
- */
-function slugChanged(
-	input: MutationCoordinatorInput,
-	field: DiscoveredSlugField,
-	value: string | null,
-): boolean {
-	if (input.kind === 'create') return true
-	const previous = input.existingItem[field.field]
-	return (isString(previous) ? previous : null) !== value
-}
-
-/**
  * Resolves one permalink field after slug derivation.
  * @param input - Mutation input.
  * @param field - Permalink field configuration.
@@ -181,9 +141,6 @@ function resolvePermalinkValue(
 		}
 		return {
 			value: normalizeManualPermalink(value, {
-				prefix: field.options.generateFromSlug ? field.options.prefix : undefined,
-				validatePrefix:
-					field.options.generateFromSlug && field.options.validatePrefixOnManualInput,
 				trailingSlash: field.options.trailingSlash,
 				enforceTrailingSlash: field.options.enforceTrailingSlashOnManualInput,
 			}),
@@ -191,37 +148,28 @@ function resolvePermalinkValue(
 		}
 	}
 
-	// A permalink without slug generation is independent; only explicit values can update it.
-	if (!field.options.generateFromSlug) return { value: null, shouldWrite: false }
-
-	const slugField = field.options.slugField
-	// Generated permalinks need a configured source slug field.
-	if (!isDefined(slugField)) return { value: null, shouldWrite: false }
-
-	const slugConfiguration = input.configuration.slugs.find(
-		(candidate) => candidate.field === slugField,
+	if (!field.options.generateFromTemplate) return { value: null, shouldWrite: false }
+	const template = compilePathTemplate(field.options)
+	const effectivePayload = {
+		...(input.kind === 'create' ? field.dependencyDefaults : {}),
+		...input.payload,
+		...Object.fromEntries(derivedSlugs),
+	}
+	const dependencyChanged = [...template.dependencies].some(
+		(dependency) =>
+			resolveEffectiveFieldValue(effectivePayload, input.existingItem, dependency) !==
+			input.existingItem[dependency],
 	)
-	// Ignore an invalid reference rather than generating a permalink from an unknown slug field.
-	if (!isDefined(slugConfiguration)) return { value: null, shouldWrite: false }
-
-	const finalSlug = resolveSlugForPermalink(input, slugConfiguration, derivedSlugs)
-	// On updates, preserve the existing permalink unless slug synchronization is enabled and the slug changed.
 	const shouldSynchronize =
 		input.kind === 'create' ||
 		input.kind === 'recalculate' ||
-		(field.options.updateOnSlugChange && slugChanged(input, slugConfiguration, finalSlug))
+		(field.options.updateOnDependencyChange && dependencyChanged)
 	if (!shouldSynchronize) return { value: null, shouldWrite: false }
-	// A cleared slug must clear its generated permalink as well.
-	if (finalSlug === null) return { value: null, shouldWrite: true }
-
 	return {
-		value: applyTrailingSlash(
-			joinPrefixAndSlug(
-				field.options.prefix,
-				finalSlug,
-				slugConfiguration.options.locale,
-				slugConfiguration.options.lowercase,
-			),
+		value: renderPathTemplate(
+			template,
+			effectivePayload,
+			input.existingItem,
 			field.options.trailingSlash,
 		),
 		shouldWrite: true,
