@@ -18,7 +18,7 @@ const props = withDefaults(
 		locale?: Locale
 		fieldType: 'slug' | 'path'
 		errorMessage?: string | null
-		generateFromSlug?: boolean
+		generateFromTemplate?: boolean
 	}>(),
 	{
 		disabled: false,
@@ -37,7 +37,7 @@ const placeholder = computed(() => {
 	// Use examples only for the default locale; other locales may have different conventions.
 	if (props.fieldType === 'slug') return translations.slug[props.locale]
 
-	if (props.generateFromSlug) return translations.path[props.locale]
+	if (props.generateFromTemplate) return translations.path[props.locale]
 
 	return '/news/hello-world'
 })

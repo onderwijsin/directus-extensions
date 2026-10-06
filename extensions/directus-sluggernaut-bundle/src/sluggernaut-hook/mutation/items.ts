@@ -10,6 +10,7 @@ import {
 } from '@onderwijsin/directus-extension-utils'
 
 import { sluggernautInternalError, sluggernautValidationError } from '../../shared/errors'
+import { compilePathTemplate } from '../../shared/values/path-template'
 
 /**
  * Collects the minimum field set required by the mutation coordinator.
@@ -22,7 +23,9 @@ export function relevantFields(configuration: CollectionConfiguration): string[]
 			...configuration.slugs.flatMap((field) => [field.field, ...field.options.sourceFields]),
 			...configuration.permalinks.flatMap((field) => [
 				field.field,
-				...(field.options.slugField ? [field.options.slugField] : []),
+				...(field.options.generateFromTemplate
+					? compilePathTemplate(field.options).dependencies
+					: []),
 			]),
 		]),
 	]

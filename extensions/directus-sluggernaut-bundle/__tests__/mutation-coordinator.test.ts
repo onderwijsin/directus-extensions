@@ -23,11 +23,9 @@ const configuration: CollectionConfiguration = {
 			field: 'canonical_route',
 			sort: 2,
 			options: {
-				generateFromSlug: true,
-				slugField: 'public_slug',
-				updateOnSlugChange: false,
-				prefix: '/news',
-				validatePrefixOnManualInput: false,
+				generateFromTemplate: true,
+				pathTemplate: '/news/{{public_slug}}',
+				updateOnDependencyChange: false,
 				trailingSlash: false,
 				enforceTrailingSlashOnManualInput: false,
 				automaticRedirects: false,
@@ -86,7 +84,10 @@ describe('coordinateMutation', () => {
 			permalinks: [
 				{
 					...configuration.permalinks[0]!,
-					options: { ...configuration.permalinks[0]!.options, updateOnSlugChange: true },
+					options: {
+						...configuration.permalinks[0]!.options,
+						updateOnDependencyChange: true,
+					},
 				},
 			],
 		}
@@ -110,7 +111,10 @@ describe('coordinateMutation', () => {
 			permalinks: [
 				{
 					...configuration.permalinks[0]!,
-					options: { ...configuration.permalinks[0]!.options, updateOnSlugChange: true },
+					options: {
+						...configuration.permalinks[0]!.options,
+						updateOnDependencyChange: true,
+					},
 				},
 			],
 		}
@@ -172,9 +176,8 @@ describe('coordinateMutation', () => {
 					field: 'manual_route',
 					sort: 1,
 					options: {
-						generateFromSlug: false,
-						updateOnSlugChange: false,
-						validatePrefixOnManualInput: false,
+						generateFromTemplate: false,
+						updateOnDependencyChange: false,
 						trailingSlash: false,
 						enforceTrailingSlashOnManualInput: false,
 						automaticRedirects: false,

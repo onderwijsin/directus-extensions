@@ -13,7 +13,6 @@ import type {
 	ConfigurationWarning,
 	DiscoveredPermalinkField,
 	DiscoveredSlugField,
-	PermalinkInterfaceOptions,
 	RedirectInterfaceOptions,
 	SluggernautFieldMetadata,
 	SlugInterfaceOptions,
@@ -26,8 +25,12 @@ import {
 	isString,
 	isDefined,
 } from '@onderwijsin/directus-extension-utils'
+import { z } from 'zod'
 
+import { compilePathTemplate } from '../values/path-template'
 import { INTERFACE_IDS } from './constants'
+import { pathTemplateVariableSchema } from './path-template.schema'
+import { isSupportedTemplateDependency } from './template-dependencies'
 
 const redirectInterfaceDefaults: Required<RedirectInterfaceOptions> = {
 	automaticRedirects: false,
@@ -94,30 +97,33 @@ function isSlugInterfaceOptions(
 	)
 }
 
-/**
- * Narrows raw Directus options to the options owned by the permalink interface.
- * @param options - Raw options read from Directus field metadata.
- * @returns Whether the options have the permalink interface shape.
- */
-function isPermalinkInterfaceOptions(
-	options: Record<string, unknown>,
-): options is PermalinkInterfaceOptions & Record<string, unknown> {
-	return (
-		isBoolean(options.generateFromSlug) &&
-		(!isDefined(options.slugField) || isString(options.slugField)) &&
-		isBoolean(options.updateOnSlugChange) &&
-		(!isDefined(options.prefix) || isString(options.prefix)) &&
-		isBoolean(options.validatePrefixOnManualInput) &&
-		isBoolean(options.trailingSlash) &&
-		isBoolean(options.enforceTrailingSlashOnManualInput) &&
-		isBoolean(options.automaticRedirects) &&
-		(!isDefined(options.includeUnmanagedRedirectsInPlanning) ||
-			isBoolean(options.includeUnmanagedRedirectsInPlanning)) &&
-		(!isDefined(options.unmanagedRedirectConflictBehavior) ||
-			options.unmanagedRedirectConflictBehavior === 'block' ||
-			options.unmanagedRedirectConflictBehavior === 'override')
-	)
-}
+/** Shared permalink options remain validated in generated and standalone modes. */
+const sharedPermalinkOptionsSchema = z.object({
+	trailingSlash: z.boolean().default(false),
+	enforceTrailingSlashOnManualInput: z.boolean().default(false),
+	automaticRedirects: z.boolean().default(false),
+	includeUnmanagedRedirectsInPlanning: z.boolean().default(true),
+	unmanagedRedirectConflictBehavior: z.enum(['block', 'override']).default('override'),
+})
+
+/** Hidden template-only settings are ignored while generation is explicitly disabled. */
+const permalinkOptionsSchema = z.union([
+	sharedPermalinkOptionsSchema
+		.extend({ generateFromTemplate: z.literal(false) })
+		.transform((options) => ({ ...options, updateOnDependencyChange: false })),
+	sharedPermalinkOptionsSchema.extend({
+		generateFromTemplate: z.literal(true).default(true),
+		pathTemplate: z
+			.string()
+			.nullish()
+			.transform((value) => value ?? undefined),
+		templateVariables: z
+			.array(pathTemplateVariableSchema)
+			.nullish()
+			.transform((value) => value ?? []),
+		updateOnDependencyChange: z.boolean().default(false),
+	}),
+])
 
 /**
  * Applies the defaults declared by the Studio slug interface.
@@ -132,26 +138,6 @@ function withSlugInterfaceDefaults(options: Record<string, unknown>): Record<str
 		locale: 'en',
 		lowercase: true,
 		updateOnSourceChange: true,
-		...redirectInterfaceDefaults,
-		...options,
-	}
-}
-
-/**
- * Applies the defaults declared by the Studio permalink interface.
- *
- * Directus persists only options that differ from an interface default in some mutations. The
- * runtime therefore cannot require every optional option to be present in `meta.options`.
- * @param options - Raw options persisted by Directus.
- * @returns Options with the interface defaults restored.
- */
-function withPermalinkInterfaceDefaults(options: Record<string, unknown>): Record<string, unknown> {
-	return {
-		generateFromSlug: true,
-		updateOnSlugChange: false,
-		validatePrefixOnManualInput: false,
-		trailingSlash: false,
-		enforceTrailingSlashOnManualInput: false,
 		...redirectInterfaceDefaults,
 		...options,
 	}
@@ -218,26 +204,10 @@ function parsePermalinkField(
 	sort: number | null,
 ): FieldDiscoveryResult<DiscoveredPermalinkField> {
 	const options = field.meta?.options
-	const normalizedOptions =
-		options === undefined || options === null ? null : withPermalinkInterfaceDefaults(options)
-	if (normalizedOptions === null || !isPermalinkInterfaceOptions(normalizedOptions)) {
+	const parsed = permalinkOptionsSchema.safeParse(options)
+	if (!parsed.success)
 		return { value: null, warning: warningForInvalidOptions(field.field, 'permalink') }
-	}
-	return {
-		value: {
-			field: field.field,
-			sort,
-			options: {
-				...normalizedOptions,
-				includeUnmanagedRedirectsInPlanning:
-					normalizedOptions.includeUnmanagedRedirectsInPlanning,
-				unmanagedRedirectConflictBehavior:
-					normalizedOptions.unmanagedRedirectConflictBehavior === 'block'
-						? 'block'
-						: 'override',
-			},
-		},
-	}
+	return { value: { field: field.field, sort, options: parsed.data } }
 }
 
 /**
@@ -278,18 +248,41 @@ export function discoverCollectionConfiguration(
 
 	slugs.sort(compareFieldOrder)
 
-	// A generated permalink is only safe when its configured slug dependency survived validation.
+	// Only scalar fields in this collection may participate; permalink dependencies would be cyclic.
+
 	const slugFields = new Set(slugs.map((field) => field.field))
 	const validPermalinks = permalinks.filter((permalink) => {
-		if (!permalink.options.generateFromSlug) return true
-		if (permalink.options.slugField && slugFields.has(permalink.options.slugField)) return true
-
-		warnings.push({
-			field: permalink.field,
-			code: 'invalid-slug-reference',
-			message: `Permalink field "${permalink.field}" must reference a Sluggernaut slug field in the same collection.`,
-		})
-		return false
+		if (!permalink.options.generateFromTemplate) return true
+		try {
+			const template = compilePathTemplate(permalink.options)
+			for (const dependency of template.dependencies) {
+				const source = fields.find((field) => field.field === dependency)
+				if (!isSupportedTemplateDependency(source, slugFields)) {
+					throw new Error(
+						`Template dependency "${dependency}" must be an available scalar field in the same collection, without special flags, non-null defaults, relations, or generated values.`,
+					)
+				}
+				const derivedSlug = slugs.find((slug) => slug.field === dependency)
+				if (
+					derivedSlug?.options.sourceFields.some((sourceField) => {
+						const slugSource = fields.find((field) => field.field === sourceField)
+						return !isSupportedTemplateDependency(slugSource, new Set())
+					})
+				) {
+					throw new Error(
+						`Template slug dependency "${dependency}" requires plain scalar sources without special flags, non-null defaults, relations, or generation.`,
+					)
+				}
+			}
+			return true
+		} catch (error) {
+			warnings.push({
+				field: permalink.field,
+				code: 'invalid-template-reference',
+				message: error instanceof Error ? error.message : 'Invalid path template.',
+			})
+			return false
+		}
 	})
 
 	validPermalinks.sort(compareFieldOrder)

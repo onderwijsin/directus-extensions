@@ -31,10 +31,9 @@ const configuration: CollectionConfiguration = {
 			field: 'public_route',
 			sort: 2,
 			options: {
-				generateFromSlug: true,
-				slugField: 'public_slug',
-				updateOnSlugChange: true,
-				validatePrefixOnManualInput: false,
+				generateFromTemplate: true,
+				pathTemplate: '/{{public_slug}}',
+				updateOnDependencyChange: true,
 				trailingSlash: false,
 				enforceTrailingSlashOnManualInput: false,
 				automaticRedirects: false,

@@ -1,4 +1,5 @@
 import type { Locale } from './locales'
+import type { PathTemplateVariable } from './path-template.schema'
 
 /** Redirect planning options shared by both Sluggernaut field interfaces. */
 export interface RedirectInterfaceOptions {
@@ -17,11 +18,10 @@ export interface SlugInterfaceOptions extends RedirectInterfaceOptions {
 
 /** Options persisted by the Sluggernaut permalink interface. */
 export interface PermalinkInterfaceOptions extends RedirectInterfaceOptions {
-	generateFromSlug: boolean
-	slugField?: string
-	updateOnSlugChange: boolean
-	prefix?: string
-	validatePrefixOnManualInput: boolean
+	generateFromTemplate: boolean
+	pathTemplate?: string
+	templateVariables?: PathTemplateVariable[]
+	updateOnDependencyChange: boolean
 	trailingSlash: boolean
 	enforceTrailingSlashOnManualInput: boolean
 }
@@ -29,12 +29,21 @@ export interface PermalinkInterfaceOptions extends RedirectInterfaceOptions {
 /** Directus field metadata consumed by Sluggernaut configuration discovery. */
 export interface SluggernautFieldMetadata {
 	field: string
+	type?: string
 	meta?: {
+		special?: string[] | null
 		interface?: string | null
 		sort?: number | null
 		options?: Record<string, unknown> | null
 	} | null
-	schema?: { is_primary_key?: boolean } | null
+	schema?: {
+		is_primary_key?: boolean
+		foreign_key_table?: string | null
+		default_value?: unknown
+		has_auto_increment?: boolean | null
+		is_generated?: boolean | null
+		generation_expression?: string | null
+	} | null
 }
 
 /** A validated slug field and its deterministic Directus order. */
@@ -59,7 +68,7 @@ export interface ConfigurationWarning {
 		| 'duplicate-permalink-interface'
 		| 'invalid-interface-options'
 		| 'invalid-source-reference'
-		| 'invalid-slug-reference'
+		| 'invalid-template-reference'
 	message: string
 }
 

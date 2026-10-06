@@ -12,9 +12,8 @@ const configuration: CollectionConfiguration = {
 			field: 'route',
 			sort: 1,
 			options: {
-				generateFromSlug: false,
-				updateOnSlugChange: false,
-				validatePrefixOnManualInput: false,
+				generateFromTemplate: false,
+				updateOnDependencyChange: false,
 				trailingSlash: false,
 				enforceTrailingSlashOnManualInput: false,
 				automaticRedirects: true,

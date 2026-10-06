@@ -9,7 +9,7 @@ interface PermalinkProps {
 	disabled?: boolean
 	nonEditable?: boolean
 	locale: Locale
-	generateFromSlug: boolean
+	generateFromTemplate: boolean
 }
 
 const props = withDefaults(defineProps<PermalinkProps>(), {
@@ -30,7 +30,7 @@ const emit = defineEmits<{
 		:non-editable="props.nonEditable"
 		:locale="props.locale"
 		field-type="path"
-		:generate-from-slug="props.generateFromSlug"
+		:generate-from-template="props.generateFromTemplate"
 		@input="emit('input', $event)"
 	/>
 </template>

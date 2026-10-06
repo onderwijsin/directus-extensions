@@ -35,16 +35,15 @@ describe('Sluggernaut interface option contracts', () => {
 		const options = (
 			permalink as unknown as { options: (context: unknown) => InterfaceOption[] }
 		).options({ collection: 'editorial_entries' })
-		const slugField = options?.find((option) => option.field === 'slugField')
-		expect(slugField?.meta?.options).toMatchObject({
+		const pathTemplate = options?.find((option) => option.field === 'pathTemplate')
+		expect(pathTemplate?.meta?.options).toMatchObject({
 			collectionName: 'editorial_entries',
-			typeAllowList: ['string'],
-			multiple: false,
+			includeRelations: false,
 		})
-		expect(slugField?.meta?.conditions).toEqual([
-			{ rule: { generateFromSlug: { _eq: false } }, hidden: true },
+		expect(pathTemplate?.meta?.conditions).toEqual([
+			{ rule: { generateFromTemplate: { _eq: false } }, hidden: true },
 		])
-		expect(options?.find((option) => option.field === 'generateFromSlug')?.schema).toEqual({
+		expect(options?.find((option) => option.field === 'generateFromTemplate')?.schema).toEqual({
 			default_value: true,
 		})
 	})

@@ -4,12 +4,9 @@ import {
 	applyTrailingSlash,
 	combinePermalinkSourceValues,
 	deriveSlug,
-	isWithinPrefix,
-	joinPrefixAndSlug,
 	normalizeHost,
 	normalizeManualPermalink,
 	normalizePermalink,
-	normalizePrefix,
 	normalizeSlug,
 	resolveEffectiveFieldValue,
 } from '../src/shared/values/normalization'
@@ -61,17 +58,6 @@ describe('Sluggernaut normalization', () => {
 		expect(normalizePermalink('/foo%2Fbar')).toBe('/foo%2Fbar')
 	})
 
-	it('normalizes prefixes and joins them with slugs', () => {
-		expect(normalizePrefix('news/')).toBe('/news')
-		expect(joinPrefixAndSlug('/news/', 'Hello World')).toBe('/news/hello-world')
-		expect(joinPrefixAndSlug('/', 'Hello World')).toBe('/hello-world')
-	})
-
-	it('matches prefix boundaries rather than string prefixes', () => {
-		expect(isWithinPrefix('/news/article', '/news')).toBe(true)
-		expect(isWithinPrefix('/newspaper/article', '/news')).toBe(false)
-	})
-
 	it('enforces or preserves manual trailing slash policy', () => {
 		expect(applyTrailingSlash('/news/article', true)).toBe('/news/article/')
 		expect(applyTrailingSlash('/', true)).toBe('/')
@@ -83,15 +69,6 @@ describe('Sluggernaut normalization', () => {
 		).toBe('/news/article')
 	})
 
-	it('validates manual prefix membership', () => {
-		expect(() =>
-			normalizeManualPermalink('/landing', {
-				prefix: '/news',
-				validatePrefix: true,
-			}),
-		).toThrow()
-	})
-
 	it('normalizes HTTP(S) hosts only', () => {
 		expect(normalizeHost('https://example.com/')).toEqual({
 			host: 'https://example.com',
@@ -101,7 +78,7 @@ describe('Sluggernaut normalization', () => {
 		expect(normalizeHost('example.com').error).toBeTruthy()
 	})
 
-	it('rejects every unsafe path class and malformed prefix', () => {
+	it('rejects every unsafe path class', () => {
 		for (const value of [
 			'https://example.com/path',
 			'//example.com/path',
@@ -114,8 +91,6 @@ describe('Sluggernaut normalization', () => {
 			'/path child',
 		])
 			expect(() => normalizePermalink(value)).toThrow()
-		for (const prefix of ['https://example.com', '//news', '/news?draft=true', '/news\\x'])
-			expect(() => normalizePrefix(prefix)).toThrow()
 	})
 
 	it('keeps generated and manual trailing slash behavior distinct', () => {
@@ -134,6 +109,5 @@ describe('Sluggernaut normalization', () => {
 		expect(
 			normalizeManualPermalink('/', { trailingSlash: false, enforceTrailingSlash: true }),
 		).toBe('/')
-		expect(joinPrefixAndSlug('/news/', 'Hello World', 'en', false)).toBe('/news/Hello-World')
 	})
 })

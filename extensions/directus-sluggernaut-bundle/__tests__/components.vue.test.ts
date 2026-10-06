@@ -115,7 +115,7 @@ describe('SluggernautInput', () => {
 		const disabled = mount(SluggernautInput, {
 			value: null,
 			fieldType: 'path',
-			generateFromSlug: true,
+			generateFromTemplate: true,
 			disabled: true,
 		})
 		expect(disabled.input()?.disabled).toBe(true)
@@ -166,7 +166,7 @@ describe('Sluggernaut interfaces', () => {
 		const { app, input } = mount(PermalinkInterface, {
 			value: null,
 			locale: 'nl',
-			generateFromSlug: true,
+			generateFromTemplate: true,
 		})
 		expect(input()?.placeholder).toBe('Pad wordt automatisch gegenereerd')
 		app.unmount()
