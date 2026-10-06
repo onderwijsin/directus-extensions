@@ -562,10 +562,12 @@ the awaited `middlewares.before` lifecycle event. Documentation callbacks are in
 ordinary global schema/data gates.
 
 Register `startup.schema()`, `startup.data()`, and `startup.documentation()` callbacks synchronously
-during extension setup. Each phase registers its lifecycle listener when its first callback is
-added; further callbacks reuse that listener and run in registration order. Unused phases register
-no listeners and perform no startup coordination. Data and documentation keep separate listeners on
-`middlewares.before`; neither group is ordered against the other.
+during extension setup, in any order. The coordinator collects these callbacks and registers only
+used phases in a microtask after synchronous setup, always in schema, data, documentation order.
+Further callbacks reuse their phase's listener and run in callback registration order. Unused phases
+register no listeners and perform no startup coordination. Data and documentation keep separate
+listeners on `middlewares.before`; their canonical listener registration order does not guarantee
+sequential execution between those listeners.
 
 ```ts
 const startup = createDirectusStartupCoordinator(hook, logger, {

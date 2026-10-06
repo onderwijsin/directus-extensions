@@ -28,6 +28,10 @@ The relevant Directus lifecycle behavior was verified against Directus v12.2.0:
   HTTP server or emit `server.start`.
 - `middlewares.before` is the next awaited init phase after `app.before`. It is the earliest
   coordinator phase after schema preparation and before middleware and route registration continue.
+- Hook setup is synchronous inside awaited hook and bundle registration. The extension manager
+  awaits this registration before its initialization resolves, and application creation awaits
+  extension manager initialization before emitting either startup init event. A microtask queued
+  during synchronous hook setup therefore runs before these events.
 
 Primary source references:
 [Directus extension manager](https://github.com/directus/directus/blob/v12.2.0/api/src/extensions/manager.ts),
@@ -37,9 +41,11 @@ Primary source references:
 
 ## Decision
 
-The shared `createDirectusStartupCoordinator` registers each lifecycle handler lazily when the first
-callback for its group is added. Creating a coordinator registers no handlers, and additional
-callbacks in the same group reuse its handler:
+The shared `createDirectusStartupCoordinator` collects synchronously registered callbacks and
+registers lifecycle handlers in a microtask after synchronous extension setup. Only used groups
+receive a handler, always in canonical schema, data, documentation order, regardless of consumer
+call order. Creating a coordinator registers no handlers synchronously, and additional callbacks in
+the same group reuse its handler:
 
 - All `startup.schema()` callbacks run from one `hook.init('app.before', ...)` handler.
 - All `startup.data()` callbacks run from one `hook.init('middlewares.before', ...)` handler.
@@ -57,11 +63,12 @@ This decision applies to schema and data work registered through the shared coor
 create an ordering guarantee between independent init listeners, nor does it make one extension load
 before another. Extensions must continue to use the coordinator for schema-dependent startup work.
 
-Callbacks must be registered synchronously during extension setup, before their lifecycle events
-fire. The existing Magic Links, Coolify Deployments, Markdown Editor, Studio Docs, Loops,
-Sluggernaut, and E2E playground consumers already do this, either directly in their hook entrypoint
-or through a synchronously invoked registration helper. Lazy registration requires no consumer
-source changes and leaves the public `schema()`, `data()`, and `documentation()` API unchanged.
+Callbacks must be registered synchronously during extension setup, before the registration microtask
+runs. Consumers may call the phase methods in any order. The existing Magic Links, Coolify
+Deployments, Markdown Editor, Studio Docs, Loops, Sluggernaut, and E2E playground consumers already
+do this, either directly in their hook entrypoint or through a synchronously invoked registration
+helper. Lazy registration requires no consumer source changes and leaves the public `schema()`,
+`data()`, and `documentation()` API unchanged.
 
 ## Alternatives considered
 
@@ -95,6 +102,8 @@ Positive consequences:
 - Existing schema and data callbacks keep their lock ownership, feature gates, and error reporting.
 - Documentation callbacks remain independently available while ordinary startup gates are disabled.
 - Unused callback groups add no lifecycle listeners and perform no startup coordination.
+- Canonical listener registration order remains internal to the coordinator; consumers do not need
+  to register data callbacks before documentation callbacks.
 - The lifecycle contract is explicit in the coordinator API and its documentation.
 
 Costs and limitations:
