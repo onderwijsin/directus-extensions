@@ -10,6 +10,7 @@ import {
 } from '@onderwijsin/directus-extension-utils'
 
 import { coordinateMutation } from '../sluggernaut-hook/mutation/coordinator'
+import { withRecalculationScope } from '../sluggernaut-hook/mutation/recalculation-context'
 
 export type RecalculationOutcome = 'updated' | 'skipped' | 'failed'
 
@@ -101,7 +102,10 @@ async function persistRecalculation(
 	updates: Record<string, unknown>,
 ): Promise<void> {
 	if (input.createRedirects && input.redirectsEnabled) {
-		await input.itemsService.updateOne(itemKey, updates)
+		await withRecalculationScope(
+			{ collection: input.collection, key: itemKey, fields: input.fieldKeys },
+			() => input.itemsService.updateOne(itemKey, updates),
+		)
 		return
 	}
 

@@ -5,9 +5,10 @@ import { discoverCollectionConfiguration } from '../src/shared/configuration/dis
 describe('Sluggernaut configuration discovery', () => {
 	it('restores omitted Studio defaults from sparse persisted options', () => {
 		const configuration = discoverCollectionConfiguration([
-			{ field: 'title' },
+			{ field: 'title', type: 'string' },
 			{
 				field: 'slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					options: { sourceFields: ['title'], automaticRedirects: true },
@@ -15,12 +16,12 @@ describe('Sluggernaut configuration discovery', () => {
 			},
 			{
 				field: 'path',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-permalink',
 					options: {
-						slugField: 'slug',
-						updateOnSlugChange: true,
-						prefix: '/test',
+						pathTemplate: '/test/{{slug}}',
+						updateOnDependencyChange: true,
 						automaticRedirects: true,
 					},
 				},
@@ -36,8 +37,7 @@ describe('Sluggernaut configuration discovery', () => {
 			unmanagedRedirectConflictBehavior: 'override',
 		})
 		expect(configuration.permalinks[0]?.options).toMatchObject({
-			generateFromSlug: true,
-			validatePrefixOnManualInput: false,
+			generateFromTemplate: true,
 			trailingSlash: false,
 			enforceTrailingSlashOnManualInput: false,
 			includeUnmanagedRedirectsInPlanning: true,
@@ -47,11 +47,12 @@ describe('Sluggernaut configuration discovery', () => {
 
 	it('sorts interfaces by Directus sort and field key', () => {
 		const configuration = discoverCollectionConfiguration([
-			{ field: 'title' },
+			{ field: 'title', type: 'string' },
 			{ field: 'name' },
 			{ field: 'fallback' },
 			{
 				field: 'z_slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: 1,
@@ -66,6 +67,7 @@ describe('Sluggernaut configuration discovery', () => {
 			},
 			{
 				field: 'a_slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: 1,
@@ -80,6 +82,7 @@ describe('Sluggernaut configuration discovery', () => {
 			},
 			{
 				field: 'null_slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: null,
@@ -105,16 +108,16 @@ describe('Sluggernaut configuration discovery', () => {
 
 	it('rejects invalid permalink slug references without disabling slug derivation', () => {
 		const configuration = discoverCollectionConfiguration([
-			{ field: 'title' },
+			{ field: 'title', type: 'string' },
 			{
 				field: 'route',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-permalink',
 					options: {
-						generateFromSlug: true,
-						slugField: 'missing',
-						updateOnSlugChange: false,
-						validatePrefixOnManualInput: false,
+						generateFromTemplate: true,
+						pathTemplate: '/{{missing}}',
+						updateOnDependencyChange: false,
 						trailingSlash: false,
 						enforceTrailingSlashOnManualInput: false,
 						automaticRedirects: false,
@@ -123,6 +126,7 @@ describe('Sluggernaut configuration discovery', () => {
 			},
 			{
 				field: 'slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					sort: 1,
@@ -139,19 +143,19 @@ describe('Sluggernaut configuration discovery', () => {
 
 		expect(configuration.slugs).toHaveLength(1)
 		expect(configuration.permalinks).toHaveLength(0)
-		expect(configuration.warnings[0]?.code).toBe('invalid-slug-reference')
+		expect(configuration.warnings[0]?.code).toBe('invalid-template-reference')
 	})
 
 	it('accepts standalone permalinks without a slug field', () => {
 		const configuration = discoverCollectionConfiguration([
 			{
 				field: 'route',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-permalink',
 					options: {
-						generateFromSlug: false,
-						updateOnSlugChange: false,
-						validatePrefixOnManualInput: false,
+						generateFromTemplate: false,
+						updateOnDependencyChange: false,
 						trailingSlash: false,
 						enforceTrailingSlashOnManualInput: false,
 						automaticRedirects: false,
@@ -168,6 +172,7 @@ describe('Sluggernaut configuration discovery', () => {
 		const configuration = discoverCollectionConfiguration([
 			{
 				field: 'slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					options: {
@@ -190,6 +195,7 @@ describe('Sluggernaut configuration discovery', () => {
 			{ field: 'headline text' },
 			{
 				field: 'good_slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					options: {
@@ -203,6 +209,7 @@ describe('Sluggernaut configuration discovery', () => {
 			},
 			{
 				field: 'bad_slug',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-slug',
 					options: { sourceFields: ['headline text'], locale: 'en', lowercase: 'yes' },
@@ -210,12 +217,12 @@ describe('Sluggernaut configuration discovery', () => {
 			},
 			{
 				field: 'standalone',
+				type: 'string',
 				meta: {
 					interface: 'sluggernaut-permalink',
 					options: {
-						generateFromSlug: false,
-						updateOnSlugChange: false,
-						validatePrefixOnManualInput: false,
+						generateFromTemplate: false,
+						updateOnDependencyChange: false,
 						trailingSlash: false,
 						enforceTrailingSlashOnManualInput: false,
 						automaticRedirects: false,

@@ -7,6 +7,7 @@ import { processArchiveLifecycle } from '../redirects/history/lifecycle'
 import { archiveLifecycle, type ArchiveSettings } from './archive'
 import { coordinateMutation } from './coordinator'
 import { readExistingItem, relevantFields } from './items'
+import { recalculationFields } from './recalculation-context'
 
 /**
  * Validates and processes one item update after its boundary checks succeed.
@@ -82,6 +83,7 @@ export async function processItemUpdate(input: {
 
 	const result = coordinateMutation({
 		kind: 'update',
+		fieldKeys: recalculationFields(collection, key),
 		payload,
 		existingItem,
 		configuration,

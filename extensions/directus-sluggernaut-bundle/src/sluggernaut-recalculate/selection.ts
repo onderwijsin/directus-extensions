@@ -3,6 +3,7 @@ import type { RecalculateOptions } from './options.schema'
 import { isDefined } from '@onderwijsin/directus-extension-utils'
 
 import { discoverCollectionConfiguration } from '../shared/configuration/discovery'
+import { compilePathTemplate } from '../shared/values/path-template'
 
 export type RecalculationConfiguration = ReturnType<typeof discoverCollectionConfiguration>
 
@@ -19,7 +20,7 @@ export function selectFieldKeys(
 	const derivedFields = [
 		...configuration.slugs.map((field) => field.field),
 		...configuration.permalinks
-			.filter((field) => field.options.generateFromSlug)
+			.filter((field) => field.options.generateFromTemplate)
 			.map((field) => field.field),
 	]
 	if (!isDefined(options.fields)) return new Set(derivedFields)
@@ -56,7 +57,10 @@ export function requiredItemFields(
 	}
 	for (const field of configuration.permalinks) {
 		fields.add(field.field)
-		if (field.options.slugField !== undefined) fields.add(field.options.slugField)
+		if (field.options.generateFromTemplate) {
+			for (const dependency of compilePathTemplate(field.options).dependencies)
+				fields.add(dependency)
+		}
 	}
 	return [...fields]
 }
