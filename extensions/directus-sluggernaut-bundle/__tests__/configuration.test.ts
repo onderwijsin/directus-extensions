@@ -5,7 +5,7 @@ import { discoverCollectionConfiguration } from '../src/shared/configuration/dis
 describe('Sluggernaut configuration discovery', () => {
 	it('restores omitted Studio defaults from sparse persisted options', () => {
 		const configuration = discoverCollectionConfiguration([
-			{ field: 'title' },
+			{ field: 'title', type: 'string' },
 			{
 				field: 'slug',
 				type: 'string',
@@ -47,7 +47,7 @@ describe('Sluggernaut configuration discovery', () => {
 
 	it('sorts interfaces by Directus sort and field key', () => {
 		const configuration = discoverCollectionConfiguration([
-			{ field: 'title' },
+			{ field: 'title', type: 'string' },
 			{ field: 'name' },
 			{ field: 'fallback' },
 			{
@@ -108,7 +108,7 @@ describe('Sluggernaut configuration discovery', () => {
 
 	it('rejects invalid permalink slug references without disabling slug derivation', () => {
 		const configuration = discoverCollectionConfiguration([
-			{ field: 'title' },
+			{ field: 'title', type: 'string' },
 			{
 				field: 'route',
 				type: 'string',

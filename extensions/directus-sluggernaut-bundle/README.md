@@ -210,13 +210,40 @@ UUIDs. Placeholders use field identifiers (letters, digits, `_`, and `$`, beginn
 are unsupported. Invalid configuration is warned about and excluded without disabling unrelated
 fields.
 
-On create, omitted slug sources and template dependencies use literal scalar field defaults before
-the database inserts the item. Explicit values, including `null`, take precedence; generated slugs
-take precedence over their defaults. Updates and recalculations use existing item values instead of
-defaults. Database expressions (such as `CURRENT_TIMESTAMP` or `gen_random_uuid()`) and compact
-function-call string defaults are unsupported and remain missing dependencies. Literal string
-defaults containing parentheses, such as `Article (news)`, are supported. Known SQL functions
-(`now`, `gen_random_uuid`, and `CURRENT_TIMESTAMP`) are excluded even with whitespace before `(`.
+### Supported template dependencies
+
+Template generation runs in the `items.create` / `items.update` filter, before Directus and the
+database apply defaults and generated values. Dependencies must therefore satisfy **all** of these
+configuration-level rules:
+
+- Be a supported scalar field in the same collection: string/text, numeric, boolean, date/time, or
+  UUID. Unknown types, JSON/alias fields, and relational fields are unsupported.
+- Have no `meta.special` flags. This rejects audit fields, UUID generators, and **any future
+  special** without maintaining a list of special names. Even casting flags such as `cast-boolean`
+  are excluded. An ordinary UUID/date field with no specials is valid.
+- Have no auto-increment, generated-column flag, or generation expression.
+- Have no non-null schema default. **All defaults are excluded**, including literals such as
+  `"article"`, `"Article (news)"`, `"foo(bar)"`, `0`, and `false`; defaults are never inferred or
+  parsed. A null or absent default is allowed.
+- Not be another permalink. A valid Sluggernaut slug is allowed only when **every source field**
+  satisfies the same rules and is a plain scalar field, rather than another derived slug/permalink.
+
+These rules apply even if a request explicitly supplies the field. Providing `type: "article"` does
+not make a `type` field with a schema default eligible. Remove its schema default and supply the
+value in the payload, or use a static path segment such as `/article/{{slug}}`. When a template
+references a Sluggernaut slug, its source fields (for example `title`) must also have no defaults or
+specials.
+
+Creates use incoming values and the slug derived during that mutation. Updates and recalculations
+use incoming values where applicable and existing item values for omitted fields. Missing, null, or
+blank required values produce a null generated permalink. A non-nullable permalink requires all
+inputs needed to generate a complete path on create; neither database defaults nor later-generated
+IDs/audit fields can fill these inputs for Sluggernaut.
+
+Unsupported dependency configuration is logged as `invalid-template-reference` and the permalink
+field is excluded from Sluggernaut processing, including its manual normalization and automatic
+redirect-source selection. Other valid fields remain active. Configure standalone/manual mode when
+you need a manually managed path instead of a supported template.
 
 When `generateFromTemplate` is `false`, hidden `pathTemplate`, `templateVariables`, and
 `updateOnDependencyChange` settings are ignored. Manual path normalization and automatic redirects

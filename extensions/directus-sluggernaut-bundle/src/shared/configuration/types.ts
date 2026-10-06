@@ -40,13 +40,14 @@ export interface SluggernautFieldMetadata {
 		is_primary_key?: boolean
 		foreign_key_table?: string | null
 		default_value?: unknown
+		has_auto_increment?: boolean | null
+		is_generated?: boolean | null
+		generation_expression?: string | null
 	} | null
 }
 
 /** A validated slug field and its deterministic Directus order. */
 export interface DiscoveredSlugField {
-	/** Literal source defaults used only when creating an item. */
-	sourceDefaults?: Readonly<Record<string, string | number | boolean>>
 	field: string
 	sort: number | null
 	options: SlugInterfaceOptions
@@ -54,8 +55,6 @@ export interface DiscoveredSlugField {
 
 /** A validated permalink field and its deterministic Directus order. */
 export interface DiscoveredPermalinkField {
-	/** Literal dependency defaults used only when creating an item. */
-	dependencyDefaults?: Readonly<Record<string, string | number | boolean>>
 	field: string
 	sort: number | null
 	options: PermalinkInterfaceOptions

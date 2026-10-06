@@ -293,36 +293,79 @@ async function runRecalculation(
 }
 
 describe('Sluggernaut Directus integration', () => {
-	it('creates a non-nullable permalink from an omitted database default', async () => {
+	it('creates a non-nullable template permalink only from explicitly supplied values', async () => {
 		const fixture = await createSluggernautCollection(
 			{ pathTemplate: '/{{type}}/{{slug}}' },
 			{},
-			{
-				typeSchema: { default_value: 'article' },
-				titleSchema: { default_value: 'Untitled' },
-				permalinkSchema: { is_nullable: false },
-			},
+			{ permalinkSchema: { is_nullable: false } },
 		)
 		try {
 			const item = await client.request(
-				createItem(fixture.collection, { title: 'Some test' }),
+				createItem(fixture.collection, { title: 'Some test', type: 'article' }),
 			)
-			expect(item).toMatchObject({
-				type: 'article',
-				slug: 'some-test',
-				permalink: '/article/some-test',
-			})
-			const omitted = await client.request(createItem(fixture.collection, {}))
-			expect(omitted).toMatchObject({
-				title: 'Untitled',
-				type: 'article',
-				slug: 'untitled',
-				permalink: '/article/untitled',
-			})
+			expect(item).toMatchObject({ slug: 'some-test', permalink: '/article/some-test' })
 		} finally {
 			await fixture.dispose()
 		}
 	})
+
+	it.each(['type', 'title'])(
+		'excludes templates when a direct or slug-source dependency %s has a schema default',
+		async (dependency) => {
+			const fixture = await createSluggernautCollection(
+				{ pathTemplate: '/{{type}}/{{slug}}' },
+				{},
+				{
+					typeSchema: dependency === 'type' ? { default_value: 'article' } : {},
+					titleSchema: dependency === 'title' ? { default_value: 'Untitled' } : {},
+				},
+			)
+			try {
+				const item = await client.request(
+					createItem(fixture.collection, { title: 'Explicit title', type: 'article' }),
+				)
+				expect(item.slug).toBe('explicit-title')
+				expect(item.permalink).toBeNull()
+			} finally {
+				await fixture.dispose()
+			}
+		},
+	)
+
+	it.each(['id', 'created_at'])(
+		'excludes late-generated template dependency %s in Directus',
+		async (dependency) => {
+			const fixture = await createSluggernautCollection({
+				pathTemplate: `/{{${dependency}}}/{{slug}}`,
+			})
+			try {
+				if (dependency === 'created_at') {
+					await client.request(
+						createField(fixture.collection, {
+							field: 'created_at',
+							type: 'timestamp',
+							meta: { special: ['date-created'] },
+							schema: { is_nullable: true },
+						}),
+					)
+				} else {
+					const metadata = await client.request(
+						readFieldsByCollection(fixture.collection),
+					)
+					expect(
+						metadata.find((field) => field.field === 'id')?.schema?.has_auto_increment,
+					).toBe(true)
+				}
+				const item = await client.request(
+					createItem(fixture.collection, { title: 'Late dependency' }),
+				)
+				expect(item.slug).toBe('late-dependency')
+				expect(item.permalink).toBeNull()
+			} finally {
+				await fixture.dispose()
+			}
+		},
+	)
 
 	it('renders transformed templates, updates non-slug dependencies, and recalculates with redirect history', async () => {
 		const fixture = await createSluggernautCollection({

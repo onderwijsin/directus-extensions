@@ -29,8 +29,8 @@ import { z } from 'zod'
 
 import { compilePathTemplate } from '../values/path-template'
 import { INTERFACE_IDS } from './constants'
-import { isLiteralDependencyDefault } from './dependency-defaults'
 import { pathTemplateVariableSchema } from './path-template.schema'
+import { isSupportedTemplateDependency } from './template-dependencies'
 
 const redirectInterfaceDefaults: Required<RedirectInterfaceOptions> = {
 	automaticRedirects: false,
@@ -246,63 +246,34 @@ export function discoverCollectionConfiguration(
 		}
 	}
 
-	for (const slug of slugs) {
-		const sourceDefaults: Record<string, string | number | boolean> = {}
-		for (const sourceField of slug.options.sourceFields) {
-			const value = fields.find((field) => field.field === sourceField)?.schema?.default_value
-			if (isLiteralDependencyDefault(value)) sourceDefaults[sourceField] = value
-		}
-		if (Object.keys(sourceDefaults).length > 0) slug.sourceDefaults = sourceDefaults
-	}
-
 	slugs.sort(compareFieldOrder)
 
 	// Only scalar fields in this collection may participate; permalink dependencies would be cyclic.
-	const scalarTypes = new Set([
-		'string',
-		'text',
-		'integer',
-		'bigInteger',
-		'float',
-		'decimal',
-		'boolean',
-		'date',
-		'time',
-		'dateTime',
-		'timestamp',
-		'uuid',
-	])
+
 	const slugFields = new Set(slugs.map((field) => field.field))
 	const validPermalinks = permalinks.filter((permalink) => {
 		if (!permalink.options.generateFromTemplate) return true
 		try {
 			const template = compilePathTemplate(permalink.options)
-			const dependencyDefaults: Record<string, string | number | boolean> = {}
 			for (const dependency of template.dependencies) {
 				const source = fields.find((field) => field.field === dependency)
-				if (
-					!source ||
-					!scalarTypes.has(source.type ?? '') ||
-					source.schema?.foreign_key_table ||
-					source.meta?.special?.some((special) =>
-						['m2o', 'o2m', 'm2m', 'm2a', 'file', 'files', 'translations'].includes(
-							special,
-						),
-					) ||
-					source.meta?.interface === INTERFACE_IDS.permalink ||
-					(source.meta?.interface === INTERFACE_IDS.slug && !slugFields.has(dependency))
-				) {
+				if (!isSupportedTemplateDependency(source, slugFields)) {
 					throw new Error(
-						`Template dependency "${dependency}" must be a valid scalar field in the same collection.`,
+						`Template dependency "${dependency}" must be an available scalar field in the same collection, without special flags, non-null defaults, relations, or generated values.`,
 					)
 				}
-				const value = source.schema?.default_value
-				if (isLiteralDependencyDefault(value)) {
-					dependencyDefaults[dependency] = value
+				const derivedSlug = slugs.find((slug) => slug.field === dependency)
+				if (
+					derivedSlug?.options.sourceFields.some((sourceField) => {
+						const slugSource = fields.find((field) => field.field === sourceField)
+						return !isSupportedTemplateDependency(slugSource, new Set())
+					})
+				) {
+					throw new Error(
+						`Template slug dependency "${dependency}" requires plain scalar sources without special flags, non-null defaults, relations, or generation.`,
+					)
 				}
 			}
-			if (Object.keys(dependencyDefaults).length > 0)
-				permalink.dependencyDefaults = dependencyDefaults
 			return true
 		} catch (error) {
 			warnings.push({

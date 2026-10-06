@@ -13,7 +13,7 @@ const options = {
 }
 
 const fieldMetadata = [
-	{ field: 'title' },
+	{ field: 'title', type: 'string' },
 	{
 		field: 'slug',
 		type: 'string',
@@ -222,7 +222,7 @@ describe('Sluggernaut item hook integration seams', () => {
 		} as unknown as HookExtensionContext
 		const fieldReader = {
 			read: vi.fn().mockResolvedValue([
-				{ field: 'title' },
+				{ field: 'title', type: 'string' },
 				{
 					field: 'slug',
 					type: 'string',

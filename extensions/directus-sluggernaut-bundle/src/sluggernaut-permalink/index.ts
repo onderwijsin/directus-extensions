@@ -53,7 +53,7 @@ export default defineInterface({
 						includeRelations: false,
 						placeholder: '/{{type}}/{{slug}}',
 					},
-					note: 'Use scalar fields in this collection. Missing values produce an empty permalink.',
+					note: 'Use plain scalar fields without defaults, special flags, relations, or generation. Slug sources must follow the same rules. Missing values produce an empty permalink.',
 				},
 			},
 			{

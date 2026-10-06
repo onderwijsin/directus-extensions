@@ -111,13 +111,7 @@ function resolveSlugValue(
 
 	return {
 		value: deriveSlug(
-			sourceValues(
-				input.kind === 'create'
-					? { ...field.sourceDefaults, ...input.payload }
-					: input.payload,
-				input.existingItem,
-				field,
-			),
+			sourceValues(input.payload, input.existingItem, field),
 			field.options.locale,
 			field.options.lowercase,
 		),
@@ -157,7 +151,6 @@ function resolvePermalinkValue(
 	if (!field.options.generateFromTemplate) return { value: null, shouldWrite: false }
 	const template = compilePathTemplate(field.options)
 	const effectivePayload = {
-		...(input.kind === 'create' ? field.dependencyDefaults : {}),
 		...input.payload,
 		...Object.fromEntries(derivedSlugs),
 	}
