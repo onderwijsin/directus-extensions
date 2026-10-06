@@ -76,11 +76,20 @@ registered first. Capturing the first caller's group would instead make listener
 consumer call order and reverse the previous data-before-documentation behavior for
 documentation-first consumers.
 
-Disabled schema and data callbacks are rejected before storage or listener registration. Schema uses
-`disabled` and `disabledGlobally`; data additionally uses `dataDisabledGlobally`. Documentation
-bypasses all three switches, so a disabled data registration cannot change a documentation-only
-primary slot. Existing disabled-phase messages are logged once per phase at registration, and the
-execution path retains defensive enablement checks.
+Schema and data enablement is evaluated when `startup.schema()` or `startup.data()` is called during
+synchronous extension setup. Disabled callbacks are rejected before storage or listener
+registration. Schema uses `disabled` and `disabledGlobally`; data additionally uses
+`dataDisabledGlobally`. Documentation bypasses all three switches, so a disabled data registration
+cannot change a documentation-only primary slot. Existing disabled-phase messages are logged once
+per phase at registration.
+
+Coordinator option values are intended to be treated as immutable startup configuration for the
+lifetime of that coordinator/process. Discarding disabled callbacks avoids unused listeners and
+preserves documentation selection; those callbacks cannot become active later in the same
+coordinator through option mutation. Environment or configuration changes take effect when startup
+registration runs again in a new process, such as after a service restart or in a separate CLI
+invocation. The execution-time gate checks remain defensive safeguards for already-registered
+callbacks, not a dynamic re-enablement mechanism.
 
 This dynamic selection allows each first callback to register its listener immediately, without
 registering a listener for an unused or disabled group or deferring registration until all groups

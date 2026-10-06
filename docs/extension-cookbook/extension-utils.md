@@ -493,15 +493,19 @@ Register `startup.schema()`, `startup.data()`, and `startup.documentation()` cal
 during extension setup, in any order. The coordinator registers lifecycle listeners synchronously
 only for phases that are both used and enabled. Further callbacks reuse the existing listeners and
 run in callback registration order within their group. Unused or disabled phases register no
-listeners and perform no startup coordination. Existing lifecycle events, gates, locking, and error
+listeners and perform no startup coordination. Existing lifecycle events, locking, and error
 handling remain unchanged, regardless of consumer call order. Independent init listeners do not
 guarantee sequential execution between groups.
 
-`schema()` ignores callbacks when `disabled` or `disabledGlobally` is true; `data()` also ignores
-callbacks when `dataDisabledGlobally` is true. Disabled callbacks are not retained. The existing
-disabled-phase message is logged once per phase during registration. `documentation()` bypasses all
-three switches and still registers and executes. The coordinator also rechecks the gates at
-execution.
+During synchronous registration, `schema()` ignores callbacks when `disabled` or `disabledGlobally`
+is true; `data()` also ignores callbacks when `dataDisabledGlobally` is true. Disabled callbacks are
+not retained. The existing disabled-phase message is logged once per phase during registration.
+`documentation()` bypasses all three switches and still registers and executes.
+
+Treat coordinator option values as immutable startup configuration for the coordinator/process
+lifetime. Apply environment/configuration changes by registering startup again in a new process,
+such as after a service restart or in a separate CLI invocation. Execution-time checks defensively
+guard registered callbacks; they cannot re-enable callbacks discarded during registration.
 
 `ensureDirectusDocumentation(article, context, options?)` is the server-only shared contract for
 contributing articles to the fixed `studio_docs` collection. Article definitions require a stable
