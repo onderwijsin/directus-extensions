@@ -483,11 +483,30 @@ startup.schema(async ({ lockProvider }) => {
 })
 ```
 
-Schema callbacks always register on Directus's awaited `app.before` event, while `data` and
+Enabled schema callbacks register on Directus's awaited `app.before` event, while enabled `data` and
 `documentation` callbacks register on Directus's awaited `middlewares.before` event. This ensures
 schema preparation completes before data seeding begins, and startup seeding completes before
 middleware and route setup continues. Documentation callbacks are independent of the ordinary global
-schema/data gates. Init callbacks within either phase are not ordered against one another.
+schema/data gates.
+
+Register `startup.schema()`, `startup.data()`, and `startup.documentation()` callbacks synchronously
+during extension setup, in any order. The coordinator registers lifecycle listeners synchronously
+only for phases that are both used and enabled. Further callbacks reuse the existing listeners and
+run in callback registration order within their group. Unused or disabled phases register no
+listeners and perform no startup coordination. Existing lifecycle events, locking, and error
+handling remain unchanged, regardless of consumer call order. Independent init listeners do not
+guarantee sequential execution between groups.
+
+During synchronous registration, `schema()` ignores callbacks when `disabled` or `disabledGlobally`
+is true; `data()` also ignores callbacks when `dataDisabledGlobally` is true. Disabled callbacks are
+not retained. The existing disabled-phase message is logged once per phase during registration.
+`documentation()` bypasses all three switches and still registers and executes.
+
+Treat coordinator option values as immutable for the lifetime of a coordinator. Configuration
+changes take effect the next time startup work is registered with a new coordinator, typically after
+a service restart or in a separate CLI invocation. Execution-time checks defensively guard
+registered callbacks; they cannot re-enable callbacks discarded during registration within that same
+coordinator.
 
 `ensureDirectusDocumentation(article, context, options?)` is the server-only shared contract for
 contributing articles to the fixed `studio_docs` collection. Article definitions require a stable

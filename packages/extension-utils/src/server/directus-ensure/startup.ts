@@ -12,7 +12,7 @@ export interface CreateDirectusStartupCoordinatorOptions {
 	id: string
 	/** Human-readable extension name used in lifecycle log messages. */
 	name: string
-	/** Disables this extension's startup callbacks. */
+	/** Disables this extension's schema and data startup callbacks. */
 	disabled: boolean
 	/** Disables ordinary startup callbacks through the global schema-change switch. */
 	disabledGlobally: boolean
@@ -93,11 +93,12 @@ const createLeaseLostError = (error: unknown): Error =>
 		: new Error('Directus startup lock renewal failed', { cause: error })
 
 /**
- * Creates a startup coordinator with one ordered, shared startup lock.
+ * Creates a startup coordinator that synchronously registers listeners only for used, enabled phases.
+ * Register callbacks during synchronous extension setup, in any phase order.
  * @param hook - Directus hook registration functions.
  * @param logger - Logger used for lifecycle and failure messages.
  * @param options - Enablement and lock configuration.
- * @returns A coordinator for registering schema and data callbacks.
+ * @returns A coordinator for registering schema, data, and documentation callbacks.
  */
 export function createDirectusStartupCoordinator(
 	hook: RegisterFunctions,
@@ -108,6 +109,32 @@ export function createDirectusStartupCoordinator(
 	const dataCallbacks: ((context: DirectusStartupContext) => Promise<void>)[] = []
 	const documentationCallbacks: ((context: DirectusStartupContext) => Promise<void>)[] = []
 	const lockOptions: BaseEnsureOptions = options
+	const loggedDisabledPhases = new Set<StartupPhase>()
+
+	/**
+	 * Checks phase enablement and logs a disabled phase once across registration and execution.
+	 * @param phase - Startup phase being registered or executed.
+	 * @returns Whether the phase is disabled by the current configuration.
+	 */
+	const isPhaseDisabled = (phase: StartupPhase): boolean => {
+		// Documentation is an explicit exception to the normal extension startup gates.
+		if (phase === 'documentation') return false
+		let message: string
+		if (options.disabledGlobally) {
+			message = options.name + ' Directus startup is disabled globally'
+		} else if (options.disabled) {
+			message = options.name + ' Directus startup is disabled for this extension'
+		} else if (phase === 'data' && options.dataDisabledGlobally) {
+			message = options.name + ' Directus data seeds are disabled globally'
+		} else {
+			return false
+		}
+		if (!loggedDisabledPhases.has(phase)) {
+			loggedDisabledPhases.add(phase)
+			logger.info(message)
+		}
+		return true
+	}
 
 	/**
 	 * Runs one startup phase under the coordinator lock.
@@ -119,20 +146,8 @@ export function createDirectusStartupCoordinator(
 		callbacks: ((context: DirectusStartupContext) => Promise<void>)[],
 		phase: StartupPhase,
 	): Promise<void> => {
-		const isDocumentation = phase === 'documentation'
-		// Documentation is an explicit exception to the normal extension startup gates.
-		if (!isDocumentation && options.disabledGlobally) {
-			logger.info(options.name + ' Directus startup is disabled globally')
-			return
-		}
-		if (!isDocumentation && options.disabled) {
-			logger.info(options.name + ' Directus startup is disabled for this extension')
-			return
-		}
-		if (phase === 'data' && options.dataDisabledGlobally) {
-			logger.info(options.name + ' Directus data seeds are disabled globally')
-			return
-		}
+		// Recheck defensively in case options changed after synchronous registration.
+		if (isPhaseDisabled(phase)) return
 
 		// Provider construction is isolated so invalid configuration is logged as startup failure.
 		const providerResult = await attempt(() => resolveDirectusLockProvider(lockOptions))
@@ -244,27 +259,59 @@ export function createDirectusStartupCoordinator(
 		}
 	}
 
-	hook.init('app.before', async () => runCallbacks(schemaCallbacks, 'schema'))
-	hook.init('middlewares.before', async () => runCallbacks(dataCallbacks, 'data'))
-	hook.init('middlewares.before', async () =>
-		runCallbacks(documentationCallbacks, 'documentation'),
-	)
+	/**
+	 * Registers a middleware listener when a group receives its first callback.
+	 * The first middlewares.before listener is the stable primary slot: it must select data
+	 * at execution when present, even if documentation() registered it first. When both
+	 * groups are used, the second listener runs documentation. This preserves the previous
+	 * data-before-documentation listener semantics regardless of consumer call order, while
+	 * synchronous registration lets Directus collect all unregister callbacks during setup.
+	 * @returns Nothing.
+	 */
+	const registerMiddlewareListener = (): void => {
+		if (dataCallbacks.length > 0 && documentationCallbacks.length > 0) {
+			hook.init('middlewares.before', async () =>
+				runCallbacks(documentationCallbacks, 'documentation'),
+			)
+			return
+		}
+		hook.init('middlewares.before', async () =>
+			dataCallbacks.length > 0
+				? runCallbacks(dataCallbacks, 'data')
+				: runCallbacks(documentationCallbacks, 'documentation'),
+		)
+	}
 
 	return {
 		/**
+		 * Registers schema work only when ordinary startup is enabled.
 		 * @param callback - Startup schema callback.
 		 * @returns Nothing.
 		 */
-		schema: (callback) => schemaCallbacks.push(callback),
+		schema: (callback) => {
+			if (isPhaseDisabled('schema')) return
+			schemaCallbacks.push(callback)
+			if (schemaCallbacks.length === 1) {
+				hook.init('app.before', async () => runCallbacks(schemaCallbacks, 'schema'))
+			}
+		},
 		/**
+		 * Registers data work only when ordinary startup and data seeding are enabled.
 		 * @param callback - Startup data callback.
 		 * @returns Nothing.
 		 */
-		data: (callback) => dataCallbacks.push(callback),
+		data: (callback) => {
+			if (isPhaseDisabled('data')) return
+			dataCallbacks.push(callback)
+			if (dataCallbacks.length === 1) registerMiddlewareListener()
+		},
 		/**
 		 * @param callback - Startup documentation callback.
 		 * @returns Nothing.
 		 */
-		documentation: (callback) => documentationCallbacks.push(callback),
+		documentation: (callback) => {
+			documentationCallbacks.push(callback)
+			if (documentationCallbacks.length === 1) registerMiddlewareListener()
+		},
 	}
 }

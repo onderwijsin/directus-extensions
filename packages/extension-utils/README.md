@@ -559,7 +559,26 @@ separate future seeds.
 Register startup work through `createDirectusStartupCoordinator`. It coordinates each phase with a
 lock, registers schema callbacks on `app.before`, and registers data and documentation callbacks on
 the awaited `middlewares.before` lifecycle event. Documentation callbacks are independent of the
-ordinary global schema/data gates:
+ordinary global schema/data gates.
+
+Register `startup.schema()`, `startup.data()`, and `startup.documentation()` callbacks synchronously
+during extension setup, in any order. The coordinator registers lifecycle listeners synchronously
+only for phases that are both used and enabled. Additional callbacks reuse the existing listeners
+and run in callback registration order within their group. Unused or disabled phases register no
+listeners and perform no startup coordination. Existing lifecycle events, locking, and error
+handling remain unchanged, regardless of consumer call order. Independent init listeners do not
+guarantee sequential execution between groups.
+
+During synchronous registration, `schema()` ignores callbacks when `disabled` or `disabledGlobally`
+is true; `data()` also ignores callbacks when `dataDisabledGlobally` is true. Disabled callbacks are
+not retained. The existing disabled-phase message is logged once per phase during registration.
+`documentation()` bypasses all three switches and still registers and executes.
+
+Treat coordinator option values as immutable for the lifetime of a coordinator. Configuration
+changes take effect the next time startup work is registered with a new coordinator, typically after
+a service restart or in a separate CLI invocation. Execution-time checks defensively guard
+registered callbacks; they cannot re-enable callbacks discarded during registration within that same
+coordinator.
 
 ```ts
 const startup = createDirectusStartupCoordinator(hook, logger, {
@@ -584,10 +603,11 @@ startup.schema(async ({ lockProvider }) => {
 })
 ```
 
-Schema callbacks always register on Directus's awaited `app.before` lifecycle event, while data
-callbacks register on Directus's awaited `middlewares.before` lifecycle event. Provider and callback
-failures are logged and then rethrown by default after the coordinator releases its lease and
-disposes any provider it created. Set `abortOnError: false` only for deliberate best-effort startup.
+Enabled schema callbacks register on Directus's awaited `app.before` lifecycle event, while enabled
+data callbacks register on Directus's awaited `middlewares.before` lifecycle event. Provider and
+callback failures are logged and then rethrown by default after the coordinator releases its lease
+and disposes any provider it created. Set `abortOnError: false` only for deliberate best-effort
+startup.
 
 ```ts
 const startup = createDirectusStartupCoordinator(hook, logger, {
