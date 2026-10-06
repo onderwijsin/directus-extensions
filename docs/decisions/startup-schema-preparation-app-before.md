@@ -84,10 +84,10 @@ cannot change a documentation-only primary slot. Existing disabled-phase message
 per phase at registration.
 
 Coordinator option values are intended to be treated as immutable startup configuration for the
-lifetime of that coordinator/process. Discarding disabled callbacks avoids unused listeners and
-preserves documentation selection; those callbacks cannot become active later in the same
-coordinator through option mutation. Environment or configuration changes take effect when startup
-registration runs again in a new process, such as after a service restart or in a separate CLI
+lifetime of that coordinator. Discarding disabled callbacks avoids unused listeners and preserves
+documentation selection; those callbacks cannot become active later in the same coordinator through
+option mutation. Environment or configuration changes take effect the next time startup work is
+registered with a new coordinator, typically after a service restart or in a separate CLI
 invocation. The execution-time gate checks remain defensive safeguards for already-registered
 callbacks, not a dynamic re-enablement mechanism.
 

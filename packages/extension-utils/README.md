@@ -574,10 +574,11 @@ is true; `data()` also ignores callbacks when `dataDisabledGlobally` is true. Di
 not retained. The existing disabled-phase message is logged once per phase during registration.
 `documentation()` bypasses all three switches and still registers and executes.
 
-Treat coordinator option values as immutable startup configuration for the coordinator/process
-lifetime. Apply environment/configuration changes by registering startup again in a new process,
-such as after a service restart or in a separate CLI invocation. Execution-time checks defensively
-guard registered callbacks; they cannot re-enable callbacks discarded during registration.
+Treat coordinator option values as immutable for the lifetime of a coordinator. Configuration
+changes take effect the next time startup work is registered with a new coordinator, typically after
+a service restart or in a separate CLI invocation. Execution-time checks defensively guard
+registered callbacks; they cannot re-enable callbacks discarded during registration within that same
+coordinator.
 
 ```ts
 const startup = createDirectusStartupCoordinator(hook, logger, {
