@@ -103,6 +103,7 @@ async function createSluggernautCollection(
 	fixtureOptions: {
 		slugSchema?: { max_length?: number }
 		typeSchema?: { default_value?: string }
+		titleSchema?: { default_value?: string }
 		permalinkSchema?: { is_nullable?: boolean }
 		archiveMetadata?: boolean
 	} = {},
@@ -134,7 +135,7 @@ async function createSluggernautCollection(
 			field: 'title',
 			type: 'string',
 			meta: { interface: 'input' },
-			schema: { is_nullable: true },
+			schema: { is_nullable: true, ...fixtureOptions.titleSchema },
 		}),
 	)
 	await client.request(
@@ -296,7 +297,11 @@ describe('Sluggernaut Directus integration', () => {
 		const fixture = await createSluggernautCollection(
 			{ pathTemplate: '/{{type}}/{{slug}}' },
 			{},
-			{ typeSchema: { default_value: 'article' }, permalinkSchema: { is_nullable: false } },
+			{
+				typeSchema: { default_value: 'article' },
+				titleSchema: { default_value: 'Untitled' },
+				permalinkSchema: { is_nullable: false },
+			},
 		)
 		try {
 			const item = await client.request(
@@ -306,6 +311,13 @@ describe('Sluggernaut Directus integration', () => {
 				type: 'article',
 				slug: 'some-test',
 				permalink: '/article/some-test',
+			})
+			const omitted = await client.request(createItem(fixture.collection, {}))
+			expect(omitted).toMatchObject({
+				title: 'Untitled',
+				type: 'article',
+				slug: 'untitled',
+				permalink: '/article/untitled',
 			})
 		} finally {
 			await fixture.dispose()

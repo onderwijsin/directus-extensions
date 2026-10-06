@@ -275,6 +275,82 @@ describe('dynamic permalink templates', () => {
 		)
 	})
 
+	it.each([
+		{
+			kind: 'create',
+			payload: {},
+			existingItem: {},
+			slug: 'untitled',
+			route: '/article/untitled',
+		},
+		{
+			kind: 'create',
+			payload: { title: 'Explicit' },
+			existingItem: {},
+			slug: 'explicit',
+			route: '/article/explicit',
+		},
+		{ kind: 'create', payload: { title: null }, existingItem: {}, slug: null, route: null },
+		{ kind: 'create', payload: { slug: null }, existingItem: {}, slug: null, route: null },
+		{
+			kind: 'update',
+			payload: { type: 'news' },
+			existingItem: { title: 'Existing', slug: 'existing' },
+			slug: undefined,
+			route: '/news/existing',
+		},
+		{
+			kind: 'recalculate',
+			payload: {},
+			existingItem: { title: null, type: 'news' },
+			slug: null,
+			route: null,
+		},
+	])(
+		'resolves literal slug source defaults only on create: $kind $route',
+		({ kind, payload, existingItem, slug, route }) => {
+			const withDefaults = discoverCollectionConfiguration(
+				fields.map((field) =>
+					field.field === 'title'
+						? { ...field, schema: { default_value: 'Untitled' } }
+						: field.field === 'type'
+							? { ...field, schema: { default_value: 'article' } }
+							: field,
+				),
+			)
+			const result = coordinateMutation({
+				kind: kind === 'create' ? 'create' : kind === 'update' ? 'update' : 'recalculate',
+				payload,
+				existingItem,
+				configuration: withDefaults,
+			}).payload
+			expect(result.slug).toBe(slug)
+			expect(result.route).toBe(route)
+			expect(result).not.toHaveProperty('title', 'Untitled')
+		},
+	)
+
+	it.each(['now()', 'gen_random_uuid()', 'CURRENT_TIMESTAMP'])(
+		'does not derive a slug from SQL source default %s',
+		(defaultValue) => {
+			const withDefaults = discoverCollectionConfiguration(
+				fields.map((field) =>
+					field.field === 'title'
+						? { ...field, schema: { default_value: defaultValue } }
+						: field,
+				),
+			)
+			expect(
+				coordinateMutation({
+					kind: 'create',
+					payload: {},
+					existingItem: {},
+					configuration: withDefaults,
+				}).payload.slug,
+			).toBeNull()
+		},
+	)
+
 	it('renders the slug generated during the same create and update', () => {
 		expect(
 			coordinateMutation({

@@ -246,6 +246,15 @@ export function discoverCollectionConfiguration(
 		}
 	}
 
+	for (const slug of slugs) {
+		const sourceDefaults: Record<string, string | number | boolean> = {}
+		for (const sourceField of slug.options.sourceFields) {
+			const value = fields.find((field) => field.field === sourceField)?.schema?.default_value
+			if (isLiteralDependencyDefault(value)) sourceDefaults[sourceField] = value
+		}
+		if (Object.keys(sourceDefaults).length > 0) slug.sourceDefaults = sourceDefaults
+	}
+
 	slugs.sort(compareFieldOrder)
 
 	// Only scalar fields in this collection may participate; permalink dependencies would be cyclic.

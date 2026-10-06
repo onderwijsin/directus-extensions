@@ -200,9 +200,9 @@ UUIDs. Placeholders use field identifiers (letters, digits, `_`, and `$`, beginn
 are unsupported. Invalid configuration is warned about and excluded without disabling unrelated
 fields.
 
-On create, omitted template dependencies use literal scalar field defaults before the database
-inserts the item. Explicit values, including `null`, take precedence; generated slugs take
-precedence over their defaults. Updates and recalculations use existing item values instead of
+On create, omitted slug sources and template dependencies use literal scalar field defaults before
+the database inserts the item. Explicit values, including `null`, take precedence; generated slugs
+take precedence over their defaults. Updates and recalculations use existing item values instead of
 defaults. Database expressions (such as `CURRENT_TIMESTAMP` or `gen_random_uuid()`) and compact
 function-call string defaults are unsupported and remain missing dependencies. Literal string
 defaults containing parentheses, such as `Article (news)`, are supported. Known SQL functions

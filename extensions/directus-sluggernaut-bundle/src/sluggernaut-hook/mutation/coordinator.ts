@@ -111,7 +111,13 @@ function resolveSlugValue(
 
 	return {
 		value: deriveSlug(
-			sourceValues(input.payload, input.existingItem, field),
+			sourceValues(
+				input.kind === 'create'
+					? { ...field.sourceDefaults, ...input.payload }
+					: input.payload,
+				input.existingItem,
+				field,
+			),
 			field.options.locale,
 			field.options.lowercase,
 		),

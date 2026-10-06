@@ -45,6 +45,8 @@ export interface SluggernautFieldMetadata {
 
 /** A validated slug field and its deterministic Directus order. */
 export interface DiscoveredSlugField {
+	/** Literal source defaults used only when creating an item. */
+	sourceDefaults?: Readonly<Record<string, string | number | boolean>>
 	field: string
 	sort: number | null
 	options: SlugInterfaceOptions
