@@ -29,6 +29,7 @@ import { z } from 'zod'
 
 import { compilePathTemplate } from '../values/path-template'
 import { INTERFACE_IDS } from './constants'
+import { isLiteralDependencyDefault } from './dependency-defaults'
 import { pathTemplateVariableSchema } from './path-template.schema'
 
 const redirectInterfaceDefaults: Required<RedirectInterfaceOptions> = {
@@ -278,14 +279,7 @@ export function discoverCollectionConfiguration(
 					)
 				}
 				const value = source.schema?.default_value
-				// Database expressions cannot be resolved before insertion. Directus exposes them
-				// as strings, so exclude function-shaped and SQL current-time defaults.
-				if (
-					(isString(value) &&
-						!/\(|^CURRENT_(?:TIMESTAMP|DATE|TIME)$/iu.test(value.trim())) ||
-					isFiniteNumber(value) ||
-					isBoolean(value)
-				) {
+				if (isLiteralDependencyDefault(value)) {
 					dependencyDefaults[dependency] = value
 				}
 			}

@@ -117,6 +117,34 @@ describe('dynamic permalink templates', () => {
 		},
 	)
 
+	it.each(['Article (news)', 'Category (EN)', 'Foo (bar)'])(
+		'uses literal string default containing parentheses: %s',
+		(defaultValue) => {
+			const withDefaults = discoverCollectionConfiguration(
+				fields.map((field) =>
+					field.field === 'type'
+						? { ...field, schema: { default_value: defaultValue } }
+						: field,
+				),
+			)
+			const permalink = withDefaults.permalinks[0]
+			if (!permalink) throw new Error('Expected discovered permalink')
+			permalink.options.templateVariables = [
+				{ name: 'type', field: 'type', transforms: [{ type: 'slugify' }] },
+			]
+			expect(
+				coordinateMutation({
+					kind: 'create',
+					payload: { title: 'Some test' },
+					existingItem: {},
+					configuration: withDefaults,
+				}).payload.route,
+			).toBe(
+				`/${defaultValue === 'Article (news)' ? 'article-news' : defaultValue === 'Category (EN)' ? 'category-en' : 'foo-bar'}/some-test`,
+			)
+		},
+	)
+
 	it.each([
 		'now()',
 		'CURRENT_TIMESTAMP',

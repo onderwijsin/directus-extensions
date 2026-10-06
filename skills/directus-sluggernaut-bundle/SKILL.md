@@ -203,8 +203,10 @@ fields.
 On create, omitted template dependencies use literal scalar field defaults before the database
 inserts the item. Explicit values, including `null`, take precedence; generated slugs take
 precedence over their defaults. Updates and recalculations use existing item values instead of
-defaults. Database expressions (such as `CURRENT_TIMESTAMP` or `gen_random_uuid()`) and
-function-shaped string defaults are unsupported and remain missing dependencies.
+defaults. Database expressions (such as `CURRENT_TIMESTAMP` or `gen_random_uuid()`) and compact
+function-call string defaults are unsupported and remain missing dependencies. Literal string
+defaults containing parentheses, such as `Article (news)`, are supported. Known SQL functions
+(`now`, `gen_random_uuid`, and `CURRENT_TIMESTAMP`) are excluded even with whitespace before `(`.
 
 The Template variables code editor provides an example template using `map`, `slugify`, and
 `lowercase`. Adapt its field names and map values to your collection before using it.
