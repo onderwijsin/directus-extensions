@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.2
+
+### Patch Changes
+
+- 7f17594: Treat blank optional shared AI environment keys as unset so local and E2E Compose can
+  start without live credentials. Resolved provider configurations still require a nonblank key.
+- 7f17594: Restrict AI model, credential, and base URL inheritance to matching provider layers.
+  Provider overrides no longer send lower-layer credentials to a different provider, and Markdown
+  Editor configuration follows the same provider-bound resolution.
+
 ## 0.6.1
 
 ### Patch Changes
