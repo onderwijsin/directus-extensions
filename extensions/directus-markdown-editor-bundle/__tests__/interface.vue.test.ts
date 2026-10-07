@@ -11,7 +11,7 @@ import MediaDrawer from '../src/markdown-editor-interface/components/drawers/Med
 import Field from '../src/markdown-editor-interface/components/fields/Field.vue'
 import ImageUploadField from '../src/markdown-editor-interface/components/fields/ImageUploadField.vue'
 import NumberInput from '../src/markdown-editor-interface/components/fields/NumberInput.vue'
-import ObjectArrayInput from '../src/markdown-editor-interface/components/fields/ObjectArrayInput.vue'
+import PropertyInput from '../src/markdown-editor-interface/components/fields/PropertyInput.vue'
 import StringInput from '../src/markdown-editor-interface/components/fields/StringInput.vue'
 import TagsInput from '../src/markdown-editor-interface/components/fields/TagsInput.vue'
 import VideoUploadField from '../src/markdown-editor-interface/components/fields/VideoUploadField.vue'
@@ -49,25 +49,37 @@ describe('object array input', () => {
 		const element = document.createElement('div')
 		const app = createApp(
 			defineComponent({
-				components: { ObjectArrayInput },
+				components: { PropertyInput },
 				setup: () => ({
 					rows,
 					definition: {
-						type: 'object',
-						properties: { label: { type: 'string', required: true } },
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: { label: { type: 'string', required: true } },
+						},
 					},
 				}),
 				template:
-					'<ObjectArrayInput v-model="rows" :definition="definition" path="actions" :errors="{}" asset-storage-mode="path" />',
+					'<PropertyInput v-model="rows" name="actions" :definition="definition" path="actions" :errors="{}" asset-storage-mode="path" />',
 			}),
 		)
 		registerDirectusPrimitives(app)
 		app.mount(element)
 		mounted.push({ app, element })
 
+		const label = element.querySelector<HTMLInputElement>('#component-prop-actions-0-label')
+		expect(label).toBeTruthy()
+		if (label) {
+			label.value = 'Edited'
+			label.dispatchEvent(new Event('input', { bubbles: true }))
+		}
+		await nextTick()
+		expect(rows.value).toEqual([{ label: 'Edited' }, { label: 'Second' }])
+
 		element.querySelector<HTMLButtonElement>('[aria-label="Move item 2 up"]')?.click()
 		await nextTick()
-		expect(rows.value).toEqual([{ label: 'Second' }, { label: 'First' }])
+		expect(rows.value).toEqual([{ label: 'Second' }, { label: 'Edited' }])
 
 		element.querySelector<HTMLButtonElement>('[aria-label="Remove item 1"]')?.click()
 		await nextTick()
@@ -87,18 +99,92 @@ describe('object array input', () => {
 		].find((button) => button.textContent?.includes('Remove'))
 		confirm?.click()
 		await nextTick()
-		expect(rows.value).toEqual([{ label: 'First' }])
+		expect(rows.value).toEqual([{ label: 'Edited' }])
 
 		const add = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
 			button.textContent?.includes('Add item'),
 		)
 		add?.click()
 		await nextTick()
-		expect(rows.value).toEqual([{ label: 'First' }, { label: '' }])
+		expect(rows.value).toEqual([{ label: 'Edited' }, { label: '' }])
 
 		element.querySelector<HTMLButtonElement>('[aria-label="Simulate drag reorder"]')?.click()
 		await nextTick()
-		expect(rows.value).toEqual([{ label: '' }, { label: 'First' }])
+		expect(rows.value).toEqual([{ label: '' }, { label: 'Edited' }])
+	})
+
+	it('edits nested objects and object arrays through recursive slots with unchanged error paths', async () => {
+		const initial = {
+			groups: [{ details: { title: 'Group' }, children: [{ label: 'Child' }] }],
+		}
+		const draft = shallowRef(initial)
+		const element = document.createElement('div')
+		const app = createApp(
+			defineComponent({
+				components: { PropertyInput },
+				setup: () => ({
+					draft,
+					definition: {
+						type: 'object',
+						properties: {
+							groups: {
+								type: 'array',
+								items: {
+									type: 'object',
+									properties: {
+										details: {
+											type: 'object',
+											properties: { title: { type: 'string' } },
+										},
+										children: {
+											type: 'array',
+											items: {
+												type: 'object',
+												properties: { label: { type: 'string' } },
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					errors: { 'root.groups.0.children.0.label': 'Nested label is invalid' },
+				}),
+				template:
+					'<PropertyInput v-model="draft" name="root" path="root" :definition="definition" :errors="errors" asset-storage-mode="path" />',
+			}),
+		)
+		registerDirectusPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+
+		for (const [id, value] of [
+			['component-prop-root-groups-0-details-title', 'Edited group'],
+			['component-prop-root-groups-0-children-0-label', 'Edited child'],
+		]) {
+			const input = element.querySelector<HTMLInputElement>(`#${id}`)
+			expect(input).toBeTruthy()
+			if (input) {
+				input.value = value ?? ''
+				input.dispatchEvent(new Event('input', { bubbles: true }))
+			}
+			await nextTick()
+		}
+		expect(draft.value).toEqual({
+			groups: [{ details: { title: 'Edited group' }, children: [{ label: 'Edited child' }] }],
+		})
+		expect(initial).toEqual({
+			groups: [{ details: { title: 'Group' }, children: [{ label: 'Child' }] }],
+		})
+		const nested = element.querySelector<HTMLInputElement>(
+			'#component-prop-root-groups-0-children-0-label',
+		)
+		expect(nested?.getAttribute('aria-invalid')).toBe('true')
+		const errorId = nested?.getAttribute('aria-describedby')
+		expect(errorId).toBeTruthy()
+		expect(element.querySelector(`#${errorId}`)?.textContent).toContain(
+			'Nested label is invalid',
+		)
 	})
 })
 
@@ -206,7 +292,12 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 	app.component('VCardActions', defineComponent({ template: '<div><slot /></div>' }))
 	app.component(
 		'VInput',
-		defineComponent({ props: ['modelValue'], template: '<input :value="modelValue" />' }),
+		defineComponent({
+			props: ['modelValue'],
+			emits: ['update:modelValue'],
+			template:
+				'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+		}),
 	)
 	app.component(
 		'VCheckbox',
