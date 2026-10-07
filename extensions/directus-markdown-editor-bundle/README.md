@@ -476,6 +476,27 @@ later. Videos are constrained to the editor or preview width while retaining the
 smaller. Executable and data protocols are rejected. The extension does not transform images,
 generate captions, or provide a frontend media renderer.
 
+## Resizable Markdown images
+
+Drag the handle centered on an image's right edge to resize it while preserving its natural aspect
+ratio. The chosen pixel width survives saving and reopening through Comark-compatible attributes:
+
+```md
+![Alt text](asset-id){width="420"}
+```
+
+Only width is persisted; height remains automatic. Images without a width retain the responsive
+full-width default. Both states are constrained to the editor container. Remove the width attribute
+in source mode, or drag the handle back to the container boundary, to return to full width. A small
+snap zone at the boundary shows a dashed outline of the full-width target during dragging. The image
+follows the pointer until release; releasing inside the active zone clears the stored width and
+animates to full width. Resizing away from full width has no snap or animation. The release
+animation is disabled when reduced motion is preferred. Invalid, zero, or negative widths use the
+default state. Directus asset IDs remain unchanged in Markdown and resolve to asset URLs for editor
+previews. Frontend image components should honor the width attribute and use
+`max-width: 100%; height: auto;` to avoid overflow on narrower screens. Comark supports this
+attribute syntax without a custom plugin.
+
 ## Studio Docs article
 
 Install `@onderwijsin/directus-studio-docs-bundle` when editors should receive the bundled Dutch
