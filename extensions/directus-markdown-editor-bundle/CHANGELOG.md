@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.6.0
+
+### Minor Changes
+
+- b4bdf1c: Support resizing Markdown images with Comark-compatible persisted pixel widths, natural
+  aspect ratios, responsive container constraints, and Directus asset previews. A right-edge handle
+  shows a full-width snap target during dragging and snaps to responsive full width only on release,
+  respecting reduced motion preferences.
+
+### Patch Changes
+
+- cfff2ae: Remove the circular dependency in recursive component property inputs by rendering
+  object-array fields through a scoped slot, preserving nested editing and row controls.
+- c741f90: Register startup lifecycle listeners synchronously only for phases that are both used and
+  enabled, preserving Directus's unregister collection during extension setup. Keep data in the
+  first middleware listener and documentation in a separate second listener when both are used,
+  regardless of consumer call order. Additional callbacks reuse existing listeners, and unused or
+  disabled phases perform no startup coordination. Disabled schema/data callbacks are not stored;
+  their existing disabled-phase messages are logged once per phase during registration.
+  Documentation still bypasses the ordinary startup switches. The public API, lifecycle events,
+  callback order, locking, and error handling remain unchanged. Execution-time gates remain
+  defensive checks for registered callbacks.
+
+  Rebuild the affected Directus extension bundles with the updated startup coordinator. The
+  coordinator is bundled into their published artifacts, so releasing extension-utils alone would
+  not update already-published bundles.
+
+- Updated dependencies [c741f90]
+  - @onderwijsin/directus-extension-utils@0.6.1
+
 ## 0.5.2
 
 ### Patch Changes
