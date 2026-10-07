@@ -1,5 +1,13 @@
 # @onderwijsin/directus-iconify-bundle
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [7f17594]
+- Updated dependencies [7f17594]
+  - @onderwijsin/directus-extension-utils@0.6.2
+
 ## 0.0.3
 
 ### Patch Changes

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.0
+
+### Minor Changes
+
+- 60324a3: Prefill new image alt text from Directus file descriptions, with bounded retries for
+  delayed metadata and protection for author edits and existing Markdown images.
+
+### Patch Changes
+
+- 3f9c08f: Continue pending image alt-text lookups after saving and closing the drawer, bound to the
+  editor and the exact inserted image. Add a loading spinner and explain background completion while
+  protecting manually edited or removed images.
+- 7f17594: Treat blank optional shared AI environment keys as unset so local and E2E Compose can
+  start without live credentials. Resolved provider configurations still require a nonblank key.
+- 7f17594: Restrict AI model, credential, and base URL inheritance to matching provider layers.
+  Provider overrides no longer send lower-layer credentials to a different provider, and Markdown
+  Editor configuration follows the same provider-bound resolution.
+- Updated dependencies [7f17594]
+- Updated dependencies [7f17594]
+  - @onderwijsin/directus-extension-utils@0.6.2
+
 ## 0.6.0
 
 ### Minor Changes

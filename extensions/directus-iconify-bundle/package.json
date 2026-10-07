@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-iconify-bundle",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "Iconify icon picker, display, and API proxy for Directus",
 	"keywords": [
 		"directus",
