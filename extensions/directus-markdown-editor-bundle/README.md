@@ -1,24 +1,27 @@
 # @onderwijsin/directus-markdown-editor-bundle
 
-A Directus-native Markdown and MDC editor for structured website content. The bundle combines the
-**Markdown (MDC)** field interface with a startup hook that contributes an editor guide to the
-optional Studio Docs module.
+A Markdown Editor with support for dynamic components (MDC) and AI-assisted editing - built with
+Tiptap. The bundle combines the **Markdown Editor** field interface with supporting extensions for
+schema management and AI server logic.
 
 The editor stores portable Markdown in one `text` or `string` field. It does not store Tiptap JSON
-and does not require a Nuxt runtime in Directus.
+and is agnostic of any specific frontend or rendering framework. The Markdown syntax is compatible
+with the [Comark specification](https://comark.dev/syntax/markdown), and uses both components and
+attributes.
 
 ## Features
 
 - headings, paragraphs, marks, lists, blockquotes, dividers, links, tables, images, video, and
   syntax-highlighted code blocks;
-- keyboard shortcuts, a searchable `/` command menu, first-line-aligned block drag handles,
-  full-screen editing, and direct Markdown source editing;
-- generic inline and block MDC components with typed properties and named editable slots;
-- static or remotely loaded component metadata with one definitive JSON contract;
+- keyboard shortcuts, a searchable `/` command menu, and other Notion-like editing features;
+- full-screen editing, and direct Markdown source editing;
+- generic inline and block components with typed properties and named editable slots;
+- static or remotely loaded component metadata with one definitive JSON contract for dynamic
+  components;
 - hydration-time component property freshness reports with editor-controlled refresh;
-- permission-aware Directus item references with source snapshots and integrity reporting; and
+- permission-aware Directus item references with source snapshots and integrity reporting;
 - opt-in AI transformations with reusable skills, custom prompts, document comparison, and
-  stale-safe selection replacement; and
+  stale-safe selection replacement;
 - an optional Dutch Studio Docs article for editors.
 
 ## Requirements
@@ -69,8 +72,8 @@ process to upgrade. Directus loads the `markdown-editor-interface` app entry and
 ## Quick start
 
 1. Open **Settings → Data Model** and choose a collection.
-2. Add a field with type **Text** or **String**.
-3. Select the **Markdown (MDC)** interface.
+2. Add a field with type **Text** (or **String**).
+3. Select the **Markdown Editor** interface.
 4. Leave **Available editor tools** empty for the first setup; an empty selection enables every
    tool.
 5. Save the field and open an item in the collection.
@@ -83,28 +86,25 @@ The API value remains a string:
 }
 ```
 
-Do not create a second field for Tiptap JSON. The Markdown string is the canonical value consumed by
-your website or other application.
-
 ## Interface configuration
 
-Configure these options on each field using the **Markdown (MDC)** interface.
+Configure these options on each field using the **Markdown Editor** interface.
 
-| Option                            | Default  | Description                                                                                                                                                                                                                                                                                                |
-| --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Available editor tools**        | empty    | Selects the toolbar, `/` menu, block actions, insertion controls, and native shortcuts available on this field. An empty selection enables every tool. If no paragraph or heading level is selected, paragraph remains available; the block-type selector is hidden when only one block type is available. |
-| **Store assets as**               | `path`   | Format for newly selected Directus images in Markdown and MDC image properties: `id`, `path` (`/assets/{id}`), or `url`. Existing image values are not rewritten.                                                                                                                                          |
-| **Asset base URL**                | unset    | Required in `url` mode. HTTP(S) Directus base URL, for example `https://directus.example.com`; selected images are stored as `https://directus.example.com/assets/{id}`.                                                                                                                                   |
-| **Use static component metadata** | `false`  | Chooses static JSON instead of loading component metadata from a URL.                                                                                                                                                                                                                                      |
-| **Component metadata URL**        | unset    | Browser-accessible JSON URL used while static metadata is disabled.                                                                                                                                                                                                                                        |
-| **Static component metadata**     | unset    | Required JSON value while static metadata is enabled.                                                                                                                                                                                                                                                      |
-| **Use item references**           | `false`  | Enables the Reference picker, Reference editing, and document integrity checks.                                                                                                                                                                                                                            |
-| **Reference collections**         | unset    | Required non-empty JSON array when item references are enabled.                                                                                                                                                                                                                                            |
-| **Enable reference icon**         | `false`  | Shows an Iconify picker in the Reference drawer when item references are enabled. Existing stored icons remain intact when disabled.                                                                                                                                                                       |
-| **Iconify collections**           | all      | Searchable collection selection for Reference icons. Leave empty to include every collection. Component icon properties use their own tag config.                                                                                                                                                          |
-| **Use Iconify API proxy**         | `false`  | Uses `/iconify` for icons. Requires `@onderwijsin/directus-iconify-bundle` installed on this Directus instance; the editor does not provide the proxy.                                                                                                                                                     |
-| **Reference snapshot mode**       | `detect` | Chooses `snapshot`, `detect`, or `sync` behavior for source snapshots.                                                                                                                                                                                                                                     |
-| **Enable AI editing**             | `false`  | Shows AI actions for this field and allows authenticated `/editor/ai` requests for it.                                                                                                                                                                                                                     |
+| Option                            | Default  | Description                                                                                                                                                                                                                       |
+| --------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Available editor tools**        | empty    | Selects the toolbar, `/` menu, block actions, insertion controls, and native shortcuts available on this field. An empty selection enables every tool. If no paragraph or heading level is selected, paragraph remains available. |
+| **Store assets as**               | `path`   | Format for selected Directus images in Markdown and component image properties: `id`, `path` (`/assets/{id}`), or `url`. Existing image values are not rewritten.                                                                 |
+| **Asset base URL**                | unset    | Required in `url` mode. HTTP(S) Directus base URL, for example `https://directus.example.com`; selected images are stored as `https://directus.example.com/assets/{id}`.                                                          |
+| **Use static component metadata** | `false`  | Chooses static JSON instead of loading component metadata from a URL.                                                                                                                                                             |
+| **Component metadata URL**        | unset    | Browser-accessible JSONURL used while static metadata is disabled.                                                                                                                                                                |
+| **Static component metadata**     | unset    | Required JSON value while static metadata is enabled.                                                                                                                                                                             |
+| **Use item references**           | `false`  | Enables the Reference picker, Reference editing, and document integrity checks.                                                                                                                                                   |
+| **Reference collections**         | unset    | Required non-empty JSON array when item references are enabled.                                                                                                                                                                   |
+| **Enable reference icon**         | `false`  | Shows an Iconify picker in the Reference drawer when item references are enabled. Existing stored icons remain intact when disabled.                                                                                              |
+| **Iconify collections**           | all      | Searchable collection selection for Reference icons. Leave empty to include every collection. Component icon properties use their own config.                                                                                     |
+| **Use Iconify API proxy**         | `false`  | Uses `/iconify` for icons. Requires `@onderwijsin/directus-iconify-bundle` installed on this Directus instance; the editor does not provide the proxy.                                                                            |
+| **Reference snapshot mode**       | `detect` | Chooses `snapshot`, `detect`, or `sync` behavior for source snapshots.                                                                                                                                                            |
+| **Enable AI editing**             | `false`  | Shows AI actions for this field and allows authenticated `/editor/ai` requests for it.                                                                                                                                            |
 
 ## AI-assisted editing
 
@@ -542,7 +542,7 @@ published article.
 
 | Symptom                              | Check                                                                                                                                                                                                                               |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Markdown (MDC)** is missing        | Confirm the package is installed in the Directus runtime, the app entry is enabled, and Directus was restarted.                                                                                                                     |
+| **Markdown Editor** is missing       | Confirm the package is installed in the Directus runtime, the app entry is enabled, and Directus was restarted.                                                                                                                     |
 | Component insertion is missing       | Provide valid metadata through the selected static or URL source.                                                                                                                                                                   |
 | Remote metadata fails                | Check the browser console for the source URL and validation path, then verify HTTPS, CORS, and JSON validity. A successful HTTP response can still fail metadata validation. The endpoint receives no custom authentication header. |
 | A Reference collection is disabled   | Check collection uniqueness, direct field names, primary-key metadata, field types, and relational fields.                                                                                                                          |

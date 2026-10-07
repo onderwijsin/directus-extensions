@@ -57,13 +57,13 @@ services:
 	  EDITOR_AI_API_KEY: 'replace-with-a-secret'
 ```
 
-After restart, verify that **Markdown (MDC)** appears as an interface for `text` and `string`
+After restart, verify that **Markdown Editor** appears as an interface for `text` and `string`
 fields. If it does not, inspect the Directus extension list/logs and confirm both bundle entries are
 enabled.
 
 ## Configure a field
 
-Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configure every option:
+Create or select a `text`/`string` field and assign **Markdown Editor**. Configure every option:
 
 | Option                                   | Default  | Accepted value and effect                                                                                                                                                                                                                                                                              |
 | ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -508,7 +508,7 @@ review and promote it in Directus. Use `override` only when replacing current co
 Complete every applicable check:
 
 1. Restart Directus and confirm both bundle entries load without configuration errors.
-2. Confirm **Markdown (MDC)** is selectable on a `text`/`string` field.
+2. Confirm **Markdown Editor** is selectable on a `text`/`string` field.
 3. Save ordinary Markdown and read the item through the API; confirm the value is a string.
 4. Insert one inline and one slotted block component and compare stored MDC with the renderer.
 5. For remote metadata, test the request from the deployed Studio origin and verify CORS.
