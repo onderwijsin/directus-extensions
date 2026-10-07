@@ -48,7 +48,7 @@ pnpm compose:reset
 
 ```text
 frontend network: Directus
-backend network:  Directus, PostgreSQL, Valkey, Garage, Mailpit, Meilisearch, Loops mock
+backend network:  Directus, PostgreSQL, Valkey, Garage, Mailpit, Meilisearch, Loops mock, AI metadata mock
 ```
 
 Directus joins both networks. Infrastructure services join only `backend`.
@@ -205,3 +205,12 @@ docker compose -f docker/compose.yaml -f tests/compose.e2e.yaml logs --no-color
 
 Keep real credentials in ignored files or CI secrets. The E2E runner does not load the repository
 `.env` file.
+
+## Image metadata provider fixture
+
+The E2E overlay starts `ai-metadata-mock` on the backend network and configures the image metadata
+operations to use its OpenAI-compatible chat-completions endpoint. The mock requires an inline PNG
+data URL, so successful generation verifies private image bytes reach the SDK adapter. It returns
+deterministic descriptions, tags, and filename stems without contacting an external AI provider. The
+global fixture language is Dutch; the mock requires language instructions and returns English
+metadata when an operation overrides the language to English.
