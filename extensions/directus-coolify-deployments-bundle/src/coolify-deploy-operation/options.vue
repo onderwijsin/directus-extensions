@@ -3,21 +3,21 @@ import { computed, onMounted, shallowRef } from 'vue'
 
 import { useApi } from '@directus/extensions-sdk'
 
+interface CoolifyDeployOptions {
+	application?: string
+}
+
 interface ApplicationOption {
 	id: string
 	name: string
 }
 
-const props = withDefaults(
-	defineProps<{
-		value?: string | null
-		disabled?: boolean
-	}>(),
-	{ value: null, disabled: false },
-)
+const props = defineProps<{
+	value?: CoolifyDeployOptions
+}>()
 
 const emit = defineEmits<{
-	(event: 'input', value: string): void
+	input: [value: CoolifyDeployOptions]
 }>()
 
 const api = useApi()
@@ -30,8 +30,9 @@ const items = computed(() => {
 		text: application.name,
 		value: application.id,
 	}))
-	if (props.value && !options.some((option) => option.value === props.value)) {
-		options.push({ text: props.value, value: props.value })
+	const application = props.value?.application
+	if (application && !options.some((option) => option.value === application)) {
+		options.push({ text: application, value: application })
 	}
 	return options
 })
@@ -39,12 +40,13 @@ const selectedValue = computed({
 	/**
 	 * @returns The currently selected value from props
 	 */
-	get: () => props.value,
+	get: () => props.value?.application ?? null,
 	/**
 	 * @param value The new value to set.
 	 * @returns void
 	 */
-	set: (value: string | null | undefined) => emit('input', value ?? ''),
+	set: (value: string | null | undefined) =>
+		emit('input', { ...props.value, application: value ?? '' }),
 })
 
 /**
@@ -74,14 +76,18 @@ onMounted(() => {
 
 <template>
 	<div class="application-select">
+		<div class="type-label">Application <span class="required">*</span></div>
 		<VSelect
+			aria-label="Application"
+			aria-required="true"
 			v-model="selectedValue"
 			:items="items"
-			:disabled="props.disabled || loading || Boolean(error)"
+			:disabled="loading || Boolean(error)"
 			:loading="loading"
 			:mandatory="false"
 			:show-deselect="true"
 		/>
+		<p class="note">Select an enabled, deploy-enabled application.</p>
 		<v-notice v-if="error" type="warning">{{ error }}</v-notice>
 		<v-notice v-else-if="!loading && applications.length === 0" type="info">
 			No enabled, deploy-enabled Coolify applications are available.
@@ -93,5 +99,12 @@ onMounted(() => {
 .application-select {
 	display: grid;
 	gap: 8px;
+}
+.required {
+	color: var(--theme--danger);
+}
+
+.note {
+	color: var(--theme--foreground-subdued);
 }
 </style>
