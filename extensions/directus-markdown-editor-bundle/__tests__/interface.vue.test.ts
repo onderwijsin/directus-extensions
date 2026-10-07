@@ -391,6 +391,7 @@ describe('Markdown editor interface', () => {
 					}),
 			}),
 		)
+		app.provide('api', { get: vi.fn().mockResolvedValue({ data: { data: null } }) })
 		registerDirectusPrimitives(app)
 		app.component(
 			'VUpload',

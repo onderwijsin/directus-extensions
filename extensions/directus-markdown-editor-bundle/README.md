@@ -554,3 +554,19 @@ published article.
 ## License
 
 MIT
+
+## Default image alt text
+
+For new image insertions, selecting a Directus file prefills alt text from its trimmed, non-empty
+`directus_files.description`. If unavailable, the drawer checks again after 500 ms, 1 s, 2 s, 4 s,
+and 8 s, then stops silently. **Waiting for generated alt text…** shows during these checks; typing
+and saving remain available. Metadata generation belongs to your project; the editor only reads
+descriptions using the current Studio session. Allow authors read access to the selected file's `id`
+and `description` for delayed descriptions to be available. Failed or denied reads leave insertion
+available without a default.
+
+Editing or clearing alt text makes the author's value authoritative for the rest of that insertion,
+even when another image is selected. Before any manual edit, selecting another image replaces the
+previous automatic description and invalidates pending checks. Deselecting an image or closing the
+drawer stops pending checks. Existing image nodes retain their serialized alt text when edited;
+opening their drawer does not fetch a default. Markdown image syntax remains unchanged.

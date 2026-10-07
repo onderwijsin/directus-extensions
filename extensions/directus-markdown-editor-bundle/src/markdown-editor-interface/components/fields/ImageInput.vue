@@ -18,6 +18,10 @@ const props = defineProps<{
 	storageMode: AssetStorageMode
 	baseUrl?: string
 }>()
+const emit = defineEmits<{
+	select: [value: unknown]
+	clear: []
+}>()
 const model = defineModel<string>({ required: true })
 const previewSource = computed(() => imagePreviewUrl(model.value))
 
@@ -30,7 +34,10 @@ function select(value: unknown) {
 	const id = directusAssetId(value)
 	if (!id || props.disabled) return
 	const stored = formatAssetValue(id, props.storageMode, props.baseUrl)
-	if (stored) model.value = stored
+	if (stored) {
+		model.value = stored
+		emit('select', value)
+	}
 }
 
 /**
@@ -38,7 +45,10 @@ function select(value: unknown) {
  * @returns Nothing.
  */
 function clear() {
-	if (!props.disabled) model.value = ''
+	if (!props.disabled) {
+		model.value = ''
+		emit('clear')
+	}
 }
 </script>
 

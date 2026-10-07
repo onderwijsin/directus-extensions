@@ -5,6 +5,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 
 import { isString } from '@onderwijsin/directus-extension-utils'
 
+import { useImageAltText } from '../../composables/useImageAltText'
 import {
 	directusAssetId,
 	directusAssetUrl,
@@ -28,8 +29,16 @@ const props = defineProps<{
 const open = defineModel<boolean>({ default: false })
 const activeTab = ref('image')
 const source = ref('')
-const altText = ref('')
 const editing = shallowRef(false)
+const {
+	altText,
+	waitingForAltText,
+	selectImage,
+	clearImage,
+	reset,
+	onAltTextInput,
+	onAltTextEdit,
+} = useImageAltText(open, editing, () => Boolean(props.disabled))
 const assetBaseError = computed(() =>
 	activeTab.value === 'image' &&
 	props.assetStorageMode === 'url' &&
@@ -60,6 +69,7 @@ watch(
 	 */
 	(isOpen) => {
 		if (!isOpen) return
+		reset()
 		activeTab.value = props.editor.isActive('video')
 			? 'video'
 			: props.editor.isActive('image')
@@ -71,6 +81,7 @@ watch(
 		source.value = isString(attrs.src) ? attrs.src : ''
 		altText.value = nodeType === 'image' && isString(attrs.alt) ? attrs.alt : ''
 	},
+	{ immediate: true },
 )
 
 /**
@@ -154,16 +165,23 @@ function remove() {
 						v-bind="field"
 						:storage-mode="assetStorageMode ?? 'path'"
 						:base-url="assetBaseUrl"
+						@select="selectImage"
+						@clear="clearImage"
 					/>
 				</template>
 			</Field>
 			<Field v-if="activeTab === 'image'" label="Alt text" :disabled="disabled">
 				<template #default="field">
 					<StringInput
-						v-model="altText"
+						:model-value="altText"
+						@update:model-value="onAltTextInput"
+						@input="onAltTextEdit"
 						v-bind="field"
 						placeholder="Describe the image"
 					/>
+					<p v-if="waitingForAltText" class="media-drawer__status" role="status">
+						Waiting for generated alt text…
+					</p>
 				</template>
 			</Field>
 			<VideoUploadField
@@ -186,6 +204,11 @@ function remove() {
 </template>
 
 <style scoped>
+.media-drawer__status {
+	color: var(--theme--foreground-subdued);
+	font-size: 0.875rem;
+}
+
 .media-drawer__content {
 	display: grid;
 	gap: 1rem;
