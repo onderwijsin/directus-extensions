@@ -257,7 +257,7 @@ describe('image alt defaults', () => {
 		await drawer.select({ id: 'a' })
 		expect(drawer.element.querySelector('[role="status"] .spinner')).toBeTruthy()
 		expect(drawer.element.querySelector('[role="status"]')?.textContent).toContain(
-			'Save the image to continue in the background. Stay on this page.',
+			"Waiting for image metadata… Save the image to continue in the background. Don't navigate away from this page.",
 		)
 	})
 
