@@ -9,6 +9,18 @@ import {
 } from '../src/server/config/ai'
 
 describe('AI configuration', () => {
+	it.each(['', '   '])('treats a blank optional environment key as unset: %j', (key) => {
+		expect(aiConfigSchema.parse({ DIRECTUS_EXTENSIONS_AI_API_KEY: key })).toEqual({
+			DIRECTUS_EXTENSIONS_AI_API_KEY: undefined,
+		})
+	})
+	it('still rejects invalid key types and requires a resolved key', () => {
+		expect(aiConfigSchema.safeParse({ DIRECTUS_EXTENSIONS_AI_API_KEY: 42 }).success).toBe(false)
+		expect(
+			resolvedAiConfigSchema.safeParse({ provider: 'openai', model: 'vision', apiKey: '' })
+				.success,
+		).toBe(false)
+	})
 	it('validates shared environment and Directus settings', () => {
 		expect(
 			aiConfigSchema.parse({
@@ -37,7 +49,7 @@ describe('AI configuration', () => {
 		).toBe(false)
 	})
 
-	it('applies the documented precedence per value', () => {
+	it('applies precedence only within the selected provider', () => {
 		expect(
 			resolveAiConfig({
 				optionOverrides: { model: 'option-model' },
@@ -49,7 +61,7 @@ describe('AI configuration', () => {
 				},
 				directusSettings: { ai_anthropic_api_key: 'directus-key' },
 			}),
-		).toEqual({ provider: 'anthropic', model: 'option-model', apiKey: 'shared-key' })
+		).toEqual({ provider: 'anthropic', model: 'option-model', apiKey: 'directus-key' })
 	})
 
 	it('uses only the Directus credential matching the effective provider', () => {
@@ -85,6 +97,72 @@ describe('AI configuration', () => {
 			apiKey: 'compatible-key',
 			baseURL: 'http://localhost:1234/v1',
 		})
+	})
+
+	it('does not inherit OpenAI values into an operation Anthropic override', () => {
+		expect(
+			resolveAiConfig({
+				optionOverrides: { provider: 'anthropic' },
+				sharedEnv: {
+					DIRECTUS_EXTENSIONS_AI_PROVIDER: 'openai',
+					DIRECTUS_EXTENSIONS_AI_MODEL: 'gpt-model',
+					DIRECTUS_EXTENSIONS_AI_API_KEY: 'openai-secret',
+					DIRECTUS_EXTENSIONS_AI_BASE_URL: 'https://openai.example/v1',
+				},
+				directusSettings: { ai_anthropic_api_key: 'anthropic-secret' },
+			}),
+		).toEqual({ provider: 'anthropic', apiKey: 'anthropic-secret' })
+	})
+	it('keeps extension Anthropic credentials and drops the shared OpenAI model and URL', () => {
+		expect(
+			resolveAiConfig({
+				extensionEnv: { provider: 'anthropic', apiKey: 'anthropic-secret' },
+				sharedEnv: {
+					DIRECTUS_EXTENSIONS_AI_PROVIDER: 'openai',
+					DIRECTUS_EXTENSIONS_AI_MODEL: 'gpt-model',
+					DIRECTUS_EXTENSIONS_AI_API_KEY: 'openai-secret',
+					DIRECTUS_EXTENSIONS_AI_BASE_URL: 'https://openai.example/v1',
+				},
+			}),
+		).toEqual({ provider: 'anthropic', apiKey: 'anthropic-secret' })
+	})
+	it('does not inherit a base URL across a compatible-provider override', () => {
+		expect(
+			resolveAiConfig({
+				optionOverrides: { provider: 'openai-compatible', model: 'local-model' },
+				sharedEnv: {
+					DIRECTUS_EXTENSIONS_AI_PROVIDER: 'openai',
+					DIRECTUS_EXTENSIONS_AI_API_KEY: 'openai-secret',
+					DIRECTUS_EXTENSIONS_AI_BASE_URL: 'https://openai.example/v1',
+				},
+			}),
+		).toEqual({ provider: 'openai-compatible', model: 'local-model' })
+	})
+	it('inherits matching-provider values through a model-only override', () => {
+		expect(
+			resolveAiConfig({
+				optionOverrides: { model: 'another-model' },
+				sharedEnv: {
+					DIRECTUS_EXTENSIONS_AI_PROVIDER: 'openai-compatible',
+					DIRECTUS_EXTENSIONS_AI_MODEL: 'original-model',
+					DIRECTUS_EXTENSIONS_AI_API_KEY: 'matching-key',
+					DIRECTUS_EXTENSIONS_AI_BASE_URL: 'https://matching.example/v1',
+				},
+			}),
+		).toEqual({
+			provider: 'openai-compatible',
+			model: 'another-model',
+			apiKey: 'matching-key',
+			baseURL: 'https://matching.example/v1',
+		})
+	})
+	it('does not bind provider-less lower-layer credentials to an upper provider override', () => {
+		expect(
+			resolveAiConfig({
+				extensionEnv: { provider: 'anthropic', model: 'claude-model' },
+				sharedEnv: { DIRECTUS_EXTENSIONS_AI_API_KEY: 'unbound-key' },
+			}),
+		).toEqual({ provider: 'anthropic', model: 'claude-model' })
 	})
 
 	it('reads only the reusable internal Directus settings', async () => {
