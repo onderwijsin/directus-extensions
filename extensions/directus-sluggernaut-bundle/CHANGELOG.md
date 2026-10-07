@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.5.0
+
+### Minor Changes
+
+- 22e63cb: Replace pre-production prefix/slug permalink generation with scalar field path templates,
+  ordered variable transformations, and dependency-driven updates. Use Directus' field-template
+  editor, render against final derived slug values, and preserve path validation and canonical
+  redirect history. Missing or unmapped dependencies produce null paths.
+
+  Existing permalink configurations must replace generateFromSlug, slugField, prefix, and
+  updateOnSlugChange with generateFromTemplate, pathTemplate, and updateOnDependencyChange.
+  validatePrefixOnManualInput is removed; explicit manual paths retain normal path validation.
+
+### Patch Changes
+
+- 3d8a60d: Restrict generated permalink dependencies and referenced slug sources to plain scalar
+  fields without special flags, relations, generation metadata, or non-null schema defaults. Remove
+  implicit schema-default resolution and expression/name heuristics. Document payload requirements
+  and standalone mode.
+- c741f90: Register startup lifecycle listeners synchronously only for phases that are both used and
+  enabled, preserving Directus's unregister collection during extension setup. Keep data in the
+  first middleware listener and documentation in a separate second listener when both are used,
+  regardless of consumer call order. Additional callbacks reuse existing listeners, and unused or
+  disabled phases perform no startup coordination. Disabled schema/data callbacks are not stored;
+  their existing disabled-phase messages are logged once per phase during registration.
+  Documentation still bypasses the ordinary startup switches. The public API, lifecycle events,
+  callback order, locking, and error handling remain unchanged. Execution-time gates remain
+  defensive checks for registered callbacks.
+
+  Rebuild the affected Directus extension bundles with the updated startup coordinator. The
+  coordinator is bundled into their published artifacts, so releasing extension-utils alone would
+  not update already-published bundles.
+
+- 25e7386: Preserve recalculation field selection through item-service update hooks when redirect
+  creation is enabled. Dependent fields outside the selection remain unchanged.
+- 22e63cb: Recommend the Sluggernaut Link display for both the slug and permalink interfaces in
+  Directus Studio.
+- 652801f: Ignore hidden template-only settings when permalink generation is disabled, preserving
+  manual normalization and automatic redirect participation.
+- 22e63cb: Provide a Template variables editor example demonstrating map, slugify, and lowercase
+  transforms.
+
 ## 0.4.1
 
 ### Patch Changes
