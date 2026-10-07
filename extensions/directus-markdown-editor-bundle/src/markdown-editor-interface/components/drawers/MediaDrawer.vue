@@ -201,7 +201,11 @@ function remove() {
 						placeholder="Describe the image"
 					/>
 					<p v-if="waitingForAltText" class="media-drawer__status" role="status">
-						Waiting for generated alt text…
+						<VProgressCircular indeterminate x-small aria-hidden="true" />
+						<span
+							>Waiting for image metadata… Save the image to continue in the
+							background. Don't navigate away from this page.</span
+						>
 					</p>
 				</template>
 			</Field>
@@ -226,8 +230,15 @@ function remove() {
 
 <style scoped>
 .media-drawer__status {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
 	color: var(--theme--foreground-subdued);
 	font-size: 0.875rem;
+}
+
+.media-drawer__status :deep(.v-progress-circular) {
+	flex-shrink: 0;
 }
 
 .media-drawer__content {

@@ -1,4 +1,4 @@
-import type { Editor } from '@tiptap/core'
+import type { Editor, EditorEvents } from '@tiptap/core'
 import type { Transaction } from '@tiptap/pm/state'
 
 import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
@@ -41,7 +41,6 @@ export function useImageAltText(getEditor: () => Editor | undefined, disabled: (
 	const draftRequest = shallowRef<DescriptionRequest>()
 	const pendingCount = shallowRef(0)
 	const requests = new Set<DescriptionRequest>()
-	let editingPosition: number | undefined
 	let disposed = false
 	const waitingForAltText = computed(() => draftActive.value && Boolean(draftRequest.value))
 
@@ -67,7 +66,6 @@ export function useImageAltText(getEditor: () => Editor | undefined, disabled: (
 		if (request && request.position === undefined) finish(request)
 		draftRequest.value = undefined
 		draftActive.value = false
-		editingPosition = undefined
 	}
 
 	/**
@@ -81,7 +79,6 @@ export function useImageAltText(getEditor: () => Editor | undefined, disabled: (
 		closeDraft()
 		draftActive.value = true
 		editing.value = existing
-		editingPosition = existing ? position : undefined
 		altText.value = alt
 		altTextTouched.value = false
 		if (existing)
@@ -260,24 +257,25 @@ export function useImageAltText(getEditor: () => Editor | undefined, disabled: (
 	 * Map pending image occurrences through edits and cancel deleted or manually changed targets.
 	 * @param event Editor transaction event.
 	 * @param event.transaction Current editor transaction.
+	 * @param event.appendedTransactions Transactions applied by editor plugins.
 	 * @returns Nothing.
 	 */
-	function onTransaction({ transaction }: { transaction: Transaction }) {
-		if (!transaction.docChanged) return
-		if (editingPosition !== undefined)
-			editingPosition = transaction.mapping.map(editingPosition)
-		for (const request of requests) {
-			if (request.position === undefined) continue
-			const mapped = transaction.mapping.mapResult(request.position)
-			const node = transaction.doc.nodeAt(mapped.pos)
-			if (
-				mapped.deleted ||
-				node?.type.name !== 'image' ||
-				node.attrs.src !== request.source ||
-				node.attrs.alt !== request.alt
-			) {
-				finish(request)
-			} else request.position = mapped.pos
+	function onTransaction({ transaction, appendedTransactions }: EditorEvents['transaction']) {
+		for (const change of [transaction, ...appendedTransactions]) {
+			if (!change.docChanged) continue
+			for (const request of requests) {
+				if (request.position === undefined) continue
+				const mapped = change.mapping.mapResult(request.position)
+				const node = change.doc.nodeAt(mapped.pos)
+				if (
+					mapped.deleted ||
+					node?.type.name !== 'image' ||
+					node.attrs.src !== request.source ||
+					node.attrs.alt !== request.alt
+				)
+					finish(request)
+				else request.position = mapped.pos
+			}
 		}
 	}
 

@@ -3,9 +3,11 @@
 import { createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
 
 import { Editor } from '@tiptap/core'
+import { Plugin } from '@tiptap/pm/state'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import MediaDrawer from '../src/markdown-editor-interface/components/drawers/MediaDrawer.vue'
+import { useImageAltText } from '../src/markdown-editor-interface/composables/useImageAltText'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
 
 const get = vi.hoisted(() => vi.fn())
@@ -13,7 +15,11 @@ vi.mock('@directus/extensions-sdk', () => ({ useApi: () => ({ get }) }))
 const cleanup: (() => void)[] = []
 
 function mount(existing = false) {
-	const editor = new Editor({ extensions: createEditorExtensions() })
+	const updates: string[] = []
+	const editor = new Editor({
+		extensions: createEditorExtensions(),
+		onUpdate: ({ editor: instance }) => updates.push(instance.getMarkdown()),
+	})
 	if (existing) {
 		editor.commands.insertContent({
 			type: 'image',
@@ -24,19 +30,29 @@ function mount(existing = false) {
 		})
 	}
 	const open = shallowRef(true)
+	const visible = shallowRef(true)
 	let selection: unknown = { id: 'a' }
 	const element = document.createElement('div')
 	document.body.append(element)
 	const app = createApp(
 		defineComponent({
-			setup: () => () =>
-				h(MediaDrawer, {
-					editor,
-					modelValue: open.value,
-					'onUpdate:modelValue': (value: boolean) => {
-						open.value = value
-					},
-				}),
+			setup: () => {
+				const imageAltText = useImageAltText(
+					() => editor,
+					() => false,
+				)
+				return () =>
+					visible.value
+						? h(MediaDrawer, {
+								editor,
+								imageAltText,
+								modelValue: open.value,
+								'onUpdate:modelValue': (value: boolean) => {
+									open.value = value
+								},
+							})
+						: null
+			},
 		}),
 	)
 	app.component(
@@ -49,6 +65,7 @@ function mount(existing = false) {
 	)
 	app.component('VButton', defineComponent({ template: '<button><slot/></button>' }))
 	app.component('VIcon', defineComponent({ template: '<i/>' }))
+	app.component('VProgressCircular', defineComponent({ template: '<span class="spinner" />' }))
 	app.component(
 		'VInput',
 		defineComponent({
@@ -81,6 +98,8 @@ function mount(existing = false) {
 	return {
 		element,
 		editor,
+		updates,
+		visible,
 		open,
 		app,
 		alt: () => element.querySelector<HTMLInputElement>('input')?.value,
@@ -230,6 +249,162 @@ describe('image alt defaults', () => {
 		expect(drawer.editor.getMarkdown()).toContain('![](/assets/a)')
 		expect(drawer.open.value).toBe(false)
 		await vi.advanceTimersByTimeAsync(30000)
+		expect(get).toHaveBeenCalledTimes(5)
+	})
+
+	it('shows a spinner and explains background continuation while waiting', async () => {
+		const drawer = mount()
+		await drawer.select({ id: 'a' })
+		expect(drawer.element.querySelector('[role="status"] .spinner')).toBeTruthy()
+		expect(drawer.element.querySelector('[role="status"]')?.textContent).toContain(
+			'Save the image to continue in the background. Stay on this page.',
+		)
+	})
+
+	it('fills the saved Markdown after the drawer closes and emits the updated value', async () => {
+		const drawer = mount()
+		await drawer.select({ id: 'a' })
+		drawer.save()
+		await nextTick()
+		expect(drawer.editor.getMarkdown()).toContain('![](/assets/a)')
+		get.mockResolvedValue({ data: { data: { id: 'a', description: 'Background alt' } } })
+		await vi.advanceTimersByTimeAsync(500)
+		expect(drawer.editor.getMarkdown()).toContain('![Background alt](/assets/a)')
+		expect(drawer.updates.at(-1)).toContain('![Background alt](/assets/a)')
+	})
+
+	it('continues after drawer unmount and follows document position changes', async () => {
+		const drawer = mount()
+		await drawer.select({ id: 'a' })
+		drawer.save()
+		drawer.visible.value = false
+		await nextTick()
+		drawer.editor.commands.insertContentAt(0, {
+			type: 'paragraph',
+			content: [{ type: 'text', text: 'Prefix' }],
+		})
+		get.mockResolvedValue({ data: { data: { id: 'a', description: 'Moved image' } } })
+		await vi.advanceTimersByTimeAsync(500)
+		expect(drawer.editor.getMarkdown()).toContain('![Moved image](/assets/a)')
+		expect(drawer.editor.getMarkdown()).toContain('Prefix')
+	})
+
+	it('fills the reopened field for a pending saved image without starting another request', async () => {
+		const drawer = mount()
+		await drawer.select({ id: 'a' })
+		drawer.save()
+		await nextTick()
+		drawer.editor.state.doc.descendants((node, position) => {
+			if (node.type.name === 'image') drawer.editor.commands.setNodeSelection(position)
+		})
+		drawer.open.value = true
+		await nextTick()
+		expect(drawer.waiting()).toBe(true)
+		get.mockResolvedValue({ data: { data: { id: 'a', description: 'Reopened alt' } } })
+		await vi.advanceTimersByTimeAsync(500)
+		expect(drawer.alt()).toBe('Reopened alt')
+		expect(drawer.editor.getMarkdown()).toContain('![Reopened alt](/assets/a)')
 		expect(get).toHaveBeenCalledTimes(1)
+	})
+
+	it.each(['manual', 'delete', 'undo', 'replace', 'destroy'])(
+		'invalidates saved image metadata on %s',
+		async (action) => {
+			let resolve: ((value: unknown) => void) | undefined
+			get.mockImplementation(
+				() =>
+					new Promise<unknown>((done) => {
+						resolve = done
+					}),
+			)
+			const drawer = mount()
+			await drawer.select({ id: 'a' })
+			drawer.save()
+			await nextTick()
+			await vi.advanceTimersByTimeAsync(500)
+			drawer.editor.state.doc.descendants((node, position) => {
+				if (node.type.name === 'image') drawer.editor.commands.setNodeSelection(position)
+			})
+			if (action === 'manual')
+				drawer.editor.commands.updateAttributes('image', { alt: 'Author' })
+			if (action === 'delete') drawer.editor.commands.deleteSelection()
+			if (action === 'undo') drawer.editor.commands.undo()
+			if (action === 'replace')
+				drawer.editor.commands.setContent('![](/assets/a)', { contentType: 'markdown' })
+			if (action === 'destroy') drawer.editor.destroy()
+			resolve?.({ data: { data: { id: 'a', description: 'Stale' } } })
+			await vi.advanceTimersByTimeAsync(30000)
+			if (!drawer.editor.isDestroyed)
+				expect(drawer.editor.getMarkdown()).not.toContain('Stale')
+			expect(get).toHaveBeenCalledTimes(1)
+		},
+	)
+	it('updates only the newly inserted occurrence when the same file is already in Markdown', async () => {
+		const drawer = mount()
+		drawer.open.value = false
+		await nextTick()
+		drawer.editor.commands.insertContent({
+			type: 'image',
+			attrs: { src: '/assets/a', alt: 'Existing' },
+		})
+		drawer.editor.commands.setTextSelection(drawer.editor.state.doc.content.size - 1)
+		drawer.open.value = true
+		await nextTick()
+		await drawer.select({ id: 'a' })
+		drawer.save()
+		await nextTick()
+		get.mockResolvedValue({ data: { data: { id: 'a', description: 'New occurrence' } } })
+		await vi.advanceTimersByTimeAsync(500)
+		expect(drawer.editor.getMarkdown()).toContain('![Existing](/assets/a)')
+		expect(drawer.editor.getMarkdown()).toContain('![New occurrence](/assets/a)')
+	})
+
+	it('keeps an earlier saved lookup independent of a later insertion draft', async () => {
+		const drawer = mount()
+		await drawer.select({ id: 'a' })
+		drawer.save()
+		await nextTick()
+		drawer.editor.commands.setTextSelection(drawer.editor.state.doc.content.size - 1)
+		drawer.open.value = true
+		await nextTick()
+		await drawer.select({ id: 'b' })
+		get.mockImplementation((url: string) =>
+			Promise.resolve({
+				data: {
+					data: {
+						id: url.includes('/a?') ? 'a' : 'b',
+						description: url.includes('/a?') ? 'Earlier' : null,
+					},
+				},
+			}),
+		)
+		await vi.advanceTimersByTimeAsync(500)
+		expect(drawer.editor.getMarkdown()).toContain('![Earlier](/assets/a)')
+		expect(drawer.alt()).toBe('')
+		expect(drawer.waiting()).toBe(true)
+	})
+	it('tracks saved images through transactions appended by editor plugins', async () => {
+		const drawer = mount()
+		await drawer.select({ id: 'a' })
+		drawer.save()
+		await nextTick()
+		drawer.editor.registerPlugin(
+			new Plugin({
+				appendTransaction: (transactions, _oldState, state) => {
+					if (!transactions.some((transaction) => transaction.getMeta('append-prefix')))
+						return null
+					const paragraph = state.schema.nodes.paragraph
+					if (!paragraph) return null
+					return state.tr.insert(
+						0,
+						paragraph.create(null, state.schema.text('Plugin prefix')),
+					)
+				},
+			}),
+		)
+		drawer.editor.view.dispatch(drawer.editor.state.tr.setMeta('append-prefix', true))
+		get.mockResolvedValue({ data: { data: { id: 'a', description: 'Plugin mapped' } } })
+		await vi.advanceTimersByTimeAsync(500)
+		expect(drawer.editor.getMarkdown()).toContain('![Plugin mapped](/assets/a)')
 	})
 })

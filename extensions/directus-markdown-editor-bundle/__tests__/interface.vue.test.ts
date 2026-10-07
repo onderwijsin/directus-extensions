@@ -17,6 +17,7 @@ import TagsInput from '../src/markdown-editor-interface/components/fields/TagsIn
 import VideoUploadField from '../src/markdown-editor-interface/components/fields/VideoUploadField.vue'
 import EditorTableMenu from '../src/markdown-editor-interface/components/toolbar/EditorTableMenu.vue'
 import EditorToolbar from '../src/markdown-editor-interface/components/toolbar/EditorToolbar.vue'
+import { useImageAltText } from '../src/markdown-editor-interface/composables/useImageAltText'
 import { createEditorCommands } from '../src/markdown-editor-interface/editor/commands'
 import { createEditorExtensions } from '../src/markdown-editor-interface/editor/extensions'
 import MarkdownEditor from '../src/markdown-editor-interface/MarkdownEditor.vue'
@@ -382,13 +383,20 @@ describe('Markdown editor interface', () => {
 		const element = document.createElement('div')
 		const app = createApp(
 			defineComponent({
-				setup: () => () =>
-					h(MediaDrawer, {
-						editor,
-						modelValue: open.value,
-						'onUpdate:modelValue': (value: boolean) => (open.value = value),
-						initialType: 'image',
-					}),
+				setup: () => {
+					const imageAltText = useImageAltText(
+						() => editor,
+						() => false,
+					)
+					return () =>
+						h(MediaDrawer, {
+							editor,
+							imageAltText,
+							modelValue: open.value,
+							'onUpdate:modelValue': (value: boolean) => (open.value = value),
+							initialType: 'image',
+						})
+				},
 			}),
 		)
 		app.provide('api', { get: vi.fn().mockResolvedValue({ data: { data: null } }) })
