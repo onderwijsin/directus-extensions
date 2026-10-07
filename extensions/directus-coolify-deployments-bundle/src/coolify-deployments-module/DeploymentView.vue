@@ -3,13 +3,17 @@ import type { DeploymentSummary } from './types'
 
 import { computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 
+import ApplicationNavigation from './components/ApplicationNavigation.vue'
 import DeploymentStatus from './components/DeploymentStatus.vue'
 import LoadingSkeleton from './components/LoadingSkeleton.vue'
+import { useApplicationNavigation } from './composables/useApplicationNavigation'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
 import { deploymentPath, formatDate, formatDuration } from './utils'
 
 const props = defineProps<{ directusApplicationId: string; deploymentId: string }>()
 const api = useCoolifyDeploymentsApi()
+const { applications, ensureApplications } = useApplicationNavigation()
+const navigationError = shallowRef<string | null>(null)
 const deployment = shallowRef<DeploymentSummary | null>(null)
 const loading = shallowRef(true)
 const loadingAction = shallowRef(false)
@@ -73,7 +77,20 @@ watch(
 	() => void load(),
 	{ immediate: true },
 )
+/**
+ * Load application links independently of deployment polling.
+ * @returns Nothing.
+ */
+const loadApplications = async () => {
+	try {
+		await ensureApplications()
+	} catch (caughtError) {
+		navigationError.value =
+			caughtError instanceof Error ? caughtError.message : 'Unable to load applications'
+	}
+}
 onMounted(() => {
+	void loadApplications()
 	disposed = false
 	/**
 	 * Pause active-deployment polling while the document is hidden.
@@ -100,6 +117,13 @@ onUnmounted(() => {
 
 <template>
 	<private-view :title="`Deployment · ${props.deploymentId}`">
+		<template #navigation>
+			<ApplicationNavigation
+				:applications="applications"
+				:selected-id="props.directusApplicationId"
+			/>
+			<v-notice v-if="navigationError" type="warning">{{ navigationError }}</v-notice>
+		</template>
 		<template #title-outer:prepend>
 			<v-button
 				icon

@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import type { ApplicationSummary, DeploymentSummary } from './types'
+import type { DeploymentSummary } from './types'
 
 import { computed, onMounted, onUnmounted, shallowRef } from 'vue'
 
 import ActiveDeploymentList from './components/ActiveDeploymentList.vue'
 import ApplicationList from './components/ApplicationList.vue'
+import ApplicationNavigation from './components/ApplicationNavigation.vue'
 import DeploymentList from './components/DeploymentList.vue'
 import LoadingSkeleton from './components/LoadingSkeleton.vue'
 import NoDeploymentsInProgress from './components/NoDeploymentsInProgress.vue'
+import { useApplicationNavigation } from './composables/useApplicationNavigation'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
 import { deploymentPath, deploymentSummaryPath } from './utils'
 
 const api = useCoolifyDeploymentsApi()
-const applications = shallowRef<ApplicationSummary[]>([])
+const { applications, updateApplications } = useApplicationNavigation()
 const current = shallowRef<DeploymentSummary[]>([])
 const recent = shallowRef<DeploymentSummary[]>([])
 const canCreateApplications = shallowRef(false)
@@ -40,7 +42,7 @@ const load = async () => {
 			api.getCachedCanCreateApplications(),
 		])
 		if (sequence !== requestSequence) return
-		applications.value = dashboard.applications
+		updateApplications(dashboard.applications)
 		current.value = dashboard.current
 		recent.value = dashboard.recent
 		canCreateApplications.value = canCreate
@@ -94,6 +96,9 @@ onUnmounted(() => {
 
 <template>
 	<private-view title="Deployments">
+		<template #navigation>
+			<ApplicationNavigation :applications="applications" />
+		</template>
 		<template #actions
 			><v-button icon rounded secondary :loading="loading" @click="load"
 				><v-icon name="refresh" /></v-button
