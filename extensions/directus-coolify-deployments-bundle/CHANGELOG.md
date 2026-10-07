@@ -1,5 +1,13 @@
 # @onderwijsin/directus-coolify-deployments-bundle
 
+## 0.5.1
+
+### Patch Changes
+
+- e7ac85f: Use a custom Coolify Deploy operation options component instead of registering a global
+  application select interface. Preserve existing Flow options, async discovery, and selector
+  states.
+
 ## 0.5.0
 
 ### Minor Changes
