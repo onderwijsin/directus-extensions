@@ -27,55 +27,62 @@ const router = useRouter()
 			{{ emptyCopy }}
 		</v-info>
 	</div>
-	<table v-else class="deployment-table">
-		<thead>
-			<tr>
-				<th>Application</th>
-				<th>Environment</th>
-				<th>Status</th>
-				<th>Commit</th>
-				<th>Date</th>
-				<th>Duration</th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr
-				v-for="deployment in deployments"
-				:key="deployment.id"
-				class="clickable"
-				@click="router.push(applicationPath(deployment))"
-			>
-				<td>
-					<div class="application-cell">
-						<strong>{{ deployment.applicationName ?? deployment.id }}</strong>
-					</div>
-				</td>
-				<td>{{ deployment.environmentName ?? '—' }}</td>
-				<td><DeploymentStatus :status="deployment.status" /></td>
-				<td>
-					<div class="commit-cell">
-						<v-icon name="commit" small />
-						<span class="mono">{{ deployment.commitSha?.slice(0, 8) ?? '—' }}</span>
-					</div>
-				</td>
-				<td class="date-cell">
-					{{ formatDate(deployment.createdAt) }}
-				</td>
-				<td>{{ formatDuration(deployment.duration) }}</td>
-			</tr>
-		</tbody>
-	</table>
+	<div v-else class="deployment-table-scroll" tabindex="0" aria-label="Deployment history">
+		<table class="deployment-table">
+			<thead>
+				<tr>
+					<th>Application</th>
+					<th>Environment</th>
+					<th>Status</th>
+					<th>Commit</th>
+					<th>Date</th>
+					<th>Duration</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr
+					v-for="deployment in deployments"
+					:key="deployment.id"
+					class="clickable"
+					@click="router.push(applicationPath(deployment))"
+				>
+					<td>
+						<div class="application-cell">
+							<strong>{{ deployment.applicationName ?? deployment.id }}</strong>
+						</div>
+					</td>
+					<td>{{ deployment.environmentName ?? '—' }}</td>
+					<td><DeploymentStatus :status="deployment.status" /></td>
+					<td>
+						<div class="commit-cell">
+							<v-icon name="commit" small />
+							<span class="mono">{{ deployment.commitSha?.slice(0, 8) ?? '—' }}</span>
+						</div>
+					</td>
+					<td class="date-cell">
+						{{ formatDate(deployment.createdAt) }}
+					</td>
+					<td>{{ formatDuration(deployment.duration) }}</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 </template>
 
 <style scoped>
+.deployment-table-scroll {
+	min-width: 0;
+	max-width: 100%;
+	overflow-x: auto;
+	border: 1px solid var(--border-normal);
+	border-radius: 8px;
+}
 .deployment-table {
+	min-width: 960px;
 	width: 100%;
 	border-collapse: collapse;
 	background: var(--background-subdued);
-	table-layout: fixed;
-	border: 1px solid var(--border-normal);
-	border-radius: 8px;
-	overflow: hidden;
+	table-layout: auto;
 }
 .empty-deployments-card {
 	position: relative;

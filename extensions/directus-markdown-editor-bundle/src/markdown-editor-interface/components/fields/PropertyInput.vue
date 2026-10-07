@@ -98,14 +98,24 @@ function updateChild(name: string, value: unknown) {
 				v-bind="field"
 				:model-value="objectArray"
 				:definition="definition.items"
-				:path="path"
-				:errors="errors"
 				:disabled="disabled"
-				:asset-storage-mode="assetStorageMode"
-				:asset-base-url="assetBaseUrl"
-				:use-iconify-proxy="useIconifyProxy"
 				@update:model-value="model = $event"
-			/>
+			>
+				<template #property="{ child, childName, index, value, update }">
+					<PropertyInput
+						:name="childName"
+						:definition="child"
+						:path="`${path}.${index}.${childName}`"
+						:errors="errors"
+						:model-value="value"
+						:disabled="disabled"
+						:asset-storage-mode="assetStorageMode"
+						:asset-base-url="assetBaseUrl"
+						:use-iconify-proxy="useIconifyProxy"
+						@update:model-value="update"
+					/>
+				</template>
+			</ObjectArrayInput>
 			<MultiSelectInput
 				v-else-if="definition.type === 'array' && definition.values?.length"
 				v-bind="field"

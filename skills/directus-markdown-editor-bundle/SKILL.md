@@ -57,13 +57,13 @@ services:
 	  EDITOR_AI_API_KEY: 'replace-with-a-secret'
 ```
 
-After restart, verify that **Markdown (MDC)** appears as an interface for `text` and `string`
+After restart, verify that **Markdown Editor** appears as an interface for `text` and `string`
 fields. If it does not, inspect the Directus extension list/logs and confirm both bundle entries are
 enabled.
 
 ## Configure a field
 
-Create or select a `text`/`string` field and assign **Markdown (MDC)**. Configure every option:
+Create or select a `text`/`string` field and assign **Markdown Editor**. Configure every option:
 
 | Option                                   | Default  | Accepted value and effect                                                                                                                                                                                                                                                                              |
 | ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -453,6 +453,27 @@ unconfigured, unavailable, archived, outdated, and transient-error occurrences. 
 source item, automatically saves the document, scans documents server-side, creates a reverse index,
 or cascades source deletion.
 
+## Resizable Markdown images
+
+Drag the handle centered on an image's right edge to resize it while preserving its natural aspect
+ratio. The chosen pixel width survives saving and reopening through Comark-compatible attributes:
+
+```md
+![Alt text](asset-id){width="420"}
+```
+
+Only width is persisted; height remains automatic. Images without a width retain the responsive
+full-width default. Both states are constrained to the editor container. Remove the width attribute
+in source mode, or drag the handle back to the container boundary, to return to full width. A small
+snap zone at the boundary shows a dashed outline of the full-width target during dragging. The image
+follows the pointer until release; releasing inside the active zone clears the stored width and
+animates to full width. Resizing away from full width has no snap or animation. The release
+animation is disabled when reduced motion is preferred. Invalid, zero, or negative widths use the
+default state. Directus asset IDs remain unchanged in Markdown and resolve to asset URLs for editor
+previews. Frontend image components should honor the width attribute and use
+`max-width: 100%; height: auto;` to avoid overflow on narrower screens. Comark supports this
+attribute syntax without a custom plugin.
+
 ## Configure editor documentation
 
 Install the Studio Docs bundle when the seeded Dutch **Editor** article is required:
@@ -487,7 +508,7 @@ review and promote it in Directus. Use `override` only when replacing current co
 Complete every applicable check:
 
 1. Restart Directus and confirm both bundle entries load without configuration errors.
-2. Confirm **Markdown (MDC)** is selectable on a `text`/`string` field.
+2. Confirm **Markdown Editor** is selectable on a `text`/`string` field.
 3. Save ordinary Markdown and read the item through the API; confirm the value is a string.
 4. Insert one inline and one slotted block component and compare stored MDC with the renderer.
 5. For remote metadata, test the request from the deployed Studio origin and verify CORS.
