@@ -249,3 +249,37 @@
 	border-inline-start: 2px solid var(--editor-border);
 	color: var(--theme--foreground-subdued, #64748b);
 }
+
+.markdown-editor-content .markdown-image-resize-handle {
+	top: 50% !important;
+	bottom: auto !important;
+	width: 0.5rem;
+	height: 2rem;
+	transform: translateY(-50%);
+	border: 2px solid var(--theme--primary);
+	border-radius: 0.25rem;
+	background: var(--theme--background);
+	cursor: ew-resize;
+	opacity: 0;
+}
+
+.markdown-editor-content .markdown-image-resize:hover .markdown-image-resize-handle,
+.markdown-editor-content
+	.markdown-image-resize[data-resize-state='true']
+	.markdown-image-resize-handle {
+	opacity: 1;
+}
+
+.markdown-editor-content .ProseMirror[contenteditable='false'] .markdown-image-resize-handle {
+	display: none;
+}
+
+.markdown-editor-content .markdown-image-snap-target {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline: 0;
+	border: 1px dashed var(--theme--primary);
+	border-radius: var(--theme--border-radius, 0.25rem);
+	background: color-mix(in srgb, var(--theme--primary) 8%, transparent);
+	pointer-events: none;
+}

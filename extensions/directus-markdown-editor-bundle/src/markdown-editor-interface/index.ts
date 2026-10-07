@@ -223,9 +223,10 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 /** Register the Directus-native Markdown/MDC editor interface. */
 export default defineInterface({
 	id: 'markdown-editor',
-	name: 'Markdown (MDC)',
+	name: 'Markdown Editor',
 	icon: 'edit_note',
-	description: 'Edit portable Markdown with generic MDC components.',
+	description:
+		'Markdown documents with support for dynamic components (MDC) and AI-assisted editing.',
 	component: MarkdownEditor,
 	/**
 	 * @returns Interface option definitions.

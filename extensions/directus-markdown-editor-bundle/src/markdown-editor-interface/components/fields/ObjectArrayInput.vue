@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ComponentProp } from '../../component-meta/schema'
-import type { AssetStorageMode } from '../../editor/media'
 
 import { computed, ref, watch } from 'vue'
 
@@ -8,7 +7,6 @@ import { isRecord } from '@onderwijsin/directus-extension-utils'
 import Draggable from 'vuedraggable'
 
 import { createObjectDraft } from '../../component-meta/property-form'
-import PropertyInput from './PropertyInput.vue'
 
 const props = defineProps<{
 	id?: string
@@ -17,11 +15,15 @@ const props = defineProps<{
 	required?: boolean
 	disabled?: boolean
 	definition: ComponentProp
-	path: string
-	errors: Record<string, string>
-	assetStorageMode: AssetStorageMode
-	assetBaseUrl?: string
-	useIconifyProxy?: boolean
+}>()
+defineSlots<{
+	property(props: {
+		child: ComponentProp
+		childName: string
+		index: number
+		value: unknown
+		update: (value: unknown) => void
+	}): unknown
 }>()
 const model = defineModel<unknown[]>({ required: true })
 let nextRowId = 0
@@ -165,20 +167,19 @@ function confirmRemove() {
 							</VButton>
 						</div>
 					</div>
-					<PropertyInput
+					<template
 						v-for="(child, childName) in definition.properties ?? {}"
 						:key="childName"
-						:name="childName"
-						:definition="child"
-						:path="`${path}.${index}.${childName}`"
-						:errors="errors"
-						:model-value="isRecord(element.data) ? element.data[childName] : undefined"
-						:disabled="disabled"
-						:asset-storage-mode="assetStorageMode"
-						:asset-base-url="assetBaseUrl"
-						:use-iconify-proxy="useIconifyProxy"
-						@update:model-value="update(index, childName, $event)"
-					/>
+					>
+						<slot
+							name="property"
+							:child="child"
+							:child-name="childName"
+							:index="index"
+							:value="isRecord(element.data) ? element.data[childName] : undefined"
+							:update="(value: unknown) => update(index, childName, value)"
+						/>
+					</template>
 				</div>
 			</template>
 		</Draggable>

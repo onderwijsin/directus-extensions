@@ -5,15 +5,18 @@ import { computed, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { APPLICATION_DEPLOYMENT_PAGE_SIZE } from '../shared/constants'
+import ApplicationNavigation from './components/ApplicationNavigation.vue'
 import ApplicationStateBadge from './components/ApplicationStateBadge.vue'
 import DeploymentList from './components/DeploymentList.vue'
 import LoadingSkeleton from './components/LoadingSkeleton.vue'
+import { useApplicationNavigation } from './composables/useApplicationNavigation'
 import { useCoolifyDeploymentsApi } from './composables/useCoolifyDeploymentsApi'
 import { deploymentPath, deploymentSummaryPath, formatDate, repositoryUrl } from './utils'
 
 const props = defineProps<{ directusApplicationId: string }>()
 const api = useCoolifyDeploymentsApi()
 const router = useRouter()
+const { applications, updateApplications } = useApplicationNavigation()
 const application = shallowRef<ApplicationSummary | null>(null)
 const deployments = shallowRef<DeploymentSummary[]>([])
 const loadingApplication = shallowRef(true)
@@ -38,6 +41,7 @@ const loadApplication = async () => {
 	canTriggerDeployments.value = false
 	try {
 		const dashboard = await api.getDashboard()
+		updateApplications(dashboard.applications)
 		canTriggerDeployments.value = dashboard.canTriggerDeployments
 		application.value =
 			dashboard.applications.find(
@@ -120,6 +124,12 @@ watch(page, (value, previousValue) => {
 
 <template>
 	<private-view :title="application?.name ?? 'Application'">
+		<template #navigation>
+			<ApplicationNavigation
+				:applications="applications"
+				:selected-id="props.directusApplicationId"
+			/>
+		</template>
 		<template #title-outer:prepend>
 			<v-button
 				icon
@@ -263,6 +273,7 @@ watch(page, (value, previousValue) => {
 <style scoped>
 .page {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 24px;
 	padding: var(--content-padding);
 }
@@ -330,7 +341,9 @@ watch(page, (value, previousValue) => {
 	overflow-wrap: anywhere;
 }
 section {
+	min-width: 0;
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 12px;
 }
 @media (max-width: 900px) {

@@ -314,6 +314,15 @@ requests only the visible page. The dashboard maps per-application Coolify resul
 configured application UUID before rendering them, and empty recent history is shown in a contained
 soft card.
 
+The navigation area lists configured applications and an All deployments link. Selecting an
+application opens its deployment history; the selected application stays highlighted in deployment
+detail views. Navigation state is shared while moving between module routes. Dashboard and
+application refreshes update the shared list; direct entry to a deployment detail loads it once.
+Leaving the module discards the navigation state. Dashboard application cards remain available.
+
+Deployment history and deployment details tables scroll horizontally on narrow screens so their
+columns remain readable.
+
 ### Startup hook: `coolify-deployments-hook`
 
 The hook reconciles the collection schema and policies and registers the create filter. It does not
