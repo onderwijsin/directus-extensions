@@ -551,10 +551,6 @@ published article.
 | Updated Studio docs are not visible  | Inspect the `incoming` content version when the Studio Docs seeding strategy is `versioning`.                                                                                                                                       |
 | Startup reports a lock skip/error    | Configure Redis or a shared filesystem lock for multi-process deployments.                                                                                                                                                          |
 
-## License
-
-MIT
-
 ## Default image alt text
 
 For new image insertions, selecting a Directus file prefills alt text from its trimmed, non-empty
@@ -570,3 +566,19 @@ even when another image is selected. Before any manual edit, selecting another i
 previous automatic description and invalidates pending checks. Deselecting an image or closing the
 drawer stops pending checks. Existing image nodes retain their serialized alt text when edited;
 opening their drawer does not fetch a default. Markdown image syntax remains unchanged.
+
+### Provider-bound configuration
+
+Provider-sensitive inheritance is restricted to matching providers. A layer without a provider
+belongs to the provider inherited from lower layers; lower-layer models, API keys, and base URLs
+never acquire an overridden provider from above. When changing provider, supply a matching model and
+credentials in that layer, another matching layer, or provider-matched Directus settings. Unbound
+lower-layer credentials are not inherited.
+
+An empty or whitespace-only `DIRECTUS_EXTENSIONS_AI_API_KEY` environment value is treated as unset,
+allowing startup without an AI key and provider-matched credential fallback. Generation still
+requires a complete resolved configuration.
+
+## License
+
+MIT

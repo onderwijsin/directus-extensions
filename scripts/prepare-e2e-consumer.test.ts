@@ -54,6 +54,10 @@ describe('E2E consumer preparation script', () => {
 			await readFile(join(consumerDirectory, 'package.json'), 'utf8'),
 		)
 		expect(packageJson.dependencies[packageName]).toBe(`file:${archivePath}`)
+		const repositoryManifest = JSON.parse(
+			await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+		)
+		expect(packageJson.packageManager).toBe(repositoryManifest.packageManager)
 		expect(prepared).toEqual([join(consumerDirectory, 'extensions', 'extension')])
 		const [preparedExtension] = prepared
 		expect(preparedExtension).toBeDefined()

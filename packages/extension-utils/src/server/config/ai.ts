@@ -17,7 +17,10 @@ const nonBlankStringSchema = z.string().trim().min(1)
 const defineAiConfigShape = (zod: typeof z) => ({
 	DIRECTUS_EXTENSIONS_AI_PROVIDER: zod.string().trim().min(1).optional(),
 	DIRECTUS_EXTENSIONS_AI_MODEL: zod.string().trim().min(1).optional(),
-	DIRECTUS_EXTENSIONS_AI_API_KEY: zod.string().trim().min(1).optional(),
+	DIRECTUS_EXTENSIONS_AI_API_KEY: zod.preprocess(
+		(value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+		zod.string().trim().min(1).optional(),
+	),
 	DIRECTUS_EXTENSIONS_AI_BASE_URL: zod.url().optional(),
 })
 
@@ -104,7 +107,9 @@ export async function readDirectusAiSettings(
  * provider-matched Directus credentials, in that order.
  *
  * Directus does not provide a general default provider or model. Its credential fallback is chosen
- * only after the effective provider has been resolved by the higher-precedence layers.
+ * only after the effective provider has been resolved by the higher-precedence layers. Models,
+ * keys, and URLs are inherited only from layers belonging to that provider. A provider-less
+ * layer belongs to the provider inherited from lower layers, never an override above it.
  *
  * @param options - Configuration layers ordered by documented precedence.
  * @returns The effective, possibly incomplete AI configuration.
@@ -114,29 +119,32 @@ export function resolveAiConfig(options: ResolveAiConfigOptions): AiConfigLayer 
 		options.optionOverrides?.provider ??
 		options.extensionEnv?.provider ??
 		options.sharedEnv?.DIRECTUS_EXTENSIONS_AI_PROVIDER
-	const model =
-		options.optionOverrides?.model ??
-		options.extensionEnv?.model ??
-		options.sharedEnv?.DIRECTUS_EXTENSIONS_AI_MODEL
-	const directusApiKey = getDirectusAiApiKey(provider, options.directusSettings)
+	const sharedLayer: AiConfigLayer = {
+		provider: options.sharedEnv?.DIRECTUS_EXTENSIONS_AI_PROVIDER,
+		model: options.sharedEnv?.DIRECTUS_EXTENSIONS_AI_MODEL,
+		apiKey: options.sharedEnv?.DIRECTUS_EXTENSIONS_AI_API_KEY,
+		baseURL: options.sharedEnv?.DIRECTUS_EXTENSIONS_AI_BASE_URL,
+	}
+	const layers = [options.optionOverrides, options.extensionEnv, sharedLayer]
+	// A layer without a provider belongs to the provider inherited from layers below it.
+	// Lower layers never acquire a provider from an override above them.
+	const matchingLayers = layers.filter((layer, index) => {
+		const owner = layers.slice(index).find((candidate) => candidate?.provider)?.provider
+		return provider !== undefined && owner === provider && layer !== undefined
+	})
+	const matchingModel = matchingLayers.find((layer) => layer?.model !== undefined)?.model
 	const apiKey =
-		options.optionOverrides?.apiKey ??
-		options.extensionEnv?.apiKey ??
-		options.sharedEnv?.DIRECTUS_EXTENSIONS_AI_API_KEY ??
-		directusApiKey
-	const directusBaseURL =
-		provider === 'openai-compatible'
-			? (options.directusSettings?.ai_openai_compatible_base_url ?? undefined)
-			: undefined
+		matchingLayers.find((layer) => layer?.apiKey !== undefined)?.apiKey ??
+		getDirectusAiApiKey(provider, options.directusSettings)
 	const baseURL =
-		options.optionOverrides?.baseURL ??
-		options.extensionEnv?.baseURL ??
-		options.sharedEnv?.DIRECTUS_EXTENSIONS_AI_BASE_URL ??
-		directusBaseURL
+		matchingLayers.find((layer) => layer?.baseURL !== undefined)?.baseURL ??
+		(provider === 'openai-compatible'
+			? (options.directusSettings?.ai_openai_compatible_base_url ?? undefined)
+			: undefined)
 
 	return {
 		...(provider ? { provider } : {}),
-		...(model ? { model } : {}),
+		...(matchingModel ? { model: matchingModel } : {}),
 		...(apiKey ? { apiKey } : {}),
 		...(baseURL ? { baseURL } : {}),
 	}

@@ -1,179 +1,325 @@
-import type { Ref } from 'vue'
+import type { Editor } from '@tiptap/core'
+import type { Transaction } from '@tiptap/pm/state'
 
-import { onBeforeUnmount, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 
 import { useApi } from '@directus/extensions-sdk'
 import { z } from 'zod'
 
 import { directusAssetId } from '../editor/media'
 
+const descriptionSchema = z.object({ description: z.string().trim().nullish() })
+const responseSchema = z.object({
+	data: z.object({
+		data: z.object({ id: z.string(), description: z.string().trim().nullish() }),
+	}),
+})
+const retryDelays = [500, 1000, 2000, 4000, 8000]
+
+interface DescriptionRequest {
+	id: string
+	editor: Editor
+	controller: AbortController
+	timer?: ReturnType<typeof setTimeout>
+	position?: number
+	source?: string
+	alt?: string
+}
+
 /**
- * Manage optional file-description defaults for untouched new image drafts.
- * @param open Whether the media drawer is open.
- * @param editing Whether the draft edits an existing Markdown node.
+ * Own image-description requests for the editor, including saved image occurrences.
+ * @param getEditor Current editor instance.
  * @param disabled Whether author interactions are disabled.
- * @returns Alt text, waiting status, and draft lifecycle handlers.
+ * @returns Draft controls and insertion tracking for the media drawer.
  */
-export function useImageAltText(
-	open: Ref<boolean>,
-	editing: Ref<boolean>,
-	disabled: () => boolean,
-) {
-	const altText = shallowRef('')
+export function useImageAltText(getEditor: () => Editor | undefined, disabled: () => boolean) {
 	const api = useApi()
+	const altText = shallowRef('')
 	const altTextTouched = shallowRef(false)
-	const waitingForAltText = shallowRef(false)
-	const selectedFileId = shallowRef<string>()
-	const fileDescriptionSchema = z.object({ description: z.string().trim().nullish() })
-	const fileResponseSchema = z.object({
-		data: z.object({
-			data: z.object({ id: z.string(), description: z.string().trim().nullish() }),
-		}),
-	})
-	const retryDelays = [500, 1000, 2000, 4000, 8000]
-	let metadataController: AbortController | undefined
-	let metadataTimer: ReturnType<typeof setTimeout> | undefined
+	const editing = shallowRef(false)
+	const draftActive = shallowRef(false)
+	const draftRequest = shallowRef<DescriptionRequest>()
+	const pendingCount = shallowRef(0)
+	const requests = new Set<DescriptionRequest>()
+	let editingPosition: number | undefined
+	let disposed = false
+	const waitingForAltText = computed(() => draftActive.value && Boolean(draftRequest.value))
 
 	/**
-	 * Invalidate metadata work and hide its non-blocking status.
+	 * Remove one request and prevent its timer or in-flight response from updating content.
+	 * @param request Request to finish or cancel.
 	 * @returns Nothing.
 	 */
-	function stopMetadata() {
-		metadataController?.abort()
-		metadataController = undefined
-		clearTimeout(metadataTimer)
-		metadataTimer = undefined
-		waitingForAltText.value = false
-	}
-
-	onBeforeUnmount(stopMetadata)
-
-	/**
-	 * Preserve every manual edit, including clearing an automatic description.
-	 * @param value Author-entered alt text.
-	 * @returns Nothing.
-	 */
-	function onAltTextInput(value: string) {
-		onAltTextEdit()
-		altText.value = value
-		stopMetadata()
+	function finish(request: DescriptionRequest) {
+		request.controller.abort()
+		clearTimeout(request.timer)
+		requests.delete(request)
+		pendingCount.value = requests.size
+		if (draftRequest.value === request) draftRequest.value = undefined
 	}
 
 	/**
-	 * Mark native input even when its value stays empty.
+	 * Discard an unsaved draft while allowing saved image requests to finish.
+	 * @returns Nothing.
+	 */
+	function closeDraft() {
+		const request = draftRequest.value
+		if (request && request.position === undefined) finish(request)
+		draftRequest.value = undefined
+		draftActive.value = false
+		editingPosition = undefined
+	}
+
+	/**
+	 * Hydrate a drawer from authoritative Markdown or begin a new insertion draft.
+	 * @param existing Whether an existing node is selected.
+	 * @param alt Serialized alt text, or an empty new draft.
+	 * @param position Selected node position when editing.
+	 * @returns Nothing.
+	 */
+	function beginDraft(existing: boolean, alt: string, position?: number) {
+		closeDraft()
+		draftActive.value = true
+		editing.value = existing
+		editingPosition = existing ? position : undefined
+		altText.value = alt
+		altTextTouched.value = false
+		if (existing)
+			draftRequest.value = [...requests].find((request) => request.position === position)
+	}
+
+	/**
+	 * Preserve manual interaction, including clearing an already-empty field.
 	 * @returns Nothing.
 	 */
 	function onAltTextEdit() {
 		altTextTouched.value = true
-		stopMetadata()
+		if (draftRequest.value) finish(draftRequest.value)
 	}
 
 	/**
-	 * Prefill only untouched new image drafts from the selected file or bounded API retries.
-	 * @param value Full Directus file selection.
+	 * Store an author's alt-text edit, normalizing Directus's nullable input.
+	 * @param value Author-entered text or a cleared nullable input.
 	 * @returns Nothing.
 	 */
-	function selectImage(value: unknown) {
-		stopMetadata()
-		selectedFileId.value = directusAssetId(value) ?? undefined
-		const id = selectedFileId.value
-		if (!open.value || disabled() || editing.value || altTextTouched.value || !id) return
-		altText.value = ''
-		const initial = fileDescriptionSchema.safeParse(Array.isArray(value) ? value[0] : value)
-		if (initial.success && initial.data.description) {
-			altText.value = initial.data.description
-			return
-		}
-		const metadataUrl = `/files/${encodeURIComponent(id)}?fields=id,description`
-		const controller = new AbortController()
-		metadataController = controller
-		waitingForAltText.value = true
-
-		/**
-		 * Check that this request still belongs to the current untouched draft.
-		 * @returns Whether metadata may still update the draft.
-		 */
-		function current() {
-			return (
-				!controller.signal.aborted &&
-				open.value &&
-				!editing.value &&
-				!altTextTouched.value &&
-				selectedFileId.value === id
-			)
-		}
-
-		/**
-		 * Schedule the next bounded lookup; failures are optional enhancement failures.
-		 * @param attempt Retry index.
-		 * @returns Nothing.
-		 */
-		function schedule(attempt: number) {
-			const delay = retryDelays[attempt]
-			if (delay === undefined) {
-				stopMetadata()
-				return
-			}
-			metadataTimer = setTimeout(() => {
-				void lookup()
-			}, delay)
-			/**
-			 * Read one projected file record and continue only for the current draft.
-			 * @returns Resolves after this lookup is handled.
-			 */
-			async function lookup() {
-				if (!current()) return
-				try {
-					const response: unknown = await api.get(metadataUrl, {
-						signal: controller.signal,
-					})
-					if (!current()) return
-					const result = fileResponseSchema.safeParse(response)
-					if (
-						result.success &&
-						result.data.data.data.id === id &&
-						result.data.data.data.description
-					) {
-						altText.value = result.data.data.data.description
-						stopMetadata()
-						return
-					}
-				} catch {
-					// Metadata is optional; retry silently while this draft remains current.
-				}
-				if (current()) schedule(attempt + 1)
-			}
-		}
-		schedule(0)
+	function onAltTextInput(value: string | null) {
+		onAltTextEdit()
+		altText.value = value ?? ''
 	}
 
 	/**
-	 * Clear metadata associated with a deselected image.
+	 * Cancel metadata when the selected image is deselected or replaced.
 	 * @returns Nothing.
 	 */
 	function clearImage() {
-		stopMetadata()
-		selectedFileId.value = undefined
+		if (draftRequest.value) finish(draftRequest.value)
 		if (!editing.value && !altTextTouched.value) altText.value = ''
 	}
 
 	/**
-	 * Reset author interaction for a newly opened draft.
+	 * Start bounded metadata lookup for the current untouched insertion draft.
+	 * @param value Full Directus upload or library selection.
 	 * @returns Nothing.
 	 */
-	function reset() {
-		stopMetadata()
-		selectedFileId.value = undefined
-		altTextTouched.value = false
+	function selectImage(value: unknown) {
+		clearImage()
+		const id = directusAssetId(value)
+		const editor = getEditor()
+		if (
+			!draftActive.value ||
+			disposed ||
+			disabled() ||
+			editing.value ||
+			altTextTouched.value ||
+			!id ||
+			!editor
+		)
+			return
+		const initial = descriptionSchema.safeParse(Array.isArray(value) ? value[0] : value)
+		if (initial.success && initial.data.description) {
+			altText.value = initial.data.description
+			return
+		}
+		const request: DescriptionRequest = { id, editor, controller: new AbortController() }
+		requests.add(request)
+		pendingCount.value = requests.size
+		draftRequest.value = request
+		schedule(request, 0)
 	}
-	watch(open, () => stopMetadata(), { flush: 'sync' })
+
+	/**
+	 * Schedule one retry relative to completion of the preceding lookup.
+	 * @param request Current file-description request.
+	 * @param attempt Retry index.
+	 * @returns Nothing.
+	 */
+	function schedule(request: DescriptionRequest, attempt: number) {
+		const delay = retryDelays[attempt]
+		if (delay === undefined) {
+			finish(request)
+			return
+		}
+		request.timer = setTimeout(() => {
+			void lookup(request, attempt)
+		}, delay)
+	}
+
+	/**
+	 * Fetch only description metadata and update either the draft or its saved occurrence.
+	 * @param request Current file-description request.
+	 * @param attempt Retry index.
+	 * @returns Resolves when this lookup is handled.
+	 */
+	async function lookup(request: DescriptionRequest, attempt: number) {
+		if (!requests.has(request)) return
+		try {
+			const response: unknown = await api.get(
+				`/files/${encodeURIComponent(request.id)}?fields=id,description`,
+				{
+					signal: request.controller.signal,
+				},
+			)
+			if (!requests.has(request) || disposed || request.editor.isDestroyed) return
+			const result = responseSchema.safeParse(response)
+			if (
+				result.success &&
+				result.data.data.data.id === request.id &&
+				result.data.data.data.description
+			) {
+				const description = result.data.data.data.description
+				if (draftRequest.value === request && !altTextTouched.value)
+					altText.value = description
+				finish(request)
+				if (request.position !== undefined && !disabled() && request.editor.isEditable) {
+					const node = request.editor.state.doc.nodeAt(request.position)
+					if (
+						node?.type.name === 'image' &&
+						node.attrs.src === request.source &&
+						node.attrs.alt === request.alt
+					) {
+						request.editor.view.dispatch(
+							request.editor.state.tr
+								.setNodeMarkup(request.position, undefined, {
+									...node.attrs,
+									alt: description,
+								})
+								.setMeta('addToHistory', false),
+						)
+					}
+				}
+				return
+			}
+		} catch {
+			// Missing metadata and failed reads are optional enhancement failures.
+		}
+		if (requests.has(request)) schedule(request, attempt + 1)
+	}
+
+	/**
+	 * Locate the inserted image in the transaction's changed ranges, without matching duplicates.
+	 * @param transaction Image insertion transaction.
+	 * @param source Persisted image source.
+	 * @returns Position of the newly inserted image, if present.
+	 */
+	function insertionPosition(transaction: Transaction, source: string): number | undefined {
+		let position: number | undefined
+		transaction.mapping.maps.forEach((map, index) => {
+			map.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+				if (newEnd <= newStart) return
+				const remaining = transaction.mapping.slice(index + 1)
+				const from = remaining.map(newStart, -1)
+				const to = remaining.map(newEnd, 1)
+				transaction.doc.nodesBetween(from, to, (node, nodePosition) => {
+					if (node.type.name === 'image' && node.attrs.src === source)
+						position = nodePosition
+				})
+			})
+		})
+		return position
+	}
+
+	/**
+	 * Transfer a pending draft lookup to the exact image occurrence after insertion succeeds.
+	 * @param position Position captured from the insertion transaction.
+	 * @param source Persisted image source.
+	 * @returns Nothing.
+	 */
+	function commitInsertion(position: number | undefined, source: string) {
+		const request = draftRequest.value
+		if (!request) return
+		if (position === undefined) {
+			finish(request)
+			return
+		}
+		request.position = position
+		request.source = source
+		request.alt = altText.value
+	}
+
+	/**
+	 * Map pending image occurrences through edits and cancel deleted or manually changed targets.
+	 * @param event Editor transaction event.
+	 * @param event.transaction Current editor transaction.
+	 * @returns Nothing.
+	 */
+	function onTransaction({ transaction }: { transaction: Transaction }) {
+		if (!transaction.docChanged) return
+		if (editingPosition !== undefined)
+			editingPosition = transaction.mapping.map(editingPosition)
+		for (const request of requests) {
+			if (request.position === undefined) continue
+			const mapped = transaction.mapping.mapResult(request.position)
+			const node = transaction.doc.nodeAt(mapped.pos)
+			if (
+				mapped.deleted ||
+				node?.type.name !== 'image' ||
+				node.attrs.src !== request.source ||
+				node.attrs.alt !== request.alt
+			) {
+				finish(request)
+			} else request.position = mapped.pos
+		}
+	}
+
+	/**
+	 * Cancel all outstanding metadata when the owning editor is destroyed or replaced.
+	 * @returns Nothing.
+	 */
+	function cancelAll() {
+		for (const request of requests) finish(request)
+	}
+
+	watch(
+		getEditor,
+		(editor, _previous, onCleanup) => {
+			if (!editor) return
+			editor.on('transaction', onTransaction)
+			editor.on('destroy', cancelAll)
+			onCleanup(() => {
+				editor.off('transaction', onTransaction)
+				editor.off('destroy', cancelAll)
+				cancelAll()
+			})
+		},
+		{ immediate: true, flush: 'sync' },
+	)
+	onBeforeUnmount(() => {
+		disposed = true
+		cancelAll()
+	})
 	return {
 		altText,
 		waitingForAltText,
+		pendingCount,
+		beginDraft,
+		closeDraft,
 		selectImage,
 		clearImage,
-		reset,
 		onAltTextInput,
 		onAltTextEdit,
+		insertionPosition,
+		commitInsertion,
 	}
 }
+
+export type ImageAltTextController = ReturnType<typeof useImageAltText>

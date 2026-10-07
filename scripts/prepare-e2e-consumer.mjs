@@ -6,7 +6,7 @@
  * the packaged extension into the consumer's Directus extensions directory.
  */
 import { execFileSync } from 'node:child_process'
-import { cp, mkdir, readdir, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 /** @typedef {(command: string, args: string[], options?: object) => string} ExecuteCommand */
@@ -53,12 +53,16 @@ export async function prepareE2EConsumer({
 		throw new Error(`No public package archives found in ${artifactDirectory}`)
 
 	await mkdir(consumerDirectory, { recursive: true })
+	const repositoryManifest = JSON.parse(
+		await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+	)
 	await writeFile(
 		join(consumerDirectory, 'package.json'),
 		`${JSON.stringify(
 			{
 				private: true,
 				type: 'module',
+				packageManager: repositoryManifest.packageManager,
 				dependencies,
 			},
 			null,

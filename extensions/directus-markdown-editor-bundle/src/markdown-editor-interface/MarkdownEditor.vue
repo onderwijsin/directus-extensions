@@ -22,6 +22,7 @@ import EditorToolbar from './components/toolbar/EditorToolbar.vue'
 import { useComponentMetadata } from './composables/useComponentMetadata'
 import { useEditorOverlays } from './composables/useEditorOverlays'
 import { useEditorShell } from './composables/useEditorShell'
+import { useImageAltText } from './composables/useImageAltText'
 import { refreshCodeHighlighting } from './editor/code-block'
 import { createEditorCommands, filterEditorCommands, isEditorToolEnabled } from './editor/commands'
 import { createEditorExtensions } from './editor/extensions'
@@ -386,6 +387,11 @@ const editor = useEditor({
 
 const commands = computed(() => filterEditorCommands(createEditorCommands(), enabledTools.value))
 
+const imageAltText = useImageAltText(
+	() => editor.value,
+	() => Boolean(disabled.value),
+)
+
 watch(
 	[editor, () => props.disabled],
 	/**
@@ -519,6 +525,7 @@ watch(
 					isEditorToolEnabled(enabledTools, 'video')
 				"
 				v-model="mediaDrawerOpen"
+				:image-alt-text="imageAltText"
 				:editor="editor"
 				:disabled="disabled"
 				:initial-type="mediaDrawerType"

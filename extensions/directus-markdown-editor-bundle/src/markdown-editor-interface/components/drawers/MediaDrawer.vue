@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
+import type { ImageAltTextController } from '../../composables/useImageAltText'
 
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 
 import { isString } from '@onderwijsin/directus-extension-utils'
 
-import { useImageAltText } from '../../composables/useImageAltText'
 import {
 	directusAssetId,
 	directusAssetUrl,
@@ -21,6 +21,7 @@ import VideoUploadField from '../fields/VideoUploadField.vue'
 
 const props = defineProps<{
 	editor: Editor
+	imageAltText: ImageAltTextController
 	disabled?: boolean
 	initialType?: 'image' | 'video'
 	assetStorageMode?: AssetStorageMode
@@ -35,10 +36,15 @@ const {
 	waitingForAltText,
 	selectImage,
 	clearImage,
-	reset,
+	beginDraft,
+	closeDraft,
+	insertionPosition,
+	commitInsertion,
 	onAltTextInput,
 	onAltTextEdit,
-} = useImageAltText(open, editing, () => Boolean(props.disabled))
+} = props.imageAltText
+
+onBeforeUnmount(closeDraft)
 const assetBaseError = computed(() =>
 	activeTab.value === 'image' &&
 	props.assetStorageMode === 'url' &&
@@ -68,8 +74,10 @@ watch(
 	 * @returns Nothing.
 	 */
 	(isOpen) => {
-		if (!isOpen) return
-		reset()
+		if (!isOpen) {
+			closeDraft()
+			return
+		}
 		activeTab.value = props.editor.isActive('video')
 			? 'video'
 			: props.editor.isActive('image')
@@ -79,7 +87,11 @@ watch(
 		editing.value = props.editor.isActive(nodeType)
 		const attrs = editing.value ? props.editor.getAttributes(nodeType) : {}
 		source.value = isString(attrs.src) ? attrs.src : ''
-		altText.value = nodeType === 'image' && isString(attrs.alt) ? attrs.alt : ''
+		beginDraft(
+			editing.value,
+			nodeType === 'image' && isString(attrs.alt) ? attrs.alt : '',
+			props.editor.state.selection.from,
+		)
 	},
 	{ immediate: true },
 )
@@ -117,6 +129,7 @@ function save() {
 			: sanitizeImageUrl(source.value)
 	if (!src) return
 	const nodeType = activeTab.value === 'video' ? 'video' : 'image'
+	let insertedPosition: number | undefined
 	const chain = props.editor.chain().focus()
 	if (editing.value && props.editor.isActive(nodeType))
 		chain.updateAttributes(
@@ -128,7 +141,15 @@ function save() {
 			type: nodeType,
 			attrs: nodeType === 'image' ? { src, alt: altText.value, title: null } : { src },
 		})
-	chain.run()
+	if (!editing.value && nodeType === 'image') {
+		chain.command(({ tr }) => {
+			insertedPosition = insertionPosition(tr, src)
+			return true
+		})
+	}
+	if (!chain.run()) return
+	if (!editing.value && nodeType === 'image') commitInsertion(insertedPosition, src)
+	closeDraft()
 	open.value = false
 }
 

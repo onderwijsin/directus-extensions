@@ -138,7 +138,9 @@ DIRECTUS_E2E_EXTENSIONS_DIR=/tmp/directus-extensions-consumer/extensions pnpm te
 ```
 
 The CI E2E job uses the same packed-artifact path. See [`testing.md`](testing.md) and
-[`docker.md`](docker.md) for the test project, service readiness, cleanup, and timeout contract.
+[`docker.md`](docker.md) for the test project, service readiness, cleanup, and timeout contract. The
+generated clean-consumer manifest inherits the repository's exact `packageManager` pin so Corepack
+uses the same pnpm version for its installation.
 
 ## Tools
 

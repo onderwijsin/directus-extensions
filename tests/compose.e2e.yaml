@@ -1,6 +1,15 @@
 name: directus-extensions-e2e
 
 services:
+  ai-metadata-mock:
+    image: node:24.10.0-alpine
+    restart: 'no'
+    command: ['node', '/opt/ai-metadata-mock/server.mjs']
+    volumes:
+      - ../tests/ai-metadata-mock/server.mjs:/opt/ai-metadata-mock/server.mjs:ro
+    networks:
+      - backend
+
   coolify-mock:
     image: node:24.10.0-alpine
     restart: 'no'
@@ -69,6 +78,8 @@ services:
         condition: service_started
       loops-mock:
         condition: service_started
+      ai-metadata-mock:
+        condition: service_started
     volumes:
       - '${DIRECTUS_E2E_EXTENSIONS_DIR:-../extensions}:/directus/extensions:ro'
       - '${DIRECTUS_E2E_EMAIL_TEMPLATES_DIR:-../extensions/directus-magic-links-bundle/templates}:/directus/templates:ro'
@@ -78,6 +89,11 @@ services:
       # Disabled by default; CI may provide a license key explicitly.
       LICENSE_KEY: ${LICENSE_KEY:-}
       EXTENSIONS_AUTO_RELOAD: 'false'
+      AI_METADATA_WRITER_PROVIDER: openai-compatible
+      AI_METADATA_WRITER_MODEL: vision-test
+      AI_METADATA_WRITER_API_KEY: e2e-unused-key
+      AI_METADATA_WRITER_LANGUAGE: Dutch
+      AI_METADATA_WRITER_BASE_URL: http://ai-metadata-mock:3000/v1
       MAGIC_LINKS_ENABLED: 'true'
       MAGIC_LINKS_COLLECTION: custom_links
       COOLIFY_DEPLOYMENTS_ENABLED: 'true'

@@ -72,3 +72,19 @@ The Sentry bundle is explicitly disabled by default in both local Compose and E2
 Enabling it requires the consumer to install the Sentry Node dependencies in the Directus runtime
 image and provide a `sentry-instrument.js` file through `NODE_OPTIONS`; the extension package does
 not provide either deployment artifact.
+
+## Image metadata operations
+
+Local Compose passes `DIRECTUS_EXTENSIONS_AI_PROVIDER` (default `mistral`),
+`DIRECTUS_EXTENSIONS_AI_MODEL` (default `mistral-medium-latest`), and
+`DIRECTUS_EXTENSIONS_AI_API_KEY` (unset by default) from the root `.env` file to Directus. These
+shared values configure both the Markdown Editor and image metadata operations. Extension-specific
+`EDITOR_AI_*` and `AI_METADATA_WRITER_*` variables remain supported overrides; local Compose does
+not set editor-specific provider, model, or API key defaults.
+
+The image metadata bundle registers explicit-file and manual backfill operations. They resolve
+server-only provider configuration from operation overrides, extension environment, shared AI
+environment, and Directus credentials. See its
+[README](../extensions/directus-ai-image-metadata-bundle/README.md) for configuration. Local Compose
+consumers can supply those variables with a Compose override. The E2E overlay sets an
+OpenAI-compatible provider pointing to `ai-metadata-mock`; no live AI credentials are required.
