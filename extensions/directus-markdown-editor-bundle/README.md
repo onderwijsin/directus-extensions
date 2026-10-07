@@ -551,9 +551,30 @@ published article.
 | Updated Studio docs are not visible  | Inspect the `incoming` content version when the Studio Docs seeding strategy is `versioning`.                                                                                                                                       |
 | Startup reports a lock skip/error    | Configure Redis or a shared filesystem lock for multi-process deployments.                                                                                                                                                          |
 
-## License
+## Default image alt text
 
-MIT
+For new image insertions, selecting a Directus file prefills alt text from its trimmed, non-empty
+`directus_files.description`. If unavailable, the editor checks again after 500 ms, 1 s, 2 s, 4 s,
+and 8 s, then stops silently. **Waiting for image metadata… Save the image to continue in the
+background. Stay on this page.** shows with a small spinner during these checks; typing and saving
+remain available. Metadata generation belongs to your project; the editor only reads descriptions
+using the current Studio session. Allow authors read access to the selected file's `id` and
+`description` for delayed descriptions to be available. Failed or denied reads leave insertion
+available without a default.
+
+Editing or clearing alt text makes the author's value authoritative for the rest of that insertion,
+even when another image is selected. Before any manual edit, selecting another image replaces the
+previous automatic description and invalidates pending checks. Deselecting an image or cancelling an
+unsaved insertion stops its checks. Saving the image transfers the lookup to that exact Markdown
+image occurrence: closing or unmounting the drawer then allows the bounded retries to continue while
+the editor remains mounted. A result fills the open field or updates the inserted image's alt text
+in the Markdown value, without saving the Directus item automatically. Stay on the page until the
+metadata resolves; leaving the page or destroying the editor cancels pending work. Deleting,
+undoing, replacing, or manually changing a pending image prevents a late description from updating
+it. Other images using the same file are unaffected. Existing images retain their serialized alt
+text when edited; opening their drawer does not start a new lookup. Reopening an image that still
+has its insertion lookup pending shows the waiting state and permits manual edits to cancel that
+default. Markdown image syntax remains unchanged.
 
 ### Provider-bound configuration
 
@@ -566,3 +587,7 @@ lower-layer credentials are not inherited.
 An empty or whitespace-only `DIRECTUS_EXTENSIONS_AI_API_KEY` environment value is treated as unset,
 allowing startup without an AI key and provider-matched credential fallback. Generation still
 requires a complete resolved configuration.
+
+## License
+
+MIT

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
+import type { ImageAltTextController } from '../../composables/useImageAltText'
 
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 
 import { isString } from '@onderwijsin/directus-extension-utils'
 
@@ -20,6 +21,7 @@ import VideoUploadField from '../fields/VideoUploadField.vue'
 
 const props = defineProps<{
 	editor: Editor
+	imageAltText: ImageAltTextController
 	disabled?: boolean
 	initialType?: 'image' | 'video'
 	assetStorageMode?: AssetStorageMode
@@ -28,8 +30,21 @@ const props = defineProps<{
 const open = defineModel<boolean>({ default: false })
 const activeTab = ref('image')
 const source = ref('')
-const altText = ref('')
 const editing = shallowRef(false)
+const {
+	altText,
+	waitingForAltText,
+	selectImage,
+	clearImage,
+	beginDraft,
+	closeDraft,
+	insertionPosition,
+	commitInsertion,
+	onAltTextInput,
+	onAltTextEdit,
+} = props.imageAltText
+
+onBeforeUnmount(closeDraft)
 const assetBaseError = computed(() =>
 	activeTab.value === 'image' &&
 	props.assetStorageMode === 'url' &&
@@ -59,7 +74,10 @@ watch(
 	 * @returns Nothing.
 	 */
 	(isOpen) => {
-		if (!isOpen) return
+		if (!isOpen) {
+			closeDraft()
+			return
+		}
 		activeTab.value = props.editor.isActive('video')
 			? 'video'
 			: props.editor.isActive('image')
@@ -69,8 +87,13 @@ watch(
 		editing.value = props.editor.isActive(nodeType)
 		const attrs = editing.value ? props.editor.getAttributes(nodeType) : {}
 		source.value = isString(attrs.src) ? attrs.src : ''
-		altText.value = nodeType === 'image' && isString(attrs.alt) ? attrs.alt : ''
+		beginDraft(
+			editing.value,
+			nodeType === 'image' && isString(attrs.alt) ? attrs.alt : '',
+			props.editor.state.selection.from,
+		)
 	},
+	{ immediate: true },
 )
 
 /**
@@ -106,6 +129,7 @@ function save() {
 			: sanitizeImageUrl(source.value)
 	if (!src) return
 	const nodeType = activeTab.value === 'video' ? 'video' : 'image'
+	let insertedPosition: number | undefined
 	const chain = props.editor.chain().focus()
 	if (editing.value && props.editor.isActive(nodeType))
 		chain.updateAttributes(
@@ -117,7 +141,15 @@ function save() {
 			type: nodeType,
 			attrs: nodeType === 'image' ? { src, alt: altText.value, title: null } : { src },
 		})
-	chain.run()
+	if (!editing.value && nodeType === 'image') {
+		chain.command(({ tr }) => {
+			insertedPosition = insertionPosition(tr, src)
+			return true
+		})
+	}
+	if (!chain.run()) return
+	if (!editing.value && nodeType === 'image') commitInsertion(insertedPosition, src)
+	closeDraft()
 	open.value = false
 }
 
@@ -154,16 +186,27 @@ function remove() {
 						v-bind="field"
 						:storage-mode="assetStorageMode ?? 'path'"
 						:base-url="assetBaseUrl"
+						@select="selectImage"
+						@clear="clearImage"
 					/>
 				</template>
 			</Field>
 			<Field v-if="activeTab === 'image'" label="Alt text" :disabled="disabled">
 				<template #default="field">
 					<StringInput
-						v-model="altText"
+						:model-value="altText"
+						@update:model-value="onAltTextInput"
+						@input="onAltTextEdit"
 						v-bind="field"
 						placeholder="Describe the image"
 					/>
+					<p v-if="waitingForAltText" class="media-drawer__status" role="status">
+						<VProgressCircular indeterminate x-small aria-hidden="true" />
+						<span
+							>Waiting for image metadata… Save the image to continue in the
+							background. Don't navigate away from this page.</span
+						>
+					</p>
 				</template>
 			</Field>
 			<VideoUploadField
@@ -186,6 +229,18 @@ function remove() {
 </template>
 
 <style scoped>
+.media-drawer__status {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: var(--theme--foreground-subdued);
+	font-size: 0.875rem;
+}
+
+.media-drawer__status :deep(.v-progress-circular) {
+	flex-shrink: 0;
+}
+
 .media-drawer__content {
 	display: grid;
 	gap: 1rem;
