@@ -216,3 +216,22 @@ values. Both operations use the same configuration. Directus AI settings supply 
 credentials, but do not supply a default provider or model: set these in operation options,
 `AI_METADATA_WRITER_PROVIDER` / `AI_METADATA_WRITER_MODEL`, or `DIRECTUS_EXTENSIONS_AI_PROVIDER` /
 `DIRECTUS_EXTENSIONS_AI_MODEL`. Mistral credentials must come from environment configuration.
+
+### Provider-bound configuration
+
+Provider-sensitive inheritance is restricted to matching providers. A layer without a provider
+belongs to the provider inherited from lower layers; lower-layer models, API keys, and base URLs
+never acquire an overridden provider from above. When changing provider, supply a matching model and
+credentials in that layer, another matching layer, or provider-matched Directus settings. Unbound
+lower-layer credentials are not inherited.
+
+### Requested metadata outputs
+
+Alt text is always requested. Tags and filename are requested and validated only when `generateTags`
+and `generateFilename` are enabled. Disabled fields are omitted from the output schema and discarded
+if the model returns them, so malformed unused tags or filenames cannot fail alt-text-only
+generation.
+
+An empty or whitespace-only `DIRECTUS_EXTENSIONS_AI_API_KEY` environment value is treated as unset,
+allowing startup without an AI key and provider-matched credential fallback. Generation still
+requires a complete resolved configuration.

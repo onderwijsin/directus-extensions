@@ -91,4 +91,23 @@ export const metadataSchema = z.object({
 		.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
 })
 
-export type GeneratedMetadata = z.output<typeof metadataSchema>
+/**
+ * Requests only enabled optional fields; unrequested provider fields are stripped.
+ * @param options - Optional metadata generation switches.
+ * @returns Output schema requiring only the requested fields.
+ */
+export function createMetadataSchema(
+	options: Pick<MetadataOptions, 'generateTags' | 'generateFilename'>,
+) {
+	if (options.generateTags && options.generateFilename) return metadataSchema
+	if (options.generateTags) return metadataSchema.omit({ filename: true })
+	if (options.generateFilename) return metadataSchema.omit({ tags: true })
+	return metadataSchema.pick({ altText: true })
+}
+
+/** Validated alt text with optional fields present only when requested. */
+export interface GeneratedMetadata {
+	altText: string
+	tags?: string[]
+	filename?: string
+}

@@ -80,6 +80,7 @@ export function createMetadataProcessor(
 				file.type?.trim().toLowerCase() ?? '',
 				createMetadataSystemPrompt(options, env),
 				signal,
+				options,
 			),
 		)
 		if (generation.data === null) {

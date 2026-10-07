@@ -77,7 +77,7 @@ describe('metadata provider boundary', () => {
 		)
 		expect(mocks.generateText).toHaveBeenCalledWith(
 			expect.objectContaining({
-				instructions: 'Describe visible text in Dutch.',
+				instructions: expect.stringContaining('Return only these JSON fields: altText.'),
 				abortSignal: signal,
 				messages: [
 					{
@@ -109,6 +109,51 @@ describe('metadata provider boundary', () => {
 			),
 		).rejects.toThrow()
 	})
+	it.each([
+		{ generateTags: false, generateFilename: false },
+		{ generateTags: true, generateFilename: false },
+		{ generateTags: false, generateFilename: true },
+		{ generateTags: true, generateFilename: true },
+	])('requests and validates only enabled fields: %j', async (options) => {
+		mocks.generateText.mockResolvedValue({
+			output: {
+				altText: 'A classroom.',
+				tags: options.generateTags ? ['classroom'] : null,
+				filename: options.generateFilename ? 'classroom' : 'Klassenfoto 2026.jpg',
+			},
+		})
+		const result = await generateMetadata(
+			parseConfig({ provider: 'openai', model: 'vision-test', apiKey: 'secret' }),
+			new Uint8Array([1]),
+			'image/png',
+			'prompt',
+			AbortSignal.timeout(1000),
+			options,
+		)
+		expect(result).toEqual({
+			altText: 'A classroom.',
+			...(options.generateTags ? { tags: ['classroom'] } : {}),
+			...(options.generateFilename ? { filename: 'classroom' } : {}),
+		})
+		const request = mocks.generateText.mock.calls[0]?.[0]
+		expect(request.instructions).toContain(options.generateTags ? 'altText, tags' : 'altText')
+	})
+	it.each(['tags', 'filename'])('rejects invalid requested %s output', async (field) => {
+		mocks.generateText.mockResolvedValue({
+			output: { altText: 'A classroom.', tags: null, filename: 'Klassenfoto 2026.jpg' },
+		})
+		await expect(
+			generateMetadata(
+				parseConfig({ provider: 'openai', model: 'vision-test', apiKey: 'secret' }),
+				new Uint8Array([1]),
+				'image/png',
+				'prompt',
+				AbortSignal.timeout(1000),
+				{ generateTags: field === 'tags', generateFilename: field === 'filename' },
+			),
+		).rejects.toThrow()
+	})
+
 	it('requires a compatible-provider endpoint and rejects unsupported adapters', () => {
 		expect(() =>
 			parseConfig({ provider: 'openai-compatible', model: 'vision', apiKey: 'key' }),

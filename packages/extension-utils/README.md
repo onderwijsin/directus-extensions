@@ -381,11 +381,12 @@ ordinary-schema callback, or shared-shape callback.
 
 `aiConfig` validates the optional `DIRECTUS_EXTENSIONS_AI_PROVIDER`, `DIRECTUS_EXTENSIONS_AI_MODEL`,
 `DIRECTUS_EXTENSIONS_AI_API_KEY`, and `DIRECTUS_EXTENSIONS_AI_BASE_URL` environment values.
-`resolveAiConfig` applies values per field in this order: extension option overrides,
-extension-specific environment, shared environment, then a provider-matched Directus credential.
-Directus supplies credentials—not a general default provider or model—so a provider and model must
-still be selected by a higher-precedence layer. Validate the result with `resolvedAiConfigSchema`,
-which requires a non-blank provider, model, and API key and accepts an optional base URL.
+`resolveAiConfig` applies values within matching provider layers in this order: extension option
+overrides, extension-specific environment, shared environment, then a provider-matched Directus
+credential. Directus supplies credentials—not a general default provider or model—so a provider and
+model must still be selected by a higher-precedence layer. Validate the result with
+`resolvedAiConfigSchema`, which requires a non-blank provider, model, and API key and accepts an
+optional base URL.
 
 Use `readDirectusAiSettings` with an internal `SettingsService` constructed without accountability.
 That makes Directus decrypt the `special: [encrypt]` provider keys. Call it only after authorizing
@@ -672,3 +673,15 @@ for usage examples and the
 for coordination terminology. Maintainers can use the
 [API reference](https://github.com/onderwijsin/directus-extensions/blob/main/.agents/skills/directus-extension-utils/references/api-reference.md)
 for the complete export and option surface.
+
+### Provider-bound configuration
+
+Provider-sensitive inheritance is restricted to matching providers. A layer without a provider
+belongs to the provider inherited from lower layers; lower-layer models, API keys, and base URLs
+never acquire an overridden provider from above. When changing provider, supply a matching model and
+credentials in that layer, another matching layer, or provider-matched Directus settings. Unbound
+lower-layer credentials are not inherited.
+
+An empty or whitespace-only `DIRECTUS_EXTENSIONS_AI_API_KEY` environment value is treated as unset,
+allowing startup without an AI key and provider-matched credential fallback. Generation still
+requires a complete resolved configuration.

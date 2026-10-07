@@ -48,9 +48,14 @@ export function createMetadataPatch(
 	const patch: { description?: string; tags?: string[]; filename_download?: string } = {}
 	if (options.overwriteAltText || !isNonBlankString(file.description))
 		patch.description = generated.altText
-	if (options.generateTags && (options.overwriteTags || !hasTags(file.tags)))
+	if (
+		generated.tags !== undefined &&
+		options.generateTags &&
+		(options.overwriteTags || !hasTags(file.tags))
+	)
 		patch.tags = [...new Set(generated.tags)]
 	if (
+		generated.filename !== undefined &&
 		options.generateFilename &&
 		(options.overwriteFilename || !isNonBlankString(file.filename_download))
 	)

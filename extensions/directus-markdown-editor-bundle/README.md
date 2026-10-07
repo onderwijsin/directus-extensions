@@ -554,3 +554,15 @@ published article.
 ## License
 
 MIT
+
+### Provider-bound configuration
+
+Provider-sensitive inheritance is restricted to matching providers. A layer without a provider
+belongs to the provider inherited from lower layers; lower-layer models, API keys, and base URLs
+never acquire an overridden provider from above. When changing provider, supply a matching model and
+credentials in that layer, another matching layer, or provider-matched Directus settings. Unbound
+lower-layer credentials are not inherited.
+
+An empty or whitespace-only `DIRECTUS_EXTENSIONS_AI_API_KEY` environment value is treated as unset,
+allowing startup without an AI key and provider-matched credential fallback. Generation still
+requires a complete resolved configuration.

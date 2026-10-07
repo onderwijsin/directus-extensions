@@ -12,7 +12,7 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 import { generateText, Output } from 'ai'
 
-import { metadataSchema } from './options'
+import { createMetadataSchema, type MetadataOptions } from './options'
 
 /** Complete server-only configuration using the utility's supplied Zod runtime. */
 export const providerConfigSchema = defineExtensionOptionsSchema(createProviderConfigSchema)
@@ -81,6 +81,7 @@ export function createMetadataModel(config: ProviderConfig): LanguageModel {
  * @param mediaType - Validated image MIME type.
  * @param prompt - Effective system instructions.
  * @param signal - Bounded execution signal.
+ * @param options - Optional fields to request and validate.
  * @returns Validated metadata.
  */
 export async function generateMetadata(
@@ -89,11 +90,21 @@ export async function generateMetadata(
 	mediaType: string,
 	prompt: string,
 	signal: AbortSignal,
+	options: Pick<MetadataOptions, 'generateTags' | 'generateFilename'> = {
+		generateTags: false,
+		generateFilename: false,
+	},
 ) {
+	const schema = createMetadataSchema(options)
+	const requestedFields = [
+		'altText',
+		...(options.generateTags ? ['tags'] : []),
+		...(options.generateFilename ? ['filename'] : []),
+	]
 	const result = await generateText({
 		model: createMetadataModel(config),
-		instructions: prompt,
-		output: Output.object({ schema: metadataSchema }),
+		instructions: `${prompt}\n\nReturn only these JSON fields: ${requestedFields.join(', ')}. Do not generate omitted fields.`,
+		output: Output.object({ schema }),
 		messages: [
 			{
 				role: 'user',
@@ -105,5 +116,5 @@ export async function generateMetadata(
 		],
 		abortSignal: signal,
 	})
-	return metadataSchema.parse(result.output)
+	return schema.parse(result.output)
 }
