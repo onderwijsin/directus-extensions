@@ -98,11 +98,6 @@
 				"source": "src/coolify-deployments-module/index.ts"
 			},
 			{
-				"name": "coolify-deploy-application-select",
-				"type": "interface",
-				"source": "src/coolify-deploy-application-select/index.ts"
-			},
-			{
 				"name": "coolify-deployments-hook",
 				"type": "hook",
 				"source": "src/coolify-deployments-hook/index.ts"

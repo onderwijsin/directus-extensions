@@ -31,6 +31,7 @@ vi.mock('../src/shared/coolify-client', () => ({
 
 import operationApp from '../src/coolify-deploy-operation'
 import operationApi from '../src/coolify-deploy-operation/api'
+import OperationOptions from '../src/coolify-deploy-operation/options.vue'
 
 describe('Coolify deploy operation', () => {
 	beforeEach(() => {
@@ -99,17 +100,9 @@ describe('Coolify deploy operation', () => {
 		},
 	)
 
-	it('exposes an async application select without hardcoding the configured collection', () => {
+	it('registers the custom operation options component', () => {
 		expect(operationApp).toMatchObject({ id: 'coolify-deploy', name: 'Coolify Deploy' })
-		expect(operationApp.options).toEqual([
-			expect.objectContaining({
-				field: 'application',
-				meta: expect.objectContaining({
-					interface: 'coolify-deploy-application-select',
-					note: 'Select an enabled, deploy-enabled application.',
-				}),
-			}),
-		])
+		expect(operationApp.options).toBe(OperationOptions)
 	})
 
 	it('registers a server handler for the operation', () => {

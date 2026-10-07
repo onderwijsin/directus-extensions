@@ -12,9 +12,9 @@ This bundle mediates between Directus and one Coolify instance. It allow-lists a
 Directus collection, displays their current state in Studio, and exposes authenticated routes for
 reading, triggering, and cancelling deployments. Coolify credentials stay on the server.
 
-The Flow operation uses a Directus `VSelect` interface to choose an application item ID, rechecks
-that the record is enabled and deploy-enabled, and triggers its Coolify deployment. Credentials stay
-on the server.
+The Flow operation uses a custom operation options component with Directus `VSelect` to choose an
+application item ID, rechecks that the record is enabled and deploy-enabled, and triggers its
+Coolify deployment. Credentials stay on the server.
 
 ## Prerequisites and installation
 
@@ -321,14 +321,17 @@ assign policies, refresh existing records, create Coolify resources, or persist 
 
 ### Flow operation: `coolify-deploy-operation`
 
-`Coolify Deploy` exposes one `Application` option using the `coolify-deploy-application-select`
-interface and Directus' `VSelect` component. Studio loads choices from
-`GET /coolify-deployments/operation/applications`; the endpoint resolves
-`COOLIFY_APPLICATIONS_COLLECTION` server-side and returns only enabled, deploy-enabled
-`{ id, name }` values. The read-data policy authorizes this custom endpoint; it does not grant
-direct access to the configured collection. The interface displays loading, empty, and request-error
-states. The stored value is still the Directus item ID, so custom application collection names
-require no client configuration.
+The selector is available only in the operation form and is not registered as a global field
+interface. Existing Flows retain the `{ "application": "<directus-item-id>" }` options shape and
+require no migration. A saved application that is no longer listed remains visible by its item ID.
+
+`Coolify Deploy` exposes one `Application` option in a custom operation options component using
+Directus' `VSelect`. Studio loads choices from `GET /coolify-deployments/operation/applications`;
+the endpoint resolves `COOLIFY_APPLICATIONS_COLLECTION` server-side and returns only enabled,
+deploy-enabled `{ id, name }` values. The read-data policy authorizes this custom endpoint; it does
+not grant direct access to the configured collection. The operation form displays loading, empty,
+and request-error states. The stored value is still the Directus item ID, so custom application
+collection names require no client configuration.
 
 The operation re-reads the selected record when the flow runs, checks both flags again, and calls
 Coolify's deployment API with that record's `application_uuid`. User-associated executions require

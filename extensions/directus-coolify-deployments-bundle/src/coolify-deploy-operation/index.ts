@@ -1,6 +1,14 @@
-import { defineOperationApp } from '@directus/extensions-sdk'
+import type { defineOperationApp } from '@directus/extensions-sdk'
 
-export default defineOperationApp({
+import OperationOptions from './options.vue'
+
+// Directus supports component options at runtime, but the SDK's
+// Exclude<ComponentOptions, any> removes that branch from its options type.
+type ComponentOperationConfig = Omit<Parameters<typeof defineOperationApp>[0], 'options'> & {
+	options: typeof OperationOptions
+}
+
+export default {
 	id: 'coolify-deploy',
 	name: 'Coolify Deploy',
 	icon: 'rocket_launch',
@@ -11,23 +19,11 @@ export default defineOperationApp({
 	 * @param options.application - Directus ID of the configured application.
 	 * @returns The operation card overview.
 	 */
-	overview: ({ application }) => [
+	overview: ({ application }: { application?: string }) => [
 		{
 			label: 'Application',
 			text: application,
 		},
 	],
-	options: [
-		{
-			field: 'application',
-			name: 'Application',
-			type: 'string',
-			meta: {
-				width: 'full',
-				interface: 'coolify-deploy-application-select',
-				note: 'Select an enabled, deploy-enabled application.',
-				required: true,
-			},
-		},
-	],
-})
+	options: OperationOptions,
+} satisfies ComponentOperationConfig
