@@ -152,11 +152,14 @@ onUnmounted(() => {
 <style scoped>
 .module-page {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 32px;
 	padding: var(--content-padding);
 }
 section {
+	min-width: 0;
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 12px;
 }
 h2 {

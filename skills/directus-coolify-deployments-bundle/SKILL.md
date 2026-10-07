@@ -314,6 +314,9 @@ requests only the visible page. The dashboard maps per-application Coolify resul
 configured application UUID before rendering them, and empty recent history is shown in a contained
 soft card.
 
+Deployment history and deployment details tables scroll horizontally on narrow screens so their
+columns remain readable.
+
 ### Startup hook: `coolify-deployments-hook`
 
 The hook reconciles the collection schema and policies and registers the create filter. It does not

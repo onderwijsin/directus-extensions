@@ -263,6 +263,7 @@ watch(page, (value, previousValue) => {
 <style scoped>
 .page {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 24px;
 	padding: var(--content-padding);
 }
@@ -330,7 +331,9 @@ watch(page, (value, previousValue) => {
 	overflow-wrap: anywhere;
 }
 section {
+	min-width: 0;
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 12px;
 }
 @media (max-width: 900px) {

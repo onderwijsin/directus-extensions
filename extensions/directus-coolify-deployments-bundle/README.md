@@ -365,6 +365,9 @@ deployments returned by Coolify's per-application endpoint are associated with t
 application before they are displayed, including when Coolify supplies an internal application ID in
 the response. Empty recent history is shown in a contained soft card.
 
+Deployment history and deployment details tables scroll horizontally on narrow screens so their
+columns remain readable.
+
 ## Flow operation
 
 `Coolify Deploy` has one `Application` option backed by the custom

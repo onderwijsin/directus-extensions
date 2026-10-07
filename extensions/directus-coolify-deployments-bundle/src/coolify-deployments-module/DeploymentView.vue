@@ -148,7 +148,12 @@ onUnmounted(() => {
 					</div>
 				</div>
 				<LoadingSkeleton v-if="loading" :lines="10" />
-				<div v-else-if="deployment" class="metadata-card">
+				<div
+					v-else-if="deployment"
+					class="metadata-card"
+					tabindex="0"
+					aria-label="Deployment details"
+				>
 					<table class="metadata-table">
 						<tbody>
 							<tr>
@@ -207,10 +212,12 @@ onUnmounted(() => {
 }
 .page {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 24px;
 	padding: var(--content-padding);
 }
 .deployment-details {
+	min-width: 0;
 	display: flex;
 	flex-direction: column;
 	gap: 24px;
@@ -235,10 +242,14 @@ onUnmounted(() => {
 	gap: 12px;
 }
 .metadata-table {
+	min-width: 560px;
 	width: 100%;
 	border-collapse: collapse;
 }
 .metadata-card {
+	min-width: 0;
+	max-width: 100%;
+	overflow-x: auto;
 	padding: 8px 20px;
 	border: 1px solid var(--border-normal);
 	border-radius: 8px;
