@@ -115,6 +115,7 @@ export async function generateMetadata(
 			},
 		],
 		abortSignal: signal,
+		maxRetries: 2,
 	})
 	return schema.parse(result.output)
 }

@@ -95,8 +95,8 @@ Default image MIME selection: `image/jpeg`, `image/png`, `image/gif`, and `image
 common vision-model input formats. Check the configured provider/model's restrictions; for example,
 OpenAI supports only non-animated GIF inputs. Other formats such as SVG, AVIF, TIFF, and HEIC are
 excluded by default. Change `mimeTypes` only to formats your model supports. Original image bytes
-are sent without conversion or rasterization; unsupported inputs reject through the Flow error
-branch.
+are sent without conversion or rasterization; unsupported inputs produce classified failures
+(single-file runs reject).
 
 The Studio shows **Overwrite Tags** only when **Generate Tags** is enabled, and **Overwrite
 Filename** only when **Generate Download Filename** is enabled. Disabling generation hides its
@@ -151,8 +151,8 @@ as the file ID. For a manual multi-file trigger, pass its selected keys.
 ```
 
 The output is
-`{ "results": [{ "id": "...", "status": "updated", "fields": ["description", "tags"] }] }`. Skipped
-files return `status: "skipped"` and `fields: []`. No private image, credential, or provider
+`{ "results": [{ "id": "...", "status": "updated", "durationMs": 1200, "fields": ["description", "tags"] }] }`.
+Skipped files return `status: "skipped"` and `fields: []`. No private image, credential, or provider
 response is included.
 
 ### Manual backfill
@@ -174,13 +174,14 @@ response is included.
 }
 ```
 
-Returns `{ "results": [], "scanned": 0, "nextOffset": null, "complete": true }` when no files
-remain. Continue with the returned `nextOffset` as `offset` until `complete` is true. Keep
-selection/options unchanged across pages. Keep the matching file set stable during a paged scan:
-concurrent additions, deletions, or changes to MIME/folder membership can shift offsets. Restart
-from offset 0 with missingOnly enabled after such changes. Metadata writes do not change query
-membership. For regeneration, set `missingOnly: false` and enable the overwrite control for each
-field to replace. Tags and filename also require their generation options. For example,
+An empty exhausted run returns an empty `results` array, `scanned: 0`, `nextOffset: null`,
+`complete: true`, and a zero-count `summary`. Continue while `nextOffset` is non-null, then retry
+failed IDs separately. `complete` remains false when any file failed, even after enumeration
+exhausted. Keep selection/options unchanged across pages. Keep the matching file set stable during a
+paged scan: concurrent additions, deletions, or changes to MIME/folder membership can shift offsets.
+Restart from offset 0 with missingOnly enabled after such changes. Metadata writes do not change
+query membership. For regeneration, set `missingOnly: false` and enable the overwrite control for
+each field to replace. Tags and filename also require their generation options. For example,
 `generateTags: true`, `overwriteTags: true`, and `missingOnly: false` replaces existing tags while
 preserving populated alt text and filenames. `missingOnly: false` alone still preserves populated
 fields. To generate only missing alt text, leave optional fields disabled; enable `generateTags` to
@@ -194,13 +195,10 @@ server-side credential resolution; file access is never elevated by this extensi
 use Directus internal services and emit normal Directus update events. Avoid a Flow that recursively
 invokes these operations on their own `files.update` events.
 
-Invalid options, empty images, and excessive image size reject with `INVALID_PAYLOAD`.
-Incomplete/unsupported provider configuration rejects with `AI_METADATA_WRITER_UNAVAILABLE`.
-Provider failures and malformed output reject with `AI_METADATA_WRITER_GENERATION_FAILED`. Existing
-Directus service/permission errors are preserved. Unknown internal failures are masked; provider
-response bodies and credentials are not logged. Each file update is atomic, but a batch is not one
-transaction: successful earlier files remain updated if a later file fails. Connect a Flow rejection
-branch; rerun a missing-only backfill to resume safely after addressing a failure.
+Invalid options, unresolved shared provider configuration, and enumeration faults reject the Flow.
+Single-file explicit runs still reject on file failure. Multi-file explicit runs and regeneration
+isolate file failures: successful writes before and after a failure persist. Rejected errors are
+masked; no arbitrary upstream message is returned. Each file update remains atomic.
 
 ## Troubleshooting
 
@@ -222,7 +220,8 @@ branch; rerun a missing-only backfill to resume safely after addressing a failur
 4. Test a private image and confirm description/tags are written under the Flow permissions.
 5. Review generated alt text, then wire description into the consuming site's image alt attributes.
 6. For backfills, continue with nextOffset until complete; enable each overwrite control only when
-   replacement is intended. Keep a rejection branch for partial-batch failures.
+   replacement is intended. Branch on summary.hasFailures for regeneration; keep a rejection branch
+   for fatal errors.
 
 For an OpenAI-compatible deployment, set AI_METADATA_WRITER_PROVIDER=openai-compatible,
 AI_METADATA_WRITER_MODEL to a vision model, and AI_METADATA_WRITER_BASE_URL to the provider's API
@@ -256,3 +255,150 @@ generation.
 An empty or whitespace-only `DIRECTUS_EXTENSIONS_AI_API_KEY` environment value is treated as unset,
 allowing startup without an AI key and provider-matched credential fallback. Generation still
 requires a complete resolved configuration.
+
+## Regeneration diagnostics
+
+Regeneration returns `{summary, results, scanned, nextOffset, complete}`. Every result has `id`,
+`status`, `durationMs`, and `fields`; failed results additionally have
+`error: {stage, code, retryable, httpStatus?, message}`. Messages and codes are allowlisted. Stages
+cover `read_file`, `resolve_provider`, `read_asset`, `read_bytes`, `convert_image`, `generate`, and
+`write_metadata`; conversion is reserved for future format support. Fatal summaries may identify
+`validate_options`, `enumerate`, or `shutdown`.
+
+`filesFound` counts distinct fetched candidates, including the one-record continuation probe;
+`filesAttempted` counts admitted files including skips. Updated/skipped/failed counts describe
+settled outcomes. A fatal attempted file can have no settled result. Provider/model are null when no
+eligible file resolved configuration. Summary options are null if validation failed. `durationMs`
+uses a monotonic clock. Results retain selection order. Processing remains sequential:
+`summary.options.concurrency` is always 1, not a configurable input in this patch.
+
+`complete` means enumeration exhausted without file failures. A capped run has `complete: false`; a
+partial failure also has `complete: false` even if `nextOffset: null`. Numeric offset semantics are
+unchanged, not deprecated in this patch. Do not loop on `complete` alone: continue with a non-null
+`nextOffset`, then retry failed IDs with the explicit-file operation after resolving the cause. The
+scan does not persist a run record or mark failed files complete.
+
+Connect the operation's resolve branch to a Condition inspecting
+`<operation-key>.summary.hasFailures`: true handles partial failures; false handles successful runs.
+Inspect `summary.complete` separately to determine whether further pages remain. The reject branch
+handles fatal errors; a final partial summary is logged before rejection.
+
+Each failed-file log includes run/file correlation, stage/code, duration, folder/MIME when known,
+and resolved provider/model. Exactly one completion log includes the summary without results. The
+logger receives structured fields, and sanitized JSON is embedded in the message so text log output
+retains diagnostics. No prompts, credentials, raw exceptions, response bodies, image bytes, or
+generated metadata are logged.
+
+Asset acquisition now shares the per-file timeout; streams arriving after timeout are destroyed. AI
+SDK generation retains two bounded retries with abort and supported Retry-After handling; no extra
+retry loop or write retry is added. Retryability is advice for an explicit later retry, not a
+guarantee of success. `PROVIDER_RATE_LIMITED` (429), `PROVIDER_UNAVAILABLE` (5xx),
+`PROVIDER_REJECTED` (4xx), `INVALID_OUTPUT`, `FILE_INACCESSIBLE`, `INVALID_IMAGE`, `TIMEOUT`, and
+stage-specific failures distinguish actionable causes without exposing upstream details.
+
+### Complete success
+
+```json
+{
+  "summary": {
+    "runId": "5b4969d7-4e90-49e3-9e97-f47b832134d1",
+    "operation": "ai-image-metadata-regenerate",
+    "startedAt": "2026-10-08T07:02:00.000Z",
+    "completedAt": "2026-10-08T07:02:01.000Z",
+    "durationMs": 1000,
+    "provider": "mistral",
+    "model": "pixtral-large-latest",
+    "options": {
+      "maxFiles": 3,
+      "concurrency": 1,
+      "missingOnly": true,
+      "includeFolders": [],
+      "excludeFolders": [],
+      "generateTags": false,
+      "generateFilename": false,
+      "overwriteAltText": false,
+      "overwriteTags": false,
+      "overwriteFilename": false
+    },
+    "filesFound": 1,
+    "filesAttempted": 1,
+    "filesUpdated": 1,
+    "filesSkipped": 0,
+    "filesFailed": 0,
+    "outcome": "success",
+    "hasFailures": false,
+    "complete": true
+  },
+  "results": [
+    {
+      "id": "ee913870-cedc-4112-9f2e-0baaa9253fb0",
+      "status": "updated",
+      "durationMs": 990,
+      "fields": ["description"]
+    }
+  ],
+  "scanned": 1,
+  "nextOffset": null,
+  "complete": true
+}
+```
+
+### Partial failure
+
+```json
+{
+  "summary": {
+    "runId": "5b4969d7-4e90-49e3-9e97-f47b832134d1",
+    "operation": "ai-image-metadata-regenerate",
+    "startedAt": "2026-10-08T07:02:00.000Z",
+    "completedAt": "2026-10-08T07:02:01.000Z",
+    "durationMs": 1000,
+    "provider": "mistral",
+    "model": "pixtral-large-latest",
+    "options": {
+      "maxFiles": 3,
+      "concurrency": 1,
+      "missingOnly": true,
+      "includeFolders": [],
+      "excludeFolders": [],
+      "generateTags": false,
+      "generateFilename": false,
+      "overwriteAltText": false,
+      "overwriteTags": false,
+      "overwriteFilename": false
+    },
+    "filesFound": 2,
+    "filesAttempted": 2,
+    "filesUpdated": 1,
+    "filesSkipped": 0,
+    "filesFailed": 1,
+    "outcome": "partial_failure",
+    "hasFailures": true,
+    "complete": false
+  },
+  "results": [
+    {
+      "id": "ee913870-cedc-4112-9f2e-0baaa9253fb0",
+      "status": "updated",
+      "durationMs": 990,
+      "fields": ["description"]
+    },
+    {
+      "id": "4c4e18d9-41ec-4cd5-a8cb-2d4e67520451",
+      "status": "failed",
+      "durationMs": 900,
+      "fields": [],
+      "error": {
+        "stage": "generate",
+        "code": "PROVIDER_RATE_LIMITED",
+        "retryable": true,
+        "httpStatus": 429,
+        "message": "AI provider rate limit exceeded."
+      }
+    }
+  ],
+  "scanned": 2,
+  "nextOffset": null,
+  "complete": false
+}
+```

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { defineOperationApi } from '@directus/extensions-sdk'
 import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
@@ -37,8 +39,11 @@ export default defineOperationApi({
 				options,
 			)
 			const results: FileResult[] = []
+			const runId = randomUUID()
 			for (const id of options.files)
-				results.push(await processor.processFile(await processor.readFile(id)))
+				results.push(
+					await processor.processResult({ id, runId, isolate: options.files.length > 1 }),
+				)
 			return { results }
 		})
 		if (result.error !== null) throw safeMetadataError(result.error)

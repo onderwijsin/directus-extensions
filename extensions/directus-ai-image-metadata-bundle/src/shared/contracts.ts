@@ -21,8 +21,19 @@ export const fileFields = [
 	'filename_download',
 ] satisfies (keyof File)[]
 
-export interface FileResult {
+export interface MetadataWriteResult {
 	id: string
 	status: 'updated' | 'skipped'
 	fields: string[]
 }
+
+/** Timed, sanitized file outcome returned by Flow operations. */
+export type FileResult =
+	| (MetadataWriteResult & { durationMs: number })
+	| {
+			id: string
+			status: 'failed'
+			fields: string[]
+			durationMs: number
+			error: import('./diagnostics').FileFailure
+	  }

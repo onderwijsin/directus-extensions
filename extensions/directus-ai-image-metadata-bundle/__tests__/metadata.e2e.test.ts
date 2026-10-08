@@ -37,10 +37,27 @@ const resultSchema = z.object({
 	results: z.array(
 		z.object({
 			id: z.uuid(),
-			status: z.enum(['updated', 'skipped']),
+			status: z.enum(['updated', 'skipped', 'failed']),
+			durationMs: z.number().nonnegative(),
+			error: z
+				.object({ stage: z.string(), code: z.string(), retryable: z.boolean() })
+				.optional(),
 			fields: z.array(z.string()),
 		}),
 	),
+	summary: z
+		.object({
+			runId: z.uuid(),
+			filesFound: z.number(),
+			filesAttempted: z.number(),
+			filesUpdated: z.number(),
+			filesSkipped: z.number(),
+			filesFailed: z.number(),
+			hasFailures: z.boolean(),
+			complete: z.boolean(),
+			outcome: z.string(),
+		})
+		.optional(),
 	scanned: z.number().optional(),
 	nextOffset: z.number().nullable().optional(),
 	complete: z.boolean().optional(),
@@ -122,18 +139,23 @@ describe('image metadata installed Flow operations', () => {
 			expect(
 				(await runOperation('ai-image-metadata', { files: id, excludeFolders: folder.id }))
 					.results,
-			).toEqual([{ id, status: 'skipped', fields: [] }])
+			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
 			expect(
 				(await runOperation('ai-image-metadata', { files: id, mimeTypes: 'image/jpeg' }))
 					.results,
-			).toEqual([{ id, status: 'skipped', fields: [] }])
+			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
 			const result = await runOperation('ai-image-metadata', {
 				files: id,
 				generateTags: true,
 				generateFilename: true,
 			})
 			expect(result.results).toEqual([
-				{ id, status: 'updated', fields: ['description', 'tags'] },
+				{
+					id,
+					status: 'updated',
+					fields: ['description', 'tags'],
+					durationMs: expect.any(Number),
+				},
 			])
 			expect(await client.request(readFile(id))).toMatchObject({
 				description: 'Een kleine testafbeelding.',
@@ -146,7 +168,7 @@ describe('image metadata installed Flow operations', () => {
 			expect(
 				(await runOperation('ai-image-metadata', { files: id, generateTags: true }))
 					.results,
-			).toEqual([{ id, status: 'skipped', fields: [] }])
+			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
 			await runOperation('ai-image-metadata', {
 				files: id,
 				generateTags: true,
@@ -163,7 +185,9 @@ describe('image metadata installed Flow operations', () => {
 				generateTags: true,
 				overwriteTags: true,
 			})
-			expect(tagsOnly.results).toEqual([{ id, status: 'updated', fields: ['tags'] }])
+			expect(tagsOnly.results).toEqual([
+				{ id, status: 'updated', fields: ['tags'], durationMs: expect.any(Number) },
+			])
 			expect(await client.request(readFile(id))).toMatchObject({
 				description: 'Human reviewed description',
 				tags: ['test', 'afbeelding'],
@@ -174,7 +198,9 @@ describe('image metadata installed Flow operations', () => {
 				files: id,
 				overwriteAltText: true,
 			})
-			expect(altOnly.results).toEqual([{ id, status: 'updated', fields: ['description'] }])
+			expect(altOnly.results).toEqual([
+				{ id, status: 'updated', fields: ['description'], durationMs: expect.any(Number) },
+			])
 			expect(await client.request(readFile(id))).toMatchObject({
 				description: 'A small test image.',
 				tags: ['test', 'afbeelding'],
@@ -182,6 +208,55 @@ describe('image metadata installed Flow operations', () => {
 			})
 		} finally {
 			if (id) await client.request(deleteFile(id))
+			await client.request(deleteFolder(folder.id))
+		}
+	})
+
+	it('isolates an inaccessible file between successes and preserves single-file rejection', async () => {
+		const folder = await client.request(createFolder({ name: 'Image diagnostics test' }))
+		const ids: string[] = []
+		const missing = 'ffffffff-ffff-4fff-8fff-ffffffffffff'
+		try {
+			ids.push(await uploadImage(folder.id), await uploadImage(folder.id))
+			const output = await runOperation('ai-image-metadata', {
+				files: [ids[0], missing, ids[1]],
+			})
+			expect(output.results.map((result) => result.status)).toEqual([
+				'updated',
+				'failed',
+				'updated',
+			])
+			expect(output.results[1]).toMatchObject({
+				id: missing,
+				error: { stage: 'read_file', retryable: false },
+			})
+			for (const id of ids)
+				expect(await client.request(readFile(id))).toMatchObject({
+					description: 'Een kleine testafbeelding.',
+				})
+			await expect(runOperation('ai-image-metadata', { files: missing })).rejects.toThrow()
+			const regenerated = await runOperation('ai-image-metadata-regenerate', {
+				includeFolders: folder.id,
+				missingOnly: false,
+				overwriteAltText: true,
+			})
+			expect(regenerated.summary).toMatchObject({
+				filesAttempted: 2,
+				filesUpdated: 2,
+				filesFailed: 0,
+				outcome: 'success',
+				complete: true,
+			})
+			await expect(
+				client.waitForLog(
+					new RegExp(
+						`Image metadata regeneration completed .*"runId":"${regenerated.summary?.runId}"`,
+						'u',
+					),
+				),
+			).resolves.toBeDefined()
+		} finally {
+			for (const id of ids) await client.request(deleteFile(id))
 			await client.request(deleteFolder(folder.id))
 		}
 	})

@@ -1,7 +1,7 @@
 import type { OperationContext, SchemaOverview } from '@directus/types'
 import type { MetadataOptions, MetadataFile, GeneratedMetadata } from './options'
 
-import { fileFields, type FileResult } from './contracts'
+import { fileFields, type MetadataWriteResult } from './contracts'
 import { createMetadataPatch, isSelected } from './metadata'
 import { fileSchema } from './options'
 
@@ -22,8 +22,11 @@ export function createMetadataWriter(
 		accountability: context.accountability,
 		knex: context.database,
 	}
-	return async (file: MetadataFile, generated: GeneratedMetadata): Promise<FileResult> => {
-		const skipped: FileResult = { id: file.id, status: 'skipped', fields: [] }
+	return async (
+		file: MetadataFile,
+		generated: GeneratedMetadata,
+	): Promise<MetadataWriteResult> => {
+		const skipped: MetadataWriteResult = { id: file.id, status: 'skipped', fields: [] }
 		return context.database.transaction(async (transaction) => {
 			await transaction('directus_files').where({ id: file.id }).forUpdate().first('id')
 			// Bind the service to the transaction so reads retain Flow permissions and field processing.
