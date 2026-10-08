@@ -91,7 +91,7 @@ export const metadataAppOptions = [
 		name: 'Include Root Folder',
 		type: 'boolean',
 		schema: { default_value: false },
-		meta: { interface: 'boolean', width: 'half' },
+		meta: { interface: 'boolean', width: 'full' },
 	},
 	{
 		field: 'generateAltText',
