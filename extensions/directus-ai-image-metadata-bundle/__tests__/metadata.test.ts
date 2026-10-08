@@ -143,7 +143,7 @@ describe('image metadata contracts', () => {
 				includeRoot: true,
 				mimeTypes: 'IMAGE/PNG',
 			}),
-		).toMatchObject({ files: [id], includeFolders: [null], mimeTypes: ['image/png'] })
+		).toMatchObject({ files: [id], includeFolders: [], mimeTypes: ['image/png'] })
 	})
 	it.each([
 		{ files: 'invalid' },
@@ -182,16 +182,14 @@ describe('native folder selection', () => {
 			expect(isSelected(file, options)).toBe(true)
 			expect(isSelected({ ...file, folder }, options)).toBe(false)
 			expect(isSelected({ ...file, folder: id }, options)).toBe(false)
-			expect(isSelected(file, schema.parse({ includeRoot: true, excludeRoot: true }))).toBe(
-				false,
-			)
+			expect(isSelected(file, schema.parse({ includeRoot: false }))).toBe(false)
 		},
 	)
 	it.each([null, []])('treats cleared native selection as empty: %j', (value) => {
 		expect(optionsSchema.parse({ includeFolders: value }).includeFolders).toEqual([])
 		expect(
 			optionsSchema.parse({ includeFolders: value, includeRoot: true }).includeFolders,
-		).toEqual([null])
+		).toEqual([])
 	})
 	it.each([
 		{ collection: 'directus_files', key: folder },
@@ -216,5 +214,24 @@ describe('native folder selection', () => {
 				},
 			)
 		}
+	})
+})
+
+describe('generation switches', () => {
+	it('does not generate or overwrite disabled alt text, even when missing', () => {
+		const options = optionsSchema.parse({ generateAltText: false, overwriteAltText: true })
+		expect(hasMissingMetadata(file, options)).toBe(false)
+		expect(needsMetadataUpdate(file, options)).toBe(false)
+		expect(createMetadataPatch(file, generated, options)).toEqual({})
+	})
+	it('writes tags independently of alt text', () => {
+		const options = optionsSchema.parse({ generateAltText: false, generateTags: true })
+		expect(hasMissingMetadata(file, options)).toBe(true)
+		expect(createMetadataPatch(file, generated, options)).toEqual({ tags: ['bicycle', 'red'] })
+	})
+	it.each([false, true])('uses the single root switch with all folders: %s', (includeRoot) => {
+		const options = optionsSchema.parse({ includeRoot })
+		expect(isSelected(file, options)).toBe(includeRoot)
+		expect(isSelected({ ...file, folder }, options)).toBe(true)
 	})
 })

@@ -27,7 +27,7 @@ export function isSelected(file: MetadataFile, options: MetadataOptions): boolea
  */
 export function hasMissingMetadata(file: MetadataFile, options: MetadataOptions): boolean {
 	return (
-		!isNonBlankString(file.description) ||
+		(options.generateAltText && !isNonBlankString(file.description)) ||
 		(options.generateTags && !hasTags(file.tags)) ||
 		(options.generateFilename && !isNonBlankString(file.filename_download))
 	)
@@ -46,7 +46,11 @@ export function createMetadataPatch(
 	options: MetadataOptions,
 ) {
 	const patch: { description?: string; tags?: string[]; filename_download?: string } = {}
-	if (options.overwriteAltText || !isNonBlankString(file.description))
+	if (
+		options.generateAltText &&
+		generated.altText !== undefined &&
+		(options.overwriteAltText || !isNonBlankString(file.description))
+	)
 		patch.description = generated.altText
 	if (
 		generated.tags !== undefined &&
@@ -81,7 +85,7 @@ export function hasTags(tags: MetadataFile['tags']): boolean {
 export function needsMetadataUpdate(file: MetadataFile, options: MetadataOptions): boolean {
 	return (
 		hasMissingMetadata(file, options) ||
-		options.overwriteAltText ||
+		(options.generateAltText && options.overwriteAltText) ||
 		(options.generateTags && options.overwriteTags) ||
 		(options.generateFilename && options.overwriteFilename)
 	)

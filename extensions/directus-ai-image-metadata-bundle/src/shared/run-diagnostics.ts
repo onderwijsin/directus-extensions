@@ -42,6 +42,7 @@ export function createRunDiagnostics(operation: string) {
 						missingOnly: options.missingOnly,
 						includeFolders: options.includeFolders,
 						excludeFolders: options.excludeFolders,
+						generateAltText: options.generateAltText,
 						generateTags: options.generateTags,
 						generateFilename: options.generateFilename,
 						overwriteAltText: options.overwriteAltText,

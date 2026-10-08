@@ -51,7 +51,7 @@ const baseOptionsSchema = z.object({
 	mimeTypes: mimeListSchema.default([...imageMimeTypes]),
 	includeFolders: folderListSchema.default([]),
 	includeRoot: z.boolean().default(false),
-	excludeRoot: z.boolean().default(false),
+	generateAltText: z.boolean().default(true),
 	excludeFolders: folderListSchema.default([]),
 	generateTags: z.boolean().default(false),
 	generateFilename: z.boolean().default(false),
@@ -68,8 +68,8 @@ const baseOptionsSchema = z.object({
 function normalizeFolders<T extends z.output<typeof baseOptionsSchema>>(options: T) {
 	const includeFolders: (string | null)[] = [...options.includeFolders]
 	const excludeFolders: (string | null)[] = [...options.excludeFolders]
-	if (options.includeRoot) includeFolders.push(null)
-	if (options.excludeRoot) excludeFolders.push(null)
+	if (options.includeRoot && includeFolders.length) includeFolders.push(null)
+	if (!options.includeRoot) excludeFolders.push(null)
 	return { ...options, includeFolders, excludeFolders }
 }
 
@@ -119,22 +119,29 @@ export const metadataSchema = z.object({
 })
 
 /**
- * Requests only enabled optional fields; unrequested provider fields are stripped.
- * @param options - Optional metadata generation switches.
+ * Requests only enabled metadata fields; unrequested provider fields are stripped.
+ * @param options - Metadata generation switches.
  * @returns Output schema requiring only the requested fields.
  */
 export function createMetadataSchema(
-	options: Pick<MetadataOptions, 'generateTags' | 'generateFilename'>,
+	options: Pick<MetadataOptions, 'generateAltText' | 'generateTags' | 'generateFilename'>,
 ) {
-	if (options.generateTags && options.generateFilename) return metadataSchema
-	if (options.generateTags) return metadataSchema.omit({ filename: true })
-	if (options.generateFilename) return metadataSchema.omit({ tags: true })
-	return metadataSchema.pick({ altText: true })
+	if (options.generateAltText) {
+		if (options.generateTags && options.generateFilename) return metadataSchema
+		if (options.generateTags) return metadataSchema.pick({ altText: true, tags: true })
+		if (options.generateFilename) return metadataSchema.pick({ altText: true, filename: true })
+		return metadataSchema.pick({ altText: true })
+	}
+	if (options.generateTags && options.generateFilename)
+		return metadataSchema.pick({ tags: true, filename: true })
+	if (options.generateTags) return metadataSchema.pick({ tags: true })
+	if (options.generateFilename) return metadataSchema.pick({ filename: true })
+	return z.object({})
 }
 
-/** Validated alt text with optional fields present only when requested. */
+/** Validated metadata fields present only when requested. */
 export interface GeneratedMetadata {
-	altText: string
+	altText?: string
 	tags?: string[]
 	filename?: string
 }

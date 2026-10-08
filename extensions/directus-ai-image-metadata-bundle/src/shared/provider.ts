@@ -90,14 +90,16 @@ export async function generateMetadata(
 	mediaType: string,
 	prompt: string,
 	signal: AbortSignal,
-	options: Pick<MetadataOptions, 'generateTags' | 'generateFilename'> = {
+	options: Pick<MetadataOptions, 'generateTags' | 'generateFilename'> &
+		Partial<Pick<MetadataOptions, 'generateAltText'>> = {
 		generateTags: false,
 		generateFilename: false,
 	},
 ) {
-	const schema = createMetadataSchema(options)
+	const generationOptions = { ...options, generateAltText: options.generateAltText ?? true }
+	const schema = createMetadataSchema(generationOptions)
 	const requestedFields = [
-		'altText',
+		...(generationOptions.generateAltText ? ['altText'] : []),
 		...(options.generateTags ? ['tags'] : []),
 		...(options.generateFilename ? ['filename'] : []),
 	]

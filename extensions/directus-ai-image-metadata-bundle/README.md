@@ -79,12 +79,12 @@ environment/default fallback:
 | `prompt`            | `environment/default`            | Replacement system instructions.                                                                        |
 | `mimeTypes`         | JPEG, PNG, GIF, WebP             | Exact MIME string or nonempty array; normalized to lowercase. Non-images are skipped.                   |
 | `includeFolders`    | `[]`                             | Folder selection objects; empty selects all. Use `includeRoot` for root.                                |
-| `excludeFolders`    | `[]`                             | Folder selection objects; exclusion wins. Use `excludeRoot` for root.                                   |
-| `includeRoot`       | `false`                          | Include root files; alone restricts selection to root.                                                  |
-| `excludeRoot`       | `false`                          | Exclude root files, overriding inclusion.                                                               |
+| `excludeFolders`    | `[]`                             | Folder selection objects; exclusion wins. Root inclusion is controlled by `includeRoot`.                |
+| `includeRoot`       | `false`                          | Include root files alongside selected folders; unchecked excludes root.                                 |
+| `generateAltText`   | `true`                           | Generate alt text in description; disabling prevents description writes.                                |
 | `generateTags`      | `false`                          | Write generated tags to directus_files.tags.                                                            |
 | `generateFilename`  | `false`                          | Write a safe download filename, preserving its extension.                                               |
-| `overwriteAltText`  | `false`                          | Replace populated description; otherwise fill only missing alt text.                                    |
+| `overwriteAltText`  | `false`                          | Replace populated description when generateAltText is enabled; otherwise fill only missing alt text.    |
 | `overwriteTags`     | `false`                          | Replace populated tags when generateTags is enabled; otherwise fill only missing tags.                  |
 | `overwriteFilename` | `false`                          | Replace the download filename when generateFilename is enabled; otherwise fill only a missing filename. |
 
@@ -95,10 +95,10 @@ excluded by default. Change `mimeTypes` only to formats your model supports. Ori
 are sent without conversion or rasterization; unsupported inputs produce classified failures
 (single-file runs reject).
 
-The Studio shows **Overwrite Tags** only when **Generate Tags** is enabled, and **Overwrite
-Filename** only when **Generate Download Filename** is enabled. Disabling generation hides its
-overwrite control and prevents writes for that field, even if a previously saved overwrite value is
-true.
+The Studio shows **Overwrite Alt Text** only when **Generate Alt Text** is enabled, **Overwrite
+Tags** only when **Generate Tags** is enabled, and **Overwrite Filename** only when **Generate
+Download Filename** is enabled. Disabling generation hides its overwrite control and prevents writes
+for that field, even if a previously saved overwrite value is true.
 
 Alt text is written to `directus_files.description`. Consumers must map that value to rendered image
 alt attributes; the extension does not modify frontend rendering. Whitespace-only descriptions and
@@ -169,7 +169,7 @@ response is included.
   "generateTags": true,
   "missingOnly": true,
   "maxFiles": 100,
-  "excludeRoot": true
+  "includeRoot": false
 }
 ```
 
@@ -229,10 +229,11 @@ lower-layer credentials are not inherited.
 
 ### Requested metadata outputs
 
-Alt text is always requested. Tags and filename are requested and validated only when `generateTags`
-and `generateFilename` are enabled. Disabled fields are omitted from the output schema and discarded
-if the model returns them, so malformed unused tags or filenames cannot fail alt-text-only
-generation.
+Alt text, tags, and filename are requested and validated only when their respective
+`generateAltText`, `generateTags`, and `generateFilename` controls are enabled. Alt text defaults to
+enabled; tags and filename default to disabled. When all three are disabled, files are skipped
+without provider calls. Disabled fields are omitted from the output schema and discarded if the
+model returns them, so malformed unused tags or filenames cannot fail alt-text-only generation.
 
 An empty or whitespace-only `DIRECTUS_EXTENSIONS_AI_API_KEY` environment value is treated as unset,
 allowing startup without an AI key and provider-matched credential fallback. Generation still
@@ -295,7 +296,8 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "concurrency": 1,
       "missingOnly": true,
       "includeFolders": [],
-      "excludeFolders": [],
+      "excludeFolders": [null],
+      "generateAltText": true,
       "generateTags": false,
       "generateFilename": false,
       "overwriteAltText": false,
@@ -342,7 +344,8 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "concurrency": 1,
       "missingOnly": true,
       "includeFolders": [],
-      "excludeFolders": [],
+      "excludeFolders": [null],
+      "generateAltText": true,
       "generateTags": false,
       "generateFilename": false,
       "overwriteAltText": false,
@@ -394,13 +397,13 @@ exact, without descendants; exclusions win and duplicate selections are removed.
 
 `includeFolders` and `excludeFolders` accept arrays of
 `{"key":"11111111-1111-4111-8111-111111111111","collection":"directus_folders"}`. Clearing a drawer
-saves null or an empty array, meaning no folder selections. `includeRoot` and `excludeRoot` are
-explicit boolean controls, both default false. An empty include list with Include Root disabled
-selects all folders, including root; Include Root alone restricts selection to root. Exclude Root
-excludes root even when included. Keys must be UUIDs and the collection must be `directus_folders`;
-malformed selections reject execution before side effects.
+saves null or an empty array, meaning no folder selections. **Include Root Folder** (`includeRoot`)
+is a boolean defaulting to false. When unchecked, root files are excluded. When checked, root files
+are included alongside selected folders. An empty include list selects all non-root folders; with
+Include Root Folder checked, it selects all folders including root. Keys must be UUIDs and the
+collection must be `directus_folders`; malformed selections reject execution before side effects.
 
 This replaces the previous UUID/string-array and null/root options. Existing Flows must replace UUID
-strings with selection objects and use the root switches instead of null entries. No automatic
+strings with selection objects and use Include Root Folder instead of null entries. No automatic
 migration or legacy editor is provided. Reopen and save the operation with the new controls before
 running it. A singular null now means an empty picker, not root.

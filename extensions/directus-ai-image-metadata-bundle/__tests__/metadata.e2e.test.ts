@@ -140,6 +140,23 @@ describe('image metadata installed Flow operations', () => {
 				(
 					await runOperation('ai-image-metadata', {
 						files: id,
+						generateAltText: false,
+						overwriteAltText: true,
+					})
+				).results,
+			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
+			const independentTags = await runOperation('ai-image-metadata', {
+				files: id,
+				generateAltText: false,
+				generateTags: true,
+			})
+			expect(independentTags.results[0]?.fields).toEqual(['tags'])
+			expect((await client.request(readFile(id))).description).toBeNull()
+			await client.request(updateFile(id, { tags: null }))
+			expect(
+				(
+					await runOperation('ai-image-metadata', {
+						files: id,
 						excludeFolders: [{ key: folder.id, collection: 'directus_folders' }],
 					})
 				).results,
