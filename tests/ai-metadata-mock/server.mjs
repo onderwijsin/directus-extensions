@@ -56,6 +56,8 @@ async function handle(request, response) {
 					filename: 'small-test-image',
 				}
 
+	if (body.includes('E2E_EMPTY_TAGS')) metadata.tags = []
+
 	response.writeHead(200, { 'Content-Type': 'application/json' })
 	response.end(
 		JSON.stringify({

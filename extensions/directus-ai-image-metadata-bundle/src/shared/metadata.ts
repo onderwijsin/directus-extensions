@@ -2,7 +2,8 @@ import type { GeneratedMetadata, MetadataFile, MetadataOptions } from './options
 
 import { extname } from 'node:path'
 
-import { isArray, isNonBlankString } from '@onderwijsin/directus-extension-utils'
+import { attemptSync, isArray, isNonBlankString } from '@onderwijsin/directus-extension-utils'
+import { z } from 'zod'
 
 /**
  * Checks whether a file passes MIME and exact-folder selection.
@@ -73,7 +74,15 @@ export function createMetadataPatch(
  * @returns Whether tags contain meaningful text.
  */
 export function hasTags(tags: MetadataFile['tags']): boolean {
-	return isArray(tags) ? tags.some(isNonBlankString) : isNonBlankString(tags)
+	if (isArray(tags)) return tags.some(isNonBlankString)
+	if (!isNonBlankString(tags)) return false
+
+	const result = attemptSync(() => z.array(z.string()).safeParse(JSON.parse(tags)))
+	if (result.error === null && result.data?.success)
+		return result.data.data.some(isNonBlankString)
+
+	// Non-array JSON and plain-text tags remain meaningful text.
+	return true
 }
 
 /**

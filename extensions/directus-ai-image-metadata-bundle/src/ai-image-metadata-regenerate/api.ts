@@ -5,29 +5,31 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import { MetadataRegenerationError } from '../shared/contracts'
 import { atStage, classifyFailure, ProcessingFailure } from '../shared/diagnostics'
 import {
 	parseOperationOptions,
 	createMetadataProcessor,
 	safeMetadataError,
-	type FileResult,
 } from '../shared/execution'
 import { hasMissingMetadata } from '../shared/metadata'
 import { backfillOptionsSchema } from '../shared/options'
 import { createRunDiagnostics } from '../shared/run-diagnostics'
 import { envSchema } from './env.schema'
+import { runRegenerationQueue } from './queue'
 
 export default defineOperationApi({
 	id: 'ai-image-metadata-regenerate',
 	/**
-	 * Scans a bounded image batch with a numeric resume offset.
+	 * Processes a bounded candidate stream with stable continuation and replenished concurrency.
 	 * @param input - Backfill selection and continuation options.
 	 * @param context - Directus Flow execution context.
-	 * @returns Results, scanned count, continuation offset, and completion state.
+	 * @returns Ordered results, candidate counts, ID continuation, and completion state.
 	 */
 	handler: async (input, context) => {
 		const run = createRunDiagnostics('ai-image-metadata-regenerate')
 		let complete = false
+		let restartAfterId: string | null | undefined
 		let enabled = true
 		let getProvider: (() => import('../shared/provider').ProviderConfig | undefined) | undefined
 		const result = await attempt(async () => {
@@ -41,6 +43,7 @@ export default defineOperationApi({
 			setup.end()
 			const options = parseOperationOptions(backfillOptionsSchema, input)
 			run.setOptions(options)
+			restartAfterId = options.afterId
 			const processor = createMetadataProcessor(
 				context,
 				await context.getSchema(),
@@ -48,50 +51,42 @@ export default defineOperationApi({
 				options,
 			)
 			getProvider = processor.getProvider
-			const results: FileResult[] = run.results
-			let offset = options.offset
-			let scanned = 0
-			const selected = new Set<string>()
-			while (scanned < options.maxFiles) {
-				const page = await atStage('enumerate', () =>
-					processor.readPage(offset, Math.min(50, options.maxFiles - scanned)),
+			const output = await runRegenerationQueue(
+				options,
+				(afterId, excludeFiles, limit) =>
+					atStage('enumerate', () =>
+						processor.readCandidates(afterId, excludeFiles, limit, options.missingOnly),
+					),
+				(file) =>
+					processor.processResult({ id: file.id, file, runId: run.runId, isolate: true }),
+				(id) => {
+					run.found.add(id)
+					run.attempt(id)
+				},
+				run.results,
+			)
+			const remainingIds = new Set(
+				run.results.filter((file) => file.status === 'failed').map((file) => file.id),
+			)
+			if (options.missingOnly && run.results.length) {
+				// Verify settled writes: a valid empty generated tag list can still leave metadata missing.
+				const latest = await atStage('enumerate', () =>
+					processor.readPage(options.maxFiles, {
+						missingOnly: false,
+						excludeFiles: [],
+						rangeIds: run.results.map((file) => file.id),
+					}),
 				)
-				for (const file of page) run.found.add(file.id)
-				if (!page.length) {
-					complete = true
-					return { results, scanned, nextOffset: null }
-				}
-				for (const file of page) {
-					offset += 1
-					scanned += 1
-					if (selected.has(file.id)) continue
-					selected.add(file.id)
-					run.attempt(file.id)
-					const started = performance.now()
-					results.push(
-						options.missingOnly && !hasMissingMetadata(file, options)
-							? {
-									id: file.id,
-									status: 'skipped',
-									fields: [],
-									durationMs: performance.now() - started,
-								}
-							: await processor.processResult({
-									id: file.id,
-									file,
-									runId: run.runId,
-									isolate: true,
-								}),
-					)
-				}
+				for (const file of latest)
+					if (hasMissingMetadata(file, options)) remainingIds.add(file.id)
 			}
-			const remaining = await atStage('enumerate', () => processor.readPage(offset, 1))
-			for (const file of remaining) run.found.add(file.id)
-			complete = !remaining.length
+			complete = output.complete && remainingIds.size === 0
 			return {
-				results,
-				scanned,
-				nextOffset: remaining.length ? offset : null,
+				...output,
+				remaining: output.remaining || remainingIds.size > 0,
+				remainingIds: [...remainingIds],
+				complete,
+				results: run.results,
 			}
 		})
 		if (!enabled) return null
@@ -112,7 +107,15 @@ export default defineOperationApi({
 			summary,
 			`Image metadata regeneration completed ${JSON.stringify(summary)}`,
 		)
-		if (result.error !== null) throw safeMetadataError(result.error)
+		if (result.error !== null) {
+			if (restartAfterId !== undefined)
+				throw new MetadataRegenerationError({
+					summary,
+					results: run.results,
+					restartAfterId,
+				})
+			throw safeMetadataError(result.error)
+		}
 		return { ...result.data, summary, complete: summary.complete }
 	},
 })

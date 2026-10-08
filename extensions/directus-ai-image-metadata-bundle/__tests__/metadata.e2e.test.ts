@@ -7,6 +7,7 @@ import {
 	deleteFlow,
 	deleteOperation,
 	readFile,
+	readFiles,
 	updateFile,
 	updateFlow,
 	uploadFiles,
@@ -59,7 +60,10 @@ const resultSchema = z.object({
 		})
 		.optional(),
 	scanned: z.number().optional(),
-	nextOffset: z.number().nullable().optional(),
+	nextCursor: z.uuid().nullable().optional(),
+	remaining: z.boolean().optional(),
+	remainingIds: z.array(z.uuid()).optional(),
+	inspected: z.number().optional(),
 	complete: z.boolean().optional(),
 })
 
@@ -94,11 +98,12 @@ async function runOperation(type: string, options: Record<string, unknown>) {
 		)
 		operationId = operation.id
 		await client.request(updateFlow(flow.id, { operation: operation.id }))
-		return resultSchema.parse(
-			await client.request(
-				customEndpoint({ path: `/flows/trigger/${flow.id}`, method: 'POST', body: '{}' }),
-			),
+		const output = await client.request(
+			customEndpoint({ path: `/flows/trigger/${flow.id}`, method: 'POST', body: '{}' }),
 		)
+		const parsed = resultSchema.safeParse(output)
+		if (!parsed.success) throw new Error(`Unexpected Flow output: ${JSON.stringify(output)}`)
+		return parsed.data
 	} finally {
 		if (operationId) await client.request(deleteOperation(operationId))
 		await client.request(deleteFlow(flow.id))
@@ -287,18 +292,16 @@ describe('image metadata installed Flow operations', () => {
 		const ids: string[] = []
 		try {
 			ids.push(await uploadImage(folder.id), await uploadImage(folder.id))
-			let offset = 0
 			const updated = new Set<string>()
 			let complete = false
 			for (let iteration = 0; iteration < 20 && !complete; iteration += 1) {
 				const page = await runOperation('ai-image-metadata-regenerate', {
 					includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
 					maxFiles: 1,
-					offset,
+					concurrency: 10,
 				})
 				for (const result of page.results)
 					if (result.status === 'updated') updated.add(result.id)
-				offset = page.nextOffset ?? 0
 				complete = page.complete === true
 			}
 			expect(complete).toBe(true)
@@ -324,6 +327,154 @@ describe('image metadata installed Flow operations', () => {
 			).toBe(true)
 		} finally {
 			for (const id of ids) await client.request(deleteFile(id))
+			await client.request(deleteFolder(folder.id))
+		}
+	})
+	it('filters stored tag/description representations accountably and excludes completed files from the candidate limit', async () => {
+		const folder = await client.request(createFolder({ name: 'Metadata representation test' }))
+		const ids: string[] = []
+		try {
+			const variants = [null, '', '[]', [], [''], [' ', '\t'], ['meaningful'], 'legacy-tag']
+			for (const tags of variants) {
+				const id = await uploadImage(folder.id)
+				ids.push(id)
+				await client.request(
+					customEndpoint({
+						path: `/files/${id}`,
+						method: 'PATCH',
+						body: JSON.stringify({ description: 'Complete', tags }),
+					}),
+				)
+			}
+			// FilesService reads cast serialized arrays; DB predicates still operate on stored text.
+			const representations = await client.request(
+				readFiles({ filter: { folder: { _eq: folder.id } }, fields: ['id', 'tags'] }),
+			)
+			expect(representations.find((value) => value.id === ids[2])?.tags).toEqual([])
+			expect(representations.find((value) => value.id === ids[3])?.tags).toEqual([])
+			await expect(
+				client.request(
+					readFiles({
+						filter: {
+							_and: [{ folder: { _eq: folder.id } }, { tags: { _empty: true } }],
+						},
+					}),
+				),
+			).rejects.toThrow()
+			await expect(
+				client.request(
+					customEndpoint({
+						path: `/files?filter=${encodeURIComponent(JSON.stringify({ _and: [{ folder: { _eq: folder.id } }, { tags: { _eq: '[]' } }] }))}`,
+						method: 'GET',
+					}),
+				),
+			).rejects.toThrow()
+			const nullMatches = await client.request(
+				readFiles({
+					filter: { _and: [{ folder: { _eq: folder.id } }, { tags: { _null: true } }] },
+					fields: ['id'],
+				}),
+			)
+			expect(nullMatches.map((value) => value.id)).toEqual([ids[0]])
+
+			// Force an empty-array match below a NULL match so a two-pass reader would skip it.
+			const missingIds = ids.slice(0, 6).sort()
+			const lowest = missingIds[0]
+			const highest = missingIds.at(-1)
+			if (!lowest || !highest) throw new Error('Missing ordering fixtures')
+			await client.request(updateFile(lowest, { tags: [] }))
+			await client.request(updateFile(highest, { tags: null }))
+
+			const options = {
+				includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
+				generateAltText: false,
+				generateTags: true,
+				maxFiles: 1,
+				concurrency: 10,
+			}
+			const selected: string[] = []
+			let afterId: string | null = null
+			for (let iteration = 0; iteration < 8; iteration += 1) {
+				const output = await runOperation('ai-image-metadata-regenerate', {
+					...options,
+					afterId,
+				})
+				afterId = output.nextCursor ?? null
+				selected.push(...output.results.map((result) => result.id))
+				if (output.complete) break
+			}
+			expect(selected.sort()).toEqual(ids.slice(0, 6).sort())
+			expect(new Set(selected).size).toBe(6)
+			for (const id of ids.slice(0, 6))
+				expect((await client.request(readFile(id))).tags).toEqual(['test', 'afbeelding'])
+			for (const description of [null, '', ' \t\n', '\u00a0']) {
+				const id = ids[0]
+				if (!id) throw new Error('Missing fixture')
+				await client.request(updateFile(id, { description }))
+				const output = await runOperation('ai-image-metadata-regenerate', {
+					...options,
+					generateAltText: true,
+					generateTags: false,
+				})
+				expect(output.results.map((result) => result.id)).toEqual([id])
+			}
+		} finally {
+			for (const id of ids) await client.request(deleteFile(id))
+			await client.request(deleteFolder(folder.id))
+		}
+	})
+
+	it('continues regeneration by ID after deleting a prior file', async () => {
+		const folder = await client.request(createFolder({ name: 'Metadata keyset test' }))
+		const ids: string[] = []
+		try {
+			for (let index = 0; index < 3; index += 1) ids.push(await uploadImage(folder.id))
+			ids.sort()
+			const options = {
+				includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
+				missingOnly: false,
+				overwriteAltText: true,
+				maxFiles: 1,
+			}
+			const first = await runOperation('ai-image-metadata-regenerate', options)
+			expect(first.nextCursor).toBe(ids[0])
+			const removed = ids.shift()
+			if (!removed) throw new Error('Missing fixture')
+			await client.request(deleteFile(removed))
+			const next = await runOperation('ai-image-metadata-regenerate', {
+				...options,
+				afterId: first.nextCursor,
+			})
+			expect(next.results.map((result) => result.id)).toEqual([ids[0]])
+		} finally {
+			for (const id of ids) await client.request(deleteFile(id))
+			await client.request(deleteFolder(folder.id))
+		}
+	})
+	it('reports valid empty generated tags as unresolved and retries them on the next invocation', async () => {
+		const folder = await client.request(createFolder({ name: 'Metadata unresolved test' }))
+		let id: string | undefined
+		try {
+			id = await uploadImage(folder.id)
+			const options = {
+				includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
+				generateAltText: false,
+				generateTags: true,
+			}
+			const unresolved = await runOperation('ai-image-metadata-regenerate', {
+				...options,
+				prompt: 'E2E_EMPTY_TAGS',
+			})
+			expect(unresolved.results[0]?.status).toBe('updated')
+			expect(unresolved).toMatchObject({
+				complete: false,
+				remaining: true,
+				remainingIds: [id],
+			})
+			const retried = await runOperation('ai-image-metadata-regenerate', options)
+			expect(retried).toMatchObject({ complete: true, remaining: false, remainingIds: [] })
+		} finally {
+			if (id) await client.request(deleteFile(id))
 			await client.request(deleteFolder(folder.id))
 		}
 	})

@@ -60,7 +60,7 @@ export function createMetadataProcessor(
 	let provider: ReturnType<typeof resolveProvider> | undefined
 	let resolved: Awaited<ReturnType<typeof resolveProvider>> | undefined
 
-	const { readFile, readPage } = createFileReader(context, schema, options)
+	const { readFile, readPage, readCandidates } = createFileReader(context, schema, options)
 
 	/**
 	 * Processes one eligible file, preserving concurrent metadata edits under a row lock.
@@ -172,6 +172,7 @@ export function createMetadataProcessor(
 	return {
 		readFile,
 		readPage,
+		readCandidates,
 		processFile,
 		processResult,
 		/**

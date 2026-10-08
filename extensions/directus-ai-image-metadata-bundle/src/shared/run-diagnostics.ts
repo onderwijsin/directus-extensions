@@ -38,8 +38,10 @@ export function createRunDiagnostics(operation: string) {
 			options: options
 				? {
 						maxFiles: options.maxFiles,
-						concurrency: 1,
+						concurrency: options.concurrency,
 						missingOnly: options.missingOnly,
+						afterId: options.afterId,
+						excludedFileCount: options.excludeFiles.length,
 						includeFolders: options.includeFolders,
 						excludeFolders: options.excludeFolders,
 						generateAltText: options.generateAltText,

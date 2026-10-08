@@ -4,6 +4,7 @@ import { metadataAppOptions } from '../src/shared/app-options'
 import { imageMimeTypes } from '../src/shared/image-mime-types'
 import {
 	createMetadataPatch,
+	hasTags,
 	hasMissingMetadata,
 	isSelected,
 	needsMetadataUpdate,
@@ -121,6 +122,18 @@ describe('image metadata contracts', () => {
 			),
 		).toBe(false)
 	})
+	it.each([null, '', ' ', '[]', '["", " "]', [], [''], [' ', '\t']])(
+		'treats empty tags as missing in both persisted representations: %j',
+		(tags) => {
+			expect(hasTags(tags)).toBe(false)
+		},
+	)
+	it.each(['legacy', '["tag"]', ['tag'], [' ', 'tag']])(
+		'preserves meaningful tags in both representations: %j',
+		(tags) => {
+			expect(hasTags(tags)).toBe(true)
+		},
+	)
 	it('requires an image MIME type and applies exact folders with exclusion precedence', () => {
 		const options = optionsSchema.parse({
 			includeFolders: [{ key: folder, collection: 'directus_folders' }],

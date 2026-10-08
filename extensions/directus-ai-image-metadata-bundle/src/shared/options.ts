@@ -1,3 +1,4 @@
+import { isDefined, isNonBlankString, isString } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
 import { imageMimeTypes } from './image-mime-types'
@@ -30,24 +31,23 @@ const mimeListSchema = z
 	.union([mimeSchema, z.array(mimeSchema).min(1)])
 	.transform((value) => (Array.isArray(value) ? value : [value]))
 
+/**
+ * Treats absent or blank text as an unset override while preserving invalid types for validation.
+ * @param value - Untrusted Flow option.
+ * @returns The supplied nonblank value, or undefined for a missing override.
+ */
+function optionalText(value: unknown) {
+	if (!isDefined(value) || value === null) return undefined
+	if (isString(value) && !isNonBlankString(value)) return undefined
+	return value
+}
+
 /** Validates persisted Flow options before side effects. Credentials stay in server configuration. */
 const baseOptionsSchema = z.object({
-	language: z.preprocess(
-		(value) => (value === null || value === '' ? undefined : value),
-		z.enum(acceptedLanguages).optional(),
-	),
-	provider: z.preprocess(
-		(value) => (value === null || value === '' ? undefined : value),
-		providerSchema.optional(),
-	),
-	model: z.preprocess(
-		(value) => (value === null || value === '' ? undefined : value),
-		z.string().trim().min(1).optional(),
-	),
-	prompt: z.preprocess(
-		(value) => (value === null || value === '' ? undefined : value),
-		z.string().trim().min(1).optional(),
-	),
+	language: z.preprocess(optionalText, z.enum(acceptedLanguages).optional()),
+	provider: z.preprocess(optionalText, providerSchema.optional()),
+	model: z.preprocess(optionalText, z.string().trim().min(1).optional()),
+	prompt: z.preprocess(optionalText, z.string().trim().min(1).optional()),
 	mimeTypes: mimeListSchema.default([...imageMimeTypes]),
 	includeFolders: folderListSchema.default([]),
 	includeRoot: z.boolean().default(false),
@@ -90,8 +90,19 @@ export const backfillOptionsSchema = baseOptionsSchema
 	.extend({
 		missingOnly: z.boolean().default(true),
 		maxFiles: z.number().int().min(1).max(1000).default(100),
-		offset: z.number().int().nonnegative().default(0),
+		concurrency: z.number().int().min(1).max(100).default(1),
+		afterId: z.preprocess(
+			(value) => (value === '' ? null : value),
+			z.uuid().nullable().default(null),
+		),
+		excludeFiles: z
+			.array(z.uuid())
+			.max(1000)
+			.nullable()
+			.transform((value) => value ?? [])
+			.default([]),
 	})
+	.strict()
 	.transform(normalizeFolders)
 
 /** Metadata fields read through the Flow's accountability. */

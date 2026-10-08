@@ -37,3 +37,16 @@ export type FileResult =
 			durationMs: number
 			error: import('./diagnostics').FileFailure
 	  }
+
+/** Fatal regeneration diagnostics; restart from the original boundary to avoid omissions. */
+export const MetadataRegenerationError = createError<{
+	summary: ReturnType<
+		ReturnType<typeof import('./run-diagnostics').createRunDiagnostics>['summary']
+	>
+	results: FileResult[]
+	restartAfterId: string | null
+}>(
+	'AI_METADATA_WRITER_REGENERATION_FAILED',
+	'Image metadata regeneration stopped after a fatal failure. Check the run diagnostics before retrying.',
+	502,
+)
