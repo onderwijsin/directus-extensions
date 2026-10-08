@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { imageMimeTypes } from '../src/shared/image-mime-types'
 import {
 	createMetadataPatch,
 	hasMissingMetadata,
@@ -128,10 +127,10 @@ describe('image metadata contracts', () => {
 		expect(isSelected(file, options)).toBe(true)
 		expect(isSelected({ ...file, folder }, options)).toBe(false)
 		expect(isSelected({ ...file, type: 'video/png' }, options)).toBe(false)
-		for (const type of imageMimeTypes) expect(isSelected({ ...file, type }, options)).toBe(true)
-		expect(isSelected({ ...file, type: 'image/svg+xml' }, options)).toBe(false)
-		expect(isSelected({ ...file, type: 'image/heic' }, options)).toBe(false)
-		expect(isSelected({ ...file, type: 'image/vnd.adobe.photoshop' }, options)).toBe(false)
+		for (const type of ['image/png', 'image/jpeg', 'image/webp', 'image/avif']) expect(isSelected({ ...file, type }, options)).toBe(true)
+		expect(isSelected({ ...file, type: 'image/svg+xml' }, options)).toBe(true)
+		expect(isSelected({ ...file, type: 'image/heic' }, options)).toBe(true)
+		expect(isSelected({ ...file, type: 'image/vnd.adobe.photoshop' }, options)).toBe(true)
 		expect(isSelected({ ...file, type: ' IMAGE/PNG ' }, options)).toBe(true)
 	})
 	it('normalizes singular list inputs and removes duplicate file IDs', () => {
@@ -139,20 +138,21 @@ describe('image metadata contracts', () => {
 			writerOptionsSchema.parse({
 				files: [id, id],
 				includeFolders: null,
-				mimeTypes: 'IMAGE/PNG',
 			}),
-		).toMatchObject({ files: [id], includeFolders: [null], mimeTypes: ['image/png'] })
+		).toMatchObject({ files: [id], includeFolders: [null] })
 	})
 	it.each([
 		{ files: 'invalid' },
 		{ files: [] },
-		{ files: id, mimeTypes: 'video/mp4' },
-		{ files: id, mimeTypes: [] },
 		{ files: id, overwriteAltText: 'false' },
 		{ files: id, overwriteTags: 'false' },
 		{ files: id, overwriteFilename: 'false' },
 	])('rejects malformed Flow options: %j', (options) => {
 		expect(writerOptionsSchema.safeParse(options).success).toBe(false)
+	})
+	it('ignores retired MIME options from previously saved Flows', () => {
+		const options = optionsSchema.parse({ mimeTypes: ['image/png'] })
+		expect(isSelected({ ...file, type: 'image/avif' }, options)).toBe(true)
 	})
 	it.each([0, 1001, 1.5])('rejects an invalid backfill bound: %s', (maxFiles) => {
 		expect(backfillOptionsSchema.safeParse({ maxFiles }).success).toBe(false)
