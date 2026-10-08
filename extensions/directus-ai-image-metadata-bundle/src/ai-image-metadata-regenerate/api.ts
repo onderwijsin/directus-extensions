@@ -5,16 +5,16 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { MetadataRegenerationError } from '../shared/contracts'
-import { atStage, classifyFailure, ProcessingFailure } from '../shared/diagnostics'
+import { backfillOptionsSchema } from '../shared/configuration/options'
+import { atStage, classifyFailure, ProcessingFailure } from '../shared/diagnostics/diagnostics'
+import { createRunDiagnostics } from '../shared/diagnostics/run-diagnostics'
+import { hasMissingMetadata } from '../shared/metadata/metadata'
+import { MetadataRegenerationError } from '../shared/processing/contracts'
 import {
 	parseOperationOptions,
 	createMetadataProcessor,
 	safeMetadataError,
-} from '../shared/execution'
-import { hasMissingMetadata } from '../shared/metadata'
-import { backfillOptionsSchema } from '../shared/options'
-import { createRunDiagnostics } from '../shared/run-diagnostics'
+} from '../shared/processing/execution'
 import { envSchema } from './env.schema'
 import { runRegenerationQueue } from './queue'
 
@@ -31,7 +31,9 @@ export default defineOperationApi({
 		let complete = false
 		let restartAfterId: string | null | undefined
 		let enabled = true
-		let getProvider: (() => import('../shared/provider').ProviderConfig | undefined) | undefined
+		let getProvider:
+			| (() => import('../shared/providers/provider').ProviderConfig | undefined)
+			| undefined
 		const result = await attempt(async () => {
 			const setup = extensionSetup('ai_metadata_writer', context.env, context.logger)
 			setup.start()

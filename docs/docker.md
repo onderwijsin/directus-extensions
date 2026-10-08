@@ -209,8 +209,9 @@ Keep real credentials in ignored files or CI secrets. The E2E runner does not lo
 ## Image metadata provider fixture
 
 The E2E overlay starts `ai-metadata-mock` on the backend network and configures the image metadata
-operations to use its OpenAI-compatible chat-completions endpoint. The mock requires an inline PNG
-data URL, so successful generation verifies private image bytes reach the SDK adapter. It returns
-deterministic descriptions, tags, and filename stems without contacting an external AI provider. The
-global fixture language is Dutch; the mock requires language instructions and returns English
-metadata when an operation overrides the language to English.
+operations to use its OpenAI-compatible chat-completions endpoint. The mock requires an inline JPEG,
+PNG, or WebP data URL, so successful generation verifies private image bytes reach the SDK adapter.
+Portable input fixtures additionally verify exact byte preservation. It returns deterministic
+descriptions, tags, and filename stems without contacting an external AI provider. The global
+fixture language is Dutch; the mock requires language instructions and returns English metadata when
+an operation overrides the language to English.

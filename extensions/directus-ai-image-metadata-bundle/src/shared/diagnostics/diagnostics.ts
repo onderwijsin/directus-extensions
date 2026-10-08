@@ -1,4 +1,4 @@
-import type { FileResult, MetadataWriteResult } from './contracts'
+import type { FileResult, MetadataWriteResult } from '../processing/contracts'
 
 import { createError } from '@directus/errors'
 import { attempt, isDefined } from '@onderwijsin/directus-extension-utils'
@@ -45,7 +45,12 @@ export function classifyFailure(stage: FailureStage, error: unknown): FileFailur
 	const parsed = errorSchema.safeParse(error)
 	const details = parsed.success ? parsed.data : undefined
 	const httpStatus = details?.statusCode ?? details?.status
-	let code = stage === 'generate' ? 'PROVIDER_FAILED' : `${stage.toUpperCase()}_FAILED`
+	let code =
+		stage === 'generate'
+			? 'PROVIDER_FAILED'
+			: stage === 'convert_image'
+				? 'IMAGE_TRANSFORM_FAILED'
+				: `${stage.toUpperCase()}_FAILED`
 	let retryable = false
 	let message = 'Image metadata processing failed.'
 	if (details?.name === 'AbortError') {
@@ -53,8 +58,8 @@ export function classifyFailure(stage: FailureStage, error: unknown): FileFailur
 		code = 'RUN_ABORTED'
 		message = 'Image metadata execution was aborted.'
 	} else if (details?.name === 'TimeoutError') {
-		code = 'TIMEOUT'
-		retryable = stage !== 'write_metadata'
+		code = stage === 'convert_image' ? 'IMAGE_TRANSFORM_TIMEOUT' : 'TIMEOUT'
+		retryable = stage !== 'write_metadata' && stage !== 'convert_image'
 		message = 'Image metadata processing timed out.'
 	} else if (
 		details?.code === 'ECONNRESET' ||
@@ -129,10 +134,12 @@ export async function atStage<T>(
 	signal?: AbortSignal,
 ): Promise<T> {
 	const result = await attempt(async () => ({ value: await action() }))
-	if (result.data === null)
+	if (result.data === null) {
+		if (result.error instanceof ProcessingFailure) throw result.error
 		throw new ProcessingFailure(
 			classifyFailure(stage, signal?.aborted ? signal.reason : result.error),
 		)
+	}
 	return result.data.value
 }
 

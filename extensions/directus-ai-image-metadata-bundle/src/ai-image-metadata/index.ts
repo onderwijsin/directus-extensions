@@ -1,6 +1,6 @@
 import { defineOperationApp } from '@directus/extensions-sdk'
 
-import { metadataAppOptions } from '../shared/app-options'
+import { metadataAppOptions } from '../shared/configuration/app-options'
 
 export default defineOperationApp({
 	id: 'ai-image-metadata',

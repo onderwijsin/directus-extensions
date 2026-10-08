@@ -1,6 +1,6 @@
 import type { OperationContext, SchemaOverview } from '@directus/types'
-import type { MetadataEnvironment } from './env'
-import type { MetadataOptions } from './options'
+import type { MetadataEnvironment } from '../configuration/env'
+import type { MetadataOptions } from '../configuration/options'
 
 import { attemptSync } from '@onderwijsin/directus-extension-utils'
 import {
@@ -9,7 +9,7 @@ import {
 	readDirectusAiSettings,
 } from '@onderwijsin/directus-extension-utils/server'
 
-import { MetadataUnavailableError } from './contracts'
+import { MetadataUnavailableError } from '../processing/contracts'
 import { parseProviderConfig } from './provider'
 
 /**

@@ -2,8 +2,9 @@ import type { OperationContext, SchemaOverview, Filter } from '@directus/types'
 
 import { z } from 'zod'
 
-import { fileFields } from './contracts'
-import { fileSchema, type MetadataOptions } from './options'
+import { fileSchema, type MetadataOptions } from '../configuration/options'
+import { fileFields } from '../processing/contracts'
+import { imageMimeTypes } from './image-mime-types'
 
 const indexWindowSize = 1000
 const indexRowsSchema = z.array(z.object({ id: z.uuid() }))
@@ -28,10 +29,11 @@ export function createFileReader(
 	/**
 	 * Reads a file through the Flow's permission context.
 	 * @param id - File UUID.
-	 * @returns Validated file metadata.
+	 * @returns Validated image metadata, or null for an unsupported MIME type.
 	 */
 	async function readFile(id: string) {
-		return fileSchema.parse(await files.readOne(id, { fields: fileFields }))
+		const file = fileSchema.parse(await files.readOne(id, { fields: fileFields }))
+		return imageMimeTypes.includes(file.type ?? '') ? file : null
 	}
 
 	/**
@@ -58,7 +60,7 @@ export function createFileReader(
 		)
 		const filter: Filter = {
 			_and: [
-				{ type: { _in: options.mimeTypes } },
+				{ type: { _in: [...imageMimeTypes] } },
 				...(included.length ? [{ _or: included }] : []),
 				...excluded,
 				...(selection?.rangeIds ? [{ id: { _in: selection.rangeIds } }] : []),
@@ -93,7 +95,7 @@ export function createFileReader(
 			.select('id')
 			.where('id', '>', afterId)
 			.whereNotIn('id', excludeFiles)
-			.whereIn('type', options.mimeTypes)
+			.whereIn('type', [...imageMimeTypes])
 
 		const includedFolders = options.includeFolders.filter((folder) => folder !== null)
 		if (options.includeFolders.length) {

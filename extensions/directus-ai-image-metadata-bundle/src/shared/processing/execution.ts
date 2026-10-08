@@ -1,5 +1,5 @@
 import type { OperationContext, SchemaOverview } from '@directus/types'
-import type { MetadataEnvironment } from './env'
+import type { MetadataEnvironment } from '../configuration/env'
 
 import { InvalidPayloadError, isDirectusError } from '@directus/errors'
 import { z } from 'zod'
@@ -12,15 +12,17 @@ import {
 } from './contracts'
 export type { FileResult } from './contracts'
 
-import { atStage, ProcessingFailure, settleFile } from './diagnostics'
-import { createFileReader } from './file-reader'
-import { readImageBytes } from './image-bytes'
-import { needsMetadataUpdate, isSelected } from './metadata'
-import { createMetadataWriter } from './metadata-writer'
-import { type MetadataOptions, type MetadataFile } from './options'
-import { generateMetadata } from './provider'
-import { createProviderResolver } from './provider-config'
-import { createMetadataSystemPrompt } from './system-prompt'
+import { type MetadataOptions, type MetadataFile } from '../configuration/options'
+import { atStage, ProcessingFailure, settleFile } from '../diagnostics/diagnostics'
+import { createFileReader } from '../files/file-reader'
+import { readImageBytes } from '../files/image-bytes'
+import { diagnosticMimeType } from '../files/image-mime-types'
+import { imageTransformFailure } from '../files/image-transform-error'
+import { needsMetadataUpdate, isSelected } from '../metadata/metadata'
+import { createMetadataWriter } from '../metadata/metadata-writer'
+import { generateMetadata } from '../providers/provider'
+import { createProviderResolver } from '../providers/provider-config'
+import { createMetadataSystemPrompt } from '../providers/system-prompt'
 
 /**
  * Validates external Flow options with safe Directus errors.
@@ -65,20 +67,50 @@ export function createMetadataProcessor(
 	/**
 	 * Processes one eligible file, preserving concurrent metadata edits under a row lock.
 	 * @param file - Permission-checked metadata.
+	 * @param runId - Optional diagnostic run correlation.
 	 * @returns Updated fields or a skipped result.
 	 */
-	async function processFile(file: MetadataFile): Promise<MetadataWriteResult> {
+	async function processFile(file: MetadataFile, runId?: string): Promise<MetadataWriteResult> {
 		const skipped: MetadataWriteResult = { id: file.id, status: 'skipped', fields: [] }
 		if (!isSelected(file, options) || !needsMetadataUpdate(file, options)) return skipped
 		provider ??= resolveProvider()
 		const config = await atStage('resolve_provider', () => provider ?? resolveProvider())
 		resolved = config
 		const signal = AbortSignal.timeout(env.AI_METADATA_WRITER_TIMEOUT_MS)
-		const asset = await atStage('read_asset', () => acquireAsset(file.id, signal))
+		const started = performance.now()
+		const transform = file.type === 'image/avif' || file.type === 'image/tiff'
+		const mediaType = transform ? 'image/png' : (file.type ?? '')
+		const asset = await atStage(
+			transform ? 'convert_image' : 'read_asset',
+			() => acquireAsset(file.id, signal, transform),
+			signal,
+		)
 		const image = await atStage(
 			'read_bytes',
-			() => readImageBytes(asset.stream, signal, env.AI_METADATA_WRITER_MAX_IMAGE_BYTES),
+			() =>
+				readImageBytes(
+					asset.stream,
+					signal,
+					Math.min(env.AI_METADATA_WRITER_MAX_IMAGE_BYTES, 5_000_000),
+				),
 			signal,
+		)
+		// AssetsService can return the original when transformation is bypassed. Never label it PNG.
+		if (
+			transform &&
+			!image.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+		)
+			throw imageTransformFailure('IMAGE_TRANSFORM_INVALID_INPUT')
+		context.logger.debug(
+			{
+				runId,
+				fileId: file.id,
+				originalMimeType: diagnosticMimeType(file.type),
+				providerInputMimeType: mediaType,
+				transformationDurationMs: performance.now() - started,
+				outputBytes: image.byteLength,
+			},
+			'Image metadata input prepared',
 		)
 		const generation = await atStage(
 			'generate',
@@ -86,7 +118,7 @@ export function createMetadataProcessor(
 				generateMetadata(
 					config,
 					image,
-					file.type?.trim().toLowerCase() ?? '',
+					mediaType,
 					createMetadataSystemPrompt(options, env),
 					signal,
 					options,
@@ -100,11 +132,15 @@ export function createMetadataProcessor(
 	 * Bounds asset acquisition and releases streams arriving after timeout.
 	 * @param id - File identifier.
 	 * @param signal - Per-file deadline.
+	 * @param transform - Whether Directus should convert the input to PNG.
 	 * @returns Acquired asset.
 	 */
-	async function acquireAsset(id: string, signal: AbortSignal) {
+	async function acquireAsset(id: string, signal: AbortSignal, transform: boolean) {
 		signal.throwIfAborted()
-		const pending = assets.getAsset(id)
+		const pending = assets.getAsset(
+			id,
+			transform ? { transformationParams: { format: 'png' } } : undefined,
+		)
 		void pending.then(
 			(asset) => {
 				if (signal.aborted) asset.stream.destroy()
@@ -146,8 +182,9 @@ export function createMetadataProcessor(
 			id,
 			async () => {
 				const candidate = file ?? (await atStage('read_file', () => readFile(id)))
+				if (!candidate) return { id, status: 'skipped', fields: [] }
 				file = candidate
-				return processFile(candidate)
+				return processFile(candidate, runId)
 			},
 			isolate,
 			(diagnostic, durationMs) => {
@@ -155,7 +192,7 @@ export function createMetadataProcessor(
 					runId,
 					fileId: id,
 					folder: file?.folder,
-					mime: file?.type,
+					mime: diagnosticMimeType(file?.type),
 					durationMs,
 					provider: resolved?.provider,
 					model: resolved?.model,
@@ -192,6 +229,8 @@ export function createMetadataProcessor(
  * @returns Safe error for the Flow rejection branch.
  */
 export function safeMetadataError(error: unknown) {
+	if (error instanceof ProcessingFailure && error.diagnostic.stage === 'convert_image')
+		return error
 	if (error instanceof ProcessingFailure && error.diagnostic.stage === 'resolve_provider')
 		return new MetadataUnavailableError({
 			reason: 'Check the provider, model, API key, and base URL settings.',

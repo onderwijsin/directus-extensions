@@ -14,12 +14,14 @@ async function handle(request, response) {
 		chunks.push(chunk)
 	}
 	const body = Buffer.concat(chunks).toString()
-	if (!body.includes('data:image/png;base64,') || !body.includes('image_url')) {
+	const image = /data:image\/(?:jpeg|png|webp);base64,([A-Za-z0-9+/=]+)/u.exec(body)
+	const expected = /E2E_EXPECT_IMAGE:([A-Za-z0-9+/=]+)/u.exec(body)
+	if (!image || !body.includes('image_url') || (expected && image[1] !== expected[1])) {
 		response.writeHead(400, { 'Content-Type': 'application/json' })
 		response.end(
 			JSON.stringify({
 				error: {
-					message: 'Expected private PNG image bytes',
+					message: 'Expected unchanged private portable image bytes',
 					type: 'invalid_request_error',
 				},
 			}),

@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest'
 
-import { metadataAppOptions } from '../src/shared/app-options'
-import { imageMimeTypes } from '../src/shared/image-mime-types'
-import {
-	createMetadataPatch,
-	hasTags,
-	hasMissingMetadata,
-	isSelected,
-	needsMetadataUpdate,
-} from '../src/shared/metadata'
+import { metadataAppOptions } from '../src/shared/configuration/app-options'
 import {
 	backfillOptionsSchema,
 	fileSchema,
 	metadataSchema,
 	optionsSchema,
 	writerOptionsSchema,
-} from '../src/shared/options'
+} from '../src/shared/configuration/options'
+import { imageMimeTypes, diagnosticMimeType } from '../src/shared/files/image-mime-types'
+import {
+	createMetadataPatch,
+	hasTags,
+	hasMissingMetadata,
+	isSelected,
+	needsMetadataUpdate,
+} from '../src/shared/metadata/metadata'
 
 const id = '11111111-1111-4111-8111-111111111111'
 const folder = '22222222-2222-4222-8222-222222222222'
@@ -34,6 +34,16 @@ const generated = metadataSchema.parse({
 })
 
 describe('image metadata contracts', () => {
+	it('only includes bounded MIME labels in diagnostics', () => {
+		expect(diagnosticMimeType(' IMAGE/PNG ')).toBe('image/png')
+		for (const value of [
+			null,
+			'image/<svg>PRIVATE</svg>',
+			'image/' + 'x'.repeat(200),
+			'private text',
+		])
+			expect(diagnosticMimeType(value)).toBeUndefined()
+	})
 	it('uses environment fallbacks when optional Studio strings are cleared', () => {
 		expect(optionsSchema.parse({ provider: null, model: '', prompt: null })).toMatchObject({
 			provider: undefined,
@@ -147,7 +157,7 @@ describe('image metadata contracts', () => {
 		expect(isSelected({ ...file, type: 'image/svg+xml' }, options)).toBe(false)
 		expect(isSelected({ ...file, type: 'image/heic' }, options)).toBe(false)
 		expect(isSelected({ ...file, type: 'image/vnd.adobe.photoshop' }, options)).toBe(false)
-		expect(isSelected({ ...file, type: ' IMAGE/PNG ' }, options)).toBe(true)
+		expect(isSelected({ ...file, type: ' IMAGE/PNG ' }, options)).toBe(false)
 	})
 	it('normalizes singular list inputs and removes duplicate file IDs', () => {
 		expect(
@@ -156,19 +166,38 @@ describe('image metadata contracts', () => {
 				includeRoot: true,
 				mimeTypes: 'IMAGE/PNG',
 			}),
-		).toMatchObject({ files: [id], includeFolders: [], mimeTypes: ['image/png'] })
+		).toMatchObject({ files: [id], includeFolders: [], mimeTypes: undefined })
 	})
 	it.each([
 		{ files: 'invalid' },
 		{ files: [] },
-		{ files: id, mimeTypes: 'video/mp4' },
-		{ files: id, mimeTypes: [] },
 		{ files: id, overwriteAltText: 'false' },
 		{ files: id, overwriteTags: 'false' },
 		{ files: id, overwriteFilename: 'false' },
 	])('rejects malformed Flow options: %j', (options) => {
 		expect(writerOptionsSchema.safeParse(options).success).toBe(false)
 	})
+	it.each(['video/mp4', [], null, ['image/jpeg'], { retired: true }])(
+		'ignores retired MIME options without changing other settings: %j',
+		(mimeTypes) => {
+			for (const schema of [writerOptionsSchema, backfillOptionsSchema]) {
+				const options = schema.parse({
+					...(schema === writerOptionsSchema ? { files: id } : {}),
+					mimeTypes,
+					includeRoot: true,
+					generateTags: true,
+				})
+				expect(options).toMatchObject({
+					mimeTypes: undefined,
+					includeRoot: true,
+					generateTags: true,
+				})
+				expect(isSelected({ ...file, type: 'image/avif' }, options)).toBe(true)
+				expect(isSelected({ ...file, type: 'application/pdf' }, options)).toBe(false)
+			}
+			expect(metadataAppOptions.some((option) => option.field === 'mimeTypes')).toBe(false)
+		},
+	)
 	it.each([0, 1001, 1.5])('rejects an invalid backfill bound: %s', (maxFiles) => {
 		expect(backfillOptionsSchema.safeParse({ maxFiles }).success).toBe(false)
 	})

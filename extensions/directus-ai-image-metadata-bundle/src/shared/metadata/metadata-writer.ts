@@ -1,9 +1,9 @@
 import type { OperationContext, SchemaOverview } from '@directus/types'
-import type { MetadataOptions, MetadataFile, GeneratedMetadata } from './options'
+import type { MetadataOptions, MetadataFile, GeneratedMetadata } from '../configuration/options'
 
-import { fileFields, type MetadataWriteResult } from './contracts'
+import { fileSchema } from '../configuration/options'
+import { fileFields, type MetadataWriteResult } from '../processing/contracts'
 import { createMetadataPatch, isSelected } from './metadata'
-import { fileSchema } from './options'
 
 /**
  * Builds a metadata writer that rechecks current fields under a row lock.

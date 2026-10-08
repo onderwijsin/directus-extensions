@@ -2,9 +2,9 @@ import { isDirectusError } from '@directus/errors'
 import { RetryError } from 'ai'
 import { describe, expect, it, vi } from 'vitest'
 
-import { atStage, classifyFailure, ProcessingFailure } from '../src/shared/diagnostics'
-import { backfillOptionsSchema } from '../src/shared/options'
-import { createRunDiagnostics } from '../src/shared/run-diagnostics'
+import { backfillOptionsSchema } from '../src/shared/configuration/options'
+import { atStage, classifyFailure, ProcessingFailure } from '../src/shared/diagnostics/diagnostics'
+import { createRunDiagnostics } from '../src/shared/diagnostics/run-diagnostics'
 
 describe('safe image metadata diagnostics', () => {
 	it.each([
@@ -89,7 +89,7 @@ describe('safe image metadata diagnostics', () => {
 
 describe('file failure isolation', () => {
 	it('persists both successes around a failed provider call in selection order', async () => {
-		const { settleFile } = await import('../src/shared/diagnostics')
+		const { settleFile } = await import('../src/shared/diagnostics/diagnostics')
 		const persisted: string[] = []
 		const logs: unknown[] = []
 		const results = []
@@ -108,7 +108,7 @@ describe('file failure isolation', () => {
 								id,
 								status: 'updated',
 								fields: ['description'],
-							} satisfies import('../src/shared/contracts').MetadataWriteResult)
+							} satisfies import('../src/shared/processing/contracts').MetadataWriteResult)
 						}),
 					true,
 					(error) => logs.push(error),
@@ -121,12 +121,12 @@ describe('file failure isolation', () => {
 		expect(JSON.stringify({ results, logs })).not.toContain('SECRET')
 	})
 	it('rejects single-file failures and shared configuration/shutdown even with isolation', async () => {
-		const { settleFile } = await import('../src/shared/diagnostics')
+		const { settleFile } = await import('../src/shared/diagnostics/diagnostics')
 		for (const [stage, isolate] of [
 			['generate', false],
 			['resolve_provider', true],
 			['shutdown', true],
-		] satisfies [import('../src/shared/diagnostics').FailureStage, boolean][]) {
+		] satisfies [import('../src/shared/diagnostics/diagnostics').FailureStage, boolean][]) {
 			await expect(
 				settleFile(
 					'file',

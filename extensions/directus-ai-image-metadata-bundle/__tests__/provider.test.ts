@@ -25,7 +25,7 @@ import {
 	createMetadataModel,
 	generateMetadata,
 	createProviderConfigSchema,
-} from '../src/shared/provider'
+} from '../src/shared/providers/provider'
 
 const parseConfig = (input: unknown) => createProviderConfigSchema(z).parse(input)
 

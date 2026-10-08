@@ -45,8 +45,8 @@ environment or Directus settings, rather than stored in Flow options.
 | `AI_METADATA_WRITER_BASE_URL`        | URL, unset                                    | Provider endpoint override. Required for `openai-compatible` unless supplied by a lower layer. |
 | `AI_METADATA_WRITER_LANGUAGE`        | accepted language, `English`                  | Global language for generated alt text, tags, and filename words.                              |
 | `AI_METADATA_WRITER_PROMPT`          | Markdown string, default accessibility prompt | Replacement system instructions; blank uses the default.                                       |
-| `AI_METADATA_WRITER_MAX_IMAGE_BYTES` | positive integer, `10000000`                  | Maximum bytes read into memory per image.                                                      |
-| `AI_METADATA_WRITER_TIMEOUT_MS`      | positive integer, `60000`                     | Timeout for image streaming and generation.                                                    |
+| `AI_METADATA_WRITER_MAX_IMAGE_BYTES` | positive integer, `10000000`                  | Provider-input byte budget; effective maximum 5 MB.                                            |
+| `AI_METADATA_WRITER_TIMEOUT_MS`      | positive integer, `60000`                     | Deadline for acquisition, preparation, and generation.                                         |
 | `DIRECTUS_EXTENSIONS_AI_PROVIDER`    | string, unset                                 | Shared provider fallback; must be a supported adapter when used here.                          |
 | `DIRECTUS_EXTENSIONS_AI_MODEL`       | string, unset                                 | Shared model fallback.                                                                         |
 | `DIRECTUS_EXTENSIONS_AI_API_KEY`     | nonblank string, unset                        | Shared server-only credential fallback.                                                        |
@@ -82,7 +82,6 @@ whitespace-only) use their environment/default fallback:
 | `provider`          | `resolved environment`           | Provider override; credentials stay on the server.                                                      |
 | `model`             | `resolved environment`           | Image-capable model override.                                                                           |
 | `prompt`            | `environment/default`            | Replacement system instructions.                                                                        |
-| `mimeTypes`         | JPEG, PNG, GIF, WebP             | Exact MIME string or nonempty array; normalized to lowercase. Non-images are skipped.                   |
 | `includeFolders`    | `[]`                             | Folder selection objects; empty selects all. Use `includeRoot` for root.                                |
 | `excludeFolders`    | `[]`                             | Folder selection objects; exclusion wins. Root inclusion is controlled by `includeRoot`.                |
 | `includeRoot`       | `false`                          | Include root files alongside selected folders; unchecked excludes root.                                 |
@@ -93,12 +92,36 @@ whitespace-only) use their environment/default fallback:
 | `overwriteTags`     | `false`                          | Replace populated tags when generateTags is enabled; otherwise fill only missing tags.                  |
 | `overwriteFilename` | `false`                          | Replace the download filename when generateFilename is enabled; otherwise fill only a missing filename. |
 
-Default image MIME selection: `image/jpeg`, `image/png`, `image/gif`, and `image/webp`. These are
-common vision-model input formats. Check the configured provider/model's restrictions; for example,
-OpenAI supports only non-animated GIF inputs. Other formats such as SVG, AVIF, TIFF, and HEIC are
-excluded by default. Change `mimeTypes` only to formats your model supports. Original image bytes
-are sent without conversion or rasterization; unsupported inputs produce classified failures
-(single-file runs reject).
+Both operations select only Directus-transformable MIME types: `image/jpeg`, `image/png`,
+`image/webp`, `image/tiff`, and `image/avif`. This fixed filter applies to paged queries and cursor
+windows; explicit unsupported files are skipped before asset acquisition or provider resolution.
+GIF, SVG, HEIC/HEIF, BMP, other image formats, PDFs, videos, audio, documents, and null MIME values
+are excluded. The MIME selector is retired: saved `mimeTypes` values are accepted and ignored.
+Existing Flows can therefore select a different set of candidates; folder, missing-only, overwrite,
+accountability, cursor, and `maxFiles` bounds retain their meanings.
+
+JPEG, PNG, and WebP pass through accountable Directus AssetsService reads with their original bytes
+and MIME type. Only AVIF and TIFF request PNG conversion through AssetsService before generation.
+For converted inputs, Directus owns decoding, orientation, first-frame/page handling, alpha
+preservation, transformation limits, and derivative caching in the configured file storage. No
+resize or crop is requested. Stored source bytes and file metadata are unchanged by preparation;
+explicit filename generation retains its existing behavior. No separate image library or native
+dependency is required.
+
+Provider-input bytes are bounded by the smaller of `AI_METADATA_WRITER_MAX_IMAGE_BYTES` and 5 MB.
+Oversized outputs fail instead of being resized or recompressed; provider/model limits can be
+stricter. The per-file deadline includes asset acquisition, conversion, byte collection, and
+generation. Directus native work follows its own `ASSETS_TRANSFORM_*` limits and may finish/cache a
+derivative after the operation deadline; late streams are released. Configure those limits in
+Directus.
+
+Directus transformation failures report `stage: 'convert_image'` with `IMAGE_TRANSFORM_FAILED` or
+`IMAGE_TRANSFORM_TIMEOUT`. Empty input or non-PNG transformation output reports
+`IMAGE_TRANSFORM_INVALID_INPUT`, and oversized output reports `IMAGE_TRANSFORM_LIMIT_EXCEEDED`.
+These failures do not reach a provider. Regeneration continues with other files; the explicit-file
+operation retains default rejection semantics. Extension diagnostics contain safe MIME labels,
+output byte counts, preparation duration, and run/file correlation, without image bytes, raw decoder
+errors, prompts, or provider responses.
 
 The Studio shows **Overwrite Alt Text** only when **Generate Alt Text** is enabled, **Overwrite
 Tags** only when **Generate Tags** is enabled, and **Overwrite Filename** only when **Generate
@@ -250,9 +273,9 @@ masked; no arbitrary upstream message is returned. Each file update remains atom
 
 - Verify the provider/model and its image-input/structured-output support when generation fails.
 - Check matching Directus credentials or environment keys when configuration is unavailable.
-- Check Flow file permissions, MIME filters, exact folder selection, and populated metadata when
-  files are skipped. Provider configuration is resolved lazily, so an entirely skipped run makes no
-  provider calls.
+- Check Flow file permissions, image MIME declarations, exact folder selection, and populated
+  metadata when files are skipped. Provider configuration is resolved lazily, so an entirely skipped
+  run makes no provider calls.
 - Reduce image size or explicitly adjust the byte limit when an image is too large.
 - Keep backfill batches within your Flow execution timeout and provider budget. Run backfills
   serially. SQLite has database-level write locking; PostgreSQL supports per-row locks.
@@ -310,8 +333,8 @@ Regeneration returns
 result has `id`, `status`, `durationMs`, and `fields`; failed results additionally have
 `error: {stage, code, retryable, httpStatus?, message}`. Messages and codes are allowlisted. Stages
 cover `read_file`, `resolve_provider`, `read_asset`, `read_bytes`, `convert_image`, `generate`, and
-`write_metadata`; conversion is reserved for future format support. Fatal summaries may identify
-`validate_options`, `enumerate`, or `shutdown`.
+`write_metadata`; preparation failures retain transformation-specific codes. Fatal summaries may
+identify `validate_options`, `enumerate`, or `shutdown`.
 
 `filesFound` and `filesAttempted` count distinct admitted candidates, including files skipped after
 concurrent edits. Updated/skipped/failed counts describe settled outcomes. A fatal attempted file

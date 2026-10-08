@@ -1,6 +1,6 @@
 import { addAbortSignal, type Readable } from 'node:stream'
 
-import { InvalidPayloadError } from '@directus/errors'
+import { imageTransformFailure } from './image-transform-error'
 
 /**
  * Collects bounded private image bytes and always releases the source stream.
@@ -17,17 +17,14 @@ export async function readImageBytes(source: Readable, signal: AbortSignal, maxB
 		for await (const rawChunk of stream) {
 			const chunk: unknown = rawChunk
 			if (!(chunk instanceof Uint8Array))
-				throw new InvalidPayloadError({ reason: 'Invalid image byte stream.' })
+				throw imageTransformFailure('IMAGE_TRANSFORM_INVALID_INPUT')
 			length += chunk.byteLength
-			if (length > maxBytes)
-				throw new InvalidPayloadError({
-					reason: 'Image exceeds AI_METADATA_WRITER_MAX_IMAGE_BYTES.',
-				})
+			if (length > maxBytes) throw imageTransformFailure('IMAGE_TRANSFORM_LIMIT_EXCEEDED')
 			chunks.push(chunk)
 		}
 	} finally {
 		stream.destroy()
 	}
-	if (!length) throw new InvalidPayloadError({ reason: 'Image is empty.' })
+	if (!length) throw imageTransformFailure('IMAGE_TRANSFORM_INVALID_INPUT')
 	return Buffer.concat(chunks)
 }

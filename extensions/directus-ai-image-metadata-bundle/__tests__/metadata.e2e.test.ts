@@ -1,3 +1,5 @@
+import { readFile as readFixture } from 'node:fs/promises'
+
 import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
 	createFlow,
@@ -121,12 +123,7 @@ async function uploadImage(folder: string) {
 	data.append(
 		'file',
 		new Blob(
-			[
-				Buffer.from(
-					'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4x8AAAAASUVORK5CYII=',
-					'base64',
-				),
-			],
+			[new Uint8Array(await readFixture(new URL('./fixtures/red.png', import.meta.url)))],
 			{ type: 'image/png' },
 		),
 		'original.png',
@@ -136,6 +133,135 @@ async function uploadImage(folder: string) {
 }
 
 describe('image metadata installed Flow operations', () => {
+	it('converts image candidates, ignores legacy MIME filters, isolates corruption and preserves cursor selection', async () => {
+		const folder = await client.request(createFolder({ name: 'Image preparation E2E' }))
+		const ids: string[] = []
+		const imageIds: string[] = []
+		const originals = new Map<string, { bytes: Uint8Array; mime: string }>()
+		let corruptId: string | undefined
+		try {
+			for (const format of [
+				'jpeg',
+				'png',
+				'webp',
+				'avif',
+				'tiff',
+				'gif',
+				'svg',
+				'corrupt',
+				'pdf',
+				'video',
+				'audio',
+			]) {
+				let bytes: Uint8Array
+				let mime: string
+				if (['jpeg', 'png', 'webp', 'avif', 'tiff', 'gif'].includes(format)) {
+					bytes = await readFixture(new URL(`./fixtures/red.${format}`, import.meta.url))
+					mime = `image/${format}`
+				} else if (format === 'svg') {
+					bytes = Buffer.from(
+						'<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="red"/></svg>',
+					)
+					mime = 'image/svg+xml'
+				} else {
+					bytes = Buffer.from('invalid image fixture')
+					mime =
+						format === 'corrupt'
+							? 'image/avif'
+							: format === 'pdf'
+								? 'application/pdf'
+								: format === 'video'
+									? 'video/mp4'
+									: 'audio/mpeg'
+				}
+				const data = new FormData()
+				data.append('folder', folder.id)
+				data.append(
+					'file',
+					new Blob([new Uint8Array(bytes)], { type: mime }),
+					`fixture.${format}`,
+				)
+				const file = await client.request(uploadFiles(data))
+				ids.push(file.id)
+				// Persist the declaration explicitly, including corrupt and non-image candidate fixtures.
+				await client.request(updateFile(file.id, { type: mime }))
+				if (
+					['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/tiff'].includes(
+						mime,
+					)
+				)
+					imageIds.push(file.id)
+				else {
+					const explicit = await runOperation('ai-image-metadata', {
+						files: file.id,
+						mimeTypes: [mime],
+					})
+					expect(explicit.results[0]).toMatchObject({
+						id: file.id,
+						status: 'skipped',
+						fields: [],
+					})
+				}
+				if (['jpeg', 'png', 'webp'].includes(format)) {
+					const explicit = await runOperation('ai-image-metadata', {
+						files: file.id,
+						prompt: `Describe the image. E2E_EXPECT_IMAGE:${Buffer.from(bytes).toString('base64')}`,
+					})
+					expect(explicit.results[0]?.status).toBe('updated')
+					await client.request(updateFile(file.id, { description: null }))
+				}
+				if (format === 'corrupt') corruptId = file.id
+				else if (
+					['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/tiff'].includes(
+						mime,
+					)
+				)
+					originals.set(file.id, { bytes, mime })
+			}
+			const seen: string[] = []
+			let afterId: string | null = null
+			for (let page = 0; page < 4; page += 1) {
+				const output = await runOperation('ai-image-metadata-regenerate', {
+					includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
+					mimeTypes: ['application/pdf'],
+					maxFiles: 2,
+					concurrency: 2,
+					afterId,
+				})
+				for (const result of output.results) {
+					seen.push(result.id)
+					if (result.id === corruptId)
+						expect(result).toMatchObject({
+							status: 'failed',
+							error: {
+								stage: 'convert_image',
+								code: 'IMAGE_TRANSFORM_FAILED',
+								retryable: false,
+							},
+						})
+					else expect(result.status).toBe('updated')
+				}
+				if (!output.nextCursor) break
+				afterId = output.nextCursor
+			}
+			expect(seen).toEqual([...imageIds].sort())
+			expect(new Set(seen).size).toBe(imageIds.length)
+			for (const [id, original] of originals) {
+				expect(await client.request(readFile(id))).toMatchObject({
+					type: original.mime,
+					filename_download: expect.stringContaining('fixture.'),
+				})
+				const stored = await fetch(`${environment.DIRECTUS_E2E_URL}/assets/${id}`, {
+					headers: { Authorization: `Bearer ${environment.DIRECTUS_E2E_TOKEN}` },
+				})
+				expect(Buffer.from(await stored.arrayBuffer())).toEqual(Buffer.from(original.bytes))
+			}
+		} finally {
+			for (const id of ids) await client.request(deleteFile(id))
+			await client.request(deleteFolder(folder.id))
+		}
+	})
+
 	it('reads private bytes, writes metadata, preserves existing values, and renames on explicit overwrite', async () => {
 		const folder = await client.request(createFolder({ name: 'Image metadata test' }))
 		let id: string | undefined
@@ -166,10 +292,12 @@ describe('image metadata installed Flow operations', () => {
 					})
 				).results,
 			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
-			expect(
-				(await runOperation('ai-image-metadata', { files: id, mimeTypes: 'image/jpeg' }))
-					.results,
-			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
+			const legacy = await runOperation('ai-image-metadata', {
+				files: id,
+				mimeTypes: 'image/jpeg',
+			})
+			expect(legacy.results[0]?.status).toBe('updated')
+			await client.request(updateFile(id, { description: null }))
 			const result = await runOperation('ai-image-metadata', {
 				files: id,
 				generateTags: true,

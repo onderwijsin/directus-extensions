@@ -35,13 +35,13 @@ export type FileResult =
 			status: 'failed'
 			fields: string[]
 			durationMs: number
-			error: import('./diagnostics').FileFailure
+			error: import('../diagnostics/diagnostics').FileFailure
 	  }
 
 /** Fatal regeneration diagnostics; restart from the original boundary to avoid omissions. */
 export const MetadataRegenerationError = createError<{
 	summary: ReturnType<
-		ReturnType<typeof import('./run-diagnostics').createRunDiagnostics>['summary']
+		ReturnType<typeof import('../diagnostics/run-diagnostics').createRunDiagnostics>['summary']
 	>
 	results: FileResult[]
 	restartAfterId: string | null

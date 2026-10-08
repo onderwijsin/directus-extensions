@@ -2,7 +2,7 @@ import { Readable } from 'node:stream'
 
 import { describe, expect, it } from 'vitest'
 
-import { readImageBytes } from '../src/shared/image-bytes'
+import { readImageBytes } from '../src/shared/files/image-bytes'
 
 describe('bounded private image reads', () => {
 	it('collects multiple chunks and closes the source', async () => {
@@ -15,7 +15,7 @@ describe('bounded private image reads', () => {
 	it('rejects oversized images and releases the stream', async () => {
 		const source = Readable.from([Buffer.from([1, 2, 3])])
 		await expect(readImageBytes(source, new AbortController().signal, 2)).rejects.toMatchObject(
-			{ code: 'INVALID_PAYLOAD' },
+			{ diagnostic: { code: 'IMAGE_TRANSFORM_LIMIT_EXCEEDED' } },
 		)
 		expect(source.destroyed).toBe(true)
 	})
@@ -24,7 +24,7 @@ describe('bounded private image reads', () => {
 			const source = Readable.from(chunks)
 			await expect(
 				readImageBytes(source, new AbortController().signal, 10),
-			).rejects.toMatchObject({ code: 'INVALID_PAYLOAD' })
+			).rejects.toMatchObject({ diagnostic: { code: 'IMAGE_TRANSFORM_INVALID_INPUT' } })
 			expect(source.destroyed).toBe(true)
 		}
 	})

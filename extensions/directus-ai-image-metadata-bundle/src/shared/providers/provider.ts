@@ -12,7 +12,7 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 import { generateText, Output } from 'ai'
 
-import { createMetadataSchema, type MetadataOptions } from './options'
+import { createMetadataSchema, type MetadataOptions } from '../configuration/options'
 
 /** Complete server-only configuration using the utility's supplied Zod runtime. */
 export const providerConfigSchema = defineExtensionOptionsSchema(createProviderConfigSchema)

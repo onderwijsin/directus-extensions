@@ -1,7 +1,7 @@
 import type { z } from 'zod'
-import type { FileResult } from './contracts'
-import type { backfillOptionsSchema } from './options'
-import type { ProviderConfig } from './provider'
+import type { backfillOptionsSchema } from '../configuration/options'
+import type { FileResult } from '../processing/contracts'
+import type { ProviderConfig } from '../providers/provider'
 
 import { randomUUID } from 'node:crypto'
 

@@ -7,13 +7,13 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import { writerOptionsSchema } from '../shared/configuration/options'
 import {
 	parseOperationOptions,
 	createMetadataProcessor,
 	safeMetadataError,
 	type FileResult,
-} from '../shared/execution'
-import { writerOptionsSchema } from '../shared/options'
+} from '../shared/processing/execution'
 import { envSchema } from './env.schema'
 
 export default defineOperationApi({

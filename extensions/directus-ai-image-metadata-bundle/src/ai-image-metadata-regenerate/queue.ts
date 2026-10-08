@@ -1,9 +1,9 @@
 import type { z } from 'zod'
-import type { FileResult } from '../shared/contracts'
-import type { MetadataFile } from '../shared/options'
-import type { backfillOptionsSchema } from '../shared/options'
+import type { MetadataFile } from '../shared/configuration/options'
+import type { backfillOptionsSchema } from '../shared/configuration/options'
+import type { FileResult } from '../shared/processing/contracts'
 
-import { hasMissingMetadata } from '../shared/metadata'
+import { hasMissingMetadata } from '../shared/metadata/metadata'
 
 /**
  * Runs a continuously replenished queue with serialized prefetch and bounded metadata refinement.

@@ -1,7 +1,6 @@
 import { isDefined, isNonBlankString, isString } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
-import { imageMimeTypes } from './image-mime-types'
 import { acceptedLanguages } from './languages'
 
 /** Providers supported by the server adapter. */
@@ -22,15 +21,6 @@ const folderListSchema = z
 	)
 	.nullable()
 	.transform((value) => [...new Set((value ?? []).map(({ key }) => key))])
-const mimeSchema = z
-	.string()
-	.trim()
-	.toLowerCase()
-	.regex(/^image\/[a-z0-9.+-]+$/u)
-const mimeListSchema = z
-	.union([mimeSchema, z.array(mimeSchema).min(1)])
-	.transform((value) => (Array.isArray(value) ? value : [value]))
-
 /**
  * Treats absent or blank text as an unset override while preserving invalid types for validation.
  * @param value - Untrusted Flow option.
@@ -48,7 +38,11 @@ const baseOptionsSchema = z.object({
 	provider: z.preprocess(optionalText, providerSchema.optional()),
 	model: z.preprocess(optionalText, z.string().trim().min(1).optional()),
 	prompt: z.preprocess(optionalText, z.string().trim().min(1).optional()),
-	mimeTypes: mimeListSchema.default([...imageMimeTypes]),
+	// Retired option: accept every saved value, but never use it for selection.
+	mimeTypes: z
+		.unknown()
+		.optional()
+		.transform(() => undefined),
 	includeFolders: folderListSchema.default([]),
 	includeRoot: z.boolean().default(false),
 	generateAltText: z.boolean().default(true),

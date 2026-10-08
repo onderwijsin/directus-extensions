@@ -1,9 +1,11 @@
-import type { GeneratedMetadata, MetadataFile, MetadataOptions } from './options'
+import type { GeneratedMetadata, MetadataFile, MetadataOptions } from '../configuration/options'
 
 import { extname } from 'node:path'
 
 import { attemptSync, isArray, isNonBlankString } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
+
+import { imageMimeTypes } from '../files/image-mime-types'
 
 /**
  * Checks whether a file passes MIME and exact-folder selection.
@@ -12,9 +14,9 @@ import { z } from 'zod'
  * @returns Whether the file is eligible.
  */
 export function isSelected(file: MetadataFile, options: MetadataOptions): boolean {
-	const mime = file.type?.trim().toLowerCase()
+	const mime = file.type ?? ''
 	return (
-		Boolean(mime?.startsWith('image/') && options.mimeTypes.includes(mime)) &&
+		imageMimeTypes.includes(mime) &&
 		(!options.includeFolders.length || options.includeFolders.includes(file.folder)) &&
 		!options.excludeFolders.includes(file.folder)
 	)

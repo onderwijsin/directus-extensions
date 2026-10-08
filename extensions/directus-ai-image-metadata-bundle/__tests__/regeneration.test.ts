@@ -1,12 +1,12 @@
-import type { FileResult } from '../src/shared/contracts'
+import type { FileResult } from '../src/shared/processing/contracts'
 
 import { describe, expect, it, vi } from 'vitest'
 
 import { runRegenerationQueue } from '../src/ai-image-metadata-regenerate/queue'
-import { MetadataRegenerationError } from '../src/shared/contracts'
-import { hasMissingMetadata } from '../src/shared/metadata'
-import { backfillOptionsSchema, type MetadataFile } from '../src/shared/options'
-import { createRunDiagnostics } from '../src/shared/run-diagnostics'
+import { backfillOptionsSchema, type MetadataFile } from '../src/shared/configuration/options'
+import { createRunDiagnostics } from '../src/shared/diagnostics/run-diagnostics'
+import { hasMissingMetadata } from '../src/shared/metadata/metadata'
+import { MetadataRegenerationError } from '../src/shared/processing/contracts'
 
 /**
  * Builds deterministic, sortable fixture IDs.

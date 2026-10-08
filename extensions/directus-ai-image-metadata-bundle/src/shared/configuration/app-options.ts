@@ -1,6 +1,5 @@
 import type { OperationAppConfig } from '@directus/types'
 
-import { imageMimeTypes } from './image-mime-types'
 import { acceptedLanguages } from './languages'
 
 /** Shared Studio options; provider credentials remain on the server. */
@@ -49,17 +48,6 @@ export const metadataAppOptions = [
 			interface: 'input-multiline',
 			width: 'full',
 			note: 'Optional replacement for environment/default instructions.',
-		},
-	},
-	{
-		field: 'mimeTypes',
-		name: 'Image MIME Types',
-		type: 'json',
-		schema: { default_value: [...imageMimeTypes] },
-		meta: {
-			interface: 'tags',
-			width: 'full',
-			note: 'Filter image formats to those supported by your provider/model. Original bytes are sent without conversion.',
 		},
 	},
 	{

@@ -1,5 +1,5 @@
-import type { MetadataEnvironment } from './env'
-import type { MetadataOptions } from './options'
+import type { MetadataEnvironment } from '../configuration/env'
+import type { MetadataOptions } from '../configuration/options'
 
 import { defaultPrompt } from './provider'
 
