@@ -83,8 +83,10 @@ environment/default fallback:
 | `model`             | `resolved environment`           | Image-capable model override.                                                                           |
 | `prompt`            | `environment/default`            | Replacement system instructions.                                                                        |
 | `mimeTypes`         | JPEG, PNG, GIF, WebP             | Exact MIME string or nonempty array; normalized to lowercase. Non-images are skipped.                   |
-| `includeFolders`    | `[]`                             | Exact folder UUID or array; empty selects all. Null includes root; descendants are not implicit.        |
-| `excludeFolders`    | `[]`                             | Exact folder UUID or array; exclusion wins. Null excludes root.                                         |
+| `includeFolders`    | `[]`                             | Folder selection objects; empty selects all. Use `includeRoot` for root.                                |
+| `excludeFolders`    | `[]`                             | Folder selection objects; exclusion wins. Use `excludeRoot` for root.                                   |
+| `includeRoot`       | `false`                          | Include root files; alone restricts selection to root.                                                  |
+| `excludeRoot`       | `false`                          | Exclude root files, overriding inclusion.                                                               |
 | `generateTags`      | `false`                          | Write generated tags to directus_files.tags.                                                            |
 | `generateFilename`  | `false`                          | Write a safe download filename, preserving its extension.                                               |
 | `overwriteAltText`  | `false`                          | Replace populated description; otherwise fill only missing alt text.                                    |
@@ -146,7 +148,9 @@ as the file ID. For a manual multi-file trigger, pass its selected keys.
   "files": "{{$trigger.key}}",
   "language": "Dutch",
   "generateTags": true,
-  "includeFolders": ["11111111-1111-4111-8111-111111111111"]
+  "includeFolders": [
+    { "key": "11111111-1111-4111-8111-111111111111", "collection": "directus_folders" }
+  ]
 }
 ```
 
@@ -170,7 +174,7 @@ response is included.
   "generateTags": true,
   "missingOnly": true,
   "maxFiles": 100,
-  "excludeFolders": [null]
+  "excludeRoot": true
 }
 ```
 
@@ -402,3 +406,23 @@ stage-specific failures distinguish actionable causes without exposing upstream 
   "complete": false
 }
 ```
+
+### Folder selection
+
+Both operations show searchable **Include Folders** and **Exclude Folders** drawers with folder
+names. The Studio user needs read permission on `directus_folders`, including `id` and `name`.
+Execution continues to use the Flow accountability for file reads, assets, and writes. Matches are
+exact, without descendants; exclusions win and duplicate selections are removed.
+
+`includeFolders` and `excludeFolders` accept arrays of
+`{"key":"11111111-1111-4111-8111-111111111111","collection":"directus_folders"}`. Clearing a drawer
+saves null or an empty array, meaning no folder selections. `includeRoot` and `excludeRoot` are
+explicit boolean controls, both default false. An empty include list with Include Root disabled
+selects all folders, including root; Include Root alone restricts selection to root. Exclude Root
+excludes root even when included. Keys must be UUIDs and the collection must be `directus_folders`;
+malformed selections reject execution before side effects.
+
+This replaces the previous UUID/string-array and null/root options. Existing Flows must replace UUID
+strings with selection objects and use the root switches instead of null entries. No automatic
+migration or legacy editor is provided. Reopen and save the operation with the new controls before
+running it. A singular null now means an empty picker, not root.

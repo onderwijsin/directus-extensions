@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { metadataAppOptions } from '../src/shared/app-options'
 import { imageMimeTypes } from '../src/shared/image-mime-types'
 import {
 	createMetadataPatch,
@@ -122,8 +123,9 @@ describe('image metadata contracts', () => {
 	})
 	it('requires an image MIME type and applies exact folders with exclusion precedence', () => {
 		const options = optionsSchema.parse({
-			includeFolders: [null, folder],
-			excludeFolders: folder,
+			includeFolders: [{ key: folder, collection: 'directus_folders' }],
+			includeRoot: true,
+			excludeFolders: [{ key: folder, collection: 'directus_folders' }],
 		})
 		expect(isSelected(file, options)).toBe(true)
 		expect(isSelected({ ...file, folder }, options)).toBe(false)
@@ -138,7 +140,7 @@ describe('image metadata contracts', () => {
 		expect(
 			writerOptionsSchema.parse({
 				files: [id, id],
-				includeFolders: null,
+				includeRoot: true,
 				mimeTypes: 'IMAGE/PNG',
 			}),
 		).toMatchObject({ files: [id], includeFolders: [null], mimeTypes: ['image/png'] })
@@ -163,4 +165,56 @@ describe('image metadata contracts', () => {
 			expect(metadataSchema.safeParse({ ...generated, filename }).success).toBe(false)
 		},
 	)
+})
+
+describe('native folder selection', () => {
+	const selection = { key: folder, collection: 'directus_folders' }
+	it.each([optionsSchema, backfillOptionsSchema])(
+		'normalizes objects, duplicates and root for both operations',
+		(schema) => {
+			const options = schema.parse({
+				includeFolders: [selection, selection],
+				includeRoot: true,
+				excludeFolders: [selection],
+			})
+			expect(options.includeFolders).toEqual([folder, null])
+			expect(options.excludeFolders).toEqual([folder])
+			expect(isSelected(file, options)).toBe(true)
+			expect(isSelected({ ...file, folder }, options)).toBe(false)
+			expect(isSelected({ ...file, folder: id }, options)).toBe(false)
+			expect(isSelected(file, schema.parse({ includeRoot: true, excludeRoot: true }))).toBe(
+				false,
+			)
+		},
+	)
+	it.each([null, []])('treats cleared native selection as empty: %j', (value) => {
+		expect(optionsSchema.parse({ includeFolders: value }).includeFolders).toEqual([])
+		expect(
+			optionsSchema.parse({ includeFolders: value, includeRoot: true }).includeFolders,
+		).toEqual([null])
+	})
+	it.each([
+		{ collection: 'directus_files', key: folder },
+		{ collection: 'directus_folders', key: 'invalid' },
+		{ collection: 'directus_folders' },
+		folder,
+		null,
+	])('rejects malformed native selections: %j', (value) => {
+		for (const field of ['includeFolders', 'excludeFolders']) {
+			expect(backfillOptionsSchema.safeParse({ [field]: [value] }).success).toBe(false)
+			expect(writerOptionsSchema.safeParse({ files: id, [field]: [value] }).success).toBe(
+				false,
+			)
+		}
+	})
+	it('uses named native folders in shared Studio options', () => {
+		for (const field of ['includeFolders', 'excludeFolders']) {
+			expect(metadataAppOptions.find((option) => option.field === field)?.meta).toMatchObject(
+				{
+					interface: 'collection-item-multiple-dropdown',
+					options: { selectedCollection: 'directus_folders', template: '{{ name }}' },
+				},
+			)
+		}
+	})
 })

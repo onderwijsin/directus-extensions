@@ -12,10 +12,15 @@ export const providerSchema = z.enum([
 	'openai-compatible',
 ])
 
-const folderSchema = z.uuid().nullable()
 const folderListSchema = z
-	.union([folderSchema, z.array(folderSchema)])
-	.transform((value) => (Array.isArray(value) ? value : [value]))
+	.array(
+		z.object({
+			collection: z.literal('directus_folders'),
+			key: z.uuid(),
+		}),
+	)
+	.nullable()
+	.transform((value) => [...new Set((value ?? []).map(({ key }) => key))])
 const mimeSchema = z
 	.string()
 	.trim()
@@ -26,7 +31,7 @@ const mimeListSchema = z
 	.transform((value) => (Array.isArray(value) ? value : [value]))
 
 /** Validates persisted Flow options before side effects. Credentials stay in server configuration. */
-export const optionsSchema = z.object({
+const baseOptionsSchema = z.object({
 	language: z.preprocess(
 		(value) => (value === null || value === '' ? undefined : value),
 		z.enum(acceptedLanguages).optional(),
@@ -45,6 +50,8 @@ export const optionsSchema = z.object({
 	),
 	mimeTypes: mimeListSchema.default([...imageMimeTypes]),
 	includeFolders: folderListSchema.default([]),
+	includeRoot: z.boolean().default(false),
+	excludeRoot: z.boolean().default(false),
 	excludeFolders: folderListSchema.default([]),
 	generateTags: z.boolean().default(false),
 	generateFilename: z.boolean().default(false),
@@ -53,19 +60,39 @@ export const optionsSchema = z.object({
 	overwriteFilename: z.boolean().default(false),
 })
 
+/**
+ * Converts explicit root switches into the existing exact-folder execution contract.
+ * @param options - Validated operation options.
+ * @returns Options with deduplicated folder IDs and root entries.
+ */
+function normalizeFolders<T extends z.output<typeof baseOptionsSchema>>(options: T) {
+	const includeFolders: (string | null)[] = [...options.includeFolders]
+	const excludeFolders: (string | null)[] = [...options.excludeFolders]
+	if (options.includeRoot) includeFolders.push(null)
+	if (options.excludeRoot) excludeFolders.push(null)
+	return { ...options, includeFolders, excludeFolders }
+}
+
+/** Validated shared options with normalized folder selection. */
+export const optionsSchema = baseOptionsSchema.transform(normalizeFolders)
+
 /** Options for processing explicit file IDs, including a templated upload ID. */
-export const writerOptionsSchema = optionsSchema.extend({
-	files: z
-		.union([z.uuid(), z.array(z.uuid()).min(1).max(1000)])
-		.transform((value) => (Array.isArray(value) ? [...new Set(value)] : [value])),
-})
+export const writerOptionsSchema = baseOptionsSchema
+	.extend({
+		files: z
+			.union([z.uuid(), z.array(z.uuid()).min(1).max(1000)])
+			.transform((value) => (Array.isArray(value) ? [...new Set(value)] : [value])),
+	})
+	.transform(normalizeFolders)
 
 /** Bounded, resumable backfill options. */
-export const backfillOptionsSchema = optionsSchema.extend({
-	missingOnly: z.boolean().default(true),
-	maxFiles: z.number().int().min(1).max(1000).default(100),
-	offset: z.number().int().nonnegative().default(0),
-})
+export const backfillOptionsSchema = baseOptionsSchema
+	.extend({
+		missingOnly: z.boolean().default(true),
+		maxFiles: z.number().int().min(1).max(1000).default(100),
+		offset: z.number().int().nonnegative().default(0),
+	})
+	.transform(normalizeFolders)
 
 /** Metadata fields read through the Flow's accountability. */
 export const fileSchema = z.object({

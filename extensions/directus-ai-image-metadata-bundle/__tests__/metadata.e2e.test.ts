@@ -137,8 +137,12 @@ describe('image metadata installed Flow operations', () => {
 		try {
 			id = await uploadImage(folder.id)
 			expect(
-				(await runOperation('ai-image-metadata', { files: id, excludeFolders: folder.id }))
-					.results,
+				(
+					await runOperation('ai-image-metadata', {
+						files: id,
+						excludeFolders: [{ key: folder.id, collection: 'directus_folders' }],
+					})
+				).results,
 			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
 			expect(
 				(await runOperation('ai-image-metadata', { files: id, mimeTypes: 'image/jpeg' }))
@@ -236,7 +240,7 @@ describe('image metadata installed Flow operations', () => {
 				})
 			await expect(runOperation('ai-image-metadata', { files: missing })).rejects.toThrow()
 			const regenerated = await runOperation('ai-image-metadata-regenerate', {
-				includeFolders: folder.id,
+				includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
 				missingOnly: false,
 				overwriteAltText: true,
 			})
@@ -271,7 +275,7 @@ describe('image metadata installed Flow operations', () => {
 			let complete = false
 			for (let iteration = 0; iteration < 20 && !complete; iteration += 1) {
 				const page = await runOperation('ai-image-metadata-regenerate', {
-					includeFolders: folder.id,
+					includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
 					maxFiles: 1,
 					offset,
 				})
@@ -283,12 +287,12 @@ describe('image metadata installed Flow operations', () => {
 			expect(complete).toBe(true)
 			expect([...updated].sort()).toEqual([...ids].sort())
 			const repeated = await runOperation('ai-image-metadata-regenerate', {
-				includeFolders: folder.id,
+				includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
 				overwriteAltText: true,
 			})
 			expect(repeated.results.every((result) => result.status === 'skipped')).toBe(true)
 			const regenerated = await runOperation('ai-image-metadata-regenerate', {
-				includeFolders: folder.id,
+				includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
 				missingOnly: false,
 				overwriteAltText: true,
 			})
