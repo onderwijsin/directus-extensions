@@ -27,16 +27,25 @@ export interface MetadataWriteResult {
 	fields: string[]
 }
 
+/** Per-file conversion observations, independent of the metadata write outcome. */
+export interface TransformationDiagnostics {
+	transformed: boolean
+	originalMimeType: string | null
+	transformationDurationMs: number
+}
+
 /** Timed, sanitized file outcome returned by Flow operations. */
-export type FileResult =
-	| (MetadataWriteResult & { durationMs: number })
-	| {
-			id: string
-			status: 'failed'
-			fields: string[]
-			durationMs: number
-			error: import('../diagnostics/diagnostics').FileFailure
-	  }
+export type FileResult = TransformationDiagnostics &
+	(
+		| (MetadataWriteResult & { durationMs: number })
+		| {
+				id: string
+				status: 'failed'
+				fields: string[]
+				durationMs: number
+				error: import('../diagnostics/diagnostics').FileFailure
+		  }
+	)
 
 /** Fatal regeneration diagnostics; restart from the original boundary to avoid omissions. */
 export const MetadataRegenerationError = createError<{

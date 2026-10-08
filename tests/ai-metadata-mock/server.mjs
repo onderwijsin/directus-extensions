@@ -28,6 +28,15 @@ async function handle(request, response) {
 		)
 		return
 	}
+	if (body.includes('E2E_REJECT_PROVIDER')) {
+		response.writeHead(400, { 'Content-Type': 'application/json' })
+		response.end(
+			JSON.stringify({
+				error: { message: 'Fixture provider rejection', type: 'invalid_request_error' },
+			}),
+		)
+		return
+	}
 	const language = body.includes('Metadata language: Dutch.')
 		? 'Dutch'
 		: body.includes('Metadata language: English.')

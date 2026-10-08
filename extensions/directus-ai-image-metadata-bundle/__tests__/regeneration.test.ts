@@ -66,7 +66,15 @@ function reader(files: MetadataFile[]) {
  * @returns Settled result.
  */
 function updated(value: MetadataFile): FileResult {
-	return { id: value.id, status: 'updated', fields: ['description'], durationMs: 1 }
+	return {
+		id: value.id,
+		status: 'updated',
+		fields: ['description'],
+		durationMs: 1,
+		transformed: false,
+		originalMimeType: 'image/png',
+		transformationDurationMs: 0,
+	}
 }
 
 describe('regeneration queue', () => {
@@ -226,6 +234,9 @@ describe('regeneration queue', () => {
 								status: 'failed',
 								fields: [],
 								durationMs: 1,
+								transformed: false,
+								originalMimeType: 'image/png',
+								transformationDurationMs: 0,
 								error: {
 									stage: 'generate',
 									code: 'PROVIDER_FAILED',
@@ -233,7 +244,15 @@ describe('regeneration queue', () => {
 									retryable: false,
 								},
 							}
-						: { id: value.id, status: 'skipped', fields: [], durationMs: 1 },
+						: {
+								id: value.id,
+								status: 'skipped',
+								fields: [],
+								durationMs: 1,
+								transformed: false,
+								originalMimeType: 'image/png',
+								transformationDurationMs: 0,
+							},
 				),
 			vi.fn(),
 			results,

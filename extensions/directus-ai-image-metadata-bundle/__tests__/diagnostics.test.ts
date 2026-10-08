@@ -55,9 +55,20 @@ describe('safe image metadata diagnostics', () => {
 							status: 'failed',
 							fields: [],
 							durationMs: 1,
+							transformed: false,
+							originalMimeType: 'image/png',
+							transformationDurationMs: 0,
 							error: classifyFailure('generate', { statusCode: 429 }),
 						}
-					: { id, status: 'updated', fields: ['description'], durationMs: 1 },
+					: {
+							id,
+							status: 'updated',
+							fields: ['description'],
+							durationMs: 1,
+							transformed: false,
+							originalMimeType: 'image/png',
+							transformationDurationMs: 0,
+						},
 			)
 		}
 		const summary = run.summary(true)
@@ -74,6 +85,81 @@ describe('safe image metadata diagnostics', () => {
 		})
 		expect(JSON.stringify(summary)).not.toContain('SECRET')
 		expect(summary.durationMs).toBeGreaterThanOrEqual(0)
+	})
+	it('counts completed conversions by original MIME even when the provider subsequently fails', async () => {
+		const { settleFile } = await import('../src/shared/diagnostics/diagnostics')
+		const run = createRunDiagnostics('ai-image-metadata-regenerate')
+		for (const [id, mime, transformed, failure] of [
+			['converted', 'image/avif', true, false],
+			['provider-failure', 'image/tiff', true, true],
+			['conversion-failure', 'image/avif', false, true],
+			['original', 'image/png', false, false],
+		] satisfies [string, string, boolean, boolean][]) {
+			const result = await settleFile(
+				id,
+				() =>
+					failure
+						? atStage(transformed ? 'generate' : 'convert_image', () =>
+								Promise.reject(new Error('PRIVATE')),
+							)
+						: Promise.resolve({ id, status: 'updated', fields: ['description'] }),
+				true,
+				vi.fn(),
+				{
+					transformed,
+					originalMimeType: mime,
+					transformationDurationMs: mime === 'image/png' ? 0 : 12,
+				},
+			)
+			expect(result).toMatchObject({
+				transformed,
+				originalMimeType: mime,
+				transformationDurationMs: mime === 'image/png' ? 0 : 12,
+			})
+			run.results.push(result)
+		}
+		expect(run.summary(false)).toMatchObject({
+			assetsTransformed: 2,
+			transformsByMimeType: { 'image/avif': 1, 'image/tiff': 1 },
+		})
+		expect(run.summary(false, true)).toMatchObject({
+			assetsTransformed: 2,
+			transformsByMimeType: { 'image/avif': 1, 'image/tiff': 1 },
+		})
+		expect(JSON.stringify(run.summary(false))).not.toContain('PRIVATE')
+	})
+	it('reports no transformation for skipped or unreadable files and empty runs', async () => {
+		const { settleFile } = await import('../src/shared/diagnostics/diagnostics')
+		const result = await settleFile(
+			'skipped',
+			() => Promise.resolve({ id: 'skipped', status: 'skipped', fields: [] }),
+			true,
+			vi.fn(),
+		)
+		expect(result).toMatchObject({
+			transformed: false,
+			originalMimeType: null,
+			transformationDurationMs: 0,
+		})
+		const unreadable = await settleFile(
+			'unreadable',
+			() =>
+				atStage('read_file', () =>
+					Promise.reject(Object.assign(new Error('PRIVATE'), { statusCode: 403 })),
+				),
+			true,
+			vi.fn(),
+		)
+		expect(unreadable).toMatchObject({
+			status: 'failed',
+			transformed: false,
+			originalMimeType: null,
+			transformationDurationMs: 0,
+		})
+		expect(createRunDiagnostics('test').summary(true)).toMatchObject({
+			assetsTransformed: 0,
+			transformsByMimeType: {},
+		})
 	})
 	it('distinguishes exhausted, capped and fatal runs', () => {
 		const run = createRunDiagnostics('ai-image-metadata-regenerate')

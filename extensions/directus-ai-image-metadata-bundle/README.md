@@ -175,7 +175,7 @@ as the file ID. For a manual multi-file trigger, pass its selected keys.
 ```
 
 The output is
-`{ "results": [{ "id": "...", "status": "updated", "durationMs": 1200, "fields": ["description", "tags"] }] }`.
+`{ "results": [{ "id": "...", "status": "updated", "durationMs": 1200, "transformed": false, "originalMimeType": "image/png", "transformationDurationMs": 0, "fields": ["description", "tags"] }] }`.
 Skipped files return `status: "skipped"` and `fields: []`. No private image, credential, or provider
 response is included.
 
@@ -317,9 +317,29 @@ identify `validate_options`, `enumerate`, or `shutdown`.
 `filesFound` and `filesAttempted` count distinct admitted candidates, including files skipped after
 concurrent edits. Updated/skipped/failed counts describe settled outcomes. A fatal attempted file
 can have no settled result. Provider/model are null when no eligible file resolved configuration.
-Summary options are null if validation failed. `durationMs` uses a monotonic clock. Results retain
-selection order, regardless of settlement order; `summary.options.concurrency` reports configured
-concurrency.
+Both operations return `summary.assetsTransformed` and `summary.transformsByMimeType` (counts keyed
+by original MIME, for example `{ "image/avif": 2, "image/tiff": 1 }`). The explicit-file operation
+returns `{ results, summary }`; its summary uses the same counters and correlation fields as
+regeneration, with `options: null` because it has no backfill options.
+
+Every result also includes `transformed`, `originalMimeType`, and `transformationDurationMs`.
+`transformed` becomes true only after a requested conversion yields valid PNG output; it remains
+true if provider generation or metadata writing subsequently fails, and those conversions still
+count in the summary. Failed conversion attempts are not counted. Original MIME is a sanitized
+label, or null if metadata is inaccessible or its MIME declaration is missing/malformed. Unsupported
+explicit files retain their known MIME even when skipped.
+
+Pass-through JPEG/PNG/WebP files and skipped files have `transformed: false` and duration `0`. For
+AVIF/TIFF, duration measures the AssetsService conversion request, output streaming, and PNG
+signature check, ending before generation. Failed attempts retain elapsed time. Directus may serve
+an existing cached derivative; these count as transformed provider inputs too. This measurement
+includes storage/cache overhead and does not claim to isolate native CPU time or distinguish cache
+hits. Counts cover settled results in the current run/page, including partial/fatal run summaries.
+Both operations log the final returned summary without image bytes or generated content.
+
+Summary options are null if validation failed or the operation is explicit-file. `durationMs` uses a
+monotonic clock. Results retain selection order, regardless of settlement order;
+`summary.options.concurrency` reports configured concurrency.
 
 `complete` means the scoped enumeration exhausted without file failures or a fatal error.
 Outstanding prefetched rows, a candidate/inspection cap with remaining matches, and failures keep it
@@ -386,14 +406,19 @@ stage-specific failures distinguish actionable causes without exposing upstream 
     "filesFailed": 0,
     "outcome": "success",
     "hasFailures": false,
-    "complete": true
+    "complete": true,
+    "assetsTransformed": 0,
+    "transformsByMimeType": {}
   },
   "results": [
     {
       "id": "ee913870-cedc-4112-9f2e-0baaa9253fb0",
       "status": "updated",
       "durationMs": 990,
-      "fields": ["description"]
+      "fields": ["description"],
+      "transformed": false,
+      "originalMimeType": "image/png",
+      "transformationDurationMs": 0
     }
   ],
   "scanned": 1,
@@ -437,14 +462,19 @@ stage-specific failures distinguish actionable causes without exposing upstream 
     "filesFailed": 1,
     "outcome": "partial_failure",
     "hasFailures": true,
-    "complete": false
+    "complete": false,
+    "assetsTransformed": 0,
+    "transformsByMimeType": {}
   },
   "results": [
     {
       "id": "ee913870-cedc-4112-9f2e-0baaa9253fb0",
       "status": "updated",
       "durationMs": 990,
-      "fields": ["description"]
+      "fields": ["description"],
+      "transformed": false,
+      "originalMimeType": "image/png",
+      "transformationDurationMs": 0
     },
     {
       "id": "4c4e18d9-41ec-4cd5-a8cb-2d4e67520451",
@@ -457,7 +487,10 @@ stage-specific failures distinguish actionable causes without exposing upstream 
         "retryable": true,
         "httpStatus": 429,
         "message": "AI provider rate limit exceeded."
-      }
+      },
+      "transformed": false,
+      "originalMimeType": "image/png",
+      "transformationDurationMs": 0
     }
   ],
   "scanned": 2,

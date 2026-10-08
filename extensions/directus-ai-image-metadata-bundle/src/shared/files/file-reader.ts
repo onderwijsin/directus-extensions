@@ -2,7 +2,7 @@ import type { OperationContext, SchemaOverview, Filter } from '@directus/types'
 
 import { z } from 'zod'
 
-import { fileSchema, type MetadataOptions } from '../configuration/options'
+import { fileSchema, type MetadataOptions, type MetadataFile } from '../configuration/options'
 import { fileFields } from '../processing/contracts'
 import { imageMimeTypes } from './image-mime-types'
 
@@ -29,10 +29,12 @@ export function createFileReader(
 	/**
 	 * Reads a file through the Flow's permission context.
 	 * @param id - File UUID.
+	 * @param onRead - Optional observer for accountable metadata, including unsupported explicit files.
 	 * @returns Validated image metadata, or null for an unsupported MIME type.
 	 */
-	async function readFile(id: string) {
+	async function readFile(id: string, onRead?: (file: MetadataFile) => void) {
 		const file = fileSchema.parse(await files.readOne(id, { fields: fileFields }))
+		onRead?.(file)
 		return imageMimeTypes.includes(file.type ?? '') ? file : null
 	}
 

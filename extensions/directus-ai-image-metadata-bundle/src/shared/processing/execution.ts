@@ -9,6 +9,7 @@ import {
 	MetadataUnavailableError,
 	type FileResult,
 	type MetadataWriteResult,
+	type TransformationDiagnostics,
 } from './contracts'
 export type { FileResult } from './contracts'
 
@@ -68,9 +69,18 @@ export function createMetadataProcessor(
 	 * Processes one eligible file, preserving concurrent metadata edits under a row lock.
 	 * @param file - Permission-checked metadata.
 	 * @param runId - Optional diagnostic run correlation.
+	 * @param transformation - Mutable per-file conversion observations.
 	 * @returns Updated fields or a skipped result.
 	 */
-	async function processFile(file: MetadataFile, runId?: string): Promise<MetadataWriteResult> {
+	async function processFile(
+		file: MetadataFile,
+		runId?: string,
+		transformation: TransformationDiagnostics = {
+			transformed: false,
+			originalMimeType: diagnosticMimeType(file.type) ?? null,
+			transformationDurationMs: 0,
+		},
+	): Promise<MetadataWriteResult> {
 		const skipped: MetadataWriteResult = { id: file.id, status: 'skipped', fields: [] }
 		if (!isSelected(file, options) || !needsMetadataUpdate(file, options)) return skipped
 		provider ??= resolveProvider()
@@ -80,34 +90,42 @@ export function createMetadataProcessor(
 		const started = performance.now()
 		const transform = file.type === 'image/avif' || file.type === 'image/tiff'
 		const mediaType = transform ? 'image/png' : (file.type ?? '')
-		const asset = await atStage(
-			transform ? 'convert_image' : 'read_asset',
-			() => acquireAsset(file.id, signal, transform),
-			signal,
-		)
-		const image = await atStage(
-			'read_bytes',
-			() =>
-				readImageBytes(
-					asset.stream,
-					signal,
-					Math.min(env.AI_METADATA_WRITER_MAX_IMAGE_BYTES, 5_000_000),
-				),
-			signal,
-		)
-		// AssetsService can return the original when transformation is bypassed. Never label it PNG.
-		if (
-			transform &&
-			!image.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-		)
-			throw imageTransformFailure('IMAGE_TRANSFORM_INVALID_INPUT')
+		let image: Buffer
+		try {
+			const asset = await atStage(
+				transform ? 'convert_image' : 'read_asset',
+				() => acquireAsset(file.id, signal, transform),
+				signal,
+			)
+			image = await atStage(
+				'read_bytes',
+				() =>
+					readImageBytes(
+						asset.stream,
+						signal,
+						Math.min(env.AI_METADATA_WRITER_MAX_IMAGE_BYTES, 5_000_000),
+					),
+				signal,
+			)
+			// AssetsService can return the original when transformation is bypassed. Never label it PNG.
+			if (
+				transform &&
+				!image.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+			)
+				throw imageTransformFailure('IMAGE_TRANSFORM_INVALID_INPUT')
+
+			if (transform) transformation.transformed = true
+		} finally {
+			if (transform) transformation.transformationDurationMs = performance.now() - started
+		}
 		context.logger.debug(
 			{
 				runId,
 				fileId: file.id,
 				originalMimeType: diagnosticMimeType(file.type),
 				providerInputMimeType: mediaType,
-				transformationDurationMs: performance.now() - started,
+				transformed: transformation.transformed,
+				transformationDurationMs: transformation.transformationDurationMs,
 				outputBytes: image.byteLength,
 			},
 			'Image metadata input prepared',
@@ -178,13 +196,25 @@ export function createMetadataProcessor(
 	}): Promise<FileResult> {
 		const { id, runId, isolate } = config
 		let { file } = config
+		const transformation: TransformationDiagnostics = {
+			transformed: false,
+			originalMimeType: diagnosticMimeType(file?.type) ?? null,
+			transformationDurationMs: 0,
+		}
 		return settleFile(
 			id,
 			async () => {
-				const candidate = file ?? (await atStage('read_file', () => readFile(id)))
+				const candidate =
+					file ??
+					(await atStage('read_file', () =>
+						readFile(id, (metadata) => {
+							transformation.originalMimeType =
+								diagnosticMimeType(metadata.type) ?? null
+						}),
+					))
 				if (!candidate) return { id, status: 'skipped', fields: [] }
 				file = candidate
-				return processFile(candidate, runId)
+				return processFile(candidate, runId, transformation)
 			},
 			isolate,
 			(diagnostic, durationMs) => {
@@ -197,12 +227,14 @@ export function createMetadataProcessor(
 					provider: resolved?.provider,
 					model: resolved?.model,
 					...diagnostic,
+					...transformation,
 				}
 				context.logger.warn(
 					details,
 					`Image metadata file failed ${JSON.stringify(details)}`,
 				)
 			},
+			transformation,
 		)
 	}
 

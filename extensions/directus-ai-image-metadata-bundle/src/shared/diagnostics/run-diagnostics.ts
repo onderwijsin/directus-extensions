@@ -27,6 +27,13 @@ export function createRunDiagnostics(operation: string) {
 	 */
 	function summary(complete: boolean, fatal = false) {
 		const filesFailed = results.filter((result) => result.status === 'failed').length
+		const transformed = results.filter((result) => result.transformed)
+		const transformsByMimeType: Record<string, number> = {}
+		for (const result of transformed) {
+			if (result.originalMimeType)
+				transformsByMimeType[result.originalMimeType] =
+					(transformsByMimeType[result.originalMimeType] ?? 0) + 1
+		}
 		return {
 			runId,
 			operation,
@@ -57,6 +64,8 @@ export function createRunDiagnostics(operation: string) {
 			filesUpdated: results.filter((result) => result.status === 'updated').length,
 			filesSkipped: results.filter((result) => result.status === 'skipped').length,
 			filesFailed,
+			assetsTransformed: transformed.length,
+			transformsByMimeType,
 			outcome: fatal ? 'failed' : filesFailed ? 'partial_failure' : 'success',
 			hasFailures: fatal || filesFailed > 0,
 			complete: complete && !fatal && filesFailed === 0,

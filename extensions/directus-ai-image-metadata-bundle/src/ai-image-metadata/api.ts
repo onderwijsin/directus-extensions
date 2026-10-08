@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto'
-
 import { defineOperationApi } from '@directus/extensions-sdk'
 import { attempt } from '@onderwijsin/directus-extension-utils'
 import {
@@ -8,11 +6,11 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 
 import { writerOptionsSchema } from '../shared/configuration/options'
+import { createRunDiagnostics } from '../shared/diagnostics/run-diagnostics'
 import {
 	parseOperationOptions,
 	createMetadataProcessor,
 	safeMetadataError,
-	type FileResult,
 } from '../shared/processing/execution'
 import { envSchema } from './env.schema'
 
@@ -38,13 +36,23 @@ export default defineOperationApi({
 				env,
 				options,
 			)
-			const results: FileResult[] = []
-			const runId = randomUUID()
-			for (const id of options.files)
-				results.push(
-					await processor.processResult({ id, runId, isolate: options.files.length > 1 }),
+			const run = createRunDiagnostics('ai-image-metadata')
+			for (const id of options.files) {
+				run.found.add(id)
+				run.attempt(id)
+				run.results.push(
+					await processor.processResult({
+						id,
+						runId: run.runId,
+						isolate: options.files.length > 1,
+					}),
 				)
-			return { results }
+			}
+			const provider = processor.getProvider()
+			if (provider) run.setProvider(provider)
+			const summary = run.summary(true)
+			context.logger.info(summary, `Image metadata completed ${JSON.stringify(summary)}`)
+			return { results: run.results, summary }
 		})
 		if (result.error !== null) throw safeMetadataError(result.error)
 		return result.data

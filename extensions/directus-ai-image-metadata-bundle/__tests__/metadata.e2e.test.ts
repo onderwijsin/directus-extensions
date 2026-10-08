@@ -42,6 +42,9 @@ const resultSchema = z.object({
 			id: z.uuid(),
 			status: z.enum(['updated', 'skipped', 'failed']),
 			durationMs: z.number().nonnegative(),
+			transformed: z.boolean(),
+			originalMimeType: z.string().nullable(),
+			transformationDurationMs: z.number().nonnegative(),
 			error: z
 				.object({ stage: z.string(), code: z.string(), retryable: z.boolean() })
 				.optional(),
@@ -56,6 +59,8 @@ const resultSchema = z.object({
 			filesUpdated: z.number(),
 			filesSkipped: z.number(),
 			filesFailed: z.number(),
+			assetsTransformed: z.number().int().nonnegative(),
+			transformsByMimeType: z.record(z.string(), z.number().int().nonnegative()),
 			hasFailures: z.boolean(),
 			complete: z.boolean(),
 			outcome: z.string(),
@@ -196,7 +201,14 @@ describe('image metadata installed Flow operations', () => {
 						files: file.id,
 						mimeTypes: [mime],
 					})
+					expect(explicit.summary).toMatchObject({
+						assetsTransformed: 0,
+						transformsByMimeType: {},
+					})
 					expect(explicit.results[0]).toMatchObject({
+						transformed: false,
+						originalMimeType: mime,
+						transformationDurationMs: 0,
 						id: file.id,
 						status: 'skipped',
 						fields: [],
@@ -219,6 +231,8 @@ describe('image metadata installed Flow operations', () => {
 					originals.set(file.id, { bytes, mime })
 			}
 			const seen: string[] = []
+			let transformedCount = 0
+			const transformsByMimeType: Record<string, number> = {}
 			let afterId: string | null = null
 			for (let page = 0; page < 4; page += 1) {
 				const output = await runOperation('ai-image-metadata-regenerate', {
@@ -228,7 +242,22 @@ describe('image metadata installed Flow operations', () => {
 					concurrency: 2,
 					afterId,
 				})
+				expect(output.summary).toBeDefined()
+				transformedCount += output.summary?.assetsTransformed ?? 0
+				for (const [mime, count] of Object.entries(
+					output.summary?.transformsByMimeType ?? {},
+				))
+					transformsByMimeType[mime] = (transformsByMimeType[mime] ?? 0) + count
 				for (const result of output.results) {
+					const mime =
+						result.id === corruptId ? 'image/avif' : originals.get(result.id)?.mime
+					expect(result.originalMimeType).toBe(mime)
+					const transformed =
+						result.id !== corruptId && (mime === 'image/avif' || mime === 'image/tiff')
+					expect(result.transformed).toBe(transformed)
+					if (transformed || result.id === corruptId)
+						expect(result.transformationDurationMs).toBeGreaterThan(0)
+					else expect(result.transformationDurationMs).toBe(0)
 					seen.push(result.id)
 					if (result.id === corruptId)
 						expect(result).toMatchObject({
@@ -244,8 +273,41 @@ describe('image metadata installed Flow operations', () => {
 				if (!output.nextCursor) break
 				afterId = output.nextCursor
 			}
+			expect(transformedCount).toBe(2)
+			expect(transformsByMimeType).toEqual({ 'image/avif': 1, 'image/tiff': 1 })
 			expect(seen).toEqual([...imageIds].sort())
 			expect(new Set(seen).size).toBe(imageIds.length)
+			const convertedId = [...originals].find(
+				([, original]) => original.mime === 'image/avif',
+			)?.[0]
+			const portableId = [...originals].find(
+				([, original]) => original.mime === 'image/png',
+			)?.[0]
+			const failed = await runOperation('ai-image-metadata', {
+				files: [convertedId, portableId],
+				overwriteAltText: true,
+				prompt: 'E2E_REJECT_PROVIDER',
+			})
+			expect(failed.summary).toMatchObject({
+				filesFailed: 2,
+				assetsTransformed: 1,
+				transformsByMimeType: { 'image/avif': 1 },
+			})
+			expect(failed.results[0]).toMatchObject({
+				id: convertedId,
+				status: 'failed',
+				transformed: true,
+				originalMimeType: 'image/avif',
+				error: { stage: 'generate' },
+			})
+			expect(failed.results[0]?.transformationDurationMs).toBeGreaterThan(0)
+			expect(failed.results[1]).toMatchObject({
+				id: portableId,
+				status: 'failed',
+				transformed: false,
+				originalMimeType: 'image/png',
+				transformationDurationMs: 0,
+			})
 			for (const [id, original] of originals) {
 				expect(await client.request(readFile(id))).toMatchObject({
 					type: original.mime,
@@ -275,7 +337,17 @@ describe('image metadata installed Flow operations', () => {
 						overwriteAltText: true,
 					})
 				).results,
-			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
+			).toEqual([
+				{
+					id,
+					status: 'skipped',
+					fields: [],
+					durationMs: expect.any(Number),
+					transformed: false,
+					originalMimeType: 'image/png',
+					transformationDurationMs: 0,
+				},
+			])
 			const independentTags = await runOperation('ai-image-metadata', {
 				files: id,
 				generateAltText: false,
@@ -291,7 +363,17 @@ describe('image metadata installed Flow operations', () => {
 						excludeFolders: [{ key: folder.id, collection: 'directus_folders' }],
 					})
 				).results,
-			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
+			).toEqual([
+				{
+					id,
+					status: 'skipped',
+					fields: [],
+					durationMs: expect.any(Number),
+					transformed: false,
+					originalMimeType: 'image/png',
+					transformationDurationMs: 0,
+				},
+			])
 			const legacy = await runOperation('ai-image-metadata', {
 				files: id,
 				mimeTypes: 'image/jpeg',
@@ -309,6 +391,9 @@ describe('image metadata installed Flow operations', () => {
 					status: 'updated',
 					fields: ['description', 'tags'],
 					durationMs: expect.any(Number),
+					transformed: false,
+					originalMimeType: 'image/png',
+					transformationDurationMs: 0,
 				},
 			])
 			expect(await client.request(readFile(id))).toMatchObject({
@@ -322,7 +407,17 @@ describe('image metadata installed Flow operations', () => {
 			expect(
 				(await runOperation('ai-image-metadata', { files: id, generateTags: true }))
 					.results,
-			).toEqual([{ id, status: 'skipped', fields: [], durationMs: expect.any(Number) }])
+			).toEqual([
+				{
+					id,
+					status: 'skipped',
+					fields: [],
+					durationMs: expect.any(Number),
+					transformed: false,
+					originalMimeType: 'image/png',
+					transformationDurationMs: 0,
+				},
+			])
 			await runOperation('ai-image-metadata', {
 				files: id,
 				generateTags: true,
@@ -340,7 +435,15 @@ describe('image metadata installed Flow operations', () => {
 				overwriteTags: true,
 			})
 			expect(tagsOnly.results).toEqual([
-				{ id, status: 'updated', fields: ['tags'], durationMs: expect.any(Number) },
+				{
+					id,
+					status: 'updated',
+					fields: ['tags'],
+					durationMs: expect.any(Number),
+					transformed: false,
+					originalMimeType: 'image/png',
+					transformationDurationMs: 0,
+				},
 			])
 			expect(await client.request(readFile(id))).toMatchObject({
 				description: 'Human reviewed description',
@@ -353,7 +456,15 @@ describe('image metadata installed Flow operations', () => {
 				overwriteAltText: true,
 			})
 			expect(altOnly.results).toEqual([
-				{ id, status: 'updated', fields: ['description'], durationMs: expect.any(Number) },
+				{
+					id,
+					status: 'updated',
+					fields: ['description'],
+					durationMs: expect.any(Number),
+					transformed: false,
+					originalMimeType: 'image/png',
+					transformationDurationMs: 0,
+				},
 			])
 			expect(await client.request(readFile(id))).toMatchObject({
 				description: 'A small test image.',

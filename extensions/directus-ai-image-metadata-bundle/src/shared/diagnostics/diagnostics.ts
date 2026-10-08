@@ -1,4 +1,8 @@
-import type { FileResult, MetadataWriteResult } from '../processing/contracts'
+import type {
+	FileResult,
+	MetadataWriteResult,
+	TransformationDiagnostics,
+} from '../processing/contracts'
 
 import { createError } from '@directus/errors'
 import { attempt, isDefined } from '@onderwijsin/directus-extension-utils'
@@ -149,6 +153,7 @@ export async function atStage<T>(
  * @param action - Staged file processing.
  * @param isolate - Whether ordinary file failures should resolve.
  * @param failed - Safe failure observer used for correlated logging.
+ * @param transformation - Per-file conversion state, retained even when later processing fails.
  * @returns Timed file outcome.
  */
 export async function settleFile(
@@ -156,11 +161,16 @@ export async function settleFile(
 	action: () => Promise<MetadataWriteResult>,
 	isolate: boolean,
 	failed: (error: FileFailure, durationMs: number) => void,
+	transformation: TransformationDiagnostics = {
+		transformed: false,
+		originalMimeType: null,
+		transformationDurationMs: 0,
+	},
 ): Promise<FileResult> {
 	const started = performance.now()
 	const result = await attempt(action)
 	const durationMs = performance.now() - started
-	if (result.data !== null) return { ...result.data, durationMs }
+	if (result.data !== null) return { ...result.data, durationMs, ...transformation }
 	const diagnostic =
 		result.error instanceof ProcessingFailure
 			? result.error.diagnostic
@@ -168,5 +178,5 @@ export async function settleFile(
 	failed(diagnostic, durationMs)
 	if (!isolate || diagnostic.stage === 'resolve_provider' || diagnostic.stage === 'shutdown')
 		throw new ProcessingFailure(diagnostic)
-	return { id, status: 'failed', fields: [], durationMs, error: diagnostic }
+	return { id, status: 'failed', fields: [], durationMs, error: diagnostic, ...transformation }
 }
