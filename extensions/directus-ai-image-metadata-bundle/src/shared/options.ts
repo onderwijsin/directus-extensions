@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-import { imageMimeTypes } from './image-mime-types'
 import { acceptedLanguages } from './languages'
 
 /** Providers supported by the server adapter. */
@@ -15,14 +14,6 @@ export const providerSchema = z.enum([
 const folderSchema = z.uuid().nullable()
 const folderListSchema = z
 	.union([folderSchema, z.array(folderSchema)])
-	.transform((value) => (Array.isArray(value) ? value : [value]))
-const mimeSchema = z
-	.string()
-	.trim()
-	.toLowerCase()
-	.regex(/^image\/[a-z0-9.+-]+$/u)
-const mimeListSchema = z
-	.union([mimeSchema, z.array(mimeSchema).min(1)])
 	.transform((value) => (Array.isArray(value) ? value : [value]))
 
 /** Validates persisted Flow options before side effects. Credentials stay in server configuration. */
@@ -43,7 +34,6 @@ export const optionsSchema = z.object({
 		(value) => (value === null || value === '' ? undefined : value),
 		z.string().trim().min(1).optional(),
 	),
-	mimeTypes: mimeListSchema.default([...imageMimeTypes]),
 	includeFolders: folderListSchema.default([]),
 	excludeFolders: folderListSchema.default([]),
 	generateTags: z.boolean().default(false),
