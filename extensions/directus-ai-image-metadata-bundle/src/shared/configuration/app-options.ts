@@ -1,6 +1,5 @@
 import type { OperationAppConfig } from '@directus/types'
 
-import { imageMimeTypes } from './image-mime-types'
 import { acceptedLanguages } from './languages'
 
 /** Shared Studio options; provider credentials remain on the server. */
@@ -52,53 +51,41 @@ export const metadataAppOptions = [
 		},
 	},
 	{
-		field: 'mimeTypes',
-		name: 'Image MIME Types',
-		type: 'json',
-		schema: { default_value: [...imageMimeTypes] },
-		meta: {
-			interface: 'tags',
-			width: 'full',
-			note: 'Filter image formats to those supported by your provider/model. Original bytes are sent without conversion.',
-		},
-	},
-	// The built-in system-folder interface selects one UUID, not a folder array with root entries.
-	{
 		field: 'includeFolders',
-		name: 'Include Folder IDs',
+		name: 'Include Folders',
 		type: 'json',
 		schema: { default_value: [] },
 		meta: {
-			interface: 'input-code',
-			options: { language: 'json' },
+			interface: 'collection-item-multiple-dropdown',
+			options: { selectedCollection: 'directus_folders', template: '{{ name }}' },
 			width: 'full',
-			note: 'UUID array; null selects the root. Exact folders, without descendants.',
+			note: 'Exact folders, without descendants. Empty selects all folders. Root requires Include Root Folder.',
 		},
 	},
 	{
 		field: 'excludeFolders',
-		name: 'Exclude Folder IDs',
+		name: 'Exclude Folders',
 		type: 'json',
 		schema: { default_value: [] },
 		meta: {
-			interface: 'input-code',
-			options: { language: 'json' },
+			interface: 'collection-item-multiple-dropdown',
+			options: { selectedCollection: 'directus_folders', template: '{{ name }}' },
 			width: 'full',
-			note: 'UUID array; exclusion wins. Null excludes root files.',
+			note: 'Exact folders; exclusion wins.',
 		},
 	},
 	{
-		field: 'generateTags',
-		name: 'Generate Tags',
+		field: 'includeRoot',
+		name: 'Include Root Folder',
 		type: 'boolean',
 		schema: { default_value: false },
-		meta: { interface: 'boolean', width: 'half' },
+		meta: { interface: 'boolean', width: 'full' },
 	},
 	{
-		field: 'generateFilename',
-		name: 'Generate Download Filename',
+		field: 'generateAltText',
+		name: 'Generate Alt Text',
 		type: 'boolean',
-		schema: { default_value: false },
+		schema: { default_value: true },
 		meta: { interface: 'boolean', width: 'half' },
 	},
 	{
@@ -107,10 +94,18 @@ export const metadataAppOptions = [
 		type: 'boolean',
 		schema: { default_value: false },
 		meta: {
+			conditions: [{ rule: { generateAltText: { _neq: true } }, hidden: true }],
 			interface: 'boolean',
-			width: 'full',
+			width: 'half',
 			note: 'Replace an existing description; otherwise only fill missing alt text.',
 		},
+	},
+	{
+		field: 'generateTags',
+		name: 'Generate Tags',
+		type: 'boolean',
+		schema: { default_value: false },
+		meta: { interface: 'boolean', width: 'half' },
 	},
 	{
 		field: 'overwriteTags',
@@ -123,6 +118,13 @@ export const metadataAppOptions = [
 			width: 'half',
 			note: 'Replace existing tags when Generate Tags is enabled.',
 		},
+	},
+	{
+		field: 'generateFilename',
+		name: 'Generate Download Filename',
+		type: 'boolean',
+		schema: { default_value: false },
+		meta: { interface: 'boolean', width: 'half' },
 	},
 	{
 		field: 'overwriteFilename',

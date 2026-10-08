@@ -1,8 +1,11 @@
-import type { GeneratedMetadata, MetadataFile, MetadataOptions } from './options'
+import type { GeneratedMetadata, MetadataFile, MetadataOptions } from '../configuration/options'
 
 import { extname } from 'node:path'
 
-import { isArray, isNonBlankString } from '@onderwijsin/directus-extension-utils'
+import { attemptSync, isArray, isNonBlankString } from '@onderwijsin/directus-extension-utils'
+import { z } from 'zod'
+
+import { imageMimeTypes } from '../files/image-mime-types'
 
 /**
  * Checks whether a file passes MIME and exact-folder selection.
@@ -11,9 +14,9 @@ import { isArray, isNonBlankString } from '@onderwijsin/directus-extension-utils
  * @returns Whether the file is eligible.
  */
 export function isSelected(file: MetadataFile, options: MetadataOptions): boolean {
-	const mime = file.type?.trim().toLowerCase()
+	const mime = file.type ?? ''
 	return (
-		Boolean(mime?.startsWith('image/') && options.mimeTypes.includes(mime)) &&
+		imageMimeTypes.includes(mime) &&
 		(!options.includeFolders.length || options.includeFolders.includes(file.folder)) &&
 		!options.excludeFolders.includes(file.folder)
 	)
@@ -27,7 +30,7 @@ export function isSelected(file: MetadataFile, options: MetadataOptions): boolea
  */
 export function hasMissingMetadata(file: MetadataFile, options: MetadataOptions): boolean {
 	return (
-		!isNonBlankString(file.description) ||
+		(options.generateAltText && !isNonBlankString(file.description)) ||
 		(options.generateTags && !hasTags(file.tags)) ||
 		(options.generateFilename && !isNonBlankString(file.filename_download))
 	)
@@ -46,7 +49,11 @@ export function createMetadataPatch(
 	options: MetadataOptions,
 ) {
 	const patch: { description?: string; tags?: string[]; filename_download?: string } = {}
-	if (options.overwriteAltText || !isNonBlankString(file.description))
+	if (
+		options.generateAltText &&
+		generated.altText !== undefined &&
+		(options.overwriteAltText || !isNonBlankString(file.description))
+	)
 		patch.description = generated.altText
 	if (
 		generated.tags !== undefined &&
@@ -69,7 +76,15 @@ export function createMetadataPatch(
  * @returns Whether tags contain meaningful text.
  */
 export function hasTags(tags: MetadataFile['tags']): boolean {
-	return isArray(tags) ? tags.some(isNonBlankString) : isNonBlankString(tags)
+	if (isArray(tags)) return tags.some(isNonBlankString)
+	if (!isNonBlankString(tags)) return false
+
+	const result = attemptSync(() => z.array(z.string()).safeParse(JSON.parse(tags)))
+	if (result.error === null && result.data?.success)
+		return result.data.data.some(isNonBlankString)
+
+	// Non-array JSON and plain-text tags remain meaningful text.
+	return true
 }
 
 /**
@@ -81,7 +96,7 @@ export function hasTags(tags: MetadataFile['tags']): boolean {
 export function needsMetadataUpdate(file: MetadataFile, options: MetadataOptions): boolean {
 	return (
 		hasMissingMetadata(file, options) ||
-		options.overwriteAltText ||
+		(options.generateAltText && options.overwriteAltText) ||
 		(options.generateTags && options.overwriteTags) ||
 		(options.generateFilename && options.overwriteFilename)
 	)

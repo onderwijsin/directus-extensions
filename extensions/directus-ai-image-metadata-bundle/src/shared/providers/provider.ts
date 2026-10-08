@@ -12,7 +12,7 @@ import {
 } from '@onderwijsin/directus-extension-utils/server'
 import { generateText, Output } from 'ai'
 
-import { createMetadataSchema, type MetadataOptions } from './options'
+import { createMetadataSchema, type MetadataOptions } from '../configuration/options'
 
 /** Complete server-only configuration using the utility's supplied Zod runtime. */
 export const providerConfigSchema = defineExtensionOptionsSchema(createProviderConfigSchema)
@@ -90,14 +90,16 @@ export async function generateMetadata(
 	mediaType: string,
 	prompt: string,
 	signal: AbortSignal,
-	options: Pick<MetadataOptions, 'generateTags' | 'generateFilename'> = {
+	options: Pick<MetadataOptions, 'generateTags' | 'generateFilename'> &
+		Partial<Pick<MetadataOptions, 'generateAltText'>> = {
 		generateTags: false,
 		generateFilename: false,
 	},
 ) {
-	const schema = createMetadataSchema(options)
+	const generationOptions = { ...options, generateAltText: options.generateAltText ?? true }
+	const schema = createMetadataSchema(generationOptions)
 	const requestedFields = [
-		'altText',
+		...(generationOptions.generateAltText ? ['altText'] : []),
 		...(options.generateTags ? ['tags'] : []),
 		...(options.generateFilename ? ['filename'] : []),
 	]
@@ -115,6 +117,7 @@ export async function generateMetadata(
 			},
 		],
 		abortSignal: signal,
+		maxRetries: 2,
 	})
 	return schema.parse(result.output)
 }

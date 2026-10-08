@@ -5,66 +5,119 @@ import {
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import { backfillOptionsSchema } from '../shared/configuration/options'
+import { atStage, classifyFailure, ProcessingFailure } from '../shared/diagnostics/diagnostics'
+import { createRunDiagnostics } from '../shared/diagnostics/run-diagnostics'
+import { hasMissingMetadata } from '../shared/metadata/metadata'
+import { MetadataRegenerationError } from '../shared/processing/contracts'
 import {
 	parseOperationOptions,
 	createMetadataProcessor,
 	safeMetadataError,
-	type FileResult,
-} from '../shared/execution'
-import { hasMissingMetadata } from '../shared/metadata'
-import { backfillOptionsSchema } from '../shared/options'
+} from '../shared/processing/execution'
 import { envSchema } from './env.schema'
+import { runRegenerationQueue } from './queue'
 
 export default defineOperationApi({
 	id: 'ai-image-metadata-regenerate',
 	/**
-	 * Scans a bounded image batch with a numeric resume offset.
+	 * Processes a bounded candidate stream with stable continuation and replenished concurrency.
 	 * @param input - Backfill selection and continuation options.
 	 * @param context - Directus Flow execution context.
-	 * @returns Results, scanned count, continuation offset, and completion state.
+	 * @returns Ordered results, candidate counts, ID continuation, and completion state.
 	 */
 	handler: async (input, context) => {
+		const run = createRunDiagnostics('ai-image-metadata-regenerate')
+		let complete = false
+		let restartAfterId: string | null | undefined
+		let enabled = true
+		let getProvider:
+			| (() => import('../shared/providers/provider').ProviderConfig | undefined)
+			| undefined
 		const result = await attempt(async () => {
 			const setup = extensionSetup('ai_metadata_writer', context.env, context.logger)
 			setup.start()
-			if (!setup.isEnabled()) return null
+			if (!setup.isEnabled()) {
+				enabled = false
+				return null
+			}
 			const env = validateExtensionOptions(context.env, envSchema, context.logger)
 			setup.end()
 			const options = parseOperationOptions(backfillOptionsSchema, input)
+			run.setOptions(options)
+			restartAfterId = options.afterId
 			const processor = createMetadataProcessor(
 				context,
 				await context.getSchema(),
 				env,
 				options,
 			)
-			const results: FileResult[] = []
-			let offset = options.offset
-			let scanned = 0
-			while (scanned < options.maxFiles) {
-				const page = await processor.readPage(
-					offset,
-					Math.min(50, options.maxFiles - scanned),
+			getProvider = processor.getProvider
+			const output = await runRegenerationQueue(
+				options,
+				(afterId, excludeFiles, limit) =>
+					atStage('enumerate', () =>
+						processor.readCandidates(afterId, excludeFiles, limit, options.missingOnly),
+					),
+				(file) =>
+					processor.processResult({ id: file.id, file, runId: run.runId, isolate: true }),
+				(id) => {
+					run.found.add(id)
+					run.attempt(id)
+				},
+				run.results,
+			)
+			const remainingIds = new Set(
+				run.results.filter((file) => file.status === 'failed').map((file) => file.id),
+			)
+			if (options.missingOnly && run.results.length) {
+				// Verify settled writes: a valid empty generated tag list can still leave metadata missing.
+				const latest = await atStage('enumerate', () =>
+					processor.readPage(options.maxFiles, {
+						missingOnly: false,
+						excludeFiles: [],
+						rangeIds: run.results.map((file) => file.id),
+					}),
 				)
-				if (!page.length) return { results, scanned, nextOffset: null, complete: true }
-				for (const file of page) {
-					offset += 1
-					scanned += 1
-					results.push(
-						options.missingOnly && !hasMissingMetadata(file, options)
-							? { id: file.id, status: 'skipped', fields: [] }
-							: await processor.processFile(file),
-					)
-				}
+				for (const file of latest)
+					if (hasMissingMetadata(file, options)) remainingIds.add(file.id)
 			}
-			const remaining = await processor.readPage(offset, 1)
+			complete = output.complete && remainingIds.size === 0
 			return {
-				results,
-				scanned,
-				nextOffset: remaining.length ? offset : null,
-				complete: !remaining.length,
+				...output,
+				remaining: output.remaining || remainingIds.size > 0,
+				remainingIds: [...remainingIds],
+				complete,
+				results: run.results,
 			}
 		})
-		if (result.error !== null) throw safeMetadataError(result.error)
-		return result.data
+		if (!enabled) return null
+		const provider = getProvider?.()
+		if (provider) run.setProvider(provider)
+		const summary = {
+			...run.summary(complete, result.error !== null),
+			...(result.error === null
+				? {}
+				: {
+						error:
+							result.error instanceof ProcessingFailure
+								? result.error.diagnostic
+								: classifyFailure('validate_options', result.error),
+					}),
+		}
+		context.logger.info(
+			summary,
+			`Image metadata regeneration completed ${JSON.stringify(summary)}`,
+		)
+		if (result.error !== null) {
+			if (restartAfterId !== undefined)
+				throw new MetadataRegenerationError({
+					summary,
+					results: run.results,
+					restartAfterId,
+				})
+			throw safeMetadataError(result.error)
+		}
+		return { ...result.data, summary, complete: summary.complete }
 	},
 })

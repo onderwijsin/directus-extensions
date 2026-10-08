@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { MetadataUnavailableError } from '../src/shared/contracts'
-import { describeProviderConfiguration } from '../src/shared/provider-config'
+import { MetadataUnavailableError } from '../src/shared/processing/contracts'
+import { describeProviderConfiguration } from '../src/shared/providers/provider-config'
 
 describe('provider configuration guidance', () => {
 	it('identifies all missing settings', () => {

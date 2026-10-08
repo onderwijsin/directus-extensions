@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
-import { metadataAppOptions } from '../src/shared/app-options'
-import { createMetadataEnvironmentShape } from '../src/shared/env'
-import { acceptedLanguages, defaultLanguage } from '../src/shared/languages'
-import { optionsSchema } from '../src/shared/options'
-import { defaultPrompt } from '../src/shared/provider'
-import { createMetadataSystemPrompt } from '../src/shared/system-prompt'
+import { metadataAppOptions } from '../src/shared/configuration/app-options'
+import { createMetadataEnvironmentShape } from '../src/shared/configuration/env'
+import { acceptedLanguages, defaultLanguage } from '../src/shared/configuration/languages'
+import { optionsSchema } from '../src/shared/configuration/options'
+import { defaultPrompt } from '../src/shared/providers/provider'
+import { createMetadataSystemPrompt } from '../src/shared/providers/system-prompt'
 
 const env = { AI_METADATA_WRITER_LANGUAGE: 'Dutch' }
 

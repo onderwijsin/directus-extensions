@@ -25,7 +25,7 @@ import {
 	createMetadataModel,
 	generateMetadata,
 	createProviderConfigSchema,
-} from '../src/shared/provider'
+} from '../src/shared/providers/provider'
 
 const parseConfig = (input: unknown) => createProviderConfigSchema(z).parse(input)
 
@@ -109,15 +109,19 @@ describe('metadata provider boundary', () => {
 			),
 		).rejects.toThrow()
 	})
-	it.each([
-		{ generateTags: false, generateFilename: false },
-		{ generateTags: true, generateFilename: false },
-		{ generateTags: false, generateFilename: true },
-		{ generateTags: true, generateFilename: true },
-	])('requests and validates only enabled fields: %j', async (options) => {
+	it.each(
+		[
+			{ generateTags: false, generateFilename: false },
+			{ generateTags: true, generateFilename: false },
+			{ generateTags: false, generateFilename: true },
+			{ generateTags: true, generateFilename: true },
+		].flatMap((options) =>
+			[true, false].map((generateAltText) => ({ ...options, generateAltText })),
+		),
+	)('requests and validates only enabled fields: %j', async (options) => {
 		mocks.generateText.mockResolvedValue({
 			output: {
-				altText: 'A classroom.',
+				altText: options.generateAltText ? 'A classroom.' : null,
 				tags: options.generateTags ? ['classroom'] : null,
 				filename: options.generateFilename ? 'classroom' : 'Klassenfoto 2026.jpg',
 			},
@@ -131,12 +135,14 @@ describe('metadata provider boundary', () => {
 			options,
 		)
 		expect(result).toEqual({
-			altText: 'A classroom.',
+			...(options.generateAltText ? { altText: 'A classroom.' } : {}),
 			...(options.generateTags ? { tags: ['classroom'] } : {}),
 			...(options.generateFilename ? { filename: 'classroom' } : {}),
 		})
 		const request = mocks.generateText.mock.calls[0]?.[0]
-		expect(request.instructions).toContain(options.generateTags ? 'altText, tags' : 'altText')
+		expect(request.instructions).toContain(
+			`Return only these JSON fields: ${[...(options.generateAltText ? ['altText'] : []), ...(options.generateTags ? ['tags'] : []), ...(options.generateFilename ? ['filename'] : [])].join(', ')}.`,
+		)
 	})
 	it.each(['tags', 'filename'])('rejects invalid requested %s output', async (field) => {
 		mocks.generateText.mockResolvedValue({
