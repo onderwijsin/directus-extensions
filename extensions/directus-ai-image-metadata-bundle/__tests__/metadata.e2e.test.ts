@@ -123,10 +123,14 @@ describe('image metadata installed Flow operations', () => {
 				(await runOperation('ai-image-metadata', { files: id, excludeFolders: folder.id }))
 					.results,
 			).toEqual([{ id, status: 'skipped', fields: [] }])
-			expect(
-				(await runOperation('ai-image-metadata', { files: id, mimeTypes: 'image/jpeg' }))
-					.results,
-			).toEqual([{ id, status: 'skipped', fields: [] }])
+			// Legacy saved MIME options are ignored; all image candidates remain eligible.
+			const legacy = await runOperation('ai-image-metadata', {
+				files: id,
+				mimeTypes: 'image/jpeg',
+			})
+			expect(legacy.results).toEqual([
+				{ id, status: 'updated', fields: ['description'] },
+			])
 			const result = await runOperation('ai-image-metadata', {
 				files: id,
 				generateTags: true,
