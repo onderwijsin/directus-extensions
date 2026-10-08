@@ -5,7 +5,7 @@ import { extname } from 'node:path'
 import { isArray, isNonBlankString } from '@onderwijsin/directus-extension-utils'
 
 /**
- * Checks whether a file passes MIME and exact-folder selection.
+ * Checks whether a file is an image and passes exact-folder selection.
  * @param file - Persisted file metadata.
  * @param options - Validated selection options.
  * @returns Whether the file is eligible.
@@ -13,7 +13,7 @@ import { isArray, isNonBlankString } from '@onderwijsin/directus-extension-utils
 export function isSelected(file: MetadataFile, options: MetadataOptions): boolean {
 	const mime = file.type?.trim().toLowerCase()
 	return (
-		Boolean(mime?.startsWith('image/') && options.mimeTypes.includes(mime)) &&
+		Boolean(mime?.startsWith('image/')) &&
 		(!options.includeFolders.length || options.includeFolders.includes(file.folder)) &&
 		!options.excludeFolders.includes(file.folder)
 	)
