@@ -48,7 +48,7 @@ export function createFileReader(
 		)
 		const filter: Filter = {
 			_and: [
-				{ type: { _in: options.mimeTypes } },
+				{ type: { _starts_with: 'image/' } },
 				...(included.length ? [{ _or: included }] : []),
 				...excluded,
 			],
