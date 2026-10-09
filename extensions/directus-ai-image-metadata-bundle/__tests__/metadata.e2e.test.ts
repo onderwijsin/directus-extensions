@@ -46,7 +46,12 @@ const resultSchema = z.object({
 			originalMimeType: z.string().nullable(),
 			transformationDurationMs: z.number().nonnegative(),
 			error: z
-				.object({ stage: z.string(), code: z.string(), retryable: z.boolean() })
+				.object({
+					stage: z.string(),
+					code: z.string(),
+					retryable: z.boolean(),
+					raw: z.unknown().optional(),
+				})
 				.optional(),
 			fields: z.array(z.string()),
 		}),
@@ -54,6 +59,7 @@ const resultSchema = z.object({
 	summary: z
 		.object({
 			runId: z.uuid(),
+			options: z.record(z.string(), z.unknown()).nullable(),
 			filesFound: z.number(),
 			filesAttempted: z.number(),
 			filesUpdated: z.number(),
@@ -289,6 +295,11 @@ describe('image metadata installed Flow operations', () => {
 				prompt: 'E2E_REJECT_PROVIDER',
 			})
 			expect(failed.summary).toMatchObject({
+				options: {
+					files: [convertedId, portableId],
+					generateAltText: true,
+					overwriteAltText: true,
+				},
 				filesFailed: 2,
 				assetsTransformed: 1,
 				transformsByMimeType: { 'image/avif': 1 },
@@ -298,7 +309,13 @@ describe('image metadata installed Flow operations', () => {
 				status: 'failed',
 				transformed: true,
 				originalMimeType: 'image/avif',
-				error: { stage: 'generate' },
+				error: {
+					stage: 'generate',
+					raw: {
+						message: expect.stringContaining('Fixture provider rejection'),
+						responseBody: expect.stringContaining('Fixture provider rejection'),
+					},
+				},
 			})
 			expect(failed.results[0]?.transformationDurationMs).toBeGreaterThan(0)
 			expect(failed.results[1]).toMatchObject({

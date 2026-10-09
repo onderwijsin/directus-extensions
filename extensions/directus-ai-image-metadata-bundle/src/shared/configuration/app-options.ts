@@ -57,7 +57,11 @@ export const metadataAppOptions = [
 		schema: { default_value: [] },
 		meta: {
 			interface: 'collection-item-multiple-dropdown',
-			options: { selectedCollection: 'directus_folders', template: '{{ name }}' },
+			options: {
+				selectedCollection: 'directus_folders',
+				template: '{{ name }}',
+				filter: { _and: [{ type: { _eq: 'files' } }] },
+			},
 			width: 'full',
 			note: 'Exact folders, without descendants. Empty selects all folders. Root requires Include Root Folder.',
 		},
@@ -69,7 +73,11 @@ export const metadataAppOptions = [
 		schema: { default_value: [] },
 		meta: {
 			interface: 'collection-item-multiple-dropdown',
-			options: { selectedCollection: 'directus_folders', template: '{{ name }}' },
+			options: {
+				selectedCollection: 'directus_folders',
+				template: '{{ name }}',
+				filter: { _and: [{ type: { _eq: 'files' } }] },
+			},
 			width: 'full',
 			note: 'Exact folders; exclusion wins.',
 		},
