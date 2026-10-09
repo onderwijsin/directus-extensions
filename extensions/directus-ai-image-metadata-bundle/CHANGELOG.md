@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1
+
+### Patch Changes
+
+- 2da6872: Capture bounded upstream failure details, provider output, and Zod validation diagnostics
+  in failed-file results and single-file processing rejections.
+- 2da6872: Filter both image metadata folder selectors to file folders, excluding Flow folders.
+- 2da6872: Include validated upload-operation options and the explicit root-folder selection policy
+  in run summaries.
+
 ## 0.2.0
 
 ### Minor Changes
