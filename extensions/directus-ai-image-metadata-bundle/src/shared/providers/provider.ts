@@ -13,6 +13,7 @@ import {
 import { generateText, Output } from 'ai'
 
 import { createMetadataSchema, type MetadataOptions } from '../configuration/options'
+import { classifyFailure, ProcessingFailure } from '../diagnostics/diagnostics'
 
 /** Complete server-only configuration using the utility's supplied Zod runtime. */
 export const providerConfigSchema = defineExtensionOptionsSchema(createProviderConfigSchema)
@@ -119,5 +120,10 @@ export async function generateMetadata(
 		abortSignal: signal,
 		maxRetries: 2,
 	})
-	return schema.parse(result.output)
+	const parsed = schema.safeParse(result.output)
+	if (!parsed.success)
+		throw new ProcessingFailure(
+			classifyFailure('generate', Object.assign(parsed.error, { value: result.output })),
+		)
+	return parsed.data
 }

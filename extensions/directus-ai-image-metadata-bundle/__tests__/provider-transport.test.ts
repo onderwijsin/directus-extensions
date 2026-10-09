@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+import { atStage } from '../src/shared/diagnostics/diagnostics'
 import { generateMetadata, createProviderConfigSchema } from '../src/shared/providers/provider'
 
 const providers = ['openai', 'openai-compatible', 'anthropic', 'google', 'mistral']
@@ -14,9 +15,10 @@ const metadata = JSON.stringify({ altText: 'A red square.' })
 /**
  * Creates minimal successful real-adapter responses for deterministic transport validation.
  * @param provider - Adapter name.
+ * @param output - Provider-generated JSON text.
  * @returns HTTP provider fixture.
  */
-function response(provider: string) {
+function response(provider: string, output = metadata) {
 	if (provider === 'anthropic')
 		return {
 			id: 'msg_test',
@@ -24,7 +26,7 @@ function response(provider: string) {
 			role: 'assistant',
 			model: 'vision-test',
 			content: [
-				{ type: 'tool_use', id: 'tool_test', name: 'json', input: JSON.parse(metadata) },
+				{ type: 'tool_use', id: 'tool_test', name: 'json', input: JSON.parse(output) },
 			],
 			stop_reason: 'tool_use',
 			stop_sequence: null,
@@ -34,7 +36,7 @@ function response(provider: string) {
 		return {
 			candidates: [
 				{
-					content: { role: 'model', parts: [{ text: metadata }] },
+					content: { role: 'model', parts: [{ text: output }] },
 					finishReason: 'STOP',
 					index: 0,
 				},
@@ -54,7 +56,7 @@ function response(provider: string) {
 					type: 'message',
 					role: 'assistant',
 					status: 'completed',
-					content: [{ type: 'output_text', text: metadata, annotations: [] }],
+					content: [{ type: 'output_text', text: output, annotations: [] }],
 				},
 			],
 			usage: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
@@ -65,7 +67,7 @@ function response(provider: string) {
 		created: 1,
 		model: 'vision-test',
 		choices: [
-			{ index: 0, message: { role: 'assistant', content: metadata }, finish_reason: 'stop' },
+			{ index: 0, message: { role: 'assistant', content: output }, finish_reason: 'stop' },
 		],
 		usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
 	}
@@ -108,4 +110,42 @@ describe('real vision adapter portable image transport', () => {
 			expect(requests[0]).not.toContain('image/avif')
 		},
 	)
+})
+
+it('retains real SDK structured-output validation failures', async () => {
+	const output = JSON.stringify({ altText: '' })
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(() =>
+			Promise.resolve(
+				new Response(JSON.stringify(response('openai-compatible', output)), {
+					headers: { 'Content-Type': 'application/json' },
+				}),
+			),
+		),
+	)
+	const config = createProviderConfigSchema(z).parse({
+		provider: 'openai-compatible',
+		model: 'vision',
+		apiKey: 'fixture',
+		baseURL: 'https://fixture.invalid/v1',
+	})
+	await expect(
+		atStage('generate', () =>
+			generateMetadata(
+				config,
+				new Uint8Array([1]),
+				'image/png',
+				'Describe.',
+				AbortSignal.timeout(1000),
+			),
+		),
+	).rejects.toMatchObject({
+		diagnostic: {
+			code: 'INVALID_OUTPUT',
+			raw: { text: output, cause: { value: { altText: '' } } },
+			validation: expect.stringContaining('altText'),
+			issues: [expect.objectContaining({ code: 'too_small', path: ['altText'] })],
+		},
+	})
 })

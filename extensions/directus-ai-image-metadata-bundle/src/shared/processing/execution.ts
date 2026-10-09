@@ -83,20 +83,24 @@ export function createMetadataProcessor(
 	): Promise<MetadataWriteResult> {
 		const skipped: MetadataWriteResult = { id: file.id, status: 'skipped', fields: [] }
 		if (!isSelected(file, options) || !needsMetadataUpdate(file, options)) return skipped
+
 		provider ??= resolveProvider()
 		const config = await atStage('resolve_provider', () => provider ?? resolveProvider())
 		resolved = config
+
 		const signal = AbortSignal.timeout(env.AI_METADATA_WRITER_TIMEOUT_MS)
 		const started = performance.now()
 		const transform = file.type === 'image/avif' || file.type === 'image/tiff'
 		const mediaType = transform ? 'image/png' : (file.type ?? '')
 		let image: Buffer
+
 		try {
 			const asset = await atStage(
 				transform ? 'convert_image' : 'read_asset',
 				() => acquireAsset(file.id, signal, transform),
 				signal,
 			)
+
 			image = await atStage(
 				'read_bytes',
 				() =>
@@ -107,6 +111,7 @@ export function createMetadataProcessor(
 					),
 				signal,
 			)
+
 			// AssetsService can return the original when transformation is bypassed. Never label it PNG.
 			if (
 				transform &&
@@ -118,6 +123,7 @@ export function createMetadataProcessor(
 		} finally {
 			if (transform) transformation.transformationDurationMs = performance.now() - started
 		}
+
 		context.logger.debug(
 			{
 				runId,
@@ -130,6 +136,7 @@ export function createMetadataProcessor(
 			},
 			'Image metadata input prepared',
 		)
+
 		const generation = await atStage(
 			'generate',
 			() =>
@@ -143,6 +150,7 @@ export function createMetadataProcessor(
 				),
 			signal,
 		)
+
 		return atStage('write_metadata', () => writeMetadata(file, generation))
 	}
 
@@ -256,7 +264,7 @@ export function createMetadataProcessor(
 }
 
 /**
- * Preserves Directus errors while masking unexpected internal details.
+ * Preserves Directus codes and captured processing diagnostics while masking unstaged failures.
  * @param error - Unknown service failure.
  * @returns Safe error for the Flow rejection branch.
  */
@@ -269,7 +277,7 @@ export function safeMetadataError(error: unknown) {
 		})
 	if (error instanceof ProcessingFailure && error.diagnostic.code === 'INVALID_IMAGE')
 		return new InvalidPayloadError({ reason: error.diagnostic.message })
-	return isDirectusError(error) && !(error instanceof ProcessingFailure)
-		? error
-		: new MetadataGenerationError()
+	if (error instanceof ProcessingFailure)
+		return new MetadataGenerationError({ error: error.diagnostic })
+	return isDirectusError(error) ? error : new MetadataGenerationError({})
 }

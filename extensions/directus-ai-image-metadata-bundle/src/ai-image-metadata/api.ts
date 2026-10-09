@@ -37,6 +37,7 @@ export default defineOperationApi({
 				options,
 			)
 			const run = createRunDiagnostics('ai-image-metadata')
+			run.setOptions(options)
 			for (const id of options.files) {
 				run.found.add(id)
 				run.attempt(id)

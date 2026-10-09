@@ -1,8 +1,9 @@
 import { isDirectusError } from '@directus/errors'
-import { RetryError } from 'ai'
+import { NoObjectGeneratedError, RetryError } from 'ai'
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import { backfillOptionsSchema } from '../src/shared/configuration/options'
+import { backfillOptionsSchema, writerOptionsSchema } from '../src/shared/configuration/options'
 import { atStage, classifyFailure, ProcessingFailure } from '../src/shared/diagnostics/diagnostics'
 import { createRunDiagnostics } from '../src/shared/diagnostics/run-diagnostics'
 
@@ -21,7 +22,10 @@ describe('safe image metadata diagnostics', () => {
 			})
 			const result = classifyFailure('generate', error)
 			expect(result).toMatchObject({ code, retryable, httpStatus: statusCode })
-			expect(JSON.stringify(result)).not.toMatch(/SECRET|PRIVATE/u)
+			expect(result.raw).toMatchObject({
+				message: 'SECRET',
+				lastError: { responseBody: 'PRIVATE' },
+			})
 		},
 	)
 	it('classifies read, timeout, validation and write boundaries safely', async () => {
@@ -39,7 +43,9 @@ describe('safe image metadata diagnostics', () => {
 		})
 		await expect(
 			atStage('write_metadata', () => Promise.reject(new Error('SECRET'))),
-		).rejects.toEqual(new ProcessingFailure(classifyFailure('write_metadata', {})))
+		).rejects.toEqual(
+			new ProcessingFailure(classifyFailure('write_metadata', new Error('SECRET'))),
+		)
 	})
 	it('counts mixed outcomes, deduplicates candidates and excludes private options', () => {
 		const run = createRunDiagnostics('ai-image-metadata-regenerate')
@@ -204,7 +210,7 @@ describe('file failure isolation', () => {
 		expect(persisted).toEqual(['first', 'third'])
 		expect(results.map((result) => result.status)).toEqual(['updated', 'failed', 'updated'])
 		expect(logs).toHaveLength(1)
-		expect(JSON.stringify({ results, logs })).not.toContain('SECRET')
+		expect(JSON.stringify({ results, logs })).toContain('SECRET')
 	})
 	it('rejects single-file failures and shared configuration/shutdown even with isolation', async () => {
 		const { settleFile } = await import('../src/shared/diagnostics/diagnostics')
@@ -228,7 +234,7 @@ describe('file failure isolation', () => {
 })
 
 describe('Directus processing error and attempt boundaries', () => {
-	it('carries only sanitized diagnostics through a Directus error', () => {
+	it('carries captured diagnostics through a Directus error', () => {
 		const diagnostic = classifyFailure(
 			'generate',
 			Object.assign(new Error('SECRET'), { statusCode: 429 }),
@@ -237,7 +243,7 @@ describe('Directus processing error and attempt boundaries', () => {
 		expect(isDirectusError(error)).toBe(true)
 		expect(error.extensions).toEqual(diagnostic)
 		expect(error.diagnostic).toEqual(diagnostic)
-		expect(JSON.stringify(error)).not.toContain('SECRET')
+		expect(error.diagnostic.raw).toMatchObject({ message: 'SECRET' })
 	})
 	it('preserves null and undefined successful values and classifies null rejections', async () => {
 		await expect(atStage('generate', () => Promise.resolve(null))).resolves.toBeNull()
@@ -245,5 +251,194 @@ describe('Directus processing error and attempt boundaries', () => {
 		await expect(
 			atStage('generate', vi.fn<() => Promise<never>>().mockRejectedValue(null)),
 		).rejects.toBeInstanceOf(ProcessingFailure)
+	})
+})
+
+describe('captured upstream diagnostics', () => {
+	it('retains SDK output, nested validation rules and parsed values', () => {
+		const value = { altText: '', tags: [42] }
+		const parsed = z
+			.object({ altText: z.string().min(1), tags: z.array(z.string()) })
+			.safeParse(value)
+		if (parsed.success) throw new Error('Expected invalid fixture')
+		const error = new NoObjectGeneratedError({
+			text: JSON.stringify(value),
+			cause: Object.assign(new Error('Validation failed'), { value, cause: parsed.error }),
+			response: { id: 'response-id', timestamp: new Date(), modelId: 'vision' },
+			usage: {
+				inputTokens: undefined,
+				outputTokens: undefined,
+				totalTokens: undefined,
+				inputTokenDetails: {
+					noCacheTokens: undefined,
+					cacheReadTokens: undefined,
+					cacheWriteTokens: undefined,
+				},
+				outputTokenDetails: { textTokens: undefined, reasoningTokens: undefined },
+			},
+			finishReason: 'stop',
+		})
+		const result = classifyFailure('generate', error)
+		expect(result).toMatchObject({
+			code: 'INVALID_OUTPUT',
+			raw: { text: JSON.stringify(value), cause: { value } },
+			issues: [
+				{ code: 'too_small', path: ['altText'] },
+				{ code: 'invalid_type', path: ['tags', 0] },
+			],
+		})
+		expect(result.validation).toContain('altText')
+		expect(result.validation).toContain('tags[0]')
+		expect(() => JSON.stringify(result)).not.toThrow()
+	})
+	it('bounds circular data and excludes request configuration', () => {
+		const error = Object.assign(new Error('Connection reset'), {
+			code: 'ECONNRESET',
+			requestBody: 'PRIVATE',
+			apiKey: 'SECRET',
+			headers: { authorization: 'SECRET' },
+			value: { token: 'SECRET', description: 'a'.repeat(20000) },
+		})
+		error.cause = error
+		const result = classifyFailure('generate', error)
+		expect(result).toMatchObject({
+			code: 'CONNECTION_FAILED',
+			raw: { message: 'Connection reset' },
+		})
+		expect(JSON.stringify(result)).not.toMatch(/PRIVATE|SECRET/u)
+		expect(JSON.stringify(result)).toContain('[circular]')
+		expect(JSON.stringify(result)).toContain('[truncated]')
+	})
+	it('records normalized upload options without regeneration fields or prompts', () => {
+		const run = createRunDiagnostics('ai-image-metadata')
+		const id = 'bd3d0c49-ec7f-4d0e-a0b5-905f80596a47'
+		run.setOptions(
+			writerOptionsSchema.parse({
+				files: id,
+				prompt: 'PRIVATE',
+				language: 'Dutch',
+				generateTags: true,
+				overwriteTags: true,
+			}),
+		)
+		const summary = run.summary(true)
+		expect(summary.options).toMatchObject({
+			files: [id],
+			language: 'Dutch',
+			generateAltText: true,
+			generateTags: true,
+			overwriteTags: true,
+			includeFolders: [],
+			excludeFolders: [null],
+		})
+		expect(summary.options).not.toHaveProperty('maxFiles')
+		expect(JSON.stringify(summary)).not.toContain('PRIVATE')
+	})
+})
+
+it('preserves generation details on the single-file rejection branch', async () => {
+	const { safeMetadataError } = await import('../src/shared/processing/execution')
+	const error = new ProcessingFailure(classifyFailure('generate', new Error('Provider details')))
+	expect(safeMetadataError(error)).toMatchObject({
+		code: 'AI_METADATA_WRITER_GENERATION_FAILED',
+		extensions: { error: error.diagnostic },
+	})
+})
+
+describe('failure classification precedence', () => {
+	it.each([
+		{
+			stage: 'generate',
+			error: { name: 'AbortError', statusCode: 429 },
+			code: 'RUN_ABORTED',
+			retryable: false,
+			expectedStage: 'shutdown',
+		},
+		{
+			stage: 'generate',
+			error: { name: 'TimeoutError', statusCode: 503 },
+			code: 'TIMEOUT',
+			retryable: true,
+			expectedStage: 'generate',
+		},
+		{
+			stage: 'convert_image',
+			error: { name: 'TimeoutError' },
+			code: 'IMAGE_TRANSFORM_TIMEOUT',
+			retryable: false,
+			expectedStage: 'convert_image',
+		},
+		{
+			stage: 'write_metadata',
+			error: { name: 'TimeoutError' },
+			code: 'TIMEOUT',
+			retryable: false,
+			expectedStage: 'write_metadata',
+		},
+		{
+			stage: 'generate',
+			error: { code: 'ECONNRESET', statusCode: 429 },
+			code: 'CONNECTION_FAILED',
+			retryable: true,
+			expectedStage: 'generate',
+		},
+		{
+			stage: 'read_file',
+			error: { code: 'ECONNREFUSED', statusCode: 403 },
+			code: 'CONNECTION_FAILED',
+			retryable: false,
+			expectedStage: 'read_file',
+		},
+		{
+			stage: 'generate',
+			error: { name: 'AI_NoObjectGeneratedError', statusCode: 400 },
+			code: 'PROVIDER_REJECTED',
+			retryable: false,
+			expectedStage: 'generate',
+		},
+		{
+			stage: 'resolve_provider',
+			error: {},
+			code: 'PROVIDER_CONFIGURATION_INVALID',
+			retryable: false,
+			expectedStage: 'resolve_provider',
+		},
+		{
+			stage: 'write_metadata',
+			error: {},
+			code: 'WRITE_METADATA_FAILED',
+			retryable: false,
+			expectedStage: 'write_metadata',
+		},
+	] satisfies {
+		stage: import('../src/shared/diagnostics/diagnostics').FailureStage
+		error: unknown
+		code: string
+		retryable: boolean
+		expectedStage: string
+	}[])('preserves $code for $stage', ({ stage, error, code, retryable, expectedStage }) => {
+		expect(classifyFailure(stage, error)).toMatchObject({
+			stage: expectedStage,
+			code,
+			retryable,
+		})
+	})
+})
+
+it.each([false, true])('explains the normalized root marker for includeRoot=%s', (includeRoot) => {
+	const includeFolder = '8dfa6982-e335-416d-8cab-c057af43c8db'
+	const excludeFolder = 'c913c973-1af8-45fb-b59a-fd8807f91b66'
+	const run = createRunDiagnostics('ai-image-metadata-regenerate')
+	run.setOptions(
+		backfillOptionsSchema.parse({
+			includeRoot,
+			includeFolders: [{ collection: 'directus_folders', key: includeFolder }],
+			excludeFolders: [{ collection: 'directus_folders', key: excludeFolder }],
+		}),
+	)
+	expect(run.summary(true).options).toMatchObject({
+		includeRoot,
+		includeFolders: includeRoot ? [includeFolder, null] : [includeFolder],
+		excludeFolders: includeRoot ? [excludeFolder] : [excludeFolder, null],
 	})
 })

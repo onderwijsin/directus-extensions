@@ -7,7 +7,9 @@ export const MetadataUnavailableError = createError<{ reason: string }>(
 	({ reason }) => `Image metadata provider configuration is invalid. ${reason}`,
 	503,
 )
-export const MetadataGenerationError = createError(
+export const MetadataGenerationError = createError<{
+	error?: import('../diagnostics/diagnostics').FileFailure
+}>(
 	'AI_METADATA_WRITER_GENERATION_FAILED',
 	'Image metadata generation failed. Check the model image-input and structured-output support.',
 	502,
@@ -34,7 +36,7 @@ export interface TransformationDiagnostics {
 	transformationDurationMs: number
 }
 
-/** Timed, sanitized file outcome returned by Flow operations. */
+/** Timed file outcome with bounded failure details returned by Flow operations. */
 export type FileResult = TransformationDiagnostics &
 	(
 		| (MetadataWriteResult & { durationMs: number })

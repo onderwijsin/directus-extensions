@@ -252,7 +252,11 @@ describe('native folder selection', () => {
 			expect(metadataAppOptions.find((option) => option.field === field)?.meta).toMatchObject(
 				{
 					interface: 'collection-item-multiple-dropdown',
-					options: { selectedCollection: 'directus_folders', template: '{{ name }}' },
+					options: {
+						selectedCollection: 'directus_folders',
+						template: '{{ name }}',
+						filter: { _and: [{ type: { _eq: 'files' } }] },
+					},
 				},
 			)
 		}

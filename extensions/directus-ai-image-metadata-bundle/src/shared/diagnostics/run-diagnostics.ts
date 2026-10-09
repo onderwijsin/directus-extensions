@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import type { backfillOptionsSchema } from '../configuration/options'
+import type { backfillOptionsSchema, writerOptionsSchema } from '../configuration/options'
 import type { FileResult } from '../processing/contracts'
 import type { ProviderConfig } from '../providers/provider'
 
@@ -16,7 +16,10 @@ export function createRunDiagnostics(operation: string) {
 	const started = performance.now()
 	const results: FileResult[] = []
 	const found = new Set<string>()
-	let options: z.output<typeof backfillOptionsSchema> | undefined
+	let options:
+		| z.output<typeof backfillOptionsSchema>
+		| z.output<typeof writerOptionsSchema>
+		| undefined
 	let provider: Pick<ProviderConfig, 'provider' | 'model'> | undefined
 	const attempted = new Set<string>()
 	/**
@@ -44,11 +47,17 @@ export function createRunDiagnostics(operation: string) {
 			model: provider?.model ?? null,
 			options: options
 				? {
-						maxFiles: options.maxFiles,
-						concurrency: options.concurrency,
-						missingOnly: options.missingOnly,
-						afterId: options.afterId,
-						excludedFileCount: options.excludeFiles.length,
+						...('maxFiles' in options
+							? {
+									maxFiles: options.maxFiles,
+									concurrency: options.concurrency,
+									missingOnly: options.missingOnly,
+									afterId: options.afterId,
+									excludedFileCount: options.excludeFiles.length,
+								}
+							: { files: options.files }),
+						language: options.language ?? null,
+						includeRoot: options.includeRoot,
 						includeFolders: options.includeFolders,
 						excludeFolders: options.excludeFolders,
 						generateAltText: options.generateAltText,
@@ -81,7 +90,9 @@ export function createRunDiagnostics(operation: string) {
 		 * @param value - Validated options.
 		 * @returns Nothing.
 		 */
-		setOptions(value: z.output<typeof backfillOptionsSchema>) {
+		setOptions(
+			value: z.output<typeof backfillOptionsSchema> | z.output<typeof writerOptionsSchema>,
+		) {
 			options = value
 		},
 		/**
