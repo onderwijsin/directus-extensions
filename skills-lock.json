@@ -49,6 +49,48 @@
 			"skillPath": "skills/loops-lmx/SKILL.md",
 			"computedHash": "70f5e871fa89762c7e70641c8957a58b2ec31c6e781a1cbde59e684e2796210c"
 		},
+		"mapbox-geospatial-operations": {
+			"source": "mapbox/mapbox-agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/mapbox-geospatial-operations/SKILL.md",
+			"computedHash": "9edd54aac79f953cb61b980c15b87e52fbe628d22d43940cc2fd98b825d5c154"
+		},
+		"mapbox-google-maps-migration": {
+			"source": "mapbox/mapbox-agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/mapbox-google-maps-migration/SKILL.md",
+			"computedHash": "7a633023137be30f1cc6d0418e7372cbf9fed48ecc45e8fb2992e84f87d6b50f"
+		},
+		"mapbox-search-integration": {
+			"source": "mapbox/mapbox-agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/mapbox-search-integration/SKILL.md",
+			"computedHash": "a1d5c80e7f17c2b04e55e9437f6fd3d8f16d18bd3a4764b6abc014132a4ae283"
+		},
+		"mapbox-search-patterns": {
+			"source": "mapbox/mapbox-agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/mapbox-search-patterns/SKILL.md",
+			"computedHash": "158189eeaefceddfb02e191612e705e9049138b98ffa9c9a9253fcf4c5fe98d1"
+		},
+		"mapbox-token-security": {
+			"source": "mapbox/mapbox-agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/mapbox-token-security/SKILL.md",
+			"computedHash": "8b5ca17883a52ccfb1c9cc3ad2a07f1628e9285372568dd2c10df1e12a93d5b6"
+		},
+		"mapbox-web-integration-patterns": {
+			"source": "mapbox/mapbox-agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/mapbox-web-integration-patterns/SKILL.md",
+			"computedHash": "936a51260ab4a1da35ae146dde7a2e420599eafec23f2a99725033ffc76a0af0"
+		},
+		"mapbox-web-performance-patterns": {
+			"source": "mapbox/mapbox-agent-skills",
+			"sourceType": "github",
+			"skillPath": "skills/mapbox-web-performance-patterns/SKILL.md",
+			"computedHash": "d44a8b74714c43ecad1bed4755c86b2319934797719e8fab8ed2bf50bd8b7878"
+		},
 		"pinia": {
 			"source": "antfu/skills",
 			"sourceType": "github",

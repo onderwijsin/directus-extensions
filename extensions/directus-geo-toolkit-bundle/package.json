@@ -1,0 +1,116 @@
+{
+	"name": "@onderwijsin/directus-geo-toolkit-bundle",
+	"version": "0.0.0",
+	"description": "Mapbox address input and geodata Flow transforms for Directus",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle",
+		"geo",
+		"mapbox"
+	],
+	"homepage": "https://github.com/onderwijsin/directus-extensions#readme",
+	"bugs": {
+		"url": "https://github.com/onderwijsin/directus-extensions/issues"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Onderwijs in",
+		"email": "hallo@onderwijsin.nl",
+		"url": "https://github.com/onderwijsin"
+	},
+	"contributors": [
+		{
+			"name": "Remi Huigen",
+			"email": "remihuigen@onderwijsin.nl",
+			"url": "https://github.com/remihuigen"
+		}
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/onderwijsin/directus-extensions.git",
+		"directory": "extensions/directus-geo-toolkit-bundle"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"main": "./dist/api.js",
+	"exports": {
+		".": "./dist/api.js"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"add": "directus-extension add",
+		"validate": "directus-extension validate",
+		"test:unit": "vitest run --config ../../vitest.config.ts",
+		"typecheck": "vue-tsc --noEmit",
+		"test:bundle": "directus-extension build && GEO_TOOLKIT_BUNDLE_TEST=1 vitest run --config ../../vitest.config.ts __tests__/address-bundle.vue.test.ts"
+	},
+	"dependencies": {
+		"@directus/errors": "catalog:",
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"mapbox-gl": "catalog:",
+		"ofetch": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "catalog:",
+		"@types/node": "catalog:node24",
+		"@workspace/typescript-config": "workspace:*",
+		"vitest": "catalog:",
+		"vue": "catalog:",
+		"vue-tsc": "catalog:"
+	},
+	"icon": "public",
+	"engines": {
+		"node": ">=24.10.0"
+	},
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"host": ">=12.2.0 <13",
+		"partial": true,
+		"entries": [
+			{
+				"name": "geo-mapbox-address-interface",
+				"type": "interface",
+				"source": "src/mapbox-address-interface/index.ts"
+			},
+			{
+				"name": "geo-extract-geolocation-operation",
+				"type": "operation",
+				"source": {
+					"app": "src/extract-geolocation-operation/app.ts",
+					"api": "src/extract-geolocation-operation/api.ts"
+				}
+			},
+			{
+				"name": "geo-calculate-centroid-operation",
+				"type": "operation",
+				"source": {
+					"app": "src/calculate-centroid-operation/app.ts",
+					"api": "src/calculate-centroid-operation/api.ts"
+				}
+			},
+			{
+				"name": "geo-polygon-grid-points-operation",
+				"type": "operation",
+				"source": {
+					"app": "src/polygon-grid-points-operation/app.ts",
+					"api": "src/polygon-grid-points-operation/api.ts"
+				}
+			}
+		]
+	}
+}
