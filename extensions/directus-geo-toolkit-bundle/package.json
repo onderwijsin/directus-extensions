@@ -2,7 +2,7 @@
 	"name": "@onderwijsin/directus-geo-toolkit-bundle",
 	"version": "0.0.0",
 	"private": true,
-	"description": "Mapbox address input and geodata Flow transformation scaffold for Directus",
+	"description": "Mapbox address input and geodata Flow transforms for Directus",
 	"keywords": [
 		"directus",
 		"directus-extension",

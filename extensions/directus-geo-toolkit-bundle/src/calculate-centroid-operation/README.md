@@ -1,9 +1,8 @@
-# Calculate Polygon Centroid scaffold
+# Calculate Centroid Operation
 
-`app.ts` registers the operation with no options. `api.ts` registers an intentionally empty handler
-that returns no result. Do not use it as a filter Flow response until implemented.
+Area-weighted and spherical vertex centroids return a Point geometry. `app.ts` exposes the
+source/destination, merge policies and calculation options. `api.ts` validates configuration and
+delegates to the pure transform in `utils/transform.ts`. Shared modules validate Polygon input,
+project local geometry and preserve complete item payloads.
 
-`options.schema.ts`, `types.ts`, and `transform.ts` reserve the option boundary, types, and pure
-payload transformation. These modules export nothing yet.
-
-See [the bundle specification](../../SPEC.md#calculate-centroid-operation).
+See [consumer setup and options](../../README.md#polygon-transforms).
