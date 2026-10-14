@@ -1,7 +1,7 @@
 # Geo Toolkit implementation specification
 
-Status: registered bundle scaffold; behavioral implementation remains planned. Research checked on
-13 October 2026.
+Status: Mapbox address interface implemented; geodata operations remain scaffolds. Research checked
+on 13 October 2026.
 
 ## Purpose and scope
 
@@ -13,12 +13,11 @@ transformed payload. A blocking/filter Flow passes that result back to Directus 
 Operations do not fetch records, write records, install hooks, or provision collections or fields.
 No collection names or source/destination field names are hardcoded.
 
-The scaffold now includes active `directus:extension` metadata in `package.json`, interface and
-operation registrations, an empty Vue component, empty operation handlers, and reserved modules for
-schemas, types, transforms and composables. Build/typecheck scripts and required SDK/Vue development
-dependencies are declared using existing workspace catalogs. No geodata logic, options, provider
-dependencies, credentials or generated output are included. Keep the package private until its
-behavior is implemented and validated; no Changeset is needed for this private scaffold.
+The bundle now implements the address interface, provider/option boundaries, normalization and map
+lifecycle. SDK/Vue development dependencies and approved Mapbox GL JS/ofetch/Zod runtime
+dependencies use exact workspace catalogs. Operation handlers/options and polygon modules remain
+empty scaffolds. The package remains private while those operations are unfinished; no Changeset
+targets a private package. Tests use synthetic data and do not send live Mapbox requests.
 
 ## Runtime and package boundaries
 
@@ -38,20 +37,20 @@ directus-geo-toolkit-bundle/
   README.md
   SPEC.md
   src/
-    mapbox-address-interface/           index.ts, interface.vue, reserved composables
-    extract-geolocation-operation/     app.ts, api.ts, reserved transform modules
-    calculate-centroid-operation/      app.ts, api.ts, reserved centroid modules
-    polygon-grid-points-operation/     app.ts, api.ts, reserved grid modules
-    shared/                            reserved boundary schemas and payload contracts
+    mapbox-address-interface/           index.ts, interface.vue, components/, composables/, utils/
+    extract-geolocation-operation/     app.ts, api.ts, utils/ reserved transform modules
+    calculate-centroid-operation/      app.ts, api.ts, utils/ reserved centroid modules
+    polygon-grid-points-operation/     app.ts, api.ts, utils/ reserved grid modules
+    shared/                            boundary schemas and payload contracts
   __tests__/                           future tests and provider fixtures
 ```
 
 `package.json` is the authoritative active registration manifest; the earlier `bundle.plan.json` has
-been removed. All registrations expose empty options, operation handlers return no result, and the
-interface renders an empty container. Do not use the operations as filter responses yet. Browser
-code will own Mapbox search/presentation; operation API code will own offline transformations. Do
-not pull Mapbox GL JS into `dist/api.js` or server-only dependencies into `dist/app.js`. Keep
-registration thin and business logic beside its owning entry.
+been removed. The interface exposes the options below; operation handlers/options remain empty. Do
+not use the operations as filter responses yet. Browser code will own Mapbox search/presentation;
+operation API code will own offline transformations. Do not pull Mapbox GL JS into `dist/api.js` or
+server-only dependencies into `dist/app.js`. Keep registration thin and business logic beside its
+owning entry.
 
 Initially use ordinary API operations following the repository's accepted sandbox decision, without
 claiming support for sandbox-only installations. A later sandbox decision can be evaluated against
@@ -79,12 +78,9 @@ Prefer v6 Geocoding to Search Box for address-only search; Search Box has differ
 storage rights. Do not accidentally switch provider APIs through a generic search widget. See
 [Search Box restrictions](https://docs.mapbox.com/api/search/search-box/#search-box-api-restrictions-and-limits).
 
-Use **ofetch**, with explicit query parameters, abort signals, timeout and retry options, plus Zod
-response validation. `ofetch` is already exactly pinned in the workspace catalog; add the runtime
-dependency only when implementing the interface. Set `retry=0` by default to avoid unexpected
-billable retries; expose the count/delay as options and respect Retry-After when retries are
-enabled. Do not use native fetch or add a Mapbox HTTP wrapper SDK for this small adapter. See
-[ofetch documentation](https://github.com/unjs/ofetch).
+Use **ofetch** with query parameters and Zod response validation. Use the default ofetch request
+behavior, without custom timeout, abort, or retry controls. Ignore responses from superseded
+queries. See [ofetch documentation](https://github.com/unjs/ofetch).
 
 ### Credential sources and precedence
 
@@ -95,10 +91,8 @@ The interface supports both native Directus settings and per-field interface opt
    accessed through the extension SDK's `useStores()`.
 3. If neither is available, show a configuration message and do not send search/map requests.
 
-Use the resolved public token for both geocoding and map rendering. `credentialSource` can
-explicitly select `auto` (default), `settings`, or `interface`; an explicit source must not silently
-fall back to another credential. This supports a project-wide key with optional field-specific
-overrides.
+Use the resolved public token for both geocoding and map rendering. The interface key always takes
+precedence, with the native settings key as fallback.
 
 The native map uses `settingsStore.settings?.mapbox_key` and initializes a browser Mapbox geocoder
 with it. The settings store hydrates via `/settings`. Reuse the existing Studio-readable setting; do
@@ -113,6 +107,32 @@ Only browser-public Mapbox tokens belong in these locations. They are observable
 never store secret-scope tokens there, in address values, or in operation configuration. Use least
 privilege and allowed Studio-origin restrictions. See
 [Mapbox token guidance](https://docs.mapbox.com/help/dive-deeper/access-tokens/).
+
+### Required Mapbox token permissions
+
+Use a browser-public token beginning with `pk.`. For the default Light/Dark v11 maps, enable:
+
+| Scope         | Used for                                     |
+| ------------- | -------------------------------------------- |
+| `styles:read` | Loading the Mapbox style and its map assets. |
+| `fonts:read`  | Loading font glyphs for map labels.          |
+
+Geocoding v6 requires a valid access token but no additional geocoding-specific scope. The interface
+does not need dataset access, SDK download permissions, or any secret/write scopes. `styles:tiles`
+is only needed if a custom style setup requests rendered raster style tiles through Mapbox's Static
+Tiles API; the default map does not use that API. See
+[Mapbox token scopes](https://docs.mapbox.com/accounts/guides/tokens/#scopes) and
+[Geocoding authentication](https://docs.mapbox.com/api/search/geocoding/#forward-geocoding-with-search-text-input).
+
+Permanent geocoding is an account entitlement, not a token scope: Mapbox requires a valid credit
+card on file or an active enterprise contract. See
+[permanent result storage](https://docs.mapbox.com/api/search/geocoding/#storing-geocoding-results).
+
+Create a dedicated public token and add the actual Directus Studio URLs to its allowed URLs,
+including the hostname and port used for local development. Use explicit URLs rather than wildcard
+patterns. URL-restricted tokens depend on a browser Referer header; a Studio referrer policy that
+suppresses cross-origin referrers can cause 403 responses. See
+[Mapbox URL restrictions](https://docs.mapbox.com/accounts/guides/tokens/#url-restrictions).
 
 ### Why there is no geocoding endpoint
 
@@ -142,11 +162,11 @@ projection and hole behavior before choosing a helper.
 its allocation/boundary behavior must satisfy our limits. A bounded iterator may be necessary. See
 [Proj4js](https://proj4js.org/).
 
-ofetch remains the selected future HTTP client; it is not imported or declared as a runtime
-dependency in the empty scaffold. SDK/Vue development dependencies are declared for scaffolding.
-Before adding other dependencies, demonstrate the minimal set's value and obtain the
-repository-required approval. Use exact catalog pins and an isolated installation; do not modify the
-primary checkout's `node_modules` during this spec task.
+The interface uses ofetch, Zod and Mapbox GL JS 3.32.0. The SDK inlines the renderer into a single
+app bundle of approximately 2 MB; component/map construction is deferred until displayed. No Turf or
+projection dependency is needed for this interface. Before adding other dependencies, demonstrate
+the minimal set's value and obtain the repository-required approval. Use exact catalog pins and an
+isolated installation; do not modify the primary checkout's `node_modules` during this spec task.
 
 ## Address value contract
 
@@ -200,38 +220,58 @@ an actionable error. No Google compatibility adapter in this scope.
 
 ID: `geo-mapbox-address-interface`. Display name: **Mapbox Address**.
 
-| Option                                         | Default                              | Contract                                                            |
-| ---------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| `credentialSource`                             | `auto`                               | `auto`, `settings`, or `interface`; precedence as above.            |
-| `mapboxKey`                                    | unset                                | Public token override; required when source is `interface`.         |
-| `permanent`                                    | `true`                               | Pass true/false to v6; record response provenance.                  |
-| `language`                                     | `en`                                 | Supported Mapbox language tag(s).                                   |
-| `countries`                                    | unrestricted                         | Optional ISO alpha-2 country list.                                  |
-| `featureTypes`                                 | `["address"]`                        | Valid v6 types; enabling other types permits incomplete components. |
-| `autocomplete`                                 | `true`                               | Mapbox request option.                                              |
-| `minQueryLength`                               | 3                                    | Nonnegative integer; empty query never sends requests.              |
-| `debounceMs`                                   | 300                                  | Nonnegative integer.                                                |
-| `resultLimit`                                  | 5                                    | Integer 1–10, the provider's bound.                                 |
-| `proximity`, `bbox`                            | unset                                | Valid geographic bias/restriction.                                  |
-| `worldview`                                    | `us`                                 | Supported Mapbox value.                                             |
-| `requestTimeoutMs`                             | 5000                                 | Positive finite timeout.                                            |
-| `retry`, `retryDelayMs`                        | 0, 500                               | Nonnegative retry count and delay.                                  |
-| `componentSources`                             | v6 adapter defaults                  | Ordered safe property paths per component; municipality unset.      |
-| `addressTemplate`                              | `{street} {houseNumber}`             | Named component placeholders; no evaluated code.                    |
-| `styleUrl`                                     | `mapbox://styles/mapbox/streets-v12` | Valid supported style URL.                                          |
-| `showMap`, `mapHeightPx`                       | true, 300                            | Textual selection still works when the map is hidden/unavailable.   |
-| `defaultCenter`, `defaultZoom`, `selectedZoom` | `[0, 0]`, 2, 15                      | Valid map view settings.                                            |
-| `allowClear`                                   | true                                 | Emit null on an explicit clear.                                     |
+| Option                                         | Default                            | Contract                                                                  |
+| ---------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------- |
+| `mapboxKey`                                    | unset                              | Public token override; falls back to the native project key when empty.   |
+| `permanent`                                    | `true`                             | Pass true/false to v6; record response provenance.                        |
+| `language`                                     | `en`                               | Select a supported Mapbox language by name.                               |
+| `countries`                                    | unrestricted                       | Country multiselect; only return results in selected countries.           |
+| `featureTypes`                                 | `["address", "street", "place"]`   | Valid v6 types; enabling other types permits incomplete components.       |
+| `autocomplete`                                 | `true`                             | Mapbox request option.                                                    |
+| `minQueryLength`                               | 3                                  | Nonnegative integer; empty query never sends requests.                    |
+| `debounceMs`                                   | 300                                | Nonnegative integer.                                                      |
+| `resultLimit`                                  | 5                                  | Integer 1–10, the provider's bound.                                       |
+| `proximity`                                    | unset                              | Bias toward [longitude, latitude] or "ip"; does not restrict results.     |
+| `worldview`                                    | `us`                               | Regional view used for names and country context in disputed territories. |
+| `componentSources`                             | v6 adapter defaults                | Ordered safe property paths per component; municipality unset.            |
+| `lightStyleUrl`                                | `mapbox://styles/mapbox/light-v11` | Style used in the light Studio theme.                                     |
+| `darkStyleUrl`                                 | `mapbox://styles/mapbox/dark-v11`  | Style used in the dark Studio theme.                                      |
+| `styleUrl`                                     | Unset                              | Legacy override for both themes; remove it to enable theme switching.     |
+| `showMap`, `mapHeightPx`                       | true, 300                          | Textual selection still works when the map is hidden/unavailable.         |
+| `defaultCenter`, `defaultZoom`, `selectedZoom` | `[0, 0]`, 2, 15                    | Valid map view settings.                                                  |
+| `allowClear`                                   | true                               | Emit null on an explicit clear.                                           |
+
+The editor uses Directus `VInput`, `VMenu`, `VList`, `VListItem`, `VButton` and `VNotice`. When the
+map is shown, search sits at its top-left; without a map, the same input works on its own. Only one
+map is used, and selecting a result updates its center, zoom and marker. Country and language remain
+configurable; use `countries=["NL"]` and `language="nl"` for Dutch address entry.
 
 Search and select using a keyboard-accessible list; selection emits the normalized value and moves
 one marker. Typing alone does not replace the current value. Reopening a saved value renders without
 re-geocoding. Do not automatically select the first result or allow marker dragging to detach the
-coordinates from the address. Respect `disabled` and `nonEditable`, abort stale requests, avoid
+coordinates from the address. Respect `disabled` and `nonEditable`, ignore stale responses, avoid
 emitting on mount/external value changes, and dispose maps/listeners/workers on unmount. Show
 meaningful no-results/configuration/network messages, retain attribution, and support map resize.
 Changing the token/permanent/search options invalidates pending searches and transient candidates;
 it does not relabel or mutate an already saved value. Never log tokens or address queries by
 default.
+
+Language choices include Mapbox's documented languages; coverage varies by region. Country
+restrictions limit results to selected countries. United States and Netherlands are listed first,
+followed by the remaining countries alphabetically. Proximity only favors nearby results. Its JSON
+editor includes `[4.9041, 52.3676]` as an example; `"ip"` uses the request IP instead. Worldview
+controls how Mapbox identifies disputed territories and their country context; the default is the US
+view. See
+[Mapbox Geocoding parameters](https://docs.mapbox.com/api/search/geocoding/#forward-geocoding-with-search-text-input).
+
+Existing fields keep their saved result-type restrictions. Enable **Address**, **Street**, and
+**Place** in **Result feature types** for the new default address-and-town search. Address-only
+search deliberately excludes town names such as Soest; Mapbox can return HTTP 200 with no features
+for that filter. A full street address remains searchable with Address enabled.
+
+The map and search share a grid cell, so the search stays in document flow and cannot overlap the
+next field. The configured map height is reserved while the renderer loads. The async loader returns
+the Vue component explicitly because the Directus SDK inlines dynamic imports as module wrappers.
 
 ## Shared operation contract
 
@@ -417,18 +457,18 @@ mapping and comparisons of derived values. Do not change the existing hooks as p
 ## Acceptance and validation
 
 Scaffold acceptance: four active registrations with matching operation app/API IDs and existing
-entrypoint files; empty interface/operation behavior; required build/typecheck metadata; private
-manifest, README, consumer skill, license and changelog. No endpoint, runtime provider/geometry
-dependencies or implemented business logic. Reserved modules export nothing. Dependency metadata and
-the lockfile must agree; no primary-checkout dependency installation is allowed.
+entrypoint files; implemented interface and empty operation behavior; required build/typecheck
+metadata; private manifest, README, consumer skill, license and changelog. No endpoint or
+geometry-operation dependencies are introduced. Polygon/payload modules remain reserved. Dependency
+metadata and the lockfile must agree; no primary-checkout dependency installation is allowed.
 
 Implementation acceptance:
 
 - Interface: both credential sources/precedence, non-admin Studio settings access, hydration, token
   changes, permanent true/false request parameters and truthful provenance, all option defaults,
   selection/clear/disabled states, attribution, CSP, stale responses, resize and unmount.
-- Provider: ofetch query/abort/timeout/retry behavior, no hidden retries, v6 normalization, missing
-  context, international formats, configurable component paths, and no tokens/queries in logs.
+- Provider: ofetch query parameters and stale-response handling, v6 normalization, missing context,
+  international formats, configurable component paths, and no tokens/queries in logs.
 - Transforms: unrelated fields preserved, no input mutation, complete return shape, arrays, partial
   update payloads, absent/null/invalid distinctions, overwrite policies, configurable mappings,
   prototype-key rejection, all default/overridden limits and no database/network calls.
@@ -448,10 +488,11 @@ summary.
 
 Run repository formatting, lint, typecheck, unit and documentation checks, plus the bundle build.
 Use isolated dependencies to validate the scaffold without modifying primary-checkout node_modules.
-The current build/typecheck cover registrations and empty modules, not planned geodata behavior. Add
-contract tests with implementation rather than creating empty tests. Packed-consumer loading and
-Directus E2E remain required for runtime compatibility claims. Report blocked or skipped checks
-explicitly. Public package validation applies when the package is made publishable.
+Build/typecheck and focused tests cover the interface, provider normalization and map lifecycle.
+Polygon-operation behavior remains unimplemented. Add contract tests with implementation rather than
+creating empty tests. Packed-consumer loading and Directus E2E remain required for runtime
+compatibility claims. Report blocked or skipped checks explicitly. Public package validation applies
+when the package is made publishable.
 
 ## Implementation sequence and release gates
 
@@ -471,3 +512,13 @@ The required options are behavioral knobs with validated defaults. They do not m
 GeoJSON types, invalid topology, unrestricted executable templates or provider-imposed bounds
 configurable. Future additions may include MultiPolygon, authoritative municipality enrichment,
 point-on-surface and alternate address providers.
+
+Appearance follows the Directus user preference, project default, then browser preference for Auto.
+The map reacts to Studio theme changes without clearing the selection or resetting the viewport.
+Worldviews display country names while preserving Mapbox codes. The 24px X button is centered inside
+the search input and only appears for a saved value (including an invalid saved value), clears it
+and the search text, and respects Allow clearing and read-only settings. Search-only text does not
+show the clear button. Loading uses an input spinner; empty results appear in the search dropdown.
+
+The selected address is displayed in the search input. No duplicate address or coordinates are
+rendered below the map; coordinates remain part of the saved JSON value.

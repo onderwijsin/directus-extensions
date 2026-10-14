@@ -4,6 +4,7 @@ packages:
   - tests/*
 
 catalog:
+  mapbox-gl: 3.32.0
   '@types/express': 4.17.21
   '@iconify/vue': 5.0.3
   '@directus/errors': 2.5.0

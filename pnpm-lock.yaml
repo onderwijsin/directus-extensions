@@ -144,6 +144,9 @@ catalogs:
     loops:
       specifier: 7.2.0
       version: 7.2.0
+    mapbox-gl:
+      specifier: 3.32.0
+      version: 3.32.0
     ofetch:
       specifier: 1.5.1
       version: 1.5.1
@@ -407,6 +410,19 @@ importers:
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(happy-dom@20.11.2)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.50.0)(tsx@4.22.4)(yaml@2.9.0))
 
   extensions/directus-geo-toolkit-bundle:
+    dependencies:
+      '@onderwijsin/directus-extension-utils':
+        specifier: workspace:*
+        version: link:../../packages/extension-utils
+      mapbox-gl:
+        specifier: 'catalog:'
+        version: 3.32.0
+      ofetch:
+        specifier: 'catalog:'
+        version: 1.5.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@directus/extensions-sdk':
         specifier: 'catalog:'
@@ -819,9 +835,6 @@ importers:
 
   packages/extension-utils:
     dependencies:
-      '@iconify/vue':
-        specifier: 'catalog:'
-        version: 5.0.3(vue@3.5.24(typescript@5.9.3))
       '@directus/errors':
         specifier: 'catalog:'
         version: 2.5.0
@@ -834,6 +847,9 @@ importers:
       '@directus/utils':
         specifier: 'catalog:'
         version: 13.5.2(vue@3.5.24(typescript@5.9.3))
+      '@iconify/vue':
+        specifier: 'catalog:'
+        version: 5.0.3(vue@3.5.24(typescript@5.9.3))
       '@sentry/node':
         specifier: 'catalog:'
         version: 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.202.0(@opentelemetry/api@1.9.1))(supports-color@7.2.0)
@@ -846,15 +862,15 @@ importers:
       pino:
         specifier: 'catalog:'
         version: 9.7.0
+      uuid:
+        specifier: 'catalog:'
+        version: 14.0.1
       vue:
         specifier: 'catalog:'
         version: 3.5.24(typescript@5.9.3)
       vue-virtual-scroller:
         specifier: 'catalog:'
         version: 3.0.5(vue@3.5.24(typescript@5.9.3))
-      uuid:
-        specifier: 'catalog:'
-        version: 14.0.1
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -5184,6 +5200,9 @@ packages:
   make-fetch-happen@9.1.0:
     resolution: {integrity: sha512-+zopwDy7DNknmwPQplem5lAZX/eCOzSvSNNcSKm5eVwTkOBzoktEfXsa9L23J/GIRhxRsaxzkPEhrJEpE2F4Gg==}
     engines: {node: '>= 10'}
+
+  mapbox-gl@3.32.0:
+    resolution: {integrity: sha512-+P4qrlyejQYLyz1Bfzoe+d5Ff5vAghH54RNHm1q2VeAZqkSjQ5e1XlovQoSHlf4xqpRJtJG58kn8nkLwPMQung==}
 
   markdown-exit@1.1.0-beta.2:
     resolution: {integrity: sha512-8CzMGVlFZ4DEfnc8KU+4ycUW2SIOuiXqCHD7z51ecVEi/weyc0f2ylQbCm4KoKuVlTZSuMUMnWT0hTyquZ7anQ==}
@@ -11134,6 +11153,8 @@ snapshots:
       - bluebird
       - supports-color
     optional: true
+
+  mapbox-gl@3.32.0: {}
 
   markdown-exit@1.1.0-beta.2:
     dependencies:

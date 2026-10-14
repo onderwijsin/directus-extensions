@@ -2,7 +2,7 @@
 	"name": "@onderwijsin/directus-geo-toolkit-bundle",
 	"version": "0.0.0",
 	"private": true,
-	"description": "Scaffold for a Directus Mapbox address interface and geodata Flow transforms",
+	"description": "Mapbox address input and geodata Flow transformation scaffold for Directus",
 	"keywords": [
 		"directus",
 		"directus-extension",
@@ -52,7 +52,14 @@
 		"add": "directus-extension add",
 		"validate": "directus-extension validate",
 		"test:unit": "vitest run --config ../../vitest.config.ts",
-		"typecheck": "vue-tsc --noEmit"
+		"typecheck": "vue-tsc --noEmit",
+		"test:bundle": "directus-extension build && GEO_TOOLKIT_BUNDLE_TEST=1 vitest run --config ../../vitest.config.ts __tests__/address-bundle.vue.test.ts"
+	},
+	"dependencies": {
+		"@onderwijsin/directus-extension-utils": "workspace:*",
+		"mapbox-gl": "catalog:",
+		"ofetch": "catalog:",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "catalog:",

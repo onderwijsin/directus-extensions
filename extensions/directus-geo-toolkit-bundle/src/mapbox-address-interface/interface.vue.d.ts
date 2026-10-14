@@ -1,6 +1,8 @@
 import type { DefineComponent } from 'vue'
+import type { AddressValue, InterfaceProps } from './utils/types'
 
-/** Describes only the empty interface component for TypeScript tooling without Vue support. */
-declare const component: DefineComponent
-
+/** Scoped interface props and Directus input event declaration. */
+declare const component: DefineComponent<
+	InterfaceProps & { onInput?: (value: AddressValue | null) => void }
+>
 export default component

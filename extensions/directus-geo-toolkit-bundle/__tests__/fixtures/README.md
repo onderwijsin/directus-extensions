@@ -1,5 +1,5 @@
-# Geo Toolkit fixture reservation
+# Address fixtures
 
-Add synthetic normalized addresses, sanitized Mapbox v6 responses, and deterministic Polygon
-fixtures when their contracts are implemented. No fixture data is invented for this empty scaffold.
-Never include real tokens or personal address data.
+`address.ts` contains synthetic v6 Feature/FeatureCollection examples for normalized address,
+component fallback, postal code and Point-coordinate tests. They contain no personal addresses or
+real provider tokens. Polygon fixtures will be added when geometry operations are implemented.

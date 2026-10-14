@@ -26,7 +26,7 @@ trusted, non-sandboxed runtime require a trusted self-hosted installation.
 | [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.                 |
 | [`@onderwijsin/directus-studio-docs-bundle`](extensions/directus-studio-docs-bundle/README.md)                           | In-Studio documentation bundle scaffold for Directus.                       |
 | [`@onderwijsin/directus-iconify-bundle`](extensions/directus-iconify-bundle/README.md)                                   | Icon picker integration with support for any Iconify icon set.              |
-| [`@onderwijsin/directus-geo-toolkit-bundle`](extensions/directus-geo-toolkit-bundle/README.md)                           | Private Geo Toolkit scaffold; interface and operation logic are empty.      |
+| [`@onderwijsin/directus-geo-toolkit-bundle`](extensions/directus-geo-toolkit-bundle/README.md)                           | Mapbox address input; geodata Flow operations remain scaffolded.            |
 
 The repository also contains supporting workspace packages and private infrastructure for shared
 TypeScript configuration and test execution.
