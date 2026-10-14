@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-geo-toolkit-bundle",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Mapbox address input and geodata Flow transforms for Directus",
 	"keywords": [
 		"directus",
