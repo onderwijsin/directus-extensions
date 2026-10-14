@@ -1,11 +1,12 @@
 import { z } from 'zod'
 
-import { positionSchema, addressFeatureTypeSchema } from '../../shared/address.schema'
+import { addressFeatureTypeSchema } from '../../shared/address.schema'
+import { geoJsonPointSchema } from '../../shared/geometry.schema'
 
 /** Validate the provider fields used by the adapter, allowing additive v6 properties. */
 export const mapboxFeatureSchema = z.object({
 	type: z.literal('Feature'),
-	geometry: z.object({ type: z.literal('Point'), coordinates: positionSchema }),
+	geometry: geoJsonPointSchema,
 	properties: z.looseObject({
 		mapbox_id: z.string().min(1),
 		feature_type: addressFeatureTypeSchema,

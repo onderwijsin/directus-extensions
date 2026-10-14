@@ -1,6 +1,8 @@
 # Shared contracts
 
-`address.schema.ts` defines provider-neutral address fields, geographic feature types and WGS84
-positions used by the interface. Mapbox provenance is added by its own adapter schema. Payload and
-polygon geometry modules remain reserved for the future operations. Preserve browser/server import
-boundaries when implementing those modules.
+`geometry.schema.ts` defines WGS84 `positionSchema` and `geoJsonPointSchema` for the interface and
+extraction operation. `address.schema.ts` defines provider-neutral address fields, geographic result
+types and versioned values; its strict Point geometry preserves the saved-value contract.
+`google-address.schema.ts` validates the persisted Directus Labs Google address Feature. Mapbox
+provenance is added by the interface adapter schema. Payload and polygon-specific modules remain
+reserved. Preserve browser/server import boundaries when using these schemas.

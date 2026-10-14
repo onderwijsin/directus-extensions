@@ -1,7 +1,7 @@
 # Geo Toolkit implementation specification
 
-Status: Mapbox address interface implemented; geodata operations remain scaffolds. Research checked
-on 13 October 2026.
+Status: Mapbox address interface implemented; extraction implemented; polygon operations remain
+scaffolds. Research checked on 13 October 2026.
 
 ## Purpose and scope
 
@@ -15,9 +15,10 @@ No collection names or source/destination field names are hardcoded.
 
 The bundle now implements the address interface, provider/option boundaries, normalization and map
 lifecycle. SDK/Vue development dependencies and approved Mapbox GL JS/ofetch/Zod runtime
-dependencies use exact workspace catalogs. Operation handlers/options and polygon modules remain
-empty scaffolds. The package remains private while those operations are unfinished; no Changeset
-targets a private package. Tests use synthetic data and do not send live Mapbox requests.
+dependencies use exact workspace catalogs. Extraction handlers/options are implemented; polygon
+operations remain empty scaffolds. The package remains private while those operations are
+unfinished; no Changeset targets a private package. Tests use synthetic data and do not send live
+Mapbox requests.
 
 ## Runtime and package boundaries
 
@@ -46,11 +47,11 @@ directus-geo-toolkit-bundle/
 ```
 
 `package.json` is the authoritative active registration manifest; the earlier `bundle.plan.json` has
-been removed. The interface exposes the options below; operation handlers/options remain empty. Do
-not use the operations as filter responses yet. Browser code will own Mapbox search/presentation;
-operation API code will own offline transformations. Do not pull Mapbox GL JS into `dist/api.js` or
-server-only dependencies into `dist/app.js`. Keep registration thin and business logic beside its
-owning entry.
+been removed. The interface exposes the options below; extraction is implemented while polygon
+handlers/options remain empty. Do not use the polygon operations as filter responses yet. Browser
+code will own Mapbox search/presentation; operation API code will own offline transformations. Do
+not pull Mapbox GL JS into `dist/api.js` or server-only dependencies into `dist/app.js`. Keep
+registration thin and business logic beside its owning entry.
 
 Initially use ordinary API operations following the repository's accepted sandbox decision, without
 claiming support for sandbox-only installations. A later sandbox decision can be evaluated against
@@ -214,7 +215,8 @@ Dutch and international fixtures. See
 
 Use strict Zod schemas for our versioned values and options; validate required provider properties
 while tolerating new upstream fields. Unsupported schema versions and malformed values must produce
-an actionable error. No Google compatibility adapter in this scope.
+an actionable error. The interface stores only this normalized shape; extraction also accepts the
+Google Feature shape below.
 
 ## Mapbox address interface
 
@@ -280,16 +282,15 @@ reads/writes, optimistic locks, or `emitEvents` configuration. Preserve every un
 and return the complete input plus derived values, without diagnostic wrappers. Do not mutate the
 supplied object in place.
 
-| Common option  | Default                  | Contract                                                                                           |
-| -------------- | ------------------------ | -------------------------------------------------------------------------------------------------- |
-| `payload`      | `{{ $trigger.payload }}` | Resolved object or array of objects to transform; bind a previous operation's result for chaining. |
-| `collection`   | unset                    | Optional authoring context for field pickers; never triggers a record read/write.                  |
-| `inputField`   | operation-specific below | Direct source field key within each payload.                                                       |
-| output mapping | operation-specific below | Direct destination keys; null/unset mapping disables that output.                                  |
-| `overwrite`    | `replace`                | `replace`, `fill-empty`, or `preserve-input`; policy below.                                        |
-| `missingInput` | `skip`                   | `skip` returns the complete input unchanged; `error` rejects.                                      |
-| `nullInput`    | `clear`                  | `clear`, `skip`, or `error`.                                                                       |
-| `maxItems`     | 100                      | Configurable positive integer batch bound.                                                         |
+| Common option  | Default                  | Contract                                                                                                                                 |
+| -------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `payload`      | `{{ $trigger.payload }}` | Resolved object or array of objects to transform; bind a previous operation's result for chaining.                                       |
+| `collection`   | unset                    | Optional authoring context for field pickers; never triggers a record read/write.                                                        |
+| `inputField`   | operation-specific below | Direct source field key within each payload.                                                                                             |
+| output mapping | operation-specific below | Direct destination keys; Extraction: omitted/falsy mappings disable outputs in a supplied object; an unset outputs option uses defaults. |
+| `overwrite`    | `replace`                | `replace`, `fill-empty`, or `preserve-input`; policy below.                                                                              |
+| `missingInput` | `skip`                   | `skip` returns the complete input unchanged; `error` rejects.                                                                            |
+| `nullInput`    | `clear`                  | `clear`, `skip`, or `error`.                                                                                                             |
 
 `replace` writes each configured derived value into the returned object. `fill-empty` only fills
 null/undefined/empty-string destinations; zero and false are not empty. `preserve-input` fills only
@@ -297,10 +298,11 @@ destinations absent from the supplied payload, preserving explicitly supplied ov
 policies operate on the input payload, not unseen persisted values. Clearing follows the chosen
 overwrite policy. An invalid present source always rejects; it is distinct from absent or null.
 
-`payload` accepts one object or an array; return the same shape and order. Validate the entire batch
-before returning, with errors identifying the item index. Configurable bounds have defaults, not
-hidden hard caps at those defaults. Validate positive finite values and integer counts; refuse
-unsafe arithmetic, impossible allocation or unsupported algorithms rather than silently clamping.
+`payload` accepts one object or an array; process every supplied item and return the same shape and
+order. Extraction has no item-count limit or chunking. Validate the entire batch before returning,
+with errors identifying the item index. Configurable bounds have defaults, not hidden hard caps at
+those defaults. Validate positive finite values and integer counts; refuse unsafe arithmetic,
+impossible allocation or unsupported algorithms rather than silently clamping.
 
 Use optional collection context for field/type suggestions; direct-key configuration works without
 it. Reject duplicate destinations, prototype-pollution keys, source/destination collisions, and
@@ -332,26 +334,36 @@ centroid transform extends that same object; Directus writes the final filter re
 
 ID: `geo-extract-geolocation-operation`. Display name: **Extract Geolocation Data**.
 
-| Option                | Default        | Contract                                                            |
-| --------------------- | -------------- | ------------------------------------------------------------------- |
-| `inputField`          | `address_data` | Normalized address JSON source.                                     |
-| `outputs`             | mappings below | Enable, disable or rename each destination independently.           |
-| `missingComponent`    | `null`         | `null`, `skip`, or `error`; apply before overwrite policy.          |
-| `countryCodeCase`     | `upper`        | `upper`, `lower`, or `preserve`.                                    |
-| `coordinatePrecision` | 8              | Configurable integer 0–15 decimal places for numeric/Point outputs. |
+| Option                | Default        | Contract                                                                |
+| --------------------- | -------------- | ----------------------------------------------------------------------- |
+| `inputField`          | `address_data` | Geo Toolkit version-one address or Directus Labs Google Feature source. |
+| `outputs`             | mappings below | Enable, disable or rename each destination independently.               |
+| `missingComponent`    | `null`         | `null`, `skip`, or `error`; apply before overwrite policy.              |
+| `countryCodeCase`     | `upper`        | `upper`, `lower`, or `preserve`.                                        |
+| `coordinatePrecision` | 8              | Configurable integer 0–15 decimal places for numeric/Point outputs.     |
 
 Default outputs: `formattedAddress -> formatted_address`, `address -> address`, `street -> street`,
 `houseNumber -> house_number`, `city -> city`, `postcode -> postal_code`,
 `municipality -> municipality`, `district -> district`, `region -> region`, `country -> country`,
 `countryCode -> country_code`, `longitude -> longitude`, `latitude -> latitude`,
-`point -> location_geopoint`. Every mapping is editable or disableable; configuration suggestions do
-not create fields.
+`point -> location_geopoint`. The Point geometry supports a native Directus `geometry.Point` field
+using the `map` interface; map `point` to `geopoint` when that is the destination field name. Every
+mapping is editable or disableable. In a supplied outputs object, omitted keys or falsy values
+(null, false, 0, empty string) disable outputs. Leaving the whole option unset uses the defaults.
+The operation does not query the collection schema or create fields. Directus 12.2 ignores unknown
+collection fields on persistence; existing fields remain subject to its validation and permissions.
 
-Extract normalized components without network calls. Text values stay strings, coordinates are
-numeric, and `point` is GeoJSON geometry, not a Feature or WKT string. Explicit null source clears
-mapped outputs subject to policy. Missing components use the selected policy so operators can choose
-clearing, omission or rejection. Keep component interpretation in the interface's versioned
-normalizer; extraction must not invent municipality data or repeat geocoding.
+Extract normalized components or the Directus Labs Google address Feature without network calls. The
+Google adapter reads `properties.formated`, `raw` component types, and saved
+country/postalCode/administrativeArea properties. It maps route/street_number to street/houseNumber,
+locality to city, administrative_area_level_2 to district and level 1 to region; municipality is
+null. Use `overwrite=preserve-input` to preserve explicitly supplied overrides, including null/empty
+values. Optional collection field-picker context is deferred; configure direct field keys in the
+operation. Text values stay strings, coordinates are numeric, and `point` is GeoJSON geometry, not a
+Feature or WKT string. Explicit null source clears mapped outputs subject to policy. Missing
+components use the selected policy so operators can choose clearing, omission or rejection. Keep
+component interpretation in the interface's versioned normalizer; extraction must not invent
+municipality data or repeat geocoding.
 
 ## Shared geometry options
 

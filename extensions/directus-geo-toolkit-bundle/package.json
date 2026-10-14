@@ -56,6 +56,7 @@
 		"test:bundle": "directus-extension build && GEO_TOOLKIT_BUNDLE_TEST=1 vitest run --config ../../vitest.config.ts __tests__/address-bundle.vue.test.ts"
 	},
 	"dependencies": {
+		"@directus/errors": "catalog:",
 		"@onderwijsin/directus-extension-utils": "workspace:*",
 		"mapbox-gl": "catalog:",
 		"ofetch": "catalog:",

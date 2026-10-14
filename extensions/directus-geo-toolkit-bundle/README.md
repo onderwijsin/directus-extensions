@@ -1,7 +1,8 @@
 # @onderwijsin/directus-geo-toolkit-bundle
 
-**Geo Toolkit** provides a Mapbox address input for Directus JSON fields. The three geodata Flow
-operations are still empty scaffolds. This package remains private and has not been released to npm.
+**Geo Toolkit** provides a Mapbox address input for Directus JSON fields. Extract Geolocation Data
+transforms address payloads; the two polygon Flow operations remain scaffolds. This package remains
+private and has not been released to npm.
 
 ## Installation and compatibility
 
@@ -195,18 +196,93 @@ change, or the component unmounts. Requests use ofetch defaults. Errors shown to
 raw upstream error bodies, tokens or address queries. No result cache is used. The upstream query
 limit is 256 characters/20 words; semicolons are rejected before sending.
 
+## Extract Geolocation Data
+
+Use `geo-extract-geolocation-operation` in an Event Hook **Filter (Blocking)** Flow for item
+create/update. Set the Flow Response Body to **Data of Last Operation** (or this operation's key).
+The operation returns the complete item with derived fields added; it preserves unrelated fields and
+never reads or writes records itself. See
+[Directus filter triggers](https://directus.com/docs/guides/flows/triggers).
+
+| Option                | Default                  | Behavior                                                                                                                                      |
+| --------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `payload`             | `{{ $trigger.payload }}` | Resolved item object or array; bind a previous operation's result when chaining.                                                              |
+| `inputField`          | `address_data`           | Direct field containing the saved address.                                                                                                    |
+| `outputs`             | mappings below           | In a supplied object, omitted keys and falsy values (null, false, 0, empty string) disable outputs. Leaving outputs unset uses all defaults.  |
+| `overwrite`           | `replace`                | `replace` overwrites; `preserve-input` only adds absent fields; `fill-empty` fills null, undefined or empty strings.                          |
+| `missingInput`        | `skip`                   | Entire source field absent/undefined: skip leaves the item unchanged; error rejects.                                                          |
+| `nullInput`           | `clear`                  | Entire source field null: clear enabled destinations subject to overwrite policy; skip leaves the item unchanged; error rejects.              |
+| `missingComponent`    | `null`                   | A valid address lacks an enabled component: null writes null, skip leaves its destination unchanged, error rejects; applied before overwrite. |
+| `countryCodeCase`     | `upper`                  | `upper`, `lower` or `preserve`.                                                                                                               |
+| `coordinatePrecision` | `8`                      | Decimal places for coordinates and Point, integer 0–15.                                                                                       |
+
+Default mappings: `formattedAddress → formatted_address`, `address → address`, `street → street`,
+`houseNumber → house_number`, `city → city`, `postcode → postal_code`,
+`municipality → municipality`, `district → district`, `region → region`, `country → country`,
+`countryCode → country_code`, `longitude → longitude`, `latitude → latitude`,
+`point → location_geopoint`. Destinations must be unique direct keys, distinct from the source;
+nested paths and prototype keys are rejected. The operation does not look up the collection schema.
+It adds configured destinations to the returned payload; Directus 12.2 ignores nonexistent
+collection fields when persisting them. It never creates fields. Existing fields remain subject to
+Directus type validation and permissions. Configure fields that exist in your collection.
+
+Supported sources are the version-one Geo Toolkit Mapbox value and the GeoJSON Point Feature saved
+by
+[Directus Labs Address Completion](https://github.com/directus-labs/extensions/tree/main/packages/address-completion-interface).
+Google values use `properties.formated` (the upstream spelling), `raw` components with
+`longText`/`shortText`/`types`, and the saved country/postalCode/administrativeArea properties.
+`route` and `street_number` supply the street address; `locality` supplies city;
+`administrative_area_level_2` supplies district and level 1 supplies region. Municipality stays
+null: no authoritative municipality is inferred. Country names use the raw country component; codes
+use the saved country code. Missing values follow `missingComponent`.
+
+To populate a native Directus Map field, create a **Point** (`geometry.Point`) field with the
+**Map** interface (`map`). The `point` output defaults to `location_geopoint`; set
+`"outputs": { "point": "geopoint" }` if your field is named `geopoint`. It writes GeoJSON geometry
+such as `{ "type": "Point", "coordinates": [4.5665234, 51.9332112] }`. Use a spatially supported
+database such as PostgreSQL with PostGIS. See
+[Directus Map interface](https://directus.com/docs/guides/data-model/interfaces#map).
+
+Text remains text, including postal codes and house numbers. Point output is GeoJSON geometry with
+longitude before latitude. Invalid present sources, unsupported versions, malformed payloads and
+invalid options reject the operation. Every item in a supplied array is processed, without an
+item-count limit or chunking. Batch errors identify the item index; input objects are never mutated
+and no partial batch is returned. The operation needs no provider credentials or network calls.
+
+Example options preserving every explicitly supplied destination, including null and empty strings:
+
+```json
+{
+  "payload": "{{ $trigger.payload }}",
+  "inputField": "address_data",
+  "overwrite": "preserve-input",
+  "outputs": {
+    "street": "street_name",
+    "postcode": "postal_code",
+    "point": "location_geopoint",
+    "municipality": null
+  }
+}
+```
+
+For `{ "title": "Office", "address_data": <saved address>, "city": "Manual city" }`, this returns
+the original title/source/city plus extracted outputs such as `street_name`, `postal_code` and
+`location_geopoint`. Existing database values absent from the incoming payload are not consulted.
+Directus validates and persists the returned payload. The interface continues to update only its own
+JSON field; create the Flow and destination fields explicitly.
+
 ## Registered operations and limitations
 
 | ID                                  | Name                          | Status                                   |
 | ----------------------------------- | ----------------------------- | ---------------------------------------- |
-| `geo-extract-geolocation-operation` | Extract Geolocation Data      | Empty handler with no options or result. |
+| `geo-extract-geolocation-operation` | Extract Geolocation Data      | Implemented payload transform.           |
 | `geo-calculate-centroid-operation`  | Calculate Polygon Centroid    | Empty handler with no options or result. |
 | `geo-polygon-grid-points-operation` | Calculate Polygon Grid Points | Empty handler with no options or result. |
 
-Do not use these operations as filter Flow responses until implemented. The address interface
-updates only its own JSON field; it does not populate separate address columns or geometry fields.
-The planned operation contracts remain in SPEC.md. Search Box/POI search, marker dragging, arbitrary
-map clicks and authoritative municipality enrichment are not provided.
+Do not use the two polygon operations as filter Flow responses until implemented. The address
+interface updates only its own JSON field; it does not populate separate address columns or geometry
+fields. The planned operation contracts remain in SPEC.md. Search Box/POI search, marker dragging,
+arbitrary map clicks and authoritative municipality enrichment are not provided.
 
 ## Troubleshooting
 
@@ -217,7 +293,7 @@ map clicks and authoritative municipality enrichment are not provided.
 | No addresses found                | Check query, countries, feature types and language.                                           |
 | Map unavailable                   | Check WebGL, token/style, CSP and network; text selection remains available.                  |
 | Saved address invalid             | Inspect the versioned JSON contract; explicitly reselect or clear.                            |
-| Separate address fields unchanged | Extraction operations are not implemented yet.                                                |
+| Separate address fields unchanged | Check the filter Flow response, source field, output mappings and overwrite policy.           |
 
 Appearance follows the Directus user preference, project default, then browser preference for Auto.
 The map reacts to Studio theme changes without clearing the selection or resetting the viewport.

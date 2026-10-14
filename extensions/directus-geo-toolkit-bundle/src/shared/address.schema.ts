@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
-/** WGS84 positions always use longitude before latitude. */
-export const positionSchema = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)])
+import { geoJsonPointSchema } from './geometry.schema'
+
+export { positionSchema } from './geometry.schema'
 
 /** Nullable normalized components retain postal codes and house numbers as text. */
 export const addressComponentsSchema = z.strictObject({
@@ -38,7 +39,7 @@ export const addressValueSchema = z.strictObject({
 	schemaVersion: z.literal(1),
 	featureType: addressFeatureTypeSchema,
 	formattedAddress: z.string().min(1),
-	geometry: z.strictObject({ type: z.literal('Point'), coordinates: positionSchema }),
+	geometry: geoJsonPointSchema.strict(),
 	components: addressComponentsSchema,
 	language: z.string().min(1),
 	storageMode: z.enum(['permanent', 'temporary']),

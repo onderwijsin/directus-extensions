@@ -1,9 +1,9 @@
-# Extract Geolocation Data scaffold
+# Extract Geolocation Data
 
-`app.ts` registers the operation with no options. `api.ts` registers an intentionally empty handler
-that returns no result. Do not use it as a filter Flow response until implemented.
+`app.ts` exposes payload, source, output mappings and overwrite/missing-value policies. `api.ts`
+validates options and delegates to the offline, immutable transform in `utils/transform.ts`. The
+transform supports the interface's version-one Mapbox address and Directus Labs Google address
+Features, returning a complete item or batch for a blocking filter Flow response.
 
-`options.schema.ts`, `types.ts`, and `transform.ts` reserve the option boundary, types, and pure
-payload transformation. These modules export nothing yet.
-
-See [the bundle specification](../../SPEC.md#extract-geolocation-operation).
+See [consumer options and setup](../../README.md#extract-geolocation-data) and
+[the bundle specification](../../SPEC.md#extract-geolocation-operation).
