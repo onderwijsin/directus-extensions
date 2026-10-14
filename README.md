@@ -12,21 +12,21 @@ trusted, non-sandboxed runtime require a trusted self-hosted installation.
 
 ## 📦 What's in the box?
 
-| Package                                                                                                                  | Description                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| [`@onderwijsin/directus-enhanced-server-health-endpoint`](extensions/directus-enhanced-server-health-endpoint/README.md) | Configurable health endpoint based on Directus server checks.               |
-| [`@onderwijsin/directus-policies-endpoint`](extensions/directus-policies-endpoint/README.md)                             | Authenticated endpoint for resolving a user's effective policies.           |
-| [`@onderwijsin/directus-magic-links-bundle`](extensions/directus-magic-links-bundle/README.md)                           | Passwordless magic-link authentication for Directus frontend clients.       |
-| [`@onderwijsin/directus-coolify-deployments-bundle`](extensions/directus-coolify-deployments-bundle/README.md)           | Trigger and inspect frontend deployments through Coolify.                   |
-| [`@onderwijsin/directus-loops-bundle`](extensions/directus-loops-bundle/README.md)                                       | Synchronize Loops contact profiles and archive email campaigns in Directus. |
-| [`@onderwijsin/directus-sluggernaut-bundle`](extensions/directus-sluggernaut-bundle/README.md)                           | Field-driven slugs, permalinks, redirects, and recalculation for Directus.  |
-| [`@onderwijsin/directus-quick-copy-bundle`](extensions/directus-quick-copy-bundle/README.md)                             | Readonly copy-enabled interface and display for Directus fields.            |
-| [`@onderwijsin/directus-markdown-editor-bundle`](extensions/directus-markdown-editor-bundle/README.md)                   | Markdown editor with AI skills and dynamic component schema's.              |
-| [`@onderwijsin/directus-ai-image-metadata-bundle`](extensions/directus-ai-image-metadata-bundle/README.md)               | Accessible image descriptions, tags, filenames, and manual backfills.       |
-| [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.                 |
-| [`@onderwijsin/directus-studio-docs-bundle`](extensions/directus-studio-docs-bundle/README.md)                           | In-Studio documentation bundle scaffold for Directus.                       |
-| [`@onderwijsin/directus-iconify-bundle`](extensions/directus-iconify-bundle/README.md)                                   | Icon picker integration with support for any Iconify icon set.              |
-| [`@onderwijsin/directus-geo-toolkit-bundle`](extensions/directus-geo-toolkit-bundle/README.md)                           | Mapbox address input; geodata Flow operations remain scaffolded.            |
+| Package                                                                                                                  | Description                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| [`@onderwijsin/directus-enhanced-server-health-endpoint`](extensions/directus-enhanced-server-health-endpoint/README.md) | Configurable health endpoint based on Directus server checks.                  |
+| [`@onderwijsin/directus-policies-endpoint`](extensions/directus-policies-endpoint/README.md)                             | Authenticated endpoint for resolving a user's effective policies.              |
+| [`@onderwijsin/directus-magic-links-bundle`](extensions/directus-magic-links-bundle/README.md)                           | Passwordless magic-link authentication for Directus frontend clients.          |
+| [`@onderwijsin/directus-coolify-deployments-bundle`](extensions/directus-coolify-deployments-bundle/README.md)           | Trigger and inspect frontend deployments through Coolify.                      |
+| [`@onderwijsin/directus-loops-bundle`](extensions/directus-loops-bundle/README.md)                                       | Synchronize Loops contact profiles and archive email campaigns in Directus.    |
+| [`@onderwijsin/directus-sluggernaut-bundle`](extensions/directus-sluggernaut-bundle/README.md)                           | Field-driven slugs, permalinks, redirects, and recalculation for Directus.     |
+| [`@onderwijsin/directus-quick-copy-bundle`](extensions/directus-quick-copy-bundle/README.md)                             | Readonly copy-enabled interface and display for Directus fields.               |
+| [`@onderwijsin/directus-markdown-editor-bundle`](extensions/directus-markdown-editor-bundle/README.md)                   | Markdown editor with AI skills and dynamic component schema's.                 |
+| [`@onderwijsin/directus-ai-image-metadata-bundle`](extensions/directus-ai-image-metadata-bundle/README.md)               | Accessible image descriptions, tags, filenames, and manual backfills.          |
+| [`@onderwijsin/directus-sentry-bundle`](extensions/directus-sentry-bundle/README.md)                                     | Sentry integration bundle for trusted Directus deployments.                    |
+| [`@onderwijsin/directus-studio-docs-bundle`](extensions/directus-studio-docs-bundle/README.md)                           | In-Studio documentation bundle scaffold for Directus.                          |
+| [`@onderwijsin/directus-iconify-bundle`](extensions/directus-iconify-bundle/README.md)                                   | Icon picker integration with support for any Iconify icon set.                 |
+| [`@onderwijsin/directus-geo-toolkit-bundle`](extensions/directus-geo-toolkit-bundle/README.md)                           | Address input, address extraction, polygon centroids and adaptive point grids. |
 
 The repository also contains supporting workspace packages and private infrastructure for shared
 TypeScript configuration and test execution.

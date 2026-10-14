@@ -19,3 +19,8 @@ compiled interface, including clearing the selection and omitting duplicate sele
 text. Its store doubles include user and project appearance state. Its opt-in test is skipped during
 source unit checks, which run before extension builds. Provider data and fetch are synthetic; the
 built renderer uses the DOM's unavailable-WebGL path.
+
+The bundle is included in the normal publishable-package artifacts used by CI. Validate integration
+with `pnpm pack:packages` and `pnpm prepare:e2e-consumer`, then run the E2E runner with
+`DIRECTUS_E2E_EXTENSIONS_DIR` pointing to that consumer's extensions. This verifies that Directus
+loads the packaged bundle rather than relying on workspace-only extension loading.

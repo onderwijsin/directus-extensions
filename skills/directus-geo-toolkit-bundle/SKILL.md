@@ -1,8 +1,6 @@
 ---
 name: directus-geo-toolkit-bundle
-description:
-  Install and configure Directus Geo Toolkit for address entry, Mapbox or Google address extraction,
-  polygon centroids and adaptive point grids, including field mapping and filter Flow chaining.
+description: Configure Directus Geo Toolkit addresses, centroids and point grids.
 ---
 
 # Directus Geo Toolkit
@@ -46,15 +44,20 @@ addresses saved by Directus Labs Address Completion; the polygon operations cons
 
 ## Installation and compatibility
 
-The package is currently private and has not been released to npm. Build it from this workspace:
+The package is open source under the MIT license and configured for public npm releases. The initial
+release is pending. Once published, install it in the project running Directus:
 
 ```sh
-pnpm --filter @onderwijsin/directus-geo-toolkit-bundle build
+pnpm add @onderwijsin/directus-geo-toolkit-bundle
 ```
 
-Load the built package into a trusted Directus server using the workspace extension mount, then
-reload or restart Directus. Supported versions are Directus `>=12.2.0 <13` and Node `>=24.10.0`. The
-operations are non-sandboxed and require a host that permits trusted API extensions.
+Before the first release, build from this repository with
+`pnpm --filter @onderwijsin/directus-geo-toolkit-bundle build` and load the built package through
+the workspace extension mount.
+
+Restart Directus after installing the bundle. Supported versions are Directus `>=12.2.0 <13` and
+Node `>=24.10.0`. The operations are non-sandboxed and require a host that permits trusted API
+extensions.
 
 Configure the fields and Flows you need after loading the bundle. It does not create collections,
 fields, Flows, hooks, provider accounts or credentials. Directus controls permissions, field
