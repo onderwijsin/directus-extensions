@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0
+
+### Minor Changes
+
+- f93f317: Add Geo Toolkit with Mapbox address entry, address extraction from Mapbox and Google
+  values, polygon centroids and adaptive interior point grids. All operations transform complete
+  Flow payloads with configurable output fields and overwrite policies.
+
 ## Unreleased
 
 - Add Geo Toolkit with a Mapbox address interface and three offline Flow transforms: address
