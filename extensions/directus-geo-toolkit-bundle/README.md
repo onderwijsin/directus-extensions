@@ -50,7 +50,37 @@ To enrich an item before Directus saves it:
 3. Add the desired operation and bind `payload` to `{{ $trigger.payload }}`.
 4. When chaining, bind each subsequent operation's `payload` to the preceding operation's key, for
    example `{{ center }}`. Each operation then receives all fields added so far.
-5. Set the Flow Response Body to **Data of Last Operation**, or the intended operation's key.
+5. **Required:** edit the Flow trigger and set **Response Body → Data of Last Operation**, or select
+   the intended operation's key.
+
+### Required trigger response for persistence
+
+**A successful Flow run does not persist its output unless the trigger returns that output.** Set
+**Response Body → Data of Last Operation** for every filter Flow that uses Extract Geolocation Data,
+Calculate Polygon Centroid or Calculate Polygon Grid Points to enrich a saved item.
+
+In an exported Flow, the trigger configuration must include `return` inside its `options`, alongside
+`type`, `scope` and `collections`:
+
+```json
+{
+  "options": {
+    "type": "filter",
+    "scope": ["items.create", "items.update"],
+    "collections": ["your_collection"],
+    "return": "$last"
+  }
+}
+```
+
+This is a **Flow trigger setting**, separate from the extension operation's options. Without it, the
+operation still runs and calculated fields appear in the log, but Directus saves the original
+payload without those fields.
+
+Separate filter Flows can use the same item hook. Each returning filter passes its transformed
+payload to the next filter; these operations preserve fields added by earlier filters. Each Flow
+that should change the save payload needs its own Response Body setting. Use one chained Flow when
+you need an explicit order between calculations.
 
 See [Directus filter triggers](https://directus.com/docs/guides/flows/triggers).
 
@@ -419,9 +449,10 @@ words; semicolons are rejected before sending.
 ### Editing behaviour and boundaries
 
 Appearance follows the Directus user preference, project default, then browser preference for Auto.
-The map reacts to theme changes without clearing the selection or resetting the viewport. The saved
-address appears in the search input; coordinates remain in the saved JSON value. Loading uses an
-input spinner and empty results appear in the dropdown.
+The map reacts to theme changes without clearing the selection or resetting the viewport. Editing
+unrelated item fields leaves the map instance, marker and viewport unchanged. The saved address
+appears in the search input; coordinates remain in the saved JSON value. Loading uses an input
+spinner and empty results appear in the dropdown.
 
 The clear button appears for a saved value, including an invalid one, and clears both the value and
 search text. It respects Allow clearing and read-only settings. Search-only text does not show the
@@ -430,22 +461,23 @@ enrichment are not provided.
 
 ## Troubleshooting
 
-| Symptom                                          | Check                                                                                                     |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| Derived fields are missing                       | Check the blocking filter Flow response, source field, destination fields and overwrite policy.           |
-| A chained operation drops earlier outputs        | Bind its payload to the previous operation's key.                                                         |
-| A partial update leaves derived fields unchanged | The source field is absent and `missingInput=skip`; operations do not read the stored record.             |
-| Clearing a source leaves a destination populated | Check `nullInput` and whether the overwrite policy preserves the incoming destination.                    |
-| Address extraction rejects a saved value         | Confirm it is a supported version-one Geo Toolkit value or Directus Labs Point Feature.                   |
-| Polygon input is rejected                        | Check closed rings, valid holes, source type, vertex/area limits and antimeridian crossing.               |
-| A centroid lies outside the polygon              | Area centroids can lie outside concave polygons or inside holes; they are not guaranteed interior points. |
-| Grid cannot meet its point-count range           | Widen min/max bounds, reduce clearance, increase precision or adjust the candidate limit as appropriate.  |
-| Grid returns null                                | Zero points satisfy `minPoints=0` and `emptyResult=null`; check spacing and clearance.                    |
-| Mapbox key/configuration message                 | Check Studio settings hydration and the field override.                                                   |
-| Mapbox request denied                            | Check token origins, scopes and permanent-geocoding account eligibility.                                  |
-| No addresses found                               | Check query, countries, feature types and language.                                                       |
-| Address map unavailable                          | Check WebGL, token/style, CSP and network; textual selection remains available.                           |
-| Saved address invalid in the interface           | Inspect the versioned value; explicitly reselect or clear.                                                |
+| Symptom                                              | Check                                                                                                     |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Flow log shows derived fields but they are not saved | Set the filter trigger Response Body to Data of Last Operation (`"return": "$last"` in exported options). |
+| Derived fields are missing                           | Check the blocking filter Flow response, source field, destination fields and overwrite policy.           |
+| A chained operation drops earlier outputs            | Bind its payload to the previous operation's key.                                                         |
+| A partial update leaves derived fields unchanged     | The source field is absent and `missingInput=skip`; operations do not read the stored record.             |
+| Clearing a source leaves a destination populated     | Check `nullInput` and whether the overwrite policy preserves the incoming destination.                    |
+| Address extraction rejects a saved value             | Confirm it is a supported version-one Geo Toolkit value or Directus Labs Point Feature.                   |
+| Polygon input is rejected                            | Check closed rings, valid holes, source type, vertex/area limits and antimeridian crossing.               |
+| A centroid lies outside the polygon                  | Area centroids can lie outside concave polygons or inside holes; they are not guaranteed interior points. |
+| Grid cannot meet its point-count range               | Widen min/max bounds, reduce clearance, increase precision or adjust the candidate limit as appropriate.  |
+| Grid returns null                                    | Zero points satisfy `minPoints=0` and `emptyResult=null`; check spacing and clearance.                    |
+| Mapbox key/configuration message                     | Check Studio settings hydration and the field override.                                                   |
+| Mapbox request denied                                | Check token origins, scopes and permanent-geocoding account eligibility.                                  |
+| No addresses found                                   | Check query, countries, feature types and language.                                                       |
+| Address map unavailable                              | Check WebGL, token/style, CSP and network; textual selection remains available.                           |
+| Saved address invalid in the interface               | Inspect the versioned value; explicitly reselect or clear.                                                |
 
 Use synthetic provider fixtures for persistence tests when permanent Mapbox geocoding is
 unavailable. Keep credentials, address queries and raw provider error bodies out of diagnostic

@@ -60,13 +60,15 @@ export function useMapboxMap(
 		map.jumpTo({ center: current.geometry.coordinates, zoom: config.selectedZoom })
 	}
 
+	// Directus can supply equivalent option objects during unrelated item edits.
 	watch(
-		() => [
-			toValue(container),
-			toValue(token),
-			toValue(enabled),
-			toValue(options)?.defaultCenter,
-			toValue(options)?.defaultZoom,
+		[
+			() => toValue(container),
+			() => toValue(token),
+			() => toValue(enabled),
+			() => toValue(options)?.defaultCenter[0],
+			() => toValue(options)?.defaultCenter[1],
+			() => toValue(options)?.defaultZoom,
 		],
 		() => {
 			remove()
@@ -108,9 +110,16 @@ export function useMapboxMap(
 				error.value = 'The map could not initialize. The address remains available as text.'
 			}
 		},
-		{ flush: 'post', deep: true, immediate: true },
+		{ flush: 'post', immediate: true },
 	)
-	watch(() => [toValue(value), toValue(options)?.selectedZoom], updateSelection, { deep: true })
+	watch(
+		[
+			() => toValue(value)?.geometry.coordinates[0],
+			() => toValue(value)?.geometry.coordinates[1],
+			() => toValue(options)?.selectedZoom,
+		],
+		updateSelection,
+	)
 	watch(
 		() => {
 			const config = toValue(options)

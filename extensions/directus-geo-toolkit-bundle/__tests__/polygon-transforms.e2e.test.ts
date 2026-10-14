@@ -31,7 +31,7 @@ const itemSchema = z.object({
 })
 
 describe('polygon transform filter Flow', () => {
-	it('chains both operations and persists native Point/MultiPoint values without losing item fields', async () => {
+	it('persists chained and separate polygon transforms when filter triggers return their results', async () => {
 		const request = ofetch.create({
 			baseURL: process.env.DIRECTUS_E2E_URL,
 			headers: { Authorization: `Bearer ${process.env.DIRECTUS_E2E_TOKEN}` },
@@ -140,6 +140,68 @@ describe('polygon transform filter Flow', () => {
 					centroid: null,
 					grid_points: null,
 				})
+
+				const triggerOptions = {
+					type: 'filter',
+					scope: ['items.create', 'items.update'],
+					collections: [collection],
+				}
+				await request(`/flows/${flow}`, {
+					method: 'PATCH',
+					body: { options: triggerOptions },
+				})
+				const withoutResponse = itemSchema.parse(
+					await request(path, { method: 'PATCH', body: { polygon } }),
+				).data
+				expect(withoutResponse).toMatchObject({
+					polygon,
+					centroid: null,
+					grid_points: null,
+				})
+
+				// Separate returning filters on the same hook must preserve each other's output.
+				await request(`/flows/${flow}`, {
+					method: 'PATCH',
+					body: { options: { ...triggerOptions, return: '$last' } },
+				})
+				await request(`/operations/${centroid}`, {
+					method: 'PATCH',
+					body: { resolve: null },
+				})
+				const gridFlow = randomUUID()
+				await request('/flows', {
+					method: 'POST',
+					body: {
+						id: gridFlow,
+						name: 'Separate polygon grid E2E',
+						status: 'active',
+						trigger: 'event',
+						options: { ...triggerOptions, return: '$last' },
+					},
+				})
+				try {
+					await request(`/operations/${grid}`, {
+						method: 'PATCH',
+						body: {
+							flow: gridFlow,
+							options: {
+								payload: '{{ $trigger.payload }}',
+								minPoints: 4,
+								maxPoints: 12,
+							},
+						},
+					})
+					await request(`/flows/${gridFlow}`, {
+						method: 'PATCH',
+						body: { operation: grid },
+					})
+					const separate = itemSchema.parse(
+						await request(path, { method: 'PATCH', body: { polygon } }),
+					).data
+					expect(separate).toEqual({ ...created, title: 'Renamed' })
+				} finally {
+					await request(`/flows/${gridFlow}`, { method: 'DELETE' })
+				}
 			} finally {
 				await request(`/flows/${flow}`, { method: 'DELETE' })
 			}

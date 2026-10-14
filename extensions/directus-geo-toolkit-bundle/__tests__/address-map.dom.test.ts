@@ -104,6 +104,41 @@ describe('map lifecycle', () => {
 		expect(mock.remove).toHaveBeenCalledTimes(2)
 		expect(mock.markerRemove).toHaveBeenCalled()
 	})
+	it('keeps the map and viewport stable when editor updates supply equivalent values', async () => {
+		const scope = effectScope()
+		const options = ref(interfaceOptionsSchema.parse({}))
+		const value = ref(normalizeFeature(mapboxFeatureSchema.parse(feature), options.value))
+		try {
+			scope.run(() =>
+				useMapboxMap(document.createElement('div'), options, 'pk.synthetic', value, true),
+			)
+			await nextTick()
+			mock.jumpTo.mockClear()
+			mock.markerPosition.mockClear()
+
+			// Item form updates can supply fresh objects without changing this field's map inputs.
+			for (let keystroke = 0; keystroke < 3; keystroke++) {
+				options.value = interfaceOptionsSchema.parse(options.value)
+				value.value = normalizeFeature(mapboxFeatureSchema.parse(feature), options.value)
+				await nextTick()
+			}
+			expect(mock.construct).toHaveBeenCalledTimes(1)
+			expect(mock.remove).not.toHaveBeenCalled()
+			expect(mock.jumpTo).not.toHaveBeenCalled()
+			expect(mock.markerPosition).not.toHaveBeenCalled()
+
+			value.value.geometry.coordinates = [5, 52]
+			await nextTick()
+			expect(mock.markerPosition).toHaveBeenLastCalledWith([5, 52])
+			expect(mock.jumpTo).toHaveBeenLastCalledWith({ center: [5, 52], zoom: 15 })
+			options.value.selectedZoom = 12
+			await nextTick()
+			expect(mock.jumpTo).toHaveBeenLastCalledWith({ center: [5, 52], zoom: 12 })
+			expect(mock.construct).toHaveBeenCalledTimes(1)
+		} finally {
+			scope.stop()
+		}
+	})
 	it('switches theme styles without recreating the map or resetting the selection', async () => {
 		const options = ref(interfaceOptionsSchema.parse({}))
 		const selection = normalizeFeature(mapboxFeatureSchema.parse(feature), options.value)
