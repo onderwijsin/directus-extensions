@@ -1,11 +1,6 @@
 import type { ExtractionOptions } from './types'
 
-import {
-	toEntries,
-	isArray,
-	isNonBlankString,
-	isDefined,
-} from '@onderwijsin/directus-extension-utils'
+import { toEntries, isArray, isDefined } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
 import { extractValues } from './extract'
@@ -27,7 +22,7 @@ function canWrite(
 	if (policy === 'preserve-input') return !Object.hasOwn(item, destination)
 	if (policy === 'fill-empty') {
 		const current = item[destination]
-		return current === null || !isDefined(current) || !isNonBlankString(current)
+		return current === null || !isDefined(current) || current === ''
 	}
 	return true
 }

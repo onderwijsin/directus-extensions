@@ -96,8 +96,9 @@ See [Directus filter triggers](https://directus.com/docs/guides/flows/triggers).
 
 Overwrite policies inspect only the incoming payload. Existing database values absent from a partial
 update are not consulted. `preserve-input` preserves explicitly supplied null and empty strings as
-well as populated values. For extraction, `missingComponent` separately controls absent components
-within an otherwise valid address.
+well as populated values. `fill-empty` preserves zero, false and whitespace-only strings; only null,
+undefined and the exact empty string (`""`) count as empty. For extraction, `missingComponent`
+separately controls absent components within an otherwise valid address.
 
 Source and destination keys must be direct field names, with destinations distinct from the source.
 Nested paths and prototype keys are rejected. Operations do not consult the collection schema or
