@@ -20,6 +20,7 @@ They are binding for the feature they cover until explicitly revisited.
 | [Run startup schema preparation during `app.before`](startup-schema-preparation-app-before.md)                     | Accepted | Shared extension startup coordination                       |
 | [Publish shared Vue components as source](publish-vue-components-as-source.md)                                     | Accepted | Shared app components and package archives                  |
 | [Use browser Mapbox credentials for Geo Toolkit](geo-toolkit-browser-mapbox.md)                                    | Accepted | Geo Toolkit address interface and browser provider requests |
+| [Protect split snapshot publication and application across processes](schema-snapshot-publication.md)              | Accepted | Schema snapshot bundle CLI/server coordination              |
 
 ## Create or revisit a decision
 

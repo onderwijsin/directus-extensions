@@ -104,14 +104,15 @@ async function writeMetadata() {
  */
 function expectApplyExit(code: number) {
 	expect(mocks.terminate).toHaveBeenLastCalledWith(code)
-	expect(existsSync(path.join(directory, 'directus-schema-applying.flag'))).toBe(false)
+	expect(existsSync(path.join(mocks.directory, 'directus-schema-applying.flag'))).toBe(false)
 }
 
 describe('schema-split CLI', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks()
-		directory = await mkdtemp(path.join(tmpdir(), 'schema-split-cli-'))
-		mocks.directory = directory
+		mocks.directory = await mkdtemp(path.join(tmpdir(), 'schema-split-cli-'))
+		directory = path.join(mocks.directory, 'snapshots')
+		await mkdir(directory)
 		mocks.getSchemaService.mockResolvedValue(mocks.service)
 		mocks.service.snapshot.mockReset().mockResolvedValue(snapshot)
 		mocks.service.diff.mockReset().mockResolvedValue(null)
@@ -120,7 +121,7 @@ describe('schema-split CLI', () => {
 	})
 
 	afterEach(async () => {
-		await rm(directory, { recursive: true, force: true })
+		await rm(mocks.directory, { recursive: true, force: true })
 	})
 
 	it('registers command names, aliases, default folder, and the shared disable switch', () => {
@@ -150,6 +151,7 @@ describe('schema-split CLI', () => {
 		await createProgram({
 			SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER: directory,
 		}).program.parseAsync(['schema-split', 'snapshot'], { from: 'user' })
+		expect(mocks.terminate).toHaveBeenLastCalledWith(0)
 		expect(existsSync(stalePath)).toBe(false)
 		expect(await readFile(path.join(directory, 'metadata.yml'), 'utf8')).toBe(
 			dump({ version: 1, directus: '12.2.0', vendor: 'sqlite' }, { noRefs: true }),
@@ -234,7 +236,9 @@ describe('schema-split CLI', () => {
 		mocks.service.snapshot.mockResolvedValueOnce(current).mockResolvedValueOnce(updated)
 		mocks.service.diff.mockResolvedValueOnce(diff).mockResolvedValueOnce(null)
 		mocks.service.apply.mockImplementationOnce(() => {
-			expect(existsSync(path.join(directory, 'directus-schema-applying.flag'))).toBe(true)
+			expect(existsSync(path.join(mocks.directory, 'directus-schema-applying.flag'))).toBe(
+				true,
+			)
 			return Promise.resolve()
 		})
 		await createProgram().program.parseAsync(['schema-split', 'apply', directory], {

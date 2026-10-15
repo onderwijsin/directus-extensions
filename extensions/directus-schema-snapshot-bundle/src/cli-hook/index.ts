@@ -1,6 +1,6 @@
 import type { Command } from 'commander'
 
-import { readFile, mkdir, writeFile, rm } from 'node:fs/promises'
+import { readFile, writeFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -10,7 +10,7 @@ import {
 	extensionSetup,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
-import { load as fromYaml, dump as toYaml } from 'js-yaml'
+import { load as fromYaml } from 'js-yaml'
 import hash from 'object-hash'
 
 import { createSnapshot } from '../shared/createSnapshot'
@@ -20,6 +20,7 @@ import { getAllFilePaths } from '../shared/getAllFilePaths'
 import { getSchemaService } from '../shared/getSchemaService'
 import { initializeLicenseManager } from '../shared/initializeLicenseManager'
 import { snapshotSchema } from '../shared/snapshot.schema'
+import { withSnapshotLock, writeSnapshotFiles } from '../shared/snapshotFiles'
 import { terminate } from '../shared/terminate'
 import { envSchema } from './env.schema'
 
@@ -61,94 +62,104 @@ export default defineHook(({ init }, context) => {
 				const flagPath = path.join(os.tmpdir(), 'directus-schema-applying.flag')
 
 				try {
-					// Create a flag file to prevent snapshots during applying of a schema
-					await writeFile(flagPath, String(Date.now()))
+					await withSnapshotLock(async () => {
+						try {
+							// Create a flag file to prevent snapshots during applying of a schema
+							await writeFile(flagPath, String(Date.now()))
 
-					logger.info('🚀 Applying schema from snapshot')
-					logger.info(`📁 Snapshot folder: ${folder}`)
+							logger.info('🚀 Applying schema from snapshot')
+							logger.info(`📁 Snapshot folder: ${folder}`)
 
-					const service = await getSchemaService(context)
-					logger.info('🔹 Schema service initialized')
+							const service = await getSchemaService(context)
+							logger.info('🔹 Schema service initialized')
 
-					const filePaths = await getAllFilePaths(folder)
-					logger.info(`📄 Found ${filePaths.length} files`)
+							const filePaths = await getAllFilePaths(folder)
+							logger.info(`📄 Found ${filePaths.length} files`)
 
-					const snapshot = await fromPathsToSnapshot(filePaths, logger)
+							const snapshot = await fromPathsToSnapshot(filePaths, logger)
 
-					logger.info(`🔹 Parsed snapshot (version: ${snapshot.version}).`)
+							logger.info(`🔹 Parsed snapshot (version: ${snapshot.version}).`)
 
-					// Directus v12 standalone CLI processes do not initialize licensing for extension
-					// commands. Load the host's manager before license-aware schema services are used;
-					// see https://github.com/directus/directus/issues/27833.
-					logger.info('💎 Loading the license manager...')
-					await initializeLicenseManager()
-					logger.info('💎 License manager loaded and initialized!')
+							// Directus v12 standalone CLI processes do not initialize licensing for extension
+							// commands. Load the host's manager before license-aware schema services are used;
+							// see https://github.com/directus/directus/issues/27833.
+							logger.info('💎 Loading the license manager...')
+							await initializeLicenseManager()
+							logger.info('💎 License manager loaded and initialized!')
 
-					let diff = null
-					let retries = 0
-					const maxRetries = 10
+							let diff = null
+							let retries = 0
+							const maxRetries = 10
 
-					do {
-						const currentSnapshot = await service.snapshot()
-						logger.info('🔹 Fetched current schema snapshot')
+							do {
+								const currentSnapshot = await service.snapshot()
+								logger.info('🔹 Fetched current schema snapshot')
 
-						diff = await service.diff(snapshot, {
-							currentSnapshot,
-							force: true, // Force! This will not complain about versions being different, but will apply the diff anyway.
-						})
+								diff = await service.diff(snapshot, {
+									currentSnapshot,
+									force: true, // Force! This will not complain about versions being different, but will apply the diff anyway.
+								})
 
-						logger.info(`🔹 Retry: ${retries}`)
+								logger.info(`🔹 Retry: ${retries}`)
 
-						if (!diff) {
-							logger.info(
-								'🔹 No changes detected for main snapshot — schema already up to date',
-							)
-						} else {
-							logger.info('🔹 Changes detected for main snapshot — applying...')
+								if (!diff) {
+									logger.info(
+										'🔹 No changes detected for main snapshot — schema already up to date',
+									)
+								} else {
+									logger.info(
+										'🔹 Changes detected for main snapshot — applying...',
+									)
 
-							logger.info(`🔹 Collections in diff: ${diff.collections.length}`)
+									logger.info(
+										`🔹 Collections in diff: ${diff.collections.length}`,
+									)
 
-							logger.info(`🔹 Fields in diff: ${diff.fields.length}`)
+									logger.info(`🔹 Fields in diff: ${diff.fields.length}`)
 
-							logger.info(`🔹 Relations in diff: ${diff.relations.length}`)
+									logger.info(`🔹 Relations in diff: ${diff.relations.length}`)
 
-							await service.apply({
-								diff,
-								hash: hash({
-									// The hash must use the host version, including forced cross-version applies.
-									version: currentSnapshot.directus,
-									item: currentSnapshot,
-								}),
-							})
+									await service.apply({
+										diff,
+										hash: hash({
+											// The hash must use the host version, including forced cross-version applies.
+											version: currentSnapshot.directus,
+											item: currentSnapshot,
+										}),
+									})
 
-							logger.info('🔹 Main snapshot changes applied successfully')
+									logger.info('🔹 Main snapshot changes applied successfully')
+								}
+
+								retries++
+
+								if (diff && retries >= maxRetries) {
+									logger.warn(
+										`❌ Maximum retries (${maxRetries}) reached: stopping diff loop`,
+									)
+
+									const currentSnapshot = await service.snapshot()
+									diff = await service.diff(snapshot, {
+										currentSnapshot,
+										force: true,
+									})
+									if (diff)
+										throw new Error(
+											`Schema did not converge after ${maxRetries} applications`,
+										)
+									break
+								}
+							} while (diff)
+						} finally {
+							await rm(flagPath, { force: true })
 						}
-
-						retries++
-
-						if (diff && retries >= maxRetries) {
-							logger.warn(
-								`❌ Maximum retries (${maxRetries}) reached: stopping diff loop`,
-							)
-
-							const currentSnapshot = await service.snapshot()
-							diff = await service.diff(snapshot, { currentSnapshot, force: true })
-							if (diff)
-								throw new Error(
-									`Schema did not converge after ${maxRetries} applications`,
-								)
-							break
-						}
-					} while (diff)
+					})
 				} catch (error) {
 					logger.error(
 						`❌ Error applying schema:  ${error instanceof Error ? error.message : String(error)}`,
 					)
 
 					exit = 1
-				} finally {
-					// Always clean up the flag file
-					await rm(flagPath, { force: true })
 				}
 
 				return terminate(exit)
@@ -225,31 +236,22 @@ export default defineHook(({ init }, context) => {
 						logger.info(`📁 Snapshot file: ${options.input}`)
 						logger.info(`📁 Snapshot folder: ${options.output}`)
 
-						logger.info('🔹 Processing snapshot file...')
-						const inputFileRawContent = await readFile(inputFile, 'utf8')
+						await withSnapshotLock(async () => {
+							logger.info('🔹 Processing snapshot file...')
+							const inputFileRawContent = await readFile(inputFile, 'utf8')
 
-						logger.info('🔹 Parsing YAML content...')
-						const snapshotJson = snapshotSchema.parse(fromYaml(inputFileRawContent))
+							logger.info('🔹 Parsing YAML content...')
+							const snapshotJson = snapshotSchema.parse(fromYaml(inputFileRawContent))
 
-						logger.info('🔹 Converting snapshot to per-file YAML contents...')
+							logger.info('🔹 Converting snapshot to per-file YAML contents...')
 
-						const yamlFilesByRelativePath = fromSnapshotToPathToContent(
-							snapshotJson,
-							logger,
-						)
+							const yamlFilesByRelativePath = fromSnapshotToPathToContent(
+								snapshotJson,
+								logger,
+							)
 
-						for (const relativeFilePath in yamlFilesByRelativePath) {
-							const yamlData = yamlFilesByRelativePath[relativeFilePath]
-							const absoluteFilePath = path.join(outputFolder, relativeFilePath)
-							const yamlOutput = toYaml(yamlData, {
-								noRefs: true,
-							})
-
-							logger.trace(`🔹 Writing file: ${absoluteFilePath}`)
-							await mkdir(path.dirname(absoluteFilePath), { recursive: true })
-							await writeFile(absoluteFilePath, yamlOutput)
-						}
-
+							await writeSnapshotFiles(outputFolder, yamlFilesByRelativePath, false)
+						})
 						logger.info('🔹 Snapshot migration complete.')
 					} catch (error) {
 						logger.error(

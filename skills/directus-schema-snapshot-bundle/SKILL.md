@@ -52,10 +52,23 @@ schema files.
 npx directus schema-split snapshot -o /directus/snapshots
 ```
 
+For [hardened Directus images](https://directus.com/docs/self-hosting/hardened-images), which omit
+`npx`, invoke the CLI entrypoint directly:
+
+```sh
+docker compose exec directus node /directus/cli.js schema-split snapshot -o /directus/snapshots
+```
+
 Both `-o` and `--output` are supported. Omit the output option to use the configured default:
 
 ```sh
 npx directus schema-split snapshot
+```
+
+For hardened images:
+
+```sh
+docker compose exec directus node /directus/cli.js schema-split snapshot
 ```
 
 Supplying the option without a folder fails. Inspect the generated YAML and commit schema files
@@ -74,10 +87,22 @@ diff.
 npx directus schema-split apply /directus/snapshots
 ```
 
+For hardened images:
+
+```sh
+docker compose exec directus node /directus/cli.js schema-split apply /directus/snapshots
+```
+
 The positional folder is optional:
 
 ```sh
 npx directus schema-split apply
+```
+
+For hardened images:
+
+```sh
+docker compose exec directus node /directus/cli.js schema-split apply
 ```
 
 For startup pipelines, run apply before starting the server and preserve its failure exit code:
@@ -85,6 +110,9 @@ For startup pipelines, run apply before starting the server and preserve its fai
 ```sh
 npx directus schema-split apply /directus/snapshots && npx directus start
 ```
+
+In hardened images, run `node /directus/cli.js schema-split apply /directus/snapshots` as a
+successful prerequisite to `node /directus/cli.js start` in the deployment's startup orchestration.
 
 Apply repeats diff/apply passes until no changes remain, allowing at most ten unsuccessful passes.
 Missing or invalid `metadata.yml`, malformed recognized YAML files, service errors, and failure to
@@ -101,6 +129,12 @@ Commands normally call an immediate process exit. For debugging open handles, us
 SCHEMA_SPLIT_HARD_EXIT=false npx directus schema-split apply /directus/snapshots
 ```
 
+For hardened images:
+
+```sh
+docker compose exec -e SCHEMA_SPLIT_HARD_EXIT=false directus node /directus/cli.js schema-split apply /directus/snapshots
+```
+
 Soft exit still sets the command's exit code, but open resources can delay process termination.
 
 ## Migrate a monolithic snapshot
@@ -110,6 +144,12 @@ database:
 
 ```sh
 npx directus schema-split migrate -i /directus/schema.yaml -o /directus/snapshots
+```
+
+For hardened images:
+
+```sh
+docker compose exec directus node /directus/cli.js schema-split migrate -i /directus/schema.yaml -o /directus/snapshots
 ```
 
 `-i`/`--input <file>` is required. `-o`/`--output [folder]` defaults to the configured snapshot
@@ -156,23 +196,46 @@ provides CLI and server hooks rather than an HTTP endpoint, Studio UI, or Flow o
 ## Operate automatic snapshots
 
 When enabled, collection, field, and relation create/update/delete events schedule snapshots with a
-15-second debounce. A filesystem lock uses a five-minute lease. Automatic snapshots skip work while
-`directus-schema-applying.flag` exists in the process temporary directory. Apply creates this flag
-and removes it on ordinary completion or failure. Coordination files use `directus-schema-snapshot`
-under the process temporary directory. The execution lease is renewed while a snapshot runs.
+15-second debounce. The automatic scheduler uses a renewable five-minute filesystem lease and skips
+work while `directus-schema-applying.flag` exists in the process temporary directory. Apply creates
+this flag and removes it on ordinary completion or failure. Snapshot files must be writable.
 
-Coordination is limited to processes sharing the same filesystem storage and temporary directory.
-Separate container temporary directories do not provide replica coordination; use one snapshot
-writer in that topology. Snapshot files must be writable when automatic snapshots are enabled.
+## Coordinate operations and recover interrupted writes
+
+Automatic snapshots, CLI snapshots, migration, and the complete apply operation share an exclusive
+filesystem lock at `directus-schema-snapshot/operation.lock` under the process temporary directory.
+It covers schema capture, file reads/writes, every diff/apply pass, and the final convergence check.
+Overlapping operations fail immediately: CLI commands return a nonzero exit code and automatic tasks
+log the failure. Retry after the active operation finishes. The apply flag suppresses automatic
+triggers; the lock protects snapshots already scheduled or running as well.
+
+Choose a dedicated snapshot output folder that does not contain the temporary coordination
+directory. Writers remove `metadata.yml` before changing definitions and atomically publish it only
+after all files are written. Mounted output directories stay in place. A failed or cancelled write
+can leave incomplete files without metadata, which apply rejects. Recreate the snapshot or rerun
+migration successfully before applying. Publication does not preserve the previous output as a
+backup and does not make database apply transactional.
+
+The operation lock never expires. A paused process retains ownership even beyond the scheduler's
+lease. A forcibly killed process may leave both `operation.lock` and the apply flag behind. Recover
+only after verifying **all schema-split operations have stopped**: remove the stale lock directory
+and flag from the shared temporary directory, repair any incomplete snapshot, then retry. Removing a
+live owner's lock defeats mutual exclusion.
+
+Every participating process must share the same filesystem-backed temporary directory. Separate
+container temporary directories, older bundle versions, external snapshot edits, and other schema
+writers are not synchronized. Sharing only the snapshot folder is insufficient. In such deployments,
+run snapshot writing and apply sequentially with other writers stopped, or provide shared temporary
+storage. This bundle supplies no distributed or database-wide lock.
 
 ## Troubleshoot
 
-| Symptom                                                          | Check                                                                                                                                                                                       |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema-split` commands are missing                              | Confirm package loading, restart Directus, and check `SCHEMA_SNAPSHOT_ENABLED`.                                                                                                             |
-| Automatic snapshots are absent                                   | Check both enable switches, wait for the 15-second debounce, and inspect Directus logs and filesystem permissions.                                                                          |
-| Automatic snapshots remain suppressed after an interrupted apply | Check for `directus-schema-applying.flag` in the process temporary directory. Remove it only after confirming no apply is running. A forcibly killed process cannot perform normal cleanup. |
-| Apply rejects a snapshot                                         | Confirm root metadata, the generated layout, YAML validity, supported Directus version, and database vendor. Read the Directus logger error before retrying.                                |
-| Apply reaches the pass limit                                     | Investigate why Directus still reports a diff; the command fails after ten unsuccessful passes.                                                                                             |
-| Migrated output contains unexpected definitions                  | Migrate into an empty output directory; migration preserves existing files.                                                                                                                 |
-| A soft-exit command remains alive                                | Existing resources may keep Node running. Use default hard exit in startup automation.                                                                                                      |
+| Symptom                                                          | Check                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema-split` commands are missing                              | Confirm package loading, restart Directus, and check `SCHEMA_SNAPSHOT_ENABLED`.                                                                                                                                                                       |
+| Automatic snapshots are absent                                   | Check both enable switches, wait for the 15-second debounce, and inspect Directus logs and filesystem permissions.                                                                                                                                    |
+| Automatic snapshots remain suppressed after an interrupted apply | Check the apply flag and `directus-schema-snapshot/operation.lock` in the shared temporary directory. Recover only after all schema-split operations have stopped; repair incomplete snapshots before applying.                                       |
+| Apply rejects a snapshot                                         | Confirm root metadata, the generated layout, YAML validity, supported Directus version, and database vendor. Missing metadata after an interrupted write requires a successful snapshot or migration. Read the Directus logger error before retrying. |
+| Apply reaches the pass limit                                     | Investigate why Directus still reports a diff; the command fails after ten unsuccessful passes.                                                                                                                                                       |
+| Migrated output contains unexpected definitions                  | Migrate into an empty output directory; migration preserves existing files.                                                                                                                                                                           |
+| A soft-exit command remains alive                                | Existing resources may keep Node running. Use default hard exit in startup automation.                                                                                                                                                                |

@@ -43,6 +43,15 @@ npx directus schema-split apply /directus/snapshots
 npx directus schema-split migrate -i /directus/schema.yaml -o /directus/snapshots
 ```
 
+For [hardened Directus images](https://directus.com/docs/self-hosting/hardened-images), which omit
+`npx`, invoke the CLI entrypoint directly:
+
+```sh
+docker compose exec directus node /directus/cli.js schema-split snapshot -o /directus/snapshots
+docker compose exec directus node /directus/cli.js schema-split apply /directus/snapshots
+docker compose exec directus node /directus/cli.js schema-split migrate -i /directus/schema.yaml -o /directus/snapshots
+```
+
 The command signatures remain:
 
 ```text
@@ -113,16 +122,36 @@ This bundle manages schema, not collection records, uploads, or a complete datab
 ## Automatic snapshots
 
 When enabled, collection, field, and relation create/update/delete events schedule a snapshot after
-a 15-second debounce. Automatic snapshots use a filesystem lock with a five-minute lease and skip
-work while `directus-schema-applying.flag` exists in the process temporary directory. The apply
-command removes that flag on ordinary completion and failure. Coordination files are stored in
-`directus-schema-snapshot` under the process temporary directory; the execution lease is renewed
-while a snapshot runs.
+a 15-second debounce. The automatic scheduler uses a renewable five-minute filesystem lease and
+skips work while `directus-schema-applying.flag` exists in the process temporary directory. Apply
+removes that flag on ordinary completion and failure.
 
-Filesystem locks and the apply flag coordinate only processes sharing their storage. They do not
-provide coordination across containers with separate temporary directories. Use one snapshot writer
-for such deployments. A forcibly killed apply process can leave the flag behind; confirm that no
-apply is running before removing it.
+## Concurrent operations and interrupted writes
+
+Automatic snapshots, CLI snapshots, migration, and the complete apply operation share an exclusive
+filesystem lock at `directus-schema-snapshot/operation.lock` under the process temporary directory.
+The lock covers schema capture, all file reads/writes, and every diff/apply pass including the final
+convergence check. An overlapping operation fails immediately; CLI commands return a nonzero exit
+code and automatic tasks log the failure. Retry after the active operation finishes. The apply flag
+suppresses automatic triggers; the exclusive lock also protects work already scheduled or running.
+
+Choose a dedicated snapshot output folder that does not contain the temporary coordination
+directory. Writers remove `metadata.yml` before changing definitions and publish it atomically after
+all files are written. The output directory itself stays in place, including when mounted into a
+container. A failed or cancelled write can leave incomplete files without metadata; apply rejects
+them. Recreate the snapshot or rerun migration successfully before applying. This is fail-closed
+publication, not a backup of the previous output or a database transaction.
+
+The operation lock has no expiry, so a paused process cannot lose ownership to another operation. A
+forcibly killed process can leave `operation.lock` and the apply flag behind. After confirming **all
+schema-split operations have stopped**, remove the stale lock directory and flag, then repair any
+incomplete snapshot before retrying. Never remove a live owner's lock.
+
+Coordination requires the same filesystem-backed temporary directory in every participating process.
+Separate container temporary directories, older bundle versions, external snapshot edits, and schema
+changes outside this bundle are not synchronized. For those deployments, run snapshot writing and
+apply sequentially with other writers stopped, or provide shared temporary storage. Sharing only the
+snapshot folder is insufficient. No distributed or database-wide lock is provided.
 
 If commands are absent, check `SCHEMA_SNAPSHOT_ENABLED` and extension loading. If automatic
 snapshots are absent, also check `SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT`, filesystem permissions,
