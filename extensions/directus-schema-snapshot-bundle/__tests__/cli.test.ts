@@ -1,7 +1,7 @@
 import type { Snapshot, SnapshotDiff, SnapshotDiffWithHash } from '@directus/types'
 
 import { existsSync } from 'node:fs'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -64,6 +64,12 @@ const snapshot: Snapshot = {
 	systemFields: [],
 }
 const diff: SnapshotDiff = { collections: [], fields: [], relations: [], systemFields: [] }
+const systemField = {
+	collection: 'directus_files',
+	field: 'title',
+	schema: { is_indexed: false },
+}
+const systemFieldPath = `directus_files_${hash(systemField.collection).slice(0, 8)}/systemFields/title_${hash(systemField.field).slice(0, 8)}.yml`
 let directory = ''
 
 /**
@@ -137,6 +143,8 @@ describe('schema-split CLI', () => {
 	})
 
 	it('clears snapshot output but preserves unrelated output during migration', async () => {
+		const source = { ...snapshot, systemFields: [systemField] }
+		mocks.service.snapshot.mockResolvedValue(source)
 		const stalePath = path.join(directory, 'stale.txt')
 		await writeFile(stalePath, 'stale')
 		await createProgram({
@@ -146,14 +154,18 @@ describe('schema-split CLI', () => {
 		expect(await readFile(path.join(directory, 'metadata.yml'), 'utf8')).toBe(
 			dump({ version: 1, directus: '12.2.0', vendor: 'sqlite' }, { noRefs: true }),
 		)
+		const systemFieldFile = path.join(directory, systemFieldPath)
+		expect(await readFile(systemFieldFile, 'utf8')).toBe(dump(systemField, { noRefs: true }))
+		await rm(systemFieldFile)
 		await writeFile(stalePath, 'keep')
 		const input = path.join(directory, 'original.yml')
-		await writeFile(input, dump(snapshot))
+		await writeFile(input, dump(source))
 		await createProgram().program.parseAsync(
 			['schema-split', 'migrate', '--input', input, '--output', directory],
 			{ from: 'user' },
 		)
 		expect(await readFile(stalePath, 'utf8')).toBe('keep')
+		expect(await readFile(systemFieldFile, 'utf8')).toBe(dump(systemField, { noRefs: true }))
 		expect(mocks.terminate).toHaveBeenLastCalledWith(0)
 	})
 
@@ -199,8 +211,12 @@ describe('schema-split CLI', () => {
 		expectApplyExit(0)
 	})
 
-	it('refreshes system fields on each forced diff while hashing the unmodified current snapshot', async () => {
+	it('uses saved system fields on each forced diff while hashing the unmodified current snapshot', async () => {
 		await writeMetadata()
+		const systemFieldFile = path.join(directory, systemFieldPath)
+		await mkdir(path.dirname(systemFieldFile), { recursive: true })
+		await writeFile(systemFieldFile, dump(systemField))
+		const desired = { ...snapshot, systemFields: [systemField] }
 		const current: Snapshot = {
 			...snapshot,
 			directus: '12.1.0',
@@ -224,22 +240,14 @@ describe('schema-split CLI', () => {
 		await createProgram().program.parseAsync(['schema-split', 'apply', directory], {
 			from: 'user',
 		})
-		expect(mocks.service.diff).toHaveBeenNthCalledWith(
-			1,
-			{ ...snapshot, systemFields: current.systemFields },
-			{
-				currentSnapshot: current,
-				force: true,
-			},
-		)
-		expect(mocks.service.diff).toHaveBeenNthCalledWith(
-			2,
-			{ ...snapshot, systemFields: updated.systemFields },
-			{
-				currentSnapshot: updated,
-				force: true,
-			},
-		)
+		expect(mocks.service.diff).toHaveBeenNthCalledWith(1, desired, {
+			currentSnapshot: current,
+			force: true,
+		})
+		expect(mocks.service.diff).toHaveBeenNthCalledWith(2, desired, {
+			currentSnapshot: updated,
+			force: true,
+		})
 		expect(mocks.service.apply).toHaveBeenCalledExactlyOnceWith({
 			diff,
 			hash: hash({ version: current.directus, item: current }),
@@ -247,7 +255,7 @@ describe('schema-split CLI', () => {
 		expectApplyExit(0)
 	})
 
-	it('preserves current system fields in the final convergence check after ten applications', async () => {
+	it('keeps absent system fields empty in the final convergence check after ten applications', async () => {
 		await writeMetadata()
 		const current: Snapshot = {
 			...snapshot,
@@ -263,7 +271,11 @@ describe('schema-split CLI', () => {
 		await createProgram().program.parseAsync(['schema-split', 'apply', directory], {
 			from: 'user',
 		})
-		expect(mocks.service.diff).toHaveBeenNthCalledWith(11, current, {
+		expect(mocks.service.diff).toHaveBeenNthCalledWith(1, snapshot, {
+			currentSnapshot: current,
+			force: true,
+		})
+		expect(mocks.service.diff).toHaveBeenNthCalledWith(11, snapshot, {
 			currentSnapshot: current,
 			force: true,
 		})

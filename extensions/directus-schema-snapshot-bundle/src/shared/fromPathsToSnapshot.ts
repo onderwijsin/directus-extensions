@@ -8,15 +8,22 @@ import path from 'node:path'
 
 import { load as fromYaml } from 'js-yaml'
 
-import { collectionSchema, fieldSchema, metadataSchema, relationSchema } from './snapshot.schema'
+import {
+	collectionSchema,
+	fieldSchema,
+	metadataSchema,
+	relationSchema,
+	systemFieldSchema,
+} from './snapshot.schema'
 
 const BASE_FILE = 'metadata.yml'
 const FIELDS_DIR = 'fields'
 const RELATIONS_DIR = 'relations'
+const SYSTEM_FIELDS_DIR = 'systemFields'
 
 /**
  * Reassembles split snapshot files, rejecting incomplete or malformed recognized files.
- * @param filePaths - Snapshot metadata, collection, field, and relation paths.
+ * @param filePaths - Snapshot metadata, collection, field, relation, and system-field paths.
  * @param logger - Directus logger.
  * @returns The snapshot to pass to the host SchemaService.
  */
@@ -45,6 +52,7 @@ export async function fromPathsToSnapshot(
 	const collections: PersistedSnapshot['collections'] = []
 	const relations: PersistedSnapshot['relations'] = []
 	const fields: PersistedSnapshot['fields'] = []
+	const systemFields: PersistedSnapshot['systemFields'] = []
 
 	logger.info(`🔸 Processing ${filePaths.length} files...`)
 	await Promise.all(
@@ -57,7 +65,8 @@ export async function fromPathsToSnapshot(
 			const isCollection = segments.length === 2 && segments[1] === `${segments[0]}.yml`
 			const isField = segments.length === 3 && segments[1] === FIELDS_DIR
 			const isRelation = segments.length === 3 && segments[1] === RELATIONS_DIR
-			if (!isMetadata && !isCollection && !isField && !isRelation) {
+			const isSystemField = segments.length === 3 && segments[1] === SYSTEM_FIELDS_DIR
+			if (!isMetadata && !isCollection && !isField && !isRelation && !isSystemField) {
 				logger.warn(`🔸 Unrecognized file structure: ${relPath}`)
 				return
 			}
@@ -78,6 +87,11 @@ export async function fromPathsToSnapshot(
 					logger.trace(
 						`🔸 Detected relation: ${segments[2]} for collection ${segments[0]}`,
 					)
+				} else if (isSystemField) {
+					systemFields.push(systemFieldSchema.parse(content))
+					logger.trace(
+						`🔸 Detected system field: ${segments[2]} for collection ${segments[0]}`,
+					)
 				}
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error)
@@ -89,5 +103,5 @@ export async function fromPathsToSnapshot(
 
 	if (!base) throw new Error('Base metadata file not found')
 	logger.info('🔸 Finished processing snapshots files into one big snapshot object')
-	return { ...base, collections, relations, fields, systemFields: [] }
+	return { ...base, collections, relations, fields, systemFields }
 }

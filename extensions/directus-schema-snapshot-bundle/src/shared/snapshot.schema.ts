@@ -34,21 +34,20 @@ export const relationSchema = z.looseObject({
 	schema: z.record(z.string(), z.unknown()).nullable().optional(),
 })
 
+/** System-field indexes preserve additional Directus-owned properties. */
+export const systemFieldSchema = z.looseObject({
+	collection: z.string().min(1),
+	field: z.string().min(1),
+	schema: z.looseObject({ is_indexed: z.boolean() }),
+})
+
 /** Parses a complete native snapshot before migration into split files. */
 export const snapshotSchema = z.looseObject({
 	...metadataSchema.shape,
 	collections: z.array(collectionSchema),
 	fields: z.array(fieldSchema),
 	relations: z.array(relationSchema),
-	systemFields: z
-		.array(
-			z.looseObject({
-				collection: z.string().min(1),
-				field: z.string().min(1),
-				schema: z.looseObject({ is_indexed: z.boolean() }),
-			}),
-		)
-		.default([]),
+	systemFields: z.array(systemFieldSchema).default([]),
 })
 
 /** Persisted Directus snapshot, without imposing Studio-only field properties. */

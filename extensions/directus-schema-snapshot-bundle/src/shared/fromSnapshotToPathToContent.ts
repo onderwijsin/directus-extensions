@@ -25,8 +25,8 @@ function addHashToName(name: string) {
  * Converts a given snapshot into a structured mapping of file paths to their content.
  * The resulting object represents the snapshot's data in a format suited for generating files.
  *
- * @param snapshot - The snapshot object containing metadata, collections, fields, and
- * relations to process.
+ * @param snapshot - The snapshot object containing metadata, collections, fields, relations,
+ * and system fields to process.
  * @param {HookExtensionContext['logger']} logger - A logger instance used to track the process and
  * provide debugging information.
  * @returns {PathToContent} An object mapping file paths to their corresponding content, representing
@@ -83,6 +83,18 @@ export function fromSnapshotToPathToContent(
 		)
 		pathToContent[key] = relation
 		logger.trace(`🔸 Added relation at: ${key}`)
+	}
+
+	logger.info(`🔸 Processing ${snapshot.systemFields.length} system fields...`)
+
+	for (const systemField of snapshot.systemFields) {
+		const key = path.join(
+			addHashToName(systemField.collection),
+			'systemFields',
+			`${addHashToName(systemField.field)}.yml`,
+		)
+		pathToContent[key] = systemField
+		logger.trace(`🔸 Added system field at: ${key}`)
 	}
 
 	logger.info('🔸 Finished deconstructing snapshot')

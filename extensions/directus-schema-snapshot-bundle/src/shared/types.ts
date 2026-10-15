@@ -8,7 +8,9 @@ export type PathToContent = Record<
 	| Snapshot['collections'][number]
 	| Snapshot['fields'][number]
 	| Snapshot['relations'][number]
+	| Snapshot['systemFields'][number]
 	| PersistedSnapshot['collections'][number]
 	| PersistedSnapshot['fields'][number]
 	| PersistedSnapshot['relations'][number]
+	| PersistedSnapshot['systemFields'][number]
 >

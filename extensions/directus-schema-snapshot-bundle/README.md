@@ -82,20 +82,33 @@ snapshots/
     ├── collection_<hash>.yml
     ├── fields/
     │   └── field_<hash>.yml
-    └── relations/
+    ├── relations/
+    │   └── field_<hash>.yml
+    └── systemFields/
         └── field_<hash>.yml
 ```
 
 `metadata.yml` records the snapshot version, Directus version, and database vendor. Collection,
-field, and relation files contain their respective Directus snapshot definitions. Names use the
-lowercase original name plus the first eight characters of its case-sensitive `object-hash` hash;
-the YAML contents preserve the original names. Keep the generated layout when editing or moving
-files.
+field, relation, and system-field files contain their respective Directus snapshot definitions.
+Names use the lowercase original name plus the first eight characters of its case-sensitive
+`object-hash` hash; the YAML contents preserve the original names. Keep the generated layout when
+editing or moving files.
 
-The separate `systemFields` snapshot array is not persisted. Apply preserves the target instance's
-current system-field indexes on every diff pass, including when applying existing split snapshots.
-System-field indexes cannot be transferred or removed through this split format. This bundle manages
-schema, not collection records, uploads, or a complete database backup.
+Each `systemFields` entry is stored under its collection's hashed directory, even when that system
+collection has no collection definition in the snapshot. Snapshot creation and migration preserve
+these entries, and apply uses them as the desired system-field index state. Full snapshots remove
+target system-field indexes whose entries are absent from the snapshot.
+
+### Compatibility with older snapshots
+
+Older split snapshots omitted `systemFields`. Before applying them with this version, regenerate the
+snapshot from an authoritative instance with the intended indexes, or migrate a complete native YAML
+snapshot containing the intended `systemFields` into an empty directory. Review the generated files
+before deployment. A snapshot with no `systemFields` files represents an empty array; apply no
+longer preserves the target's current entries and can remove its system-field indexes. Migration
+cannot recover index definitions missing from its input.
+
+This bundle manages schema, not collection records, uploads, or a complete database backup.
 
 ## Automatic snapshots
 

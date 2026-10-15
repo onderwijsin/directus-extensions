@@ -11,6 +11,7 @@ import { envSchema } from '../src/shared/env.schema'
 import { fromPathsToSnapshot } from '../src/shared/fromPathsToSnapshot'
 import { fromSnapshotToPathToContent } from '../src/shared/fromSnapshotToPathToContent'
 import { getAllFilePaths } from '../src/shared/getAllFilePaths'
+import { snapshotSchema } from '../src/shared/snapshot.schema'
 import { terminate } from '../src/shared/terminate'
 
 const logger = pino({ level: 'silent' })
@@ -52,15 +53,34 @@ const files = {
 		meta: null,
 	},
 }
+const systemFieldFiles = {
+	'directus_files_74498934/systemFields/title_24559c68.yml': {
+		collection: 'directus_files',
+		field: 'title',
+		schema: { is_indexed: true, name: 'title' },
+		meta: { note: 'Preserve additional Directus properties' },
+	},
+	'directus_files_74498934/systemFields/title_9a315b62.yml': {
+		collection: 'directus_files',
+		field: 'Title',
+		schema: { is_indexed: false },
+	},
+	'directus_files_402fe4be/systemFields/title_24559c68.yml': {
+		collection: 'directus_Files',
+		field: 'title',
+		schema: { is_indexed: true },
+	},
+}
 let directory = ''
 const originalExitCode = process.exitCode
 
 /**
  * Writes a real split snapshot without depending on the writer under test.
+ * @param splitFiles - Relative file paths and YAML contents to write.
  * @returns A promise that resolves after the fixture files are written.
  */
-async function writeSplitFiles() {
-	for (const [relativePath, content] of Object.entries(files)) {
+async function writeSplitFiles(splitFiles: Record<string, unknown> = files) {
+	for (const [relativePath, content] of Object.entries(splitFiles)) {
 		const filename = path.join(directory, relativePath)
 		await mkdir(path.dirname(filename), { recursive: true })
 		await writeFile(filename, dump(content, { noRefs: true }))
@@ -85,6 +105,31 @@ describe('split snapshot format and configuration', () => {
 		expect(snapshot.systemFields).toEqual([])
 		expect(snapshot.collections).toContainEqual(files['group_6fdf7ca0/group_6fdf7ca0.yml'])
 		expect(fromSnapshotToPathToContent(snapshot, logger)).toEqual(files)
+	})
+
+	it('roundtrips system fields in system-only collection directories with case-sensitive hashes', async () => {
+		const splitFiles = { ...files, ...systemFieldFiles }
+		await writeSplitFiles(splitFiles)
+		const snapshot = await fromPathsToSnapshot(await getAllFilePaths(directory), logger)
+		expect(snapshot.collections).toHaveLength(3)
+		expect(snapshot.systemFields).toHaveLength(3)
+		for (const systemField of Object.values(systemFieldFiles)) {
+			expect(snapshot.systemFields).toContainEqual(systemField)
+		}
+		expect(fromSnapshotToPathToContent(snapshot, logger)).toEqual(splitFiles)
+	})
+
+	it('defaults an old monolithic snapshot without system fields to an empty array', () => {
+		const snapshot = snapshotSchema.parse({
+			...files['metadata.yml'],
+			collections: [],
+			fields: [],
+			relations: [],
+		})
+		expect(snapshot.systemFields).toEqual([])
+		expect(fromSnapshotToPathToContent(snapshot, logger)).toEqual({
+			'metadata.yml': files['metadata.yml'],
+		})
 	})
 
 	it('ignores unrecognized files without interpreting their contents as schema', async () => {
@@ -120,6 +165,35 @@ describe('split snapshot format and configuration', () => {
 			).rejects.toThrow()
 		},
 	)
+
+	it.each([
+		{ name: 'invalid YAML', content: 'field: [' },
+		{
+			name: 'missing field',
+			content: dump({ collection: 'directus_files', schema: { is_indexed: true } }),
+		},
+		{
+			name: 'missing is_indexed',
+			content: dump({ collection: 'directus_files', field: 'title', schema: {} }),
+		},
+		{
+			name: 'nonboolean is_indexed',
+			content: dump({
+				collection: 'directus_files',
+				field: 'title',
+				schema: { is_indexed: 'true' },
+			}),
+		},
+	])('rejects $name in a recognized system field file', async ({ content }) => {
+		await writeSplitFiles({ ...files, ...systemFieldFiles })
+		await writeFile(
+			path.join(directory, 'directus_files_74498934/systemFields/title_24559c68.yml'),
+			content,
+		)
+		await expect(fromPathsToSnapshot(await getAllFilePaths(directory), logger)).rejects.toThrow(
+			/Invalid snapshot file.*systemFields/u,
+		)
+	})
 
 	it('rejects a snapshot with absent root metadata', async () => {
 		await writeSplitFiles()

@@ -1,7 +1,12 @@
 ---
-'@onderwijsin/directus-schema-snapshot-bundle': patch
+'@onderwijsin/directus-schema-snapshot-bundle': minor
 ---
 
-Preserve the target instance's system-field indexes when applying split schema snapshots on Directus
-12. Keep the existing split YAML format and refresh system fields from the current snapshot on every
-diff pass, including the final convergence check.
+Persist individual system-field definitions in each collection's hashed `systemFields/` directory
+for snapshot creation, native YAML migration, and apply. Apply now uses the saved definitions with
+normal full-snapshot removal semantics instead of preserving the target's current system fields.
+
+Before applying older split snapshots that omitted system fields, regenerate them from an
+authoritative instance or migrate a complete native snapshot containing the intended definitions.
+Missing system-field files represent an empty array and can remove system-field indexes from the
+target.
