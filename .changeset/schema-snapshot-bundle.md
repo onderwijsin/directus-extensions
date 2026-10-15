@@ -1,0 +1,7 @@
+---
+'@onderwijsin/directus-schema-snapshot-bundle': minor
+---
+
+Add split YAML schema snapshots with CLI commands for creation, application, and migration, plus
+optional automatic snapshots. Validate snapshot input, report unsuccessful schema convergence, and
+support disabling the bundle with `SCHEMA_SNAPSHOT_ENABLED`.
