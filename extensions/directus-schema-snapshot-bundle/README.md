@@ -92,8 +92,10 @@ lowercase original name plus the first eight characters of its case-sensitive `o
 the YAML contents preserve the original names. Keep the generated layout when editing or moving
 files.
 
-The separate `systemFields` snapshot array is not persisted; applying reconstructs it as an empty
-array. This bundle manages schema, not collection records, uploads, or a complete database backup.
+The separate `systemFields` snapshot array is not persisted. Apply preserves the target instance's
+current system-field indexes on every diff pass, including when applying existing split snapshots.
+System-field indexes cannot be transferred or removed through this split format. This bundle manages
+schema, not collection records, uploads, or a complete database backup.
 
 ## Automatic snapshots
 

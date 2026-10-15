@@ -92,10 +92,15 @@ export default defineHook(({ init }, context) => {
 						const currentSnapshot = await service.snapshot()
 						logger.info('🔹 Fetched current schema snapshot')
 
-						diff = await service.diff(snapshot, {
-							currentSnapshot,
-							force: true, // Force! This will not complain about versions being different, but will apply the diff anyway.
-						})
+						// Split files do not manage system-field indexes. Directus 12 interprets
+						// missing system fields as index removals, so retain the target's state.
+						diff = await service.diff(
+							{ ...snapshot, systemFields: currentSnapshot.systemFields },
+							{
+								currentSnapshot,
+								force: true, // Force! This will not complain about versions being different, but will apply the diff anyway.
+							},
+						)
 
 						logger.info(`🔹 Retry: ${retries}`)
 
@@ -132,7 +137,10 @@ export default defineHook(({ init }, context) => {
 							)
 
 							const currentSnapshot = await service.snapshot()
-							diff = await service.diff(snapshot, { currentSnapshot, force: true })
+							diff = await service.diff(
+								{ ...snapshot, systemFields: currentSnapshot.systemFields },
+								{ currentSnapshot, force: true },
+							)
 							if (diff)
 								throw new Error(
 									`Schema did not converge after ${maxRetries} applications`,

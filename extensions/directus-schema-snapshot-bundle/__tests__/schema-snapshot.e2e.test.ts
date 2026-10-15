@@ -59,11 +59,18 @@ async function schemaSplit(...arguments_: string[]) {
 }
 
 describe('packed schema snapshot CLI', () => {
-	it('snapshots and restores a field through the host SchemaService, then applies idempotently', async () => {
+	it('restores a field while preserving system indexes, then applies idempotently', async () => {
 		const collection = 'schema_snapshot_e2e'
 		const directory = `/tmp/schema-snapshot-e2e-${randomUUID()}`
 		let created = false
 		try {
+			await client.request(
+				customEndpoint({
+					path: '/fields/directus_files/title',
+					method: 'PATCH',
+					body: JSON.stringify({ schema: { is_indexed: true } }),
+				}),
+			)
 			await client.request(
 				createCollection({ collection, schema: { name: collection }, meta: {} }),
 			)
@@ -87,9 +94,20 @@ describe('packed schema snapshot CLI', () => {
 					expect.objectContaining({ field: 'title', type: 'string' }),
 				]),
 			)
+			const systemFields = await client.request(readFieldsByCollection('directus_files'))
+			expect(systemFields.find((field) => field.field === 'title')?.schema?.is_indexed).toBe(
+				true,
+			)
 			const repeated = await schemaSplit('apply', directory)
 			expect(repeated.stdout).toContain('schema already up to date')
 		} finally {
+			await client.request(
+				customEndpoint({
+					path: '/fields/directus_files/title',
+					method: 'PATCH',
+					body: JSON.stringify({ schema: { is_indexed: false } }),
+				}),
+			)
 			await execute('docker', [
 				...composeArguments,
 				'node',

@@ -134,10 +134,12 @@ field, and relation has a YAML definition. Paths use the lowercase original name
 eight characters of a case-sensitive `object-hash` hash. Original names remain in the YAML; the hash
 does not replace them. Preserve the generated layout when editing or moving files.
 
-The split snapshot format does not persist the separate `systemFields` snapshot array; apply
-reconstructs it as an empty array. The bundle manages schema only, not collection records, uploads,
-or complete database backups. It provides CLI and server hooks rather than an HTTP endpoint, Studio
-UI, or Flow operation.
+The split snapshot format does not persist the separate `systemFields` snapshot array. Apply
+preserves the target instance's current system-field indexes on every diff pass, including when
+applying existing split snapshots. System-field indexes cannot be transferred or removed through
+this split format. The bundle manages schema only, not collection records, uploads, or complete
+database backups. It provides CLI and server hooks rather than an HTTP endpoint, Studio UI, or Flow
+operation.
 
 ## Operate automatic snapshots
 

@@ -199,10 +199,22 @@ describe('schema-split CLI', () => {
 		expectApplyExit(0)
 	})
 
-	it('repeats forced programmatic diffs with the current snapshot hash until converged', async () => {
+	it('refreshes system fields on each forced diff while hashing the unmodified current snapshot', async () => {
 		await writeMetadata()
-		const current = { ...snapshot, directus: '12.1.0' }
-		const updated = { ...snapshot, directus: '12.1.1' }
+		const current: Snapshot = {
+			...snapshot,
+			directus: '12.1.0',
+			systemFields: [
+				{ collection: 'directus_files', field: 'title', schema: { is_indexed: true } },
+			],
+		}
+		const updated: Snapshot = {
+			...snapshot,
+			directus: '12.1.1',
+			systemFields: [
+				{ collection: 'directus_users', field: 'first_name', schema: { is_indexed: true } },
+			],
+		}
 		mocks.service.snapshot.mockResolvedValueOnce(current).mockResolvedValueOnce(updated)
 		mocks.service.diff.mockResolvedValueOnce(diff).mockResolvedValueOnce(null)
 		mocks.service.apply.mockImplementationOnce(() => {
@@ -212,17 +224,48 @@ describe('schema-split CLI', () => {
 		await createProgram().program.parseAsync(['schema-split', 'apply', directory], {
 			from: 'user',
 		})
-		expect(mocks.service.diff).toHaveBeenNthCalledWith(1, snapshot, {
-			currentSnapshot: current,
-			force: true,
-		})
-		expect(mocks.service.diff).toHaveBeenNthCalledWith(2, snapshot, {
-			currentSnapshot: updated,
-			force: true,
-		})
+		expect(mocks.service.diff).toHaveBeenNthCalledWith(
+			1,
+			{ ...snapshot, systemFields: current.systemFields },
+			{
+				currentSnapshot: current,
+				force: true,
+			},
+		)
+		expect(mocks.service.diff).toHaveBeenNthCalledWith(
+			2,
+			{ ...snapshot, systemFields: updated.systemFields },
+			{
+				currentSnapshot: updated,
+				force: true,
+			},
+		)
 		expect(mocks.service.apply).toHaveBeenCalledExactlyOnceWith({
 			diff,
 			hash: hash({ version: current.directus, item: current }),
+		})
+		expectApplyExit(0)
+	})
+
+	it('preserves current system fields in the final convergence check after ten applications', async () => {
+		await writeMetadata()
+		const current: Snapshot = {
+			...snapshot,
+			systemFields: [
+				{ collection: 'directus_files', field: 'title', schema: { is_indexed: true } },
+			],
+		}
+		mocks.service.snapshot.mockResolvedValue(current)
+		for (let application = 0; application < 10; application++) {
+			mocks.service.diff.mockResolvedValueOnce(diff)
+		}
+		mocks.service.diff.mockResolvedValueOnce(null)
+		await createProgram().program.parseAsync(['schema-split', 'apply', directory], {
+			from: 'user',
+		})
+		expect(mocks.service.diff).toHaveBeenNthCalledWith(11, current, {
+			currentSnapshot: current,
+			force: true,
 		})
 		expectApplyExit(0)
 	})
