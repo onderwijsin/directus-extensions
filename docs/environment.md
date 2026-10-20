@@ -48,9 +48,45 @@ checkout can start with `pnpm compose:up`.
 cp .env.example .env
 ```
 
-The copied root `.env` remains ignored by git. Values exported in the shell or defined in `.env`
-override the inline Compose defaults. Keep real credentials in ignored local files or an external
-secret manager; checked-in defaults are for local development and E2E isolation only.
+The copied root `.env` remains ignored by git. Compose reads it for **interpolation**; it does not
+automatically forward its variables to the Directus container. Only values explicitly mapped in the
+service's `environment` reach Directus. For those mappings, shell values take precedence over
+`.env`, and `${VARIABLE:-default}` uses the default when the variable is unset or empty. See
+[Docker's interpolation documentation](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/).
+Keep real credentials in ignored local files or an external secret manager; checked-in defaults are
+for local development and E2E isolation only.
+
+The template marks examples that also require a Compose override. The local stack intentionally
+fixes the Mailpit transport/connection and template path, the Redis URL, and internal database,
+storage, and search service addresses. Advanced lock/rate-limiter settings, Coolify polling/policy
+IDs, health exclusions, optional Magic Links email text/headers, and Sentry DSN/loader/release
+overrides remain available through a Compose override. All other extension environment options
+remain supported too; consult the extension's README rather than expecting every option in the
+default Compose file.
+
+For example, set `MAGIC_LINKS_EMAIL_SUBJECT=Your sign-in link` in `.env` and create a root-level
+`compose.override.yaml`:
+
+```yaml
+services:
+  directus:
+    environment:
+      MAGIC_LINKS_EMAIL_SUBJECT: ${MAGIC_LINKS_EMAIL_SUBJECT:?Set a non-empty subject in .env}
+```
+
+Compose automatically merges this override when running `pnpm compose:up`. Add only the options you
+need; `:?` rejects missing or empty values for this optional string. Remove the mapping to restore
+the extension's unset behavior. Avoid `${VARIABLE:-}` for optional values whose schemas reject empty
+strings or whose fallbacks depend on absence, such as `SENTRY_RELEASE`. Extension-specific
+`EDITOR_AI_*` and `AI_METADATA_WRITER_*` settings can be passed the same way. For external Redis,
+override `REDIS`; component-based configuration also requires removing the preset URL, which takes
+precedence over components.
+
+Inspect the resolved configuration before starting containers:
+
+```sh
+docker compose config
+```
 
 The Coolify deployments bundle is enabled in local Compose and E2E Compose. Local Compose requires
 one `COOLIFY_URL` and a `COOLIFY_TOKEN` with read and deploy access to every integrated Coolify
