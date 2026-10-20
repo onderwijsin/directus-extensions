@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
 	setup: { start: vi.fn(), end: vi.fn(), isEnabled: vi.fn(() => true) },
+	extensionSetup:
+		vi.fn<typeof import('@onderwijsin/directus-extension-utils/server').extensionSetup>(),
 	validateExtensionOptions: vi.fn(() => ({
 		MARKDOWN_EDITOR_ENABLED: true,
 		EDITOR_AI_PROVIDER: 'openai' as const,
@@ -32,7 +34,7 @@ vi.mock('@onderwijsin/directus-extension-utils/server', async (importOriginal) =
 	...(await importOriginal()),
 	assertRequestWithAccountability: (request: { accountability?: { user?: unknown } }) =>
 		Boolean(request.accountability?.user),
-	extensionSetup: () => mocks.setup,
+	extensionSetup: mocks.extensionSetup.mockImplementation(() => mocks.setup),
 	hasPolicies: mocks.hasPolicies,
 	validateExtensionOptions: mocks.validateExtensionOptions,
 }))
@@ -56,14 +58,14 @@ const createRouter = () => ({
 	}),
 })
 
-function registerEndpoint(router: ReturnType<typeof createRouter>) {
+function registerEndpoint(router: ReturnType<typeof createRouter>, env = {}) {
 	const handler = Reflect.get(endpoint, 'handler')
 	if (typeof handler !== 'function') throw new Error('Expected endpoint handler')
 	Reflect.apply(handler, undefined, [
 		router,
 		{
-			env: {},
-			logger: { error: vi.fn() },
+			env,
+			logger: { error: vi.fn(), info: vi.fn() },
 			getSchema: vi.fn().mockResolvedValue({}),
 			services: {
 				FieldsService: class {
@@ -140,15 +142,20 @@ describe('Markdown Editor endpoint orchestration', () => {
 		expect(mocks.setup.end).toHaveBeenCalledOnce()
 	})
 
-	it('does not validate or register routes when disabled', () => {
-		mocks.setup.isEnabled.mockReturnValue(false)
-		const router = createRouter()
-		registerEndpoint(router)
+	it.each([false, 'false'])(
+		'does not validate or register routes when MARKDOWN_EDITOR_ENABLED=%s',
+		async (enabled) => {
+			const { extensionSetup } = await vi.importActual<
+				typeof import('@onderwijsin/directus-extension-utils/server')
+			>('@onderwijsin/directus-extension-utils/server')
+			mocks.extensionSetup.mockImplementationOnce(extensionSetup)
+			const router = createRouter()
+			registerEndpoint(router, { MARKDOWN_EDITOR_ENABLED: enabled })
 
-		expect(mocks.validateExtensionOptions).not.toHaveBeenCalled()
-		expect(router.post).not.toHaveBeenCalled()
-		expect(mocks.setup.end).not.toHaveBeenCalled()
-	})
+			expect(mocks.validateExtensionOptions).not.toHaveBeenCalled()
+			expect(router.post).not.toHaveBeenCalled()
+		},
+	)
 
 	it('rejects anonymous requests before accessing Directus services', async () => {
 		const router = createRouter()

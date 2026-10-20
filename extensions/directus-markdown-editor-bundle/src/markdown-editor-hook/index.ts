@@ -27,7 +27,7 @@ const EXTENSION_NAME = 'Markdown Editor'
  * @returns Nothing after registration, or when the hook is disabled.
  */
 export default defineHook((hook, context) => {
-	const setup = extensionSetup(EXTENSION_ID, context.env, context.logger)
+	const setup = extensionSetup('markdown_editor', context.env, context.logger)
 	setup.start()
 
 	if (!setup.isEnabled()) return

@@ -17,7 +17,7 @@ import { parseEditorAiInput } from './input'
 export default defineEndpoint({
 	id: 'editor',
 	handler: (router, { env, logger, services, getSchema }) => {
-		const setup = extensionSetup('markdown-editor', env, logger)
+		const setup = extensionSetup('markdown_editor', env, logger)
 		setup.start()
 		if (!setup.isEnabled()) return
 		const options = validateExtensionOptions(env, envSchema, logger)

@@ -485,14 +485,14 @@ pnpm add @onderwijsin/directus-studio-docs-bundle
 Configure its `studio_docs` collection and assign **Can View Studio Docs** or **Can Manage Studio
 Docs** to the intended roles. This bundle contributes one stable article during startup.
 
-| Variable                                | Default                 | Accepted value and behavior                                                                         |
-| --------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| `MARKDOWN_EDITOR_ENABLED`               | `true`                  | Boolean gate for the server hook/document contribution. It cannot unregister the browser interface. |
-| `MARKDOWN_EDITOR_DOCS_SEED_ENABLED`     | `true`                  | Boolean contributor-specific article gate.                                                          |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`     | `SYNCHRONIZATION_STORE` | `memory`, `redis`, or `fs`; use a shared provider across replicas.                                  |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`    | resolved Redis config   | Optional Redis URL override.                                                                        |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | unset                   | Non-empty shared directory required for `fs`.                                                       |
-| `SYNCHRONIZATION_STORE`                 | `memory`                | `memory` or `redis`; fallback when no dedicated provider is set.                                    |
+| Variable                                | Default                 | Accepted value and behavior                                                                 |
+| --------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------- |
+| `MARKDOWN_EDITOR_ENABLED`               | `true`                  | Boolean gate for the server hook and AI endpoint. The browser interface remains registered. |
+| `MARKDOWN_EDITOR_DOCS_SEED_ENABLED`     | `true`                  | Boolean contributor-specific article gate.                                                  |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`     | `SYNCHRONIZATION_STORE` | `memory`, `redis`, or `fs`; use a shared provider across replicas.                          |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`    | resolved Redis config   | Optional Redis URL override.                                                                |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | unset                   | Non-empty shared directory required for `fs`.                                               |
+| `SYNCHRONIZATION_STORE`                 | `memory`                | `memory` or `redis`; fallback when no dedicated provider is set.                            |
 
 The common schema also accepts `DIRECTUS_EXTENSIONS_SCHEMA_CHANGES_ENABLED`,
 `DIRECTUS_EXTENSIONS_DATA_SEED_ENABLED`, and `DIRECTUS_EXTENSIONS_RATE_LIMITER_STORE`, but this
