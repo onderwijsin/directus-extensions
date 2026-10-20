@@ -137,6 +137,8 @@ debug
 # 🐳 Docker
 # ===================================
 .data
+/compose.override.yaml
+/compose.override.yml
 **/docker-compose*.backup.*
 
 # ===================================
