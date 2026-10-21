@@ -510,14 +510,14 @@ The Studio Docs bundle provisions `studio_docs` and its policies. Assign its vie
 to the appropriate roles. This bundle contributes the stable **Editor** article during the
 documentation startup phase.
 
-| Environment variable                    | Default                        | Description                                                                                                           |
-| --------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `MARKDOWN_EDITOR_ENABLED`               | `true`                         | Enables the Markdown Editor server hook and its documentation contribution. The browser interface remains registered. |
-| `MARKDOWN_EDITOR_DOCS_SEED_ENABLED`     | `true`                         | Enables contribution of the Editor article.                                                                           |
-| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`     | `SYNCHRONIZATION_STORE`        | Startup lock: `memory`, `redis`, or `fs`. Use a shared provider for multiple Directus processes.                      |
-| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`    | resolved Directus Redis config | Optional Redis URL override for the startup lock.                                                                     |
-| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | unset                          | Required with the `fs` provider; all processes must share the directory.                                              |
-| `SYNCHRONIZATION_STORE`                 | `memory`                       | Shared fallback store: `memory` or `redis`.                                                                           |
+| Environment variable                    | Default                        | Description                                                                                      |
+| --------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `MARKDOWN_EDITOR_ENABLED`               | `true`                         | Enables the server hook and AI endpoint. The browser interface remains registered.               |
+| `MARKDOWN_EDITOR_DOCS_SEED_ENABLED`     | `true`                         | Enables contribution of the Editor article.                                                      |
+| `DIRECTUS_EXTENSIONS_LOCK_PROVIDER`     | `SYNCHRONIZATION_STORE`        | Startup lock: `memory`, `redis`, or `fs`. Use a shared provider for multiple Directus processes. |
+| `DIRECTUS_EXTENSIONS_LOCK_REDIS_URL`    | resolved Directus Redis config | Optional Redis URL override for the startup lock.                                                |
+| `DIRECTUS_EXTENSIONS_LOCK_FS_DIRECTORY` | unset                          | Required with the `fs` provider; all processes must share the directory.                         |
+| `SYNCHRONIZATION_STORE`                 | `memory`                       | Shared fallback store: `memory` or `redis`.                                                      |
 
 The hook accepts the shared schema/data and rate-limiter environment values through the common
 startup schema, but its documentation phase—including the bundled editor skill catalog—is

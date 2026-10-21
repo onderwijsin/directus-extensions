@@ -11,7 +11,9 @@ const mocks = vi.hoisted(() => {
 		createDirectusStartupCoordinator: vi.fn(() => startup),
 		ensureDirectusDocumentation: vi.fn(),
 		ensureDirectusPolicy: vi.fn(),
-		extensionSetup: vi.fn(() => setup),
+		extensionSetup: vi.fn<
+			typeof import('@onderwijsin/directus-extension-utils/server').extensionSetup
+		>(() => setup),
 		hookRegister,
 		setup,
 		startup,
@@ -133,12 +135,22 @@ describe('Markdown Editor bundle', () => {
 		expect(mocks.setup.end).toHaveBeenCalledOnce()
 	})
 
-	it('skips validation and coordination when disabled', () => {
-		mocks.setup.isEnabled.mockReturnValue(false)
-		mocks.hookRegister({ init: vi.fn() }, { env: {}, logger: {} })
+	it.each([false, 'false'])(
+		'skips validation and coordination when MARKDOWN_EDITOR_ENABLED=%s',
+		async (enabled) => {
+			const { extensionSetup } = await vi.importActual<
+				typeof import('@onderwijsin/directus-extension-utils/server')
+			>('@onderwijsin/directus-extension-utils/server')
+			mocks.extensionSetup.mockImplementationOnce(extensionSetup)
+			const logger = { info: vi.fn() }
+			mocks.hookRegister(
+				{ init: vi.fn() },
+				{ env: { MARKDOWN_EDITOR_ENABLED: enabled }, logger },
+			)
 
-		expect(mocks.validateExtensionOptions).not.toHaveBeenCalled()
-		expect(mocks.createDirectusStartupCoordinator).not.toHaveBeenCalled()
-		expect(mocks.setup.end).not.toHaveBeenCalled()
-	})
+			expect(mocks.validateExtensionOptions).not.toHaveBeenCalled()
+			expect(mocks.createDirectusStartupCoordinator).not.toHaveBeenCalled()
+			expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Skipping setup...'))
+		},
+	)
 })
