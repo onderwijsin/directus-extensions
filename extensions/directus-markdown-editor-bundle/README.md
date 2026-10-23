@@ -60,9 +60,9 @@ services:
     build: .
     environment:
       MARKDOWN_EDITOR_ENABLED: 'true'
-	  EDITOR_AI_PROVIDER: 'openai'
-	  EDITOR_AI_MODEL: 'your-model-id'
-	  EDITOR_AI_API_KEY: 'replace-with-a-secret'
+      EDITOR_AI_PROVIDER: 'openai'
+      EDITOR_AI_MODEL: 'your-model-id'
+      EDITOR_AI_API_KEY: 'replace-with-a-secret'
 ```
 
 Pin the Directus image to a version supported by the package and use your normal image update
