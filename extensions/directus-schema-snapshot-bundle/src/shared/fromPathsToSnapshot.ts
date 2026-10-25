@@ -2,7 +2,6 @@ import type { HookExtensionContext } from '@directus/types'
 import type { z } from 'zod'
 import type { PersistedSnapshot } from './snapshot.schema'
 
-import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -22,31 +21,18 @@ const RELATIONS_DIR = 'relations'
 const SYSTEM_FIELDS_DIR = 'systemFields'
 
 /**
- * Reassembles split snapshot files, rejecting incomplete or malformed recognized files.
+ * Reassembles files relative to the selected snapshot folder, requiring its root metadata.
+ * @param snapshotFolder - Snapshot folder selected by the CLI.
  * @param filePaths - Snapshot metadata, collection, field, relation, and system-field paths.
  * @param logger - Directus logger.
  * @returns The snapshot to pass to the host SchemaService.
  */
 export async function fromPathsToSnapshot(
+	snapshotFolder: string,
 	filePaths: string[],
 	logger: HookExtensionContext['logger'],
 ): Promise<PersistedSnapshot> {
 	logger.info('🔸 Starting to process snapshot files...')
-	let snapshotFolder = ''
-	const firstPath = filePaths[0]
-	if (firstPath) {
-		const pathParts = path.resolve(firstPath).split(path.sep)
-		for (let count = pathParts.length; count > 0; count--) {
-			const testPath = pathParts.slice(0, count).join(path.sep)
-			if (existsSync(path.join(testPath, BASE_FILE))) {
-				snapshotFolder = testPath
-				break
-			}
-		}
-	}
-
-	logger.info(`🔸 Identified snapshot folder: ${snapshotFolder || 'Not found'}`)
-	if (!snapshotFolder) throw new Error('Base metadata file not found')
 
 	let base: z.infer<typeof metadataSchema> | undefined
 	const collections: PersistedSnapshot['collections'] = []

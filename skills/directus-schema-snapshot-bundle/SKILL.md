@@ -119,6 +119,9 @@ Missing or invalid `metadata.yml`, malformed recognized YAML files, service erro
 converge return a nonzero exit code. This is not an atomic restore of an entire database; inspect
 the target after a failed apply before retrying.
 
+`apply` uses only the `metadata.yml` directly in the selected snapshot folder. Metadata in
+subfolders cannot replace it or change the snapshot root.
+
 The apply hash uses the running Directus version, preserving the host's concurrency check when
 forcing a diff from another version. Snapshot creation and migration reject names containing path
 separators.

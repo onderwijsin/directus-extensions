@@ -76,7 +76,7 @@ export default defineHook(({ init }, context) => {
 							const filePaths = await getAllFilePaths(folder)
 							logger.info(`📄 Found ${filePaths.length} files`)
 
-							const snapshot = await fromPathsToSnapshot(filePaths, logger)
+							const snapshot = await fromPathsToSnapshot(folder, filePaths, logger)
 
 							logger.info(`🔹 Parsed snapshot (version: ${snapshot.version}).`)
 

@@ -78,6 +78,9 @@ Missing or invalid metadata, malformed recognized YAML files, service errors, an
 converge produce a nonzero exit code. Commands normally terminate the process explicitly;
 `SCHEMA_SPLIT_HARD_EXIT=false` is useful when debugging open handles.
 
+`apply` uses only the `metadata.yml` directly in the selected snapshot folder. Metadata in
+subfolders cannot replace it or change the snapshot root.
+
 The apply hash uses the running Directus version, so forced cross-version diffs retain the host's
 concurrency check. Names containing path separators are rejected during snapshot creation or
 migration.

@@ -101,7 +101,11 @@ describe('split snapshot format and configuration', () => {
 
 	it('roundtrips hashed paths and native aliases without schema, including case-only names and collection folders', async () => {
 		await writeSplitFiles()
-		const snapshot = await fromPathsToSnapshot(await getAllFilePaths(directory), logger)
+		const snapshot = await fromPathsToSnapshot(
+			directory,
+			await getAllFilePaths(directory),
+			logger,
+		)
 		expect(snapshot.systemFields).toEqual([])
 		expect(snapshot.collections).toContainEqual(files['group_6fdf7ca0/group_6fdf7ca0.yml'])
 		expect(fromSnapshotToPathToContent(snapshot, logger)).toEqual(files)
@@ -110,7 +114,11 @@ describe('split snapshot format and configuration', () => {
 	it('roundtrips system fields in system-only collection directories with case-sensitive hashes', async () => {
 		const splitFiles = { ...files, ...systemFieldFiles }
 		await writeSplitFiles(splitFiles)
-		const snapshot = await fromPathsToSnapshot(await getAllFilePaths(directory), logger)
+		const snapshot = await fromPathsToSnapshot(
+			directory,
+			await getAllFilePaths(directory),
+			logger,
+		)
 		expect(snapshot.collections).toHaveLength(3)
 		expect(snapshot.systemFields).toHaveLength(3)
 		for (const systemField of Object.values(systemFieldFiles)) {
@@ -132,16 +140,24 @@ describe('split snapshot format and configuration', () => {
 		})
 	})
 
-	it('ignores unrecognized files without interpreting their contents as schema', async () => {
-		await writeSplitFiles()
+	it('ignores unrecognized files and nested metadata without changing the snapshot root', async () => {
+		await writeSplitFiles({ ...files, 'a-backup/metadata.yml': files['metadata.yml'] })
 		await writeFile(path.join(directory, 'notes.md'), 'not valid YAML: [')
-		const snapshot = await fromPathsToSnapshot(await getAllFilePaths(directory), logger)
+		const snapshot = await fromPathsToSnapshot(
+			directory,
+			(await getAllFilePaths(directory)).sort(),
+			logger,
+		)
 		expect(fromSnapshotToPathToContent(snapshot, logger)).toEqual(files)
 	})
 
 	it('rejects collection names that could escape or create nested snapshot paths', async () => {
 		await writeSplitFiles()
-		const snapshot = await fromPathsToSnapshot(await getAllFilePaths(directory), logger)
+		const snapshot = await fromPathsToSnapshot(
+			directory,
+			await getAllFilePaths(directory),
+			logger,
+		)
 		for (const collection of ['../outside', 'nested/name', 'nested\\name', '.', '..']) {
 			expect(() =>
 				fromSnapshotToPathToContent(
@@ -161,7 +177,7 @@ describe('split snapshot format and configuration', () => {
 				content,
 			)
 			await expect(
-				fromPathsToSnapshot(await getAllFilePaths(directory), logger),
+				fromPathsToSnapshot(directory, await getAllFilePaths(directory), logger),
 			).rejects.toThrow()
 		},
 	)
@@ -190,17 +206,17 @@ describe('split snapshot format and configuration', () => {
 			path.join(directory, 'directus_files_74498934/systemFields/title_24559c68.yml'),
 			content,
 		)
-		await expect(fromPathsToSnapshot(await getAllFilePaths(directory), logger)).rejects.toThrow(
-			/Invalid snapshot file.*systemFields/u,
-		)
+		await expect(
+			fromPathsToSnapshot(directory, await getAllFilePaths(directory), logger),
+		).rejects.toThrow(/Invalid snapshot file.*systemFields/u)
 	})
 
-	it('rejects a snapshot with absent root metadata', async () => {
-		await writeSplitFiles()
+	it('rejects absent root metadata even when nested metadata exists', async () => {
+		await writeSplitFiles({ ...files, 'a-backup/metadata.yml': files['metadata.yml'] })
 		await rm(path.join(directory, 'metadata.yml'))
-		await expect(fromPathsToSnapshot(await getAllFilePaths(directory), logger)).rejects.toThrow(
-			/metadata/iu,
-		)
+		await expect(
+			fromPathsToSnapshot(directory, (await getAllFilePaths(directory)).sort(), logger),
+		).rejects.toThrow(/metadata/iu)
 	})
 
 	it('normalizes snapshot folder defaults and boolean environment values', () => {
