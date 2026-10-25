@@ -161,6 +161,9 @@ The runner builds extensions, starts Compose with health checks, logs in the roo
 runs the E2E Vitest project, and removes containers, networks, and named volumes in `finally`. It
 does not collect Compose logs.
 
+The E2E overlay explicitly enables the Schema Snapshot bundle for its CLI tests and disables
+automatic snapshots. These settings are independent of the local development defaults.
+
 Tests own their Directus fixtures. For example, the playground creates and removes `posts` locally:
 
 ```ts
