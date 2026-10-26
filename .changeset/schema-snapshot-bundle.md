@@ -1,5 +1,5 @@
 ---
-'@onderwijsin/directus-schema-snapshot-bundle': minor
+'@onderwijsin/directus-schema-snapshot-bundle': major
 ---
 
 Add split YAML schema snapshots with CLI commands for creation, application, and migration, plus
