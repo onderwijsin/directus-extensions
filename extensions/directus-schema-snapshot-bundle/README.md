@@ -18,12 +18,21 @@ snapshot folder into containers when it must persist or be supplied by a deploym
 
 ## Configuration
 
-| Variable                                  | Default               | Behavior                                                                                                                                                                                                                  |
-| ----------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SCHEMA_SNAPSHOT_ENABLED`                 | `true`                | Master switch. Boolean `false` or string `false` disables both CLI registration and automatic snapshots.                                                                                                                  |
-| `SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER` | `/directus/snapshots` | Default input/output directory. A nonempty string is trimmed; other values use the default. Explicit CLI paths override it.                                                                                               |
-| `SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT`   | `false`               | Enables automatic snapshots for boolean `true`, case-insensitive string `true`, or string `1`. Other values disable it.                                                                                                   |
-| `SCHEMA_SPLIT_HARD_EXIT`                  | `true`                | Read from the process environment. Unset, case-insensitive `true`, or `1` exits the CLI process immediately; `false` or `0` sets its exit code and lets it finish naturally. Other supplied values also select soft exit. |
+| Variable                                  | Default               | Behavior                                                                                                                                                           |
+| ----------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SCHEMA_SNAPSHOT_ENABLED`                 | `true`                | Master switch. Boolean `false` or string `false` disables both CLI registration and automatic snapshots.                                                           |
+| `SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER` | `/directus/snapshots` | Default input/output directory. A nonempty string is trimmed; other values use the default. Explicit CLI paths override it.                                        |
+| `SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT`   | `false`               | Boolean after Directus type casting. `true` enables automatic snapshots; `false` disables them. Other types fail configuration validation.                         |
+| `SCHEMA_SPLIT_HARD_EXIT`                  | `true`                | Raw process environment string. Accepted values below select immediate process exit or soft exit. Invalid values cause a validation error and a nonzero exit code. |
+
+Set `SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT=true` or `false`; Directus converts these values to
+booleans before extension validation. Numbers and strings that remain uncast are rejected.
+
+For `SCHEMA_SPLIT_HARD_EXIT`, `true`, `1`, `yes`, `on`, `y`, and `enabled` select immediate process
+exit. `false`, `0`, `no`, `off`, `n`, and `disabled` select soft exit, setting the command's exit
+code and letting the process finish naturally. Values are case-insensitive and are not trimmed. An
+unset value defaults to immediate exit; empty strings, surrounding whitespace, and other values fail
+validation, even when the command itself succeeded.
 
 For automatic snapshots:
 

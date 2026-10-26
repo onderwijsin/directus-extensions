@@ -1,6 +1,6 @@
 import process from 'node:process'
 
-import { parseBooleanEnv } from './parseBooleanEnv'
+import { z } from 'zod'
 
 /**
  * Overload: force a hard exit and never return to the caller.
@@ -31,7 +31,8 @@ export function terminate(exitCode: number, options: { hardExit: true }): never
  * - Priority: `options.hardExit` (if provided) overrides env.
  * - Env: `SCHEMA_SPLIT_HARD_EXIT`
  *   - When unset, defaults to hard exit.
- *   - Set to "false" or "0" to enable soft-exit.
+ *   - Accepts Zod's case-insensitive string booleans without trimming whitespace.
+ *   - Invalid values throw a validation error and set a nonzero exit code.
  *
  * Usage
  * - Prefer `return terminate(code)` at call sites to ensure no further code runs in soft mode.
@@ -50,8 +51,20 @@ export function terminate(exitCode: number, options: { hardExit: true }): never
  */
 export function terminate(exitCode: number, options?: { hardExit?: boolean }): void
 export function terminate(exitCode: number, options?: { hardExit?: boolean }): void {
-	const envRaw = process.env.SCHEMA_SPLIT_HARD_EXIT
-	const hardExit = options?.hardExit ?? (envRaw === undefined ? true : parseBooleanEnv(envRaw))
+	let hardExit = options?.hardExit
+
+	if (hardExit === undefined) {
+		const result = z
+			.object({ SCHEMA_SPLIT_HARD_EXIT: z.stringbool().default(true) })
+			.safeParse(process.env)
+
+		if (!result.success) {
+			process.exitCode = 1
+			throw result.error
+		}
+
+		hardExit = result.data.SCHEMA_SPLIT_HARD_EXIT
+	}
 
 	if (hardExit) {
 		process.exit(exitCode)

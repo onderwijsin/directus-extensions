@@ -24,12 +24,21 @@ volume mounts or manage deployment infrastructure.
 
 ## Configure
 
-| Variable                                  | Default               | Accepted values and interactions                                                                                                                                       |
-| ----------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SCHEMA_SNAPSHOT_ENABLED`                 | `true`                | Boolean `false` or string `false` disables both hooks: no `schema-split` commands or automatic snapshots are registered.                                               |
-| `SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER` | `/directus/snapshots` | A nonempty string is trimmed; empty, missing, or nonstring values fall back to the default. CLI paths override this default.                                           |
-| `SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT`   | `false`               | Boolean `true`, case-insensitive string `true`, and string `1` enable automatic snapshots. All other values disable them. Requires the master switch too.              |
-| `SCHEMA_SPLIT_HARD_EXIT`                  | `true`                | Reads `process.env`. Unset, case-insensitive `true`, and `1` cause immediate CLI process exit. `false`, `0`, and other supplied values set `process.exitCode` instead. |
+| Variable                                  | Default               | Accepted values and interactions                                                                                                                                           |
+| ----------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SCHEMA_SNAPSHOT_ENABLED`                 | `true`                | Boolean `false` or string `false` disables both hooks: no `schema-split` commands or automatic snapshots are registered.                                                   |
+| `SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER` | `/directus/snapshots` | A nonempty string is trimmed; empty, missing, or nonstring values fall back to the default. CLI paths override this default.                                               |
+| `SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT`   | `false`               | Boolean after Directus type casting. `true` enables automatic snapshots; `false` disables them. Other types fail configuration validation. Requires the master switch too. |
+| `SCHEMA_SPLIT_HARD_EXIT`                  | `true`                | Raw `process.env` string. Accepted values below select immediate process exit or soft exit. Invalid values cause a validation error and a nonzero exit code.               |
+
+Set `SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT=true` or `false`; Directus converts these values to
+booleans before extension validation. Numbers and strings that remain uncast are rejected.
+
+For `SCHEMA_SPLIT_HARD_EXIT`, `true`, `1`, `yes`, `on`, `y`, and `enabled` select immediate process
+exit. `false`, `0`, `no`, `off`, `n`, and `disabled` select soft exit, setting the command's exit
+code and letting the process finish naturally. Values are case-insensitive and are not trimmed. An
+unset value defaults to immediate exit; empty strings, surrounding whitespace, and other values fail
+validation, even when the command itself succeeded.
 
 Enable automatic snapshots in a development environment:
 

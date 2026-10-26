@@ -219,7 +219,7 @@ describe('split snapshot format and configuration', () => {
 		).rejects.toThrow(/metadata/iu)
 	})
 
-	it('normalizes snapshot folder defaults and boolean environment values', () => {
+	it('normalizes snapshot folder defaults', () => {
 		expect(envSchema.parse({}).SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER).toBe(
 			'/directus/snapshots',
 		)
@@ -233,32 +233,97 @@ describe('split snapshot format and configuration', () => {
 					.SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER,
 			).toBe('/directus/snapshots')
 		}
-		for (const value of [true, 'true', 'TRUE', '1']) {
+	})
+
+	it('disables automatic snapshots by default and accepts Directus-cast booleans', () => {
+		expect(envSchema.parse({}).SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT).toBe(false)
+		for (const value of [true, false]) {
 			expect(
 				envSchema.parse({ SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: value })
 					.SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT,
-			).toBe(true)
-		}
-		for (const value of [undefined, false, 'false', '0', ' true ', 1]) {
-			expect(
-				envSchema.parse({ SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: value })
-					.SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT,
-			).toBe(false)
+			).toBe(value)
 		}
 	})
 
-	it('hard-exits by default while retaining the soft-exit environment override', () => {
+	it.each(['true', 'TRUE', 'false', '1', '0', '', ' true ', 1, 0, null])(
+		'rejects nonboolean automatic snapshot configuration %j',
+		(value) => {
+			expect(() => envSchema.parse({ SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: value })).toThrow(
+				/SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT/u,
+			)
+		},
+	)
+
+	it.each([0, 1])('hard-exits with code %i by default', (exitCode) => {
 		const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
 			throw new Error('exit intercepted')
 		})
 		vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', undefined)
-		expect(() => terminate(1)).toThrow('exit intercepted')
-		expect(exit).toHaveBeenCalledWith(1)
-		exit.mockClear()
-		vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', 'false')
-		terminate(1)
-		expect(exit).not.toHaveBeenCalled()
-		expect(process.exitCode).toBe(1)
-		expect(() => terminate(0, { hardExit: true })).toThrow('exit intercepted')
+		expect(() => terminate(exitCode)).toThrow('exit intercepted')
+		expect(exit).toHaveBeenCalledExactlyOnceWith(exitCode)
 	})
+
+	it.each(['true', '1', 'yes', 'on', 'y', 'enabled'])(
+		'hard-exits for case-insensitive process environment value %s',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+				throw new Error('exit intercepted')
+			})
+			for (const envValue of [value, value.toUpperCase()]) {
+				vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', envValue)
+				expect(() => terminate(1)).toThrow('exit intercepted')
+				expect(exit).toHaveBeenLastCalledWith(1)
+			}
+		},
+	)
+
+	it.each(['false', '0', 'no', 'off', 'n', 'disabled'])(
+		'soft-exits for case-insensitive process environment value %s',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit')
+			for (const envValue of [value, value.toUpperCase()]) {
+				vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', envValue)
+				for (const exitCode of [0, 1]) {
+					terminate(exitCode)
+					expect(process.exitCode).toBe(exitCode)
+				}
+			}
+			expect(exit).not.toHaveBeenCalled()
+		},
+	)
+
+	it.each(['', ' ', ' true ', 'false ', 'invalid', '2'])(
+		'rejects invalid hard-exit configuration %j with a nonzero exit code',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit')
+			vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', value)
+			process.exitCode = 0
+			expect(() => terminate(0)).toThrow(/SCHEMA_SPLIT_HARD_EXIT/u)
+			expect(process.exitCode).toBe(1)
+			expect(exit).not.toHaveBeenCalled()
+		},
+	)
+
+	it.each(['false', 'invalid'])(
+		'retains an explicit hard-exit override with process environment value %s',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+				throw new Error('exit intercepted')
+			})
+			vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', value)
+			expect(() => terminate(0, { hardExit: true })).toThrow('exit intercepted')
+			expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+		},
+	)
+
+	it.each(['true', 'invalid'])(
+		'retains an explicit soft-exit override with process environment value %s',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit')
+			vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', value)
+			terminate(0, { hardExit: false })
+			expect(process.exitCode).toBe(0)
+			expect(exit).not.toHaveBeenCalled()
+		},
+	)
 })
