@@ -1,0 +1,329 @@
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import process from 'node:process'
+
+import { dump } from 'js-yaml'
+import pino from 'pino'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { envSchema } from '../src/shared/env.schema'
+import { fromPathsToSnapshot } from '../src/shared/fromPathsToSnapshot'
+import { fromSnapshotToPathToContent } from '../src/shared/fromSnapshotToPathToContent'
+import { getAllFilePaths } from '../src/shared/getAllFilePaths'
+import { snapshotSchema } from '../src/shared/snapshot.schema'
+import { terminate } from '../src/shared/terminate'
+
+const logger = pino({ level: 'silent' })
+const files = {
+	'metadata.yml': { version: 1, directus: '12.2.0', vendor: 'sqlite' },
+	'articles_0b4dad54/articles_0b4dad54.yml': {
+		collection: 'Articles',
+		schema: { name: 'Articles' },
+		meta: null,
+	},
+	'articles_1f8b5c94/articles_1f8b5c94.yml': {
+		collection: 'articles',
+		schema: { name: 'articles' },
+		meta: null,
+	},
+	'group_6fdf7ca0/group_6fdf7ca0.yml': {
+		collection: 'Group',
+		schema: null,
+		meta: { collection: 'Group', hidden: false, group: null },
+	},
+	'articles_0b4dad54/fields/id_adaf65f6.yml': {
+		collection: 'Articles',
+		field: 'ID',
+		type: 'integer',
+		schema: null,
+		meta: null,
+	},
+	'articles_0b4dad54/fields/recipients_e3218567.yml': {
+		collection: 'Articles',
+		field: 'recipients',
+		type: 'alias',
+		meta: { interface: 'list-o2m' },
+	},
+	'articles_0b4dad54/relations/author_bfc19846.yml': {
+		collection: 'Articles',
+		field: 'author',
+		related_collection: 'Authors',
+		schema: null,
+		meta: null,
+	},
+}
+const systemFieldFiles = {
+	'directus_files_74498934/systemFields/title_24559c68.yml': {
+		collection: 'directus_files',
+		field: 'title',
+		schema: { is_indexed: true, name: 'title' },
+		meta: { note: 'Preserve additional Directus properties' },
+	},
+	'directus_files_74498934/systemFields/title_9a315b62.yml': {
+		collection: 'directus_files',
+		field: 'Title',
+		schema: { is_indexed: false },
+	},
+	'directus_files_402fe4be/systemFields/title_24559c68.yml': {
+		collection: 'directus_Files',
+		field: 'title',
+		schema: { is_indexed: true },
+	},
+}
+let directory = ''
+const originalExitCode = process.exitCode
+
+/**
+ * Writes a real split snapshot without depending on the writer under test.
+ * @param splitFiles - Relative file paths and YAML contents to write.
+ * @returns A promise that resolves after the fixture files are written.
+ */
+async function writeSplitFiles(splitFiles: Record<string, unknown> = files) {
+	for (const [relativePath, content] of Object.entries(splitFiles)) {
+		const filename = path.join(directory, relativePath)
+		await mkdir(path.dirname(filename), { recursive: true })
+		await writeFile(filename, dump(content, { noRefs: true }))
+	}
+}
+
+describe('split snapshot format and configuration', () => {
+	beforeEach(async () => {
+		directory = await mkdtemp(path.join(tmpdir(), 'schema-split-format-'))
+	})
+
+	afterEach(async () => {
+		vi.restoreAllMocks()
+		vi.unstubAllEnvs()
+		process.exitCode = originalExitCode
+		await rm(directory, { recursive: true, force: true })
+	})
+
+	it('roundtrips hashed paths and native aliases without schema, including case-only names and collection folders', async () => {
+		await writeSplitFiles()
+		const snapshot = await fromPathsToSnapshot(
+			directory,
+			await getAllFilePaths(directory),
+			logger,
+		)
+		expect(snapshot.systemFields).toEqual([])
+		expect(snapshot.collections).toContainEqual(files['group_6fdf7ca0/group_6fdf7ca0.yml'])
+		expect(fromSnapshotToPathToContent(snapshot, logger)).toEqual(files)
+	})
+
+	it('roundtrips system fields in system-only collection directories with case-sensitive hashes', async () => {
+		const splitFiles = { ...files, ...systemFieldFiles }
+		await writeSplitFiles(splitFiles)
+		const snapshot = await fromPathsToSnapshot(
+			directory,
+			await getAllFilePaths(directory),
+			logger,
+		)
+		expect(snapshot.collections).toHaveLength(3)
+		expect(snapshot.systemFields).toHaveLength(3)
+		for (const systemField of Object.values(systemFieldFiles)) {
+			expect(snapshot.systemFields).toContainEqual(systemField)
+		}
+		expect(fromSnapshotToPathToContent(snapshot, logger)).toEqual(splitFiles)
+	})
+
+	it('defaults an old monolithic snapshot without system fields to an empty array', () => {
+		const snapshot = snapshotSchema.parse({
+			...files['metadata.yml'],
+			collections: [],
+			fields: [],
+			relations: [],
+		})
+		expect(snapshot.systemFields).toEqual([])
+		expect(fromSnapshotToPathToContent(snapshot, logger)).toEqual({
+			'metadata.yml': files['metadata.yml'],
+		})
+	})
+
+	it('ignores unrecognized files and nested metadata without changing the snapshot root', async () => {
+		await writeSplitFiles({ ...files, 'a-backup/metadata.yml': files['metadata.yml'] })
+		await writeFile(path.join(directory, 'notes.md'), 'not valid YAML: [')
+		const snapshot = await fromPathsToSnapshot(
+			directory,
+			(await getAllFilePaths(directory)).sort(),
+			logger,
+		)
+		expect(fromSnapshotToPathToContent(snapshot, logger)).toEqual(files)
+	})
+
+	it('rejects collection names that could escape or create nested snapshot paths', async () => {
+		await writeSplitFiles()
+		const snapshot = await fromPathsToSnapshot(
+			directory,
+			await getAllFilePaths(directory),
+			logger,
+		)
+		for (const collection of ['../outside', 'nested/name', 'nested\\name', '.', '..']) {
+			expect(() =>
+				fromSnapshotToPathToContent(
+					{ ...snapshot, collections: [{ collection, schema: null, meta: null }] },
+					logger,
+				),
+			).toThrow()
+		}
+	})
+
+	it.each(['field: [', 'collection: Articles\ntype: integer\nschema: null\nmeta: null\n'])(
+		'rejects a malformed recognized field instead of returning a partial schema',
+		async (content) => {
+			await writeSplitFiles()
+			await writeFile(
+				path.join(directory, 'articles_0b4dad54/fields/id_adaf65f6.yml'),
+				content,
+			)
+			await expect(
+				fromPathsToSnapshot(directory, await getAllFilePaths(directory), logger),
+			).rejects.toThrow()
+		},
+	)
+
+	it.each([
+		{ name: 'invalid YAML', content: 'field: [' },
+		{
+			name: 'missing field',
+			content: dump({ collection: 'directus_files', schema: { is_indexed: true } }),
+		},
+		{
+			name: 'missing is_indexed',
+			content: dump({ collection: 'directus_files', field: 'title', schema: {} }),
+		},
+		{
+			name: 'nonboolean is_indexed',
+			content: dump({
+				collection: 'directus_files',
+				field: 'title',
+				schema: { is_indexed: 'true' },
+			}),
+		},
+	])('rejects $name in a recognized system field file', async ({ content }) => {
+		await writeSplitFiles({ ...files, ...systemFieldFiles })
+		await writeFile(
+			path.join(directory, 'directus_files_74498934/systemFields/title_24559c68.yml'),
+			content,
+		)
+		await expect(
+			fromPathsToSnapshot(directory, await getAllFilePaths(directory), logger),
+		).rejects.toThrow(/Invalid snapshot file.*systemFields/u)
+	})
+
+	it('rejects absent root metadata even when nested metadata exists', async () => {
+		await writeSplitFiles({ ...files, 'a-backup/metadata.yml': files['metadata.yml'] })
+		await rm(path.join(directory, 'metadata.yml'))
+		await expect(
+			fromPathsToSnapshot(directory, (await getAllFilePaths(directory)).sort(), logger),
+		).rejects.toThrow(/metadata/iu)
+	})
+
+	it('normalizes snapshot folder defaults', () => {
+		expect(envSchema.parse({}).SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER).toBe(
+			'/directus/snapshots',
+		)
+		expect(
+			envSchema.parse({ SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER: '  /tmp/schema  ' })
+				.SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER,
+		).toBe('/tmp/schema')
+		for (const value of ['', '   ', false, 1]) {
+			expect(
+				envSchema.parse({ SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER: value })
+					.SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER,
+			).toBe('/directus/snapshots')
+		}
+	})
+
+	it('disables automatic snapshots by default and accepts Directus-cast booleans', () => {
+		expect(envSchema.parse({}).SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT).toBe(false)
+		for (const value of [true, false]) {
+			expect(
+				envSchema.parse({ SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: value })
+					.SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT,
+			).toBe(value)
+		}
+	})
+
+	it.each(['true', 'TRUE', 'false', '1', '0', '', ' true ', 1, 0, null])(
+		'rejects nonboolean automatic snapshot configuration %j',
+		(value) => {
+			expect(() => envSchema.parse({ SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: value })).toThrow(
+				/SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT/u,
+			)
+		},
+	)
+
+	it.each([0, 1])('hard-exits with code %i by default', (exitCode) => {
+		const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+			throw new Error('exit intercepted')
+		})
+		vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', undefined)
+		expect(() => terminate(exitCode)).toThrow('exit intercepted')
+		expect(exit).toHaveBeenCalledExactlyOnceWith(exitCode)
+	})
+
+	it.each(['true', '1', 'yes', 'on', 'y', 'enabled'])(
+		'hard-exits for case-insensitive process environment value %s',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+				throw new Error('exit intercepted')
+			})
+			for (const envValue of [value, value.toUpperCase()]) {
+				vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', envValue)
+				expect(() => terminate(1)).toThrow('exit intercepted')
+				expect(exit).toHaveBeenLastCalledWith(1)
+			}
+		},
+	)
+
+	it.each(['false', '0', 'no', 'off', 'n', 'disabled'])(
+		'soft-exits for case-insensitive process environment value %s',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit')
+			for (const envValue of [value, value.toUpperCase()]) {
+				vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', envValue)
+				for (const exitCode of [0, 1]) {
+					terminate(exitCode)
+					expect(process.exitCode).toBe(exitCode)
+				}
+			}
+			expect(exit).not.toHaveBeenCalled()
+		},
+	)
+
+	it.each(['', ' ', ' true ', 'false ', 'invalid', '2'])(
+		'rejects invalid hard-exit configuration %j with a nonzero exit code',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit')
+			vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', value)
+			process.exitCode = 0
+			expect(() => terminate(0)).toThrow(/SCHEMA_SPLIT_HARD_EXIT/u)
+			expect(process.exitCode).toBe(1)
+			expect(exit).not.toHaveBeenCalled()
+		},
+	)
+
+	it.each(['false', 'invalid'])(
+		'retains an explicit hard-exit override with process environment value %s',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+				throw new Error('exit intercepted')
+			})
+			vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', value)
+			expect(() => terminate(0, { hardExit: true })).toThrow('exit intercepted')
+			expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+		},
+	)
+
+	it.each(['true', 'invalid'])(
+		'retains an explicit soft-exit override with process environment value %s',
+		(value) => {
+			const exit = vi.spyOn(process, 'exit')
+			vi.stubEnv('SCHEMA_SPLIT_HARD_EXIT', value)
+			terminate(0, { hardExit: false })
+			expect(process.exitCode).toBe(0)
+			expect(exit).not.toHaveBeenCalled()
+		},
+	)
+})

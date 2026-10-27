@@ -89,6 +89,8 @@ services:
       # Disabled by default; CI may provide a license key explicitly.
       LICENSE_KEY: ${LICENSE_KEY:-}
       EXTENSIONS_AUTO_RELOAD: 'false'
+      SCHEMA_SNAPSHOT_ENABLED: 'true'
+      SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: 'false'
       AI_METADATA_WRITER_PROVIDER: openai-compatible
       AI_METADATA_WRITER_MODEL: vision-test
       AI_METADATA_WRITER_API_KEY: e2e-unused-key
