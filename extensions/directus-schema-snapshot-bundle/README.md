@@ -133,6 +133,12 @@ This bundle manages schema, not collection records, uploads, or a complete datab
 
 ## Automatic snapshots
 
+> [!NOTE]
+>
+> Automatic snapshots are intended as a development convenience, primarily for local development
+> workflows. Production use has not been tested or validated, as this feature was not designed for
+> that purpose.
+
 When enabled, collection, field, and relation create/update/delete events schedule a snapshot after
 a 15-second debounce. The automatic scheduler uses a renewable five-minute filesystem lease and
 skips work while `directus-schema-applying.flag` exists in the process temporary directory. Apply
