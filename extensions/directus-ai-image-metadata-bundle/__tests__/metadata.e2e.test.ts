@@ -441,7 +441,11 @@ describe('image metadata installed Flow operations', () => {
 			const stored = await fetch(`${environment.DIRECTUS_E2E_URL}/assets/${id}`, {
 				headers: { Authorization: `Bearer ${environment.DIRECTUS_E2E_TOKEN}` },
 			})
-			expect(Buffer.from(await stored.arrayBuffer())).toEqual(png)
+			expect(stored.ok).toBe(true)
+			const storedBytes = Buffer.from(await stored.arrayBuffer())
+			// Deep equality on this 5 MB buffer blocks the event loop long enough for pooled
+			// HTTP connections to expire before cleanup. Native equality still checks every byte.
+			expect(storedBytes.equals(png)).toBe(true)
 		} finally {
 			if (id) await client.request(deleteFile(id))
 			await client.request(deleteFolder(folder.id))
