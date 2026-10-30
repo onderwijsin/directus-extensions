@@ -817,6 +817,19 @@ describe('image metadata installed Flow operations', () => {
 		let id: string | undefined
 		try {
 			id = await uploadImage(folder.id)
+			const originalImage = {
+				width: 2,
+				height: 2,
+				sizeBytes: (await readFixture(new URL('./fixtures/red.png', import.meta.url)))
+					.byteLength,
+				mimeType: 'image/png',
+			}
+			const imagePreparation = {
+				reasons: [],
+				source: originalImage,
+				settings: { maxSizeBytes: 500_000, maxDimension: 1500, targetDimension: 800 },
+				output: originalImage,
+			}
 			expect(
 				(
 					await runOperation('ai-image-metadata', {
@@ -878,6 +891,7 @@ describe('image metadata installed Flow operations', () => {
 					id,
 					status: 'updated',
 					fields: ['description', 'tags'],
+					imagePreparation,
 					durationMs: expect.any(Number),
 					transformed: false,
 					originalMimeType: 'image/png',
@@ -927,6 +941,7 @@ describe('image metadata installed Flow operations', () => {
 					id,
 					status: 'updated',
 					fields: ['tags'],
+					imagePreparation,
 					durationMs: expect.any(Number),
 					transformed: false,
 					originalMimeType: 'image/png',
@@ -948,6 +963,7 @@ describe('image metadata installed Flow operations', () => {
 					id,
 					status: 'updated',
 					fields: ['description'],
+					imagePreparation,
 					durationMs: expect.any(Number),
 					transformed: false,
 					originalMimeType: 'image/png',
