@@ -111,6 +111,7 @@ services:
         "${CONTENT_SECURITY_POLICY_DIRECTIVES__CONNECT_SRC:-'self' http://localhost:* https://*
         wss://*}"
       HSTS_ENABLED: ${HSTS_ENABLED:-true}
+      ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION: ${ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION}
 
       # Misc
       MARKETPLACE_TRUST: ${MARKETPLACE_TRUST:-sandbox}
