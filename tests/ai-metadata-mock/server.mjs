@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
 
 /** @type {Map<string, { started: Promise<void>, markStarted: () => void, released: Promise<void>, release: () => void }>} */
@@ -80,6 +81,20 @@ async function handle(request, response) {
 			}),
 		)
 		return
+	}
+	const expectedHash = /E2E_EXPECT_IMAGE_SHA256:([a-f0-9]{64})/u.exec(body)?.[1]
+	if (
+		expectedHash &&
+		createHash('sha256')
+			.update(Buffer.from(image[1] ?? '', 'base64'))
+			.digest('hex') !== expectedHash
+	)
+		throw new Error('Expected prepared image bytes to match the requested derivative')
+	if (body.includes('E2E_OVER_TARGET')) {
+		const bytes = Buffer.from(image[1] ?? '', 'base64')
+		const maxSize = Number(/E2E_MAX_SIZE:(\d+)/u.exec(body)?.[1] ?? 500_000)
+		if (!body.includes('data:image/webp;') || bytes.length <= maxSize)
+			throw new Error('Expected over-target transformed WebP bytes')
 	}
 	if (body.includes('E2E_REJECT_PROVIDER')) {
 		response.writeHead(400, { 'Content-Type': 'application/json' })

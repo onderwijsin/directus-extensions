@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { readWebpDimensions } from '../files/webp-dimensions'
+
 /** Model coordinates use a top-left origin in the oriented image, independent of resolution. */
 export const focalPointSchema = z.object({
 	x: z.number().int().min(0).max(1000),
@@ -54,19 +56,24 @@ export function focalPointPatch(point: unknown, file: unknown) {
 }
 
 /**
- * Verifies the canonical PNG input matches stored oriented dimensions before requesting a point.
- * @param image - PNG bytes returned by accountable Directus conversion.
+ * Verifies canonical WebP input retains the original oriented coordinate frame after scaling.
+ * @param image - WebP bytes returned by accountable Directus conversion.
  * @param file - Stored original dimensions.
+ * @param maxDimension - Optional proportional resize bound requested from Directus.
  * @returns Whether the model and Directus use the same coordinate frame.
  */
-export function matchesFocalPointDimensions(image: Buffer, file: unknown): boolean {
+export function matchesFocalPointDimensions(
+	image: Buffer,
+	file: unknown,
+	maxDimension?: number,
+): boolean {
 	const dimensions = dimensionsSchema.safeParse(file)
+	const actual = readWebpDimensions(image)
+	if (!dimensions.success || !actual) return false
+	const { width, height } = dimensions.data
+	const scale = maxDimension ? Math.min(1, maxDimension / Math.max(width, height)) : 1
 	return (
-		dimensions.success &&
-		image.length >= 24 &&
-		image.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) &&
-		image.toString('ascii', 12, 16) === 'IHDR' &&
-		image.readUInt32BE(16) === dimensions.data.width &&
-		image.readUInt32BE(20) === dimensions.data.height
+		actual.width === Math.max(1, Math.round(width * scale)) &&
+		actual.height === Math.max(1, Math.round(height * scale))
 	)
 }

@@ -39,6 +39,14 @@ const baseOptionsSchema = z.object({
 	provider: z.preprocess(optionalText, providerSchema.optional()),
 	model: z.preprocess(optionalText, z.string().trim().min(1).optional()),
 	prompt: z.preprocess(optionalText, z.string().trim().min(1).optional()),
+	maxImageSizeBytes: z.preprocess(optionalText, z.number().int().positive().safe().optional()),
+	// Accept the former option in saved Flows; normalization emits only maxImageSizeBytes.
+	targetImageSizeBytes: z.preprocess(optionalText, z.number().int().positive().safe().optional()),
+	maxImageDimension: z.preprocess(optionalText, z.number().int().positive().safe().default(1500)),
+	targetImageDimension: z.preprocess(
+		optionalText,
+		z.number().int().positive().safe().default(800),
+	),
 	// Retired option: accept every saved value, but never use it for selection.
 	mimeTypes: z
 		.unknown()
@@ -58,20 +66,27 @@ const baseOptionsSchema = z.object({
 })
 
 /**
- * Converts explicit root switches into the existing exact-folder execution contract.
+ * Normalizes exact-folder selection and the former image-size option for execution.
  * @param options - Validated operation options.
- * @returns Options with deduplicated folder IDs and root entries.
+ * @returns Current option names with defaults and normalized folder IDs/root entries.
  */
-function normalizeFolders<T extends z.output<typeof baseOptionsSchema>>(options: T) {
+function normalizeOptions<T extends z.output<typeof baseOptionsSchema>>(options: T) {
 	const includeFolders: (string | null)[] = [...options.includeFolders]
 	const excludeFolders: (string | null)[] = [...options.excludeFolders]
 	if (options.includeRoot && includeFolders.length) includeFolders.push(null)
 	if (!options.includeRoot) excludeFolders.push(null)
-	return { ...options, includeFolders, excludeFolders }
+	// Prefer the current option, preserve saved legacy values, and expose only the current name.
+	const { targetImageSizeBytes, ...currentOptions } = options
+	return {
+		...currentOptions,
+		maxImageSizeBytes: options.maxImageSizeBytes ?? targetImageSizeBytes ?? 500_000,
+		includeFolders,
+		excludeFolders,
+	}
 }
 
 /** Validated shared options with normalized folder selection. */
-export const optionsSchema = baseOptionsSchema.transform(normalizeFolders)
+export const optionsSchema = baseOptionsSchema.transform(normalizeOptions)
 
 /** Options for processing explicit file IDs, including a templated upload ID. */
 export const writerOptionsSchema = baseOptionsSchema
@@ -80,7 +95,7 @@ export const writerOptionsSchema = baseOptionsSchema
 			.union([z.uuid(), z.array(z.uuid()).min(1).max(1000)])
 			.transform((value) => (Array.isArray(value) ? [...new Set(value)] : [value])),
 	})
-	.transform(normalizeFolders)
+	.transform(normalizeOptions)
 
 /** Bounded, resumable backfill options. */
 export const backfillOptionsSchema = baseOptionsSchema
@@ -100,7 +115,7 @@ export const backfillOptionsSchema = baseOptionsSchema
 			.default([]),
 	})
 	.strict()
-	.transform(normalizeFolders)
+	.transform(normalizeOptions)
 
 /** Metadata fields read through the Flow's accountability. */
 export const fileSchema = z.object({
@@ -110,6 +125,17 @@ export const fileSchema = z.object({
 	description: z.string().nullable(),
 	tags: z.union([z.array(z.string()), z.string()]).nullable(),
 	filename_download: z.string().nullable(),
+	filesize: z
+		.union([
+			z.number().int().nonnegative().safe(),
+			z
+				.string()
+				.regex(/^\d+$/u)
+				.transform(Number)
+				.pipe(z.number().int().nonnegative().safe()),
+		])
+		.nullable()
+		.default(null),
 	width: z.number().nullable().default(null),
 	height: z.number().nullable().default(null),
 	focal_point_x: z.number().nullable().default(null),

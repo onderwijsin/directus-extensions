@@ -29,6 +29,7 @@ function file(index: number): MetadataFile {
 		description: null,
 		tags: null,
 		filename_download: 'image.png',
+		filesize: 1000,
 		width: 800,
 		height: 600,
 		focal_point_x: null,

@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { backfillOptionsSchema, writerOptionsSchema } from '../configuration/options'
-import type { FileResult } from '../processing/contracts'
+import type { FileResult, ImageTransformationReason } from '../processing/contracts'
 import type { ProviderConfig } from '../providers/provider'
 
 import { randomUUID } from 'node:crypto'
@@ -32,10 +32,13 @@ export function createRunDiagnostics(operation: string) {
 		const filesFailed = results.filter((result) => result.status === 'failed').length
 		const transformed = results.filter((result) => result.transformed)
 		const transformsByMimeType: Record<string, number> = {}
+		const transformsByReason: Partial<Record<ImageTransformationReason, number>> = {}
 		for (const result of transformed) {
 			if (result.originalMimeType)
 				transformsByMimeType[result.originalMimeType] =
 					(transformsByMimeType[result.originalMimeType] ?? 0) + 1
+			for (const reason of result.imagePreparation?.reasons ?? [])
+				transformsByReason[reason] = (transformsByReason[reason] ?? 0) + 1
 		}
 		return {
 			runId,
@@ -57,6 +60,9 @@ export function createRunDiagnostics(operation: string) {
 								}
 							: { files: options.files }),
 						language: options.language ?? null,
+						maxImageSizeBytes: options.maxImageSizeBytes,
+						maxImageDimension: options.maxImageDimension,
+						targetImageDimension: options.targetImageDimension,
 						includeRoot: options.includeRoot,
 						includeFolders: options.includeFolders,
 						excludeFolders: options.excludeFolders,
@@ -76,7 +82,9 @@ export function createRunDiagnostics(operation: string) {
 			filesSkipped: results.filter((result) => result.status === 'skipped').length,
 			filesFailed,
 			assetsTransformed: transformed.length,
+			assetsOverMaxSize: results.filter((result) => result.imageMaxSizeExceeded).length,
 			transformsByMimeType,
+			transformsByReason,
 			outcome: fatal ? 'failed' : filesFailed ? 'partial_failure' : 'success',
 			hasFailures: fatal || filesFailed > 0,
 			complete: complete && !fatal && filesFailed === 0,

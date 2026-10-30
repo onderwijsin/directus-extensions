@@ -21,6 +21,7 @@ export const fileFields = [
 	'description',
 	'tags',
 	'filename_download',
+	'filesize',
 	'width',
 	'height',
 	'focal_point_x',
@@ -33,8 +34,46 @@ export interface MetadataWriteResult {
 	fields: string[]
 }
 
+/** Independent preparation triggers; a single image can match several reasons. */
+export type ImageTransformationReason =
+	| 'filetype'
+	| 'dimensions'
+	| 'filesize'
+	| 'unknown_filesize'
+	| 'focal_point'
+
+/** Validated preparation thresholds and resize target for one operation. */
+export interface ImagePreparationSettings {
+	maxSizeBytes: number
+	maxDimension: number
+	targetDimension: number
+}
+
+/** Source measurements, effective thresholds, and the prepared provider input for one file. */
+export interface ImagePreparationDiagnostics {
+	reasons: ImageTransformationReason[]
+	source: {
+		width: number | null
+		height: number | null
+		sizeBytes: number | null
+		mimeType: string | null
+	}
+	settings: ImagePreparationSettings
+	/** Null until acquisition, collection, and any requested WebP validation succeed. */
+	output: {
+		width: number | null
+		height: number | null
+		sizeBytes: number
+		mimeType: string
+	} | null
+}
+
 /** Per-file conversion observations, independent of the metadata write outcome. */
 export interface TransformationDiagnostics {
+	/** Available after a valid preparation plan, including failed transformation attempts. */
+	imagePreparation?: ImagePreparationDiagnostics
+	/** Present when prepared bytes exceed the soft size threshold, including later provider failures. */
+	imageMaxSizeExceeded?: boolean
 	transformed: boolean
 	originalMimeType: string | null
 	transformationDurationMs: number
