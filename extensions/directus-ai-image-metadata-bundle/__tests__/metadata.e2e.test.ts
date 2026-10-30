@@ -1,4 +1,6 @@
+import { execFile } from 'node:child_process'
 import { readFile as readFixture } from 'node:fs/promises'
+import { promisify } from 'node:util'
 
 import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
@@ -49,6 +51,7 @@ const resultSchema = z.object({
 				.object({
 					stage: z.string(),
 					code: z.string(),
+					httpStatus: z.number().int().optional(),
 					retryable: z.boolean(),
 					raw: z.unknown().optional(),
 				})
@@ -143,7 +146,304 @@ async function uploadImage(folder: string) {
 	return file.id
 }
 
+/**
+ * Coordinates an in-flight mock request without timing-dependent sleeps or published ports.
+ * @param key - Test file UUID.
+ * @param action - Wait for generation or release its response.
+ * @returns Completion of the provider-side barrier.
+ */
+async function providerGate(key: string, action: 'wait' | 'release') {
+	await promisify(execFile)(
+		'docker',
+		[
+			'compose',
+			...environment.DIRECTUS_E2E_COMPOSE_FILES.flatMap((file) => ['-f', file]),
+			'-p',
+			environment.DIRECTUS_E2E_COMPOSE_PROJECT,
+			'exec',
+			'-T',
+			'ai-metadata-mock',
+			'node',
+			'-e',
+			`fetch('http://localhost:3000/gate/${key}/${action}').then(r => { if (!r.ok) process.exit(1) })`,
+		],
+		{ timeout: 30_000 },
+	)
+}
+
 describe('image metadata installed Flow operations', () => {
+	it('backfills focal points alone and persists only coordinate pairs through normal revisions', async () => {
+		const folder = await client.request(createFolder({ name: 'Focal-only E2E' }))
+		const ids: string[] = []
+		const text = {
+			description: '  Human\ntext  ',
+			tags: [' manual ', 'unchanged'],
+			filename_download: 'Manual Name.PNG',
+		}
+		try {
+			for (let i = 0; i < 4; i++) {
+				const id = await uploadImage(folder.id)
+				ids.push(id)
+				await client.request(
+					updateFile(id, {
+						...text,
+						focal_point_x: i === 0 ? 0 : i === 1 ? 1 : null,
+						focal_point_y: i === 0 ? 0 : i === 2 ? 1 : null,
+					}),
+				)
+			}
+			const options = {
+				includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
+				generateAltText: false,
+				generateTags: false,
+				generateFilename: false,
+				generateFocalPoint: true,
+				prompt: 'E2E_FOCAL_ONLY',
+			}
+			const result = await runOperation('ai-image-metadata-regenerate', options)
+			expect(result.results.map((value) => value.id).sort()).toEqual(ids.slice(1).sort())
+			expect(result).toMatchObject({ complete: true, remainingIds: [] })
+			expect(result.summary?.options).toMatchObject({
+				generateFocalPoint: true,
+				overwriteFocalPoint: false,
+			})
+			for (const outcome of result.results) {
+				expect(outcome.fields.sort()).toEqual(['focal_point_x', 'focal_point_y'])
+				const stored = await client.request(readFile(outcome.id))
+				if (stored.width === null || stored.height === null)
+					throw new Error('Missing dimensions')
+				expect(stored).toMatchObject(text)
+				expect(stored.focal_point_x).toBe(
+					Math.min(stored.width - 1, Math.round(stored.width * 0.25)),
+				)
+				expect(stored.focal_point_y).toBe(
+					Math.min(stored.height - 1, Math.round(stored.height * 0.75)),
+				)
+				const revisions = z
+					.array(z.object({ delta: z.record(z.string(), z.unknown()) }))
+					.parse(
+						await client.request(
+							customEndpoint({
+								path: `/revisions?filter[collection][_eq]=directus_files&filter[item][_eq]=${outcome.id}&sort=-id&limit=1`,
+								method: 'GET',
+							}),
+						),
+					)
+				const delta = revisions[0]?.delta
+				expect(delta).toHaveProperty('focal_point_x')
+				expect(delta).toHaveProperty('focal_point_y')
+				for (const field of ['description', 'tags', 'filename_download'])
+					expect(delta).not.toHaveProperty(field)
+			}
+			expect(
+				(
+					await runOperation('ai-image-metadata-regenerate', {
+						...options,
+						overwriteFocalPoint: true,
+					})
+				).scanned,
+			).toBe(0)
+			expect(
+				(
+					await runOperation('ai-image-metadata-regenerate', {
+						...options,
+						missingOnly: false,
+						overwriteFocalPoint: true,
+					})
+				).results,
+			).toHaveLength(4)
+			const missingTextId = ids[1]
+			if (!missingTextId) throw new Error('Missing focal fixture')
+			await client.request(
+				updateFile(missingTextId, { description: null, tags: null, focal_point_x: null }),
+			)
+			await runOperation('ai-image-metadata-regenerate', options)
+			expect(await client.request(readFile(missingTextId))).toMatchObject({
+				description: null,
+				tags: null,
+				filename_download: text.filename_download,
+			})
+		} finally {
+			for (const id of ids) await client.request(deleteFile(id))
+			await client.request(deleteFolder(folder.id))
+		}
+	})
+	it.each([
+		{ format: 'jpeg', width: 2048, height: 3072 },
+		{ format: 'png', width: 924, height: 4453 },
+	])(
+		'reports the Directus 12.2 output limit for a valid $width×$height $format',
+		async ({ format, width, height }) => {
+			const folder = await client.request(
+				createFolder({ name: 'Transformation output limit E2E' }),
+			)
+			const ids: string[] = []
+			try {
+				const data = new FormData()
+				data.append('folder', folder.id)
+				data.append(
+					'file',
+					new Blob(
+						[
+							new Uint8Array(
+								await readFixture(
+									new URL(`./fixtures/output-limit.${format}`, import.meta.url),
+								),
+							),
+						],
+						{ type: `image/${format}` },
+					),
+					`output-limit.${format}`,
+				)
+				const large = await client.request(uploadFiles(data))
+				ids.push(large.id)
+				const smallId = await uploadImage(folder.id)
+				ids.push(smallId)
+				expect(await client.request(readFile(large.id))).toMatchObject({ width, height })
+				const result = await runOperation('ai-image-metadata-regenerate', {
+					includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
+					generateAltText: false,
+					generateFocalPoint: true,
+				})
+				expect(result.results.find((file) => file.id === large.id)).toMatchObject({
+					status: 'failed',
+					fields: [],
+					transformed: false,
+					error: {
+						stage: 'convert_image',
+						code: 'IMAGE_TRANSFORM_FAILED',
+						httpStatus: 400,
+						raw: { code: 'ILLEGAL_ASSET_TRANSFORMATION' },
+					},
+				})
+				expect(result.results.find((file) => file.id === smallId)?.status).toBe('updated')
+				expect(await client.request(readFile(large.id))).toMatchObject({
+					focal_point_x: null,
+					focal_point_y: null,
+				})
+				// The original portable image is valid; text-only generation does not request a transform.
+				const textOnly = await runOperation('ai-image-metadata', {
+					files: large.id,
+					generateFocalPoint: false,
+				})
+				expect(textOnly.results[0]).toMatchObject({
+					status: 'updated',
+					fields: ['description'],
+					transformed: false,
+				})
+			} finally {
+				for (const id of ids) await client.request(deleteFile(id))
+				await client.request(deleteFolder(folder.id))
+			}
+		},
+	)
+	it.each(['jpeg', 'tiff', 'avif'])(
+		'uses oriented original dimensions for %s focal coordinates',
+		async (format) => {
+			const folder = await client.request(createFolder({ name: 'Oriented focal E2E' }))
+			let id: string | undefined
+			try {
+				const data = new FormData()
+				data.append('folder', folder.id)
+				data.append(
+					'file',
+					new Blob(
+						[
+							new Uint8Array(
+								await readFixture(
+									new URL(`./fixtures/oriented.${format}`, import.meta.url),
+								),
+							),
+						],
+						{ type: `image/${format}` },
+					),
+					`oriented.${format}`,
+				)
+				id = (await client.request(uploadFiles(data))).id
+				expect(await client.request(readFile(id))).toMatchObject({ width: 40, height: 80 })
+				const asset = await fetch(
+					`${environment.DIRECTUS_E2E_URL}/assets/${id}?format=png`,
+					{ headers: { Authorization: `Bearer ${environment.DIRECTUS_E2E_TOKEN}` } },
+				)
+				expect(asset.ok).toBe(true)
+				const canonical = Buffer.from(await asset.arrayBuffer())
+				expect(canonical.readUInt32BE(16)).toBe(40)
+				expect(canonical.readUInt32BE(20)).toBe(80)
+				const result = await runOperation('ai-image-metadata', {
+					files: id,
+					generateAltText: false,
+					generateFocalPoint: true,
+					prompt: `E2E_FOCAL_ONLY E2E_EXPECT_IMAGE:${canonical.toString('base64')}`,
+				})
+				expect(result.results[0]).toMatchObject({
+					status: 'updated',
+					fields: ['focal_point_x', 'focal_point_y'],
+					transformed: true,
+				})
+				expect(await client.request(readFile(id))).toMatchObject({
+					focal_point_x: 10,
+					focal_point_y: 60,
+				})
+			} finally {
+				if (id) await client.request(deleteFile(id))
+				await client.request(deleteFolder(folder.id))
+			}
+		},
+	)
+	it.each(['manual', 'dimensions'])(
+		'rechecks concurrent %s edits under the transaction lock',
+		async (edit) => {
+			const folder = await client.request(createFolder({ name: 'Concurrent focal E2E' }))
+			let id: string | undefined
+			let pending: ReturnType<typeof runOperation> | undefined
+			try {
+				id = await uploadImage(folder.id)
+				pending = runOperation('ai-image-metadata', {
+					files: id,
+					generateAltText: false,
+					generateFocalPoint: true,
+					prompt: `E2E_FOCAL_GATE:${id}`,
+				})
+				// Attach a rejection handler immediately while the test coordinates the provider request.
+				void pending.catch(() => {
+					/* The awaited operation below owns rejection assertions. */
+				})
+				await providerGate(id, 'wait')
+				await client.request(
+					updateFile(
+						id,
+						edit === 'manual'
+							? {
+									focal_point_x: 0,
+									focal_point_y: 0,
+									description: '  Concurrent human text  ',
+								}
+							: { width: 100 },
+					),
+				)
+				await providerGate(id, 'release')
+				expect((await pending).results[0]).toMatchObject({ status: 'skipped', fields: [] })
+				expect(await client.request(readFile(id))).toMatchObject(
+					edit === 'manual'
+						? {
+								focal_point_x: 0,
+								focal_point_y: 0,
+								description: '  Concurrent human text  ',
+							}
+						: { focal_point_x: null, focal_point_y: null },
+				)
+			} finally {
+				if (id && pending) {
+					await providerGate(id, 'release')
+					await pending.catch(() => {
+						/* The awaited operation below owns rejection assertions. */
+					})
+				}
+				if (id) await client.request(deleteFile(id))
+				await client.request(deleteFolder(folder.id))
+			}
+		},
+	)
 	it('converts image candidates, ignores legacy MIME filters, isolates corruption and preserves cursor selection', async () => {
 		const folder = await client.request(createFolder({ name: 'Image preparation E2E' }))
 		const ids: string[] = []

@@ -19,6 +19,7 @@ import { createFileReader } from '../files/file-reader'
 import { readImageBytes } from '../files/image-bytes'
 import { diagnosticMimeType } from '../files/image-mime-types'
 import { imageTransformFailure } from '../files/image-transform-error'
+import { hasFocalPointDimensions, matchesFocalPointDimensions } from '../focal-point/focal-point'
 import { needsMetadataUpdate, isSelected } from '../metadata/metadata'
 import { createMetadataWriter } from '../metadata/metadata-writer'
 import { generateMetadata } from '../providers/provider'
@@ -90,7 +91,10 @@ export function createMetadataProcessor(
 
 		const signal = AbortSignal.timeout(env.AI_METADATA_WRITER_TIMEOUT_MS)
 		const started = performance.now()
-		const transform = file.type === 'image/avif' || file.type === 'image/tiff'
+		const transform =
+			(options.generateFocalPoint && hasFocalPointDimensions(file)) ||
+			file.type === 'image/avif' ||
+			file.type === 'image/tiff'
 		const mediaType = transform ? 'image/png' : (file.type ?? '')
 		let image: Buffer
 
@@ -137,6 +141,13 @@ export function createMetadataProcessor(
 			'Image metadata input prepared',
 		)
 
+		const generationOptions = {
+			...options,
+			generateFocalPoint:
+				options.generateFocalPoint && matchesFocalPointDimensions(image, file),
+		}
+		if (!needsMetadataUpdate(file, generationOptions)) return skipped
+
 		const generation = await atStage(
 			'generate',
 			() =>
@@ -144,9 +155,9 @@ export function createMetadataProcessor(
 					config,
 					image,
 					mediaType,
-					createMetadataSystemPrompt(options, env),
+					createMetadataSystemPrompt(generationOptions, env),
 					signal,
-					options,
+					generationOptions,
 				),
 			signal,
 		)

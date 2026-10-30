@@ -1,7 +1,7 @@
 {
 	"name": "@onderwijsin/directus-ai-image-metadata-bundle",
 	"version": "0.2.1",
-	"description": "Generate accessible image descriptions, tags, and filenames from Directus Flows",
+	"description": "Generate accessible image descriptions, tags, filenames, and focal points from Directus Flows",
 	"keywords": [
 		"accessibility",
 		"ai",

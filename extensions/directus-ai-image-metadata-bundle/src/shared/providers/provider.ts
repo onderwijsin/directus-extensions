@@ -92,17 +92,22 @@ export async function generateMetadata(
 	prompt: string,
 	signal: AbortSignal,
 	options: Pick<MetadataOptions, 'generateTags' | 'generateFilename'> &
-		Partial<Pick<MetadataOptions, 'generateAltText'>> = {
+		Partial<Pick<MetadataOptions, 'generateAltText' | 'generateFocalPoint'>> = {
 		generateTags: false,
 		generateFilename: false,
 	},
 ) {
-	const generationOptions = { ...options, generateAltText: options.generateAltText ?? true }
+	const generationOptions = {
+		...options,
+		generateAltText: options.generateAltText ?? true,
+		generateFocalPoint: options.generateFocalPoint ?? false,
+	}
 	const schema = createMetadataSchema(generationOptions)
 	const requestedFields = [
 		...(generationOptions.generateAltText ? ['altText'] : []),
 		...(options.generateTags ? ['tags'] : []),
 		...(options.generateFilename ? ['filename'] : []),
+		...(options.generateFocalPoint ? ['focalPoint'] : []),
 	]
 	const result = await generateText({
 		model: createMetadataModel(config),
@@ -113,7 +118,7 @@ export async function generateMetadata(
 				role: 'user',
 				content: [
 					{ type: 'text', text: 'Generate accessible metadata for this image.' },
-					{ type: 'image', image, mediaType },
+					{ type: 'file', data: image, mediaType },
 				],
 			},
 		],

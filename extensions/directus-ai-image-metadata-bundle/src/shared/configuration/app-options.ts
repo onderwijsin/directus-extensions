@@ -146,4 +146,23 @@ export const metadataAppOptions = [
 			note: 'Rename existing download filenames when Generate Download Filename is enabled.',
 		},
 	},
+	{
+		field: 'generateFocalPoint',
+		name: 'Generate Focal Point',
+		type: 'boolean',
+		schema: { default_value: false },
+		meta: { interface: 'boolean', width: 'half' },
+	},
+	{
+		field: 'overwriteFocalPoint',
+		name: 'Overwrite Focal Point',
+		type: 'boolean',
+		schema: { default_value: false },
+		meta: {
+			conditions: [{ rule: { generateFocalPoint: { _neq: true } }, hidden: true }],
+			interface: 'boolean',
+			width: 'half',
+			note: 'Replace a complete focal point; otherwise fill incomplete pairs together.',
+		},
+	},
 ] satisfies OperationAppConfig['options']

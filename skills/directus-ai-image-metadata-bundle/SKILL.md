@@ -5,9 +5,9 @@ description: Configure Directus image metadata operations and backfills.
 
 # Directus AI image metadata bundle
 
-Generate accessible image alt text, optional tags, and optional download filenames from Directus
-Flows using the Vercel AI SDK. Includes `ai-image-metadata` for explicit files and
-`ai-image-metadata-regenerate` for manual, resumable batches. Private assets are read through
+Generate accessible image alt text, optional tags, optional download filenames, and optional focal
+points from Directus Flows using the Vercel AI SDK. Includes `ai-image-metadata` for explicit files
+and `ai-image-metadata-regenerate` for manual, resumable batches. Private assets are read through
 Directus; they do not need public URLs.
 
 ## Install
@@ -76,21 +76,23 @@ Images are sent to the selected external AI provider; account for that provider'
 Both operations accept these options. Cleared optional Studio strings (null, empty, or
 whitespace-only) use their environment/default fallback:
 
-| Option              | Default                          | Behavior                                                                                                |
-| ------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `language`          | environment language / `English` | Optional language override for this operation.                                                          |
-| `provider`          | `resolved environment`           | Provider override; credentials stay on the server.                                                      |
-| `model`             | `resolved environment`           | Image-capable model override.                                                                           |
-| `prompt`            | `environment/default`            | Replacement system instructions.                                                                        |
-| `includeFolders`    | `[]`                             | Folder selection objects; empty selects all. Use `includeRoot` for root.                                |
-| `excludeFolders`    | `[]`                             | Folder selection objects; exclusion wins. Root inclusion is controlled by `includeRoot`.                |
-| `includeRoot`       | `false`                          | Include root files alongside selected folders; unchecked excludes root.                                 |
-| `generateAltText`   | `true`                           | Generate alt text in description; disabling prevents description writes.                                |
-| `generateTags`      | `false`                          | Write generated tags to directus_files.tags.                                                            |
-| `generateFilename`  | `false`                          | Write a safe download filename, preserving its extension.                                               |
-| `overwriteAltText`  | `false`                          | Replace populated description when generateAltText is enabled; otherwise fill only missing alt text.    |
-| `overwriteTags`     | `false`                          | Replace populated tags when generateTags is enabled; otherwise fill only missing tags.                  |
-| `overwriteFilename` | `false`                          | Replace the download filename when generateFilename is enabled; otherwise fill only a missing filename. |
+| Option                | Default                          | Behavior                                                                                                 |
+| --------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `language`            | environment language / `English` | Optional language override for this operation.                                                           |
+| `provider`            | `resolved environment`           | Provider override; credentials stay on the server.                                                       |
+| `model`               | `resolved environment`           | Image-capable model override.                                                                            |
+| `prompt`              | `environment/default`            | Replacement system instructions.                                                                         |
+| `includeFolders`      | `[]`                             | Folder selection objects; empty selects all. Use `includeRoot` for root.                                 |
+| `excludeFolders`      | `[]`                             | Folder selection objects; exclusion wins. Root inclusion is controlled by `includeRoot`.                 |
+| `includeRoot`         | `false`                          | Include root files alongside selected folders; unchecked excludes root.                                  |
+| `generateAltText`     | `true`                           | Generate alt text in description; disabling prevents description writes.                                 |
+| `generateTags`        | `false`                          | Write generated tags to directus_files.tags.                                                             |
+| `generateFilename`    | `false`                          | Write a safe download filename, preserving its extension.                                                |
+| `generateFocalPoint`  | `false`                          | Generate an approximate crop center in directus_files.focal_point_x and focal_point_y.                   |
+| `overwriteFocalPoint` | `false`                          | Replace complete focal-point pairs when generation is enabled; otherwise fill incomplete pairs together. |
+| `overwriteAltText`    | `false`                          | Replace populated description when generateAltText is enabled; otherwise fill only missing alt text.     |
+| `overwriteTags`       | `false`                          | Replace populated tags when generateTags is enabled; otherwise fill only missing tags.                   |
+| `overwriteFilename`   | `false`                          | Replace the download filename when generateFilename is enabled; otherwise fill only a missing filename.  |
 
 Both operations select only Directus-transformable MIME types: `image/jpeg`, `image/png`,
 `image/webp`, `image/tiff`, and `image/avif`. This fixed filter applies to paged queries and cursor
@@ -101,12 +103,13 @@ Existing Flows can therefore select a different set of candidates; folder, missi
 accountability, cursor, and `maxFiles` bounds retain their meanings.
 
 JPEG, PNG, and WebP pass through accountable Directus AssetsService reads with their original bytes
-and MIME type. Only AVIF and TIFF request PNG conversion through AssetsService before generation.
-For converted inputs, Directus owns decoding, orientation, first-frame/page handling, alpha
-preservation, transformation limits, and derivative caching in the configured file storage. No
-resize or crop is requested. Stored source bytes and file metadata are unchanged by preparation;
-explicit filename generation retains its existing behavior. No separate image library or native
-dependency is required.
+and MIME type. AVIF and TIFF request PNG conversion through AssetsService before generation.
+Enabling focal points also requests PNG conversion for JPEG, PNG, and WebP to give the model a
+canonical, EXIF-oriented image. For converted inputs, Directus owns decoding, orientation,
+first-frame/page handling, alpha preservation, transformation limits, and derivative caching in the
+configured file storage. No resize or crop is requested. Stored source bytes and file metadata are
+unchanged by preparation; explicit filename generation retains its existing behavior. No separate
+image library or native dependency is required.
 
 Provider-input bytes are bounded by the smaller of `AI_METADATA_WRITER_MAX_IMAGE_BYTES` and 5 MB.
 Oversized outputs fail instead of being resized or recompressed; provider/model limits can be
@@ -126,8 +129,9 @@ as described below.
 
 The Studio shows **Overwrite Alt Text** only when **Generate Alt Text** is enabled, **Overwrite
 Tags** only when **Generate Tags** is enabled, and **Overwrite Filename** only when **Generate
-Download Filename** is enabled. Disabling generation hides its overwrite control and prevents writes
-for that field, even if a previously saved overwrite value is true.
+Download Filename** is enabled, and **Overwrite Focal Point** only when **Generate Focal Point** is
+enabled. Disabling generation hides its overwrite control and prevents writes for that field, even
+if a previously saved overwrite value is true.
 
 Alt text is written to `directus_files.description`. Consumers must map that value to rendered image
 alt attributes; the extension does not modify frontend rendering. Whitespace-only descriptions and
@@ -143,6 +147,61 @@ text, no “Image of”/“Picture of” prefixes, and no invented identities or
 replace those instructions. Responses are validated: nonblank alt text up to 1000 characters, up to
 30 tags of 100 characters, and a lowercase hyphenated filename stem up to 150 characters. Human
 review remains appropriate before using generated descriptions for accessibility.
+
+### Focal points and focal-only backfills
+
+Both operations use one image input and one shared AI SDK generation call per eligible file,
+including when focal points accompany textual outputs. The model returns
+`focalPoint: {"x":250,"y":750}` in integer 0–1000 coordinates with a top-left origin. Coordinates
+map to original stored, oriented image dimensions using
+`min(dimension - 1, round(normalized * dimension / 1000))`. Both pixel coordinates are written
+atomically through Directus services; `fields` reports `focal_point_x` and `focal_point_y`. There is
+no radius field.
+
+A complete manual pair, including zero coordinates, is preserved unless `overwriteFocalPoint` is
+true. A partial pair counts as missing and is replaced together; old and generated coordinates are
+never mixed. The row-lock recheck preserves complete focal points added during generation.
+Nonpositive, fractional, missing, or unsupported dimensions prevent focal writes. The canonical PNG
+must match the stored oriented dimensions, and changed dimensions or MIME during generation discard
+the focal output. Other enabled text fields keep their independent policies. In a missing-only run,
+unresolved focal points remain in `remainingIds`; repair the dimensions or exclude those files
+before retrying. This does not solve replacement of an asset with another image of the same
+dimensions during generation.
+
+Use `ai-image-metadata-regenerate` with these options to fill focal points while preserving all
+text, even where a textual field is missing:
+
+```json
+{
+  "generateAltText": false,
+  "generateTags": false,
+  "generateFilename": false,
+  "generateFocalPoint": true,
+  "overwriteFocalPoint": false,
+  "missingOnly": true
+}
+```
+
+Only `focalPoint` is requested and validated. Candidate selection checks either missing coordinate
+independently of textual metadata. Complete pairs remain excluded in missing-only mode even with
+overwrite enabled. Set both `missingOnly: false` and `overwriteFocalPoint: true` to replace complete
+pairs without touching text. Add folder selection or `includeRoot: true` as needed.
+
+The Flow needs read access to `width`, `height`, `focal_point_x`, and `focal_point_y`, and update
+access to both coordinate fields. Focal generation requires Directus PNG transformations to be
+allowed; transformation size, byte, and timeout limits still apply. PNG conversion can increase
+input size and storage/processing cost. `transformed`, preparation durations, and summary conversion
+counts include these additional converted inputs. Existing text-only preparation stays unchanged.
+
+Focal guidance favors faces in portraits, the center of equally important groups, salient subjects,
+or the image center when no clear subject exists. Image text is treated as data. These instructions
+are added only when focal generation is enabled, including with custom prompts. General vision
+models offer approximate localization; combined output failures can fail all requested outputs. A
+single point cannot ensure good crops for every aspect ratio, groups, products, landscapes, or
+text-heavy compositions. Deterministic orientation/persistence tests do not evaluate semantic crop
+quality. Before bulk overwrite, review representative portraits, groups, products, landscapes, and
+busy/text-heavy images at 16:9, 1:1, and 3:4 with your chosen provider/model. No measured
+localization precision or production crop-quality guarantee is claimed.
 
 ### Metadata language
 
@@ -299,6 +358,62 @@ AI_METADATA_WRITER_MODEL to a vision model, and AI_METADATA_WRITER_BASE_URL to t
 base URL. Supply AI_METADATA_WRITER_API_KEY or the compatible Directus settings credential. Verify
 that its chat-completions API supports both image messages and structured responses before backfill.
 
+### Directus transformation limits and metadata generation
+
+Directus transformation limits apply to **every focal-point generation run** and to **all AVIF/TIFF
+metadata generation**, including text-only AVIF/TIFF runs. These paths request PNG conversion
+through Directus. Text-only JPEG/PNG/WebP generation sends the original bytes and does not request a
+transformation.
+
+PNG conversion preserves the original dimensions. Both limits must therefore allow the image's width
+and height, even when the compressed source file is small:
+
+| Directus setting                              | Default in Directus 12.2.0 | Effect                                                                                                        |
+| --------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION`        | `6000` pixels              | Rejects transformation when either original dimension exceeds this limit.                                     |
+| `ASSETS_TRANSFORM_IMAGE_MAX_OUTPUT_DIMENSION` | `3000` pixels              | Rejects transformation when either output dimension exceeds this limit, including format-only PNG conversion. |
+
+These are Directus settings, separate from `AI_METADATA_WRITER_MAX_IMAGE_BYTES`, which limits
+provider-input bytes. The defaults above are from
+[Directus 12.2.0](https://github.com/directus/directus/blob/v12.2.0/packages/env/src/constants/defaults.ts).
+Newer Directus documentation may show different defaults; check your deployed version and overrides.
+
+For example, a 2048×3072 JPEG or 924×4453 PNG passes the default source limit and fails the default
+output limit. Directus rejects conversion **before the image is sent to the AI provider**, so no
+metadata is generated or written for that file. Regeneration logs a warning and returns a failed
+file result containing these fields, then continues with other files:
+
+```json
+{
+  "status": "failed",
+  "fields": [],
+  "transformed": false,
+  "error": {
+    "stage": "convert_image",
+    "code": "IMAGE_TRANSFORM_FAILED",
+    "httpStatus": 400,
+    "message": "Image metadata processing failed.",
+    "retryable": false,
+    "raw": {
+      "code": "ILLEGAL_ASSET_TRANSFORMATION",
+      "message": "Illegal asset transformation."
+    }
+  }
+}
+```
+
+The generic message does not identify which dimension limit was exceeded. Compare both stored image
+dimensions with both configured limits. A single-file explicit operation rejects the Flow with
+`AI_METADATA_WRITER_PROCESSING_FAILED` and the same staged diagnostic in its error extensions;
+multi-file explicit runs isolate the failure in their results.
+
+If your deployment is sized for these transformations, explicitly set
+`ASSETS_TRANSFORM_IMAGE_MAX_OUTPUT_DIMENSION=5000` and restart Directus to permit the example sizes.
+Keep the source limit and transformation concurrency appropriate for available memory: limits apply
+to decoded pixels, not compressed file sizes. The extension respects these limits; it does not
+bypass them, resize the image, or retry with a different transformation. Retrying unchanged inputs
+and configuration will encounter the same limit.
+
 ### Provider configuration errors
 
 `AI_METADATA_WRITER_UNAVAILABLE` identifies missing or unsupported provider, missing model, missing
@@ -318,11 +433,12 @@ lower-layer credentials are not inherited.
 
 ### Requested metadata outputs
 
-Alt text, tags, and filename are requested and validated only when their respective
-`generateAltText`, `generateTags`, and `generateFilename` controls are enabled. Alt text defaults to
-enabled; tags and filename default to disabled. When all three are disabled, files are skipped
-without provider calls. Disabled fields are omitted from the output schema and discarded if the
-model returns them, so malformed unused tags or filenames cannot fail alt-text-only generation.
+Alt text, tags, filename, and focal point are requested and validated only when their respective
+`generateAltText`, `generateTags`, `generateFilename`, and `generateFocalPoint` controls are
+enabled. Alt text defaults to enabled; all other outputs default to disabled. When all four are
+disabled, files are skipped without provider calls. Disabled fields are omitted from the output
+schema and discarded if the model returns them, so malformed unused tags or filenames cannot fail
+alt-text-only generation.
 
 An empty or whitespace-only `DIRECTUS_EXTENSIONS_AI_API_KEY` environment value is treated as unset,
 allowing startup without an AI key and provider-matched credential fallback. Generation still
@@ -357,13 +473,15 @@ count in the summary. Failed conversion attempts are not counted. Original MIME 
 label, or null if metadata is inaccessible or its MIME declaration is missing/malformed. Unsupported
 explicit files retain their known MIME even when skipped.
 
-Pass-through JPEG/PNG/WebP files and skipped files have `transformed: false` and duration `0`. For
-AVIF/TIFF, duration measures the AssetsService conversion request, output streaming, and PNG
-signature check, ending before generation. Failed attempts retain elapsed time. Directus may serve
-an existing cached derivative; these count as transformed provider inputs too. This measurement
-includes storage/cache overhead and does not claim to isolate native CPU time or distinguish cache
-hits. Counts cover settled results in the current run/page, including partial/fatal run summaries.
-Both operations log the final returned summary without image bytes or generated content.
+With focal points disabled, pass-through JPEG/PNG/WebP files and skipped files have
+`transformed: false` and duration `0`. For converted inputs (AVIF/TIFF, plus JPEG/PNG/WebP when
+focal points are enabled), duration measures the AssetsService conversion request, output streaming,
+and PNG signature check, ending before generation. Failed attempts retain elapsed time. Directus may
+serve an existing cached derivative; these count as transformed provider inputs too. This
+measurement includes storage/cache overhead and does not claim to isolate native CPU time or
+distinguish cache hits. Counts cover settled results in the current run/page, including
+partial/fatal run summaries. Both operations log the final returned summary without image bytes or
+generated content.
 
 Folder arrays in `summary.options` show normalized selection: `null` represents files with no folder
 (the root). When `includeRoot` is false, normalization appends `null` to `excludeFolders`; when it
@@ -443,6 +561,8 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "generateAltText": true,
       "generateTags": false,
       "generateFilename": false,
+      "generateFocalPoint": false,
+      "overwriteFocalPoint": false,
       "overwriteAltText": false,
       "overwriteTags": false,
       "overwriteFilename": false
@@ -499,6 +619,8 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "generateAltText": true,
       "generateTags": false,
       "generateFilename": false,
+      "generateFocalPoint": false,
+      "overwriteFocalPoint": false,
       "overwriteAltText": false,
       "overwriteTags": false,
       "overwriteFilename": false

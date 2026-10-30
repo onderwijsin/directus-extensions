@@ -32,7 +32,11 @@ export async function runRegenerationQueue(
 	const settled = new Map<number, FileResult>()
 	let selected = 0
 	let inspected = 0
-	let exhausted = !options.generateAltText && !options.generateTags && !options.generateFilename
+	let exhausted =
+		!options.generateAltText &&
+		!options.generateTags &&
+		!options.generateFilename &&
+		!options.generateFocalPoint
 	let afterId = options.afterId
 	let fatal: { error: unknown } | undefined
 	let lock: Promise<void> = Promise.resolve()
