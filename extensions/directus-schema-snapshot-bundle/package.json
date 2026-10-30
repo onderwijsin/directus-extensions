@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-schema-snapshot-bundle",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"description": "Split Directus schema snapshots into version-controlled YAML files and apply them with the SchemaService.",
 	"keywords": [
 		"directus",

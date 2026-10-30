@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1
+
+### Patch Changes
+
+- 6e30ffb: Honor `MARKDOWN_EDITOR_ENABLED=false` in the server hook and AI endpoint while keeping
+  the Studio interface available.
+
 ## 0.7.0
 
 ### Minor Changes
