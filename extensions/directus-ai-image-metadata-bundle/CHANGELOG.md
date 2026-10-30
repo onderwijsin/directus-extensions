@@ -1,5 +1,61 @@
 # Changelog
 
+## 0.3.0
+
+### Minor Changes
+
+- ca4fafb: Add two operation options to `ai-image-metadata` and `ai-image-metadata-regenerate`:
+
+  - `generateFocalPoint` (default: `false`): generate an approximate crop center in the existing
+    shared vision call and write `directus_files.focal_point_x` and `directus_files.focal_point_y`
+    together. Complete manual focal points are preserved, and incomplete coordinate pairs are filled
+    together.
+  - `overwriteFocalPoint` (default: `false`): replace complete focal-point pairs when
+    `generateFocalPoint` is enabled. The Studio shows this option only when focal-point generation
+    is enabled.
+
+  For focal-point-only backfills, enable `generateFocalPoint` and disable `generateAltText`,
+  `generateTags`, and `generateFilename`. With `missingOnly: true`, regeneration selects incomplete
+  focal-point pairs independently of textual metadata and leaves all text fields untouched. To
+  replace complete focal points, also set `missingOnly: false` and `overwriteFocalPoint: true`.
+
+  Existing saved Flows that omit the new options receive `false` defaults at execution time; no
+  migration or resaving is required. Focal generation uses Directus PNG conversion for all supported
+  image formats and maps coordinates using verified original oriented dimensions. Existing text-only
+  defaults remain unchanged.
+
+- e18ec16: Prepare provider images conditionally: retain acceptable JPEG/PNG/WebP bytes, resize long
+  edges above the configured maximum (default 1500 px) toward the configured target (default 800
+  px), and use WebP quality 80 for byte-size preparation, AVIF/TIFF conversion, and focal-point
+  canonicalization. Small images remain at native resolution.
+
+  Configure each operation with `maxImageSizeBytes` (default 500,000 bytes), `maxImageDimension`
+  (default 1500 px), and `targetImageDimension` (default 800 px). All three appear in Studio and run
+  summaries. The resize bound is the smaller of the requested target and maximum dimension; no
+  resizing is requested for acceptable dimensions. The former `targetImageSizeBytes` remains
+  accepted in saved Flows as a fallback, with the current option taking precedence. Rename size
+  diagnostics to `imageMaxSizeExceeded`, `summary.assetsOverMaxSize`, and
+  `AI_METADATA_IMAGE_MAX_SIZE_EXCEEDED` to distinguish byte size from dimensions.
+
+  Use the configured soft byte-size threshold (default 500,000 bytes): make at most one
+  transformation attempt, then submit larger outputs with an `AI_METADATA_IMAGE_MAX_SIZE_EXCEEDED`
+  warning, per-file `imageMaxSizeExceeded` flag, and `summary.assetsOverMaxSize` count. Existing
+  hard byte limits and provider retries are unchanged.
+
+  Validate preparation dimensions and filesize metadata. Verify canonical WebP dimensions after
+  proportional resizing while mapping normalized focal points to the original oriented image.
+
+  Expose preparation reasons and source/output sizing in per-file `imagePreparation` diagnostics and
+  INFO preparation logs. Completion summaries include `transformsByReason`, with independent counts
+  for filetype, dimensions, filesize, unknown filesize, and focal-point orientation. Retain these
+  observations when transformation or subsequent provider processing fails.
+
+### Patch Changes
+
+- ca4fafb: Send image bytes using the AI SDK's supported `file` content part with the explicit image
+  MIME type, removing the deprecated `image` content-part warning while preserving private image
+  transport across providers.
+
 ## 0.2.1
 
 ### Patch Changes
