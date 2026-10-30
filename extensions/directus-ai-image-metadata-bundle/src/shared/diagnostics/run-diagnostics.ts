@@ -63,9 +63,11 @@ export function createRunDiagnostics(operation: string) {
 						generateAltText: options.generateAltText,
 						generateTags: options.generateTags,
 						generateFilename: options.generateFilename,
+						generateFocalPoint: options.generateFocalPoint,
 						overwriteAltText: options.overwriteAltText,
 						overwriteTags: options.overwriteTags,
 						overwriteFilename: options.overwriteFilename,
+						overwriteFocalPoint: options.overwriteFocalPoint,
 					}
 				: null,
 			filesFound: found.size,

@@ -213,6 +213,10 @@ operations to use its OpenAI-compatible chat-completions endpoint. The mock requ
 PNG, or WebP data URL, so successful generation verifies private image bytes reach the SDK adapter.
 Portable input fixtures additionally verify exact byte preservation. A controlled provider rejection
 verifies that completed transformation diagnostics survive generation failures. It returns
-deterministic descriptions, tags, and filename stems without contacting an external AI provider. The
-global fixture language is Dutch; the mock requires language instructions and returns English
-metadata when an operation overrides the language to English.
+deterministic descriptions, tags, filename stems, and normalized focal points without contacting an
+external AI provider. Focal-only fixtures assert that only focal output is requested; oriented
+JPEG/TIFF/AVIF fixtures compare the provider input with the canonical Directus PNG. Internal request
+barriers hold generation while tests edit manual focal points or dimensions, verifying the
+transactional recheck. The mock returns only enabled fields. The global fixture language is Dutch;
+the mock requires language instructions and returns English metadata when an operation overrides the
+language to English.

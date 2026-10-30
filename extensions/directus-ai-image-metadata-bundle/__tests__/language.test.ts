@@ -5,6 +5,7 @@ import { metadataAppOptions } from '../src/shared/configuration/app-options'
 import { createMetadataEnvironmentShape } from '../src/shared/configuration/env'
 import { acceptedLanguages, defaultLanguage } from '../src/shared/configuration/languages'
 import { optionsSchema } from '../src/shared/configuration/options'
+import { focalPointInstructions } from '../src/shared/focal-point/focal-point'
 import { defaultPrompt } from '../src/shared/providers/provider'
 import { createMetadataSystemPrompt } from '../src/shared/providers/system-prompt'
 
@@ -47,7 +48,7 @@ describe('metadata language configuration', () => {
 	})
 	it('appends language after operation and environment prompt overrides', () => {
 		const prompt = createMetadataSystemPrompt(
-			{ language: 'French', prompt: 'Describe visible text.' },
+			optionsSchema.parse({ language: 'French', prompt: 'Describe visible text.' }),
 			{ ...env, AI_METADATA_WRITER_PROMPT: 'Environment instructions' },
 		)
 		expect(prompt).toMatch(/^Describe visible text\./u)
@@ -57,17 +58,38 @@ describe('metadata language configuration', () => {
 		expect(prompt).toContain('Keep JSON property names unchanged')
 	})
 	it('keeps environment and accessibility instructions when language is defaulted', () => {
-		const defaults = createMetadataSystemPrompt(
-			{},
-			{ AI_METADATA_WRITER_LANGUAGE: defaultLanguage },
-		)
+		const defaults = createMetadataSystemPrompt(optionsSchema.parse({}), {
+			AI_METADATA_WRITER_LANGUAGE: defaultLanguage,
+		})
 		expect(defaults.startsWith(defaultPrompt)).toBe(true)
 		expect(defaults).toContain('Metadata language: English.')
 		expect(
-			createMetadataSystemPrompt(
-				{},
-				{ ...env, AI_METADATA_WRITER_PROMPT: 'Environment instructions' },
-			),
+			createMetadataSystemPrompt(optionsSchema.parse({}), {
+				...env,
+				AI_METADATA_WRITER_PROMPT: 'Environment instructions',
+			}),
 		).toMatch(/^Environment instructions/u)
+	})
+	it.each([undefined, 'Custom operation instructions'])(
+		'composes focal guidance after language and prompt overrides: %s',
+		(prompt) => {
+			const options = optionsSchema.parse({ generateFocalPoint: true, prompt })
+			const configuredEnv = { ...env, AI_METADATA_WRITER_PROMPT: 'Environment instructions' }
+			const instructions = createMetadataSystemPrompt(options, configuredEnv)
+			expect(instructions.startsWith(prompt ?? configuredEnv.AI_METADATA_WRITER_PROMPT)).toBe(
+				true,
+			)
+			expect(instructions).toContain('Metadata language: Dutch.')
+			expect(instructions.endsWith(`\n\n${focalPointInstructions}`)).toBe(true)
+			expect(instructions.split(focalPointInstructions)).toHaveLength(2)
+		},
+	)
+	it('omits focal guidance when the per-file generation switch is disabled', () => {
+		const options = optionsSchema.parse({ generateFocalPoint: true, prompt: 'Custom prompt' })
+		const disabled = { ...options, generateFocalPoint: false }
+		expect(createMetadataSystemPrompt(disabled, env)).not.toContain(focalPointInstructions)
+		expect(createMetadataSystemPrompt(disabled, env)).toBe(
+			createMetadataSystemPrompt(optionsSchema.parse({ prompt: 'Custom prompt' }), env),
+		)
 	})
 })

@@ -38,7 +38,14 @@ export function createMetadataWriter(
 				await transactionalFiles.readOne(file.id, { fields: fileFields }),
 			)
 			if (!isSelected(latest, options)) return skipped
-			const patch = createMetadataPatch(latest, generated, options)
+			// Discard focal output if the coordinate frame changed during generation (#197 remains separate).
+			const focalPoint =
+				latest.width === file.width &&
+				latest.height === file.height &&
+				latest.type === file.type
+					? generated.focalPoint
+					: undefined
+			const patch = createMetadataPatch(latest, { ...generated, focalPoint }, options)
 			const fields = Object.keys(patch)
 			if (!fields.length) return skipped
 			// Metadata-only writes use the typed ItemsService; FilesService's special handling

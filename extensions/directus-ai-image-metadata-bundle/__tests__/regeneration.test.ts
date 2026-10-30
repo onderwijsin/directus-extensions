@@ -29,6 +29,10 @@ function file(index: number): MetadataFile {
 		description: null,
 		tags: null,
 		filename_download: 'image.png',
+		width: 800,
+		height: 600,
+		focal_point_x: null,
+		focal_point_y: null,
 	}
 }
 /**
@@ -390,6 +394,54 @@ describe('regeneration queue', () => {
 			restartAfterId: id(0),
 			summary: { complete: false },
 		})
+	})
+	it.each([true, false])(
+		'selects focal-only backfills independently of text (missingOnly: %s)',
+		async (missingOnly) => {
+			const files = [
+				{
+					...file(0),
+					description: '  Human\ntext  ',
+					tags: ['manual'],
+					focal_point_x: 0,
+					focal_point_y: 0,
+				},
+				{ ...file(1), description: '  Human\ntext  ', tags: ['manual'], focal_point_x: 50 },
+				{ ...file(2) },
+			]
+			const process = vi.fn((value: MetadataFile) => Promise.resolve(updated(value)))
+			const output = await runRegenerationQueue(
+				backfillOptionsSchema.parse({
+					generateAltText: false,
+					generateFocalPoint: true,
+					overwriteFocalPoint: !missingOnly,
+					missingOnly,
+				}),
+				reader(files),
+				process,
+				vi.fn(),
+				[],
+			)
+			expect(process.mock.calls.map(([value]) => value.id)).toEqual(
+				(missingOnly ? files.slice(1) : files).map((value) => value.id),
+			)
+			expect(output.complete).toBe(true)
+		},
+	)
+	it('exhausts immediately when all four outputs are disabled', async () => {
+		const read = reader([file(0)])
+		const process = vi.fn()
+		expect(
+			await runRegenerationQueue(
+				backfillOptionsSchema.parse({ generateAltText: false }),
+				read,
+				process,
+				vi.fn(),
+				[],
+			),
+		).toMatchObject({ complete: true, scanned: 0 })
+		expect(read).not.toHaveBeenCalled()
+		expect(process).not.toHaveBeenCalled()
 	})
 	it('rejects removed numeric-offset options', () => {
 		expect(backfillOptionsSchema.safeParse({ offset: 0 }).success).toBe(false)

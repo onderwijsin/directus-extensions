@@ -21,6 +21,10 @@ export const fileFields = [
 	'description',
 	'tags',
 	'filename_download',
+	'width',
+	'height',
+	'focal_point_x',
+	'focal_point_y',
 ] satisfies (keyof File)[]
 
 export interface MetadataWriteResult {

@@ -172,7 +172,8 @@ function missingMetadataFilters(options: MetadataOptions): Filter[] {
 	// Every ECMAScript trim whitespace character; meaningful prefixed text is refined in memory.
 	const whitespace =
 		'\u0009\u000a\u000b\u000c\u000d \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff'
-	return fields.flatMap((field): Filter[] => {
+
+	const textFilters = fields.flatMap((field): Filter[] => {
 		if (field === 'tags') return [{ tags: { _null: true } }, { tags: { _nnull: true } }]
 		return [
 			{ [field]: { _empty: true } },
@@ -181,4 +182,10 @@ function missingMetadataFilters(options: MetadataOptions): Filter[] {
 			})),
 		]
 	})
+
+	const focalPointFilters: Filter[] = options.generateFocalPoint
+		? [{ focal_point_x: { _null: true } }, { focal_point_y: { _null: true } }]
+		: []
+
+	return [...textFilters, ...focalPointFilters]
 }

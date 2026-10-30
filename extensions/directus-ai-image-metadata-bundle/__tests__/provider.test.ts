@@ -84,7 +84,7 @@ describe('metadata provider boundary', () => {
 						role: 'user',
 						content: [
 							{ type: 'text', text: 'Generate accessible metadata for this image.' },
-							{ type: 'image', image, mediaType: 'image/png' },
+							{ type: 'file', data: image, mediaType: 'image/png' },
 						],
 					},
 				],
@@ -116,12 +116,19 @@ describe('metadata provider boundary', () => {
 			{ generateTags: false, generateFilename: true },
 			{ generateTags: true, generateFilename: true },
 		].flatMap((options) =>
-			[true, false].map((generateAltText) => ({ ...options, generateAltText })),
+			[true, false].flatMap((generateAltText) =>
+				[true, false].map((generateFocalPoint) => ({
+					...options,
+					generateAltText,
+					generateFocalPoint,
+				})),
+			),
 		),
 	)('requests and validates only enabled fields: %j', async (options) => {
 		mocks.generateText.mockResolvedValue({
 			output: {
 				altText: options.generateAltText ? 'A classroom.' : null,
+				focalPoint: options.generateFocalPoint ? { x: 250, y: 600 } : null,
 				tags: options.generateTags ? ['classroom'] : null,
 				filename: options.generateFilename ? 'classroom' : 'Klassenfoto 2026.jpg',
 			},
@@ -136,12 +143,22 @@ describe('metadata provider boundary', () => {
 		)
 		expect(result).toEqual({
 			...(options.generateAltText ? { altText: 'A classroom.' } : {}),
+			...(options.generateFocalPoint ? { focalPoint: { x: 250, y: 600 } } : {}),
 			...(options.generateTags ? { tags: ['classroom'] } : {}),
 			...(options.generateFilename ? { filename: 'classroom' } : {}),
 		})
-		const request = mocks.generateText.mock.calls[0]?.[0]
-		expect(request.instructions).toContain(
-			`Return only these JSON fields: ${[...(options.generateAltText ? ['altText'] : []), ...(options.generateTags ? ['tags'] : []), ...(options.generateFilename ? ['filename'] : [])].join(', ')}.`,
+		expect(mocks.generateText).toHaveBeenCalledTimes(1)
+		const request = z
+			.object({
+				instructions: z.string(),
+				messages: z.array(z.object({ content: z.array(z.object({ type: z.string() })) })),
+			})
+			.parse(mocks.generateText.mock.calls[0]?.[0])
+		expect(
+			request.messages[0]?.content.filter((part: { type: string }) => part.type === 'file'),
+		).toHaveLength(1)
+		expect(request.instructions).toBe(
+			`prompt\n\nReturn only these JSON fields: ${[...(options.generateAltText ? ['altText'] : []), ...(options.generateTags ? ['tags'] : []), ...(options.generateFilename ? ['filename'] : []), ...(options.generateFocalPoint ? ['focalPoint'] : [])].join(', ')}. Do not generate omitted fields.`,
 		)
 	})
 	it.each(['tags', 'filename'])('rejects invalid requested %s output', async (field) => {

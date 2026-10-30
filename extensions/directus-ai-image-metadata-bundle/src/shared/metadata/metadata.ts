@@ -6,6 +6,7 @@ import { attemptSync, isArray, isNonBlankString } from '@onderwijsin/directus-ex
 import { z } from 'zod'
 
 import { imageMimeTypes } from '../files/image-mime-types'
+import { hasFocalPoint, hasFocalPointDimensions, focalPointPatch } from '../focal-point/focal-point'
 
 /**
  * Checks whether a file passes MIME and exact-folder selection.
@@ -32,7 +33,8 @@ export function hasMissingMetadata(file: MetadataFile, options: MetadataOptions)
 	return (
 		(options.generateAltText && !isNonBlankString(file.description)) ||
 		(options.generateTags && !hasTags(file.tags)) ||
-		(options.generateFilename && !isNonBlankString(file.filename_download))
+		(options.generateFilename && !isNonBlankString(file.filename_download)) ||
+		(options.generateFocalPoint && !hasFocalPoint(file))
 	)
 }
 
@@ -48,7 +50,13 @@ export function createMetadataPatch(
 	generated: GeneratedMetadata,
 	options: MetadataOptions,
 ) {
-	const patch: { description?: string; tags?: string[]; filename_download?: string } = {}
+	const patch: {
+		description?: string
+		tags?: string[]
+		filename_download?: string
+		focal_point_x?: number
+		focal_point_y?: number
+	} = {}
 	if (
 		options.generateAltText &&
 		generated.altText !== undefined &&
@@ -67,6 +75,10 @@ export function createMetadataPatch(
 		(options.overwriteFilename || !isNonBlankString(file.filename_download))
 	)
 		patch.filename_download = generated.filename + extname(file.filename_download ?? '')
+	if (options.generateFocalPoint && (options.overwriteFocalPoint || !hasFocalPoint(file))) {
+		const focal = focalPointPatch(generated.focalPoint, file)
+		if (focal) Object.assign(patch, focal)
+	}
 	return patch
 }
 
@@ -95,7 +107,10 @@ export function hasTags(tags: MetadataFile['tags']): boolean {
  */
 export function needsMetadataUpdate(file: MetadataFile, options: MetadataOptions): boolean {
 	return (
-		hasMissingMetadata(file, options) ||
+		hasMissingMetadata(file, { ...options, generateFocalPoint: false }) ||
+		(options.generateFocalPoint &&
+			hasFocalPointDimensions(file) &&
+			(options.overwriteFocalPoint || !hasFocalPoint(file))) ||
 		(options.generateAltText && options.overwriteAltText) ||
 		(options.generateTags && options.overwriteTags) ||
 		(options.generateFilename && options.overwriteFilename)

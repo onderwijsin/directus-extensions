@@ -1,6 +1,7 @@
 import { isDefined, isNonBlankString, isString } from '@onderwijsin/directus-extension-utils'
 import { z } from 'zod'
 
+import { focalPointSchema } from '../focal-point/focal-point'
 import { acceptedLanguages } from './languages'
 
 /** Providers supported by the server adapter. */
@@ -49,9 +50,11 @@ const baseOptionsSchema = z.object({
 	excludeFolders: folderListSchema.default([]),
 	generateTags: z.boolean().default(false),
 	generateFilename: z.boolean().default(false),
+	generateFocalPoint: z.boolean().default(false),
 	overwriteAltText: z.boolean().default(false),
 	overwriteTags: z.boolean().default(false),
 	overwriteFilename: z.boolean().default(false),
+	overwriteFocalPoint: z.boolean().default(false),
 })
 
 /**
@@ -107,6 +110,10 @@ export const fileSchema = z.object({
 	description: z.string().nullable(),
 	tags: z.union([z.array(z.string()), z.string()]).nullable(),
 	filename_download: z.string().nullable(),
+	width: z.number().nullable().default(null),
+	height: z.number().nullable().default(null),
+	focal_point_x: z.number().nullable().default(null),
+	focal_point_y: z.number().nullable().default(null),
 })
 
 export type MetadataOptions = z.output<typeof optionsSchema>
@@ -129,19 +136,18 @@ export const metadataSchema = z.object({
  * @returns Output schema requiring only the requested fields.
  */
 export function createMetadataSchema(
-	options: Pick<MetadataOptions, 'generateAltText' | 'generateTags' | 'generateFilename'>,
-) {
-	if (options.generateAltText) {
-		if (options.generateTags && options.generateFilename) return metadataSchema
-		if (options.generateTags) return metadataSchema.pick({ altText: true, tags: true })
-		if (options.generateFilename) return metadataSchema.pick({ altText: true, filename: true })
-		return metadataSchema.pick({ altText: true })
-	}
-	if (options.generateTags && options.generateFilename)
-		return metadataSchema.pick({ tags: true, filename: true })
-	if (options.generateTags) return metadataSchema.pick({ tags: true })
-	if (options.generateFilename) return metadataSchema.pick({ filename: true })
-	return z.object({})
+	options: Pick<
+		MetadataOptions,
+		'generateAltText' | 'generateTags' | 'generateFilename' | 'generateFocalPoint'
+	>,
+): z.ZodType<GeneratedMetadata> {
+	const schema = metadataSchema.extend({ focalPoint: focalPointSchema })
+	const fields: Partial<Record<keyof z.output<typeof schema>, true>> = {}
+	if (options.generateAltText) fields.altText = true
+	if (options.generateTags) fields.tags = true
+	if (options.generateFilename) fields.filename = true
+	if (options.generateFocalPoint) fields.focalPoint = true
+	return schema.pick(fields)
 }
 
 /** Validated metadata fields present only when requested. */
@@ -149,4 +155,5 @@ export interface GeneratedMetadata {
 	altText?: string
 	tags?: string[]
 	filename?: string
+	focalPoint?: z.output<typeof focalPointSchema>
 }

@@ -73,12 +73,16 @@ function response(provider: string, output = metadata) {
 	}
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+	vi.unstubAllGlobals()
+	vi.restoreAllMocks()
+})
 
 describe('real vision adapter portable image transport', () => {
 	it.each(cases)(
 		'sends unchanged $format bytes and matching MIME through $provider',
 		async ({ provider, format }) => {
+			const warnings = vi.spyOn(process, 'emitWarning')
 			const requests: string[] = []
 			vi.stubGlobal(
 				'fetch',
@@ -108,6 +112,10 @@ describe('real vision adapter portable image transport', () => {
 			expect(requests[0]).toContain(Buffer.from(image).toString('base64'))
 			expect(requests[0]).toContain(`image/${format}`)
 			expect(requests[0]).not.toContain('image/avif')
+			expect(warnings).not.toHaveBeenCalledWith(
+				expect.stringContaining('The "image" content part type is deprecated'),
+				expect.anything(),
+			)
 		},
 	)
 })
@@ -149,3 +157,46 @@ it('retains real SDK structured-output validation failures', async () => {
 		},
 	})
 })
+
+it.each(providers)(
+	'uses the real %s adapter for focal-only structured output',
+	async (provider) => {
+		const output = JSON.stringify({ focalPoint: { x: 250, y: 750 } })
+		const requests: string[] = []
+		const fetcher = vi.fn((_url: unknown, init?: RequestInit) => {
+			if (typeof init?.body !== 'string') throw new Error('Expected JSON body')
+			requests.push(init.body)
+			return Promise.resolve(
+				new Response(JSON.stringify(response(provider, output)), {
+					headers: { 'Content-Type': 'application/json' },
+				}),
+			)
+		})
+		vi.stubGlobal('fetch', fetcher)
+		const config = createProviderConfigSchema(z).parse({
+			provider,
+			model: 'vision-test',
+			apiKey: 'fixture',
+			baseURL: 'https://fixture.invalid/v1',
+		})
+		expect(
+			await generateMetadata(
+				config,
+				new Uint8Array([1]),
+				'image/png',
+				'Describe.',
+				AbortSignal.timeout(1000),
+				{
+					generateAltText: false,
+					generateTags: false,
+					generateFilename: false,
+					generateFocalPoint: true,
+				},
+			),
+		).toEqual({ focalPoint: { x: 250, y: 750 } })
+		expect(fetcher).toHaveBeenCalledTimes(1)
+		expect(requests[0]).toContain('focalPoint')
+		for (const field of ['altText', 'tags', 'filename'])
+			expect(requests[0]).not.toContain(field)
+	},
+)
