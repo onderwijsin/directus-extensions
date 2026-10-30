@@ -1,4 +1,4 @@
-import type { OperationContext, SchemaOverview } from '@directus/types'
+import type { OperationContext, SchemaOverview, TransformationSet } from '@directus/types'
 import type { MetadataEnvironment } from '../configuration/env'
 
 import { InvalidPayloadError, isDirectusError } from '@directus/errors'
@@ -18,7 +18,7 @@ import { atStage, ProcessingFailure, settleFile } from '../diagnostics/diagnosti
 import { createFileReader } from '../files/file-reader'
 import { readImageBytes } from '../files/image-bytes'
 import { diagnosticMimeType } from '../files/image-mime-types'
-import { imageTransformFailure } from '../files/image-transform-error'
+import { prepareImage } from '../files/image-preparation'
 import { hasFocalPointDimensions, matchesFocalPointDimensions } from '../focal-point/focal-point'
 import { needsMetadataUpdate, isSelected } from '../metadata/metadata'
 import { createMetadataWriter } from '../metadata/metadata-writer'
@@ -90,61 +90,37 @@ export function createMetadataProcessor(
 		resolved = config
 
 		const signal = AbortSignal.timeout(env.AI_METADATA_WRITER_TIMEOUT_MS)
-		const started = performance.now()
-		const transform =
-			(options.generateFocalPoint && hasFocalPointDimensions(file)) ||
-			file.type === 'image/avif' ||
-			file.type === 'image/tiff'
-		const mediaType = transform ? 'image/png' : (file.type ?? '')
-		let image: Buffer
-
-		try {
-			const asset = await atStage(
-				transform ? 'convert_image' : 'read_asset',
-				() => acquireAsset(file.id, signal, transform),
-				signal,
-			)
-
-			image = await atStage(
-				'read_bytes',
-				() =>
-					readImageBytes(
-						asset.stream,
-						signal,
-						Math.min(env.AI_METADATA_WRITER_MAX_IMAGE_BYTES, 5_000_000),
-					),
-				signal,
-			)
-
-			// AssetsService can return the original when transformation is bypassed. Never label it PNG.
-			if (
-				transform &&
-				!image.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-			)
-				throw imageTransformFailure('IMAGE_TRANSFORM_INVALID_INPUT')
-
-			if (transform) transformation.transformed = true
-		} finally {
-			if (transform) transformation.transformationDurationMs = performance.now() - started
-		}
-
-		context.logger.debug(
-			{
-				runId,
-				fileId: file.id,
-				originalMimeType: diagnosticMimeType(file.type),
-				providerInputMimeType: mediaType,
-				transformed: transformation.transformed,
-				transformationDurationMs: transformation.transformationDurationMs,
-				outputBytes: image.byteLength,
+		const prepared = await prepareImage({
+			file,
+			canonical: options.generateFocalPoint && hasFocalPointDimensions(file),
+			signal,
+			maxBytes: env.AI_METADATA_WRITER_MAX_IMAGE_BYTES,
+			settings: {
+				maxSizeBytes: options.maxImageSizeBytes,
+				maxDimension: options.maxImageDimension,
+				targetDimension: options.targetImageDimension,
 			},
-			'Image metadata input prepared',
-		)
+			/**
+			 * Acquires the planned derivative with the existing per-file deadline.
+			 * @param transformation - Optional Directus transformation plan.
+			 * @returns Accountable asset stream.
+			 */
+			acquire: (transformation) => acquireAsset(file.id, signal, transformation),
+			logger: context.logger,
+			runId,
+			diagnostics: transformation,
+		})
+		const { image, mediaType } = prepared
 
 		const generationOptions = {
 			...options,
 			generateFocalPoint:
-				options.generateFocalPoint && matchesFocalPointDimensions(image, file),
+				options.generateFocalPoint &&
+				matchesFocalPointDimensions(
+					image,
+					file,
+					prepared.resize ? prepared.resizeDimension : undefined,
+				),
 		}
 		if (!needsMetadataUpdate(file, generationOptions)) return skipped
 
@@ -169,15 +145,16 @@ export function createMetadataProcessor(
 	 * Bounds asset acquisition and releases streams arriving after timeout.
 	 * @param id - File identifier.
 	 * @param signal - Per-file deadline.
-	 * @param transform - Whether Directus should convert the input to PNG.
+	 * @param transformation - Optional single Directus preparation plan.
 	 * @returns Acquired asset.
 	 */
-	async function acquireAsset(id: string, signal: AbortSignal, transform: boolean) {
+	async function acquireAsset(
+		id: string,
+		signal: AbortSignal,
+		transformation?: TransformationSet,
+	) {
 		signal.throwIfAborted()
-		const pending = assets.getAsset(
-			id,
-			transform ? { transformationParams: { format: 'png' } } : undefined,
-		)
+		const pending = assets.getAsset(id, transformation)
 		void pending.then(
 			(asset) => {
 				if (signal.aborted) asset.stream.destroy()

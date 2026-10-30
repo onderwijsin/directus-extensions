@@ -51,6 +51,39 @@ export const metadataAppOptions = [
 		},
 	},
 	{
+		field: 'maxImageSizeBytes',
+		name: 'Maximum Image Size (bytes)',
+		type: 'integer',
+		schema: { default_value: 500_000 },
+		meta: {
+			interface: 'input',
+			width: 'half',
+			note: 'Larger files trigger WebP encoding. Outputs still above this soft threshold are logged and submitted without another transformation. Default: 500000 bytes (500 kB).',
+		},
+	},
+	{
+		field: 'maxImageDimension',
+		name: 'Maximum Image Dimension (px)',
+		type: 'integer',
+		schema: { default_value: 1500 },
+		meta: {
+			interface: 'input',
+			width: 'half',
+			note: 'Resize when either dimension exceeds this threshold. Uses Target Image Dimension, capped at this threshold, without cropping or upscaling.',
+		},
+	},
+	{
+		field: 'targetImageDimension',
+		name: 'Target Image Dimension (px)',
+		type: 'integer',
+		schema: { default_value: 800 },
+		meta: {
+			interface: 'input',
+			width: 'half',
+			note: 'Requested longest edge when resizing is triggered. Capped at Maximum Image Dimension; preserves aspect ratio without cropping or upscaling.',
+		},
+	},
+	{
 		field: 'includeFolders',
 		name: 'Include Folders',
 		type: 'json',

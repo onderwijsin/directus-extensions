@@ -211,12 +211,16 @@ Keep real credentials in ignored files or CI secrets. The E2E runner does not lo
 The E2E overlay starts `ai-metadata-mock` on the backend network and configures the image metadata
 operations to use its OpenAI-compatible chat-completions endpoint. The mock requires an inline JPEG,
 PNG, or WebP data URL, so successful generation verifies private image bytes reach the SDK adapter.
-Portable input fixtures additionally verify exact byte preservation. A controlled provider rejection
-verifies that completed transformation diagnostics survive generation failures. It returns
-deterministic descriptions, tags, filename stems, and normalized focal points without contacting an
-external AI provider. Focal-only fixtures assert that only focal output is requested; oriented
-JPEG/TIFF/AVIF fixtures compare the provider input with the canonical Directus PNG. Internal request
-barriers hold generation while tests edit manual focal points or dimensions, verifying the
-transactional recheck. The mock returns only enabled fields. The global fixture language is Dutch;
-the mock requires language instructions and returns English metadata when an operation overrides the
-language to English.
+Portable input fixtures additionally verify exact byte preservation for acceptable inputs.
+Oversized-image fixtures verify downscaling and original-pixel focal mapping; a generated noise
+image verifies configured resize thresholds and warning-and-submit behavior above the soft byte-size
+target. The test operation uses a 100,000-byte threshold, a 1200 px maximum, and a 640 px resize
+target; a separate operation and unit tests verify the 500,000-byte threshold, 1500 px maximum, and
+800 px target defaults. A controlled provider rejection verifies that completed transformation
+diagnostics survive generation failures. It returns deterministic descriptions, tags, filename
+stems, and normalized focal points without contacting an external AI provider. Focal-only fixtures
+assert that only focal output is requested; oriented JPEG/TIFF/AVIF fixtures compare the provider
+input with the canonical Directus WebP. Internal request barriers hold generation while tests edit
+manual focal points or dimensions, verifying the transactional recheck. The mock returns only
+enabled fields. The global fixture language is Dutch; the mock requires language instructions and
+returns English metadata when an operation overrides the language to English.

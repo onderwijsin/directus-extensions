@@ -45,7 +45,7 @@ environment or Directus settings, rather than stored in Flow options.
 | `AI_METADATA_WRITER_BASE_URL`        | URL, unset                                    | Provider endpoint override. Required for `openai-compatible` unless supplied by a lower layer. |
 | `AI_METADATA_WRITER_LANGUAGE`        | accepted language, `English`                  | Global language for generated alt text, tags, and filename words.                              |
 | `AI_METADATA_WRITER_PROMPT`          | Markdown string, default accessibility prompt | Replacement system instructions; blank uses the default.                                       |
-| `AI_METADATA_WRITER_MAX_IMAGE_BYTES` | positive integer, `10000000`                  | Provider-input byte budget; effective maximum 5 MB.                                            |
+| `AI_METADATA_WRITER_MAX_IMAGE_BYTES` | positive integer, `10000000`                  | Hard provider-input collection limit; effective maximum 5 MB.                                  |
 | `AI_METADATA_WRITER_TIMEOUT_MS`      | positive integer, `60000`                     | Deadline for acquisition, preparation, and generation.                                         |
 | `DIRECTUS_EXTENSIONS_AI_PROVIDER`    | string, unset                                 | Shared provider fallback; must be a supported adapter when used here.                          |
 | `DIRECTUS_EXTENSIONS_AI_MODEL`       | string, unset                                 | Shared model fallback.                                                                         |
@@ -76,23 +76,50 @@ Images are sent to the selected external AI provider; account for that provider'
 Both operations accept these options. Cleared optional Studio strings (null, empty, or
 whitespace-only) use their environment/default fallback:
 
-| Option                | Default                          | Behavior                                                                                                 |
-| --------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `language`            | environment language / `English` | Optional language override for this operation.                                                           |
-| `provider`            | `resolved environment`           | Provider override; credentials stay on the server.                                                       |
-| `model`               | `resolved environment`           | Image-capable model override.                                                                            |
-| `prompt`              | `environment/default`            | Replacement system instructions.                                                                         |
-| `includeFolders`      | `[]`                             | Folder selection objects; empty selects all. Use `includeRoot` for root.                                 |
-| `excludeFolders`      | `[]`                             | Folder selection objects; exclusion wins. Root inclusion is controlled by `includeRoot`.                 |
-| `includeRoot`         | `false`                          | Include root files alongside selected folders; unchecked excludes root.                                  |
-| `generateAltText`     | `true`                           | Generate alt text in description; disabling prevents description writes.                                 |
-| `generateTags`        | `false`                          | Write generated tags to directus_files.tags.                                                             |
-| `generateFilename`    | `false`                          | Write a safe download filename, preserving its extension.                                                |
-| `generateFocalPoint`  | `false`                          | Generate an approximate crop center in directus_files.focal_point_x and focal_point_y.                   |
-| `overwriteFocalPoint` | `false`                          | Replace complete focal-point pairs when generation is enabled; otherwise fill incomplete pairs together. |
-| `overwriteAltText`    | `false`                          | Replace populated description when generateAltText is enabled; otherwise fill only missing alt text.     |
-| `overwriteTags`       | `false`                          | Replace populated tags when generateTags is enabled; otherwise fill only missing tags.                   |
-| `overwriteFilename`   | `false`                          | Replace the download filename when generateFilename is enabled; otherwise fill only a missing filename.  |
+| Option                 | Default                          | Behavior                                                                                                                                                                           |
+| ---------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxImageSizeBytes`    | `500000`                         | Positive safe integer in bytes. Larger source files trigger WebP encoding; prepared output above this soft size threshold is warned about and still submitted.                     |
+| `maxImageDimension`    | `1500`                           | Positive safe integer in pixels. Resize when the longest edge exceeds it, fitting inside `min(targetImageDimension, maxImageDimension)` without cropping or upscaling.             |
+| `targetImageDimension` | `800`                            | Positive safe integer in pixels. Requested longest edge when dimension resizing is triggered; capped at `maxImageDimension`. Preserves aspect ratio without cropping or upscaling. |
+| `language`             | environment language / `English` | Optional language override for this operation.                                                                                                                                     |
+| `provider`             | `resolved environment`           | Provider override; credentials stay on the server.                                                                                                                                 |
+| `model`                | `resolved environment`           | Image-capable model override.                                                                                                                                                      |
+| `prompt`               | `environment/default`            | Replacement system instructions.                                                                                                                                                   |
+| `includeFolders`       | `[]`                             | Folder selection objects; empty selects all. Use `includeRoot` for root.                                                                                                           |
+| `excludeFolders`       | `[]`                             | Folder selection objects; exclusion wins. Root inclusion is controlled by `includeRoot`.                                                                                           |
+| `includeRoot`          | `false`                          | Include root files alongside selected folders; unchecked excludes root.                                                                                                            |
+| `generateAltText`      | `true`                           | Generate alt text in description; disabling prevents description writes.                                                                                                           |
+| `generateTags`         | `false`                          | Write generated tags to directus_files.tags.                                                                                                                                       |
+| `generateFilename`     | `false`                          | Write a safe download filename, preserving its extension.                                                                                                                          |
+| `generateFocalPoint`   | `false`                          | Generate an approximate crop center in directus_files.focal_point_x and focal_point_y.                                                                                             |
+| `overwriteFocalPoint`  | `false`                          | Replace complete focal-point pairs when generation is enabled; otherwise fill incomplete pairs together.                                                                           |
+| `overwriteAltText`     | `false`                          | Replace populated description when generateAltText is enabled; otherwise fill only missing alt text.                                                                               |
+| `overwriteTags`        | `false`                          | Replace populated tags when generateTags is enabled; otherwise fill only missing tags.                                                                                             |
+| `overwriteFilename`    | `false`                          | Replace the download filename when generateFilename is enabled; otherwise fill only a missing filename.                                                                            |
+
+Thresholds and the resize target belong to each operation, so a regeneration Flow can use different
+values from an explicit-file Flow. Omitted, null, empty, or whitespace-only preparation option
+values use their defaults; other values must be positive safe integers. Numeric strings, zero,
+negatives, and fractions are rejected. Existing saved operations receive the defaults automatically.
+All three controls are available in Studio; there are no environment overrides for these thresholds.
+
+The former `targetImageSizeBytes` key remains accepted in saved Flows when `maxImageSizeBytes` is
+unset or cleared. A supplied `maxImageSizeBytes` takes precedence. Resolved options and diagnostics
+use only the current name; when editing an older Flow in Studio, copy any custom former value into
+**Maximum Image Size (bytes)** before saving.
+
+For example, configure one operation with:
+
+```json
+{
+  "maxImageSizeBytes": 250000,
+  "maxImageDimension": 1200,
+  "targetImageDimension": 640
+}
+```
+
+Effective settings are included in `summary.options.maxImageSizeBytes`,
+`summary.options.maxImageDimension`, and `summary.options.targetImageDimension` for both operations.
 
 Both operations select only Directus-transformable MIME types: `image/jpeg`, `image/png`,
 `image/webp`, `image/tiff`, and `image/avif`. This fixed filter applies to paged queries and cursor
@@ -102,30 +129,54 @@ are excluded. The MIME selector is retired: saved `mimeTypes` values are accepte
 Existing Flows can therefore select a different set of candidates; folder, missing-only, overwrite,
 accountability, cursor, and `maxFiles` bounds retain their meanings.
 
-JPEG, PNG, and WebP pass through accountable Directus AssetsService reads with their original bytes
-and MIME type. AVIF and TIFF request PNG conversion through AssetsService before generation.
-Enabling focal points also requests PNG conversion for JPEG, PNG, and WebP to give the model a
-canonical, EXIF-oriented image. For converted inputs, Directus owns decoding, orientation,
-first-frame/page handling, alpha preservation, transformation limits, and derivative caching in the
-configured file storage. No resize or crop is requested. Stored source bytes and file metadata are
-unchanged by preparation; explicit filename generation retains its existing behavior. No separate
-image library or native dependency is required.
+Images are prepared through accountable Directus AssetsService reads. The policy uses the configured
+thresholds below (defaults shown):
 
-Provider-input bytes are bounded by the smaller of `AI_METADATA_WRITER_MAX_IMAGE_BYTES` and 5 MB.
-Oversized outputs fail instead of being resized or recompressed; provider/model limits can be
-stricter. The per-file deadline includes asset acquisition, conversion, byte collection, and
-generation. Directus native work follows its own `ASSETS_TRANSFORM_*` limits and may finish/cache a
-derivative after the operation deadline; late streams are released. Configure those limits in
-Directus.
+| Input condition                                                                                    | Preparation                                                                                                       |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| JPEG/PNG/WebP, longest edge at most 1500 px, filesize at most 500,000 bytes, focal points disabled | Original bytes and MIME pass through unchanged.                                                                   |
+| Either dimension exceeds 1500 px                                                                   | Fit inside 800×800, preserving aspect ratio without cropping, padding, or enlargement; encode WebP at quality 80. |
+| Dimensions acceptable but filesize exceeds 500,000 bytes, or filesize is unavailable               | Encode WebP at quality 80 without resizing.                                                                       |
+| AVIF/TIFF, or focal-point generation enabled                                                       | Produce canonical, EXIF-oriented WebP at quality 80; resize only if oversized.                                    |
+| Short edge below 250 px                                                                            | Record `smallImage: true` in preparation debug logs; never upscale automatically.                                 |
+
+The Flow needs read access to `width`, `height`, and `filesize` for preparation. Positive integer
+oriented dimensions are required; missing or invalid dimensions fail preparation. File sizes accept
+nonnegative safe integers and decimal integer strings. Directus owns decoding, orientation,
+first-frame/page handling, transparency, transformation limits, and cached derivatives. Preparation
+leaves stored source bytes and file metadata unchanged. No additional image dependency is required.
+
+**`maxImageSizeBytes` is a per-operation transformation threshold** (default 500,000 bytes),
+measured before base64 encoding. There is at most one transformation attempt. An output above that
+target is still sent to the provider, with a warning code `AI_METADATA_IMAGE_MAX_SIZE_EXCEEDED`. The
+warning includes run/file IDs, original dimensions, MIME and byte size, output MIME and actual
+bytes, transformation reasons, requested resize bounds, quality, duration, configured
+`maxSizeBytes`, bytes over the maximum, and `submissionContinues: true`. Structured fields and
+embedded JSON make it visible in both structured and text logs. `summary.assetsOverMaxSize` counts
+these outputs, including subsequent provider/write failures; their results include
+`imageMaxSizeExceeded: true`. Exceeding the soft size threshold alone does not mark the file or run
+failed. The thresholds and resize target are configured separately on each operation. Resizing fits
+inside `min(targetImageDimension, maxImageDimension)` pixels on each axis, preserving aspect ratio.
+The target defaults to 800 px; WebP quality 80 stays fixed. Resizing uses this target only after
+source dimensions exceed `maxImageDimension`; filetype and filesize-only transformations retain
+permitted native dimensions. These operation settings leave the hard collection limit below
+unchanged.
+
+The separate hard collection limit remains the smaller of `AI_METADATA_WRITER_MAX_IMAGE_BYTES` and 5
+MB. Outputs exceeding that limit fail before provider submission; provider/model limits may be
+stricter. The environment default and override semantics are unchanged. No second compression pass
+or transformation retry occurs. Existing AI SDK generation retries remain unchanged.
+
+The per-file deadline covers acquisition, preparation, byte collection, and generation. Directus
+native work follows its own `ASSETS_TRANSFORM_*` limits and may finish/cache a derivative after the
+operation deadline; late streams are released.
 
 Directus transformation failures report `stage: 'convert_image'` with `IMAGE_TRANSFORM_FAILED` or
-`IMAGE_TRANSFORM_TIMEOUT`. Empty input or non-PNG transformation output reports
-`IMAGE_TRANSFORM_INVALID_INPUT`, and oversized output reports `IMAGE_TRANSFORM_LIMIT_EXCEEDED`.
-These failures do not reach a provider. Regeneration continues with other files; the explicit-file
-operation retains default rejection semantics. Extension diagnostics contain safe MIME labels,
-output byte counts, preparation duration, and run/file correlation, without image bytes or request
-configuration. Failed-file diagnostics can include captured upstream errors and provider responses
-as described below.
+`IMAGE_TRANSFORM_TIMEOUT`. Empty input, invalid dimensions, or an unexpected transformed WebP header
+reports `IMAGE_TRANSFORM_INVALID_INPUT`; exceeding the hard byte limit reports
+`IMAGE_TRANSFORM_LIMIT_EXCEEDED`. These failures do not reach the provider. Regeneration continues
+with other files; explicit-file rejection semantics remain unchanged. Diagnostics exclude image
+bytes and credentials. Captured upstream failure details are described below.
 
 The Studio shows **Overwrite Alt Text** only when **Generate Alt Text** is enabled, **Overwrite
 Tags** only when **Generate Tags** is enabled, and **Overwrite Filename** only when **Generate
@@ -161,12 +212,12 @@ no radius field.
 A complete manual pair, including zero coordinates, is preserved unless `overwriteFocalPoint` is
 true. A partial pair counts as missing and is replaced together; old and generated coordinates are
 never mixed. The row-lock recheck preserves complete focal points added during generation.
-Nonpositive, fractional, missing, or unsupported dimensions prevent focal writes. The canonical PNG
-must match the stored oriented dimensions, and changed dimensions or MIME during generation discard
-the focal output. Other enabled text fields keep their independent policies. In a missing-only run,
-unresolved focal points remain in `remainingIds`; repair the dimensions or exclude those files
-before retrying. This does not solve replacement of an asset with another image of the same
-dimensions during generation.
+Nonpositive, fractional, missing, or unsupported dimensions prevent focal writes. The canonical WebP
+must match the stored oriented dimensions after the requested proportional resize, and changed
+dimensions or MIME during generation discard the focal output. Other enabled text fields keep their
+independent policies. In a missing-only run, unresolved focal points remain in `remainingIds`;
+repair the dimensions or exclude those files before retrying. This does not solve replacement of an
+asset with another image of the same dimensions during generation.
 
 Use `ai-image-metadata-regenerate` with these options to fill focal points while preserving all
 text, even where a textual field is missing:
@@ -187,11 +238,11 @@ independently of textual metadata. Complete pairs remain excluded in missing-onl
 overwrite enabled. Set both `missingOnly: false` and `overwriteFocalPoint: true` to replace complete
 pairs without touching text. Add folder selection or `includeRoot: true` as needed.
 
-The Flow needs read access to `width`, `height`, `focal_point_x`, and `focal_point_y`, and update
-access to both coordinate fields. Focal generation requires Directus PNG transformations to be
-allowed; transformation size, byte, and timeout limits still apply. PNG conversion can increase
-input size and storage/processing cost. `transformed`, preparation durations, and summary conversion
-counts include these additional converted inputs. Existing text-only preparation stays unchanged.
+The Flow also needs read access to `focal_point_x` and `focal_point_y`, and update access to both
+coordinate fields. Focal generation requires Directus WebP transformations. Canonicalization remains
+required for safe orientation; large images are proportionally resized before the shared model
+request. Normalized focal points still map to original oriented dimensions. `transformed`,
+preparation durations, and summary counters include these derivatives.
 
 Focal guidance favors faces in portraits, the center of equally important groups, salient subjects,
 or the image center when no clear subject exists. Image text is treated as data. These instructions
@@ -360,59 +411,28 @@ that its chat-completions API supports both image messages and structured respon
 
 ### Directus transformation limits and metadata generation
 
-Directus transformation limits apply to **every focal-point generation run** and to **all AVIF/TIFF
-metadata generation**, including text-only AVIF/TIFF runs. These paths request PNG conversion
-through Directus. Text-only JPEG/PNG/WebP generation sends the original bytes and does not request a
-transformation.
+Directus limits apply whenever preparation requests a derivative: oversized dimensions or bytes,
+AVIF/TIFF conversion, unknown filesize, and canonical orientation for focal points. Acceptable
+text-only JPEG/PNG/WebP files pass through without transformation.
 
-PNG conversion preserves the original dimensions. Both limits must therefore allow the image's width
-and height, even when the compressed source file is small:
+| Directus setting                              | Default in Directus 12.2.0 | Effect                                                                          |
+| --------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------- |
+| `ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION`        | `6000` pixels              | Rejects uncached transformation when either source dimension exceeds the limit. |
+| `ASSETS_TRANSFORM_IMAGE_MAX_OUTPUT_DIMENSION` | `3000` pixels              | Bounds every transformation step's output dimensions.                           |
 
-| Directus setting                              | Default in Directus 12.2.0 | Effect                                                                                                        |
-| --------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION`        | `6000` pixels              | Rejects transformation when either original dimension exceeds this limit.                                     |
-| `ASSETS_TRANSFORM_IMAGE_MAX_OUTPUT_DIMENSION` | `3000` pixels              | Rejects transformation when either output dimension exceeds this limit, including format-only PNG conversion. |
-
-These are Directus settings, separate from `AI_METADATA_WRITER_MAX_IMAGE_BYTES`, which limits
-provider-input bytes. The defaults above are from
+These defaults come from
 [Directus 12.2.0](https://github.com/directus/directus/blob/v12.2.0/packages/env/src/constants/defaults.ts).
-Newer Directus documentation may show different defaults; check your deployed version and overrides.
+Check your deployed version and overrides. Preparation resizes oversized dimensions before encoding,
+so a 2048×3072 JPEG or 924×4453 PNG can produce an 800 px derivative under the default output cap.
+Original source limits still apply; downscaling does not bypass them. Deployments with an output
+limit below the requested dimensions may still reject preparation.
 
-For example, a 2048×3072 JPEG or 924×4453 PNG passes the default source limit and fails the default
-output limit. Directus rejects conversion **before the image is sent to the AI provider**, so no
-metadata is generated or written for that file. Regeneration logs a warning and returns a failed
-file result containing these fields, then continues with other files:
-
-```json
-{
-  "status": "failed",
-  "fields": [],
-  "transformed": false,
-  "error": {
-    "stage": "convert_image",
-    "code": "IMAGE_TRANSFORM_FAILED",
-    "httpStatus": 400,
-    "message": "Image metadata processing failed.",
-    "retryable": false,
-    "raw": {
-      "code": "ILLEGAL_ASSET_TRANSFORMATION",
-      "message": "Illegal asset transformation."
-    }
-  }
-}
-```
-
-The generic message does not identify which dimension limit was exceeded. Compare both stored image
-dimensions with both configured limits. A single-file explicit operation rejects the Flow with
-`AI_METADATA_WRITER_PROCESSING_FAILED` and the same staged diagnostic in its error extensions;
-multi-file explicit runs isolate the failure in their results.
-
-If your deployment is sized for these transformations, explicitly set
-`ASSETS_TRANSFORM_IMAGE_MAX_OUTPUT_DIMENSION=5000` and restart Directus to permit the example sizes.
-Keep the source limit and transformation concurrency appropriate for available memory: limits apply
-to decoded pixels, not compressed file sizes. The extension respects these limits; it does not
-bypass them, resize the image, or retry with a different transformation. Retrying unchanged inputs
-and configuration will encounter the same limit.
+A Directus dimension rejection reports `IMAGE_TRANSFORM_FAILED` at `convert_image`, with upstream
+`ILLEGAL_ASSET_TRANSFORMATION` in the captured diagnostic. No provider request or metadata write
+occurs for that file. Regeneration isolates the failure; a single explicit-file operation rejects
+the Flow. Compare stored dimensions and the preparation bounds with configured source/output limits.
+Configure limits and concurrency for available memory; compressed byte size does not bound decoded
+pixel memory. Failed transformations are not retried or replaced with original-image submission.
 
 ### Provider configuration errors
 
@@ -466,22 +486,61 @@ folder selection, `includeRoot`, generation switches, and overwrite switches. Re
 its batch options and also reports `language`. Provider/model identify the resolved provider
 separately; prompt text and credentials are omitted.
 
+Every attempted preparation with a valid plan includes `results[].imagePreparation`:
+
+- `reasons`: every applicable trigger, using `filetype` (AVIF/TIFF conversion), `dimensions` (source
+  long edge exceeds `maxImageDimension`), `filesize` (source bytes exceed `maxImageSizeBytes`),
+  `unknown_filesize` (source bytes unavailable), or `focal_point` (canonical orientation). Reasons
+  are independent, so one file can have several.
+- `source`: original `width`, `height`, `sizeBytes`, and `mimeType` from accountable metadata.
+- `settings`: the effective `maxSizeBytes`, `maxDimension`, and requested `targetDimension` used for
+  this file. Logs also show the effective capped resize bounds in `requestedWidth` and
+  `requestedHeight`.
+- `output`: prepared `width`, `height`, `sizeBytes`, and `mimeType`; null if acquisition or
+  validation failed. Transformed dimensions come from the WebP header; unchanged originals retain
+  their stored oriented dimensions. Output bytes are measured from the collected stream.
+
+Successful transformations produce an **INFO** `Image metadata input prepared` log with this data,
+run/file IDs, and safe JSON embedded in the message. Unchanged originals retain debug-level
+preparation logs. The observations survive subsequent provider/write failures and also appear in
+transformation failure logs when a plan was established. Skipped files need not have preparation
+data.
+
+The INFO completion summary includes `transformsByReason`, counting each reason for completed
+transformations, including those followed by provider/write failures. For example, an image can
+count once under both `dimensions` and `filesize`; reason counts therefore need not sum to
+`assetsTransformed`. Failed preparation attempts do not count as completed transformations.
+`transformsByMimeType` groups by the source MIME type; it does **not** explain why conversion ran.
+`assetsOverMaxSize` counts prepared outputs still above the soft size threshold, rather than source
+files that triggered compression. It can be zero even when `transformsByReason.filesize` is
+positive.
+
+For example, one JPEG exceeding both thresholds with focal generation enabled can produce:
+
+```json
+{
+  "assetsTransformed": 1,
+  "assetsOverMaxSize": 0,
+  "transformsByMimeType": { "image/jpeg": 1 },
+  "transformsByReason": { "dimensions": 1, "filesize": 1, "focal_point": 1 }
+}
+```
+
 Every result also includes `transformed`, `originalMimeType`, and `transformationDurationMs`.
-`transformed` becomes true only after a requested conversion yields valid PNG output; it remains
+`transformed` becomes true only after a requested conversion yields valid WebP output; it remains
 true if provider generation or metadata writing subsequently fails, and those conversions still
 count in the summary. Failed conversion attempts are not counted. Original MIME is a sanitized
 label, or null if metadata is inaccessible or its MIME declaration is missing/malformed. Unsupported
 explicit files retain their known MIME even when skipped.
 
-With focal points disabled, pass-through JPEG/PNG/WebP files and skipped files have
-`transformed: false` and duration `0`. For converted inputs (AVIF/TIFF, plus JPEG/PNG/WebP when
-focal points are enabled), duration measures the AssetsService conversion request, output streaming,
-and PNG signature check, ending before generation. Failed attempts retain elapsed time. Directus may
-serve an existing cached derivative; these count as transformed provider inputs too. This
-measurement includes storage/cache overhead and does not claim to isolate native CPU time or
-distinguish cache hits. Counts cover settled results in the current run/page, including
-partial/fatal run summaries. Both operations log the final returned summary without image bytes or
-generated content.
+Acceptable pass-through JPEG/PNG/WebP files and skipped files have `transformed: false` and duration
+`0`. For transformed inputs (dimension/byte preparation, AVIF/TIFF, or focal canonicalization),
+duration measures the AssetsService conversion request, output streaming, and WebP canvas-header
+check, ending before generation. Failed attempts retain elapsed time. Directus may serve an existing
+cached derivative; these count as transformed provider inputs too. This measurement includes
+storage/cache overhead and does not claim to isolate native CPU time or distinguish cache hits.
+Counts cover settled results in the current run/page, including partial/fatal run summaries. Both
+operations log the final returned summary without image bytes or generated content.
 
 Folder arrays in `summary.options` show normalized selection: `null` represents files with no folder
 (the root). When `includeRoot` is false, normalization appends `null` to `excludeFolders`; when it
@@ -562,6 +621,9 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "generateTags": false,
       "generateFilename": false,
       "generateFocalPoint": false,
+      "maxImageSizeBytes": 500000,
+      "maxImageDimension": 1500,
+      "targetImageDimension": 800,
       "overwriteFocalPoint": false,
       "overwriteAltText": false,
       "overwriteTags": false,
@@ -576,7 +638,9 @@ stage-specific failures distinguish actionable causes without exposing upstream 
     "hasFailures": false,
     "complete": true,
     "assetsTransformed": 0,
-    "transformsByMimeType": {}
+    "assetsOverMaxSize": 0,
+    "transformsByMimeType": {},
+    "transformsByReason": {}
   },
   "results": [
     {
@@ -620,6 +684,9 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "generateTags": false,
       "generateFilename": false,
       "generateFocalPoint": false,
+      "maxImageSizeBytes": 500000,
+      "maxImageDimension": 1500,
+      "targetImageDimension": 800,
       "overwriteFocalPoint": false,
       "overwriteAltText": false,
       "overwriteTags": false,
@@ -634,7 +701,9 @@ stage-specific failures distinguish actionable causes without exposing upstream 
     "hasFailures": true,
     "complete": false,
     "assetsTransformed": 0,
-    "transformsByMimeType": {}
+    "assetsOverMaxSize": 0,
+    "transformsByMimeType": {},
+    "transformsByReason": {}
   },
   "results": [
     {

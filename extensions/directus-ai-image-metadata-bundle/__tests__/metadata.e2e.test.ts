@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFile as readFixture } from 'node:fs/promises'
 import { promisify } from 'node:util'
+import { crc32, deflateSync } from 'node:zlib'
 
 import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
@@ -20,6 +22,8 @@ import {
 } from '@workspace/test-utils/commands'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
+
+import { readWebpDimensions } from '../src/shared/files/webp-dimensions'
 
 const environment = z
 	.object({
@@ -47,6 +51,39 @@ const resultSchema = z.object({
 			transformed: z.boolean(),
 			originalMimeType: z.string().nullable(),
 			transformationDurationMs: z.number().nonnegative(),
+			imageMaxSizeExceeded: z.boolean().optional(),
+			imagePreparation: z
+				.object({
+					reasons: z.array(
+						z.enum([
+							'filetype',
+							'dimensions',
+							'filesize',
+							'unknown_filesize',
+							'focal_point',
+						]),
+					),
+					source: z.object({
+						width: z.number().nullable(),
+						height: z.number().nullable(),
+						sizeBytes: z.number().nullable(),
+						mimeType: z.string().nullable(),
+					}),
+					settings: z.object({
+						maxSizeBytes: z.number(),
+						maxDimension: z.number(),
+						targetDimension: z.number(),
+					}),
+					output: z
+						.object({
+							width: z.number().nullable(),
+							height: z.number().nullable(),
+							sizeBytes: z.number(),
+							mimeType: z.string(),
+						})
+						.nullable(),
+				})
+				.optional(),
 			error: z
 				.object({
 					stage: z.string(),
@@ -69,7 +106,9 @@ const resultSchema = z.object({
 			filesSkipped: z.number(),
 			filesFailed: z.number(),
 			assetsTransformed: z.number().int().nonnegative(),
+			assetsOverMaxSize: z.number().int().nonnegative(),
 			transformsByMimeType: z.record(z.string(), z.number().int().nonnegative()),
+			transformsByReason: z.record(z.string(), z.number().int().nonnegative()),
 			hasFailures: z.boolean(),
 			complete: z.boolean(),
 			outcome: z.string(),
@@ -268,11 +307,155 @@ describe('image metadata installed Flow operations', () => {
 			await client.request(deleteFolder(folder.id))
 		}
 	})
+	it('submits an over-target WebP and exposes its warning and run count', async () => {
+		const folder = await client.request(createFolder({ name: 'Soft byte target E2E' }))
+		let id: string | undefined
+		try {
+			const size = 1300
+			const pixels = Buffer.alloc(size * (size * 3 + 1))
+			let seed = 123456789
+			for (let row = 0; row < size; row++) {
+				for (let column = 1; column <= size * 3; column++) {
+					seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+					pixels[row * (size * 3 + 1) + column] = seed >>> 24
+				}
+			}
+			/**
+			 * Encodes a PNG chunk with a checksum for the generated noise fixture.
+			 * @param name - PNG chunk type.
+			 * @param data - Chunk payload.
+			 * @returns Complete checksummed chunk.
+			 */
+			function chunk(name: string, data: Buffer) {
+				const bytes = Buffer.alloc(data.length + 12)
+				bytes.writeUInt32BE(data.length)
+				bytes.write(name, 4)
+				data.copy(bytes, 8)
+				bytes.writeUInt32BE(crc32(bytes.subarray(4, -4)), bytes.length - 4)
+				return bytes
+			}
+			const header = Buffer.alloc(13)
+			header.writeUInt32BE(size)
+			header.writeUInt32BE(size, 4)
+			header[8] = 8
+			header[9] = 2
+			const png = Buffer.concat([
+				Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+				chunk('IHDR', header),
+				chunk('IDAT', deflateSync(pixels)),
+				chunk('IEND', Buffer.alloc(0)),
+			])
+			const data = new FormData()
+			data.append('folder', folder.id)
+			data.append('file', new Blob([new Uint8Array(png)], { type: 'image/png' }), 'noise.png')
+			id = (await client.request(uploadFiles(data))).id
+			// These dimensions exceed this operation’s 1200 px threshold, but not the 1500 px default.
+			const expectedUrl = new URL(`/assets/${id}`, environment.DIRECTUS_E2E_URL)
+			expectedUrl.searchParams.set('format', 'webp')
+			expectedUrl.searchParams.set('quality', '80')
+			expectedUrl.searchParams.set(
+				'transforms',
+				JSON.stringify([
+					[
+						'resize',
+						{ width: 640, height: 640, fit: 'inside', withoutEnlargement: true },
+					],
+				]),
+			)
+			const derivative = await fetch(expectedUrl, {
+				headers: { Authorization: `Bearer ${environment.DIRECTUS_E2E_TOKEN}` },
+			})
+			expect(derivative.ok).toBe(true)
+			const expected = Buffer.from(await derivative.arrayBuffer())
+			expect(readWebpDimensions(expected)).toEqual({ width: 640, height: 640 })
+			const output = await runOperation('ai-image-metadata-regenerate', {
+				includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
+				prompt: `E2E_OVER_TARGET E2E_MAX_SIZE:100000 E2E_EXPECT_IMAGE_SHA256:${createHash('sha256').update(expected).digest('hex')}`,
+				maxImageSizeBytes: 100_000,
+				maxImageDimension: 1200,
+				targetImageDimension: 640,
+			})
+			expect(output.results[0]).toMatchObject({
+				status: 'updated',
+				transformed: true,
+				imageMaxSizeExceeded: true,
+				imagePreparation: {
+					reasons: ['dimensions', 'filesize'],
+					source: {
+						width: size,
+						height: size,
+						sizeBytes: png.length,
+						mimeType: 'image/png',
+					},
+					settings: { maxSizeBytes: 100_000, maxDimension: 1200, targetDimension: 640 },
+					output: {
+						width: 640,
+						height: 640,
+						sizeBytes: expected.length,
+						mimeType: 'image/webp',
+					},
+				},
+				fields: ['description'],
+			})
+			expect(output.summary).toMatchObject({
+				assetsOverMaxSize: 1,
+				transformsByReason: { dimensions: 1, filesize: 1 },
+				hasFailures: false,
+				options: {
+					maxImageSizeBytes: 100_000,
+					maxImageDimension: 1200,
+					targetImageDimension: 640,
+				},
+			})
+			await client.waitForLog(
+				new RegExp(`Image metadata input prepared.*${id}.*dimensions.*filesize`, 'u'),
+			)
+			await client.waitForLog(
+				new RegExp(
+					`Image metadata input exceeds soft byte-size threshold.*${id}.*maxSizeBytes[^0-9]*100000.*AI_METADATA_IMAGE_MAX_SIZE_EXCEEDED`,
+					'u',
+				),
+			)
+			// A separate operation omitting these options must retain its own defaults.
+			const defaultUrl = new URL(`/assets/${id}`, environment.DIRECTUS_E2E_URL)
+			defaultUrl.searchParams.set('format', 'webp')
+			defaultUrl.searchParams.set('quality', '80')
+			const defaultAsset = await fetch(defaultUrl, {
+				headers: { Authorization: `Bearer ${environment.DIRECTUS_E2E_TOKEN}` },
+			})
+			expect(defaultAsset.ok).toBe(true)
+			const defaultBytes = Buffer.from(await defaultAsset.arrayBuffer())
+			expect(readWebpDimensions(defaultBytes)).toEqual({ width: size, height: size })
+			const standard = await runOperation('ai-image-metadata', {
+				files: id,
+				overwriteAltText: true,
+				prompt: `E2E_EXPECT_IMAGE_SHA256:${createHash('sha256').update(defaultBytes).digest('hex')}`,
+			})
+			expect(standard.results[0]?.status).toBe('updated')
+			expect(standard.summary?.options).toMatchObject({
+				maxImageSizeBytes: 500_000,
+				maxImageDimension: 1500,
+				targetImageDimension: 800,
+			})
+
+			const stored = await fetch(`${environment.DIRECTUS_E2E_URL}/assets/${id}`, {
+				headers: { Authorization: `Bearer ${environment.DIRECTUS_E2E_TOKEN}` },
+			})
+			expect(stored.ok).toBe(true)
+			const storedBytes = Buffer.from(await stored.arrayBuffer())
+			// Deep equality on this 5 MB buffer blocks the event loop long enough for pooled
+			// HTTP connections to expire before cleanup. Native equality still checks every byte.
+			expect(storedBytes.equals(png)).toBe(true)
+		} finally {
+			if (id) await client.request(deleteFile(id))
+			await client.request(deleteFolder(folder.id))
+		}
+	})
 	it.each([
 		{ format: 'jpeg', width: 2048, height: 3072 },
 		{ format: 'png', width: 924, height: 4453 },
 	])(
-		'reports the Directus 12.2 output limit for a valid $width×$height $format',
+		'downscales a $width×$height $format before encoding and maps focal points to original pixels',
 		async ({ format, width, height }) => {
 			const folder = await client.request(
 				createFolder({ name: 'Transformation output limit E2E' }),
@@ -306,22 +489,16 @@ describe('image metadata installed Flow operations', () => {
 					generateFocalPoint: true,
 				})
 				expect(result.results.find((file) => file.id === large.id)).toMatchObject({
-					status: 'failed',
-					fields: [],
-					transformed: false,
-					error: {
-						stage: 'convert_image',
-						code: 'IMAGE_TRANSFORM_FAILED',
-						httpStatus: 400,
-						raw: { code: 'ILLEGAL_ASSET_TRANSFORMATION' },
-					},
+					status: 'updated',
+					fields: ['focal_point_x', 'focal_point_y'],
+					transformed: true,
 				})
 				expect(result.results.find((file) => file.id === smallId)?.status).toBe('updated')
 				expect(await client.request(readFile(large.id))).toMatchObject({
-					focal_point_x: null,
-					focal_point_y: null,
+					focal_point_x: Math.round(width * 0.25),
+					focal_point_y: Math.round(height * 0.75),
 				})
-				// The original portable image is valid; text-only generation does not request a transform.
+
 				const textOnly = await runOperation('ai-image-metadata', {
 					files: large.id,
 					generateFocalPoint: false,
@@ -329,7 +506,7 @@ describe('image metadata installed Flow operations', () => {
 				expect(textOnly.results[0]).toMatchObject({
 					status: 'updated',
 					fields: ['description'],
-					transformed: false,
+					transformed: true,
 				})
 			} finally {
 				for (const id of ids) await client.request(deleteFile(id))
@@ -362,13 +539,12 @@ describe('image metadata installed Flow operations', () => {
 				id = (await client.request(uploadFiles(data))).id
 				expect(await client.request(readFile(id))).toMatchObject({ width: 40, height: 80 })
 				const asset = await fetch(
-					`${environment.DIRECTUS_E2E_URL}/assets/${id}?format=png`,
+					`${environment.DIRECTUS_E2E_URL}/assets/${id}?format=webp&quality=80`,
 					{ headers: { Authorization: `Bearer ${environment.DIRECTUS_E2E_TOKEN}` } },
 				)
 				expect(asset.ok).toBe(true)
 				const canonical = Buffer.from(await asset.arrayBuffer())
-				expect(canonical.readUInt32BE(16)).toBe(40)
-				expect(canonical.readUInt32BE(20)).toBe(80)
+				expect(readWebpDimensions(canonical)).toEqual({ width: 40, height: 80 })
 				const result = await runOperation('ai-image-metadata', {
 					files: id,
 					generateAltText: false,
@@ -561,8 +737,7 @@ describe('image metadata installed Flow operations', () => {
 					const transformed =
 						result.id !== corruptId && (mime === 'image/avif' || mime === 'image/tiff')
 					expect(result.transformed).toBe(transformed)
-					if (transformed || result.id === corruptId)
-						expect(result.transformationDurationMs).toBeGreaterThan(0)
+					if (transformed) expect(result.transformationDurationMs).toBeGreaterThan(0)
 					else expect(result.transformationDurationMs).toBe(0)
 					seen.push(result.id)
 					if (result.id === corruptId)
@@ -570,7 +745,7 @@ describe('image metadata installed Flow operations', () => {
 							status: 'failed',
 							error: {
 								stage: 'convert_image',
-								code: 'IMAGE_TRANSFORM_FAILED',
+								code: 'IMAGE_TRANSFORM_INVALID_INPUT',
 								retryable: false,
 							},
 						})
@@ -646,6 +821,19 @@ describe('image metadata installed Flow operations', () => {
 		let id: string | undefined
 		try {
 			id = await uploadImage(folder.id)
+			const originalImage = {
+				width: 2,
+				height: 2,
+				sizeBytes: (await readFixture(new URL('./fixtures/red.png', import.meta.url)))
+					.byteLength,
+				mimeType: 'image/png',
+			}
+			const imagePreparation = {
+				reasons: [],
+				source: originalImage,
+				settings: { maxSizeBytes: 500_000, maxDimension: 1500, targetDimension: 800 },
+				output: originalImage,
+			}
 			expect(
 				(
 					await runOperation('ai-image-metadata', {
@@ -707,6 +895,7 @@ describe('image metadata installed Flow operations', () => {
 					id,
 					status: 'updated',
 					fields: ['description', 'tags'],
+					imagePreparation,
 					durationMs: expect.any(Number),
 					transformed: false,
 					originalMimeType: 'image/png',
@@ -756,6 +945,7 @@ describe('image metadata installed Flow operations', () => {
 					id,
 					status: 'updated',
 					fields: ['tags'],
+					imagePreparation,
 					durationMs: expect.any(Number),
 					transformed: false,
 					originalMimeType: 'image/png',
@@ -777,6 +967,7 @@ describe('image metadata installed Flow operations', () => {
 					id,
 					status: 'updated',
 					fields: ['description'],
+					imagePreparation,
 					durationMs: expect.any(Number),
 					transformed: false,
 					originalMimeType: 'image/png',

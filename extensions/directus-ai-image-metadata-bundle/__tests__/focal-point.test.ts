@@ -84,15 +84,17 @@ describe('focal point domain', () => {
 			).toBeUndefined()
 		},
 	)
-	it('checks oriented PNG dimensions without trusting a provider resize', () => {
-		const png = Buffer.alloc(24)
-		png.set([137, 80, 78, 71, 13, 10, 26, 10])
-		png.write('IHDR', 12)
-		png.writeUInt32BE(800, 16)
-		png.writeUInt32BE(600, 20)
-		expect(matchesFocalPointDimensions(png, file)).toBe(true)
-		expect(matchesFocalPointDimensions(png, { width: 600, height: 800 })).toBe(false)
-		expect(matchesFocalPointDimensions(png.subarray(0, 16), file)).toBe(false)
+	it('checks oriented WebP dimensions without trusting a provider resize', () => {
+		const webp = Buffer.alloc(30)
+		webp.write('RIFF')
+		webp.writeUInt32LE(22, 4)
+		webp.write('WEBPVP8X', 8)
+		webp.writeUInt32LE(10, 16)
+		webp.writeUIntLE(799, 24, 3)
+		webp.writeUIntLE(599, 27, 3)
+		expect(matchesFocalPointDimensions(webp, file)).toBe(true)
+		expect(matchesFocalPointDimensions(webp, { width: 600, height: 800 })).toBe(false)
+		expect(matchesFocalPointDimensions(webp.subarray(0, 16), file)).toBe(false)
 	})
 	it.each([
 		{ focal_point_x: null, focal_point_y: null },
