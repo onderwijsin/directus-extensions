@@ -44,6 +44,55 @@ Local state is stored below `.data/`. Reset it only when discarding local data i
 pnpm compose:reset
 ```
 
+### Selective extension loading
+
+By default, `compose.yaml` mounts all of `extensions/` at `/directus/extensions`. Keep this default
+for development across the workspace. To load only selected extensions, copy the optional example:
+
+```sh
+cp compose.override.yaml.example compose.override.yaml
+mkdir -p .data/snapshots
+```
+
+The copied `compose.override.yaml` is ignored by git and automatically merged by local Compose
+commands, including `pnpm compose:up`. The example loads only the Schema Snapshot bundle, enables
+its CLI and automatic snapshots, and persists its output in `.data/snapshots`. Build the selected
+extension before starting Directus:
+
+```sh
+pnpm build:utils
+pnpm --filter @onderwijsin/directus-schema-snapshot-bundle build
+docker compose config
+pnpm compose:up
+```
+
+The example uses `volumes: !override`, which requires Docker Compose **2.24.4 or newer**.
+[Docker's merge rules](https://docs.docker.com/reference/compose-file/merge/#replace-value) normally
+merge volumes by container target. Adding individual mounts below `/directus/extensions/` would
+therefore retain the base `/directus/extensions` mount and keep the other extensions available.
+`!override` replaces the complete volume list.
+
+Customize the copied file manually: add or remove individual extension mounts and adjust their
+environment settings using each extension's README. Preserve the uploads, migrations, and email
+template mounts, because replacing the list also removes those inherited mounts. The template mount
+alone does not load the Magic Links bundle. Keep a dedicated writable snapshot directory: snapshot
+creation clears its contents. The extra snapshot mount makes this example's output survive container
+replacement; change its host path if snapshots should live in a version-controlled directory. See
+the [Schema Snapshot README](../extensions/directus-schema-snapshot-bundle/README.md) for CLI
+commands and configuration.
+
+Inspect the effective local configuration with `docker compose config`. To inspect the base or
+example explicitly, independently of a copied local override, use:
+
+```sh
+docker compose -f compose.yaml config
+docker compose -f compose.yaml -f compose.override.yaml.example config
+```
+
+For the example, verify that `/directus/extensions` is absent and the only extension mount is
+`/directus/extensions/directus-schema-snapshot-bundle`. Other services and shared environment
+defaults are inherited. Removing the copied override restores the default extension selection.
+
 ## Shared topology
 
 ```text
@@ -104,8 +153,10 @@ pnpm compose:migrate
 ```
 
 This command selects `/directus/migrations/post-schema`; it does not provision missing collections.
-The current Sluggernaut migration requires the redirects collection (`redirects` by default). Do not
-run the post-schema phase merely because Directus is healthy.
+The current Sluggernaut migration requires the redirects collection (`redirects` by default). A
+fresh setup using the schema-snapshot-only override does not create that collection, so skip
+`pnpm compose:migrate` unless the required schema has been provisioned. Do not run the post-schema
+phase merely because Directus is healthy.
 
 ## E2E lifecycle
 
