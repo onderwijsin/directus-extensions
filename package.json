@@ -45,7 +45,7 @@
 		"dev:utils": "pnpm --filter @onderwijsin/directus-extension-utils dev",
 		"compose:up": "docker compose up -d",
 		"compose:dev:up": "pnpm build && docker compose up -d",
-		"compose:migrate": "docker compose exec -e MIGRATIONS_PATH=/directus/migrations directus node /directus/cli.js database migrate:latest",
+		"compose:migrate": "docker compose exec -e MIGRATIONS_PATH=/directus/migrations/post-schema directus node /directus/cli.js database migrate:latest",
 		"compose:down": "docker compose down",
 		"compose:logs": "docker compose logs -f",
 		"compose:reset": "docker compose down --volumes --remove-orphans",

@@ -80,10 +80,32 @@ The local and E2E Compose stacks mount the magic-links bundle template directory
 different extension checkout, override `DIRECTUS_E2E_EMAIL_TEMPLATES_DIR` with the corresponding
 host template directory.
 
-The Compose stacks use a two-phase migration lifecycle for collection-dependent migrations. They
-bootstrap from `migrations-bootstrap/`, start Directus so extensions can provision their
-collections, and then apply the full `migrations/` path. Do not add a migration that targets an
-extension-created collection to the bootstrap path.
+## Custom migrations
+
+```text
+migrations/
+├── bootstrap/    # Startup: stable project ID seed
+└── post-schema/  # After required collections exist
+```
+
+The Compose stacks mount the shared `migrations/` directory at `/directus/migrations` and use two
+phases. Startup sets `MIGRATIONS_PATH=/directus/migrations/bootstrap` to run only
+`migrations/bootstrap/`, including the stable project ID seed. After Directus starts and extensions
+have provisioned their collections, collection-dependent migrations use
+`MIGRATIONS_PATH=/directus/migrations/post-schema`. Keep migrations that target extension-created
+collections in `migrations/post-schema/`, never in the bootstrap phase. Keep migration identifiers
+unique across both phases: Directus records them in one migration history.
+
+For local Compose development, `pnpm compose:up` performs the bootstrap phase. After Directus has
+started and every collection required by the post-schema migrations exists, apply them explicitly:
+
+```sh
+pnpm compose:migrate
+```
+
+This command selects `/directus/migrations/post-schema`; it does not provision missing collections.
+The current Sluggernaut migration requires the redirects collection (`redirects` by default). Do not
+run the post-schema phase merely because Directus is healthy.
 
 ## E2E lifecycle
 
@@ -93,6 +115,8 @@ build extensions
 start isolated Compose project
     ↓
 wait for Compose health checks
+    ↓
+apply post-schema migrations
     ↓
 native admin login → DIRECTUS_E2E_TOKEN
     ↓
@@ -107,16 +131,9 @@ Run it with:
 pnpm test:e2e
 ```
 
-The E2E runner applies the full repository migration path after Directus becomes healthy and before
+The E2E runner applies `/directus/migrations/post-schema` after Directus becomes healthy and before
 Vitest starts. This is required for the Sluggernaut concurrency tests because the redirect
 collection is created by `ensureDirectusSchema` during extension startup.
-
-For local Compose development, `pnpm compose:up` performs the bootstrap phase. After Directus has
-started, apply collection-dependent migrations explicitly:
-
-```sh
-pnpm compose:migrate
-```
 
 The runner does not collect Compose logs. Inspect a running stack manually with
 `docker compose logs` when debugging locally; the runner always removes its project and disposable

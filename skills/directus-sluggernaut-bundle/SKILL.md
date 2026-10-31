@@ -444,7 +444,7 @@ imports, or other processes write to the same collection. If duplicate active re
 be prevented in those scenarios, the invariant must also be enforced at database level.
 
 Copy the
-[Sluggernaut redirect integrity migration template](../../migrations/20260824A-sluggernaut-redirect-integrity.js)
+[Sluggernaut redirect integrity migration template](../../migrations/post-schema/20260824A-sluggernaut-redirect-integrity.js)
 into the consuming project's Directus `migrations/` directory and run it through the normal Directus
 migration pipeline. Replace the template's `redirects` table name if
 `SLUGGERNAUT_REDIRECTS_COLLECTION` is customized. The migration validates existing data before
