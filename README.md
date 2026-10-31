@@ -75,7 +75,7 @@ pnpm compose:up
 The default stack mounts all of `extensions/` into Directus and enables extension auto-reload. For
 selective loading, copy [`compose.override.yaml.example`](compose.override.yaml.example) to the
 ignored `compose.override.yaml` and customize it. The example loads only Schema Snapshot and
-persists automatic snapshots; it requires Compose 2.24.4+. See
+persists manual snapshots; automatic snapshots are opt-in. It requires Compose 2.24.4+. See
 [the override guide](docs/docker.md#selective-extension-loading) for setup and configuration checks.
 The local services are available at:
 

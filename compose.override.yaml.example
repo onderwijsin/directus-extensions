@@ -5,7 +5,8 @@ services:
     environment:
       SCHEMA_SNAPSHOT_ENABLED: 'true'
       SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER: /directus/snapshots
-      SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: 'true'
+      # Uncomment to opt in to automatic snapshots.
+      # SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: 'true'
     # Replace the complete list so the default /directus/extensions mount is removed.
     volumes: !override
       - ./.data/uploads:/directus/uploads

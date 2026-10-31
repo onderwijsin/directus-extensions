@@ -30,10 +30,11 @@ enables the local reload loop.
 
 The default local stack makes all workspace extensions available. For a smaller selection, copy
 `compose.override.yaml.example` to the ignored `compose.override.yaml` and customize it manually.
-The example loads only the Schema Snapshot bundle with automatic snapshots and persistent output. It
-requires Compose 2.24.4+ to replace the volume list with `!override`; preserve the essential mounts
-when editing it. See [selective extension loading](docker.md#selective-extension-loading) for setup
-and resolved-configuration checks.
+The example loads only the Schema Snapshot bundle with its CLI enabled and persistent output for
+manual snapshots. Automatic snapshots are opt-in. It requires Compose 2.24.4+ to replace the volume
+list with `!override`; preserve the essential mounts when editing it. See
+[selective extension loading](docker.md#selective-extension-loading) for setup and
+resolved-configuration checks.
 
 The local development image is the regular Directus image. Hardened deployment images are a separate
 deployment concern and do not change the local edit/build/reload workflow.

@@ -56,8 +56,9 @@ mkdir -p .data/snapshots
 
 The copied `compose.override.yaml` is ignored by git and automatically merged by local Compose
 commands, including `pnpm compose:up`. The example loads only the Schema Snapshot bundle, enables
-its CLI and automatic snapshots, and persists its output in `.data/snapshots`. Build the selected
-extension before starting Directus:
+its CLI, and persists manual snapshots in `.data/snapshots`. Automatic snapshots are disabled by
+default; uncomment `SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT` in the copied override to enable them
+explicitly. Build the selected extension before starting Directus:
 
 ```sh
 pnpm build:utils
@@ -65,6 +66,9 @@ pnpm --filter @onderwijsin/directus-schema-snapshot-bundle build
 docker compose config
 pnpm compose:up
 ```
+
+Selective mounts control only which extensions Directus loads. `pnpm dev` still builds and watches
+all workspace extensions.
 
 The example uses `volumes: !override`, which requires Docker Compose **2.24.4 or newer**.
 [Docker's merge rules](https://docs.docker.com/reference/compose-file/merge/#replace-value) normally
@@ -151,6 +155,9 @@ started and every collection required by the post-schema migrations exists, appl
 ```sh
 pnpm compose:migrate
 ```
+
+The command uses `docker compose exec -e MIGRATIONS_PATH=...` to set the environment variable for
+the newly executed CLI process. It does not modify the environment of the running Directus server.
 
 This command selects `/directus/migrations/post-schema`; it does not provision missing collections.
 The current Sluggernaut migration requires the redirects collection (`redirects` by default). A
