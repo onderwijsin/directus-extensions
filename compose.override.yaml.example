@@ -1,0 +1,17 @@
+# Copy to compose.override.yaml for a local schema-snapshot-only setup.
+# Requires Docker Compose 2.24.4+; see docs/docker.md for customization.
+services:
+  directus:
+    environment:
+      SCHEMA_SNAPSHOT_ENABLED: 'true'
+      SCHEMA_SPLIT_MANAGEMENT_SNAPSHOT_FOLDER: /directus/snapshots
+      # Uncomment to opt in to automatic snapshots.
+      # SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: 'true'
+    # Replace the complete list so the default /directus/extensions mount is removed.
+    volumes: !override
+      - ./.data/uploads:/directus/uploads
+      - ./migrations:/directus/migrations:ro
+      - ./extensions/directus-magic-links-bundle/templates:/directus/templates:ro
+      - ./extensions/directus-schema-snapshot-bundle:/directus/extensions/directus-schema-snapshot-bundle
+      # Dedicated, writable output that survives container replacement.
+      - ./.data/snapshots:/directus/snapshots

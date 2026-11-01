@@ -339,7 +339,7 @@ async function runTests(token) {
 }
 
 /**
- * Applies the full repository migration path after extension startup has provisioned collections.
+ * Applies post-schema migrations after extension startup has provisioned collections.
  *
  * @returns {Promise<void>} A promise completed when all migrations have been applied.
  */
@@ -350,7 +350,7 @@ async function runPostStartupMigrations() {
 			'exec',
 			'-T',
 			'-e',
-			'MIGRATIONS_PATH=/directus/migrations',
+			'MIGRATIONS_PATH=/directus/migrations/post-schema',
 			'directus',
 			'node',
 			'/directus/cli.js',

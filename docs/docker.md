@@ -44,6 +44,59 @@ Local state is stored below `.data/`. Reset it only when discarding local data i
 pnpm compose:reset
 ```
 
+### Selective extension loading
+
+By default, `compose.yaml` mounts all of `extensions/` at `/directus/extensions`. Keep this default
+for development across the workspace. To load only selected extensions, copy the optional example:
+
+```sh
+cp compose.override.yaml.example compose.override.yaml
+mkdir -p .data/snapshots
+```
+
+The copied `compose.override.yaml` is ignored by git and automatically merged by local Compose
+commands, including `pnpm compose:up`. The example loads only the Schema Snapshot bundle, enables
+its CLI, and persists manual snapshots in `.data/snapshots`. Automatic snapshots are disabled by
+default; uncomment `SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT` in the copied override to enable them
+explicitly. Build the selected extension before starting Directus:
+
+```sh
+pnpm build:utils
+pnpm --filter @onderwijsin/directus-schema-snapshot-bundle build
+docker compose config
+pnpm compose:up
+```
+
+Selective mounts control only which extensions Directus loads. `pnpm dev` still builds and watches
+all workspace extensions.
+
+The example uses `volumes: !override`, which requires Docker Compose **2.24.4 or newer**.
+[Docker's merge rules](https://docs.docker.com/reference/compose-file/merge/#replace-value) normally
+merge volumes by container target. Adding individual mounts below `/directus/extensions/` would
+therefore retain the base `/directus/extensions` mount and keep the other extensions available.
+`!override` replaces the complete volume list.
+
+Customize the copied file manually: add or remove individual extension mounts and adjust their
+environment settings using each extension's README. Preserve the uploads, migrations, and email
+template mounts, because replacing the list also removes those inherited mounts. The template mount
+alone does not load the Magic Links bundle. Keep a dedicated writable snapshot directory: snapshot
+creation clears its contents. The extra snapshot mount makes this example's output survive container
+replacement; change its host path if snapshots should live in a version-controlled directory. See
+the [Schema Snapshot README](../extensions/directus-schema-snapshot-bundle/README.md) for CLI
+commands and configuration.
+
+Inspect the effective local configuration with `docker compose config`. To inspect the base or
+example explicitly, independently of a copied local override, use:
+
+```sh
+docker compose -f compose.yaml config
+docker compose -f compose.yaml -f compose.override.yaml.example config
+```
+
+For the example, verify that `/directus/extensions` is absent and the only extension mount is
+`/directus/extensions/directus-schema-snapshot-bundle`. Other services and shared environment
+defaults are inherited. Removing the copied override restores the default extension selection.
+
 ## Shared topology
 
 ```text
@@ -80,10 +133,37 @@ The local and E2E Compose stacks mount the magic-links bundle template directory
 different extension checkout, override `DIRECTUS_E2E_EMAIL_TEMPLATES_DIR` with the corresponding
 host template directory.
 
-The Compose stacks use a two-phase migration lifecycle for collection-dependent migrations. They
-bootstrap from `migrations-bootstrap/`, start Directus so extensions can provision their
-collections, and then apply the full `migrations/` path. Do not add a migration that targets an
-extension-created collection to the bootstrap path.
+## Custom migrations
+
+```text
+migrations/
+├── bootstrap/    # Startup: stable project ID seed
+└── post-schema/  # After required collections exist
+```
+
+The Compose stacks mount the shared `migrations/` directory at `/directus/migrations` and use two
+phases. Startup sets `MIGRATIONS_PATH=/directus/migrations/bootstrap` to run only
+`migrations/bootstrap/`, including the stable project ID seed. After Directus starts and extensions
+have provisioned their collections, collection-dependent migrations use
+`MIGRATIONS_PATH=/directus/migrations/post-schema`. Keep migrations that target extension-created
+collections in `migrations/post-schema/`, never in the bootstrap phase. Keep migration identifiers
+unique across both phases: Directus records them in one migration history.
+
+For local Compose development, `pnpm compose:up` performs the bootstrap phase. After Directus has
+started and every collection required by the post-schema migrations exists, apply them explicitly:
+
+```sh
+pnpm compose:migrate
+```
+
+The command uses `docker compose exec -e MIGRATIONS_PATH=...` to set the environment variable for
+the newly executed CLI process. It does not modify the environment of the running Directus server.
+
+This command selects `/directus/migrations/post-schema`; it does not provision missing collections.
+The current Sluggernaut migration requires the redirects collection (`redirects` by default). A
+fresh setup using the schema-snapshot-only override does not create that collection, so skip
+`pnpm compose:migrate` unless the required schema has been provisioned. Do not run the post-schema
+phase merely because Directus is healthy.
 
 ## E2E lifecycle
 
@@ -93,6 +173,8 @@ build extensions
 start isolated Compose project
     ↓
 wait for Compose health checks
+    ↓
+apply post-schema migrations
     ↓
 native admin login → DIRECTUS_E2E_TOKEN
     ↓
@@ -107,16 +189,9 @@ Run it with:
 pnpm test:e2e
 ```
 
-The E2E runner applies the full repository migration path after Directus becomes healthy and before
+The E2E runner applies `/directus/migrations/post-schema` after Directus becomes healthy and before
 Vitest starts. This is required for the Sluggernaut concurrency tests because the redirect
 collection is created by `ensureDirectusSchema` during extension startup.
-
-For local Compose development, `pnpm compose:up` performs the bootstrap phase. After Directus has
-started, apply collection-dependent migrations explicitly:
-
-```sh
-pnpm compose:migrate
-```
 
 The runner does not collect Compose logs. Inspect a running stack manually with
 `docker compose logs` when debugging locally; the runner always removes its project and disposable

@@ -72,8 +72,12 @@ Build the workspace and start the shared local Directus instance:
 pnpm compose:up
 ```
 
-The stack mounts `extensions/` into Directus and enables extension auto-reload. The local services
-are available at:
+The default stack mounts all of `extensions/` into Directus and enables extension auto-reload. For
+selective loading, copy [`compose.override.yaml.example`](compose.override.yaml.example) to the
+ignored `compose.override.yaml` and customize it. The example loads only Schema Snapshot and
+persists manual snapshots; automatic snapshots are opt-in. It requires Compose 2.24.4+. See
+[the override guide](docs/docker.md#selective-extension-loading) for setup and configuration checks.
+The local services are available at:
 
 - Directus: <http://localhost:8055>
 - Mailpit: <http://localhost:8025>
@@ -81,6 +85,10 @@ are available at:
 
 Local data is stored under `.data/` and is ignored by git. Copy `.env.example` to `.env` when local
 overrides are needed. The default credentials and secrets are for local development only.
+
+Startup runs bootstrap migrations. Run `pnpm compose:migrate` afterward only when the collections
+required by the post-schema migrations exist. A fresh schema-snapshot-only setup lacks the
+Sluggernaut redirects collection; see [the migration lifecycle](docs/docker.md#custom-migrations).
 
 Useful commands:
 

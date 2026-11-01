@@ -21,7 +21,7 @@ The invariant is:
 ## Decision
 
 Consumers that require this invariant under concurrency must install the
-[Sluggernaut redirect integrity migration template](../../migrations/20260824A-sluggernaut-redirect-integrity.js)
+[Sluggernaut redirect integrity migration template](../../migrations/post-schema/20260824A-sluggernaut-redirect-integrity.js)
 in their own Directus `migrations/` directory and run it through Directus's normal migration
 pipeline after the redirect collection exists. Fresh installations must bootstrap Directus without
 this collection-dependent migration, allow Sluggernaut (or a schema snapshot) to create the redirect
