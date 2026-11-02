@@ -71,7 +71,10 @@ describe('installed seeder CLI', () => {
 		expect(production.stdout).toContain('system')
 		expect(production.stdout).not.toContain('extract [options]')
 		await expect(
-			seed({ DEPLOYMENT_ENV: 'development', SEEDER_ENABLED: 'false' }, 'system'),
+			seed(
+				{ DEPLOYMENT_ENV: 'development', SEEDER_ENABLED: 'false', SEEDER_BATCH_SIZE: '0' },
+				'system',
+			),
 		).rejects.toThrow("unknown command 'seed'")
 	})
 
@@ -88,14 +91,23 @@ describe('installed seeder CLI', () => {
 		try {
 			await client.request(createTranslation(fixture))
 			created = true
-			for (const value of ['tab', '2', '4']) {
-				const indent = value === 'tab' ? '\t' : Number(value)
-				await seed(
-					{ ...environment, SEEDER_JSON_INDENT: value },
+			for (const [style, width] of [
+				['tab', '8'],
+				['space', '2'],
+				['space', '10'],
+			]) {
+				const indent = style === 'tab' ? '\t' : Number(width)
+				const result = await seed(
+					{
+						...environment,
+						SEEDER_JSON_INDENT: style ?? 'tab',
+						SEEDER_JSON_INDENT_SIZE: width ?? '2',
+						SEEDER_EXTRACT_ASSETS: 'false',
+						SEEDER_INCLUDE: 'directus_translations,directus_roles',
+					},
 					'extract',
-					'--include',
-					'directus_translations',
 				)
+				expect(result.stdout).not.toContain('Extracting asset files')
 				const { stdout } = await execute('docker', [
 					...composeArguments,
 					'directus',
@@ -115,7 +127,21 @@ describe('installed seeder CLI', () => {
 					'--include',
 					'directus_translations',
 				),
-			).rejects.toThrow('SEEDER_JSON_INDENT must be tab, 2, or 4')
+			).rejects.toThrow('SEEDER_JSON_INDENT must be tab or space')
+			await expect(
+				seed(
+					{ ...environment, SEEDER_BATCH_SIZE: '0' },
+					'system',
+					'--include',
+					'directus_translations',
+				),
+			).rejects.toThrow('SEEDER_BATCH_SIZE')
+			await expect(
+				seed(
+					{ ...environment, SEEDER_JSON_INDENT: 'space', SEEDER_JSON_INDENT_SIZE: '11' },
+					'extract',
+				),
+			).rejects.toThrow('SEEDER_JSON_INDENT_SIZE')
 		} finally {
 			try {
 				if (created) await client.request(deleteTranslation(id))
@@ -154,16 +180,21 @@ describe('installed seeder CLI', () => {
 				directory,
 				JSON.stringify([fixture]),
 			])
-			await seed(environment, 'system', '--include', 'directus_translations')
+			await seed(
+				{ ...environment, SEEDER_MODE: 'insert-update' },
+				'system',
+				'--mode',
+				'insert-missing',
+				'--include',
+				'directus_translations',
+			)
 			expect(await client.request(readTranslation(id))).toMatchObject({
 				...fixture,
 				value: 'original',
 			})
 			await seed(
-				environment,
+				{ ...environment, SEEDER_MODE: 'INSERT-UPDATE' },
 				'system',
-				'--mode',
-				'insert-update',
 				'--include',
 				'directus_translations',
 				'--force',

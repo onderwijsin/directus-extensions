@@ -1,12 +1,12 @@
-import type { HookExtensionContext } from '@directus/types'
 import type { Command } from 'commander'
+import type { ServiceAdapterContext } from '../services/ServiceAdapter'
 
 import process from 'node:process'
 
 import { z } from 'zod'
 
-import { getFolderPaths, parseEnvConfig } from '../lib/parseEnvConfig'
 import { acquireLock, releaseLock } from '../lib/processLock'
+import { getFolderPaths, resolveSeederConfig } from '../lib/resolveConfig'
 import { extractAssets, extractSeedsFromCollections } from '../seeders/system/extract'
 
 /**
@@ -18,7 +18,7 @@ import { extractAssets, extractSeedsFromCollections } from '../seeders/system/ex
  */
 export const registerExtractCommand = (
 	parentCommand: Command,
-	context: HookExtensionContext,
+	context: ServiceAdapterContext,
 ): void => {
 	const { logger, env } = context
 	const { seedsFolder, assetsFolder } = getFolderPaths(env)
@@ -46,8 +46,8 @@ export const registerExtractCommand = (
 				acquireLock()
 				logger.info('🌱 Extracting seed data from Directus using Directus Seeder...')
 
-				// Parse collection options using existing utility
-				const config = parseEnvConfig(env, {
+				// Apply explicit CLI overrides to the validated startup options
+				const config = resolveSeederConfig(env, {
 					includeCollections: options.include,
 					excludeCollections: options.exclude,
 					clearExistingSeeds: options.clear,

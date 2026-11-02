@@ -203,7 +203,7 @@ const extractSingleCollection = async (
 	collectionName: string,
 	seedsFolder: string,
 	context: HookExtensionContext,
-	jsonIndent: '\t' | 2 | 4,
+	jsonIndent: SeederConfig['jsonIndent'],
 ): Promise<boolean> => {
 	const { logger, services, getSchema, database: knex } = context
 	try {
@@ -366,7 +366,7 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 						collectionName,
 						folders.seeds,
 						options.context,
-						options.jsonIndent ?? '\t',
+						options.jsonIndent,
 					)
 				},
 			)

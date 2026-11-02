@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { envSchema } from '../src/env.schema'
 import { createSeedDataProvider } from '../src/lib/seedDataParser'
 import { SYSTEM_COLLECTIONS_ORDER } from '../src/seeders/system/config'
 import { getDataProviders, handlePolicyTFA, isSuperUser } from '../src/seeders/system/data'
@@ -27,7 +28,7 @@ async function writeSeed(collection: string, data: unknown) {
  */
 async function loadData(env: Record<string, string> = {}) {
 	return createSeedDataProvider(
-		await getDataProviders({ SEEDER_SEEDS_FOLDER: directory, ...env }),
+		await getDataProviders(envSchema.parse({ SEEDER_SEEDS_FOLDER: directory, ...env })),
 	).getSeedData()
 }
 

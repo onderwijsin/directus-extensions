@@ -61,7 +61,7 @@ function register(env: Record<string, unknown> = {}) {
 			env: {
 				DEPLOYMENT_ENV: 'development',
 				SEEDER_AUTO_EXTRACT: true,
-				SEEDER_INCLUDE: 'directus_users,directus_roles',
+				SEEDER_INCLUDE: ['directus_users', 'directus_roles'],
 				SEEDER_EXCLUDE: 'directus_roles',
 				SEEDER_SEEDS_FOLDER: path.join(directory, 'seeds'),
 				SEEDER_ASSETS_DIR: path.join(directory, 'assets'),
@@ -132,7 +132,7 @@ describe('automatic system extraction', () => {
 	})
 
 	it('debounces repeated events for fifteen seconds and extracts data and assets once', async () => {
-		const action = register({ SEEDER_JSON_INDENT: 4 })
+		const action = register({ SEEDER_JSON_INDENT: 'space', SEEDER_JSON_INDENT_SIZE: 4 })
 		emit(action, 'users.create', { first_name: 'Fixture' })
 		await advance(10_000)
 		emit(action, 'users.update', { first_name: 'Updated' })
@@ -151,6 +151,16 @@ describe('automatic system extraction', () => {
 		)
 		expect(mocks.assets).toHaveBeenCalledOnce()
 		expect(await readdir(directory)).toEqual([])
+	})
+
+	it('extracts data without assets when the validated asset flag is false', async () => {
+		const action = register({ SEEDER_EXTRACT_ASSETS: false })
+		emit(action, 'users.create', { first_name: 'Fixture' })
+		await advance(15_000)
+		expect(mocks.extract).toHaveBeenCalledWith(
+			expect.objectContaining({ extractAssets: false, jsonIndent: '\t' }),
+		)
+		expect(mocks.assets).not.toHaveBeenCalled()
 	})
 
 	it('ignores last_page-only and empty user updates while retaining mixed updates', async () => {

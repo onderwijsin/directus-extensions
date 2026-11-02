@@ -49,7 +49,7 @@ export interface SeederConfig {
 	/**
 	 * Operation mode.
 	 */
-	operationMode: string
+	operationMode: OperationMode
 
 	/**
 	 * Data scope.
@@ -59,45 +59,45 @@ export interface SeederConfig {
 	/**
 	 * Collections to include (if empty, include all).
 	 */
-	includeCollections?: unknown[]
+	includeCollections: string[]
 
 	/**
 	 * Collections to exclude.
 	 */
-	excludeCollections?: unknown[]
+	excludeCollections: string[]
 
 	/**
 	 * Whether to continue on error.
 	 */
-	continueOnError?: boolean
+	continueOnError: boolean
 
 	/**
 	 * Batch size for operations.
 	 */
-	batchSize?: number
+	batchSize: number
 
 	/**
 	 * Whether full-idempotent mode is enabled.
 	 * This is a safety feature to prevent accidental data deletion.
 	 */
-	enableFullIdempotent?: boolean
+	enableFullIdempotent: boolean
 
 	/**
 	 * Whether to clear existing seed files before extraction.
 	 */
-	clearExistingSeeds?: boolean
+	clearExistingSeeds: boolean
 
 	/**
 	 * Whether to extract asset files to the assets folder.
 	 */
-	extractAssets?: boolean
+	extractAssets: boolean
 
 	/** Indentation used when writing extracted JSON. */
-	jsonIndent?: '\t' | 2 | 4
+	jsonIndent: '\t' | number
 
 	/**
 	 * Whether to automatically extract seed data from the current database state
 	 * into seed files for system collections on data changes.
 	 */
-	autoExtract?: boolean
+	autoExtract: boolean
 }

@@ -1,3 +1,4 @@
+import type { SeederOptions } from '../../env.schema'
 import type { CollectionDataProvider } from '../../lib/seedDataParser'
 import type { SeedItem } from '../../lib/seedItem'
 
@@ -8,7 +9,7 @@ import { z } from 'zod'
 const seedStringSchema = z.coerce.string()
 import path from 'node:path'
 
-import { getFolderPaths } from '../../lib/parseEnvConfig'
+import { getFolderPaths } from '../../lib/resolveConfig'
 import { createCollectionDataProvider } from '../../lib/seedDataParser'
 import { seedItemsSchema, toSeedRecord, getStringField } from '../../lib/seedItem'
 import { SYSTEM_COLLECTIONS_ORDER } from './config'
@@ -27,11 +28,8 @@ import { SYSTEM_COLLECTIONS_ORDER } from './config'
  * - directus_flows: environment-based filtering of development-only flows ([Dev] pattern)
  */
 
-// System configuration constants for default user creation and superuser handling
-const DEFAULT_ADMIN_EMAIL = 'admin@example.com'
 // System configuration constant for environment-based flow filtering
 const FLOW_DEVELOPMENT_PATTERN = /\[dev]/i // Case-insensitive, matches anywhere in flow name
-const DEFAULT_ADMIN_PASSWORD = 'p4ssw0rd!'
 const SUPER_USER_TITLE = 'super user'
 const ADMIN_FIRST_NAME = 'admin'
 const ADMIN_LAST_NAMES = ['developer', 'user']
@@ -42,20 +40,11 @@ const ADMIN_LAST_NAMES = ['developer', 'user']
  */
 type SystemCollectionKey = (typeof SYSTEM_COLLECTIONS_ORDER)[number]
 
-/**
- * Interface for environment configuration variables.
- * Used to customize default admin user creation and deployment behavior.
- */
-interface EnvironmentConfig {
-	/** Default email for admin user creation */
-	DEFAULT_EMAIL?: string
-	/** Default password for admin user creation */
-	DEFAULT_PASSWORD?: string
-	/** Deployment environment (development/production) affects user status */
-	DEPLOYMENT_ENV?: string
-	/** Allow additional environment variables */
-	[key: string]: unknown
-}
+/** Validated options consumed by environment-dependent seed transformations. */
+type EnvironmentConfig = Pick<
+	SeederOptions,
+	'DEFAULT_EMAIL' | 'DEFAULT_PASSWORD' | 'DEPLOYMENT_ENV'
+>
 
 /**
  * Interface representing a collection's data structure.
@@ -422,10 +411,10 @@ export const isSuperUser = (user: SeedItem): boolean => {
 const handleSuperUser = (user: SeedItem, env: EnvironmentConfig): SeedItem => {
 	return {
 		...toSeedRecord(user),
-		// Use environment email or fallback to default
-		email: env.DEFAULT_EMAIL ?? DEFAULT_ADMIN_EMAIL,
-		// Use environment password or fallback to default
-		password: env.DEFAULT_PASSWORD ?? DEFAULT_ADMIN_PASSWORD,
+		// Use the validated email
+		email: env.DEFAULT_EMAIL,
+		// Use the validated password
+		password: env.DEFAULT_PASSWORD,
 		// Active in development, suspended in production for security
 		status: env.DEPLOYMENT_ENV === 'development' ? 'active' : 'suspended',
 	}
@@ -439,7 +428,10 @@ const handleSuperUser = (user: SeedItem, env: EnvironmentConfig): SeedItem => {
  * @param env - Environment variables containing deployment environment
  * @returns The modified policy object with TFA enforcement applied
  */
-export const handlePolicyTFA = (policy: SeedItem, env: EnvironmentConfig): SeedItem => {
+export const handlePolicyTFA = (
+	policy: SeedItem,
+	env: Pick<SeederOptions, 'DEPLOYMENT_ENV'>,
+): SeedItem => {
 	return {
 		...toSeedRecord(policy),
 		enforce_tfa:
@@ -701,9 +693,7 @@ const sortDataProviders = (dataProviders: CollectionDataProvider[]): CollectionD
  * @returns Promise resolving to an array of collection data providers in dependency order
  * @throws Error if data provider creation fails
  */
-export const getDataProviders = async (
-	env: EnvironmentConfig,
-): Promise<CollectionDataProvider[]> => {
+export const getDataProviders = async (env: SeederOptions): Promise<CollectionDataProvider[]> => {
 	try {
 		// Get seeds folder path from environment configuration
 		const { seedsFolder } = getFolderPaths(env)

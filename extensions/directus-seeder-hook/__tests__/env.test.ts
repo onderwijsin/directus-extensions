@@ -1,0 +1,124 @@
+import { describe, expect, it } from 'vitest'
+
+import { envSchema } from '../src/env.schema'
+import { getFolderPaths, resolveSeederConfig } from '../src/lib/resolveConfig'
+
+describe('Seeder startup configuration', () => {
+	it('provides all startup defaults and derives runtime configuration from them', () => {
+		const options = envSchema.parse({})
+		expect(options).toEqual({
+			SEEDER_ENABLED: true,
+			SEEDER_MODE: 'insert-missing',
+			SEEDER_SCOPE: 'system',
+			SEEDER_INCLUDE: [],
+			SEEDER_EXCLUDE: [],
+			SEEDER_CONTINUE_ON_ERROR: false,
+			SEEDER_BATCH_SIZE: 50,
+			SEEDER_ENABLE_FULL_IDEMPOTENT: false,
+			SEEDER_CLEAR_DATA_BEFORE_SEED: false,
+			SEEDER_EXTRACT_ASSETS: true,
+			SEEDER_AUTO_EXTRACT: false,
+			SEEDER_JSON_INDENT: 'tab',
+			SEEDER_JSON_INDENT_SIZE: 2,
+			SEEDER_SEEDS_FOLDER: '/directus/seeds',
+			SEEDER_ASSETS_DIR: '/directus/seeds/assets',
+			DEFAULT_EMAIL: 'admin@example.com',
+			DEFAULT_PASSWORD: 'p4ssw0rd!',
+			STORAGE_LOCATIONS: ['local'],
+		})
+		expect(resolveSeederConfig(options)).toEqual({
+			operationMode: 'insert-missing',
+			dataScope: 'system',
+			includeCollections: [],
+			excludeCollections: [],
+			continueOnError: false,
+			batchSize: 50,
+			enableFullIdempotent: false,
+			clearExistingSeeds: false,
+			extractAssets: true,
+			autoExtract: false,
+			jsonIndent: '\t',
+		})
+		expect(getFolderPaths(envSchema.parse({ SEEDER_SEEDS_FOLDER: ' /tmp/seeds ' }))).toEqual({
+			seedsFolder: '/tmp/seeds',
+			assetsFolder: '/directus/seeds/assets',
+		})
+	})
+
+	it.each([
+		'SEEDER_ENABLED',
+		'SEEDER_CONTINUE_ON_ERROR',
+		'SEEDER_ENABLE_FULL_IDEMPOTENT',
+		'SEEDER_CLEAR_DATA_BEFORE_SEED',
+		'SEEDER_EXTRACT_ASSETS',
+		'SEEDER_AUTO_EXTRACT',
+	])('accepts Directus booleans and rejects invalid %s values without coercion', (key) => {
+		for (const value of [true, false])
+			expect(envSchema.parse({ [key]: value })).toMatchObject({ [key]: value })
+		for (const value of [null, '', 'true', 'false', 'yes', 0, 1, [], {}])
+			expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
+	})
+
+	it('validates integer batch sizes and indentation widths without truncation or fallback', () => {
+		for (const size of [1, 50, 1000])
+			expect(envSchema.parse({ SEEDER_BATCH_SIZE: size }).SEEDER_BATCH_SIZE).toBe(size)
+		for (const size of [0, -1, 1.5, NaN, Infinity, null, '', '2', '7junk', true])
+			expect(envSchema.safeParse({ SEEDER_BATCH_SIZE: size }).success).toBe(false)
+		for (let size = 1; size <= 10; size++)
+			expect(
+				resolveSeederConfig(
+					envSchema.parse({ SEEDER_JSON_INDENT: 'space', SEEDER_JSON_INDENT_SIZE: size }),
+				).jsonIndent,
+			).toBe(size)
+		for (const size of [0, 11, -1, 2.5, NaN, Infinity, null, '', '2', true])
+			expect(envSchema.safeParse({ SEEDER_JSON_INDENT_SIZE: size }).success).toBe(false)
+	})
+
+	it.each(['SEEDER_INCLUDE', 'SEEDER_EXCLUDE', 'STORAGE_LOCATIONS'])(
+		'normalizes single and pre-cast %s lists and validates their members',
+		(key) => {
+			expect(envSchema.parse({ [key]: ' directus_roles ' })).toMatchObject({
+				[key]: ['directus_roles'],
+			})
+			expect(
+				envSchema.parse({ [key]: [' directus_roles ', 'directus_users'] }),
+			).toMatchObject({ [key]: ['directus_roles', 'directus_users'] })
+			for (const value of [null, true, 1, {}, '', ' ', [''], [1], ['directus_roles', false]])
+				expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
+		},
+	)
+
+	it('allows empty collection selections but requires at least one storage location', () => {
+		expect(envSchema.parse({ SEEDER_INCLUDE: [], SEEDER_EXCLUDE: [] })).toMatchObject({
+			SEEDER_INCLUDE: [],
+			SEEDER_EXCLUDE: [],
+		})
+		expect(envSchema.safeParse({ STORAGE_LOCATIONS: [] }).success).toBe(false)
+	})
+
+	it('normalizes supported modes and scope while rejecting unknown or mistyped options', () => {
+		for (const mode of ['INSERT-MISSING', 'INSERT-UPDATE', 'FULL-IDEMPOTENT'])
+			expect(envSchema.parse({ SEEDER_MODE: mode }).SEEDER_MODE).toBe(mode.toLowerCase())
+		expect(envSchema.parse({ SEEDER_SCOPE: 'SYSTEM' }).SEEDER_SCOPE).toBe('system')
+		for (const key of ['SEEDER_MODE', 'SEEDER_SCOPE'])
+			for (const value of ['invalid', '', ' ', false, 1, null])
+				expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
+	})
+
+	it('preserves deployment names and credential strings, with all defaults owned by the schema', () => {
+		for (const DEPLOYMENT_ENV of ['development', 'production', 'Development', 'staging', ''])
+			expect(envSchema.parse({ DEPLOYMENT_ENV }).DEPLOYMENT_ENV).toBe(DEPLOYMENT_ENV)
+		expect(
+			envSchema.parse({ DEFAULT_EMAIL: '', DEFAULT_PASSWORD: '  secret  ' }),
+		).toMatchObject({ DEFAULT_EMAIL: '', DEFAULT_PASSWORD: '  secret  ' })
+		for (const key of ['DEPLOYMENT_ENV', 'DEFAULT_EMAIL', 'DEFAULT_PASSWORD'])
+			for (const value of [null, false, 123, [], {}])
+				expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
+		for (const key of ['SEEDER_SEEDS_FOLDER', 'SEEDER_ASSETS_DIR'])
+			for (const value of ['', ' ', null, false, 123, []])
+				expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
+		expect(envSchema.parse({ LOG_LEVEL: 123, CI: {}, DB_HOST: null })).not.toHaveProperty(
+			'LOG_LEVEL',
+		)
+	})
+})

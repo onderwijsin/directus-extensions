@@ -37,16 +37,16 @@ docker compose exec directus node /directus/cli.js seed system --mode insert-mis
 docker compose exec -e DEPLOYMENT_ENV=development directus node /directus/cli.js seed extract --clear --assets
 ```
 
-| Option                           | `seed system`                                                                             | `seed extract`                                                                                       |
-| -------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `-m, --mode <mode>`              | `insert-missing` (default), `insert-update`, or `full-idempotent`; other CLI values fail. | —                                                                                                    |
-| `-i, --include <collections...>` | Select supported collections.                                                             | Select collections whose JSON is extracted.                                                          |
-| `-e, --exclude <collections...>` | Exclude collections after inclusion.                                                      | Exclude collections after inclusion.                                                                 |
-| `-f, --force`                    | Skip confirmation prompts.                                                                | —                                                                                                    |
-| `-y, --yes`                      | Alias for `--force`.                                                                      | —                                                                                                    |
-| `-c, --clear`                    | —                                                                                         | Clear the entire seed directory before extraction and the asset directory when assets are extracted. |
-| `-a, --assets`                   | —                                                                                         | Enable asset extraction, which is already enabled by default.                                        |
-| `-h, --help`                     | Show command help.                                                                        | Show command help.                                                                                   |
+| Option                           | `seed system`                                                                                                            | `seed extract`                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `-m, --mode <mode>`              | `insert-missing`, `insert-update`, or `full-idempotent` (case-sensitive). Omitted: use `SEEDER_MODE`; other values fail. | —                                                                                                    |
+| `-i, --include <collections...>` | Select supported collections.                                                                                            | Select collections whose JSON is extracted.                                                          |
+| `-e, --exclude <collections...>` | Exclude collections after inclusion.                                                                                     | Exclude collections after inclusion.                                                                 |
+| `-f, --force`                    | Skip confirmation prompts.                                                                                               | —                                                                                                    |
+| `-y, --yes`                      | Alias for `--force`.                                                                                                     | —                                                                                                    |
+| `-c, --clear`                    | —                                                                                                                        | Clear the entire seed directory before extraction and the asset directory when assets are extracted. |
+| `-a, --assets`                   | —                                                                                                                        | Enable asset extraction even when `SEEDER_EXTRACT_ASSETS=false`; enabled by default.                 |
+| `-h, --help`                     | Show command help.                                                                                                       | Show command help.                                                                                   |
 
 CLI collection names are separate space-delimited arguments, not comma-separated tokens. CLI lists
 override their respective environment lists; exclusions always win. Selection does not change the
@@ -59,34 +59,73 @@ bulk-operation flag and call `process.exit()` in their final cleanup.
 
 ## Configuration reference
 
-These values come from the Directus environment. Unless noted otherwise, seeder booleans accept
-boolean values or strings `true` (case-insensitive) and `1`; other strings are false. String values
-are not trimmed. The master enable switch follows the separate rule in its table entry.
+Directus casts environment `true`/`false` to booleans, numeric values to numbers, and
+comma-separated lists to arrays before passing them to the hook. See
+[Directus configuration](https://directus.com/docs/configuration/intro). The hook validates
+configuration once at startup and reuses that validated snapshot for commands, automatic extraction,
+import transformations, and file imports. Invalid provided values fail startup before registration,
+even for unused options or when a CLI option would override them. Missing values use the defaults
+below. `SEEDER_ENABLED=false` skips registration and remaining validation.
 
-| Variable                                                         | Default                   | Behavior and accepted values                                                                                                                                                                                                                     |
-| ---------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SEEDER_ENABLED`                                                 | `true`                    | Boolean `false` or string `false` disables all command and automatic-hook registration.                                                                                                                                                          |
-| `DEPLOYMENT_ENV`                                                 | Unset                     | Only exact `development` registers manual and automatic extraction. Exact `production` adds policy TFA enforcement. Every other value also suspends matching root users and filters development flows during seeding.                            |
-| `SEEDER_MODE`                                                    | `insert-missing`          | Recognizes the three modes case-insensitively; unknown environment values fall back to `insert-missing`. The system CLI's default `--mode insert-missing` overrides this variable even when the option is omitted; pass `--mode` explicitly.     |
-| `SEEDER_SCOPE`                                                   | `system`                  | Only `system` exists; other values fall back to it. No custom scope is provided.                                                                                                                                                                 |
-| `SEEDER_INCLUDE`                                                 | All supported collections | Comma-separated string with trimmed names, or an array supplied by Directus. An empty list includes all. CLI `--include` overrides it.                                                                                                           |
-| `SEEDER_EXCLUDE`                                                 | None                      | Same list format as inclusion; exclusions win. CLI `--exclude` overrides it.                                                                                                                                                                     |
-| `SEEDER_CONTINUE_ON_ERROR`                                       | `false`                   | Continue to other collections after errors that escape a collection operation. It does not make logged strategy failures fatal; see the error caveat below.                                                                                      |
-| `SEEDER_BATCH_SIZE`                                              | `50`                      | Batch size, parsed as a base-10 integer. Supply a positive integer; the legacy parser does not enforce this and invalid/zero/negative values can skip work or prevent progress.                                                                  |
-| `SEEDER_ENABLE_FULL_IDEMPOTENT`                                  | `false`                   | Required before `full-idempotent` can delete records. `--force`/`--yes` does not bypass this gate.                                                                                                                                               |
-| `SEEDER_CLEAR_DATA_BEFORE_SEED`                                  | `false`                   | Despite its name, controls clearing extraction output, not database clearing before seeding. `--clear` enables it for manual extraction.                                                                                                         |
-| `SEEDER_EXTRACT_ASSETS`                                          | `true`                    | Retained legacy fallback makes false/unset values resolve to `true` too. There is no CLI `--no-assets`; excluding `directus_files` does not disable asset extraction.                                                                            |
-| `SEEDER_AUTO_EXTRACT`                                            | `false`                   | Enable monitored system-record changes to schedule extraction; also requires exact `DEPLOYMENT_ENV=development`.                                                                                                                                 |
-| `SEEDER_JSON_INDENT`                                             | `tab`                     | Indentation for manual and automatic extraction: exact `tab`, `2` (two spaces), or `4` (four spaces). Also accepts numeric `2` or `4` from Directus. Other values fail; no trimming or fallback.                                                 |
-| `SEEDER_SEEDS_FOLDER`                                            | `/directus/seeds`         | Nonempty string, trimmed; blank/missing/nonstring values use the default.                                                                                                                                                                        |
-| `SEEDER_ASSETS_DIR`                                              | `/directus/seeds/assets`  | Same path parsing. Independent of the seed folder: changing the seed folder does not relocate this default.                                                                                                                                      |
-| `DEFAULT_EMAIL`                                                  | `admin@example.com`       | Replaces the email of matching root-user seed records. An explicitly empty string is retained.                                                                                                                                                   |
-| `DEFAULT_PASSWORD`                                               | `p4ssw0rd!`               | Replaces the password of matching root-user seed records. An explicitly empty string is retained. Supply a deployment-specific secret.                                                                                                           |
-| `STORAGE_LOCATIONS`                                              | `local` fallback          | Existing Directus storage configuration. File imports use seed `storage` when provided; otherwise the first location in a comma-separated string, or `local` when the parsed value is not a string. The hook does not configure storage drivers. |
-| `LOG_LEVEL`                                                      | Directus default          | Standard Directus logging setting; use `debug` or `trace` for diagnostics.                                                                                                                                                                       |
-| `CI`, `CONTINUOUS_INTEGRATION`, `BUILD_NUMBER`, `GITHUB_ACTIONS` | Unset                     | Any nonempty raw process-environment value skips CLI confirmations, including the string `false`. Non-TTY stdin or stdout also skips prompts.                                                                                                    |
+Seeder boolean options require booleans after Directus casting; numbers `0`/`1` and strings that
+remain strings are rejected. Integer options require numbers of the documented range, without string
+coercion or truncation. Use Directus's `string:` prefix when a string would otherwise be cast to
+another type. Credential strings retain whitespace and explicitly empty strings.
 
-Invalid indentation prevents startup with `SEEDER_JSON_INDENT must be tab, 2, or 4`.
+| Variable                        | Default                          | Behavior and accepted values                                                                                                                                                                                                                                                                                                       |
+| ------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SEEDER_ENABLED`                | `true`                           | Boolean master switch. Boolean `false` or string `false` disables all command and automatic-hook registration and skips remaining configuration validation.                                                                                                                                                                        |
+| `DEPLOYMENT_ENV`                | Unset                            | Optional, untrimmed free string, including names such as `staging`. Only exact `development` registers manual and automatic extraction. Exact `production` adds policy TFA enforcement. Every other value, including unset, suspends matching root users and filters development flows during seeding.                             |
+| `SEEDER_MODE`                   | `insert-missing`                 | String: `insert-missing`, `insert-update`, or `full-idempotent`, case-insensitive without trimming. Unsupported values fail. Used when CLI `--mode` is omitted; an explicit CLI mode is case-sensitive.                                                                                                                            |
+| `SEEDER_SCOPE`                  | `system`                         | String: only `system`, case-insensitive without trimming. Unsupported values fail. No custom scope is provided.                                                                                                                                                                                                                    |
+| `SEEDER_INCLUDE`                | `[]` (all supported collections) | Singular nonblank string or array of nonblank strings, trimmed and normalized to an array. An empty array includes all. CLI `--include` overrides it.                                                                                                                                                                              |
+| `SEEDER_EXCLUDE`                | `[]` (none)                      | Same accepted list forms and normalization as inclusion. An empty array excludes none; exclusions win. CLI `--exclude` overrides it.                                                                                                                                                                                               |
+| `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. Continue to other collections after errors that escape a collection operation. It does not make logged strategy failures fatal; see the error caveat below.                                                                                                                                                               |
+| `SEEDER_BATCH_SIZE`             | `50`                             | Positive integer number. Zero, negative, fractional, nonnumeric, and uncast string values fail.                                                                                                                                                                                                                                    |
+| `SEEDER_ENABLE_FULL_IDEMPOTENT` | `false`                          | Boolean. Required before `full-idempotent` can delete records. `--force`/`--yes` does not bypass this gate.                                                                                                                                                                                                                        |
+| `SEEDER_CLEAR_DATA_BEFORE_SEED` | `false`                          | Boolean. Despite its name, controls clearing extraction output, not database clearing before seeding. `--clear` enables it for manual extraction.                                                                                                                                                                                  |
+| `SEEDER_EXTRACT_ASSETS`         | `true`                           | Boolean. `false` disables asset extraction for both manual and automatic extraction; explicit CLI `--assets` enables it for that invocation. There is no CLI `--no-assets`; excluding `directus_files` does not disable asset extraction.                                                                                          |
+| `SEEDER_AUTO_EXTRACT`           | `false`                          | Boolean. Enable monitored system-record changes to schedule extraction; also requires exact `DEPLOYMENT_ENV=development`.                                                                                                                                                                                                          |
+| `SEEDER_JSON_INDENT`            | `tab`                            | String: exact `tab` or `space`, without trimming. Controls manual and automatic JSON extraction. Unsupported values fail.                                                                                                                                                                                                          |
+| `SEEDER_JSON_INDENT_SIZE`       | `2`                              | Integer number from `1` through `10`. Applies only with `SEEDER_JSON_INDENT=space`, but is always validated, including when indentation is `tab`.                                                                                                                                                                                  |
+| `SEEDER_SEEDS_FOLDER`           | `/directus/seeds`                | Nonblank string, trimmed. Only missing values use the default; provided blank or nonstring values fail.                                                                                                                                                                                                                            |
+| `SEEDER_ASSETS_DIR`             | `/directus/seeds/assets`         | Same path validation. Independent of the seed folder: changing the seed folder does not relocate this default.                                                                                                                                                                                                                     |
+| `DEFAULT_EMAIL`                 | `admin@example.com`              | String. Replaces the email of matching root-user seed records. An explicitly empty string is retained.                                                                                                                                                                                                                             |
+| `DEFAULT_PASSWORD`              | `p4ssw0rd!`                      | String. Replaces the password of matching root-user seed records. An explicitly empty string is retained. Supply a deployment-specific secret; numeric or boolean-like passwords require Directus's `string:` prefix, for example `string:123456` or `string:false`.                                                               |
+| `STORAGE_LOCATIONS`             | `['local']`                      | Existing Directus storage configuration: singular nonblank string or nonempty array of nonblank strings, trimmed and normalized to an array. File imports retain supplied seed `storage`; otherwise they use the first validated location, including when Directus supplies an array. The hook does not configure storage drivers. |
+
+The hook does not comma-split a string that remains a string after Directus casting. For example,
+`SEEDER_INCLUDE=directus_roles,directus_users` arrives as an array of two names, while
+`SEEDER_INCLUDE=string:directus_roles,directus_users` is one literal list entry. Blank entries or
+nonstrings fail validation. `SEEDER_INCLUDE=json:[]` selects all supported collections;
+`SEEDER_EXCLUDE=json:[]` excludes none. `STORAGE_LOCATIONS=json:[]` is invalid.
+
+These controls remain outside the hook's configuration schema:
+
+| Variable                                                         | Default          | Behavior                                                                                                                                      |
+| ---------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOG_LEVEL`                                                      | Directus default | Standard Directus logging setting; use `debug` or `trace` for diagnostics.                                                                    |
+| `CI`, `CONTINUOUS_INTEGRATION`, `BUILD_NUMBER`, `GITHUB_ACTIONS` | Unset            | Any nonempty raw process-environment value skips CLI confirmations, including the string `false`. Non-TTY stdin or stdout also skips prompts. |
+
+### Configuration changes and migration
+
+Configuration now rejects invalid representations instead of permissive boolean/integer parsing or
+silent mode, scope, and path fallbacks. An omitted CLI `--mode` honors `SEEDER_MODE`,
+`SEEDER_EXTRACT_ASSETS=false` is effective, and file imports without seed `storage` use the first
+configured location rather than falling back to `local` for Directus-cast arrays. These are
+intentional configuration fixes; the retained data-handling and safety caveats below still apply.
+
+Replace old `SEEDER_JSON_INDENT=2` or `SEEDER_JSON_INDENT=4` with `space` and the matching size. For
+four spaces:
+
+```dotenv
+SEEDER_JSON_INDENT=space
+SEEDER_JSON_INDENT_SIZE=4
+```
+
+The old numeric indentation values are rejected. Omitting both settings keeps tabs; choosing `space`
+without a size uses two spaces. Invalid configuration is logged and startup fails with
+`Invalid extension options ☝. Exiting.`.
 
 Example development configuration:
 
@@ -194,20 +233,22 @@ full-idempotent request return a nonzero exit code.
 
 ## Extraction, assets, and automatic behavior
 
-Extraction uses JavaScript `JSON.stringify` to write valid, readable JSON with tabs by default (or
-two/four spaces via `SEEDER_JSON_INDENT`) and exactly one final newline. The same input produces the
-same output. The Seeder does not guarantee project-specific formatting rules.
+Extraction uses JavaScript `JSON.stringify` to write valid, readable JSON with tabs by default, or
+one through ten spaces via `SEEDER_JSON_INDENT=space` and `SEEDER_JSON_INDENT_SIZE`. Output has
+exactly one final newline. The same input produces the same output. The Seeder does not invoke a
+formatter or guarantee project-specific formatting rules.
 
 It overwrites selected nonempty JSON files. Empty collections do not write `[]` or remove old files;
 without `--clear`, stale JSON remains. `--clear` clears the entire seed directory, including
 unselected JSON and a nested asset directory. Use dedicated output paths.
 
-Asset extraction queries **all** `directus_files`, regardless of collection inclusion/exclusion, and
-writes binary contents under `filename_disk` in the asset directory. Each asset is buffered in
-memory. When clearing is enabled, the asset directory is cleared only if file records exist; with
-none, a separate existing asset directory remains unchanged. File seeding reads these local files
-and uploads through Directus `FilesService`, preserving supplied IDs. Updates re-upload assets too;
-missing binaries or `filename_disk` cause errors. The hook does not provision storage.
+When enabled, asset extraction queries **all** `directus_files`, regardless of collection
+inclusion/exclusion, and writes binary contents under `filename_disk` in the asset directory. Each
+asset is buffered in memory. When clearing is enabled, the asset directory is cleared only if file
+records exist; with none, a separate existing asset directory remains unchanged. File seeding reads
+these local files and uploads through Directus `FilesService`, preserving supplied IDs. Updates
+re-upload assets too; missing binaries or `filename_disk` cause errors. The hook does not provision
+storage.
 
 Automatic extraction requires both exact `DEPLOYMENT_ENV=development` and
 `SEEDER_AUTO_EXTRACT=true`. Selected collections' create/update/delete actions schedule a 15-second
@@ -215,10 +256,10 @@ debounce; further events, including other processes' marker updates, extend it. 
 payload containing only `last_page`, or an empty payload, is ignored. File uploads do not
 necessarily emit the create/update events monitored here; use manual extraction when needed.
 
-Auto-extract writes the same JSON using `SEEDER_JSON_INDENT` and never invokes a project formatter.
-Accept this output as-is, adapt or exclude it in your formatter configuration, or arrange a separate
-consumer workflow. Auto-extract remains disabled by default (`SEEDER_AUTO_EXTRACT=false`); whether
-to remove it permanently is still an open design question.
+Auto-extract writes the same JSON using `SEEDER_JSON_INDENT` and `SEEDER_JSON_INDENT_SIZE` and never
+invokes a project formatter. Accept this output as-is, adapt or exclude it in your formatter
+configuration, or arrange a separate consumer workflow. Auto-extract remains disabled by default
+(`SEEDER_AUTO_EXTRACT=false`); whether to remove it permanently is still an open design question.
 
 Coordination retains temporary files `directus-lock-bulk-operation.flag` and
 `directus-debounce-seed-system-extract.lock` in the process temporary directory. Bulk flags older

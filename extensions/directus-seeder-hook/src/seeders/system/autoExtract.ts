@@ -1,8 +1,8 @@
-import type { HookExtensionContext } from '@directus/types'
 import type { ActionHandler } from '@onderwijsin/directus-extension-utils/types'
+import type { ServiceAdapterContext } from '../../services/ServiceAdapter'
 
 import { createAutoTaskHandler } from '../../lib/autoTaskHandler'
-import { getFolderPaths, parseEnvConfig } from '../../lib/parseEnvConfig'
+import { getFolderPaths, resolveSeederConfig } from '../../lib/resolveConfig'
 import { toSeedRecord } from '../../lib/seedItem'
 import { extractAssets, extractSeedsFromCollections, getFilteredCollections } from './extract'
 
@@ -14,14 +14,14 @@ import { extractAssets, extractSeedsFromCollections, getFilteredCollections } fr
  */
 export const registerAutoExtractSystemHook = (
 	action: (event: string, handler: ActionHandler) => void,
-	context: HookExtensionContext,
+	context: ServiceAdapterContext,
 ): void => {
 	const { logger, env } = context
 
 	logger.info('[directus-seeder-hook] 🌱 Registering auto-extract system hook')
 
-	// Parse the configuration and determine folders based on env vars
-	const config = parseEnvConfig(env)
+	// Derive runtime values from the shared validated startup configuration
+	const config = resolveSeederConfig(env)
 	const { seedsFolder, assetsFolder } = getFolderPaths(env)
 
 	if (!config.autoExtract) {

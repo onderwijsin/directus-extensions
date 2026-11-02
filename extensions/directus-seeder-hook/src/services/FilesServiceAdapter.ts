@@ -1,4 +1,5 @@
 import type { Readable } from 'node:stream'
+import type { SeederOptions } from '../env.schema'
 import type { PrimaryKey, SeedItem } from '../lib/seedItem'
 import type { ServiceAdapter, ServiceAdapterContext } from './ServiceAdapter'
 
@@ -8,7 +9,7 @@ import path from 'node:path'
 
 import { z } from 'zod'
 
-import { getFolderPaths } from '../lib/parseEnvConfig'
+import { getFolderPaths } from '../lib/resolveConfig'
 import { toSeedRecord } from '../lib/seedItem'
 import { createServiceAdapter } from './ServiceAdapter'
 
@@ -42,7 +43,7 @@ async function importFile(
 	filesService: LegacyFileUploader,
 	storageDriver: string,
 	item: SeedItem,
-	env: Record<string, unknown>,
+	env: SeederOptions,
 ): Promise<PrimaryKey> {
 	const data = toSeedRecord(item)
 	if (!data.filename_disk) throw new Error('filename_disk is required for file import')
@@ -68,9 +69,8 @@ export async function createFilesServiceAdapter(
 ): Promise<ServiceAdapter> {
 	const schema = await context.getSchema()
 	const filesService = new context.services.FilesService({ schema })
-	const location = context.env.STORAGE_LOCATIONS
-	const storageDriver =
-		typeof location === 'string' ? (location.split(',')[0] ?? 'local') : 'local'
+	const [storageDriver] = context.env.STORAGE_LOCATIONS
+	if (!storageDriver) throw new Error('STORAGE_LOCATIONS must contain at least one location')
 
 	/**
 	 * Uploads all rows in their original order.

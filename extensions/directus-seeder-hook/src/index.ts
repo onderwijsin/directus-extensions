@@ -31,8 +31,9 @@ export const registerSeeder: HookConfig = (register, context) => {
 	const setup = extensionSetup('seeder', context.env, context.logger)
 	setup.start()
 	if (!setup.isEnabled()) return
-	validateExtensionOptions(context.env, envSchema, context.logger)
-	const extractionAvailable = isExtractionAvailable(context.env.DEPLOYMENT_ENV)
+	const options = validateExtensionOptions(context.env, envSchema, context.logger)
+	const seederContext = { ...context, env: options }
+	const extractionAvailable = isExtractionAvailable(options.DEPLOYMENT_ENV)
 
 	init('cli.after', (meta: Record<string, Command>) => {
 		const program = meta.program
@@ -40,11 +41,11 @@ export const registerSeeder: HookConfig = (register, context) => {
 		const command = program
 			.command('seed')
 			.description('Directus Seeder commands for system data and extraction')
-		registerSystemCommand(command, context)
-		if (extractionAvailable) registerExtractCommand(command, context)
+		registerSystemCommand(command, seederContext)
+		if (extractionAvailable) registerExtractCommand(command, seederContext)
 	})
 
-	if (extractionAvailable) registerAutoExtractSystemHook(action, context)
+	if (extractionAvailable) registerAutoExtractSystemHook(action, seederContext)
 	setup.end()
 }
 

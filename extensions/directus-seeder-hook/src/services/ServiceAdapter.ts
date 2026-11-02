@@ -1,8 +1,9 @@
 import type { HookConfig } from '@onderwijsin/directus-extension-utils/types'
+import type { SeederOptions } from '../env.schema'
 import type { PrimaryKey, SeedItem } from '../lib/seedItem'
 
 /** Directus hook context used by the seeder's service adapters. */
-export type ServiceAdapterContext = Parameters<HookConfig>[1]
+export type ServiceAdapterContext = Omit<Parameters<HookConfig>[1], 'env'> & { env: SeederOptions }
 
 /** Service boundary shared by all three legacy seeding strategies. */
 export interface ServiceAdapter {

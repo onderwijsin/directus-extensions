@@ -1,5 +1,5 @@
-import type { HookExtensionContext } from '@directus/types'
 import type { Command } from 'commander'
+import type { ServiceAdapterContext } from '../services/ServiceAdapter'
 
 import process from 'node:process'
 
@@ -7,8 +7,8 @@ import { z } from 'zod'
 
 import { DataScope, OperationMode } from '../lib/config'
 import { confirmExplicit, confirmYesNo, shouldSkipConfirmation } from '../lib/confirmationPrompts'
-import { parseEnvConfig } from '../lib/parseEnvConfig'
 import { acquireLock, releaseLock } from '../lib/processLock'
+import { resolveSeederConfig } from '../lib/resolveConfig'
 import { seedSystem } from '../seeders/system'
 
 /**
@@ -20,7 +20,7 @@ import { seedSystem } from '../seeders/system'
  */
 export const registerSystemCommand = (
 	parentCommand: Command,
-	context: HookExtensionContext,
+	context: ServiceAdapterContext,
 ): void => {
 	const { logger, env, services, getSchema } = context
 
@@ -30,7 +30,6 @@ export const registerSystemCommand = (
 		.option(
 			'-m, --mode <mode>',
 			'Operation mode: insert-missing, insert-update, full-idempotent',
-			OperationMode.INSERT_MISSING,
 		)
 		.option('-i, --include <collections...>', 'Space-separated collection names to include')
 		.option('-e, --exclude <collections...>', 'Space-separated collection names to exclude')
@@ -42,7 +41,7 @@ export const registerSystemCommand = (
 		.action(async (input: unknown) => {
 			const options = z
 				.object({
-					mode: z.string(),
+					mode: z.enum(OperationMode).optional(),
 					include: z.array(z.string()).optional(),
 					exclude: z.array(z.string()).optional(),
 					force: z.boolean().optional(),
@@ -56,7 +55,7 @@ export const registerSystemCommand = (
 				acquireLock()
 				logger.info('🌱 Seeding Directus with system data using Directus Seeder...')
 
-				const config = parseEnvConfig(env, {
+				const config = resolveSeederConfig(env, {
 					operationMode: options.mode,
 					dataScope: DataScope.SYSTEM,
 					includeCollections: options.include,
