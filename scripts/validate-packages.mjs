@@ -404,7 +404,11 @@ export async function inspectPackedArchive(
 		if (!entries.some((file) => file.startsWith('package/dist/'))) {
 			report(packageName, 'packed package is missing dist output')
 		}
-		for (const requiredFile of ['package/README.md', 'package/CHANGELOG.md']) {
+		for (const requiredFile of [
+			'package/README.md',
+			'package/CHANGELOG.md',
+			'package/LICENSE',
+		]) {
 			if (!entries.includes(requiredFile))
 				report(packageName, `packed package is missing ${requiredFile}`)
 		}

@@ -28,6 +28,7 @@ trusted, non-sandboxed runtime require a trusted self-hosted installation.
 | [`@onderwijsin/directus-iconify-bundle`](extensions/directus-iconify-bundle/README.md)                                   | Icon picker integration with support for any Iconify icon set.                 |
 | [`@onderwijsin/directus-geo-toolkit-bundle`](extensions/directus-geo-toolkit-bundle/README.md)                           | Address input, address extraction, polygon centroids and adaptive point grids. |
 | [`@onderwijsin/directus-schema-snapshot-bundle`](extensions/directus-schema-snapshot-bundle/README.md)                   | Split YAML schema snapshots, schema application, and automatic snapshots.      |
+| [`@onderwijsin/directus-seeder-hook`](extensions/directus-seeder-hook/README.md)                                         | Seed and extract Directus system data with development auto-extraction.        |
 
 The repository also contains supporting workspace packages and private infrastructure for shared
 TypeScript configuration and test execution.

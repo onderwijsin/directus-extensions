@@ -37,6 +37,7 @@ async function createArchive(javascript: string) {
 		),
 		writeFile(join(packageDirectory, 'README.md'), 'Example package'),
 		writeFile(join(packageDirectory, 'CHANGELOG.md'), 'Example changelog'),
+		writeFile(join(packageDirectory, 'LICENSE'), 'MIT'),
 		writeFile(join(packageDirectory, 'dist', 'index.js'), javascript),
 	])
 	execFileSync('tar', ['-czf', archive, 'package'], { cwd: directory })
@@ -45,6 +46,23 @@ async function createArchive(javascript: string) {
 }
 
 describe('packed package archive inspection', () => {
+	it('reports an archive that is missing its license', async () => {
+		const { archive, directory } = await createArchive('export const source = 1\n')
+		await rm(join(directory, 'package', 'LICENSE'))
+		execFileSync('tar', ['-czf', archive, 'package'], { cwd: directory })
+
+		await inspectPackedArchive(
+			'@example/large-package',
+			{ name: '@example/large-package', version: '1.0.0' },
+			archive,
+			directory,
+		)
+
+		expect(errors).toEqual([
+			'@example/large-package: packed package is missing package/LICENSE',
+		])
+	})
+
 	it('validates JavaScript entries larger than the child-process output buffer', async () => {
 		const { archive, directory } = await createArchive(
 			`export const source = '${'x'.repeat(1_048_577)}'\n`,
