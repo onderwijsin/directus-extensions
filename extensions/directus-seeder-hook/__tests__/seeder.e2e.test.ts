@@ -75,6 +75,63 @@ describe('installed seeder CLI', () => {
 		).rejects.toThrow("unknown command 'seed'")
 	})
 
+	it('extracts valid JSON with each indentation setting and rejects an invalid setting', async () => {
+		const id = randomUUID()
+		const directory = `/tmp/seeder-e2e-${randomUUID()}`
+		const fixture = { id, key: `seeder_e2e_${id}`, language: 'nl-NL', value: 'indented' }
+		const environment = {
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_SEEDS_FOLDER: directory,
+			SEEDER_ASSETS_DIR: `${directory}/assets`,
+		}
+		let created = false
+		try {
+			await client.request(createTranslation(fixture))
+			created = true
+			for (const value of ['tab', '2', '4']) {
+				const indent = value === 'tab' ? '\t' : Number(value)
+				await seed(
+					{ ...environment, SEEDER_JSON_INDENT: value },
+					'extract',
+					'--include',
+					'directus_translations',
+				)
+				const { stdout } = await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+					`${directory}/directus_translations.json`,
+				])
+				const records: unknown = JSON.parse(stdout)
+				expect(records).toEqual(expect.arrayContaining([expect.objectContaining(fixture)]))
+				expect(stdout).toBe(`${JSON.stringify(records, null, indent)}\n`)
+			}
+			await expect(
+				seed(
+					{ ...environment, SEEDER_JSON_INDENT: '3' },
+					'extract',
+					'--include',
+					'directus_translations',
+				),
+			).rejects.toThrow('SEEDER_JSON_INDENT must be tab, 2, or 4')
+		} finally {
+			try {
+				if (created) await client.request(deleteTranslation(id))
+			} finally {
+				await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				])
+			}
+		}
+	})
+
 	it('preserves an owned translation in insert-missing and updates it idempotently in insert-update', async () => {
 		const id = randomUUID()
 		const directory = `/tmp/seeder-e2e-${randomUUID()}`

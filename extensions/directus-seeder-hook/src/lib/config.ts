@@ -92,6 +92,9 @@ export interface SeederConfig {
 	 */
 	extractAssets?: boolean
 
+	/** Indentation used when writing extracted JSON. */
+	jsonIndent?: '\t' | 2 | 4
+
 	/**
 	 * Whether to automatically extract seed data from the current database state
 	 * into seed files for system collections on data changes.

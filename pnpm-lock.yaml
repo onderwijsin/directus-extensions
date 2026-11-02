@@ -782,9 +782,6 @@ importers:
 
   extensions/directus-seeder-hook:
     dependencies:
-      oxfmt:
-        specifier: 'catalog:'
-        version: 0.63.0
       zod:
         specifier: 'catalog:'
         version: 4.4.3

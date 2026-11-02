@@ -56,7 +56,6 @@
 		"typecheck": "tsgo --noEmit"
 	},
 	"dependencies": {
-		"oxfmt": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

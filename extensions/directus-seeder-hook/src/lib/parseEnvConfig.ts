@@ -3,9 +3,10 @@ import type { SeederConfig } from './config'
 import { isArray } from '@onderwijsin/directus-extension-utils/server'
 import { z } from 'zod'
 
-const envStringSchema = z.coerce.string()
-
+import { jsonIndentSchema } from '../env.schema'
 import { DataScope, OperationMode } from './config'
+
+const envStringSchema = z.coerce.string()
 
 /**
  * Default configuration values
@@ -163,6 +164,7 @@ export function parseEnvConfig(
 		clearExistingSeeds,
 		extractAssets,
 		autoExtract,
+		jsonIndent: config.jsonIndent ?? jsonIndentSchema.parse(env.SEEDER_JSON_INDENT),
 	}
 }
 

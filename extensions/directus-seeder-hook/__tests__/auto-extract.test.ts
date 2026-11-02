@@ -132,7 +132,7 @@ describe('automatic system extraction', () => {
 	})
 
 	it('debounces repeated events for fifteen seconds and extracts data and assets once', async () => {
-		const action = register()
+		const action = register({ SEEDER_JSON_INDENT: 4 })
 		emit(action, 'users.create', { first_name: 'Fixture' })
 		await advance(10_000)
 		emit(action, 'users.update', { first_name: 'Updated' })
@@ -142,6 +142,7 @@ describe('automatic system extraction', () => {
 		expect(mocks.extract).toHaveBeenCalledOnce()
 		expect(mocks.extract).toHaveBeenCalledWith(
 			expect.objectContaining({
+				jsonIndent: 4,
 				folders: {
 					seeds: path.join(directory, 'seeds'),
 					assets: path.join(directory, 'assets'),

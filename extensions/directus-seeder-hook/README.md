@@ -17,13 +17,6 @@ installation with database, storage, and filesystem access. Restart Directus aft
 [including extensions](https://directus.com/docs/self-hosting/including-extensions) for deployment
 loading. Installations allowing only sandboxed extensions cannot load this hook.
 
-Retain the package's runtime dependencies when deploying it. Extraction dynamically imports Oxfmt
-and needs its platform-specific native binding. Copying only `package.json` and `dist/` into an
-extension directory is insufficient for extraction: install and retain runtime `node_modules`
-alongside the extension, or preserve the dependency layout produced by your npm/pnpm installation.
-The published package declares Oxfmt as a runtime dependency; it is not limited to development
-images.
-
 The Directus process must be able to read seed JSON and assets, write extraction output and
 temporary files, and access configured Directus storage. Mount persistent paths yourself in
 containers. The hook uses Directus services with administrator permissions rather than a caller's
@@ -84,6 +77,7 @@ are not trimmed. The master enable switch follows the separate rule in its table
 | `SEEDER_CLEAR_DATA_BEFORE_SEED`                                  | `false`                   | Despite its name, controls clearing extraction output, not database clearing before seeding. `--clear` enables it for manual extraction.                                                                                                         |
 | `SEEDER_EXTRACT_ASSETS`                                          | `true`                    | Retained legacy fallback makes false/unset values resolve to `true` too. There is no CLI `--no-assets`; excluding `directus_files` does not disable asset extraction.                                                                            |
 | `SEEDER_AUTO_EXTRACT`                                            | `false`                   | Enable monitored system-record changes to schedule extraction; also requires exact `DEPLOYMENT_ENV=development`.                                                                                                                                 |
+| `SEEDER_JSON_INDENT`                                             | `tab`                     | Indentation for manual and automatic extraction: exact `tab`, `2` (two spaces), or `4` (four spaces). Also accepts numeric `2` or `4` from Directus. Other values fail; no trimming or fallback.                                                 |
 | `SEEDER_SEEDS_FOLDER`                                            | `/directus/seeds`         | Nonempty string, trimmed; blank/missing/nonstring values use the default.                                                                                                                                                                        |
 | `SEEDER_ASSETS_DIR`                                              | `/directus/seeds/assets`  | Same path parsing. Independent of the seed folder: changing the seed folder does not relocate this default.                                                                                                                                      |
 | `DEFAULT_EMAIL`                                                  | `admin@example.com`       | Replaces the email of matching root-user seed records. An explicitly empty string is retained.                                                                                                                                                   |
@@ -91,6 +85,8 @@ are not trimmed. The master enable switch follows the separate rule in its table
 | `STORAGE_LOCATIONS`                                              | `local` fallback          | Existing Directus storage configuration. File imports use seed `storage` when provided; otherwise the first location in a comma-separated string, or `local` when the parsed value is not a string. The hook does not configure storage drivers. |
 | `LOG_LEVEL`                                                      | Directus default          | Standard Directus logging setting; use `debug` or `trace` for diagnostics.                                                                                                                                                                       |
 | `CI`, `CONTINUOUS_INTEGRATION`, `BUILD_NUMBER`, `GITHUB_ACTIONS` | Unset                     | Any nonempty raw process-environment value skips CLI confirmations, including the string `false`. Non-TTY stdin or stdout also skips prompts.                                                                                                    |
+
+Invalid indentation prevents startup with `SEEDER_JSON_INDENT must be tab, 2, or 4`.
 
 Example development configuration:
 
@@ -100,6 +96,7 @@ DEPLOYMENT_ENV=development
 SEEDER_SEEDS_FOLDER=/directus/seeds
 SEEDER_ASSETS_DIR=/directus/seeds/assets
 SEEDER_AUTO_EXTRACT=true
+SEEDER_JSON_INDENT=tab
 SEEDER_ENABLE_FULL_IDEMPOTENT=false
 ```
 
@@ -197,7 +194,10 @@ full-idempotent request return a nonzero exit code.
 
 ## Extraction, assets, and automatic behavior
 
-Extraction preflights the Oxfmt package and native binding before creating or clearing seed paths.
+Extraction uses JavaScript `JSON.stringify` to write valid, readable JSON with tabs by default (or
+two/four spaces via `SEEDER_JSON_INDENT`) and exactly one final newline. The same input produces the
+same output. The Seeder does not guarantee project-specific formatting rules.
+
 It overwrites selected nonempty JSON files. Empty collections do not write `[]` or remove old files;
 without `--clear`, stale JSON remains. `--clear` clears the entire seed directory, including
 unselected JSON and a nested asset directory. Use dedicated output paths.
@@ -215,6 +215,11 @@ debounce; further events, including other processes' marker updates, extend it. 
 payload containing only `last_page`, or an empty payload, is ignored. File uploads do not
 necessarily emit the create/update events monitored here; use manual extraction when needed.
 
+Auto-extract writes the same JSON using `SEEDER_JSON_INDENT` and never invokes a project formatter.
+Accept this output as-is, adapt or exclude it in your formatter configuration, or arrange a separate
+consumer workflow. Auto-extract remains disabled by default (`SEEDER_AUTO_EXTRACT=false`); whether
+to remove it permanently is still an open design question.
+
 Coordination retains temporary files `directus-lock-bulk-operation.flag` and
 `directus-debounce-seed-system-extract.lock` in the process temporary directory. Bulk flags older
 than five minutes are treated as stale; ownership is not renewed. Automatic work skips contention
@@ -229,6 +234,36 @@ If commands are missing, check installation, extension loading, and `SEEDER_ENAB
 extraction also check the exact deployment environment. For automatic extraction check its switch,
 selected collections, the debounce delay, and bulk flag. For failures inspect Directus logs,
 directory permissions, runtime dependencies, storage configuration, and required local assets.
+
+## Consumer formatting workflow
+
+For project-specific formatting, wrap manual extraction and your own formatter in one project
+script. For example, with Directus installed locally and Oxfmt chosen by the consumer:
+
+```sh
+pnpm add -D oxfmt
+```
+
+```json
+{
+  "scripts": {
+    "seed:extract": "DEPLOYMENT_ENV=development SEEDER_SEEDS_FOLDER=./seeds SEEDER_ASSETS_DIR=./seeds/assets directus seed extract && oxfmt 'seeds/*.json'"
+  }
+}
+```
+
+Run `pnpm seed:extract` from that project. The consumer owns the formatter installation, version,
+configuration, paths, and execution environment. Use the project's own Oxfmt configuration, or
+replace the final command with its Prettier or Biome command. The `&&` runs formatting only after
+the extraction command exits successfully and propagates formatter failures; the extraction error
+caveats above still apply.
+
+For containers, run extraction through the installed Directus CLI (for example, the Docker command
+above), bind-mount the seed output to the host, and run the formatter in the host/workspace where
+its dependencies and configuration are available. Adjust the paths and environment syntax to your
+consumer setup. The Seeder supplies no formatter dependency, callback, hook, watcher, or container
+image. A Git hook can provide an additional check, but the normal project extraction script should
+apply the formatter directly. This manual script does not run after auto-extract.
 
 ## License
 

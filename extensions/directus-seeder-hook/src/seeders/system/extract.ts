@@ -1,7 +1,6 @@
 import type { HookExtensionContext } from '@directus/types'
 import type { Filter, NestedDeepQuery } from '@directus/types'
 import type { SeederConfig } from '../../lib/config'
-import type { JsonFormatter } from '../../lib/formatJson'
 import type { SeedItem } from '../../lib/seedItem'
 
 import path from 'node:path'
@@ -9,7 +8,6 @@ import path from 'node:path'
 import { z } from 'zod'
 
 import { emptydir, ensureDir, outputFile } from '../../lib/filesystem'
-import { createJsonFormatter } from '../../lib/formatJson'
 import { createPerformanceTracker } from '../../lib/performanceTracker'
 import { toSeedRecord } from '../../lib/seedItem'
 import { SYSTEM_COLLECTIONS, SYSTEM_COLLECTIONS_ORDER } from './config'
@@ -198,14 +196,14 @@ const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem
  * @param collectionName - The name of the collection to extract
  * @param seedsFolder - The folder to write seed files to
  * @param context - Directus hook extension context
- * @param formatJson - Preflighted JSON formatter
+ * @param jsonIndent - Indentation for the extracted JSON
  * @returns Promise<boolean> - True if extraction was successful, false otherwise
  */
 const extractSingleCollection = async (
 	collectionName: string,
 	seedsFolder: string,
 	context: HookExtensionContext,
-	formatJson: JsonFormatter,
+	jsonIndent: '\t' | 2 | 4,
 ): Promise<boolean> => {
 	const { logger, services, getSchema, database: knex } = context
 	try {
@@ -241,9 +239,7 @@ const extractSingleCollection = async (
 		}
 
 		const absoluteFilePath = generateSeedFilePath(seedsFolder, collectionName)
-		const jsonString = JSON.stringify(data, null, '\t')
-		const formattedJson = await formatJson(absoluteFilePath, jsonString)
-		await outputFile(absoluteFilePath, formattedJson)
+		await outputFile(absoluteFilePath, `${JSON.stringify(data, null, jsonIndent)}\n`)
 
 		logger.info(`✅ Extracted ${data.length} items from ${collectionName}`)
 		logger.trace(`📄 File written to: ${absoluteFilePath}`)
@@ -348,9 +344,6 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 	logger.trace(`📁 Seeds folder path: ${folders.seeds}`)
 
 	try {
-		// Verify the package and its platform-specific native binding before touching seed files.
-		const formatJson = await createJsonFormatter()
-
 		// Ensure the seeds directory exists
 		await ensureDir(folders.seeds)
 		logger.info('📁 Ensured seeds folder exists')
@@ -373,7 +366,7 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 						collectionName,
 						folders.seeds,
 						options.context,
-						formatJson,
+						options.jsonIndent ?? '\t',
 					)
 				},
 			)

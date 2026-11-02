@@ -28,7 +28,6 @@ const mocks = vi.hoisted(() => ({
 	autoExtract: vi.fn(),
 	acquireLock: vi.fn(),
 	releaseLock: vi.fn(() => true),
-	createJsonFormatter: vi.fn(),
 }))
 
 vi.mock('@onderwijsin/directus-extension-utils/hook', () => ({
@@ -41,7 +40,6 @@ vi.mock('../src/lib/processLock', () => ({
 	acquireLock: mocks.acquireLock,
 	releaseLock: mocks.releaseLock,
 }))
-vi.mock('../src/lib/formatJson', () => ({ createJsonFormatter: mocks.createJsonFormatter }))
 
 import '../src/index'
 import { getFolderPaths, parseEnvConfig } from '../src/lib/parseEnvConfig'
@@ -147,9 +145,6 @@ describe('seeder registration and CLI', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks()
 		directory = await mkdtemp(path.join(tmpdir(), 'seeder-cli-'))
-		mocks.createJsonFormatter
-			.mockReset()
-			.mockResolvedValue((_filename: string, json: string) => Promise.resolve(json))
 		vi.spyOn(process, 'exit').mockImplementation((code) => {
 			throw new CliExit(code)
 		})
@@ -207,6 +202,7 @@ describe('seeder registration and CLI', () => {
 			const { program, init } = createProgram({
 				DEPLOYMENT_ENV: 'development',
 				SEEDER_ENABLED,
+				SEEDER_JSON_INDENT: 'invalid',
 			})
 			expect(init).not.toHaveBeenCalled()
 			expect(program.commands).toEqual([])
@@ -337,22 +333,52 @@ describe('seeder registration and CLI', () => {
 		expect(await readFile(assetPath)).toEqual(bytes)
 	})
 
-	it('preserves existing seed files when formatter preflight fails before clear', async () => {
-		const filename = path.join(directory, 'owned.json')
-		await writeFile(filename, 'keep')
-		mocks.createJsonFormatter.mockRejectedValueOnce(new Error('native formatter unavailable'))
-		expect(
-			await runCommand(
-				createProgram({ DEPLOYMENT_ENV: 'development' }).program,
-				'extract',
-				'--clear',
-				'--include',
-				'directus_roles',
-			),
-		).toBe(1)
-		expect(await readFile(filename, 'utf8')).toBe('keep')
-		expect(mocks.releaseLock).toHaveBeenCalledOnce()
+	it.each([
+		[undefined, '\t', '[\n\t{\n\t\t"id"'],
+		['tab', '\t', '[\n\t{\n\t\t"id"'],
+		['2', 2, '[\n  {\n    "id"'],
+		[2, 2, '[\n  {\n    "id"'],
+		['4', 4, '[\n    {\n        "id"'],
+		[4, 4, '[\n    {\n        "id"'],
+	])('serializes extracted records with SEEDER_JSON_INDENT=%s', async (value, indent, prefix) => {
+		const records = [{ id: 'role-1', name: 'Editor', nested: { enabled: true } }]
+		const service = createProgram({ DEPLOYMENT_ENV: 'development', SEEDER_JSON_INDENT: value })
+		service.readByQuery.mockResolvedValue(records)
+		expect(await runCommand(service.program, 'extract', '--include', 'directus_roles')).toBe(0)
+		const output = await readFile(path.join(directory, 'directus_roles.json'), 'utf8')
+		expect(output).toBe(`${JSON.stringify(records, null, indent)}\n`)
+		expect(output.startsWith(prefix)).toBe(true)
+		expect(output).toMatch(/[^\n]\n$/u)
+		expect(JSON.parse(output)).toEqual(records)
 	})
+
+	it.each(['', 'space', '3', 0, null, true])(
+		'rejects invalid indentation %s at startup before registration',
+		(value) => {
+			const info = vi.spyOn(logger, 'info')
+			const init = vi.fn<Init>()
+			const action = vi.fn()
+			expect(() =>
+				mocks.register(
+					{ init, action },
+					{
+						env: { DEPLOYMENT_ENV: 'development', SEEDER_JSON_INDENT: value },
+						logger,
+						services: {},
+						getSchema: () => Promise.resolve({}),
+						database: {},
+					},
+				),
+			).toThrow('Invalid extension options')
+			expect(info).toHaveBeenCalledWith(
+				expect.stringContaining('SEEDER_JSON_INDENT must be tab, 2, or 4'),
+			)
+			expect(init).not.toHaveBeenCalled()
+			expect(action).not.toHaveBeenCalled()
+			expect(mocks.autoExtract).not.toHaveBeenCalled()
+			expect(mocks.acquireLock).not.toHaveBeenCalled()
+		},
+	)
 
 	it('leaves stale output for an empty collection unless clear is explicitly requested', async () => {
 		const filename = path.join(directory, 'directus_roles.json')
