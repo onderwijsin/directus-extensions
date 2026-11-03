@@ -15,12 +15,11 @@ describe('Seeder startup configuration', () => {
 			SEEDER_CONTINUE_ON_ERROR: false,
 			SEEDER_BATCH_SIZE: 50,
 			SEEDER_ENABLE_FULL_IDEMPOTENT: false,
-			SEEDER_CLEAR_DATA_BEFORE_SEED: false,
-			SEEDER_EXTRACT_ASSETS: true,
+			SEEDER_JSON_ONLY: false,
 			SEEDER_AUTO_EXTRACT: false,
 			SEEDER_JSON_INDENT: 'tab',
 			SEEDER_JSON_INDENT_SIZE: 2,
-			SEEDER_SEEDS_FOLDER: '/directus/seeds',
+			SEEDER_SEEDS_DIR: '/directus/seeds',
 			SEEDER_ASSETS_DIR: '/directus/seeds/assets',
 			DEFAULT_EMAIL: 'admin@example.com',
 			DEFAULT_PASSWORD: 'p4ssw0rd!',
@@ -34,12 +33,12 @@ describe('Seeder startup configuration', () => {
 			continueOnError: false,
 			batchSize: 50,
 			enableFullIdempotent: false,
-			clearExistingSeeds: false,
-			extractAssets: true,
+			skipClean: false,
+			jsonOnly: false,
 			autoExtract: false,
 			jsonIndent: '\t',
 		})
-		expect(getFolderPaths(envSchema.parse({ SEEDER_SEEDS_FOLDER: ' /tmp/seeds ' }))).toEqual({
+		expect(getFolderPaths(envSchema.parse({ SEEDER_SEEDS_DIR: ' /tmp/seeds ' }))).toEqual({
 			seedsFolder: '/tmp/seeds',
 			assetsFolder: '/directus/seeds/assets',
 		})
@@ -49,8 +48,7 @@ describe('Seeder startup configuration', () => {
 		'SEEDER_ENABLED',
 		'SEEDER_CONTINUE_ON_ERROR',
 		'SEEDER_ENABLE_FULL_IDEMPOTENT',
-		'SEEDER_CLEAR_DATA_BEFORE_SEED',
-		'SEEDER_EXTRACT_ASSETS',
+		'SEEDER_JSON_ONLY',
 		'SEEDER_AUTO_EXTRACT',
 	])('accepts Directus booleans and rejects invalid %s values without coercion', (key) => {
 		for (const value of [true, false])
@@ -114,7 +112,7 @@ describe('Seeder startup configuration', () => {
 		for (const key of ['DEPLOYMENT_ENV', 'DEFAULT_EMAIL', 'DEFAULT_PASSWORD'])
 			for (const value of [null, false, 123, [], {}])
 				expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
-		for (const key of ['SEEDER_SEEDS_FOLDER', 'SEEDER_ASSETS_DIR'])
+		for (const key of ['SEEDER_SEEDS_DIR', 'SEEDER_ASSETS_DIR'])
 			for (const value of ['', ' ', null, false, 123, []])
 				expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
 		expect(envSchema.parse({ LOG_LEVEL: 123, CI: {}, DB_HOST: null })).not.toHaveProperty(

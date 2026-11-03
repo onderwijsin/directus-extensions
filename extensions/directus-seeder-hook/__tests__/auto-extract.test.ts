@@ -1,7 +1,7 @@
 import type { Logger } from 'pino'
 
 import { existsSync, utimesSync } from 'node:fs'
-import { mkdtemp, readdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import pino from 'pino'
@@ -13,14 +13,20 @@ type Action = (
 ) => void
 type Register = (
 	hooks: { init: ReturnType<typeof vi.fn>; action: Action },
-	context: { env: Record<string, unknown>; logger: Logger },
+	context: {
+		env: Record<string, unknown>
+		logger: Logger
+		services: Record<string, unknown>
+		getSchema: () => Promise<unknown>
+		database: object
+	},
 ) => void
 
 const mocks = vi.hoisted(() => ({
 	directory: '',
 	register: vi.fn<Register>(),
 	extract: vi.fn(),
-	assets: vi.fn(),
+	readFiles: vi.fn(),
 }))
 
 vi.mock('@onderwijsin/directus-extension-utils/hook', () => ({
@@ -30,8 +36,7 @@ vi.mock('../src/commands/systemCommand', () => ({ registerSystemCommand: vi.fn()
 vi.mock('../src/commands/extractCommand', () => ({ registerExtractCommand: vi.fn() }))
 vi.mock('../src/seeders/system/extract', async (importOriginal) => ({
 	...(await importOriginal<typeof import('../src/seeders/system/extract')>()),
-	extractSeedsFromCollections: mocks.extract,
-	extractAssets: mocks.assets,
+	extractSystemData: mocks.extract,
 }))
 vi.mock('node:os', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('node:os')>()
@@ -63,11 +68,24 @@ function register(env: Record<string, unknown> = {}) {
 				SEEDER_AUTO_EXTRACT: true,
 				SEEDER_INCLUDE: ['directus_users', 'directus_roles'],
 				SEEDER_EXCLUDE: 'directus_roles',
-				SEEDER_SEEDS_FOLDER: path.join(directory, 'seeds'),
+				SEEDER_SEEDS_DIR: path.join(directory, 'seeds'),
 				SEEDER_ASSETS_DIR: path.join(directory, 'assets'),
 				...env,
 			},
 			logger,
+			services: {
+				ItemsService: class {
+					/** @returns Empty collection data for automatic extraction. */
+					public readByQuery() {
+						return Promise.resolve([])
+					}
+				},
+				FilesService: class {
+					public readByQuery = mocks.readFiles
+				},
+			},
+			getSchema: () => Promise.resolve({}),
+			database: {},
 		},
 	)
 	return action
@@ -109,10 +127,10 @@ describe('automatic system extraction', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks()
 		const os = await vi.importActual<typeof import('node:os')>('node:os')
-		directory = await mkdtemp(path.join(os.tmpdir(), 'seeder-auto-'))
+		directory = await realpath(await mkdtemp(path.join(os.tmpdir(), 'seeder-auto-')))
 		mocks.directory = directory
 		mocks.extract.mockReset().mockResolvedValue(undefined)
-		mocks.assets.mockReset().mockResolvedValue(undefined)
+		mocks.readFiles.mockReset().mockResolvedValue([])
 		vi.useFakeTimers()
 	})
 
@@ -131,7 +149,7 @@ describe('automatic system extraction', () => {
 		expect(register({ SEEDER_AUTO_EXTRACT: false })).not.toHaveBeenCalled()
 	})
 
-	it('debounces repeated events for fifteen seconds and extracts data and assets once', async () => {
+	it('debounces repeated events for fifteen seconds and calls the shared extractor once', async () => {
 		const action = register({ SEEDER_JSON_INDENT: 'space', SEEDER_JSON_INDENT_SIZE: 4 })
 		emit(action, 'users.create', { first_name: 'Fixture' })
 		await advance(10_000)
@@ -142,6 +160,8 @@ describe('automatic system extraction', () => {
 		expect(mocks.extract).toHaveBeenCalledOnce()
 		expect(mocks.extract).toHaveBeenCalledWith(
 			expect.objectContaining({
+				skipClean: false,
+				jsonOnly: false,
 				jsonIndent: 4,
 				folders: {
 					seeds: path.join(directory, 'seeds'),
@@ -149,18 +169,16 @@ describe('automatic system extraction', () => {
 				},
 			}),
 		)
-		expect(mocks.assets).toHaveBeenCalledOnce()
 		expect(await readdir(directory)).toEqual([])
 	})
 
-	it('extracts data without assets when the validated asset flag is false', async () => {
-		const action = register({ SEEDER_EXTRACT_ASSETS: false })
+	it('passes JSON-only extraction to the shared orchestrator', async () => {
+		const action = register({ SEEDER_JSON_ONLY: true })
 		emit(action, 'users.create', { first_name: 'Fixture' })
 		await advance(15_000)
 		expect(mocks.extract).toHaveBeenCalledWith(
-			expect.objectContaining({ extractAssets: false, jsonIndent: '\t' }),
+			expect.objectContaining({ skipClean: false, jsonOnly: true, jsonIndent: '\t' }),
 		)
-		expect(mocks.assets).not.toHaveBeenCalled()
 	})
 
 	it('ignores last_page-only and empty user updates while retaining mixed updates', async () => {
@@ -189,8 +207,38 @@ describe('automatic system extraction', () => {
 		emit(action, 'users.create')
 		await advance(15_000)
 		expect(mocks.extract).toHaveBeenCalledOnce()
-		expect(mocks.assets).not.toHaveBeenCalled()
 		expect(existsSync(lock)).toBe(false)
 		expect(await readdir(directory)).toEqual([])
+	})
+
+	it.each([false, true])('cleans real automatic output with jsonOnly=%s', async (jsonOnly) => {
+		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
+			'../src/seeders/system/extract',
+		)
+		mocks.extract.mockImplementation(actual.extractSystemData)
+		const seeds = path.join(directory, 'seeds')
+		const assets = path.join(seeds, 'assets')
+		await mkdir(assets, { recursive: true })
+		await writeFile(path.join(seeds, 'stale.json'), 'stale')
+		await writeFile(path.join(seeds, 'directus_users.json'), 'stale users')
+		await writeFile(path.join(assets, 'binary.bin'), 'bytes')
+		await writeFile(path.join(assets, 'binary.json'), 'asset bytes')
+		const action = register({ SEEDER_JSON_ONLY: jsonOnly, SEEDER_ASSETS_DIR: assets })
+		emit(action, 'users.create')
+		await advance(15_000)
+		expect(mocks.extract).toHaveBeenCalledOnce()
+		await expect(mocks.extract.mock.results[0]?.value).resolves.toBeUndefined()
+		await expect(readFile(path.join(seeds, 'stale.json'))).rejects.toMatchObject({
+			code: 'ENOENT',
+		})
+		expect(await readFile(path.join(seeds, 'directus_users.json'), 'utf8')).toBe('[]\n')
+		if (jsonOnly) {
+			expect(await readFile(path.join(assets, 'binary.bin'), 'utf8')).toBe('bytes')
+			expect(await readFile(path.join(assets, 'binary.json'), 'utf8')).toBe('asset bytes')
+			expect(mocks.readFiles).not.toHaveBeenCalled()
+		} else {
+			expect(await readdir(assets)).toEqual([])
+			expect(mocks.readFiles).toHaveBeenCalledOnce()
+		}
 	})
 })

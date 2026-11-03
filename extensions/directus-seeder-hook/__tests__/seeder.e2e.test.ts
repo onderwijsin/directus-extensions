@@ -78,13 +78,94 @@ describe('installed seeder CLI', () => {
 		).rejects.toThrow("unknown command 'seed'")
 	})
 
+	it.each([
+		{ mode: 'default', jsonOnly: 'false', flags: [], retainJson: false, retainAssets: false },
+		{
+			mode: 'skip-clean',
+			jsonOnly: 'false',
+			flags: ['--skip-clean'],
+			retainJson: true,
+			retainAssets: true,
+		},
+		{
+			mode: 'json-only',
+			jsonOnly: 'false',
+			flags: ['--json-only'],
+			retainJson: false,
+			retainAssets: true,
+		},
+		{
+			mode: 'assets override',
+			jsonOnly: 'true',
+			flags: ['--assets'],
+			retainJson: false,
+			retainAssets: false,
+		},
+	])(
+		'applies $mode output cleanup through the installed command',
+		async ({ jsonOnly, flags, retainJson, retainAssets }) => {
+			const directory = `/tmp/seeder-e2e-${randomUUID()}`
+			const seeds = `${directory}/seeds`
+			const assets = `${seeds}/assets`
+			try {
+				await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'const fs = require("node:fs"); const root = process.argv[1]; fs.mkdirSync(`${root}/seeds/assets/nested`, { recursive: true }); for (const name of ["seeds/stale.json", "seeds/notes.txt", "seeds/assets/stale.bin", "seeds/assets/binary.json", "seeds/assets/nested/keep.bin", "outside.json"]) fs.writeFileSync(`${root}/${name}`, name)',
+					directory,
+				])
+				await seed(
+					{
+						DEPLOYMENT_ENV: 'development',
+						SEEDER_SEEDS_DIR: seeds,
+						SEEDER_ASSETS_DIR: assets,
+						SEEDER_JSON_ONLY: jsonOnly,
+					},
+					'extract',
+					...flags,
+					'--include',
+					'directus_roles',
+				)
+				const { stdout } = await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'const fs = require("node:fs"); const root = process.argv[1]; process.stdout.write(JSON.stringify({ staleJson: fs.existsSync(`${root}/seeds/stale.json`), staleAsset: fs.existsSync(`${root}/seeds/assets/stale.bin`), jsonAsset: fs.existsSync(`${root}/seeds/assets/binary.json`), nested: fs.readFileSync(`${root}/seeds/assets/nested/keep.bin`, "utf8"), notes: fs.readFileSync(`${root}/seeds/notes.txt`, "utf8"), outside: fs.readFileSync(`${root}/outside.json`, "utf8"), outputIsArray: Array.isArray(JSON.parse(fs.readFileSync(`${root}/seeds/directus_roles.json`, "utf8"))) }))',
+					directory,
+				])
+				const output: unknown = JSON.parse(stdout)
+				expect(output).toEqual({
+					staleJson: retainJson,
+					staleAsset: retainAssets,
+					jsonAsset: retainAssets,
+					nested: 'seeds/assets/nested/keep.bin',
+					notes: 'seeds/notes.txt',
+					outside: 'outside.json',
+					outputIsArray: true,
+				})
+			} finally {
+				await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				])
+			}
+		},
+	)
+
 	it('extracts valid JSON with each indentation setting and rejects an invalid setting', async () => {
 		const id = randomUUID()
 		const directory = `/tmp/seeder-e2e-${randomUUID()}`
 		const fixture = { id, key: `seeder_e2e_${id}`, language: 'nl-NL', value: 'indented' }
 		const environment = {
 			DEPLOYMENT_ENV: 'development',
-			SEEDER_SEEDS_FOLDER: directory,
+			SEEDER_SEEDS_DIR: directory,
 			SEEDER_ASSETS_DIR: `${directory}/assets`,
 		}
 		let created = false
@@ -102,7 +183,7 @@ describe('installed seeder CLI', () => {
 						...environment,
 						SEEDER_JSON_INDENT: style ?? 'tab',
 						SEEDER_JSON_INDENT_SIZE: width ?? '2',
-						SEEDER_EXTRACT_ASSETS: 'false',
+						SEEDER_JSON_ONLY: 'true',
 						SEEDER_INCLUDE: 'directus_translations,directus_roles',
 					},
 					'extract',
@@ -164,7 +245,7 @@ describe('installed seeder CLI', () => {
 		const fixture = { id, key: `seeder_e2e_${id}`, language: 'nl-NL', value: 'seeded' }
 		const environment = {
 			DEPLOYMENT_ENV: 'production',
-			SEEDER_SEEDS_FOLDER: directory,
+			SEEDER_SEEDS_DIR: directory,
 			SEEDER_ASSETS_DIR: `${directory}/assets`,
 		}
 		let created = false

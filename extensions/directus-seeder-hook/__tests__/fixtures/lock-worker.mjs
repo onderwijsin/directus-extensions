@@ -48,7 +48,7 @@ extension.default(
 			DEPLOYMENT_ENV: mode === 'owner' ? 'production' : 'development',
 			SEEDER_AUTO_EXTRACT: mode !== 'owner',
 			SEEDER_INCLUDE: 'directus_translations',
-			SEEDER_SEEDS_FOLDER: directory,
+			SEEDER_SEEDS_DIR: directory,
 			SEEDER_ASSETS_DIR: `${directory}/assets`,
 		},
 		async getSchema() {

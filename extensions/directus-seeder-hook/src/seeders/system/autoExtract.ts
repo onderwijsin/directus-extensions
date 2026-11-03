@@ -4,7 +4,7 @@ import type { ServiceAdapterContext } from '../../services/ServiceAdapter'
 import { createAutoTaskHandler } from '../../lib/autoTaskHandler'
 import { getFolderPaths, resolveSeederConfig } from '../../lib/resolveConfig'
 import { toSeedRecord } from '../../lib/seedItem'
-import { extractAssets, extractSeedsFromCollections, getFilteredCollections } from './extract'
+import { extractSystemData, getFilteredCollections } from './extract'
 
 /**
  * Registers the original debounced extraction handlers for selected system collection mutations.
@@ -78,7 +78,7 @@ export const registerAutoExtractSystemHook = (
 
 			try {
 				// Extract and write seed data
-				await extractSeedsFromCollections({
+				await extractSystemData({
 					...config,
 					folders: {
 						seeds: seedsFolder,
@@ -86,18 +86,6 @@ export const registerAutoExtractSystemHook = (
 					},
 					context,
 				})
-
-				// Download and write asset files if needed
-				if (config.extractAssets) {
-					await extractAssets({
-						...config,
-						folders: {
-							seeds: seedsFolder,
-							assets: assetsFolder,
-						},
-						context,
-					})
-				}
 
 				logger.info('✅ Seed data successfully extracted!')
 			} catch (error) {

@@ -3,11 +3,12 @@ import type { ServiceAdapterContext } from '../services/ServiceAdapter'
 
 import process from 'node:process'
 
+import { Option } from 'commander'
 import { z } from 'zod'
 
 import { acquireLock, releaseLock } from '../lib/processLock'
 import { getFolderPaths, resolveSeederConfig } from '../lib/resolveConfig'
-import { extractAssets, extractSeedsFromCollections } from '../seeders/system/extract'
+import { extractSystemData } from '../seeders/system/extract'
 
 /**
  * Registers the extract command for extracting seed data from the current Directus instance.
@@ -28,14 +29,25 @@ export const registerExtractCommand = (
 		.description('Extract seed data from the current Directus instance')
 		.option('-i, --include <collections...>', 'Space-separated collection names to include')
 		.option('-e, --exclude <collections...>', 'Space-separated collection names to exclude')
-		.option('-c, --clear', 'Clear existing seed files before extraction')
-		.option('-a, --assets', 'Extract asset files to assets folder')
+		.option('--skip-clean', 'Keep existing output before extracting selected data')
+		.addOption(
+			new Option('--json-only', 'Extract JSON without processing binary assets').conflicts(
+				'assets',
+			),
+		)
+		.addOption(
+			new Option(
+				'-a, --assets',
+				'Extract binary assets, overriding SEEDER_JSON_ONLY',
+			).conflicts('jsonOnly'),
+		)
 		.action(async (input: unknown) => {
 			const options = z
 				.object({
 					include: z.array(z.string()).optional(),
 					exclude: z.array(z.string()).optional(),
-					clear: z.boolean().optional(),
+					skipClean: z.boolean().optional(),
+					jsonOnly: z.boolean().optional(),
 					assets: z.boolean().optional(),
 				})
 				.parse(input)
@@ -50,12 +62,12 @@ export const registerExtractCommand = (
 				const config = resolveSeederConfig(env, {
 					includeCollections: options.include,
 					excludeCollections: options.exclude,
-					clearExistingSeeds: options.clear,
-					extractAssets: options.assets,
+					skipClean: options.skipClean,
+					jsonOnly: options.assets ? false : options.jsonOnly,
 				})
 
 				// Extract and write seed data
-				await extractSeedsFromCollections({
+				await extractSystemData({
 					...config,
 					folders: {
 						seeds: seedsFolder,
@@ -63,18 +75,6 @@ export const registerExtractCommand = (
 					},
 					context,
 				})
-
-				// Download and write asset files if needed
-				if (config.extractAssets) {
-					await extractAssets({
-						...config,
-						folders: {
-							seeds: seedsFolder,
-							assets: assetsFolder,
-						},
-						context,
-					})
-				}
 
 				logger.info('✅ Seed data successfully extracted!')
 				exitCode = 0

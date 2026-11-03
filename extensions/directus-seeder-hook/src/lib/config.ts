@@ -83,14 +83,14 @@ export interface SeederConfig {
 	enableFullIdempotent: boolean
 
 	/**
-	 * Whether to clear existing seed files before extraction.
+	 * Whether to skip the default cleanup before extraction.
 	 */
-	clearExistingSeeds: boolean
+	skipClean: boolean
 
 	/**
-	 * Whether to extract asset files to the assets folder.
+	 * Whether to extract JSON without reading, downloading, or cleaning binary assets.
 	 */
-	extractAssets: boolean
+	jsonOnly: boolean
 
 	/** Indentation used when writing extracted JSON. */
 	jsonIndent: '\t' | number

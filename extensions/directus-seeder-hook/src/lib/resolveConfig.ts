@@ -20,8 +20,8 @@ export function resolveSeederConfig(
 		batchSize: overrides.batchSize ?? options.SEEDER_BATCH_SIZE,
 		enableFullIdempotent:
 			overrides.enableFullIdempotent ?? options.SEEDER_ENABLE_FULL_IDEMPOTENT,
-		clearExistingSeeds: overrides.clearExistingSeeds ?? options.SEEDER_CLEAR_DATA_BEFORE_SEED,
-		extractAssets: overrides.extractAssets ?? options.SEEDER_EXTRACT_ASSETS,
+		skipClean: overrides.skipClean ?? false,
+		jsonOnly: overrides.jsonOnly ?? options.SEEDER_JSON_ONLY,
 		autoExtract: overrides.autoExtract ?? options.SEEDER_AUTO_EXTRACT,
 		jsonIndent: options.SEEDER_JSON_INDENT === 'tab' ? '\t' : options.SEEDER_JSON_INDENT_SIZE,
 	}
@@ -33,5 +33,5 @@ export function resolveSeederConfig(
  * @returns Seed and asset paths.
  */
 export function getFolderPaths(options: SeederOptions) {
-	return { seedsFolder: options.SEEDER_SEEDS_FOLDER, assetsFolder: options.SEEDER_ASSETS_DIR }
+	return { seedsFolder: options.SEEDER_SEEDS_DIR, assetsFolder: options.SEEDER_ASSETS_DIR }
 }

@@ -1,26 +1,76 @@
-import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { constants } from 'node:fs'
+import { lstat, mkdir, open, readdir, realpath, unlink } from 'node:fs/promises'
+import path from 'node:path'
+
+/**
+ * Checks every existing path component without following directory symlinks.
+ * @param directory - Resolved output directory to inspect.
+ * @returns Canonical path, including any not-yet-existing suffix.
+ */
+async function validateDirectory(directory: string): Promise<string> {
+	let current = path.parse(directory).root
+	if (directory === current) throw new Error(`Unsafe extraction directory: ${directory}`)
+	for (const component of directory.slice(current.length).split(path.sep)) {
+		current = path.join(current, component)
+		try {
+			const entry = await lstat(current)
+			if (entry.isSymbolicLink() || !entry.isDirectory()) {
+				throw new Error(
+					`Extraction directory must not traverse symlinks or files: ${current}`,
+				)
+			}
+		} catch (error) {
+			if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+				const parent = path.dirname(current)
+				return path.join(await realpath(parent), path.relative(parent, directory))
+			}
+			throw error
+		}
+	}
+	return realpath(directory)
+}
 
 /**
  * Ensures a directory exists while preserving existing mount, permissions, and ownership.
  * @param directory - Directory to create when absent.
  * @returns Resolves after the directory exists.
  */
-export async function ensureDir(directory: string): Promise<void> {
+async function ensureDir(directory: string): Promise<void> {
+	await validateDirectory(directory)
 	await mkdir(directory, { recursive: true })
+	await validateDirectory(directory)
 }
 
 /**
- * Removes only a directory's children, matching fs-extra's emptydir behavior.
- * @param directory - Directory whose contents should be removed.
- * @returns Resolves after all children are removed.
+ * Validates both managed locations before creating or cleaning either of them.
+ * @param folders - Configured JSON and binary output directories.
+ * @param jsonOnly - Whether binary output must remain untouched.
+ * @param skipClean - Whether existing output should be retained.
+ * @returns Resolved output directories for the rest of this extraction.
  */
-export async function emptydir(directory: string): Promise<void> {
-	await ensureDir(directory)
-	const children = await readdir(directory)
-	await Promise.all(
-		children.map((child) => rm(join(directory, child), { recursive: true, force: true })),
-	)
+export async function prepareExtractionDirectories(
+	folders: { seeds: string; assets: string },
+	jsonOnly: boolean,
+	skipClean: boolean,
+): Promise<{ seeds: string; assets: string }> {
+	const seeds = await validateDirectory(path.resolve(folders.seeds))
+	const assets = await validateDirectory(path.resolve(folders.assets))
+	if (seeds === assets || seeds.startsWith(`${assets}${path.sep}`)) {
+		throw new Error('Extraction directories conflict: assets must not equal or contain seeds')
+	}
+	await ensureDir(seeds)
+	if (!jsonOnly) await ensureDir(assets)
+	if (!skipClean) {
+		for (const directory of jsonOnly ? [seeds] : [seeds, assets]) {
+			await validateDirectory(directory)
+			for (const entry of await readdir(directory, { withFileTypes: true })) {
+				if (entry.isFile() && (directory === assets || entry.name.endsWith('.json'))) {
+					await unlink(path.join(directory, entry.name))
+				}
+			}
+		}
+	}
+	return { seeds, assets }
 }
 
 /**
@@ -30,6 +80,19 @@ export async function emptydir(directory: string): Promise<void> {
  * @returns Resolves after the file is written.
  */
 export async function outputFile(filePath: string, content: string | Uint8Array): Promise<void> {
-	await ensureDir(dirname(filePath))
-	await writeFile(filePath, content)
+	await ensureDir(path.dirname(filePath))
+	const file = await open(
+		filePath,
+		constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+	)
+	try {
+		const entry = await file.stat()
+		if (!entry.isFile() || entry.nlink !== 1) {
+			throw new Error(`Extraction output must be a regular file with one link: ${filePath}`)
+		}
+		await file.truncate(0)
+		await file.writeFile(content)
+	} finally {
+		await file.close()
+	}
 }

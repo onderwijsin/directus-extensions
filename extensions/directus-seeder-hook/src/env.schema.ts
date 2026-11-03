@@ -22,8 +22,7 @@ export const envSchema = z.object({
 	SEEDER_CONTINUE_ON_ERROR: z.boolean().default(false),
 	SEEDER_BATCH_SIZE: z.number().int().positive().default(50),
 	SEEDER_ENABLE_FULL_IDEMPOTENT: z.boolean().default(false),
-	SEEDER_CLEAR_DATA_BEFORE_SEED: z.boolean().default(false),
-	SEEDER_EXTRACT_ASSETS: z.boolean().default(true),
+	SEEDER_JSON_ONLY: z.boolean().default(false),
 	SEEDER_AUTO_EXTRACT: z.boolean().default(false),
 	SEEDER_JSON_INDENT: z
 		.enum(['tab', 'space'], {
@@ -31,7 +30,7 @@ export const envSchema = z.object({
 		})
 		.default('tab'),
 	SEEDER_JSON_INDENT_SIZE: z.number().int().min(1).max(10).default(2),
-	SEEDER_SEEDS_FOLDER: z.string().trim().min(1).default('/directus/seeds'),
+	SEEDER_SEEDS_DIR: z.string().trim().min(1).default('/directus/seeds'),
 	SEEDER_ASSETS_DIR: z.string().trim().min(1).default('/directus/seeds/assets'),
 	DEPLOYMENT_ENV: z.string().optional(),
 	DEFAULT_EMAIL: z.string().default('admin@example.com'),

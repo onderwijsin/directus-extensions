@@ -7,9 +7,9 @@ import path from 'node:path'
 
 import { z } from 'zod'
 
-import { emptydir, ensureDir, outputFile } from '../../lib/filesystem'
+import { outputFile, prepareExtractionDirectories } from '../../lib/filesystem'
 import { createPerformanceTracker } from '../../lib/performanceTracker'
-import { toSeedRecord } from '../../lib/seedItem'
+import { seedItemsSchema, toSeedRecord } from '../../lib/seedItem'
 import { SYSTEM_COLLECTIONS, SYSTEM_COLLECTIONS_ORDER } from './config'
 import { sortOperationsForKeyConstraints } from './data'
 
@@ -34,7 +34,15 @@ interface ExtractionResults {
 }
 
 /** Validate asset-service fields at their point of use while retaining other file metadata. */
-const fileDataSchema = z.looseObject({ id: z.string(), filename_disk: z.string() })
+const fileDataSchema = z.looseObject({
+	id: z.string(),
+	filename_disk: z
+		.string()
+		.min(1)
+		.refine((filename) => filename !== '.' && filename !== '..' && !/[\\/\0]/u.test(filename), {
+			error: 'Asset filename_disk must be a single filename inside the assets directory',
+		}),
+})
 type FileData = z.infer<typeof fileDataSchema>
 
 // Utility Functions
@@ -215,13 +223,15 @@ const extractSingleCollection = async (
 			knex,
 		})
 
-		let data: SeedItem[] = await service.readByQuery({
-			limit: -1,
-			fields: getSystemCollectionFields(collectionName) ?? ['*'],
-			filter: getSystemCollectionFilter(collectionName),
-			sort: getSystemCollectionSort(collectionName),
-			deep: getDeepQuery(collectionName),
-		})
+		let data: SeedItem[] = seedItemsSchema.parse(
+			await service.readByQuery({
+				limit: -1,
+				fields: getSystemCollectionFields(collectionName) ?? ['*'],
+				filter: getSystemCollectionFilter(collectionName),
+				sort: getSystemCollectionSort(collectionName),
+				deep: getDeepQuery(collectionName),
+			}),
+		)
 		data = filterExtractedData(collectionName, data)
 
 		// For operations, ensure exported JSON lists dependencies before dependents
@@ -231,11 +241,6 @@ const extractSingleCollection = async (
 		// stable).
 		if (collectionName === 'directus_operations' && Array.isArray(data) && data.length > 0) {
 			data = sortOperationsForKeyConstraints(data)
-		}
-
-		if (!data || data.length === 0) {
-			logger.info(`⚠️  Collection ${collectionName} is empty, skipping`)
-			return true
 		}
 
 		const absoluteFilePath = generateSeedFilePath(seedsFolder, collectionName)
@@ -344,16 +349,6 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 	logger.trace(`📁 Seeds folder path: ${folders.seeds}`)
 
 	try {
-		// Ensure the seeds directory exists
-		await ensureDir(folders.seeds)
-		logger.info('📁 Ensured seeds folder exists')
-
-		// and is empty
-		if (options.clearExistingSeeds) {
-			await emptydir(folders.seeds)
-			logger.info('📁 Cleared seeds folder')
-		}
-
 		let successCount = 0
 		let failureCount = 0
 
@@ -386,6 +381,7 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 		logger.info(
 			`🎯 Collection extraction complete: ${successCount} succeeded, ${failureCount} failed`,
 		)
+		if (failureCount > 0) throw new Error(`Failed to extract ${failureCount} collection(s)`)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'Unknown error'
 		logger.error(`❌ Failed to extract seeds: ${message}`)
@@ -396,7 +392,7 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 
 /**
  * Extracts all files from the directus_files collection and saves them to the specified asset
- * folder. Ensures the assets folder is cleared before extraction begins.
+ * folder. Output directories are prepared by the shared extraction flow.
  *
  * @param options - Configuration options for extraction
  * @param options.folders - Folder configuration containing assets path
@@ -425,12 +421,14 @@ export const extractAssets = async (options: ExtractOptions): Promise<void> => {
 
 			logger.trace('📋 Fetching directus_files data')
 
-			const fileData = await filesService.readByQuery({
-				limit: -1,
-				fields: ['*'],
-			})
+			const fileData = seedItemsSchema.parse(
+				await filesService.readByQuery({
+					limit: -1,
+					fields: ['*'],
+				}),
+			)
 
-			if (!fileData || fileData.length === 0) {
+			if (fileData.length === 0) {
 				logger.info('📋 No files found in directus_files collection')
 				return
 			}
@@ -438,16 +436,6 @@ export const extractAssets = async (options: ExtractOptions): Promise<void> => {
 			logger.info(
 				`📋 Found ${fileData.length} files in directus_files, starting asset extraction...`,
 			)
-
-			// Ensure the assets directory exists
-			await ensureDir(options.folders.assets)
-			logger.info('📁 Ensured assets folder exists')
-
-			// and is empty
-			if (options.clearExistingSeeds) {
-				await emptydir(options.folders.assets)
-				logger.info('📁 Cleared assets folder')
-			}
 
 			const results: ExtractionResults = {
 				success: [],
@@ -470,12 +458,13 @@ export const extractAssets = async (options: ExtractOptions): Promise<void> => {
 			}
 
 			logger.info(
-				`✅ Asset extraction complete! ${results.success.length} succeeded, ${results.failed.length} failed`,
+				`📋 Asset extraction complete: ${results.success.length} succeeded, ${results.failed.length} failed`,
 			)
 
 			if (results.failed.length > 0) {
 				logger.warn('⚠️  Failed files:')
 				results.failed.forEach((filename) => logger.warn(` - ${filename}`))
+				throw new Error(`Failed to extract ${results.failed.length} asset(s)`)
 			}
 		})
 	} catch (error) {
@@ -488,4 +477,30 @@ export const extractAssets = async (options: ExtractOptions): Promise<void> => {
 	// Log performance data
 	performanceTracker.outputFormatPerformanceData(logger)
 	logDivider(logger)
+}
+
+/**
+ * Cleans managed output first, then exports selected JSON and optionally all binary assets.
+ * Failures propagate to the CLI or automatic-task logger; partial output can be rerun.
+ * @param options - Validated runtime configuration and output locations.
+ * @returns Resolves only after every requested export succeeds.
+ */
+export async function extractSystemData(options: ExtractOptions): Promise<void> {
+	validateExtractOptions(options)
+	let folders: ExtractOptions['folders']
+	try {
+		folders = await prepareExtractionDirectories(
+			options.folders,
+			options.jsonOnly,
+			options.skipClean,
+		)
+	} catch (error) {
+		const message = error instanceof Error ? error.message : 'Unknown error'
+		throw new Error(`Failed to prepare extraction output directories: ${message}`, {
+			cause: error,
+		})
+	}
+	const prepared = { ...options, folders }
+	await extractSeedsFromCollections(prepared)
+	if (!options.jsonOnly) await extractAssets(prepared)
 }
