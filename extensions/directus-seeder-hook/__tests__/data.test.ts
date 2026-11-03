@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { envSchema } from '../src/env.schema'
 import { createSeedDataProvider } from '../src/lib/seedDataParser'
-import { SYSTEM_COLLECTIONS_ORDER } from '../src/seeders/system/config'
 import { getDataProviders, handlePolicyTFA, isSuperUser } from '../src/seeders/system/data'
 
 let directory = ''
@@ -37,6 +36,7 @@ describe('system seed data', () => {
 		directory = await mkdtemp(path.join(tmpdir(), 'seeder-data-'))
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 		vi.spyOn(console, 'log').mockImplementation(() => undefined)
+		vi.spyOn(console, 'error').mockImplementation(() => undefined)
 	})
 
 	afterEach(async () => {
@@ -118,10 +118,8 @@ describe('system seed data', () => {
 		expect((await loadData({ DEPLOYMENT_ENV: 'development' })).directus_flows).toHaveLength(2)
 	})
 
-	it('keeps missing, empty, invalid JSON and non-array files as empty data while retaining array members', async () => {
+	it('omits missing files while retaining explicit empty arrays and every array member', async () => {
 		await writeSeed('directus_roles', [])
-		await writeFile(path.join(directory, 'directus_folders.json'), '{broken')
-		await writeSeed('directus_settings', { id: 1 })
 		await writeSeed('directus_translations', [
 			null,
 			3,
@@ -129,16 +127,42 @@ describe('system seed data', () => {
 			{ id: 'kept', arbitrary: { value: true } },
 		])
 		const data = await loadData()
-		expect(Object.keys(data)).toEqual(SYSTEM_COLLECTIONS_ORDER)
-		expect(data.directus_access).toEqual([])
+		expect(Object.keys(data)).toEqual(['directus_roles', 'directus_translations'])
+		expect(data).not.toHaveProperty('directus_access')
 		expect(data.directus_roles).toEqual([])
-		expect(data.directus_folders).toEqual([])
-		expect(data.directus_settings).toEqual([])
 		expect(data.directus_translations).toEqual([
 			null,
 			3,
 			'legacy',
 			{ id: 'kept', arbitrary: { value: true } },
 		])
+	})
+
+	it.each(['{broken', '', ' \n\t'])(
+		'rejects malformed or empty JSON content %j with the filename and collection',
+		async (content) => {
+			const filename = path.join(directory, 'directus_roles.json')
+			await writeFile(filename, content)
+			await expect(loadData()).rejects.toThrow(`Failed to load seed file "${filename}"`)
+			await expect(loadData()).rejects.toThrow('collection "directus_roles"')
+		},
+	)
+
+	it.each([{}, null, 3, 'legacy', true])('rejects a non-array JSON root %j', async (data) => {
+		await writeSeed('directus_roles', data)
+		await expect(loadData()).rejects.toThrow('Expected a JSON array')
+	})
+
+	it('rejects an unreadable file instead of treating it as missing or empty', async () => {
+		const filename = path.join(directory, 'directus_roles.json')
+		await mkdir(filename)
+		await expect(loadData()).rejects.toThrow(`Failed to load seed file "${filename}"`)
+		await expect(loadData()).rejects.toThrow('EISDIR')
+	})
+
+	it('rejects a seed directory that is a file instead of treating ENOTDIR as missing', async () => {
+		const filename = path.join(directory, 'not-a-directory')
+		await writeFile(filename, 'file')
+		await expect(loadData({ SEEDER_SEEDS_DIR: filename })).rejects.toThrow('ENOTDIR')
 	})
 })

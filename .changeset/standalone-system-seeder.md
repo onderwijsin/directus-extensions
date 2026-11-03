@@ -4,7 +4,7 @@
 
 Release the standalone Directus system seeder hook as its first `1.0.0` release with `seed system`,
 development-only `seed extract`, and optional automatic extraction. Support Directus 12 and Node.js
-24.10 or newer, preserve seeding defaults and data-handling behavior, and document destructive
+24.10 or newer, preserve seeding defaults and transformations, and document destructive
 synchronization, asset handling, environment transformations, and operational limitations.
 
 Validate all `SEEDER_*` options plus `DEPLOYMENT_ENV`, `DEFAULT_EMAIL`, `DEFAULT_PASSWORD`, and
@@ -49,8 +49,16 @@ and an assets directory that contains the seeds directory.
 
 Always overwrite every selected collection JSON, including empty results as `[]` plus exactly one
 newline, even with `--skip-clean`. Database read errors fail extraction; cleanup and earlier writes
-can leave partial output, so fix the error and rerun to recover. Preserve seed-import behavior and
-its documented unsafe missing/malformed-input and mutation-error handling.
+can leave partial output, so fix the error and rerun to recover.
+
+Preflight all known system seed files and their data transformations before database operations, so
+an invalid later file prevents earlier mutations. Include/exclude still filters database operations
+after loading; files outside the supported list are ignored. Skip missing files (ENOENT only)
+without collection operations in any mode. Preserve valid `[]` as intentional empty data, including
+deleting existing records in explicitly enabled and confirmed `full-idempotent` mode. Invalid JSON,
+non-array roots, zero-byte or whitespace-only files, and other read errors fail with file context
+and exit 1 regardless of `SEEDER_CONTINUE_ON_ERROR`. Retain existing record validation, strategies,
+and mutation-error handling without adding transactions or rollback.
 
 Keep automatic extraction development-only and opt-in, with the existing events and 15-second
 debounce. It uses the same cleanup and JSON-only setting; repeated full exports of large assets may

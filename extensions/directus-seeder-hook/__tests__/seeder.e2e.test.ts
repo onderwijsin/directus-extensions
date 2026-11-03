@@ -5,7 +5,9 @@ import { promisify } from 'node:util'
 import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
 	createTranslation,
+	deleteRole,
 	deleteTranslation,
+	readRoles,
 	readTranslation,
 } from '@workspace/test-utils/commands'
 import { describe, expect, it } from 'vitest'
@@ -63,6 +65,54 @@ async function seed(environment: Record<string, string>, ...args: string[]) {
 }
 
 describe('installed seeder CLI', () => {
+	it.each(['syntax', 'non-array', 'read'])(
+		'exits one on a later %s input error before creating an earlier role, despite continue-on-error',
+		async (failure) => {
+			const id = randomUUID()
+			const directory = `/tmp/seeder-e2e-${randomUUID()}`
+			const filename = `${directory}/directus_permissions.json`
+			try {
+				await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'const fs = require("node:fs"); const [root, id, failure] = process.argv.slice(1); fs.mkdirSync(root); fs.writeFileSync(`${root}/directus_roles.json`, JSON.stringify([{ id, name: "Seeder preflight fixture" }])); const filename = `${root}/directus_permissions.json`; if (failure === "read") fs.mkdirSync(filename); else fs.writeFileSync(filename, failure === "syntax" ? "{broken" : "{}")',
+					directory,
+					id,
+					failure,
+				])
+				await expect(
+					seed(
+						{
+							SEEDER_SEEDS_DIR: directory,
+							SEEDER_CONTINUE_ON_ERROR: 'true',
+						},
+						'system',
+						'--include',
+						'directus_roles',
+						'directus_permissions',
+					),
+				).rejects.toMatchObject({ code: 1, stdout: expect.stringContaining(filename) })
+				expect(await client.request(readRoles({ filter: { id: { _eq: id } } }))).toEqual([])
+			} finally {
+				try {
+					const roles = await client.request(readRoles({ filter: { id: { _eq: id } } }))
+					if (roles.length > 0) await client.request(deleteRole(id))
+				} finally {
+					await execute('docker', [
+						...composeArguments,
+						'directus',
+						'node',
+						'-e',
+						'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+						directory,
+					])
+				}
+			}
+		},
+	)
+
 	it('honors enablement and exposes extraction help only in development', async () => {
 		const development = await seed({ DEPLOYMENT_ENV: 'development' }, '--help')
 		expect(development.stdout).toContain('system')

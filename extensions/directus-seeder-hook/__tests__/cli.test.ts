@@ -127,7 +127,9 @@ function createProgram(env: Record<string, unknown> = {}) {
 		readByQuery,
 		createMany,
 		upsertMany,
+		deleteMany,
 		ItemsService,
+		FilesService,
 		clearCache,
 		readFiles,
 		uploadOne,
@@ -202,12 +204,103 @@ describe('seeder registration and CLI', () => {
 	})
 
 	it('blocks full-idempotent without its environment opt-in and releases the process lock', async () => {
+		await writeFile(path.join(directory, 'directus_roles.json'), '[]')
 		const { program, ItemsService } = createProgram()
 		expect(await runCommand(program, 'system', '--mode', 'full-idempotent', '--force')).toBe(1)
 		expect(ItemsService).not.toHaveBeenCalled()
 		expect(mocks.acquireLock).toHaveBeenCalledOnce()
 		expect(mocks.releaseLock).toHaveBeenCalledOnce()
 	})
+
+	it.each(['insert-missing', 'insert-update', 'full-idempotent'])(
+		'skips every missing seed file without collection operations in %s',
+		async (mode) => {
+			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+			service.readByQuery.mockResolvedValue([{ id: 'existing' }])
+			expect(await runCommand(service.program, 'system', '--mode', mode, '--force')).toBe(0)
+			expect(service.ItemsService).not.toHaveBeenCalled()
+			expect(service.FilesService).not.toHaveBeenCalled()
+			expect(service.readByQuery).not.toHaveBeenCalled()
+			expect(service.readFiles).not.toHaveBeenCalled()
+			expect(service.createMany).not.toHaveBeenCalled()
+			expect(service.upsertMany).not.toHaveBeenCalled()
+			expect(service.deleteMany).not.toHaveBeenCalled()
+		},
+	)
+
+	it.each(['insert-missing', 'insert-update', 'full-idempotent'])(
+		'treats [] as intentional empty data in %s, retaining guarded deletion',
+		async (mode) => {
+			await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+			service.readByQuery.mockResolvedValue([{ id: 'existing' }])
+			expect(await runCommand(service.program, 'system', '--mode', mode, '--yes')).toBe(0)
+			expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+				'directus_roles',
+				expect.any(Object),
+			)
+			expect(service.createMany).not.toHaveBeenCalled()
+			expect(service.upsertMany).not.toHaveBeenCalled()
+			if (mode === 'full-idempotent') {
+				expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+					fields: ['id'],
+					filter: { id: { _nin: [] } },
+					limit: -1,
+				})
+				expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith(['existing'])
+			} else {
+				expect(service.readByQuery).not.toHaveBeenCalled()
+				expect(service.deleteMany).not.toHaveBeenCalled()
+			}
+		},
+	)
+
+	it.each(
+		[false, true].flatMap((continueOnError) =>
+			['syntax', 'non-array', 'empty', 'read', 'transform'].map((failure) => ({
+				continueOnError,
+				failure,
+			})),
+		),
+	)(
+		'exits one before collection operations on $failure with continue-on-error=$continueOnError',
+		async ({ continueOnError, failure }) => {
+			await writeFile(
+				path.join(directory, 'directus_roles.json'),
+				JSON.stringify([{ id: 'new-role', name: 'New role' }]),
+			)
+			const filename = path.join(directory, 'directus_permissions.json')
+			if (failure === 'read') await mkdir(filename)
+			else {
+				await writeFile(
+					filename,
+					failure === 'syntax' ? '{broken' : failure === 'empty' ? '' : '{}',
+				)
+			}
+			if (failure === 'transform') {
+				await writeFile(filename, '[]')
+				await writeFile(path.join(directory, 'directus_users.json'), '[null]')
+			}
+			const service = createProgram({
+				SEEDER_CONTINUE_ON_ERROR: continueOnError,
+				SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+			})
+			const errorLog = vi.spyOn(logger, 'error')
+			expect(
+				await runCommand(service.program, 'system', '--mode', 'full-idempotent', '--yes'),
+			).toBe(1)
+			if (failure !== 'transform')
+				expect(errorLog).toHaveBeenCalledWith(expect.stringContaining(filename))
+			expect(service.ItemsService).not.toHaveBeenCalled()
+			expect(service.FilesService).not.toHaveBeenCalled()
+			expect(service.readByQuery).not.toHaveBeenCalled()
+			expect(service.createMany).not.toHaveBeenCalled()
+			expect(service.upsertMany).not.toHaveBeenCalled()
+			expect(service.deleteMany).not.toHaveBeenCalled()
+			expect(service.clearCache).not.toHaveBeenCalled()
+			expect(mocks.releaseLock).toHaveBeenCalledOnce()
+		},
+	)
 
 	it('seeds settings as a singleton row, applies include/exclude, and clears the system cache', async () => {
 		await writeFile(

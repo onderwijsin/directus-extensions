@@ -101,57 +101,36 @@ const isSpecialCollection = (collection: SystemCollectionKey): boolean =>
  * Collection seed files should always contain arrays of items.
  *
  * @param data - Unknown data from JSON parsing
- * @param collection - Collection name for error reporting
  * @returns Type predicate confirming data is a valid collection array
  */
-const validateCollectionData = (
-	data: unknown,
-	collection: SystemCollectionKey,
-): data is SeedItem[] => {
-	if (!seedItemsSchema.safeParse(data).success) {
-		// @todo: replace console.* with logger.*
-		console.warn(
-			`Warning: Data for collection "${collection}" is not an array. Using empty array.`,
-		)
-		return false
-	}
-	return true
-}
+const validateCollectionData = (data: unknown): data is SeedItem[] =>
+	seedItemsSchema.safeParse(data).success
 
 /**
  * Parses and validates JSON content for a specific collection.
- * Handles JSON parsing errors gracefully and ensures type safety.
+ * Rejects invalid input without substituting an empty dataset.
  *
  * @param collection - Collection name for type inference and error reporting
  * @param fileContent - Raw JSON string content from file
- * @returns Typed array of collection items, empty array on error
+ * @returns The original array, preserving every row unchanged
+ * @throws If JSON syntax or the array boundary is invalid
  */
 const parseCollectionData = (collection: SystemCollectionKey, fileContent: string): SeedItem[] => {
-	try {
-		// Parse JSON and validate structure
-		const parsedData: unknown = JSON.parse(fileContent)
-		if (!validateCollectionData(parsedData, collection)) {
-			return []
-		}
-		// Keep the original array and every row unchanged after boundary validation.
-		return parsedData
-	} catch (error) {
-		// Handle JSON parsing errors gracefully
-		const errorMessage = error instanceof Error ? error.message : 'Unknown JSON parse error'
-		// @todo: replace console.* with logger.*
-		console.warn(
-			`Warning: Failed to parse JSON for collection "${collection}": ${errorMessage}. Using empty array.`,
-		)
-		return []
+	const parsedData: unknown = JSON.parse(fileContent)
+	if (!validateCollectionData(parsedData)) {
+		throw new Error(`Expected a JSON array for collection "${collection}"`)
 	}
+	return parsedData
 }
 
 /**
  * Loads data for all system collections from the seeds folder.
- * Reads JSON files for each collection in SYSTEM_COLLECTIONS_ORDER and parses them.
+ * Preflights JSON files in SYSTEM_COLLECTIONS_ORDER before any database operations.
+ * Only ENOENT omits a collection; an explicit empty array remains seed data.
  *
  * @param seedsFolder - Path to the folder containing collection JSON files
  * @returns Promise resolving to an array of collection data structures
+ * @throws If an existing seed file cannot be read, parsed, or validated
  */
 const getSystemCollectionData = async (seedsFolder: string): Promise<SystemCollectionData[]> => {
 	const results: SystemCollectionData[] = []
@@ -160,26 +139,19 @@ const getSystemCollectionData = async (seedsFolder: string): Promise<SystemColle
 	for (const collection of SYSTEM_COLLECTIONS_ORDER) {
 		// Construct file path: seeds/{collection}.json
 		const dataFilePath = path.join(seedsFolder, `${collection}.json`)
-		let data: SeedItem[] = []
-
 		try {
 			// Read and parse collection data file
 			const fileContent = await readFile(dataFilePath, 'utf-8')
-			data = parseCollectionData(collection, fileContent)
+			const data = parseCollectionData(collection, fileContent)
+			results.push({ collection, data })
 		} catch (error) {
-			// File read errors are handled gracefully - missing files result in empty collections
+			if (error instanceof Error && 'code' in error && error.code === 'ENOENT') continue
 			const errorMessage = error instanceof Error ? error.message : 'Unknown file error'
-			// @todo: replace console.* with logger.*
-			console.warn(
-				`Warning: Could not read data for collection "${collection}" from ${dataFilePath}. Error: ${errorMessage}. Using empty array.`,
+			throw new Error(
+				`Failed to load seed file "${dataFilePath}" for collection "${collection}": ${errorMessage}`,
+				{ cause: error },
 			)
 		}
-
-		// Always add the collection to results, even if empty
-		results.push({
-			collection,
-			data,
-		})
 	}
 
 	return results

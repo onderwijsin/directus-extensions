@@ -84,7 +84,7 @@ another type. Credential strings retain whitespace and explicitly empty strings.
 | `SEEDER_SCOPE`                  | `system`                         | String: only `system`, case-insensitive without trimming. Unsupported values fail. No custom scope is provided.                                                                                                                                                                                                                                          |
 | `SEEDER_INCLUDE`                | `[]` (all supported collections) | Singular nonblank string or array of nonblank strings, trimmed and normalized to an array. An empty array includes all. CLI `--include` overrides it.                                                                                                                                                                                                    |
 | `SEEDER_EXCLUDE`                | `[]` (none)                      | Same accepted list forms and normalization as inclusion. An empty array excludes none; exclusions win. CLI `--exclude` overrides it.                                                                                                                                                                                                                     |
-| `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. Continue to other seed-import collections after errors that escape a collection operation. It does not make logged strategy failures fatal. Extraction database read errors fail the run regardless of this option.                                                                                                                             |
+| `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. Continue after errors escaping a collection operation; logged strategy failures still need inspection. Seed-file read, parse, and validation errors always fail before database operations. Extraction database read errors also fail regardless of this option.                                                                                |
 | `SEEDER_BATCH_SIZE`             | `50`                             | Positive integer number. Zero, negative, fractional, nonnumeric, and uncast string values fail.                                                                                                                                                                                                                                                          |
 | `SEEDER_ENABLE_FULL_IDEMPOTENT` | `false`                          | Boolean. Required before `full-idempotent` can delete records. `--force`/`--yes` does not bypass this gate.                                                                                                                                                                                                                                              |
 | `SEEDER_JSON_ONLY`              | `false`                          | Boolean. Default `false` extracts JSON plus binaries. `true` disables binary reads, downloads, and cleanup for manual and automatic extraction. Manual `--assets` overrides `true`; `--json-only` forces JSON-only output. `directus_files.json` remains normal selected JSON.                                                                           |
@@ -212,6 +212,25 @@ scope. Extraction includes user password data and potentially other secrets in s
 options, or arbitrary fields. Review output before sharing or committing it; license-field omission
 is not general secret redaction. This is not a complete database or storage backup.
 
+### Seed input semantics and preflight
+
+Each supported collection is read from `<seeds-dir>/<collection>.json`; files for collections
+outside the supported list above are ignored. Before any database operation, all known system JSON
+files are read and validated and their data transformations are evaluated. Include/exclude then
+filters which collections receive database operations. An invalid file later in the fixed processing
+order therefore aborts the run before earlier collections are mutated. Invalid known files fail the
+run even when their collections are excluded from database operations.
+
+- A missing file (ENOENT only) omits the collection and its data: no database operations run for it
+  in any mode, including `full-idempotent` deletes. Omitting a file therefore excludes that
+  collection from the run; use include/exclude to select among the loaded collections.
+- A valid `[]` is intentional empty data. `insert-missing` adds nothing; `insert-update` adds or
+  updates nothing. In `full-idempotent` mode, with its existing safeguards satisfied, it deletes
+  every existing row of the selected collection.
+- Invalid JSON syntax, a non-array JSON root, a zero-byte or whitespace-only file, and non-ENOENT
+  read errors throw a file-context error naming the file; the CLI exits 1 regardless of
+  `SEEDER_CONTINUE_ON_ERROR`.
+
 ### Retained import transformations
 
 Root-user matching is case-insensitive: title exactly `super user`, or first name `admin` with last
@@ -245,19 +264,22 @@ execution. Cancellation returns exit code zero. Full-idempotent still requires i
 SEEDER_ENABLE_FULL_IDEMPOTENT=true npx directus seed system --mode full-idempotent --include directus_roles --yes
 ```
 
-Review seed files and back up the target first. **Missing/unreadable files, malformed JSON,
-non-array JSON, and explicit `[]` all become empty collection data** (with warnings for read/parse
-failures). The collection remains selected: in full-idempotent mode that empty data can delete every
-target record in it. Omitting a file does not exclude a collection. Use explicit include/exclude
-selection. Extraction filters, omitted fields, environment transformations, and missing files mean
-an extract is not necessarily a safe full-idempotent restore source.
+Review seed files and back up the target first. Seed-file input is validated as a preflight before
+any database mutation (see "Seed input semantics and preflight" above): a missing file omits its
+collection entirely, while invalid or unreadable files abort with a nonzero exit code. In
+full-idempotent mode, intentional empty data (`[]`) for a selected collection deletes every existing
+target record in it, and deletes still run only behind the explicit opt-in and confirmation
+safeguards above. Extraction filters, omitted fields, and environment transformations mean an
+extract is not necessarily a safe full-idempotent restore source.
 
-Operations are batched without an extension-wide transaction or rollback. **Some mutation errors are
-captured and logged without causing command failure**, even with `SEEDER_CONTINUE_ON_ERROR=false`. A
-zero seed-import exit code or final success log alone does not prove that all mutations succeeded;
-inspect error logs, counts, and resulting data. Uncaught command errors and a disabled
-full-idempotent request return a nonzero exit code. Extraction database read errors fail the run;
-see the recovery guidance below.
+Operations are batched without an extension-wide transaction or rollback. Preflight retains the
+existing array-boundary and transformation checks; it does not add per-collection record schemas or
+validate binary assets. Database or asset import errors can still occur after earlier mutations.
+**Some mutation errors are captured and logged without causing command failure**, even with
+`SEEDER_CONTINUE_ON_ERROR=false`. A zero seed-import exit code or final success log alone does not
+prove that all mutations succeeded; inspect error logs, counts, and resulting data. Uncaught command
+errors, seed-file load/validation failures, and a disabled full-idempotent request return a nonzero
+exit code. Extraction database read errors fail the run; see the recovery guidance below.
 
 ## Extraction, assets, and automatic behavior
 
