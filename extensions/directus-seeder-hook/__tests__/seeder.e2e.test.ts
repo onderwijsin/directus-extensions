@@ -9,6 +9,7 @@ import {
 	deleteTranslation,
 	readRoles,
 	readTranslation,
+	readTranslations,
 } from '@workspace/test-utils/commands'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -65,6 +66,83 @@ async function seed(environment: Record<string, string>, ...args: string[]) {
 }
 
 describe('installed seeder CLI', () => {
+	it.each(['false', 'true'])(
+		'exits one after a partial mutation failure with continue-on-error=%s',
+		async (continueOnError) => {
+			const roleId = randomUUID()
+			const failedRoleId = randomUUID()
+			const translation = {
+				id: randomUUID(),
+				key: `seeder_e2e_${roleId}`,
+				language: 'nl-NL',
+				value: 'after failed collection',
+			}
+			const directory = `/tmp/seeder-e2e-${randomUUID()}`
+			try {
+				await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'const fs = require("node:fs"); const [root, roles, translations] = process.argv.slice(1); fs.mkdirSync(root); fs.writeFileSync(`${root}/directus_roles.json`, roles); fs.writeFileSync(`${root}/directus_translations.json`, translations)',
+					directory,
+					JSON.stringify([
+						{ id: roleId, name: 'Seeder partial import fixture' },
+						{ id: failedRoleId, name: 'Invalid parent fixture', parent: randomUUID() },
+					]),
+					JSON.stringify([translation]),
+				])
+				await expect(
+					seed(
+						{
+							SEEDER_SEEDS_DIR: directory,
+							SEEDER_BATCH_SIZE: '1',
+							SEEDER_CONTINUE_ON_ERROR: continueOnError,
+						},
+						'system',
+					),
+				).rejects.toMatchObject({
+					code: 1,
+					stdout: expect.stringMatching(
+						/Error seeding collection directus_roles:.*[\s\S]*System data seeding failed/u,
+					),
+				})
+				expect(
+					await client.request(readRoles({ filter: { id: { _eq: roleId } } })),
+				).toEqual([expect.objectContaining({ id: roleId })])
+				expect(
+					await client.request(readRoles({ filter: { id: { _eq: failedRoleId } } })),
+				).toEqual([])
+				expect(
+					await client.request(
+						readTranslations({ filter: { id: { _eq: translation.id } } }),
+					),
+				).toEqual(continueOnError === 'true' ? [expect.objectContaining(translation)] : [])
+			} finally {
+				try {
+					const roles = await client.request(
+						readRoles({ filter: { id: { _in: [roleId, failedRoleId] } } }),
+					)
+					for (const role of roles) await client.request(deleteRole(role.id))
+					const translations = await client.request(
+						readTranslations({ filter: { id: { _eq: translation.id } } }),
+					)
+					if (translations.length > 0)
+						await client.request(deleteTranslation(translation.id))
+				} finally {
+					await execute('docker', [
+						...composeArguments,
+						'directus',
+						'node',
+						'-e',
+						'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+						directory,
+					])
+				}
+			}
+		},
+	)
+
 	it.each(['syntax', 'non-array', 'read'])(
 		'exits one on a later %s input error before creating an earlier role, despite continue-on-error',
 		async (failure) => {

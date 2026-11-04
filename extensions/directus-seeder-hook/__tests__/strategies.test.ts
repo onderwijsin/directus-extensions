@@ -121,16 +121,19 @@ describe('seed strategies', () => {
 		expect(service.upsertItems).not.toHaveBeenCalled()
 	})
 
-	it('reports service failures in the result without rejecting the strategy call', async () => {
+	it('retains partial progress and stops full-idempotent before deletion when an upsert fails', async () => {
 		const service = createAdapter()
-		service.createItems.mockRejectedValue(new Error('fixture failure'))
-		await expect(
-			createSeederStrategy(OperationMode.INSERT_MISSING).seedCollection(
-				'fixture',
-				[{ id: 'new' }],
-				service.adapter,
-				createPerformanceTracker(),
-			),
-		).resolves.toMatchObject({ error: 'fixture failure', created: 0, total: 1 })
+		service.upsertItems
+			.mockResolvedValueOnce(['created'])
+			.mockRejectedValueOnce(new Error('fixture failure'))
+		const result = await createSeederStrategy(OperationMode.FULL_IDEMPOTENT, 1).seedCollection(
+			'fixture',
+			[{ id: 'created' }, { id: 'failed' }, { id: 'unreached' }],
+			service.adapter,
+			createPerformanceTracker(),
+		)
+		expect(result).toMatchObject({ error: 'fixture failure', created: 1, deleted: 0, total: 3 })
+		expect(service.upsertItems).toHaveBeenCalledTimes(2)
+		expect(service.deleteItems).not.toHaveBeenCalled()
 	})
 })

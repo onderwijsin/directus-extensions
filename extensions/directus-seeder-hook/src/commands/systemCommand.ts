@@ -114,8 +114,12 @@ export const registerSystemCommand = (
 				}
 
 				const results = await seedSystem(context, config)
+				if (results?.some((result) => result.error !== undefined)) {
+					logger.error('❌ System data seeding failed; see collection errors above')
+					exitCode = 1
+				}
 
-				// Preserve cache handling unless no supported seed files exist.
+				// Clear the cache even after failures: earlier mutations may have succeeded.
 				if (results !== null) {
 					const schema = await getSchema()
 					const utilsService = new services.UtilsService({
@@ -131,9 +135,6 @@ export const registerSystemCommand = (
 					})
 					await utilsService.clearCache({ system: true })
 				}
-
-				// Success - set exit code to 0
-				exitCode = 0
 			} catch (error) {
 				const message = error instanceof Error ? error.message : 'Unknown error'
 				logger.error(`❌ Failed to seed system data: ${message}`)

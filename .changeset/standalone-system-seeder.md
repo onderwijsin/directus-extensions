@@ -64,7 +64,14 @@ valid `[]` as intentional empty data, including deleting existing records in exp
 confirmed `full-idempotent` mode. Required input
 with invalid JSON, non-array roots, zero-byte or whitespace-only files, or other read errors fails
 with file context and exit 1 regardless of `SEEDER_CONTINUE_ON_ERROR`. Retain existing record
-validation, strategies, and mutation-error handling without adding transactions or rollback.
+validation and strategies without adding transactions or rollback.
+
+Report database and asset mutation failures with collection context and always exit 1 if any
+collection fails. `SEEDER_CONTINUE_ON_ERROR=false` stops on the first failed collection; `true`
+continues with later collections while retaining the failed status. Stop the failed collection
+without continuing its batches or destructive cleanup. Attempt system-cache clearing after partial
+seeding with either setting. Earlier successful mutations are not automatically rolled back, and
+failed batches can leave progress not reflected in counts. Successful runs and valid no-ops exit 0.
 
 Outside exact `development`, selecting Operations requires any existing `directus_flows.json` as
 metadata for filtering development-only Operations, even when Flows are excluded. Invalid or

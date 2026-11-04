@@ -113,7 +113,7 @@ another type. Credential strings retain whitespace and explicitly empty strings.
 | `SEEDER_SCOPE`                  | `system`                         | String: only `system`, case-insensitive without trimming. Unsupported values fail. No custom scope is provided.                                                                                                                                                                                                                                          |
 | `SEEDER_INCLUDE`                | `[]` (all supported collections) | Singular nonblank string or array of nonblank strings, trimmed and normalized to an array. An empty array includes all. CLI `--include` overrides it.                                                                                                                                                                                                    |
 | `SEEDER_EXCLUDE`                | `[]` (none)                      | Same accepted list forms and normalization as inclusion. An empty array excludes none; exclusions win. CLI `--exclude` overrides it.                                                                                                                                                                                                                     |
-| `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. Continue after errors escaping a collection operation; logged strategy failures still need inspection. Required seed-file read, parse, and validation errors always fail before database operations. Extraction database read errors also fail regardless of this option.                                                                       |
+| `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. `false` stops seeding on the first failed collection; `true` continues with the next collections. Any database or asset mutation failure exits 1 in either case. Required seed-input preflight and extraction read errors always fail the run.                                                                                                  |
 | `SEEDER_BATCH_SIZE`             | `50`                             | Positive integer number. Zero, negative, fractional, nonnumeric, and uncast string values fail.                                                                                                                                                                                                                                                          |
 | `SEEDER_ENABLE_FULL_IDEMPOTENT` | `false`                          | Boolean. Required before `full-idempotent` can delete records. `--force`/`--yes` does not bypass this gate.                                                                                                                                                                                                                                              |
 | `SEEDER_JSON_ONLY`              | `false`                          | Boolean. Default `false` extracts JSON plus binaries. `true` disables binary reads, downloads, and cleanup for manual and automatic extraction. Manual `--assets` overrides `true`; `--json-only` forces JSON-only output. `directus_files.json` remains normal selected JSON.                                                                           |
@@ -317,11 +317,19 @@ extract is not necessarily a safe full-idempotent restore source.
 Operations are batched without an extension-wide transaction or rollback. Preflight retains the
 existing array-boundary and transformation checks; it does not add per-collection record schemas or
 validate binary assets. Database or asset import errors can still occur after earlier mutations.
-**Some mutation errors are captured and logged without causing command failure**, even with
-`SEEDER_CONTINUE_ON_ERROR=false`. A zero seed-import exit code or final success log alone does not
-prove that all mutations succeeded; inspect error logs, counts, and resulting data. Uncaught command
-errors, required seed-file load/validation failures, and a disabled full-idempotent request return a
-nonzero exit code. Extraction database read errors fail the run; see the recovery guidance below.
+Every failed mutation is reported with its collection and makes `seed system` exit 1.
+`SEEDER_CONTINUE_ON_ERROR=false` (default) stops seeding on the first failed collection. With
+`true`, the failed collection stops and seeding continues with the next collections, but the final
+exit code is still 1. The option controls continuation, not whether failures count as success. A
+fully successful run and valid no-ops retain exit code 0.
+
+Earlier successful mutations, including uploads within a failed batch, are not automatically rolled
+back. Fix the cause and inspect resulting data before rerunning. Counts may omit partial progress
+within a failed batch. The command attempts to clear the Directus system cache after collection
+processing, including a partial failure with either continuation setting. If cache clearing itself
+fails, the command also exits 1; cached state may remain stale until cleared. Required seed-input
+preflight errors still abort before mutations, regardless of this option. Extraction database read
+errors fail the run; see the recovery guidance below.
 
 ## Extraction, assets, and automatic behavior
 

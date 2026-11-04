@@ -671,7 +671,31 @@ describe('seeder registration and CLI', () => {
 		expect(mocks.releaseLock).toHaveBeenCalledOnce()
 	})
 
-	it('clears the cache after a continuing mutation error and still seeds later collections', async () => {
+	it('exits one on a mutation failure by default, stopping later batches and collections', async () => {
+		const roles = [{ id: 'created' }, { id: 'failed' }, { id: 'unreached' }]
+		await writeFile(path.join(directory, 'directus_roles.json'), JSON.stringify(roles))
+		await writeFile(path.join(directory, 'directus_settings.json'), '[{"id":1}]')
+		const service = createProgram({ SEEDER_BATCH_SIZE: 1 })
+		service.createMany
+			.mockResolvedValueOnce(['created'])
+			.mockRejectedValueOnce(new Error('mutation failed'))
+		const errorLog = vi.spyOn(logger, 'error')
+		const info = vi.spyOn(logger, 'info')
+		expect(await runCommand(service.program, 'system')).toBe(1)
+		expect(service.createMany.mock.calls).toEqual([[[roles[0]]], [[roles[1]]]])
+		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+			'directus_roles',
+			expect.any(Object),
+		)
+		expect(errorLog.mock.calls).toEqual([
+			['Error seeding collection directus_roles: mutation failed'],
+			['❌ System data seeding failed; see collection errors above'],
+		])
+		expect(info).not.toHaveBeenCalledWith(expect.stringContaining('Seeded directus_roles:'))
+		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
+	})
+
+	it('exits one after a continuing mutation error, clearing cache and seeding later collections', async () => {
 		const roles = [{ id: 'role', name: 'Role' }]
 		const settings = [{ id: 1, project_name: 'Fixture' }]
 		await writeFile(path.join(directory, 'directus_roles.json'), JSON.stringify(roles))
@@ -679,10 +703,52 @@ describe('seeder registration and CLI', () => {
 		const service = createProgram({ SEEDER_CONTINUE_ON_ERROR: true })
 		service.createMany.mockRejectedValueOnce(new Error('mutation failed'))
 		const errorLog = vi.spyOn(logger, 'error')
-		expect(await runCommand(service.program, 'system')).toBe(0)
+		expect(await runCommand(service.program, 'system')).toBe(1)
 		expect(service.createMany.mock.calls).toEqual([[roles], [settings]])
 		expect(errorLog).toHaveBeenCalledWith(
 			'Error seeding collection directus_roles: mutation failed',
+		)
+		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
+	})
+
+	it('retains a collection setup error when continuing to the next collection', async () => {
+		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+		const settings = [{ id: 1, project_name: 'Fixture' }]
+		await writeFile(path.join(directory, 'directus_settings.json'), JSON.stringify(settings))
+		const service = createProgram({ SEEDER_CONTINUE_ON_ERROR: true })
+		service.getSchema.mockRejectedValueOnce(new Error('schema unavailable'))
+		const errorLog = vi.spyOn(logger, 'error')
+		expect(await runCommand(service.program, 'system')).toBe(1)
+		expect(service.createMany).toHaveBeenCalledExactlyOnceWith(settings)
+		expect(errorLog).toHaveBeenCalledWith(
+			'Error seeding collection directus_roles: schema unavailable',
+		)
+	})
+
+	it('stops a partially failed asset batch but continues later collections with exit one', async () => {
+		await mkdir(path.join(directory, 'assets'))
+		await writeFile(path.join(directory, 'assets', 'fixture.bin'), 'asset')
+		const files = ['uploaded', 'failed', 'unreached'].map((id) => ({
+			id,
+			filename_disk: 'fixture.bin',
+		}))
+		await writeFile(path.join(directory, 'directus_files.json'), JSON.stringify(files))
+		const settings = [{ id: 1 }]
+		await writeFile(path.join(directory, 'directus_settings.json'), JSON.stringify(settings))
+		const service = createProgram({ SEEDER_CONTINUE_ON_ERROR: true })
+		service.uploadOne.mockImplementation(async (stream, _data, id) => {
+			await stream.toArray()
+			if (id === 'failed') throw new Error('storage unavailable')
+			return 'uploaded'
+		})
+		const errorLog = vi.spyOn(logger, 'error')
+		expect(
+			await runCommand(service.program, 'system', '--mode', 'insert-update', '--yes'),
+		).toBe(1)
+		expect(service.uploadOne.mock.calls.map(([, , id]) => id)).toEqual(['uploaded', 'failed'])
+		expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith(settings)
+		expect(errorLog).toHaveBeenCalledWith(
+			'Error seeding collection directus_files: storage unavailable',
 		)
 		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 	})

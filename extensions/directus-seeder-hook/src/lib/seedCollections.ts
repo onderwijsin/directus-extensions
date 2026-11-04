@@ -70,6 +70,7 @@ export async function seedCollections(
 
 		logger.debug(`Seeding collection: ${collectionName} (${collectionData.length} items)`)
 
+		let result: SeedResult
 		try {
 			// Create the appropriate service adapter
 			const serviceAdapter =
@@ -78,34 +79,39 @@ export async function seedCollections(
 					: await createItemsServiceAdapter(collectionName, context)
 
 			// Seed the collection
-			const result = await strategy.seedCollection(
+			result = await strategy.seedCollection(
 				collectionName,
 				collectionData,
 				serviceAdapter,
 				performanceTracker,
 			)
-
-			results.push(result)
-
-			if (result.error) {
-				logger.error(`Error seeding collection ${collectionName}: ${result.error}`)
-			} else {
-				logger.info(
-					`Seeded ${collectionName}: ` +
-						`${result.created} created, ` +
-						`${result.updated} updated, ` +
-						`${result.deleted} deleted, ` +
-						`${result.skipped} skipped, ` +
-						`${result.duration.toFixed(2)} ms`,
-				)
-			}
 		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Unknown error'
-			logger.error(`Error seeding collection ${collectionName}: ${message}`)
-
-			if (!config.continueOnError) {
-				throw error
+			result = {
+				collectionName,
+				created: 0,
+				updated: 0,
+				deleted: 0,
+				skipped: 0,
+				total: collectionData.length,
+				duration: 0,
+				error: error instanceof Error ? error.message : 'Unknown error',
 			}
+		}
+
+		results.push(result)
+
+		if (result.error !== undefined) {
+			logger.error(`Error seeding collection ${collectionName}: ${result.error}`)
+			if (!config.continueOnError) break
+		} else {
+			logger.info(
+				`Seeded ${collectionName}: ` +
+					`${result.created} created, ` +
+					`${result.updated} updated, ` +
+					`${result.deleted} deleted, ` +
+					`${result.skipped} skipped, ` +
+					`${result.duration.toFixed(2)} ms`,
+			)
 		}
 	}
 
