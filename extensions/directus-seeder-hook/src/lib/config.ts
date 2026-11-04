@@ -101,3 +101,21 @@ export interface SeederConfig {
 	 */
 	autoExtract: boolean
 }
+
+/**
+ * Applies the resolved collection selection, with exclusions taking precedence.
+ * @param collections - Available collection names in their existing order.
+ * @param config - Resolved include and exclude settings.
+ * @returns Selected collection names without changing their order.
+ */
+export function selectCollections(
+	collections: string[],
+	config: Pick<SeederConfig, 'includeCollections' | 'excludeCollections'>,
+): string[] {
+	return collections.filter(
+		(collection) =>
+			(config.includeCollections.length === 0 ||
+				config.includeCollections.includes(collection)) &&
+			!config.excludeCollections.includes(collection),
+	)
+}

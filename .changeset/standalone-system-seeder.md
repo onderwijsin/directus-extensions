@@ -54,19 +54,23 @@ can leave partial output, so fix the error and rerun to recover.
 Require the configured seed directory to exist and be a directory; otherwise fail with its path and
 exit 1. Warn and exit 0 without database operations or cache clearing when it contains no supported
 system seed files. Ignore unsupported files and nested seed files when determining this no-op.
+An empty collection selection alone does not trigger this warning.
 
-Preflight all known system seed files and their data transformations before database operations, so
-an invalid later file prevents earlier mutations. Include/exclude still filters database operations
-after loading; files outside the supported list are ignored. Skip missing files (ENOENT only)
-without collection operations in any mode. Preserve valid `[]` as intentional empty data, including
-deleting existing records in explicitly enabled and confirmed `full-idempotent` mode. Invalid JSON,
-non-array roots, zero-byte or whitespace-only files, and other read errors fail with file context
-and exit 1 regardless of `SEEDER_CONTINUE_ON_ERROR`. Retain existing record validation, strategies,
-and mutation-error handling without adding transactions or rollback.
+Resolve include/exclude before seed-input preflight: each CLI list overrides its corresponding
+environment list, and exclusions win. Validate selected seed files and their transformations before
+any database mutation. Ignore unselected invalid or unreadable files silently, except required Flow
+metadata below. Skip missing files (ENOENT only) without collection operations in any mode. Preserve
+valid `[]` as intentional empty data, including deleting existing records in explicitly enabled and
+confirmed `full-idempotent` mode. Required input
+with invalid JSON, non-array roots, zero-byte or whitespace-only files, or other read errors fails
+with file context and exit 1 regardless of `SEEDER_CONTINUE_ON_ERROR`. Retain existing record
+validation, strategies, and mutation-error handling without adding transactions or rollback.
 
-Keep Flow seed names and IDs available for filtering development-only Operations outside exact
-development, including when only Operations are selected for database operations. Selecting
-Operations does not import Flows; invalid Flow seed input remains fatal during preflight.
+Outside exact `development`, selecting Operations requires any existing `directus_flows.json` as
+metadata for filtering development-only Operations, even when Flows are excluded. Invalid or
+unreadable Flow metadata fails preflight; missing Flow input supplies no IDs to filter. This never
+imports unselected Flows. In exact `development`, unselected Flow input is ignored, including invalid
+content. Selected Flow input is always validated.
 
 Keep automatic extraction development-only and opt-in, with the existing events and 15-second
 debounce. It uses the same cleanup and JSON-only setting; repeated full exports of large assets may

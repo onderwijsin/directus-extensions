@@ -343,6 +343,120 @@ describe('seeder registration and CLI', () => {
 	)
 
 	it.each(
+		[
+			{ selection: 'CLI include', env: {}, flags: ['--include', 'directus_roles'] },
+			{ selection: 'CLI exclude', env: {}, flags: ['--exclude', 'directus_permissions'] },
+			{
+				selection: 'environment include',
+				env: { SEEDER_INCLUDE: 'directus_roles' },
+				flags: [],
+			},
+			{
+				selection: 'environment exclude',
+				env: { SEEDER_EXCLUDE: 'directus_permissions' },
+				flags: [],
+			},
+			{
+				selection: 'CLI include overrides environment include',
+				env: { SEEDER_INCLUDE: 'directus_permissions' },
+				flags: ['--include', 'directus_roles'],
+			},
+			{
+				selection: 'CLI exclude overrides environment exclude',
+				env: {
+					SEEDER_INCLUDE: ['directus_roles', 'directus_permissions'],
+					SEEDER_EXCLUDE: 'directus_roles',
+				},
+				flags: ['--exclude', 'directus_permissions'],
+			},
+			{
+				selection: 'environment exclude wins over CLI include',
+				env: { SEEDER_EXCLUDE: 'directus_permissions' },
+				flags: ['--include', 'directus_roles', 'directus_permissions'],
+			},
+			{
+				selection: 'CLI exclude wins over environment include',
+				env: { SEEDER_INCLUDE: ['directus_roles', 'directus_permissions'] },
+				flags: ['--exclude', 'directus_permissions'],
+			},
+		].flatMap((testCase) =>
+			[false, true].map((continueOnError) => ({ ...testCase, continueOnError })),
+		),
+	)(
+		'ignores invalid unused input with $selection and continue-on-error=$continueOnError',
+		async ({ env, flags, continueOnError }) => {
+			const roles = [{ id: 'role', name: 'Role' }]
+			await writeFile(path.join(directory, 'directus_roles.json'), JSON.stringify(roles))
+			await writeFile(path.join(directory, 'directus_permissions.json'), '{broken')
+			const service = createProgram({
+				DEPLOYMENT_ENV: 'production',
+				...env,
+				SEEDER_CONTINUE_ON_ERROR: continueOnError,
+			})
+			const warn = vi.spyOn(logger, 'warn')
+			const error = vi.spyOn(logger, 'error')
+			expect(await runCommand(service.program, 'system', ...flags)).toBe(0)
+			expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+				'directus_roles',
+				expect.any(Object),
+			)
+			expect(service.createMany).toHaveBeenCalledExactlyOnceWith(roles)
+			expect(service.FilesService).not.toHaveBeenCalled()
+			expect(warn).not.toHaveBeenCalled()
+			expect(error).not.toHaveBeenCalled()
+		},
+	)
+
+	it('ignores invalid Flow input when only Roles are selected in production', async () => {
+		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+		await writeFile(path.join(directory, 'directus_flows.json'), '{broken')
+		const service = createProgram({ DEPLOYMENT_ENV: 'production' })
+		const error = vi.spyOn(logger, 'error')
+		expect(await runCommand(service.program, 'system', '--include', 'directus_roles')).toBe(0)
+		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+			'directus_roles',
+			expect.any(Object),
+		)
+		expect(service.createMany).toHaveBeenCalledExactlyOnceWith([{ id: 'role' }])
+		expect(error).not.toHaveBeenCalled()
+	})
+
+	it('ignores an unreadable unselected file without a warning', async () => {
+		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+		await mkdir(path.join(directory, 'directus_permissions.json'))
+		const service = createProgram()
+		const warn = vi.spyOn(logger, 'warn')
+		expect(
+			await runCommand(service.program, 'system', '--exclude', 'directus_permissions'),
+		).toBe(0)
+		expect(service.createMany).toHaveBeenCalledExactlyOnceWith([{ id: 'role' }])
+		expect(warn).not.toHaveBeenCalled()
+	})
+
+	it('preserves cache handling without a directory warning when supported files exist but nothing is selected', async () => {
+		await writeFile(path.join(directory, 'directus_roles.json'), '{broken')
+		const service = createProgram()
+		const warn = vi.spyOn(logger, 'warn')
+		expect(
+			await runCommand(
+				service.program,
+				'system',
+				'--include',
+				'directus_roles',
+				'--exclude',
+				'directus_roles',
+			),
+		).toBe(0)
+		expect(service.ItemsService).not.toHaveBeenCalled()
+		expect(service.FilesService).not.toHaveBeenCalled()
+		expect(service.createMany).not.toHaveBeenCalled()
+		expect(service.upsertMany).not.toHaveBeenCalled()
+		expect(service.deleteMany).not.toHaveBeenCalled()
+		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
+		expect(warn).not.toHaveBeenCalled()
+	})
+
+	it.each(
 		[false, true].flatMap((continueOnError) =>
 			['syntax', 'non-array', 'empty', 'read', 'transform'].map((failure) => ({
 				continueOnError,
@@ -374,7 +488,17 @@ describe('seeder registration and CLI', () => {
 			})
 			const errorLog = vi.spyOn(logger, 'error')
 			expect(
-				await runCommand(service.program, 'system', '--mode', 'full-idempotent', '--yes'),
+				await runCommand(
+					service.program,
+					'system',
+					'--mode',
+					'full-idempotent',
+					'--yes',
+					'--include',
+					'directus_roles',
+					'directus_users',
+					'directus_permissions',
+				),
 			).toBe(1)
 			if (failure !== 'transform')
 				expect(errorLog).toHaveBeenCalledWith(expect.stringContaining(filename))
@@ -437,16 +561,21 @@ describe('seeder registration and CLI', () => {
 
 	it.each(
 		['production', 'development'].flatMap((DEPLOYMENT_ENV) =>
-			['syntax', 'non-array', 'transform'].map((failure) => ({ DEPLOYMENT_ENV, failure })),
+			['syntax', 'non-array', 'read', 'transform'].map((failure) => ({
+				DEPLOYMENT_ENV,
+				failure,
+			})),
 		),
 	)(
-		'rejects unselected $failure Flow data before any service calls in $DEPLOYMENT_ENV with continue-on-error',
+		'requires unselected $failure Flow input only outside exact development ($DEPLOYMENT_ENV) with continue-on-error',
 		async ({ DEPLOYMENT_ENV, failure }) => {
 			const filename = path.join(directory, 'directus_flows.json')
-			await writeFile(
-				filename,
-				failure === 'syntax' ? '{broken' : failure === 'non-array' ? '{}' : '[null]',
-			)
+			if (failure === 'read') await mkdir(filename)
+			else
+				await writeFile(
+					filename,
+					failure === 'syntax' ? '{broken' : failure === 'non-array' ? '{}' : '[null]',
+				)
 			await writeFile(
 				path.join(directory, 'directus_operations.json'),
 				JSON.stringify([{ id: 'live-op', key: 'live', flow: 'live' }]),
@@ -462,13 +591,53 @@ describe('seeder registration and CLI', () => {
 					'--exclude',
 					'directus_flows',
 				),
-			).toBe(1)
-			if (failure !== 'transform')
-				expect(errorLog).toHaveBeenCalledWith(expect.stringContaining(filename))
-			expectNoServiceCalls(service)
+			).toBe(DEPLOYMENT_ENV === 'development' ? 0 : 1)
+			if (DEPLOYMENT_ENV === 'development') {
+				expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+					'directus_operations',
+					expect.any(Object),
+				)
+				expect(service.createMany).toHaveBeenCalledExactlyOnceWith([
+					{ id: 'live-op', key: 'live', flow: 'live', resolve: null, reject: null },
+				])
+				expect(errorLog).not.toHaveBeenCalled()
+			} else {
+				if (failure !== 'transform')
+					expect(errorLog).toHaveBeenCalledWith(expect.stringContaining(filename))
+				expectNoServiceCalls(service)
+			}
 			expect(mocks.releaseLock).toHaveBeenCalledOnce()
 		},
 	)
+
+	it.each([undefined, 'production', 'staging', 'Development', 'development'])(
+		'rejects selected invalid Flow input in %s even with continue-on-error',
+		async (DEPLOYMENT_ENV) => {
+			await writeFile(path.join(directory, 'directus_flows.json'), '{broken')
+			const service = createProgram({ DEPLOYMENT_ENV, SEEDER_CONTINUE_ON_ERROR: true })
+			expect(await runCommand(service.program, 'system', '--include', 'directus_flows')).toBe(
+				1,
+			)
+			expectNoServiceCalls(service)
+		},
+	)
+
+	it('imports operations without Flow filtering when the Flow metadata file is missing', async () => {
+		const operation = { id: 'op', key: 'dev', flow: 'dev', resolve: null, reject: null }
+		await writeFile(
+			path.join(directory, 'directus_operations.json'),
+			JSON.stringify([operation]),
+		)
+		const service = createProgram({ DEPLOYMENT_ENV: 'production' })
+		expect(
+			await runCommand(service.program, 'system', '--include', 'directus_operations'),
+		).toBe(0)
+		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+			'directus_operations',
+			expect.any(Object),
+		)
+		expect(service.createMany).toHaveBeenCalledExactlyOnceWith([operation])
+	})
 
 	it('seeds settings as a singleton row, applies include/exclude, and clears the system cache', async () => {
 		await writeFile(

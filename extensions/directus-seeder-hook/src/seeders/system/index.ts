@@ -2,6 +2,7 @@ import type { SeederConfig } from '../../lib/config'
 import type { ServiceAdapterContext } from '../../services/ServiceAdapter'
 import type { SeedResult } from '../../strategies/SeederStrategy'
 
+import { selectCollections } from '../../lib/config'
 import { createPerformanceTracker } from '../../lib/performanceTracker'
 import { getFolderPaths } from '../../lib/resolveConfig'
 import { seedCollections } from '../../lib/seedCollections'
@@ -29,8 +30,9 @@ export async function seedSystem(
 	/**
 	 * Create a seed data provider for system data
 	 */
-	const dataProviders = await getDataProviders(env)
-	if (dataProviders.length === 0) {
+	const selectedCollections = selectCollections(SYSTEM_COLLECTIONS_ORDER, config)
+	const dataProviders = await getDataProviders(env, selectedCollections)
+	if (dataProviders === null) {
 		const { seedsFolder } = getFolderPaths(env)
 		logger.warn(`No supported system seed files found in "${seedsFolder}"; skipping seeding`)
 		return null

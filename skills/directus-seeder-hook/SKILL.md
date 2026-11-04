@@ -18,10 +18,10 @@ development extraction.
    every selected JSON file exists (including `[]` for empty collections), expected binaries exist,
    and logs report no failures. After a read error or interruption, fix the cause and rerun to
    recover output.
-3. For seeding, review all supplied system seed files and IDs, environment transformations, mode,
-   and target backup. Confirm `SEEDER_MODE` or pass `--mode` explicitly. Complete when logs and
-   target records confirm the expected result; exit code zero alone is insufficient under the
-   retained legacy error handling.
+3. For seeding, resolve include/exclude and review selected files plus any required Flow metadata,
+   IDs, environment transformations, mode, and target backup. Confirm `SEEDER_MODE` or pass `--mode`
+   explicitly. Complete when logs and target records confirm the expected result; exit code zero
+   alone is insufficient under the retained legacy error handling.
 4. After seeding, inspect Flow operation links, policy TFA, matching root-user status/credentials,
    and uploaded assets where selected. Complete when those results match the intended environment.
 
@@ -113,7 +113,7 @@ another type. Credential strings retain whitespace and explicitly empty strings.
 | `SEEDER_SCOPE`                  | `system`                         | String: only `system`, case-insensitive without trimming. Unsupported values fail. No custom scope is provided.                                                                                                                                                                                                                                          |
 | `SEEDER_INCLUDE`                | `[]` (all supported collections) | Singular nonblank string or array of nonblank strings, trimmed and normalized to an array. An empty array includes all. CLI `--include` overrides it.                                                                                                                                                                                                    |
 | `SEEDER_EXCLUDE`                | `[]` (none)                      | Same accepted list forms and normalization as inclusion. An empty array excludes none; exclusions win. CLI `--exclude` overrides it.                                                                                                                                                                                                                     |
-| `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. Continue after errors escaping a collection operation; logged strategy failures still need inspection. Seed-file read, parse, and validation errors always fail before database operations. Extraction database read errors also fail regardless of this option.                                                                                |
+| `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. Continue after errors escaping a collection operation; logged strategy failures still need inspection. Required seed-file read, parse, and validation errors always fail before database operations. Extraction database read errors also fail regardless of this option.                                                                       |
 | `SEEDER_BATCH_SIZE`             | `50`                             | Positive integer number. Zero, negative, fractional, nonnumeric, and uncast string values fail.                                                                                                                                                                                                                                                          |
 | `SEEDER_ENABLE_FULL_IDEMPOTENT` | `false`                          | Boolean. Required before `full-idempotent` can delete records. `--force`/`--yes` does not bypass this gate.                                                                                                                                                                                                                                              |
 | `SEEDER_JSON_ONLY`              | `false`                          | Boolean. Default `false` extracts JSON plus binaries. `true` disables binary reads, downloads, and cleanup for manual and automatic extraction. Manual `--assets` overrides `true`; `--json-only` forces JSON-only output. `directus_files.json` remains normal selected JSON.                                                                           |
@@ -247,24 +247,25 @@ The configured `SEEDER_SEEDS_DIR` must exist and be a directory. A missing direc
 is not a directory fails with the configured path in the error and exit code 1. An existing
 directory without any supported system seed files logs a warning with its path and exits 0 without
 database operations or cache clearing. Unsupported files and seed files inside subdirectories do not
-count. A directory with only some supported files is valid; missing collection files are skipped.
+count. A directory with only some supported files is valid; missing collection files are skipped. An
+empty collection selection alone does not trigger this warning.
 
-Each supported collection is read from `<seeds-dir>/<collection>.json`; files for collections
-outside the supported list above are ignored. Before any database operation, all known system JSON
-files are read and validated and their data transformations are evaluated. Include/exclude then
-filters which collections receive database operations. An invalid file later in the fixed processing
-order therefore aborts the run before earlier collections are mutated. Invalid known files fail the
-run even when their collections are excluded from database operations.
+Seed input uses `<seeds-dir>/<collection>.json`; files for collections outside the supported list
+above are ignored. The Seeder resolves include/exclude before preflight: each CLI list overrides
+only its corresponding environment list, and exclusions win. Before any database mutation, selected
+seed files and their data transformations are validated, plus any Flow metadata required for
+Operations filtering below. Invalid or unreadable required input aborts before any selected
+collection is mutated, even with `SEEDER_CONTINUE_ON_ERROR=true`. Unselected files are ignored
+silently unless required as Flow metadata.
 
 - A missing file (ENOENT only) omits the collection and its data: no database operations run for it
-  in any mode, including `full-idempotent` deletes. Omitting a file therefore excludes that
-  collection from the run; use include/exclude to select among the loaded collections.
+  in any mode, including `full-idempotent` deletes. A missing file never becomes empty input.
 - A valid `[]` is intentional empty data. `insert-missing` adds nothing; `insert-update` adds or
   updates nothing. In `full-idempotent` mode, with its existing safeguards satisfied, it deletes
   every existing row of the selected collection.
-- Invalid JSON syntax, a non-array JSON root, a zero-byte or whitespace-only file, and non-ENOENT
-  read errors throw a file-context error naming the file; the CLI exits 1 regardless of
-  `SEEDER_CONTINUE_ON_ERROR`.
+- For required input, invalid JSON syntax, a non-array JSON root, a zero-byte or whitespace-only
+  file, and non-ENOENT read errors throw a file-context error naming the file; the CLI exits 1
+  regardless of `SEEDER_CONTINUE_ON_ERROR`.
 
 ### Retained import transformations
 
@@ -279,10 +280,11 @@ Policy `enforce_tfa: true` stays true in every environment. In exact `production
 This preserves explicit enforcement during development extraction.
 
 Outside exact `development`, flows whose names contain `[dev]` (case-insensitive) and operations
-belonging to those flows in the seed data are filtered out. Operations use Flow seed names and IDs
-for this filtering even when Flows are excluded from database operations. Selecting Operations alone
-does not import Flows; an invalid `directus_flows.json` still aborts preflight. With no Flow seed
-file, there are no Flow IDs to filter; in exact `development`, the filter is inactive.
+belonging to those flows in the seed data are filtered out. Selecting Operations requires any
+existing `directus_flows.json` as filter metadata, even when Flows are excluded. Invalid or
+unreadable Flow metadata aborts preflight; a missing Flow file supplies no IDs to filter. This never
+imports unselected Flows. In exact `development`, the filter is inactive and an unselected Flow file
+is ignored, including invalid content. A selected Flow file is always validated.
 
 Operations receive reference-free records followed by reference updates in the same collection
 input. This retains legacy batching behavior: reference restoration can be skipped in
@@ -304,9 +306,9 @@ execution. Cancellation returns exit code zero. Full-idempotent still requires i
 SEEDER_ENABLE_FULL_IDEMPOTENT=true npx directus seed system --mode full-idempotent --include directus_roles --yes
 ```
 
-Review seed files and back up the target first. Seed-file input is validated as a preflight before
-any database mutation (see "Seed input semantics and preflight" above): a missing file omits its
-collection entirely, while invalid or unreadable files abort with a nonzero exit code. In
+Review seed files and back up the target first. Preflight validates required seed input before any
+database mutation (see "Seed input semantics and preflight" above): missing selected files omit
+their collections, while invalid or unreadable required files abort with a nonzero exit code. In
 full-idempotent mode, intentional empty data (`[]`) for a selected collection deletes every existing
 target record in it, and deletes still run only behind the explicit opt-in and confirmation
 safeguards above. Extraction filters, omitted fields, and environment transformations mean an
@@ -318,8 +320,8 @@ validate binary assets. Database or asset import errors can still occur after ea
 **Some mutation errors are captured and logged without causing command failure**, even with
 `SEEDER_CONTINUE_ON_ERROR=false`. A zero seed-import exit code or final success log alone does not
 prove that all mutations succeeded; inspect error logs, counts, and resulting data. Uncaught command
-errors, seed-file load/validation failures, and a disabled full-idempotent request return a nonzero
-exit code. Extraction database read errors fail the run; see the recovery guidance below.
+errors, required seed-file load/validation failures, and a disabled full-idempotent request return a
+nonzero exit code. Extraction database read errors fail the run; see the recovery guidance below.
 
 ## Extraction, assets, and automatic behavior
 

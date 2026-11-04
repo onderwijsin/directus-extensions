@@ -7,6 +7,7 @@ import type { SeedData } from './seedDataParser'
 import { createFilesServiceAdapter } from '../services/FilesServiceAdapter'
 import { createItemsServiceAdapter } from '../services/ItemsServiceAdapter'
 import { createSeederStrategy } from '../strategies'
+import { selectCollections } from './config'
 
 /**
  * Helper function to seed collections with common logic.
@@ -35,23 +36,15 @@ export async function seedCollections(
 	const strategy = createSeederStrategy(config.operationMode, config.batchSize)
 
 	// Get collections to seed
-	let collectionsToSeed = Object.keys(seedData)
+	const collectionsToSeed = selectCollections(Object.keys(seedData), config)
 
 	// Filter collections based on include/exclude lists
 	if (config.includeCollections && config.includeCollections.length > 0) {
 		logger.info(`Including collections: ${config.includeCollections.join(', ')}`)
-
-		collectionsToSeed = collectionsToSeed.filter((collection) =>
-			config.includeCollections?.includes(collection),
-		)
 	}
 
 	if (config.excludeCollections && config.excludeCollections.length > 0) {
 		logger.info(`Excluding collections: ${config.excludeCollections.join(', ')}`)
-
-		collectionsToSeed = collectionsToSeed.filter(
-			(collection) => !config.excludeCollections?.includes(collection),
-		)
 	}
 
 	// Sort collections to ensure proper order

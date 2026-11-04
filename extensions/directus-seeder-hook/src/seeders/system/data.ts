@@ -124,15 +124,20 @@ const parseCollectionData = (collection: SystemCollectionKey, fileContent: strin
 }
 
 /**
- * Loads data for all system collections from the seeds folder.
- * Preflights JSON files in SYSTEM_COLLECTIONS_ORDER before any database operations.
+ * Loads required system collection input from the seeds folder.
+ * Preflights required JSON files in SYSTEM_COLLECTIONS_ORDER before any database operations.
  * Only ENOENT omits a collection; an explicit empty array remains seed data.
+ * Reads of unused files only detect their presence; their content and errors are ignored.
  *
  * @param seedsFolder - Path to the folder containing collection JSON files
- * @returns Promise resolving to an array of collection data structures
- * @throws If the seed directory is missing or invalid, or an existing seed file cannot be read, parsed, or validated
+ * @param requiredCollections - Selected collections and any required Flow metadata
+ * @returns Required collection data, or null when no supported files exist
+ * @throws If the seed directory is missing or invalid, or required input cannot be read, parsed, or validated
  */
-const getSystemCollectionData = async (seedsFolder: string): Promise<SystemCollectionData[]> => {
+const getSystemCollectionData = async (
+	seedsFolder: string,
+	requiredCollections: string[],
+): Promise<SystemCollectionData[] | null> => {
 	try {
 		const directory = await stat(seedsFolder)
 		if (!directory.isDirectory()) {
@@ -149,18 +154,26 @@ const getSystemCollectionData = async (seedsFolder: string): Promise<SystemColle
 	}
 
 	const results: SystemCollectionData[] = []
+	let hasSupportedSeedFiles = false
 
 	// Process each collection in the defined order
 	for (const collection of SYSTEM_COLLECTIONS_ORDER) {
 		// Construct file path: seeds/{collection}.json
 		const dataFilePath = path.join(seedsFolder, `${collection}.json`)
+		const required = requiredCollections.includes(collection)
 		try {
 			// Read and parse collection data file
 			const fileContent = await readFile(dataFilePath, 'utf-8')
+			hasSupportedSeedFiles = true
+			if (!required) continue
 			const data = parseCollectionData(collection, fileContent)
 			results.push({ collection, data })
 		} catch (error) {
 			if (error instanceof Error && 'code' in error && error.code === 'ENOENT') continue
+			if (!required) {
+				hasSupportedSeedFiles = true
+				continue
+			}
 			const errorMessage = error instanceof Error ? error.message : 'Unknown file error'
 			throw new Error(
 				`Failed to load seed file "${dataFilePath}" for collection "${collection}": ${errorMessage}`,
@@ -169,7 +182,7 @@ const getSystemCollectionData = async (seedsFolder: string): Promise<SystemColle
 		}
 	}
 
-	return results
+	return hasSupportedSeedFiles ? results : null
 }
 
 /**
@@ -677,16 +690,26 @@ const sortDataProviders = (dataProviders: CollectionDataProvider[]): CollectionD
  * superuser configuration).
  *
  * @param env - Environment variables for configuration (admin defaults, deployment type)
- * @returns Promise resolving to an array of collection data providers in dependency order
+ * @param selectedCollections - Collection names selected by the resolved include/exclude settings
+ * @returns Selected providers in dependency order, or null when no supported files exist
  * @throws Error if data provider creation fails
  */
-export const getDataProviders = async (env: SeederOptions): Promise<CollectionDataProvider[]> => {
+export const getDataProviders = async (
+	env: SeederOptions,
+	selectedCollections: string[] = SYSTEM_COLLECTIONS_ORDER,
+): Promise<CollectionDataProvider[] | null> => {
 	try {
 		// Get seeds folder path from environment configuration
 		const { seedsFolder } = getFolderPaths(env)
 
-		// Load all collection data from JSON files
-		const systemCollectionData = await getSystemCollectionData(seedsFolder)
+		// Operations need Flow names and IDs for [dev] filtering outside exact development.
+		const requiredCollections =
+			selectedCollections.includes('directus_operations') &&
+			env.DEPLOYMENT_ENV !== 'development'
+				? [...selectedCollections, 'directus_flows']
+				: selectedCollections
+		const systemCollectionData = await getSystemCollectionData(seedsFolder, requiredCollections)
+		if (systemCollectionData === null) return null
 
 		// Create data providers for special collections (complex processing)
 		const specialDataProviders = createSpecialDataProviders(systemCollectionData, env)
@@ -698,7 +721,11 @@ export const getDataProviders = async (env: SeederOptions): Promise<CollectionDa
 		const allDataProviders = [...specialDataProviders, ...baseDataProviders]
 
 		// Sort by dependency order and return
-		return sortDataProviders(allDataProviders)
+		return sortDataProviders(
+			allDataProviders.filter((provider) =>
+				selectedCollections.includes(provider.collectionName),
+			),
+		)
 	} catch (error) {
 		// Handle any errors in the data provider creation process
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error'

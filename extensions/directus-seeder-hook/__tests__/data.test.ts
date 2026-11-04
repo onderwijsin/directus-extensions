@@ -27,7 +27,7 @@ async function writeSeed(collection: string, data: unknown) {
  */
 async function loadData(env: Record<string, string> = {}) {
 	return createSeedDataProvider(
-		await getDataProviders(envSchema.parse({ SEEDER_SEEDS_DIR: directory, ...env })),
+		(await getDataProviders(envSchema.parse({ SEEDER_SEEDS_DIR: directory, ...env }))) ?? [],
 	).getSeedData()
 }
 
