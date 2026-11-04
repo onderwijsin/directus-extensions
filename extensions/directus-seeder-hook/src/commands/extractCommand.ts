@@ -6,7 +6,7 @@ import process from 'node:process'
 import { Option } from 'commander'
 import { z } from 'zod'
 
-import { acquireLock, releaseLock } from '../lib/processLock'
+import { acquireLock } from '../lib/processLock'
 import { getFolderPaths, resolveSeederConfig } from '../lib/resolveConfig'
 import { extractSystemData } from '../seeders/system/extract'
 
@@ -52,10 +52,11 @@ export const registerExtractCommand = (
 				})
 				.parse(input)
 			let exitCode = 0
+			let lock: ReturnType<typeof acquireLock> | undefined
 
 			try {
 				// Acquire lock to signal other extensions that a bulk operation is in progress
-				acquireLock()
+				lock = acquireLock()
 				logger.info('🌱 Extracting seed data from Directus using Directus Seeder...')
 
 				// Apply explicit CLI overrides to the validated startup options
@@ -84,9 +85,7 @@ export const registerExtractCommand = (
 				logger.error(error)
 				exitCode = 1
 			} finally {
-				// Always release the lock
-				const released = releaseLock()
-				if (released) {
+				if (lock?.release()) {
 					logger.trace('🧹 Released process lock')
 				}
 

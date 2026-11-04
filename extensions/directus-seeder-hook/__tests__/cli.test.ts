@@ -48,7 +48,6 @@ vi.mock('../src/seeders/system/autoExtract', () => ({
 }))
 vi.mock('../src/lib/processLock', () => ({
 	acquireLock: mocks.acquireLock,
-	releaseLock: mocks.releaseLock,
 }))
 
 import '../src/index'
@@ -189,6 +188,7 @@ function expectNoServiceCalls(service: ReturnType<typeof createProgram>) {
 describe('seeder registration and CLI', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks()
+		mocks.acquireLock.mockReturnValue({ path: 'fixture-lock', release: mocks.releaseLock })
 		directory = await realpath(await mkdtemp(path.join(tmpdir(), 'seeder-cli-')))
 		vi.spyOn(process, 'exit').mockImplementation((code) => {
 			throw new CliExit(code)
@@ -220,6 +220,19 @@ describe('seeder registration and CLI', () => {
 		}
 		expect(mocks.autoExtract).not.toHaveBeenCalled()
 	})
+
+	it.each(['system', 'extract'])(
+		'does not release a flag when %s acquisition fails',
+		async (command) => {
+			const service = createProgram({ DEPLOYMENT_ENV: 'development' })
+			mocks.acquireLock.mockImplementationOnce(() => {
+				throw new Error('Cannot acquire process lock')
+			})
+			expect(await runCommand(service.program, command)).toBe(1)
+			expectNoServiceCalls(service)
+			expect(mocks.releaseLock).not.toHaveBeenCalled()
+		},
+	)
 
 	it('does not register CLI or auto-extraction when explicitly disabled', () => {
 		for (const SEEDER_ENABLED of [false, 'false']) {

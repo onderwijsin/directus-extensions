@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 import { DataScope, OperationMode } from '../lib/config'
 import { confirmExplicit, confirmYesNo, shouldSkipConfirmation } from '../lib/confirmationPrompts'
-import { acquireLock, releaseLock } from '../lib/processLock'
+import { acquireLock } from '../lib/processLock'
 import { resolveSeederConfig } from '../lib/resolveConfig'
 import { seedSystem } from '../seeders/system'
 
@@ -49,10 +49,11 @@ export const registerSystemCommand = (
 				})
 				.parse(input)
 			let exitCode = 0
+			let lock: ReturnType<typeof acquireLock> | undefined
 
 			try {
 				// Acquire lock to signal other extensions that a bulk operation is in progress
-				acquireLock()
+				lock = acquireLock()
 				logger.info('🌱 Seeding Directus with system data using Directus Seeder...')
 
 				const config = resolveSeederConfig(env, {
@@ -141,9 +142,7 @@ export const registerSystemCommand = (
 				logger.error(error)
 				exitCode = 1
 			} finally {
-				// Always release the lock
-				const released = releaseLock()
-				if (released) {
+				if (lock?.release()) {
 					logger.trace('🧹 Released process lock')
 				}
 

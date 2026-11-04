@@ -48,7 +48,7 @@ vi.mock('node:os', async (importOriginal) => {
 })
 
 import '../src/index'
-import { acquireLock, releaseLock } from '../src/lib/processLock'
+import { acquireLock } from '../src/lib/processLock'
 
 const logger = pino({ level: 'silent' })
 let directory = ''
@@ -172,6 +172,33 @@ describe('automatic system extraction', () => {
 		expect(await readdir(directory)).toEqual([])
 	})
 
+	it('preserves a replacement flag when an expired auto-extraction fails', async () => {
+		let fail: ((error: Error) => void) | undefined
+		mocks.extract.mockReturnValueOnce(
+			new Promise<void>((_resolve, reject) => {
+				fail = reject
+			}),
+		)
+		emit(register(), 'users.create')
+		await advance(15_000)
+		expect(mocks.extract).toHaveBeenCalledOnce()
+		const flag = path.join(directory, 'directus-lock-bulk-operation.flag')
+		const staleTime = new Date(Date.now() - 301_000)
+		utimesSync(flag, staleTime, staleTime)
+		const replacement = acquireLock()
+		const replacementFlag = await readFile(flag, 'utf8')
+		try {
+			fail?.(new Error('expired task failure'))
+			await vi.waitFor(async () => {
+				expect(await readdir(directory)).toEqual(['directus-lock-bulk-operation.flag'])
+			})
+			expect(await readFile(flag, 'utf8')).toBe(replacementFlag)
+		} finally {
+			expect(replacement.release()).toBe(true)
+			expect(replacement.release()).toBe(false)
+		}
+	})
+
 	it('ignores last_page-only and empty user updates while retaining mixed updates', async () => {
 		const action = register()
 		emit(action, 'users.update', { last_page: '/content' })
@@ -190,15 +217,15 @@ describe('automatic system extraction', () => {
 			emit(action, 'users.delete')
 			await advance(15_000)
 			expect(mocks.extract).not.toHaveBeenCalled()
-			expect(existsSync(lock)).toBe(true)
+			expect(existsSync(lock.path)).toBe(true)
 		} finally {
-			releaseLock()
+			lock.release()
 		}
 		mocks.extract.mockRejectedValueOnce(new Error('fixture failure'))
 		emit(action, 'users.create')
 		await advance(15_000)
 		expect(mocks.extract).toHaveBeenCalledOnce()
-		expect(existsSync(lock)).toBe(false)
+		expect(existsSync(lock.path)).toBe(false)
 		expect(await readdir(directory)).toEqual([])
 	})
 

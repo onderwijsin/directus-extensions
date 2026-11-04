@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import { createLogger } from '@onderwijsin/directus-extension-utils/server'
 
-import { acquireLock, isLocked, ProcessLockAlreadyExistsError, releaseLock } from './processLock'
+import { acquireLock, isLocked, ProcessLockAlreadyExistsError } from './processLock'
 
 interface AutoTaskOptions {
 	/** Unique identifier for the debounce lock (e.g., "schema-snapshot" or "seed-extraction") */
@@ -60,7 +60,7 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 			return
 		}
 
-		let lockAcquired = false
+		let lock: ReturnType<typeof acquireLock> | undefined
 
 		try {
 			// Check if bulk operation is in progress → skip
@@ -71,7 +71,7 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 
 			// Acquire bulk-operation lock before running
 			try {
-				acquireLock({ maxLockAge })
+				lock = acquireLock({ maxLockAge })
 			} catch (error) {
 				if (error instanceof ProcessLockAlreadyExistsError) {
 					logger.info(`🪝 Bulk operation became active, skipping ${debounceId}`)
@@ -80,7 +80,6 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 
 				throw error
 			}
-			lockAcquired = true
 
 			logger.info(`🪝 Running auto task: ${debounceId}`)
 			await task()
@@ -90,7 +89,7 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 			logger.error(`🪝 Error in auto task [${debounceId}]: ${msg}`)
 		} finally {
 			// Only release a lock acquired by this task
-			if (lockAcquired) releaseLock()
+			lock?.release()
 
 			// Clean up debounce lock file
 			if (existsSync(debounceLockPath))

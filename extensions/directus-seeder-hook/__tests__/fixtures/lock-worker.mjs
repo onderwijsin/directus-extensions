@@ -23,6 +23,15 @@ function send(message) {
 	process.stdout.write(`${JSON.stringify(message)}\n`)
 }
 
+/**
+ * Reports exit after any acquisition-bound cleanup registered by the hook.
+ * @param {number} code - Requested process exit status.
+ * @returns {void} Nothing.
+ */
+function reportExit(code) {
+	send({ event: 'exited', code })
+}
+
 const logger = pino(
 	{ level: 'trace' },
 	{
@@ -45,13 +54,15 @@ extension.default(
 	{
 		logger,
 		env: {
-			DEPLOYMENT_ENV: mode === 'owner' ? 'production' : 'development',
+			DEPLOYMENT_ENV: 'development',
 			SEEDER_AUTO_EXTRACT: mode !== 'owner',
 			SEEDER_INCLUDE: 'directus_translations',
 			SEEDER_SEEDS_DIR: directory,
 			SEEDER_ASSETS_DIR: `${directory}/assets`,
 		},
 		async getSchema() {
+			process.off('exit', reportExit)
+			process.on('exit', reportExit)
 			if (mode === 'owner' && !paused) {
 				paused = true
 				await new Promise((resolve) => {
@@ -76,14 +87,23 @@ extension.default(
 		},
 	},
 )
-process.on('exit', (code) => send({ event: 'exited', code }))
+process.on('exit', reportExit)
 createInterface({ input: process.stdin }).on('line', (line) => {
 	const command = JSON.parse(line)
 	if (command === 'release') release?.()
+	if (command === 'exit') process.exit(0)
 	if (command === 'auto') actions.get('translations.create')?.({ payload: {} })
-	if (command === 'seed') {
+	if (command === 'seed' || command === 'extract') {
 		void program
-			.parseAsync(['seed', 'system', '--include', 'directus_translations'], { from: 'user' })
+			.parseAsync(
+				[
+					'seed',
+					command === 'seed' ? 'system' : 'extract',
+					'--include',
+					'directus_translations',
+				],
+				{ from: 'user' },
+			)
 			.catch((error) => {
 				process.stderr.write(String(error))
 				process.exit(1)

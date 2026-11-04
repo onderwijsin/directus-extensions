@@ -1,6 +1,8 @@
-import { existsSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 
 /**
  * Standard lock name for bulk operations (seeding, extraction, snapshots, etc.).
@@ -13,6 +15,14 @@ interface ProcessLockOptions {
 	lockName?: string
 	/** Max age of lock file in milliseconds before it's considered stale (default: 5 minutes) */
 	maxLockAge?: number
+}
+
+/** A bulk-operation flag and cleanup bound to the acquisition that created it. */
+export interface ProcessLock {
+	/** Absolute path to the acquired flag. */
+	path: string
+	/** Removes this acquisition's flag, returning false if it was released or replaced. */
+	release: () => boolean
 }
 
 /** Signals contention with an existing legacy bulk-operation flag. */
@@ -45,30 +55,31 @@ const isErrnoException = (error: unknown): error is NodeJS.ErrnoException => {
  * operation is in progress.
  *
  * @param options - Lock configuration (defaults to bulk-operation lock if not specified)
- * @returns The path to the created lock file
+ * @returns The acquired flag and owner-bound cleanup, also registered for process exit.
  *
  * @example
  * ```typescript
  * // In a seeding command (uses default bulk-operation lock):
- * acquireLock()
+ * const lock = acquireLock()
  * try {
  *   await performSeeding()
  * } finally {
- *   releaseLock()
+ *   lock.release()
  * }
  *
  * // Or with custom lock name:
  * acquireLock({ lockName: 'custom-operation' })
  * ```
  */
-export const acquireLock = (options: ProcessLockOptions = {}): string => {
+export const acquireLock = (options: ProcessLockOptions = {}): ProcessLock => {
 	const { lockName = BULK_OPERATION_LOCK } = options
 	const lockPath = getLockPath(lockName)
+	const owner = randomUUID()
 
 	cleanStaleLock(options)
 
 	try {
-		writeFileSync(lockPath, String(Date.now()), { flag: 'wx' })
+		writeFileSync(lockPath, owner, { flag: 'wx' })
 	} catch (error) {
 		if (isErrnoException(error) && error.code === 'EEXIST') {
 			throw new ProcessLockAlreadyExistsError(lockName)
@@ -77,25 +88,39 @@ export const acquireLock = (options: ProcessLockOptions = {}): string => {
 		throw error
 	}
 
-	return lockPath
-}
+	let released = false
+	/**
+	 * Cleans up only this acquisition, including direct process.exit() paths.
+	 * @returns Whether this acquisition's flag was removed.
+	 */
+	const release = (): boolean => {
+		if (released) return false
+		released = true
+		process.off('exit', releaseOnExit)
 
-/**
- * Releases a process lock by removing the flag file.
- *
- * @param options - Lock configuration (defaults to bulk-operation lock if not specified)
- * @returns true if the lock was released, false if it didn't exist
- */
-export const releaseLock = (options: ProcessLockOptions = {}): boolean => {
-	const { lockName = BULK_OPERATION_LOCK } = options
-	const lockPath = getLockPath(lockName)
-
-	if (existsSync(lockPath)) {
-		rmSync(lockPath, { recursive: true, force: true })
-		return true
+		try {
+			if (readFileSync(lockPath, 'utf8') !== owner) return false
+			rmSync(lockPath, { force: true })
+			return true
+		} catch (error) {
+			if (isErrnoException(error) && error.code === 'ENOENT') return false
+			throw error
+		}
 	}
 
-	return false
+	/**
+	 * Releases synchronously when process.exit() bypasses the caller's finally block.
+	 * @returns Nothing.
+	 */
+	const releaseOnExit = (): void => {
+		try {
+			release()
+		} catch (error) {
+			console.error('Failed to release process lock on exit', error)
+		}
+	}
+	process.once('exit', releaseOnExit)
+	return { path: lockPath, release }
 }
 
 /**

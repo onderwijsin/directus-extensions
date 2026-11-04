@@ -87,8 +87,8 @@ environment setting to skip cleanup.
 
 `seed system` does not run automatically at server startup. Run it explicitly after database
 bootstrap/schema setup. It clears the Directus system cache after seeding, except when no supported
-seed files exist. Commands release the bulk-operation flag and call `process.exit()` in their final
-cleanup.
+seed files exist. Commands release their own bulk-operation flag and call `process.exit()` in their
+final cleanup.
 
 ## Configuration reference
 
@@ -406,13 +406,16 @@ elapsed time. Debouncing is not incremental extraction; performance optimization
 
 Coordination retains temporary files `directus-lock-bulk-operation.flag` and
 `directus-debounce-seed-system-extract.lock` in the process temporary directory. Bulk flags older
-than five minutes are treated as stale; ownership is not renewed. Automatic work skips contention
-and removes its debounce marker instead of retrying. Command cleanup removes the bulk flag even when
-acquisition failed, so overlapping commands can remove another operation's flag. These are legacy
-coordination limits, not a distributed lock or a guarantee against overlap. Run commands
-sequentially and keep extraction writers stopped during deployment seeding. Processes with separate
-temporary filesystems do not coordinate. After interruption, inspect active operations before
-removing stale flags or retrying; partial database changes and output files may remain.
+than five minutes are treated as stale; ownership is not renewed. Manual commands fail before doing
+work if an active flag already exists. Automatic work skips contention and removes its debounce
+marker instead of retrying. Cleanup runs only for a successfully acquired flag and checks its owner,
+leaving an already-replaced flag intact. Synchronous process-exit cleanup also covers cancellation
+from confirmation prompts. Expiration can still allow overlap, and filesystem checks and removal are
+not atomic across processes. These remain local coordination limits, not a distributed lock or a
+guarantee against overlap. Run commands sequentially and keep extraction writers stopped during
+deployment seeding. Processes with separate temporary filesystems do not coordinate. After
+interruption, inspect active operations before removing stale flags or retrying; partial database
+changes and output files may remain.
 
 If commands are missing, check installation, extension loading, and `SEEDER_ENABLED`. For missing
 extraction also check the exact deployment environment. For automatic extraction check its switch,

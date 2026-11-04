@@ -82,3 +82,8 @@ content. Selected Flow input is always validated.
 Keep automatic extraction development-only and opt-in, with the existing events and 15-second
 debounce. It uses the same cleanup and JSON-only setting; repeated full exports of large assets may
 consume substantial I/O, network traffic, and time. Performance optimizations remain follow-up work.
+
+Bind bulk-operation flag cleanup to each successful acquisition. Failed commands preserve another
+operation's flag, and an expired owner leaves an already-replaced flag intact. Apply the same
+ownership check to automatic extraction and synchronous process-exit cleanup, including prompt
+cancellation. Retain the existing five-minute stale policy and local best-effort coordination.
