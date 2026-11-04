@@ -113,22 +113,24 @@ export const registerSystemCommand = (
 					}
 				}
 
-				await seedSystem(context, config)
+				const results = await seedSystem(context, config)
 
-				// Create utils service lazily and clear the cache
-				const schema = await getSchema()
-				const utilsService = new services.UtilsService({
-					schema,
-					accountability: {
-						role: null,
-						roles: [],
-						user: null,
-						admin: true,
-						app: false,
-						ip: null,
-					},
-				})
-				await utilsService.clearCache({ system: true })
+				// Preserve cache handling unless no supported seed files exist.
+				if (results !== null) {
+					const schema = await getSchema()
+					const utilsService = new services.UtilsService({
+						schema,
+						accountability: {
+							role: null,
+							roles: [],
+							user: null,
+							admin: true,
+							app: false,
+							ip: null,
+						},
+					})
+					await utilsService.clearCache({ system: true })
+				}
 
 				// Success - set exit code to 0
 				exitCode = 0

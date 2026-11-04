@@ -3,6 +3,7 @@ import type { ServiceAdapterContext } from '../../services/ServiceAdapter'
 import type { SeedResult } from '../../strategies/SeederStrategy'
 
 import { createPerformanceTracker } from '../../lib/performanceTracker'
+import { getFolderPaths } from '../../lib/resolveConfig'
 import { seedCollections } from '../../lib/seedCollections'
 import { createSeedDataProvider } from '../../lib/seedDataParser'
 import { SYSTEM_COLLECTIONS_ORDER } from './config'
@@ -13,12 +14,12 @@ import { getDataProviders } from './data'
  *
  * @param context Directus hook context
  * @param config Seeder configuration
- * @returns Seeding results
+ * @returns Seeding results, or null when no supported seed files exist
  */
 export async function seedSystem(
 	context: ServiceAdapterContext,
 	config: SeederConfig,
-): Promise<SeedResult[]> {
+): Promise<SeedResult[] | null> {
 	const { logger, env } = context
 	const performanceTracker = createPerformanceTracker()
 	const results: SeedResult[] = []
@@ -29,6 +30,11 @@ export async function seedSystem(
 	 * Create a seed data provider for system data
 	 */
 	const dataProviders = await getDataProviders(env)
+	if (dataProviders.length === 0) {
+		const { seedsFolder } = getFolderPaths(env)
+		logger.warn(`No supported system seed files found in "${seedsFolder}"; skipping seeding`)
+		return null
+	}
 	const systemDataProvider = createSeedDataProvider([...dataProviders])
 
 	await performanceTracker.track('System data seeding', async () => {

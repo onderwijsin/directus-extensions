@@ -86,8 +86,9 @@ cleans output and writes JSON plus binaries by default. `--skip-clean` is manual
 environment setting to skip cleanup.
 
 `seed system` does not run automatically at server startup. Run it explicitly after database
-bootstrap/schema setup. It clears the Directus system cache after seeding. Commands release the
-bulk-operation flag and call `process.exit()` in their final cleanup.
+bootstrap/schema setup. It clears the Directus system cache after seeding, except when no supported
+seed files exist. Commands release the bulk-operation flag and call `process.exit()` in their final
+cleanup.
 
 ## Configuration reference
 
@@ -242,6 +243,12 @@ is not general secret redaction. This is not a complete database or storage back
 
 ### Seed input semantics and preflight
 
+The configured `SEEDER_SEEDS_DIR` must exist and be a directory. A missing directory or a path that
+is not a directory fails with the configured path in the error and exit code 1. An existing
+directory without any supported system seed files logs a warning with its path and exits 0 without
+database operations or cache clearing. Unsupported files and seed files inside subdirectories do not
+count. A directory with only some supported files is valid; missing collection files are skipped.
+
 Each supported collection is read from `<seeds-dir>/<collection>.json`; files for collections
 outside the supported list above are ignored. Before any database operation, all known system JSON
 files are read and validated and their data transformations are evaluated. Include/exclude then
@@ -272,10 +279,15 @@ Policy `enforce_tfa: true` stays true in every environment. In exact `production
 This preserves explicit enforcement during development extraction.
 
 Outside exact `development`, flows whose names contain `[dev]` (case-insensitive) and operations
-belonging to those seeded flows are filtered out. Operations receive reference-free records followed
-by reference updates in the same collection input. This retains legacy batching behavior: reference
-restoration can be skipped in `insert-missing` or fail during import. Verify Flow links after use;
-there is no guaranteed separate transactional two-pass import.
+belonging to those flows in the seed data are filtered out. Operations use Flow seed names and IDs
+for this filtering even when Flows are excluded from database operations. Selecting Operations alone
+does not import Flows; an invalid `directus_flows.json` still aborts preflight. With no Flow seed
+file, there are no Flow IDs to filter; in exact `development`, the filter is inactive.
+
+Operations receive reference-free records followed by reference updates in the same collection
+input. This retains legacy batching behavior: reference restoration can be skipped in
+`insert-missing` or fail during import. Verify Flow links after use; there is no guaranteed separate
+transactional two-pass import.
 
 ## Seeding safety and retained caveats
 

@@ -91,7 +91,7 @@ function createProgram(env: Record<string, unknown> = {}) {
 			) => Promise<string | number>
 		>()
 	const getAsset = vi.fn<(id: string) => Promise<{ stream: Readable }>>()
-	const ItemsService = vi.fn(function () {
+	const ItemsService = vi.fn(function (_collection: string, _options: unknown) {
 		return { readByQuery, createMany, upsertMany, deleteMany }
 	})
 	const FilesService = vi.fn(function () {
@@ -103,6 +103,8 @@ function createProgram(env: Record<string, unknown> = {}) {
 	const UtilsService = vi.fn(function () {
 		return { clearCache }
 	})
+	const getSchema = vi.fn().mockResolvedValue({})
+	const database = vi.fn()
 	const context: TestContext = {
 		env: {
 			SEEDER_SEEDS_DIR: directory,
@@ -111,8 +113,8 @@ function createProgram(env: Record<string, unknown> = {}) {
 		},
 		logger,
 		services: { ItemsService, FilesService, AssetsService, UtilsService },
-		getSchema: () => Promise.resolve({}),
-		database: {},
+		getSchema,
+		database,
 	}
 	const init = vi.fn<Init>()
 	const action = vi.fn()
@@ -130,6 +132,10 @@ function createProgram(env: Record<string, unknown> = {}) {
 		deleteMany,
 		ItemsService,
 		FilesService,
+		AssetsService,
+		UtilsService,
+		getSchema,
+		database,
 		clearCache,
 		readFiles,
 		uploadOne,
@@ -153,6 +159,31 @@ async function runCommand(program: Command, ...args: string[]) {
 		throw error
 	}
 	throw new Error('Expected the CLI action to request a process exit')
+}
+
+/**
+ * Verifies preflight and empty inputs do not reach Directus services or the database.
+ * @param service - Observable CLI fixture.
+ * @returns Nothing.
+ */
+function expectNoServiceCalls(service: ReturnType<typeof createProgram>) {
+	for (const spy of [
+		service.ItemsService,
+		service.FilesService,
+		service.AssetsService,
+		service.UtilsService,
+		service.getSchema,
+		service.database,
+		service.readByQuery,
+		service.readFiles,
+		service.createMany,
+		service.upsertMany,
+		service.deleteMany,
+		service.uploadOne,
+		service.getAsset,
+		service.clearCache,
+	])
+		expect(spy).not.toHaveBeenCalled()
 }
 
 describe('seeder registration and CLI', () => {
@@ -212,19 +243,72 @@ describe('seeder registration and CLI', () => {
 		expect(mocks.releaseLock).toHaveBeenCalledOnce()
 	})
 
+	it.each([
+		{ kind: 'missing', message: 'Seed directory does not exist' },
+		{ kind: 'file', message: 'Seed path is not a directory' },
+	])('rejects a configured $kind seed directory with its path', async ({ kind, message }) => {
+		const seeds = path.join(directory, 'configured-seeds')
+		if (kind === 'file') await writeFile(seeds, 'not a directory')
+		const service = createProgram({ SEEDER_SEEDS_DIR: seeds })
+		const errorLog = vi.spyOn(logger, 'error')
+		expect(await runCommand(service.program, 'system')).toBe(1)
+		expect(errorLog).toHaveBeenCalledWith(expect.stringContaining(`${message}: "${seeds}"`))
+		expectNoServiceCalls(service)
+		expect(mocks.releaseLock).toHaveBeenCalledOnce()
+	})
+
 	it.each(['insert-missing', 'insert-update', 'full-idempotent'])(
-		'skips every missing seed file without collection operations in %s',
+		'warns once and skips an empty seed directory without service calls in %s',
 		async (mode) => {
 			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
-			service.readByQuery.mockResolvedValue([{ id: 'existing' }])
+			const warn = vi.spyOn(logger, 'warn')
 			expect(await runCommand(service.program, 'system', '--mode', mode, '--force')).toBe(0)
-			expect(service.ItemsService).not.toHaveBeenCalled()
+			expect(warn).toHaveBeenCalledExactlyOnceWith(
+				`No supported system seed files found in "${directory}"; skipping seeding`,
+			)
+			expectNoServiceCalls(service)
+			expect(mocks.releaseLock).toHaveBeenCalledOnce()
+		},
+	)
+
+	it.each(['insert-missing', 'insert-update', 'full-idempotent'])(
+		'ignores unsupported files and nested supported JSON without service calls in %s',
+		async (mode) => {
+			await writeFile(path.join(directory, 'unknown_collection.json'), '{broken')
+			await writeFile(path.join(directory, 'notes.txt'), 'notes')
+			await mkdir(path.join(directory, 'nested'))
+			await writeFile(
+				path.join(directory, 'nested', 'directus_roles.json'),
+				JSON.stringify([{ id: 'nested-role', name: 'Nested role' }]),
+			)
+			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+			const warn = vi.spyOn(logger, 'warn')
+			expect(await runCommand(service.program, 'system', '--mode', mode, '--force')).toBe(0)
+			expect(warn).toHaveBeenCalledExactlyOnceWith(
+				`No supported system seed files found in "${directory}"; skipping seeding`,
+			)
+			expectNoServiceCalls(service)
+		},
+	)
+
+	it.each(['insert-missing', 'insert-update', 'full-idempotent'])(
+		'seeds a sparse supported dataset without an empty-directory warning in %s',
+		async (mode) => {
+			const roles = [{ id: 'new-role', name: 'New role' }]
+			await writeFile(path.join(directory, 'directus_roles.json'), JSON.stringify(roles))
+			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+			const warn = vi.spyOn(logger, 'warn')
+			expect(await runCommand(service.program, 'system', '--mode', mode, '--force')).toBe(0)
+			expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+				'directus_roles',
+				expect.any(Object),
+			)
 			expect(service.FilesService).not.toHaveBeenCalled()
-			expect(service.readByQuery).not.toHaveBeenCalled()
-			expect(service.readFiles).not.toHaveBeenCalled()
-			expect(service.createMany).not.toHaveBeenCalled()
-			expect(service.upsertMany).not.toHaveBeenCalled()
-			expect(service.deleteMany).not.toHaveBeenCalled()
+			if (mode === 'insert-missing')
+				expect(service.createMany).toHaveBeenCalledExactlyOnceWith(roles)
+			else expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith(roles)
+			expect(warn).not.toHaveBeenCalled()
+			expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 		},
 	)
 
@@ -233,6 +317,7 @@ describe('seeder registration and CLI', () => {
 		async (mode) => {
 			await writeFile(path.join(directory, 'directus_roles.json'), '[]')
 			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+			const warn = vi.spyOn(logger, 'warn')
 			service.readByQuery.mockResolvedValue([{ id: 'existing' }])
 			expect(await runCommand(service.program, 'system', '--mode', mode, '--yes')).toBe(0)
 			expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
@@ -252,6 +337,8 @@ describe('seeder registration and CLI', () => {
 				expect(service.readByQuery).not.toHaveBeenCalled()
 				expect(service.deleteMany).not.toHaveBeenCalled()
 			}
+			expect(warn).not.toHaveBeenCalled()
+			expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 		},
 	)
 
@@ -302,6 +389,87 @@ describe('seeder registration and CLI', () => {
 		},
 	)
 
+	it.each([undefined, 'production', 'staging', 'Development', 'development'])(
+		'uses unselected Flow metadata for operations-only filtering in %s',
+		async (DEPLOYMENT_ENV) => {
+			await writeFile(
+				path.join(directory, 'directus_flows.json'),
+				JSON.stringify([
+					{ id: 'live', name: 'Live' },
+					{ id: 'dev', name: 'A [dEv] helper' },
+				]),
+			)
+			const liveOperation = {
+				id: 'live-op',
+				key: 'live',
+				flow: 'live',
+				resolve: null,
+				reject: null,
+			}
+			const devOperation = { ...liveOperation, id: 'dev-op', key: 'dev', flow: 'dev' }
+			await writeFile(
+				path.join(directory, 'directus_operations.json'),
+				JSON.stringify([liveOperation, devOperation]),
+			)
+			const service = createProgram({ DEPLOYMENT_ENV })
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--include',
+					'directus_operations',
+					'--exclude',
+					'directus_flows',
+				),
+			).toBe(0)
+			expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+				'directus_operations',
+				expect.any(Object),
+			)
+			expect(service.createMany).toHaveBeenCalledExactlyOnceWith(
+				DEPLOYMENT_ENV === 'development' ? [liveOperation, devOperation] : [liveOperation],
+			)
+			expect(service.upsertMany).not.toHaveBeenCalled()
+			expect(service.deleteMany).not.toHaveBeenCalled()
+			expect(service.FilesService).not.toHaveBeenCalled()
+		},
+	)
+
+	it.each(
+		['production', 'development'].flatMap((DEPLOYMENT_ENV) =>
+			['syntax', 'non-array', 'transform'].map((failure) => ({ DEPLOYMENT_ENV, failure })),
+		),
+	)(
+		'rejects unselected $failure Flow data before any service calls in $DEPLOYMENT_ENV with continue-on-error',
+		async ({ DEPLOYMENT_ENV, failure }) => {
+			const filename = path.join(directory, 'directus_flows.json')
+			await writeFile(
+				filename,
+				failure === 'syntax' ? '{broken' : failure === 'non-array' ? '{}' : '[null]',
+			)
+			await writeFile(
+				path.join(directory, 'directus_operations.json'),
+				JSON.stringify([{ id: 'live-op', key: 'live', flow: 'live' }]),
+			)
+			const service = createProgram({ DEPLOYMENT_ENV, SEEDER_CONTINUE_ON_ERROR: true })
+			const errorLog = vi.spyOn(logger, 'error')
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--include',
+					'directus_operations',
+					'--exclude',
+					'directus_flows',
+				),
+			).toBe(1)
+			if (failure !== 'transform')
+				expect(errorLog).toHaveBeenCalledWith(expect.stringContaining(filename))
+			expectNoServiceCalls(service)
+			expect(mocks.releaseLock).toHaveBeenCalledOnce()
+		},
+	)
+
 	it('seeds settings as a singleton row, applies include/exclude, and clears the system cache', async () => {
 		await writeFile(
 			path.join(directory, 'directus_settings.json'),
@@ -332,6 +500,32 @@ describe('seeder registration and CLI', () => {
 		])
 		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 		expect(mocks.releaseLock).toHaveBeenCalledOnce()
+	})
+
+	it('clears the cache after a continuing mutation error and still seeds later collections', async () => {
+		const roles = [{ id: 'role', name: 'Role' }]
+		const settings = [{ id: 1, project_name: 'Fixture' }]
+		await writeFile(path.join(directory, 'directus_roles.json'), JSON.stringify(roles))
+		await writeFile(path.join(directory, 'directus_settings.json'), JSON.stringify(settings))
+		const service = createProgram({ SEEDER_CONTINUE_ON_ERROR: true })
+		service.createMany.mockRejectedValueOnce(new Error('mutation failed'))
+		const errorLog = vi.spyOn(logger, 'error')
+		expect(await runCommand(service.program, 'system')).toBe(0)
+		expect(service.createMany.mock.calls).toEqual([[roles], [settings]])
+		expect(errorLog).toHaveBeenCalledWith(
+			'Error seeding collection directus_roles: mutation failed',
+		)
+		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
+	})
+
+	it('keeps cache clearing when a populated directory has no selected collections', async () => {
+		await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+		const service = createProgram()
+		const warn = vi.spyOn(logger, 'warn')
+		expect(await runCommand(service.program, 'system', '--exclude', 'directus_roles')).toBe(0)
+		expect(service.ItemsService).not.toHaveBeenCalled()
+		expect(warn).not.toHaveBeenCalled()
+		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 	})
 
 	it('extracts settings without license secrets and sorts operation dependencies before dependents', async () => {
@@ -485,6 +679,39 @@ describe('seeder registration and CLI', () => {
 		service.upsertMany.mockClear()
 		expect(await runCommand(service.program, 'system', '--mode', 'insert-missing')).toBe(0)
 		expect(service.upsertMany).not.toHaveBeenCalled()
+	})
+
+	it('lets CLI selection override environment lists, excludes included collections, and preserves dependency order', async () => {
+		for (const collection of [
+			'directus_settings',
+			'directus_roles',
+			'directus_permissions',
+			'directus_policies',
+			'directus_translations',
+		])
+			await writeFile(path.join(directory, `${collection}.json`), '[]')
+		const service = createProgram({
+			SEEDER_INCLUDE: ['directus_translations'],
+			SEEDER_EXCLUDE: ['directus_policies', 'directus_settings'],
+		})
+		expect(
+			await runCommand(
+				service.program,
+				'system',
+				'--include',
+				'directus_settings',
+				'directus_roles',
+				'directus_permissions',
+				'directus_policies',
+				'--exclude',
+				'directus_permissions',
+			),
+		).toBe(0)
+		expect(service.ItemsService.mock.calls.map(([collection]) => collection)).toEqual([
+			'directus_policies',
+			'directus_roles',
+			'directus_settings',
+		])
 	})
 
 	it.each([0, -1, 1.5, NaN, Infinity, 'invalid'])(

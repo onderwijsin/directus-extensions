@@ -2,7 +2,7 @@ import type { SeederOptions } from '../../env.schema'
 import type { CollectionDataProvider } from '../../lib/seedDataParser'
 import type { SeedItem } from '../../lib/seedItem'
 
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 
 import { z } from 'zod'
 
@@ -130,9 +130,24 @@ const parseCollectionData = (collection: SystemCollectionKey, fileContent: strin
  *
  * @param seedsFolder - Path to the folder containing collection JSON files
  * @returns Promise resolving to an array of collection data structures
- * @throws If an existing seed file cannot be read, parsed, or validated
+ * @throws If the seed directory is missing or invalid, or an existing seed file cannot be read, parsed, or validated
  */
 const getSystemCollectionData = async (seedsFolder: string): Promise<SystemCollectionData[]> => {
+	try {
+		const directory = await stat(seedsFolder)
+		if (!directory.isDirectory()) {
+			throw new Error(`Seed path is not a directory: "${seedsFolder}"`)
+		}
+	} catch (error) {
+		if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+			throw new Error(`Seed directory does not exist: "${seedsFolder}"`, { cause: error })
+		}
+		const message = error instanceof Error ? error.message : 'Unknown directory error'
+		throw new Error(`Failed to inspect seed directory "${seedsFolder}": ${message}`, {
+			cause: error,
+		})
+	}
+
 	const results: SystemCollectionData[] = []
 
 	// Process each collection in the defined order

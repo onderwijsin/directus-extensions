@@ -160,9 +160,11 @@ describe('system seed data', () => {
 		await expect(loadData()).rejects.toThrow('EISDIR')
 	})
 
-	it('rejects a seed directory that is a file instead of treating ENOTDIR as missing', async () => {
+	it('rejects a seed directory that is a file with a clear error and its path', async () => {
 		const filename = path.join(directory, 'not-a-directory')
 		await writeFile(filename, 'file')
-		await expect(loadData({ SEEDER_SEEDS_DIR: filename })).rejects.toThrow('ENOTDIR')
+		await expect(loadData({ SEEDER_SEEDS_DIR: filename })).rejects.toThrow(
+			`Seed path is not a directory: "${filename}"`,
+		)
 	})
 })

@@ -51,6 +51,10 @@ Always overwrite every selected collection JSON, including empty results as `[]`
 newline, even with `--skip-clean`. Database read errors fail extraction; cleanup and earlier writes
 can leave partial output, so fix the error and rerun to recover.
 
+Require the configured seed directory to exist and be a directory; otherwise fail with its path and
+exit 1. Warn and exit 0 without database operations or cache clearing when it contains no supported
+system seed files. Ignore unsupported files and nested seed files when determining this no-op.
+
 Preflight all known system seed files and their data transformations before database operations, so
 an invalid later file prevents earlier mutations. Include/exclude still filters database operations
 after loading; files outside the supported list are ignored. Skip missing files (ENOENT only)
@@ -59,6 +63,10 @@ deleting existing records in explicitly enabled and confirmed `full-idempotent` 
 non-array roots, zero-byte or whitespace-only files, and other read errors fail with file context
 and exit 1 regardless of `SEEDER_CONTINUE_ON_ERROR`. Retain existing record validation, strategies,
 and mutation-error handling without adding transactions or rollback.
+
+Keep Flow seed names and IDs available for filtering development-only Operations outside exact
+development, including when only Operations are selected for database operations. Selecting
+Operations does not import Flows; invalid Flow seed input remains fatal during preflight.
 
 Keep automatic extraction development-only and opt-in, with the existing events and 15-second
 debounce. It uses the same cleanup and JSON-only setting; repeated full exports of large assets may
