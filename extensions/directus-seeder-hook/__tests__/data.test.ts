@@ -143,8 +143,9 @@ describe('system seed data', () => {
 		async (content) => {
 			const filename = path.join(directory, 'directus_roles.json')
 			await writeFile(filename, content)
-			await expect(loadData()).rejects.toThrow(`Failed to load seed file "${filename}"`)
-			await expect(loadData()).rejects.toThrow('collection "directus_roles"')
+			await expect(loadData()).rejects.toThrow(
+				`Failed to load seed file "${filename}" for collection "directus_roles"`,
+			)
 		},
 	)
 
@@ -156,8 +157,9 @@ describe('system seed data', () => {
 	it('rejects an unreadable file instead of treating it as missing or empty', async () => {
 		const filename = path.join(directory, 'directus_roles.json')
 		await mkdir(filename)
-		await expect(loadData()).rejects.toThrow(`Failed to load seed file "${filename}"`)
-		await expect(loadData()).rejects.toThrow('EISDIR')
+		const result = loadData()
+		await expect(result).rejects.toThrow(`Failed to load seed file "${filename}"`)
+		await expect(result).rejects.toThrow('EISDIR')
 	})
 
 	it('rejects a seed directory that is a file with a clear error and its path', async () => {

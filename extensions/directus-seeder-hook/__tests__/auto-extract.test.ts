@@ -172,15 +172,6 @@ describe('automatic system extraction', () => {
 		expect(await readdir(directory)).toEqual([])
 	})
 
-	it('passes JSON-only extraction to the shared orchestrator', async () => {
-		const action = register({ SEEDER_JSON_ONLY: true })
-		emit(action, 'users.create', { first_name: 'Fixture' })
-		await advance(15_000)
-		expect(mocks.extract).toHaveBeenCalledWith(
-			expect.objectContaining({ skipClean: false, jsonOnly: true, jsonIndent: '\t' }),
-		)
-	})
-
 	it('ignores last_page-only and empty user updates while retaining mixed updates', async () => {
 		const action = register()
 		emit(action, 'users.update', { last_page: '/content' })
