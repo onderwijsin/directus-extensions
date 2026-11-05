@@ -270,7 +270,7 @@ describe('seeder registration and CLI', () => {
 	])('rejects a configured $kind seed directory with its path', async ({ kind, message }) => {
 		const seeds = path.join(directory, 'configured-seeds')
 		if (kind === 'file') await writeFile(seeds, 'not a directory')
-		const service = createProgram({ SEEDER_SEEDS_DIR: seeds })
+		const service = createProgram({ SEEDER_SEEDS_DIR: seeds, SEEDER_MODE: 'full-idempotent' })
 		const errorLog = vi.spyOn(logger, 'error')
 		expect(await runCommand(service.program, 'system')).toBe(1)
 		expect(errorLog).toHaveBeenCalledWith(expect.stringContaining(`${message}: "${seeds}"`))
@@ -281,7 +281,7 @@ describe('seeder registration and CLI', () => {
 	it.each(['insert-missing', 'insert-update', 'full-idempotent'])(
 		'warns once and skips an empty seed directory without service calls in %s',
 		async (mode) => {
-			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+			const service = createProgram()
 			const warn = vi.spyOn(logger, 'warn')
 			expect(await runCommand(service.program, 'system', '--mode', mode, '--force')).toBe(0)
 			expect(warn).toHaveBeenCalledExactlyOnceWith(
@@ -389,6 +389,7 @@ describe('seeder registration and CLI', () => {
 				},
 			}),
 		)
+		await writeFile(path.join(directory, 'directus_roles.json'), '[]')
 		await writeFile(path.join(directory, 'directus_presets.json'), '[]')
 		const disabled = createProgram({ SEEDER_CONFIG_PATH: configPath })
 		expect(await runCommand(disabled.program, 'system', '--yes')).toBe(1)
@@ -417,6 +418,38 @@ describe('seeder registration and CLI', () => {
 		skip.mockRestore()
 		explicit.mockRestore()
 		yesNo.mockRestore()
+	})
+
+	it('skips destructive guards for missing seed files while processing present selected collections', async () => {
+		presets.operationMode = 'full-idempotent'
+		const roles = [{ id: 'role', name: 'Role' }]
+		await writeFile(path.join(directory, 'directus_roles.json'), JSON.stringify(roles))
+		const service = createProgram()
+		vi.spyOn(confirmations, 'shouldSkipConfirmation').mockReturnValue(false)
+		const explicit = vi.spyOn(confirmations, 'confirmExplicit').mockResolvedValue(false)
+		const yesNo = vi.spyOn(confirmations, 'confirmYesNo').mockResolvedValue(false)
+		expect(await runCommand(service.program, 'system')).toBe(0)
+		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+			'directus_roles',
+			expect.any(Object),
+		)
+		expect(service.createMany).toHaveBeenCalledExactlyOnceWith(roles)
+		// Explicit full-idempotent also requires no opt-in when its only selected file is missing.
+		expect(
+			await runCommand(
+				service.program,
+				'system',
+				'--mode',
+				'full-idempotent',
+				'--include',
+				'directus_presets',
+			),
+		).toBe(0)
+		expect(service.ItemsService).toHaveBeenCalledOnce()
+		expect(service.upsertMany).not.toHaveBeenCalled()
+		expect(service.deleteMany).not.toHaveBeenCalled()
+		expect(explicit).not.toHaveBeenCalled()
+		expect(yesNo).not.toHaveBeenCalled()
 	})
 
 	it('preflights every present managed collection under its effective mode before earlier inserts', async () => {

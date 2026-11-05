@@ -183,7 +183,6 @@ For example, use this `seeder.config.json`:
   "system": {
     "collections": {
       "directus_presets": {
-        "operationMode": "insert-update",
         "management": { "type": "id-range", "max": 50000 }
       }
     },
@@ -245,10 +244,13 @@ environment settings. This config does not add collections, alter automatic-extr
 change cleanup and binary asset behavior.
 
 For each selected collection, the effective seeding mode is explicit CLI `--mode`, then collection
-`operationMode`, then `SEEDER_MODE` (default `insert-missing`). For the example above, presets use
-`insert-update` and other collections use the global mode. An explicit `--mode insert-missing`
-overrides both. Safety opt-in, confirmation prompts, and preflight inspect all selected effective
-modes, including mixed-mode runs. CLI mode overrides never change `management`.
+`operationMode`, then `SEEDER_MODE` (default `insert-missing`). The example leaves `operationMode`
+unset, so every collection uses the global fallback unless CLI `--mode` overrides it. Its management
+range limits extraction and full-idempotent synchronization; it does not limit insert-missing or
+insert-update imports. Safety opt-in and confirmation prompts inspect the effective modes of
+selected collections with present seed files, including `[]`. Missing files require no confirmation
+or opt-in. Required input errors still abort before database operations. CLI mode overrides never
+change `management`.
 
 The built-in presets extraction now retains only `user = null`, with no ID cap. Without a consumer
 config, it includes matching presets with IDs `>= 50000`. The example's `management.max = 50000`
@@ -377,11 +379,11 @@ additionally deletes target IDs absent from the selected seed data, within any c
 range. Stable IDs are necessary for repeatability. Without a management range, ID-less input retains
 legacy batch-dependent handling and should not be used for synchronization.
 
-If any selected collection's effective mode is `full-idempotent`, the interactive run requires
-typing exact `DELETE`. Otherwise, any selected `insert-update` mode prompts for yes/no, defaulting
-to no. Both prompts are skipped by `--force`, `--yes`, CI detection, or non-TTY execution.
-Cancellation returns exit code zero. Any selected full-idempotent mode still requires its
-environment gate, even when configured only in the JSON file:
+If any selected collection with a present seed file has effective mode `full-idempotent`, the
+interactive run requires typing exact `DELETE`. Otherwise, any such `insert-update` mode prompts for
+yes/no, defaulting to no. Both prompts are skipped by `--force`, `--yes`, CI detection, or non-TTY
+execution. Cancellation returns exit code zero. Any selected full-idempotent mode with a present
+seed file still requires its environment gate, even when configured only in the JSON file:
 
 ```sh
 SEEDER_ENABLE_FULL_IDEMPOTENT=true npx directus seed system --mode full-idempotent --include directus_roles --yes

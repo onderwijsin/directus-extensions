@@ -24,9 +24,11 @@ a plain root `.env` password and adds the prefix when forwarding it to Directus.
 
 Resolve each collection's mode as explicit CLI `--mode`, then JSON collection `operationMode`,
 then `SEEDER_MODE`/`insert-missing`; explicit CLI modes remain case-sensitive. Evaluate safety
-opt-in, prompts, and preflight across every selected effective mode. CLI mode overrides preserve
-management. Use `SEEDER_SEEDS_DIR` for the seed path and `SEEDER_JSON_ONLY=false` for JSON plus binary extraction by
-default. `SEEDER_JSON_ONLY=true` and manual `--json-only` disable all binary reads, downloads, and
+opt-in and prompts across selected collections with present seed files, including `[]`; missing
+files do not require destructive confirmation or opt-in. Reuse loaded, validated input for import
+and retain full preflight before mutations. CLI mode overrides preserve management. Use
+`SEEDER_SEEDS_DIR` for the seed path and `SEEDER_JSON_ONLY=false` for JSON plus binary extraction
+by default. `SEEDER_JSON_ONLY=true` and manual `--json-only` disable all binary reads, downloads, and
 cleanup; `directus_files.json` remains ordinary selected JSON. Manual `--assets` overrides
 environment JSON-only mode and is mutually exclusive with `--json-only`. File imports without seed
 `storage` use the first validated `STORAGE_LOCATIONS` entry, including Directus-cast arrays, instead
@@ -81,8 +83,10 @@ fields, filter, sort, deep query, and management. Merge shallowly by property: p
 objects replace whole values; omitted properties retain defaults. Allow `null` to clear only fields,
 filter, sort, and deep. Treat order as a unique known-name priority prefix with remaining built-ins
 appended in original order; keep include/exclude as collection selection. Publish the example JSON
-and exported JSON Schema without a TypeScript loader or new dependencies. Batch/error settings,
-automatic-extraction selection, and cleanup remain unchanged.
+and exported JSON Schema without a TypeScript loader or new dependencies. The example omits
+`operationMode`, retaining the global fallback; its range limits extraction and full-idempotent
+synchronization, not insert-mode imports. Batch/error settings, automatic-extraction selection,
+and cleanup remain unchanged.
 
 Support optional consumer per-collection `management` with only `type: 'id-range'`, inclusive `min`
 and exclusive `max`, requiring at least one safe-integer numeric bound and `min < max` when both

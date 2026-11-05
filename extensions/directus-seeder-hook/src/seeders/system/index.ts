@@ -1,25 +1,26 @@
 import type { SeederConfig } from '../../lib/config'
+import type { CollectionDataProvider } from '../../lib/seedDataParser'
 import type { ServiceAdapterContext } from '../../services/ServiceAdapter'
 import type { SeedResult } from '../../strategies/SeederStrategy'
 
-import { selectCollections } from '../../lib/config'
 import { createPerformanceTracker } from '../../lib/performanceTracker'
 import { getFolderPaths } from '../../lib/resolveConfig'
 import { seedCollections } from '../../lib/seedCollections'
 import { createSeedDataProvider } from '../../lib/seedDataParser'
-import { getDataProviders } from './data'
 import { getSystemCollections } from './resolveConfig'
 
 /**
- * Seed system data
+ * Seed previously loaded system data
  *
  * @param context Directus hook context
  * @param config Seeder configuration
+ * @param dataProviders Selected input loaded and validated before CLI confirmation
  * @returns Seeding results, or null when no supported seed files exist
  */
 export async function seedSystem(
 	context: ServiceAdapterContext,
 	config: SeederConfig,
+	dataProviders: CollectionDataProvider[] | null,
 ): Promise<SeedResult[] | null> {
 	const { logger, env } = context
 	const performanceTracker = createPerformanceTracker()
@@ -27,15 +28,7 @@ export async function seedSystem(
 
 	logger.info('Starting system data seeding')
 
-	/**
-	 * Create a seed data provider for system data
-	 */
 	const collections = getSystemCollections(config)
-	const selectedCollections = selectCollections(
-		collections.map(({ collection }) => collection),
-		config,
-	)
-	const dataProviders = await getDataProviders(env, selectedCollections)
 	if (dataProviders === null) {
 		const { seedsFolder } = getFolderPaths(env)
 		logger.warn(`No supported system seed files found in "${seedsFolder}"; skipping seeding`)

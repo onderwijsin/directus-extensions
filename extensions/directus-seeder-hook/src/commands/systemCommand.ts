@@ -10,6 +10,7 @@ import { confirmExplicit, confirmYesNo, shouldSkipConfirmation } from '../lib/co
 import { acquireLock } from '../lib/processLock'
 import { resolveSeederConfig } from '../lib/resolveConfig'
 import { seedSystem } from '../seeders/system'
+import { getDataProviders } from '../seeders/system/data'
 import { getSystemCollections } from '../seeders/system/resolveConfig'
 
 /**
@@ -69,8 +70,11 @@ export const registerSystemCommand = (
 					collections.map(({ collection }) => collection),
 					config,
 				)
+				const dataProviders = await getDataProviders(env, selected)
 				const modes = collections
-					.filter(({ collection }) => selected.includes(collection))
+					.filter(({ collection }) =>
+						dataProviders?.some((provider) => provider.collectionName === collection),
+					)
 					.map((collection) => getCollectionMode(collection, config))
 				const hasFullIdempotent = modes.includes(OperationMode.FULL_IDEMPOTENT)
 
@@ -122,7 +126,7 @@ export const registerSystemCommand = (
 					}
 				}
 
-				const results = await seedSystem(context, config)
+				const results = await seedSystem(context, config, dataProviders)
 				if (results?.some((result) => result.error !== undefined)) {
 					logger.error('❌ System data seeding failed; see collection errors above')
 					exitCode = 1
