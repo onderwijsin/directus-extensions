@@ -31,8 +31,14 @@ and virtual icon rows as Directus's native icon picker. Selecting an icon stores
 `mdi:home`. Use the **Iconify Icon** display to render only the selected icon in lists and item
 views.
 
-The collection option uses a static, searchable selection of curated Iconify prefixes. The picker
-still requests icon names when opened; the options screen makes no collection metadata request.
+Use **Add collection** to choose a curated Iconify prefix from a searchable dropdown, then save the
+row. Drag the collection rows into priority order: collections appear in that order in both the
+picker and its filtered search results. Remove all rows to include every collection in Iconify's
+returned order. Existing collection selections keep their saved order and need no migration.
+
+The options screen uses Directus's native repeater and static collection choices; it makes no
+collection metadata request. The picker still requests icon names when opened. The saved
+`collections` option remains an ordered array of prefixes, for example `["lucide", "mdi"]`.
 
 Both the interface and display have a **Use Iconify proxy** checkbox, enabled by default. Turn it
 off to request collection metadata and icon data directly from `https://api.iconify.design` in the

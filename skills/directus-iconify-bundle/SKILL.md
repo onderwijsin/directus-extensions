@@ -32,8 +32,15 @@ recommended because loading every collection can take time and creates many requ
 stores a single `collection:name` value, for example `mdi:home`, or `null` when cleared. It has a
 searchable input, grouped icon rows, a clear action, and virtual scrolling.
 
-The collection option is a searchable static list; it does not call the Iconify API while
-configuring the field.
+In the custom interface options, click **Add collection**, choose a curated prefix from the
+searchable dropdown, and save the row. Drag the rows into priority order. The picker preserves this
+order when browsing and filtering icons. Remove all rows to include every collection in Iconify's
+returned order. The options use Directus's native repeater and static choices without calling the
+Iconify API while configuring the field. Icon names are requested when the picker opens.
+
+The saved option remains an ordered string array, for example `{"collections":["lucide","mdi"]}`.
+Existing selections retain their saved order and require no migration. Each field can use a
+different priority order.
 
 Select the **Iconify Icon** display for list or detail views. It renders only the icon for a valid
 stored value. Empty or malformed values render nothing. Missing icons produce an unavailable image.
