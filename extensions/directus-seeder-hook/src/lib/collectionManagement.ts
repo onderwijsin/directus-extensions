@@ -1,8 +1,10 @@
+import type { Filter } from '@directus/types'
 import type { SeedItem } from './seedItem'
 
 import { z } from 'zod'
 
-const collectionManagementSchema = z
+/** Complete numeric management boundary; lower bound inclusive, upper bound exclusive. */
+export const collectionManagementSchema = z
 	.strictObject({ type: z.literal('id-range'), min: z.int().optional(), max: z.int().optional() })
 	.refine((range) => range.min !== undefined || range.max !== undefined, {
 		error: 'Provide at least one ID bound',
@@ -11,6 +13,11 @@ const collectionManagementSchema = z
 		(range) => range.min === undefined || range.max === undefined || range.min < range.max,
 		{ error: 'min must be less than max' },
 	)
+	.meta({
+		anyOf: [{ required: ['min'] }, { required: ['max'] }],
+		description:
+			'Managed safe integer IDs: min inclusive, max exclusive. Supply at least one bound; min must be less than max when both are set.',
+	})
 
 /** Numeric IDs managed by full-idempotent, with an inclusive min and exclusive max. */
 export type CollectionManagement = z.infer<typeof collectionManagementSchema>
@@ -56,4 +63,16 @@ export function validateManagedSeedData(
 	}
 
 	return parsed.data
+}
+
+/**
+ * Creates separate Directus predicates so every bound is applied, even on the same ID field.
+ * @param range - Validated numeric management interval.
+ * @returns Predicates to combine with an explicit _and and any separate filter.
+ */
+export function getIdRangeFilters(range: CollectionManagement): Filter[] {
+	return [
+		...(range.min === undefined ? [] : [{ id: { _gte: range.min } }]),
+		...(range.max === undefined ? [] : [{ id: { _lt: range.max } }]),
+	]
 }

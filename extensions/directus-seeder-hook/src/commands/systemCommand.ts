@@ -5,11 +5,12 @@ import process from 'node:process'
 
 import { z } from 'zod'
 
-import { DataScope, OperationMode } from '../lib/config'
+import { DataScope, getCollectionMode, OperationMode, selectCollections } from '../lib/config'
 import { confirmExplicit, confirmYesNo, shouldSkipConfirmation } from '../lib/confirmationPrompts'
 import { acquireLock } from '../lib/processLock'
 import { resolveSeederConfig } from '../lib/resolveConfig'
 import { seedSystem } from '../seeders/system'
+import { getSystemCollections } from '../seeders/system/resolveConfig'
 
 /**
  * Registers the system command for seeding Directus with essential system data.
@@ -63,11 +64,18 @@ export const registerSystemCommand = (
 					excludeCollections: options.exclude,
 				})
 
+				const collections = getSystemCollections(config)
+				const selected = selectCollections(
+					collections.map(({ collection }) => collection),
+					config,
+				)
+				const modes = collections
+					.filter(({ collection }) => selected.includes(collection))
+					.map((collection) => getCollectionMode(collection, config))
+				const hasFullIdempotent = modes.includes(OperationMode.FULL_IDEMPOTENT)
+
 				// Validate full-idempotent mode is enabled if requested
-				if (
-					config.operationMode === OperationMode.FULL_IDEMPOTENT &&
-					!config.enableFullIdempotent
-				) {
+				if (hasFullIdempotent && !config.enableFullIdempotent) {
 					logger.error(
 						'full-idempotent mode is disabled for safety. Set SEEDER_ENABLE_FULL_IDEMPOTENT=true to enable this destructive operation.',
 					)
@@ -81,7 +89,7 @@ export const registerSystemCommand = (
 
 				// Confirm potentially destructive operations
 				if (!skipConfirmation) {
-					if (config.operationMode === OperationMode.INSERT_UPDATE) {
+					if (!hasFullIdempotent && modes.includes(OperationMode.INSERT_UPDATE)) {
 						const confirmed = await confirmYesNo(
 							'⚠️  WARNING: insert-update mode will OVERWRITE existing records\n' +
 								'This will update existing data to match your seed files.\n' +
@@ -96,7 +104,7 @@ export const registerSystemCommand = (
 							exitCode = 0
 							return // Exit early but still go to finally
 						}
-					} else if (config.operationMode === OperationMode.FULL_IDEMPOTENT) {
+					} else if (hasFullIdempotent) {
 						const confirmed = await confirmExplicit(
 							'🚨 DANGER: full-idempotent mode will DELETE records not in seed data\n' +
 								'This operation is DESTRUCTIVE and CANNOT BE UNDONE.\n' +

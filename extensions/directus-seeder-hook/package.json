@@ -37,12 +37,15 @@
 	"files": [
 		"dist",
 		"README.md",
-		"CHANGELOG.md"
+		"CHANGELOG.md",
+		"seeder.config.example.json",
+		"seeder-config.schema.json"
 	],
 	"type": "module",
 	"main": "./dist/index.js",
 	"exports": {
-		".": "./dist/index.js"
+		".": "./dist/index.js",
+		"./seeder-config.schema.json": "./seeder-config.schema.json"
 	},
 	"publishConfig": {
 		"access": "public"

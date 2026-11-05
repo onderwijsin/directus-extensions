@@ -1,12 +1,15 @@
 import { execFile } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { randomInt, randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 
 import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
+	createPreset,
 	createTranslation,
+	deletePreset,
 	deleteRole,
 	deleteTranslation,
+	readPresets,
 	readRoles,
 	readTranslation,
 	readTranslations,
@@ -66,6 +69,113 @@ async function seed(environment: Record<string, string>, ...args: string[]) {
 }
 
 describe('installed seeder CLI', () => {
+	it('extracts and synchronizes the configured ID range while preserving outside presets', async () => {
+		const min = randomInt(2_000_000, 3_000_000)
+		const max = min + 3
+		const ids = [min - 1, min, min + 1, min + 2, max]
+		const directory = `/tmp/seeder-e2e-${randomUUID()}`
+		const configPath = `${directory}/config.json`
+		const environment = {
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_CONFIG_PATH: configPath,
+			SEEDER_SEEDS_DIR: `${directory}/seeds`,
+			SEEDER_ASSETS_DIR: `${directory}/seeds/assets`,
+			SEEDER_ENABLE_FULL_IDEMPOTENT: 'true',
+		}
+		try {
+			for (const id of [min - 1, min, min + 1, max]) {
+				await client.request(
+					createPreset({
+						id,
+						collection: 'directus_roles',
+						bookmark: id === min + 1 ? 'obsolete' : 'keep',
+						user: null,
+					}),
+				)
+			}
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'const fs = require("node:fs"); fs.mkdirSync(process.argv[1]); fs.writeFileSync(`${process.argv[1]}/config.json`, process.argv[2])',
+				directory,
+				JSON.stringify({
+					system: {
+						collections: {
+							directus_presets: {
+								operationMode: 'full-idempotent',
+								management: { type: 'id-range', min, max },
+								filter: {
+									_and: [
+										{ user: { _null: true } },
+										{ bookmark: { _eq: 'keep' } },
+									],
+								},
+							},
+						},
+					},
+				}),
+			])
+			await seed(environment, 'extract', '--json-only', '--include', 'directus_presets')
+			const extracted = await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+				`${directory}/seeds/directus_presets.json`,
+			])
+			const rows: unknown = JSON.parse(extracted.stdout)
+			expect(rows).toEqual([expect.objectContaining({ id: min, bookmark: 'keep' })])
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'require("node:fs").writeFileSync(process.argv[1], process.argv[2])',
+				`${directory}/seeds/directus_presets.json`,
+				JSON.stringify([
+					{ id: min, collection: 'directus_roles', bookmark: 'updated' },
+					{ id: min + 2, collection: 'directus_roles', bookmark: 'created' },
+				]),
+			])
+			// Global default remains insert-missing; collection-level full-idempotent drives import.
+			await seed(environment, 'system', '--yes', '--include', 'directus_presets')
+			await seed(environment, 'system', '--yes', '--include', 'directus_presets')
+			const presets = await client.request(
+				readPresets({
+					filter: { id: { _in: ids } },
+					sort: ['id'],
+					fields: ['id', 'bookmark'],
+				}),
+			)
+			expect(presets).toEqual([
+				{ id: min - 1, bookmark: 'keep' },
+				{ id: min, bookmark: 'updated' },
+				{ id: min + 2, bookmark: 'created' },
+				{ id: max, bookmark: 'keep' },
+			])
+		} finally {
+			try {
+				for (const preset of await client.request(
+					readPresets({ filter: { id: { _in: ids } } }),
+				)) {
+					await client.request(deletePreset(preset.id))
+				}
+			} finally {
+				await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				])
+			}
+		}
+	})
+
 	it.each(['false', 'true'])(
 		'exits one after a partial mutation failure with continue-on-error=%s',
 		async (continueOnError) => {

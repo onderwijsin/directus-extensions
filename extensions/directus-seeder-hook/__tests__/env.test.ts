@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { envSchema } from '../src/env.schema'
 import { getFolderPaths, resolveSeederConfig } from '../src/lib/resolveConfig'
+import { SYSTEM_COLLECTIONS } from '../src/seeders/system/config'
 
 describe('Seeder startup configuration', () => {
 	it('provides all startup defaults and derives runtime configuration from them', () => {
@@ -26,6 +27,7 @@ describe('Seeder startup configuration', () => {
 			STORAGE_LOCATIONS: ['local'],
 		})
 		expect(resolveSeederConfig(options)).toEqual({
+			systemCollections: SYSTEM_COLLECTIONS,
 			operationMode: 'insert-missing',
 			dataScope: 'system',
 			includeCollections: [],

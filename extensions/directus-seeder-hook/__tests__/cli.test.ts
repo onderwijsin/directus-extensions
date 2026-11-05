@@ -51,6 +51,7 @@ vi.mock('../src/lib/processLock', () => ({
 }))
 
 import '../src/index'
+import * as confirmations from '../src/lib/confirmationPrompts'
 import { SYSTEM_COLLECTIONS } from '../src/seeders/system/config'
 
 const logger = pino({ level: 'silent' })
@@ -189,6 +190,7 @@ function expectNoServiceCalls(service: ReturnType<typeof createProgram>) {
 describe('seeder registration and CLI', () => {
 	const presets = SYSTEM_COLLECTIONS.find(({ collection }) => collection === 'directus_presets')
 	if (!presets) throw new Error('Expected the presets collection configuration')
+	const originalPresets = structuredClone(presets)
 
 	beforeEach(async () => {
 		vi.clearAllMocks()
@@ -201,7 +203,8 @@ describe('seeder registration and CLI', () => {
 	})
 
 	afterEach(async () => {
-		delete presets.management
+		for (const key of Object.keys(presets)) Reflect.deleteProperty(presets, key)
+		Object.assign(presets, structuredClone(originalPresets))
 		await rm(directory, { recursive: true, force: true })
 	})
 
@@ -326,6 +329,203 @@ describe('seeder registration and CLI', () => {
 		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 	})
 
+	it('applies collection modes, global fallback, explicit mode override and JSON processing order', async () => {
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: {
+					order: ['directus_presets', 'directus_roles'],
+					collections: { directus_presets: { operationMode: 'insert-update' } },
+				},
+			}),
+		)
+		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+		await writeFile(path.join(directory, 'directus_presets.json'), '[{"id":1}]')
+		const service = createProgram({ SEEDER_CONFIG_PATH: configPath })
+		expect(
+			await runCommand(
+				service.program,
+				'system',
+				'--yes',
+				'--include',
+				'directus_roles',
+				'directus_presets',
+			),
+		).toBe(0)
+		expect(service.ItemsService.mock.calls.map(([name]) => name)).toEqual([
+			'directus_presets',
+			'directus_roles',
+		])
+		expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith([{ id: 1 }])
+		expect(service.createMany).toHaveBeenCalledExactlyOnceWith([{ id: 'role' }])
+		service.upsertMany.mockClear()
+		expect(
+			await runCommand(
+				service.program,
+				'system',
+				'--mode',
+				'insert-missing',
+				'--include',
+				'directus_presets',
+			),
+		).toBe(0)
+		expect(service.upsertMany).not.toHaveBeenCalled()
+	})
+
+	it('requires opt-in and the strongest selected confirmation for collection-level full-idempotent', async () => {
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: {
+					collections: {
+						directus_roles: { operationMode: 'insert-update' },
+						directus_presets: {
+							operationMode: 'full-idempotent',
+							management: { type: 'id-range', max: 50000 },
+						},
+					},
+				},
+			}),
+		)
+		await writeFile(path.join(directory, 'directus_presets.json'), '[]')
+		const disabled = createProgram({ SEEDER_CONFIG_PATH: configPath })
+		expect(await runCommand(disabled.program, 'system', '--yes')).toBe(1)
+		expectNoServiceCalls(disabled)
+		// Explicit CLI mode removes the destructive mode but retains the range.
+		expect(await runCommand(disabled.program, 'system', '--mode', 'insert-missing')).toBe(0)
+		const service = createProgram({
+			SEEDER_CONFIG_PATH: configPath,
+			SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+		})
+		const skip = vi.spyOn(confirmations, 'shouldSkipConfirmation').mockReturnValue(false)
+		const explicit = vi.spyOn(confirmations, 'confirmExplicit').mockResolvedValue(false)
+		const yesNo = vi.spyOn(confirmations, 'confirmYesNo').mockResolvedValue(false)
+		expect(await runCommand(service.program, 'system')).toBe(0)
+		expect(explicit).toHaveBeenCalledExactlyOnceWith(
+			expect.stringContaining('full-idempotent'),
+			'DELETE',
+			logger,
+		)
+		expect(yesNo).not.toHaveBeenCalled()
+		expectNoServiceCalls(service)
+		explicit.mockClear()
+		expect(await runCommand(service.program, 'system', '--exclude', 'directus_presets')).toBe(0)
+		expect(explicit).not.toHaveBeenCalled()
+		expect(yesNo).toHaveBeenCalledOnce()
+		skip.mockRestore()
+		explicit.mockRestore()
+		yesNo.mockRestore()
+	})
+
+	it('preflights every present managed collection under its effective mode before earlier inserts', async () => {
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: {
+					collections: {
+						directus_presets: {
+							operationMode: 'full-idempotent',
+							management: { type: 'id-range', min: 10, max: 20 },
+						},
+					},
+				},
+			}),
+		)
+		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+		await writeFile(path.join(directory, 'directus_presets.json'), '[{"id":20}]')
+		const service = createProgram({
+			SEEDER_CONFIG_PATH: configPath,
+			SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+			SEEDER_CONTINUE_ON_ERROR: true,
+		})
+		expect(await runCommand(service.program, 'system', '--yes')).toBe(1)
+		expectNoServiceCalls(service)
+		// Selection still controls which present seed files are preflighted.
+		expect(
+			await runCommand(service.program, 'system', '--yes', '--exclude', 'directus_presets'),
+		).toBe(0)
+		expect(service.createMany).toHaveBeenCalledExactlyOnceWith([{ id: 'role' }])
+	})
+
+	it('combines the complete range and extraction filter while retaining other preset defaults', async () => {
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: {
+					collections: {
+						directus_presets: { management: { type: 'id-range', min: 10, max: 20 } },
+					},
+				},
+			}),
+		)
+		const service = createProgram({
+			SEEDER_CONFIG_PATH: configPath,
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_JSON_ONLY: true,
+		})
+		expect(await runCommand(service.program, 'extract', '--include', 'directus_presets')).toBe(
+			0,
+		)
+		expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+			limit: -1,
+			fields: originalPresets.fields,
+			sort: originalPresets.sort,
+			deep: null,
+			filter: {
+				_and: [{ user: { _null: true } }, { id: { _gte: 10 } }, { id: { _lt: 20 } }],
+			},
+		})
+	})
+
+	it('passes JSON query replacements to extraction without merging nested values', async () => {
+		const configPath = path.join(directory, 'consumer.json')
+		const query = {
+			fields: ['id', 'role.name'],
+			sort: ['id'],
+			filter: { id: { _gte: 2 } },
+			deep: { role: { _filter: { name: { _eq: 'Editor' } }, _limit: 1 } },
+		}
+		await writeFile(
+			configPath,
+			JSON.stringify({ system: { collections: { directus_presets: query } } }),
+		)
+		const service = createProgram({
+			SEEDER_CONFIG_PATH: configPath,
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_JSON_ONLY: true,
+		})
+		expect(await runCommand(service.program, 'extract', '--include', 'directus_presets')).toBe(
+			0,
+		)
+		expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({ limit: -1, ...query })
+	})
+
+	it('fails invalid effective configuration before database calls or destructive extraction cleanup', async () => {
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: { collections: { directus_presets: { management: { type: 'id-range' } } } },
+			}),
+		)
+		const stale = path.join(directory, 'stale.json')
+		await writeFile(stale, 'keep')
+		for (const command of ['system', 'extract']) {
+			const service = createProgram({
+				SEEDER_CONFIG_PATH: configPath,
+				DEPLOYMENT_ENV: 'development',
+			})
+			expect(await runCommand(service.program, command)).toBe(1)
+			expectNoServiceCalls(service)
+			expect(await readFile(stale, 'utf8')).toBe('keep')
+			expect(await readFile(configPath, 'utf8')).toContain('id-range')
+		}
+	})
+
 	it('rejects out-of-range seeds in preflight before earlier collections mutate, even with continue-on-error', async () => {
 		presets.management = { type: 'id-range', max: 50000 }
 		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
@@ -362,7 +562,7 @@ describe('seeder registration and CLI', () => {
 		expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith(seeds)
 		expect(service.readByQuery).toHaveBeenLastCalledWith({
 			fields: ['id'],
-			filter: { id: { _lt: 50000, _nin: [1] } },
+			filter: { _and: [{ id: { _lt: 50000 } }, { id: { _nin: [1] } }] },
 			limit: -1,
 		})
 		expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([2])
@@ -379,7 +579,7 @@ describe('seeder registration and CLI', () => {
 		).toBe(0)
 		expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
 			fields: ['id'],
-			filter: { id: { _lt: 50000 } },
+			filter: { _and: [{ id: { _lt: 50000 } }] },
 			limit: -1,
 		})
 		expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([2])

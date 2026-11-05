@@ -37,25 +37,25 @@ docker compose exec directus node /directus/cli.js seed system --mode insert-mis
 docker compose exec -e DEPLOYMENT_ENV=development directus node /directus/cli.js seed extract
 ```
 
-| Option                           | `seed system`                                                                                                            | `seed extract`                                                                                         |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `-m, --mode <mode>`              | `insert-missing`, `insert-update`, or `full-idempotent` (case-sensitive). Omitted: use `SEEDER_MODE`; other values fail. | —                                                                                                      |
-| `-i, --include <collections...>` | Select supported collections.                                                                                            | Select collections whose JSON is extracted.                                                            |
-| `-e, --exclude <collections...>` | Exclude collections after inclusion.                                                                                     | Exclude collections after inclusion.                                                                   |
-| `-f, --force`                    | Skip confirmation prompts.                                                                                               | —                                                                                                      |
-| `-y, --yes`                      | Alias for `--force`.                                                                                                     | —                                                                                                      |
-| `--skip-clean`                   | —                                                                                                                        | Skip the default output cleanup for this manual invocation; selected JSON files are still overwritten. |
-| `-a, --assets`                   | —                                                                                                                        | Enable binary extraction even with `SEEDER_JSON_ONLY=true`. Mutually exclusive with `--json-only`.     |
-| `--json-only`                    | —                                                                                                                        | Extract JSON without reading, downloading, or deleting binaries. Mutually exclusive with `--assets`.   |
-| `-h, --help`                     | Show command help.                                                                                                       | Show command help.                                                                                     |
+| Option                           | `seed system`                                                                                                                                                           | `seed extract`                                                                                         |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `-m, --mode <mode>`              | `insert-missing`, `insert-update`, or `full-idempotent` (case-sensitive). Overrides every collection mode; omitted: use collection `operationMode`, then `SEEDER_MODE`. | —                                                                                                      |
+| `-i, --include <collections...>` | Select supported collections.                                                                                                                                           | Select collections whose JSON is extracted.                                                            |
+| `-e, --exclude <collections...>` | Exclude collections after inclusion.                                                                                                                                    | Exclude collections after inclusion.                                                                   |
+| `-f, --force`                    | Skip confirmation prompts.                                                                                                                                              | —                                                                                                      |
+| `-y, --yes`                      | Alias for `--force`.                                                                                                                                                    | —                                                                                                      |
+| `--skip-clean`                   | —                                                                                                                                                                       | Skip the default output cleanup for this manual invocation; selected JSON files are still overwritten. |
+| `-a, --assets`                   | —                                                                                                                                                                       | Enable binary extraction even with `SEEDER_JSON_ONLY=true`. Mutually exclusive with `--json-only`.     |
+| `--json-only`                    | —                                                                                                                                                                       | Extract JSON without reading, downloading, or deleting binaries. Mutually exclusive with `--assets`.   |
+| `-h, --help`                     | Show command help.                                                                                                                                                      | Show command help.                                                                                     |
 
 CLI collection names are separate space-delimited arguments, not comma-separated tokens. CLI lists
 override their respective environment lists; exclusions always win. During extraction,
 include/exclude selects JSON output only: it never narrows cleanup or binary asset extraction.
-Selection does not change the fixed processing order or add support for custom collections. Neither
-command accepts a positional seed path; configure directories through the environment. Extraction
-cleans output and writes JSON plus binaries by default. `--skip-clean` is manual-only; there is no
-environment setting to skip cleanup.
+Selection retains the configured processing order and supports only the built-in collections.
+Neither command accepts a positional seed path; configure directories through the environment.
+Extraction cleans output and writes JSON plus binaries by default. `--skip-clean` is manual-only;
+there is no environment setting to skip cleanup.
 
 `seed system` does not run automatically at server startup. Run it explicitly after database
 bootstrap/schema setup. It clears the Directus system cache after seeding, except when no supported
@@ -67,10 +67,10 @@ final cleanup.
 Directus casts environment `true`/`false` to booleans, numeric values to numbers, and
 comma-separated lists to arrays before passing them to the hook. See
 [Directus configuration](https://directus.com/docs/configuration/intro). The hook validates
-configuration once at startup and reuses that validated snapshot for commands, automatic extraction,
-import transformations, and file imports. Invalid provided values fail startup before registration,
-even for unused options or when a CLI option would override them. Missing values use the defaults
-below. `SEEDER_ENABLED=false` skips registration and remaining validation.
+environment configuration once at startup and reuses that validated snapshot for commands, automatic
+extraction, import transformations, and file imports. Invalid environment values fail startup before
+registration, even for unused options or when a CLI option would override them. Missing values use
+the defaults below. `SEEDER_ENABLED=false` skips registration and remaining validation.
 
 Seeder boolean options require booleans after Directus casting; numbers `0`/`1` and strings that
 remain strings are rejected. Integer options require numbers of the documented range, without string
@@ -81,7 +81,8 @@ another type. Credential strings retain whitespace and explicitly empty strings.
 | ------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SEEDER_ENABLED`                | `true`                           | Boolean master switch. Boolean `false` or string `false` disables all command and automatic-hook registration and skips remaining configuration validation.                                                                                                                                                                                              |
 | `DEPLOYMENT_ENV`                | Unset                            | Optional, untrimmed free string, including names such as `staging`. Only exact `development` registers manual and automatic extraction. Exact `production` adds policy TFA enforcement. Every other value, including unset, suspends matching root users and filters development flows during seeding.                                                   |
-| `SEEDER_MODE`                   | `insert-missing`                 | String: `insert-missing`, `insert-update`, or `full-idempotent`, case-insensitive without trimming. Unsupported values fail. Used when CLI `--mode` is omitted; an explicit CLI mode is case-sensitive.                                                                                                                                                  |
+| `SEEDER_MODE`                   | `insert-missing`                 | String: `insert-missing`, `insert-update`, or `full-idempotent`, case-insensitive without trimming. Unsupported values fail. Fallback when neither CLI `--mode` nor collection `operationMode` is set; an explicit CLI mode is case-sensitive.                                                                                                           |
+| `SEEDER_CONFIG_PATH`            | Unset                            | Optional nonblank string path to the consumer JSON configuration below. Relative paths resolve from the Directus runtime working directory. An explicitly configured missing, unreadable, malformed, or invalid file fails before database mutations or extraction cleanup.                                                                              |
 | `SEEDER_SCOPE`                  | `system`                         | String: only `system`, case-insensitive without trimming. Unsupported values fail. No custom scope is provided.                                                                                                                                                                                                                                          |
 | `SEEDER_INCLUDE`                | `[]` (all supported collections) | Singular nonblank string or array of nonblank strings, trimmed and normalized to an array. An empty array includes all. CLI `--include` overrides it.                                                                                                                                                                                                    |
 | `SEEDER_EXCLUDE`                | `[]` (none)                      | Same accepted list forms and normalization as inclusion. An empty array excludes none; exclusions win. CLI `--exclude` overrides it.                                                                                                                                                                                                                     |
@@ -147,9 +148,114 @@ SEEDER_ENABLE_FULL_IDEMPOTENT=false
 ```
 
 Opt in to automatic extraction with `SEEDER_AUTO_EXTRACT=true`; leave it `false` for manual-only
-extraction. Disable the entire hook with `SEEDER_ENABLED=false` and restart Directus. There is no
-project configuration file, public per-collection configuration, TypeScript data-provider API, HTTP
-endpoint, Studio UI, or Flow operation.
+extraction. Disable the entire hook with `SEEDER_ENABLED=false` and restart Directus. Consumer
+collection overrides use JSON as described below. The hook provides no TypeScript loader or
+data-provider API, HTTP endpoint, Studio UI, or Flow operation.
+
+### Consumer JSON configuration
+
+Set `SEEDER_CONFIG_PATH` to customize existing system collections. When it is unset, the hook uses
+its built-in collection defaults. There is no automatic configuration-file discovery. A configured
+file must be readable by the Directus process; a missing or unreadable file, invalid JSON, or
+invalid configuration aborts before database mutations or extraction output cleanup. This applies
+even when an invalid collection override would be excluded from the command. The effective
+configuration, including built-in defaults, is structurally validated before operations. Load and
+validation errors never silently fall back to defaults.
+
+The JSON file is read when runtime configuration is resolved: each CLI invocation reads it again,
+while automatic extraction captures the effective configuration when its hooks register. Restart
+Directus to reload JSON changes for automatic extraction. Environment options remain the validated
+startup snapshot described above.
+
+The published package includes `seeder.config.example.json` and `seeder-config.schema.json`. Copy
+both into your Directus project, outside the seed and asset output directories:
+
+```sh
+cp node_modules/@onderwijsin/directus-seeder-hook/seeder.config.example.json ./seeder.config.json
+cp node_modules/@onderwijsin/directus-seeder-hook/seeder-config.schema.json ./seeder-config.schema.json
+```
+
+For example, use this `seeder.config.json`:
+
+```json
+{
+  "$schema": "./seeder-config.schema.json",
+  "system": {
+    "collections": {
+      "directus_presets": {
+        "operationMode": "insert-update",
+        "management": { "type": "id-range", "max": 50000 }
+      }
+    },
+    "order": ["directus_policies", "directus_roles"]
+  }
+}
+```
+
+Configure the path in the Directus environment:
+
+```dotenv
+SEEDER_CONFIG_PATH=./seeder.config.json
+```
+
+Relative paths resolve from the Directus runtime's current working directory, rather than the
+extension's installation directory or your host shell's directory. In a container, mount the JSON
+file separately, for example at `/directus/seeder.config.json`, and set that runtime path. Copying
+the file to a host checkout alone does not make it readable inside Directus. Keep the config and
+schema outside both managed output directories: normal cleanup deletes direct JSON files in the
+seeds directory and, when binary extraction is enabled, all direct regular files in the assets
+directory. Configuration files receive no cleanup exception. `$schema` is optional editor metadata;
+runtime validation uses the hook's schema. The JSON Schema is also exported as
+`@onderwijsin/directus-seeder-hook/seeder-config.schema.json` for tooling. Configuration requires no
+TypeScript loader or additional consumer dependencies.
+
+The top-level object accepts only optional string `$schema` metadata and optional `system`. The
+`system` object accepts only `collections` and `order`; `{}` retains all defaults. `collections` is
+an object keyed by any of the supported collection names listed below. Unknown configuration keys
+and unsupported collection names fail validation, including unknown properties inside a collection
+or management object. Each collection accepts these properties:
+
+| Property        | Accepted value and effect                                                                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `operationMode` | Exact `insert-missing`, `insert-update`, or `full-idempotent`. Overrides the global mode for this collection unless CLI `--mode` is supplied.                          |
+| `fields`        | Array of field names, or `null` to clear the built-in projection and use the existing all-fields behavior.                                                             |
+| `filter`        | Directus filter object, or `null` to clear the built-in extraction filter. This does not constrain synchronization deletes.                                            |
+| `sort`          | Array of sort strings, or `null` to clear the built-in sort option.                                                                                                    |
+| `deep`          | Directus deep-query object, or `null` to clear the built-in deep-query option.                                                                                         |
+| `management`    | Whole range object with `type: "id-range"` and optional safe-integer numeric `min`/`max`; at least one bound is required. `null` is invalid. See seeding safety below. |
+
+See [Directus query parameters](https://directus.com/docs/guides/connect/query-parameters) and
+[filter rules](https://directus.com/docs/guides/connect/filter-rules) for query syntax. Query
+structure is validated before extraction cleanup; database-specific field and relation validation
+still occurs in Directus during reads. Combine comparisons on the same field as separate objects
+inside `_and`; multiple operators in one field predicate are rejected because Directus applies only
+the first. Those read errors can leave partial output under the existing extraction recovery
+behavior below. Overrides are shallow by property: an omitted property retains its default, while
+each provided array, `filter`, `deep`, or `management` replaces that whole value. There is no
+recursive merge. For example, supplying a presets `filter` replaces the built-in `user = null`
+filter; include that rule yourself if you still need it. `fields`, `filter`, `sort`, and `deep` may
+be `null` to clear an option; `operationMode` and `management` may not.
+
+`system.order` is an array of unique supported collection names forming a priority prefix. Remaining
+built-ins are appended in their original order. It changes processing order without selecting
+collections; configuring a single entry under `collections` also leaves every other collection
+available. Use CLI `--include`/`--exclude` or the corresponding environment lists for selection.
+Preserve dependency ordering when choosing a prefix. Batch size and error continuation remain global
+environment settings. This config does not add collections, alter automatic-extraction selection, or
+change cleanup and binary asset behavior.
+
+For each selected collection, the effective seeding mode is explicit CLI `--mode`, then collection
+`operationMode`, then `SEEDER_MODE` (default `insert-missing`). For the example above, presets use
+`insert-update` and other collections use the global mode. An explicit `--mode insert-missing`
+overrides both. Safety opt-in, confirmation prompts, and preflight inspect all selected effective
+modes, including mixed-mode runs. CLI mode overrides never change `management`.
+
+The built-in presets extraction now retains only `user = null`, with no ID cap. Without a consumer
+config, it includes matching presets with IDs `>= 50000`. The example's `management.max = 50000`
+restores extraction of only IDs below 50000, combined with that built-in user filter. This number is
+a project convention, not a Directus limit or a built-in ownership boundary. A management range also
+bounds full-idempotent deletion; review the extraction-filter caveat below before restoring an
+export.
 
 ### Password examples: shared Compose and standalone Directus
 
@@ -187,26 +293,26 @@ Directus foreign-key IDs. For example, `directus_roles.json`:
 ]
 ```
 
-The fixed order below is used for seeding and extraction. Extraction selects the listed fields;
-imported JSON may contain additional Directus fields. The extraction projections and filters are
-built in and are not consumer configuration.
+The default order below is used for seeding and extraction unless `system.order` overrides its
+prefix. Extraction uses the listed defaults unless consumer configuration overrides them; imported
+JSON may contain additional Directus fields.
 
-| Collection, in processing order | Extracted fields and filter                                                                                                                                                                                             |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `directus_policies`             | `id`, `name`, `icon`, `description`, `ip_access`, `enforce_tfa`, `admin_access`, `app_access`                                                                                                                           |
-| `directus_roles`                | `id`, `name`, `icon`, `description`, `parent`                                                                                                                                                                           |
-| `directus_users`                | `id`, `avatar`, `first_name`, `last_name`, `title`, `description`, `email`, `password`, `status`, `provider`, `role`, `email_notifications`, `tags`, `language`                                                         |
-| `directus_access`               | `id`, `policy`, `role`, `sort`, `user`                                                                                                                                                                                  |
-| `directus_presets`              | `id`, `bookmark`, `user`, `role`, `collection`, `search`, `layout`, `layout_query`, `layout_options`, `refresh_interval`, `filter`, `icon`, `color`; only `user = null` and `id < 50000`, sorted by `-role`, then `id`. |
-| `directus_permissions`          | `id`, `collection`, `action`, `permissions`, `validation`, `presets`, `fields`, `policy`                                                                                                                                |
-| `directus_folders`              | `id`, `name`, `parent`, `type`; sorted by `-parent`.                                                                                                                                                                    |
-| `directus_files`                | `id`, `filename_disk`, `filename_download`, `description`, `title`, `type`, `folder`                                                                                                                                    |
-| `directus_dashboards`           | `id`, `name`, `note`, `icon`, `color`                                                                                                                                                                                   |
-| `directus_panels`               | `id`, `dashboard`, `name`, `icon`, `color`, `show_header`, `note`, `type`, `position_x`, `position_y`, `width`, `height`, `options`                                                                                     |
-| `directus_flows`                | `id`, `name`, `icon`, `color`, `description`, `status`, `trigger`, `accountability`, `options`, `operation`, `folder`                                                                                                   |
-| `directus_operations`           | `id`, `name`, `key`, `type`, `position_x`, `position_y`, `options`, `resolve`, `reject`, `flow`; ordered by operation references where possible, with warnings for cycles.                                              |
-| `directus_settings`             | All fields except `license_key` and `license_token`.                                                                                                                                                                    |
-| `directus_translations`         | `id`, `language`, `key`, `value`; sorted by `key`, then `language`.                                                                                                                                                     |
+| Collection, in processing order | Extracted fields and filter                                                                                                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `directus_policies`             | `id`, `name`, `icon`, `description`, `ip_access`, `enforce_tfa`, `admin_access`, `app_access`                                                                                                                             |
+| `directus_roles`                | `id`, `name`, `icon`, `description`, `parent`                                                                                                                                                                             |
+| `directus_users`                | `id`, `avatar`, `first_name`, `last_name`, `title`, `description`, `email`, `password`, `status`, `provider`, `role`, `email_notifications`, `tags`, `language`                                                           |
+| `directus_access`               | `id`, `policy`, `role`, `sort`, `user`                                                                                                                                                                                    |
+| `directus_presets`              | `id`, `bookmark`, `user`, `role`, `collection`, `search`, `layout`, `layout_query`, `layout_options`, `refresh_interval`, `filter`, `icon`, `color`; only `user = null`, without an ID cap, sorted by `-role`, then `id`. |
+| `directus_permissions`          | `id`, `collection`, `action`, `permissions`, `validation`, `presets`, `fields`, `policy`                                                                                                                                  |
+| `directus_folders`              | `id`, `name`, `parent`, `type`; sorted by `-parent`.                                                                                                                                                                      |
+| `directus_files`                | `id`, `filename_disk`, `filename_download`, `description`, `title`, `type`, `folder`                                                                                                                                      |
+| `directus_dashboards`           | `id`, `name`, `note`, `icon`, `color`                                                                                                                                                                                     |
+| `directus_panels`               | `id`, `dashboard`, `name`, `icon`, `color`, `show_header`, `note`, `type`, `position_x`, `position_y`, `width`, `height`, `options`                                                                                       |
+| `directus_flows`                | `id`, `name`, `icon`, `color`, `description`, `status`, `trigger`, `accountability`, `options`, `operation`, `folder`                                                                                                     |
+| `directus_operations`           | `id`, `name`, `key`, `type`, `position_x`, `position_y`, `options`, `resolve`, `reject`, `flow`; ordered by operation references where possible, with warnings for cycles.                                                |
+| `directus_settings`             | All fields except `license_key` and `license_token`.                                                                                                                                                                      |
+| `directus_translations`         | `id`, `language`, `key`, `value`; sorted by `key`, then `language`.                                                                                                                                                       |
 
 `directus_extensions`, custom collections, schema, and other system collections are outside this
 scope. Extraction includes user password data and potentially other secrets in settings, Flow
@@ -234,7 +340,7 @@ silently unless required as Flow metadata.
   in any mode, including `full-idempotent` deletes. A missing file never becomes empty input.
 - A valid `[]` is intentional empty data. `insert-missing` adds nothing; `insert-update` adds or
   updates nothing. In `full-idempotent` mode, with its existing safeguards satisfied, it deletes
-  every existing row of the selected collection, or only rows inside its internal management range
+  every existing row of the selected collection, or only rows inside its configured management range
   when one is defined.
 - For required input, invalid JSON syntax, a non-array JSON root, a zero-byte or whitespace-only
   file, and non-ENOENT read errors throw a file-context error naming the file; the CLI exits 1
@@ -267,13 +373,15 @@ transactional two-pass import.
 ## Seeding safety and retained caveats
 
 `insert-missing` creates missing IDs; `insert-update` upserts records; `full-idempotent`
-additionally deletes target IDs absent from the selected seed data, within any internal management
+additionally deletes target IDs absent from the selected seed data, within any configured management
 range. Stable IDs are necessary for repeatability. Without a management range, ID-less input retains
 legacy batch-dependent handling and should not be used for synchronization.
 
-An interactive `insert-update` prompts for yes/no, defaulting to no. `full-idempotent` requires
-typing exact `DELETE`. Both prompts are skipped by `--force`, `--yes`, CI detection, or non-TTY
-execution. Cancellation returns exit code zero. Full-idempotent still requires its environment gate:
+If any selected collection's effective mode is `full-idempotent`, the interactive run requires
+typing exact `DELETE`. Otherwise, any selected `insert-update` mode prompts for yes/no, defaulting
+to no. Both prompts are skipped by `--force`, `--yes`, CI detection, or non-TTY execution.
+Cancellation returns exit code zero. Any selected full-idempotent mode still requires its
+environment gate, even when configured only in the JSON file:
 
 ```sh
 SEEDER_ENABLE_FULL_IDEMPOTENT=true npx directus seed system --mode full-idempotent --include directus_roles --yes
@@ -288,21 +396,27 @@ still require the explicit opt-in and confirmation safeguards above. Extraction 
 fields, and environment transformations mean an extract is not necessarily a safe full-idempotent
 restore source.
 
-Internal per-collection `management` supports only `type: 'id-range'`, with optional inclusive `min`
-and exclusive `max` bounds; at least one bound is required. Bounds and ranged seed IDs must be
+Per-collection `management` supports only `type: 'id-range'`, with optional inclusive `min` and
+exclusive `max` bounds; at least one bound is required. Bounds and ranged seed IDs must be
 JavaScript safe-integer numbers, without numeric-string coercion. Empty ranges, unknown keys or
-types, nonfinite, fractional, or unsafe bounds, and `min >= max` are invalid. In `full-idempotent`,
-all selected collections with present seed files are preflighted before any database operations.
-Invalid management or a ranged record with a missing, nonnumeric, unsafe, or out-of-range ID aborts
-the entire import, even with `SEEDER_CONTINUE_ON_ERROR=true`.
+types, `null`, nonfinite, fractional, or unsafe bounds, and `min >= max` are invalid. Consumer
+configuration validates ranges even when another mode is effective. Before any database operations,
+all selected collections with present seed files and effective `full-idempotent` mode are
+preflighted. Invalid management or a ranged record with a missing, nonnumeric, unsafe, or
+out-of-range ID aborts the entire import, even with `SEEDER_CONTINUE_ON_ERROR=true`.
 
 Ranged synchronization preserves records outside the range and deletes only in-range IDs absent from
 the seed data; `[]` deletes only within that range. Missing files still skip all collection work.
-`insert-missing` and `insert-update` ignore management, and explicit `--mode full-idempotent`
-preserves any internal management setting. No collection has management configured by default,
-including `directus_presets`. This is an internal source-level capability with no published
-configuration-file, environment, or CLI setting. Extraction filters remain separate and unchanged;
-the preset extraction filter does not establish a synchronization boundary.
+Imports in `insert-missing` and `insert-update` ignore management, and explicit CLI `--mode` always
+preserves the configured range. No collection has management configured by default, including
+`directus_presets`; without a range, full-idempotent retains whole-collection synchronization.
+
+Extraction combines the management range with the separate extraction `filter` using AND.
+Full-idempotent deletion uses only the management range, never the extraction filter. A narrower
+filter can omit in-range records from an export; importing that export in full-idempotent mode can
+then delete those records. For example, the default presets `user = null` filter omits personal
+presets even within a configured range, but it does not protect them from full-idempotent deletion.
+Review the complete intended range before using extracted JSON as a synchronization source.
 
 Operations are batched without an extension-wide transaction or rollback. Preflight checks array
 boundaries, transformations, and managed IDs; it does not add complete per-collection record schemas

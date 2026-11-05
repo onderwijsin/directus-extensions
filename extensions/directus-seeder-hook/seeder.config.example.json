@@ -1,0 +1,11 @@
+{
+	"$schema": "./seeder-config.schema.json",
+	"system": {
+		"collections": {
+			"directus_presets": {
+				"operationMode": "insert-update",
+				"management": { "type": "id-range", "max": 50000 }
+			}
+		}
+	}
+}

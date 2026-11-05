@@ -7,8 +7,8 @@ import { createPerformanceTracker } from '../../lib/performanceTracker'
 import { getFolderPaths } from '../../lib/resolveConfig'
 import { seedCollections } from '../../lib/seedCollections'
 import { createSeedDataProvider } from '../../lib/seedDataParser'
-import { SYSTEM_COLLECTIONS, SYSTEM_COLLECTIONS_ORDER } from './config'
 import { getDataProviders } from './data'
+import { getSystemCollections } from './resolveConfig'
 
 /**
  * Seed system data
@@ -25,12 +25,16 @@ export async function seedSystem(
 	const performanceTracker = createPerformanceTracker()
 	const results: SeedResult[] = []
 
-	logger.info(`Starting system data seeding with mode: ${config.operationMode}`)
+	logger.info('Starting system data seeding')
 
 	/**
 	 * Create a seed data provider for system data
 	 */
-	const selectedCollections = selectCollections(SYSTEM_COLLECTIONS_ORDER, config)
+	const collections = getSystemCollections(config)
+	const selectedCollections = selectCollections(
+		collections.map(({ collection }) => collection),
+		config,
+	)
 	const dataProviders = await getDataProviders(env, selectedCollections)
 	if (dataProviders === null) {
 		const { seedsFolder } = getFolderPaths(env)
@@ -51,7 +55,7 @@ export async function seedSystem(
 				seedData,
 				config,
 				context,
-				SYSTEM_COLLECTIONS,
+				collections,
 				performanceTracker,
 				results,
 				'system',

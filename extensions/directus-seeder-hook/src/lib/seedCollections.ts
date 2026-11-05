@@ -8,7 +8,7 @@ import { createFilesServiceAdapter } from '../services/FilesServiceAdapter'
 import { createItemsServiceAdapter } from '../services/ItemsServiceAdapter'
 import { createSeederStrategy } from '../strategies'
 import { validateManagedSeedData } from './collectionManagement'
-import { OperationMode, selectCollections } from './config'
+import { getCollectionMode, OperationMode, selectCollections } from './config'
 
 /**
  * Helper function to seed collections with common logic.
@@ -33,23 +33,26 @@ export async function seedCollections(
 ): Promise<SeedResult[]> {
 	const { logger } = context
 
-	// Create seeder strategy
-	const strategy = createSeederStrategy(config.operationMode, config.batchSize)
-
 	// Get collections to seed
 	const collectionsToSeed = selectCollections(Object.keys(seedData), config)
 	const collectionsOrder = collectionConfigs.map(({ collection }) => collection)
 
 	// Preflight every selected collection before any service can mutate the database.
-	if (config.operationMode === OperationMode.FULL_IDEMPOTENT) {
-		for (const collectionName of collectionsToSeed) {
-			validateManagedSeedData(
-				collectionName,
-				seedData[collectionName] ?? [],
-				collectionConfigs.find(({ collection }) => collection === collectionName)
-					?.management,
+	for (const collectionName of collectionsToSeed) {
+		const collection = collectionConfigs.find(
+			(entry) => entry.collection === collectionName,
+		) ?? { collection: collectionName }
+		if (getCollectionMode(collection, config) !== OperationMode.FULL_IDEMPOTENT) continue
+		if (!config.enableFullIdempotent) {
+			throw new Error(
+				'full-idempotent mode is disabled for safety. Set SEEDER_ENABLE_FULL_IDEMPOTENT=true to enable this destructive operation.',
 			)
 		}
+		validateManagedSeedData(
+			collectionName,
+			seedData[collectionName] ?? [],
+			collection.management,
+		)
 	}
 
 	// Filter collections based on include/exclude lists
@@ -81,6 +84,13 @@ export async function seedCollections(
 	// Seed each collection
 	for (const collectionName of collectionsToSeed) {
 		const collectionData = seedData[collectionName] ?? []
+		const collection = collectionConfigs.find(
+			(entry) => entry.collection === collectionName,
+		) ?? { collection: collectionName }
+		const strategy = createSeederStrategy(
+			getCollectionMode(collection, config),
+			config.batchSize,
+		)
 
 		logger.debug(`Seeding collection: ${collectionName} (${collectionData.length} items)`)
 
@@ -98,8 +108,7 @@ export async function seedCollections(
 				collectionData,
 				serviceAdapter,
 				performanceTracker,
-				collectionConfigs.find(({ collection }) => collection === collectionName)
-					?.management,
+				collection.management,
 			)
 		} catch (error) {
 			result = {

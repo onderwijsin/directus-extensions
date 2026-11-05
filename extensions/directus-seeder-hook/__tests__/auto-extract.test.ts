@@ -172,6 +172,38 @@ describe('automatic system extraction', () => {
 		expect(await readdir(directory)).toEqual([])
 	})
 
+	it('passes the captured effective JSON collection config to shared automatic extraction', async () => {
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: {
+					collections: {
+						directus_users: {
+							fields: ['id', 'email'],
+							filter: { status: { _eq: 'active' } },
+						},
+					},
+				},
+			}),
+		)
+		const action = register({ SEEDER_CONFIG_PATH: configPath })
+		await writeFile(configPath, '{changed after registration')
+		emit(action, 'users.create', { first_name: 'Fixture' })
+		await advance(15_000)
+		expect(mocks.extract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				systemCollections: expect.arrayContaining([
+					expect.objectContaining({
+						collection: 'directus_users',
+						fields: ['id', 'email'],
+						filter: { status: { _eq: 'active' } },
+					}),
+				]),
+			}),
+		)
+	})
+
 	it('preserves a replacement flag when an expired auto-extraction fails', async () => {
 		let fail: ((error: Error) => void) | undefined
 		mocks.extract.mockReturnValueOnce(

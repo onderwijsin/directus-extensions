@@ -1,3 +1,4 @@
+import type { SystemCollectionConfig } from '../seeders/system/config.schema'
 import type { CollectionManagement } from './collectionManagement'
 
 /**
@@ -48,6 +49,9 @@ export type DataScope = (typeof DataScope)[keyof typeof DataScope]
  * Configuration for the seeder.
  */
 export interface SeederConfig {
+	/** Effective system collection settings, including explicit CLI mode overrides. */
+	systemCollections?: SystemCollectionConfig[]
+
 	/**
 	 * Operation mode.
 	 */
@@ -108,6 +112,8 @@ export interface SeederConfig {
 export interface CollectionConfig {
 	/** Collection to synchronize. */
 	collection: string
+	/** Optional per-collection import mode, before the global fallback. */
+	operationMode?: OperationMode
 	/** Optional full-idempotent boundary, independent of extraction filters. */
 	management?: CollectionManagement
 }
@@ -128,4 +134,17 @@ export function selectCollections(
 				config.includeCollections.includes(collection)) &&
 			!config.excludeCollections.includes(collection),
 	)
+}
+
+/**
+ * Resolves a collection's mode after explicit CLI overrides have been applied.
+ * @param collection - Effective collection settings.
+ * @param config - Global runtime settings.
+ * @returns Collection mode or global fallback.
+ */
+export function getCollectionMode(
+	collection: CollectionConfig,
+	config: SeederConfig,
+): OperationMode {
+	return collection.operationMode ?? config.operationMode
 }

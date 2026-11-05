@@ -6,7 +6,7 @@ import type { SeederStrategy, SeedResult } from './SeederStrategy'
 
 import { z } from 'zod'
 
-import { validateManagedSeedData } from '../lib/collectionManagement'
+import { getIdRangeFilters, validateManagedSeedData } from '../lib/collectionManagement'
 import { OperationMode } from '../lib/config'
 import { toSeedRecord } from '../lib/seedItem'
 
@@ -350,16 +350,18 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 					// Get all the IDs of the existing items that are not in the seed data
 					const allExistingItems = await serviceAdapter.getItems({
 						fields: ['id'],
-						filter: {
-							id: {
-								...(range?.min !== undefined ? { _gte: range.min } : {}),
-								...(range?.max !== undefined ? { _lt: range.max } : {}),
-								// Bounded empty seeds need only the range; never rely on _nin: [].
-								...(range === undefined || seedDataIds.size > 0
-									? { _nin: [...seedDataIds] }
-									: {}),
-							},
-						},
+						filter:
+							range === undefined
+								? { id: { _nin: [...seedDataIds] } }
+								: {
+										_and: [
+											...getIdRangeFilters(range),
+											// Bounded empty seeds need only the range; never rely on _nin: [].
+											...(seedDataIds.size === 0
+												? []
+												: [{ id: { _nin: [...seedDataIds] } }]),
+										],
+									},
 						limit: -1,
 					})
 

@@ -1,12 +1,4 @@
-import type { Filter, NestedDeepQuery } from '@directus/types'
-import type { CollectionConfig } from '../../lib/config'
-
-interface SystemCollectionConfig extends CollectionConfig {
-	filter?: Filter | null
-	fields?: string[] | null
-	sort?: string[] | null
-	deep?: NestedDeepQuery | null
-}
+import type { SystemCollectionConfig } from './config.schema'
 
 /**
  * An array defining the explicit order of system Directus collections.
@@ -80,7 +72,7 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	},
 	{
 		collection: 'directus_presets',
-		filter: { _and: [{ user: { _null: true } }, { id: { _lt: 50000 } }] },
+		filter: { user: { _null: true } },
 		sort: ['-role', 'id'],
 		fields: [
 			'id',

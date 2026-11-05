@@ -1,17 +1,25 @@
 import type { SeederOptions } from '../env.schema'
 import type { SeederConfig } from './config'
 
+import { loadSystemConfig } from '../seeders/system/resolveConfig'
+
 /**
  * Map validated startup options and apply explicit CLI overrides.
  * @param options - Validated, normalized startup configuration.
  * @param overrides - Explicit CLI values; absent values retain the environment configuration.
- * @returns Runtime configuration without additional parsing or defaults.
+ * @returns Runtime configuration with validated JSON collection settings and explicit CLI overrides.
  */
 export function resolveSeederConfig(
 	options: SeederOptions,
-	overrides: Partial<Omit<SeederConfig, 'jsonIndent'>> = {},
+	overrides: Partial<Omit<SeederConfig, 'jsonIndent' | 'systemCollections'>> = {},
 ): SeederConfig {
 	return {
+		systemCollections: loadSystemConfig(options.SEEDER_CONFIG_PATH).map((collection) => ({
+			...collection,
+			...(overrides.operationMode === undefined
+				? {}
+				: { operationMode: overrides.operationMode }),
+		})),
 		operationMode: overrides.operationMode ?? options.SEEDER_MODE,
 		dataScope: overrides.dataScope ?? options.SEEDER_SCOPE,
 		includeCollections: overrides.includeCollections ?? options.SEEDER_INCLUDE,

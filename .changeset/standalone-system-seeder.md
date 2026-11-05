@@ -10,7 +10,7 @@ synchronization, asset handling, environment transformations, and operational li
 Validate all `SEEDER_*` options plus `DEPLOYMENT_ENV`, `DEFAULT_EMAIL`, `DEFAULT_PASSWORD`, and
 `STORAGE_LOCATIONS` once at startup after Directus environment type casting, and reuse the validated
 configuration across commands, automatic extraction, transformations, and file imports.
-`SEEDER_ENABLED=false` disables the hook before remaining validation. Invalid provided configuration
+`SEEDER_ENABLED=false` disables the hook before remaining validation. Invalid provided environment configuration
 fails startup even when a CLI option would override it. Keep Directus logging and raw process CI
 controls outside the hook's schema.
 
@@ -22,8 +22,10 @@ credential defaults, including explicit empty strings; numeric or boolean-like c
 Directus's `string:` prefix in standalone Directus configuration. Shared Compose instead expects
 a plain root `.env` password and adds the prefix when forwarding it to Directus.
 
-Honor `SEEDER_MODE` when CLI `--mode` is omitted; explicit CLI modes remain case-sensitive. Use
-`SEEDER_SEEDS_DIR` for the seed path and `SEEDER_JSON_ONLY=false` for JSON plus binary extraction by
+Resolve each collection's mode as explicit CLI `--mode`, then JSON collection `operationMode`,
+then `SEEDER_MODE`/`insert-missing`; explicit CLI modes remain case-sensitive. Evaluate safety
+opt-in, prompts, and preflight across every selected effective mode. CLI mode overrides preserve
+management. Use `SEEDER_SEEDS_DIR` for the seed path and `SEEDER_JSON_ONLY=false` for JSON plus binary extraction by
 default. `SEEDER_JSON_ONLY=true` and manual `--json-only` disable all binary reads, downloads, and
 cleanup; `directus_files.json` remains ordinary selected JSON. Manual `--assets` overrides
 environment JSON-only mode and is mutually exclusive with `--json-only`. File imports without seed
@@ -61,18 +63,43 @@ environment list, and exclusions win. Validate selected seed files and their tra
 any database mutation. Ignore unselected invalid or unreadable files silently, except required Flow
 metadata below. Skip missing files (ENOENT only) without collection operations in any mode. Preserve
 valid `[]` as intentional empty data, including deleting existing records in explicitly enabled and
-confirmed `full-idempotent` mode, limited to an internal management range when configured. Required
+confirmed `full-idempotent` mode, limited to its configured management range. Required
 input with invalid JSON, non-array roots, zero-byte or whitespace-only files, or other read errors
 fails with file context and exit 1 regardless of `SEEDER_CONTINUE_ON_ERROR`. Retain existing record
 validation and strategies without adding transactions or rollback.
 
-Support optional internal per-collection `management` with only `type: 'id-range'`, inclusive `min`
-and exclusive `max`, requiring at least one safe-integer numeric bound. Full-idempotent preflight
-rejects invalid ranges and missing, nonnumeric, unsafe, or out-of-range seed IDs before database
-operations. Delete only in-range IDs absent from seeds; bounded `[]` clears that range, and missing
-files skip all work. Other modes ignore management; explicit `--mode full-idempotent` preserves it.
-Keep unbounded defaults (including presets), separate unchanged extraction filters, and no public
-configuration-file, environment, or CLI control.
+Add optional `SEEDER_CONFIG_PATH` for a consumer JSON file resolved relative to the Directus
+runtime working directory. With no path, retain built-in system collection defaults. An explicitly
+configured missing, unreadable, malformed, or invalid file fails before database mutations or
+extraction cleanup, without fallback. Read JSON when resolving runtime configuration: each CLI
+invocation reloads it, while automatic extraction captures it at hook registration. Validate query
+structure before cleanup; database-specific field and relation checks remain Directus read behavior.
+Keep config files outside managed seed/asset output, with no cleanup exception. Strictly validate
+optional `$schema` metadata and `system.collections`/`order`,
+rejecting unknown keys and unsupported collections. Allow existing collections to override mode,
+fields, filter, sort, deep query, and management. Merge shallowly by property: provided arrays and
+objects replace whole values; omitted properties retain defaults. Allow `null` to clear only fields,
+filter, sort, and deep. Treat order as a unique known-name priority prefix with remaining built-ins
+appended in original order; keep include/exclude as collection selection. Publish the example JSON
+and exported JSON Schema without a TypeScript loader or new dependencies. Batch/error settings,
+automatic-extraction selection, and cleanup remain unchanged.
+
+Support optional consumer per-collection `management` with only `type: 'id-range'`, inclusive `min`
+and exclusive `max`, requiring at least one safe-integer numeric bound and `min < max` when both
+are supplied. Reject `null`, unknown properties, and invalid ranges in configuration. Full-idempotent
+preflight rejects missing, nonnumeric, unsafe, or out-of-range seed IDs before database operations.
+Combine ID bounds and non-seed-ID exclusions as separate `_and` predicates so Directus applies
+every condition. Reject consumer field predicates with multiple operators instead of silently using
+only the first. Delete only in-range IDs absent from seeds; bounded `[]` clears that range, and missing files skip
+all work. Other import modes ignore management. Keep unbounded synchronization defaults, including
+presets. Extraction ANDs the range with its separate filter; deletion uses only the range, never the
+extraction filter. A narrow extraction filter may omit in-range records that full-idempotent import
+subsequently deletes.
+
+Remove the built-in presets `id < 50000` extraction cap while preserving `user = null`. Without
+consumer configuration, extraction now includes matching presets with IDs at or above 50000. Show
+consumer `management.max = 50000` to restore the extraction cap and bound synchronization; 50000 is
+a project convention, not a Directus limit or built-in ownership boundary.
 
 Report database and asset mutation failures with collection context and always exit 1 if any
 collection fails. `SEEDER_CONTINUE_ON_ERROR=false` stops on the first failed collection; `true`

@@ -108,7 +108,9 @@ describe('seed strategies', () => {
 		expect(service.upsertItems).toHaveBeenCalledExactlyOnceWith(seeds)
 		expect(service.getItems).toHaveBeenLastCalledWith({
 			fields: ['id'],
-			filter: { id: { _gte: 10, _lt: 20, _nin: [10, 19] } },
+			filter: {
+				_and: [{ id: { _gte: 10 } }, { id: { _lt: 20 } }, { id: { _nin: [10, 19] } }],
+			},
 			limit: -1,
 		})
 		expect(service.deleteItems).toHaveBeenCalledExactlyOnceWith([11])
@@ -131,7 +133,7 @@ describe('seed strategies', () => {
 			)
 			expect(service.getItems).toHaveBeenCalledExactlyOnceWith({
 				fields: ['id'],
-				filter: { id: filter },
+				filter: { _and: [{ id: filter }] },
 				limit: -1,
 			})
 			expect(service.upsertItems).not.toHaveBeenCalled()

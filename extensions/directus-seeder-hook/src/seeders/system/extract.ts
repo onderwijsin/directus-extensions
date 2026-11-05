@@ -1,17 +1,19 @@
 import type { HookExtensionContext } from '@directus/types'
-import type { Filter, NestedDeepQuery } from '@directus/types'
 import type { SeederConfig } from '../../lib/config'
 import type { SeedItem } from '../../lib/seedItem'
+import type { SystemCollectionConfig } from './config.schema'
 
 import path from 'node:path'
 
 import { z } from 'zod'
 
+import { getIdRangeFilters } from '../../lib/collectionManagement'
 import { outputFile, prepareExtractionDirectories } from '../../lib/filesystem'
 import { createPerformanceTracker } from '../../lib/performanceTracker'
 import { seedItemsSchema, toSeedRecord } from '../../lib/seedItem'
-import { SYSTEM_COLLECTIONS, SYSTEM_COLLECTIONS_ORDER } from './config'
+import { SYSTEM_COLLECTIONS_ORDER } from './config'
 import { sortOperationsForKeyConstraints } from './data'
+import { getSystemCollections } from './resolveConfig'
 
 // Constants
 
@@ -73,13 +75,15 @@ const validateExtractOptions = (options: ExtractOptions): void => {
  *
  * @param includeCollections - Collections to include (if specified, only these will be processed)
  * @param excludeCollections - Collections to exclude from processing
+ * @param collectionsOrder - Effective processing order, retaining the existing selection rules.
  * @returns Filtered array of collection names
  */
 export const getFilteredCollections = (
 	includeCollections?: unknown[],
 	excludeCollections?: unknown[],
+	collectionsOrder = SYSTEM_COLLECTIONS_ORDER,
 ): string[] => {
-	let collectionsToExtract = [...SYSTEM_COLLECTIONS_ORDER].filter(
+	let collectionsToExtract = [...collectionsOrder].filter(
 		(collection) => !UNEXTRACTABLE_COLLECTIONS.includes(collection),
 	)
 
@@ -120,55 +124,16 @@ const logDivider = (logger: HookExtensionContext['logger']): void => {
 }
 
 /**
- * Finds the filter configuration for a given system collection that needs to be applied
- * when extracting data.
- *
- * @param collectionName - System collection to inspect.
- * @returns Filter | null | undefined
+ * Restricts extraction to both the management interval and the separate extraction filter.
+ * @param collection - Validated effective settings.
+ * @returns Directus filter; import deletion intentionally uses only the management interval.
  */
-const getSystemCollectionFilter = (collectionName: string): Filter | null | undefined => {
-	const collectionConfig = SYSTEM_COLLECTIONS.find((c) => c.collection === collectionName)
-	return collectionConfig?.filter
-}
-
-/**
- * Determines if a deep query is needed for a given system collection and returns the appropriate
- * structure.
- *
- * @param collectionName - System collection to inspect.
- * @returns NestedDeepQuery | null | undefined
- */
-const getDeepQuery = (collectionName: string): NestedDeepQuery | null | undefined => {
-	const collectionConfig = SYSTEM_COLLECTIONS.find((c) => c.collection === collectionName)
-	return collectionConfig?.deep
-}
-
-/**
- * Finds the configuration of fields for a given system collection that needs to be applied when
- * extracting data.
- *
- * @param collectionName - System collection to inspect.
- * @returns string[] | null | undefined
- */
-const getSystemCollectionFields = (collectionName: string): string[] | null | undefined => {
-	const collectionConfig = SYSTEM_COLLECTIONS.find((c) => c.collection === collectionName)
-	return collectionConfig?.fields
-}
-
-/**
- * Retrieves the sorting configuration for a specified system collection.
- *
- * The function searches for a matching system collection configuration by its name
- * and returns the associated sorting array. If no configuration is found, it returns null.
- *
- * @param {string} collectionName - The name of the system collection to retrieve sorting
- * for.
- * @returns {string[] | null} An array of sorting keys if collection configuration is found, or null
- * if not.
- */
-const getSystemCollectionSort = (collectionName: string): string[] | null => {
-	const collectionConfig = SYSTEM_COLLECTIONS.find((c) => c.collection === collectionName)
-	return collectionConfig?.sort ?? null
+const getExtractionFilter = (
+	collection: SystemCollectionConfig,
+): SystemCollectionConfig['filter'] => {
+	const { management, filter } = collection
+	if (!management) return filter
+	return { _and: [...(filter ? [filter] : []), ...getIdRangeFilters(management)] }
 }
 
 /**
@@ -201,19 +166,20 @@ const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem
 /**
  * Extracts data from a single collection and writes it to a JSON file.
  *
- * @param collectionName - The name of the collection to extract
+ * @param collection - Effective settings of the collection to extract
  * @param seedsFolder - The folder to write seed files to
  * @param context - Directus hook extension context
  * @param jsonIndent - Indentation for the extracted JSON
  * @returns Promise<boolean> - True if extraction was successful, false otherwise
  */
 const extractSingleCollection = async (
-	collectionName: string,
+	collection: SystemCollectionConfig,
 	seedsFolder: string,
 	context: HookExtensionContext,
 	jsonIndent: SeederConfig['jsonIndent'],
 ): Promise<boolean> => {
 	const { logger, services, getSchema, database: knex } = context
+	const collectionName = collection.collection
 	try {
 		const schema = await getSchema()
 		logger.info(`📦 Extracting collection: ${collectionName}`)
@@ -223,15 +189,16 @@ const extractSingleCollection = async (
 			knex,
 		})
 
-		let data: SeedItem[] = seedItemsSchema.parse(
-			await service.readByQuery({
-				limit: -1,
-				fields: getSystemCollectionFields(collectionName) ?? ['*'],
-				filter: getSystemCollectionFilter(collectionName),
-				sort: getSystemCollectionSort(collectionName),
-				deep: getDeepQuery(collectionName),
-			}),
-		)
+		// Like the service adapters, pass validated query data through a plain object. Directus's
+		// Filter types omit supported JSON logical predicates and GeoJSON geometry values.
+		const query: Record<string, unknown> = {
+			limit: -1,
+			fields: collection.fields ?? ['*'],
+			filter: getExtractionFilter(collection),
+			sort: collection.sort ?? null,
+			deep: collection.deep ?? null,
+		}
+		let data: SeedItem[] = seedItemsSchema.parse(await service.readByQuery(query))
 		data = filterExtractedData(collectionName, data)
 
 		// For operations, ensure exported JSON lists dependencies before dependents
@@ -341,7 +308,12 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 	const { logger } = options.context
 	const { includeCollections, excludeCollections, folders } = options
 
-	const collectionsToExtract = getFilteredCollections(includeCollections, excludeCollections)
+	const collections = getSystemCollections(options)
+	const collectionsToExtract = getFilteredCollections(
+		includeCollections,
+		excludeCollections,
+		collections.map(({ collection }) => collection),
+	)
 
 	logger.info(
 		`📋 Extracting ${collectionsToExtract.length} collections: ${collectionsToExtract.join(', ')}`,
@@ -352,13 +324,16 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 		let successCount = 0
 		let failureCount = 0
 
-		for (const collectionName of collectionsToExtract) {
+		for (const collection of collections.filter(({ collection }) =>
+			collectionsToExtract.includes(collection),
+		)) {
+			const collectionName = collection.collection
 			const performanceTracker = createPerformanceTracker()
 			const success = await performanceTracker.track(
 				`Extract ${collectionName}`,
 				async () => {
 					return await extractSingleCollection(
-						collectionName,
+						collection,
 						folders.seeds,
 						options.context,
 						options.jsonIndent,
@@ -487,6 +462,7 @@ export const extractAssets = async (options: ExtractOptions): Promise<void> => {
  */
 export async function extractSystemData(options: ExtractOptions): Promise<void> {
 	validateExtractOptions(options)
+	const systemCollections = getSystemCollections(options)
 	let folders: ExtractOptions['folders']
 	try {
 		folders = await prepareExtractionDirectories(
@@ -500,7 +476,7 @@ export async function extractSystemData(options: ExtractOptions): Promise<void> 
 			cause: error,
 		})
 	}
-	const prepared = { ...options, folders }
+	const prepared = { ...options, folders, systemCollections }
 	await extractSeedsFromCollections(prepared)
 	if (!options.jsonOnly) await extractAssets(prepared)
 }

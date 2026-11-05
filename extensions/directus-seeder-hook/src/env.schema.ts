@@ -16,6 +16,7 @@ export const envSchema = z.object({
 		.toLowerCase()
 		.pipe(z.enum(OperationMode))
 		.default(OperationMode.INSERT_MISSING),
+	SEEDER_CONFIG_PATH: z.string().trim().min(1).optional(),
 	SEEDER_SCOPE: z.string().toLowerCase().pipe(z.enum(DataScope)).default(DataScope.SYSTEM),
 	SEEDER_INCLUDE: stringListSchema,
 	SEEDER_EXCLUDE: stringListSchema,
