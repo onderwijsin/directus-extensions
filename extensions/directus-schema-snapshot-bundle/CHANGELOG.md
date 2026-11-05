@@ -1,5 +1,12 @@
 # @onderwijsin/directus-schema-snapshot-bundle
 
+## 1.0.1
+
+### Patch Changes
+
+- ecf7468: Log the full freshly computed remaining schema diff once when apply fails to converge
+  after ten applications.
+
 ## 1.0.0
 
 ### Major Changes
