@@ -16,6 +16,72 @@ describe('Iconify picker collections', () => {
 		mocks.getCollection.mockReset()
 	})
 
+	it('preserves configured order across batches and out-of-order responses', async () => {
+		const selected = ref(['tabler', 'solar', 'mdi', 'lucide', 'ic', 'bi', 'carbon'])
+		const pending = new Map<
+			string,
+			(data: { title: string; uncategorized: string[] }) => void
+		>()
+		mocks.getCollection.mockImplementation(
+			(prefix: string) =>
+				new Promise<{ title: string; uncategorized: string[] }>((resolve) => {
+					pending.set(prefix, resolve)
+				}),
+		)
+		const active = ref(false)
+		const scope = effectScope()
+		const result = scope.run(() => useIconCollections(active, selected, ref(true)))
+		if (!result) throw new Error('Unable to start collection watcher')
+
+		try {
+			active.value = true
+			await vi.waitFor(() => expect(pending.size).toBe(6))
+			for (const prefix of selected.value.slice(0, 6).reverse()) {
+				pending.get(prefix)?.({ title: prefix, uncategorized: ['home'] })
+			}
+			await vi.waitFor(() => expect(result.groups.value).toHaveLength(6))
+			expect(result.groups.value.map((group) => group.name)).toEqual([
+				'tabler',
+				'solar',
+				'mdi',
+				'lucide',
+				'ic',
+				'bi',
+			])
+			await vi.waitFor(() => expect(pending.has('carbon')).toBe(true))
+			pending.get('carbon')?.({ title: 'carbon', uncategorized: ['home'] })
+			await vi.waitFor(() => expect(result.loading.value).toBe(false))
+			expect(result.groups.value.map((group) => group.name)).toEqual(selected.value)
+			expect(mocks.getCollections).not.toHaveBeenCalled()
+		} finally {
+			scope.stop()
+		}
+	})
+
+	it('applies a changed collection order while the picker is open', async () => {
+		mocks.getCollection.mockImplementation((prefix: string) =>
+			Promise.resolve({ title: prefix, uncategorized: ['home'] }),
+		)
+		const active = ref(false)
+		const selected = ref(['mdi', 'lucide'])
+		const scope = effectScope()
+		const result = scope.run(() => useIconCollections(active, selected, ref(true)))
+		if (!result) throw new Error('Unable to start collection watcher')
+
+		try {
+			active.value = true
+			await vi.waitFor(() =>
+				expect(result.groups.value.map((group) => group.name)).toEqual(['mdi', 'lucide']),
+			)
+			selected.value = ['lucide', 'mdi']
+			await vi.waitFor(() =>
+				expect(result.groups.value.map((group) => group.name)).toEqual(['lucide', 'mdi']),
+			)
+		} finally {
+			scope.stop()
+		}
+	})
+
 	it('loads selected collections through the chosen route and includes aliases', async () => {
 		mocks.getCollection.mockResolvedValue({
 			title: 'Material Design Icons',
