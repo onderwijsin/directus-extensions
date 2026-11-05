@@ -761,10 +761,11 @@ describe('seeder registration and CLI', () => {
 		expect(warn).not.toHaveBeenCalled()
 	})
 
-	it('preserves cache handling without a directory warning when supported files exist but nothing is selected', async () => {
-		await writeFile(path.join(directory, 'directus_roles.json'), '{broken')
-		const service = createProgram()
-		const warn = vi.spyOn(logger, 'warn')
+	it('skips services and cache clearing without selected files but processes an explicit empty seed file', async () => {
+		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+		const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+		expect(await runCommand(service.program, 'system', '--include', 'directus_presets')).toBe(0)
+		expectNoServiceCalls(service)
 		expect(
 			await runCommand(
 				service.program,
@@ -775,13 +776,27 @@ describe('seeder registration and CLI', () => {
 				'directus_roles',
 			),
 		).toBe(0)
-		expect(service.ItemsService).not.toHaveBeenCalled()
-		expect(service.FilesService).not.toHaveBeenCalled()
-		expect(service.createMany).not.toHaveBeenCalled()
-		expect(service.upsertMany).not.toHaveBeenCalled()
-		expect(service.deleteMany).not.toHaveBeenCalled()
+		expectNoServiceCalls(service)
+
+		await writeFile(path.join(directory, 'directus_presets.json'), '[]')
+		service.readByQuery.mockResolvedValue([{ id: 7 }])
+		expect(
+			await runCommand(
+				service.program,
+				'system',
+				'--include',
+				'directus_presets',
+				'--mode',
+				'full-idempotent',
+				'--yes',
+			),
+		).toBe(0)
+		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+			'directus_presets',
+			expect.any(Object),
+		)
+		expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([7])
 		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
-		expect(warn).not.toHaveBeenCalled()
 	})
 
 	it.each(

@@ -56,9 +56,9 @@ newline, even with `--skip-clean`. Database read errors fail extraction; cleanup
 can leave partial output, so fix the error and rerun to recover.
 
 Require the configured seed directory to exist and be a directory; otherwise fail with its path and
-exit 1. Warn and exit 0 without database operations or cache clearing when it contains no supported
-system seed files. Ignore unsupported files and nested seed files when determining this no-op.
-An empty collection selection alone does not trigger this warning.
+exit 1. Warn and exit 0 without database operations, service creation, or cache clearing when no
+selected system seed files are present, including an empty collection selection. Ignore unsupported
+files and nested seed files when determining this no-op. Present `[]` still processes its collection.
 
 Resolve include/exclude before seed-input preflight: each CLI list overrides its corresponding
 environment list, and exclusions win. Validate selected seed files and their transformations before

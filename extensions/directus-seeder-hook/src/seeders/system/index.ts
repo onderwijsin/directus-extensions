@@ -15,7 +15,7 @@ import { getSystemCollections } from './resolveConfig'
  * @param context Directus hook context
  * @param config Seeder configuration
  * @param dataProviders Selected input loaded and validated before CLI confirmation
- * @returns Seeding results, or null when no supported seed files exist
+ * @returns Seeding results, or null when no selected seed files exist
  */
 export async function seedSystem(
 	context: ServiceAdapterContext,
@@ -29,7 +29,7 @@ export async function seedSystem(
 	logger.info('Starting system data seeding')
 
 	const collections = getSystemCollections(config)
-	if (dataProviders === null) {
+	if (dataProviders === null || dataProviders.length === 0) {
 		const { seedsFolder } = getFolderPaths(env)
 		logger.warn(`No supported system seed files found in "${seedsFolder}"; skipping seeding`)
 		return null

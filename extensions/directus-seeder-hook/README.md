@@ -58,7 +58,7 @@ Extraction cleans output and writes JSON plus binaries by default. `--skip-clean
 there is no environment setting to skip cleanup.
 
 `seed system` does not run automatically at server startup. Run it explicitly after database
-bootstrap/schema setup. It clears the Directus system cache after seeding, except when no supported
+bootstrap/schema setup. It clears the Directus system cache after seeding, except when no selected
 seed files exist. Commands release their own bulk-operation flag and call `process.exit()` in their
 final cleanup.
 
@@ -325,10 +325,10 @@ is not general secret redaction. This is not a complete database or storage back
 
 The configured `SEEDER_SEEDS_DIR` must exist and be a directory. A missing directory or a path that
 is not a directory fails with the configured path in the error and exit code 1. An existing
-directory without any supported system seed files logs a warning with its path and exits 0 without
-database operations or cache clearing. Unsupported files and seed files inside subdirectories do not
-count. A directory with only some supported files is valid; missing collection files are skipped. An
-empty collection selection alone does not trigger this warning.
+directory without any selected system seed files logs a warning with its path and exits 0 without
+database operations, service creation, or cache clearing. Unsupported files and seed files inside
+subdirectories do not count. A directory with only some supported files is valid; missing collection
+files are skipped. An empty collection selection is also a successful no-op.
 
 Seed input uses `<seeds-dir>/<collection>.json`; files for collections outside the supported list
 above are ignored. The Seeder resolves include/exclude before preflight: each CLI list overrides
