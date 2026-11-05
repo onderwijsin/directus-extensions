@@ -61,10 +61,18 @@ environment list, and exclusions win. Validate selected seed files and their tra
 any database mutation. Ignore unselected invalid or unreadable files silently, except required Flow
 metadata below. Skip missing files (ENOENT only) without collection operations in any mode. Preserve
 valid `[]` as intentional empty data, including deleting existing records in explicitly enabled and
-confirmed `full-idempotent` mode. Required input
-with invalid JSON, non-array roots, zero-byte or whitespace-only files, or other read errors fails
-with file context and exit 1 regardless of `SEEDER_CONTINUE_ON_ERROR`. Retain existing record
+confirmed `full-idempotent` mode, limited to an internal management range when configured. Required
+input with invalid JSON, non-array roots, zero-byte or whitespace-only files, or other read errors
+fails with file context and exit 1 regardless of `SEEDER_CONTINUE_ON_ERROR`. Retain existing record
 validation and strategies without adding transactions or rollback.
+
+Support optional internal per-collection `management` with only `type: 'id-range'`, inclusive `min`
+and exclusive `max`, requiring at least one safe-integer numeric bound. Full-idempotent preflight
+rejects invalid ranges and missing, nonnumeric, unsafe, or out-of-range seed IDs before database
+operations. Delete only in-range IDs absent from seeds; bounded `[]` clears that range, and missing
+files skip all work. Other modes ignore management; explicit `--mode full-idempotent` preserves it.
+Keep unbounded defaults (including presets), separate unchanged extraction filters, and no public
+configuration-file, environment, or CLI control.
 
 Report database and asset mutation failures with collection context and always exit 1 if any
 collection fails. `SEEDER_CONTINUE_ON_ERROR=false` stops on the first failed collection; `true`

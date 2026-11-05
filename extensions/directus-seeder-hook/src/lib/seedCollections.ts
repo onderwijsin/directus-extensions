@@ -1,13 +1,14 @@
 import type { ServiceAdapterContext } from '../services/ServiceAdapter'
 import type { SeedResult } from '../strategies/SeederStrategy'
-import type { SeederConfig } from './config'
+import type { CollectionConfig, SeederConfig } from './config'
 import type { PerformanceTracker } from './performanceTracker'
 import type { SeedData } from './seedDataParser'
 
 import { createFilesServiceAdapter } from '../services/FilesServiceAdapter'
 import { createItemsServiceAdapter } from '../services/ItemsServiceAdapter'
 import { createSeederStrategy } from '../strategies'
-import { selectCollections } from './config'
+import { validateManagedSeedData } from './collectionManagement'
+import { OperationMode, selectCollections } from './config'
 
 /**
  * Helper function to seed collections with common logic.
@@ -15,7 +16,7 @@ import { selectCollections } from './config'
  * @param seedData The data to be seeded
  * @param config Seeder configuration
  * @param context Service adapter context
- * @param collectionsOrder Array specifying the order of collections
+ * @param collectionConfigs Internal collection settings in dependency order
  * @param performanceTracker Performance tracker instance
  * @param results Array to store results
  * @param collectionType Optional string to identify the type of collections (e.g., "development", "system")
@@ -25,7 +26,7 @@ export async function seedCollections(
 	seedData: SeedData,
 	config: SeederConfig,
 	context: ServiceAdapterContext,
-	collectionsOrder: string[],
+	collectionConfigs: CollectionConfig[],
 	performanceTracker: PerformanceTracker,
 	results: SeedResult[],
 	collectionType = '',
@@ -37,6 +38,19 @@ export async function seedCollections(
 
 	// Get collections to seed
 	const collectionsToSeed = selectCollections(Object.keys(seedData), config)
+	const collectionsOrder = collectionConfigs.map(({ collection }) => collection)
+
+	// Preflight every selected collection before any service can mutate the database.
+	if (config.operationMode === OperationMode.FULL_IDEMPOTENT) {
+		for (const collectionName of collectionsToSeed) {
+			validateManagedSeedData(
+				collectionName,
+				seedData[collectionName] ?? [],
+				collectionConfigs.find(({ collection }) => collection === collectionName)
+					?.management,
+			)
+		}
+	}
 
 	// Filter collections based on include/exclude lists
 	if (config.includeCollections && config.includeCollections.length > 0) {
@@ -84,6 +98,8 @@ export async function seedCollections(
 				collectionData,
 				serviceAdapter,
 				performanceTracker,
+				collectionConfigs.find(({ collection }) => collection === collectionName)
+					?.management,
 			)
 		} catch (error) {
 			result = {

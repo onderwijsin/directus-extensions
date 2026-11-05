@@ -7,7 +7,7 @@ import { createPerformanceTracker } from '../../lib/performanceTracker'
 import { getFolderPaths } from '../../lib/resolveConfig'
 import { seedCollections } from '../../lib/seedCollections'
 import { createSeedDataProvider } from '../../lib/seedDataParser'
-import { SYSTEM_COLLECTIONS_ORDER } from './config'
+import { SYSTEM_COLLECTIONS, SYSTEM_COLLECTIONS_ORDER } from './config'
 import { getDataProviders } from './data'
 
 /**
@@ -51,7 +51,7 @@ export async function seedSystem(
 				seedData,
 				config,
 				context,
-				SYSTEM_COLLECTIONS_ORDER,
+				SYSTEM_COLLECTIONS,
 				performanceTracker,
 				results,
 				'system',

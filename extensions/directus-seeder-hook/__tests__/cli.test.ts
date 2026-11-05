@@ -51,6 +51,7 @@ vi.mock('../src/lib/processLock', () => ({
 }))
 
 import '../src/index'
+import { SYSTEM_COLLECTIONS } from '../src/seeders/system/config'
 
 const logger = pino({ level: 'silent' })
 let directory = ''
@@ -186,6 +187,9 @@ function expectNoServiceCalls(service: ReturnType<typeof createProgram>) {
 }
 
 describe('seeder registration and CLI', () => {
+	const presets = SYSTEM_COLLECTIONS.find(({ collection }) => collection === 'directus_presets')
+	if (!presets) throw new Error('Expected the presets collection configuration')
+
 	beforeEach(async () => {
 		vi.clearAllMocks()
 		mocks.acquireLock.mockReturnValue({ path: 'fixture-lock', release: mocks.releaseLock })
@@ -197,6 +201,7 @@ describe('seeder registration and CLI', () => {
 	})
 
 	afterEach(async () => {
+		delete presets.management
 		await rm(directory, { recursive: true, force: true })
 	})
 
@@ -320,6 +325,93 @@ describe('seeder registration and CLI', () => {
 		expect(warn).not.toHaveBeenCalled()
 		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 	})
+
+	it('rejects out-of-range seeds in preflight before earlier collections mutate, even with continue-on-error', async () => {
+		presets.management = { type: 'id-range', max: 50000 }
+		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+		await writeFile(path.join(directory, 'directus_presets.json'), '[{"id":50000}]')
+		const service = createProgram({
+			SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+			SEEDER_CONTINUE_ON_ERROR: true,
+		})
+		const errorLog = vi.spyOn(logger, 'error')
+		expect(
+			await runCommand(service.program, 'system', '--mode', 'full-idempotent', '--yes'),
+		).toBe(1)
+		expect(errorLog).toHaveBeenCalledWith(
+			expect.stringContaining(
+				'collection "directus_presets" has ID 50000 outside managed ID range',
+			),
+		)
+		expectNoServiceCalls(service)
+		expect(mocks.releaseLock).toHaveBeenCalledOnce()
+	})
+
+	it('keeps configured management when CLI overrides the mode and deletes only obsolete managed IDs', async () => {
+		presets.management = { type: 'id-range', max: 50000 }
+		const seeds = [{ id: 1, bookmark: 'Restored' }]
+		await writeFile(path.join(directory, 'directus_presets.json'), JSON.stringify(seeds))
+		const service = createProgram({
+			SEEDER_MODE: 'insert-missing',
+			SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+		})
+		service.readByQuery.mockResolvedValueOnce([{ id: 1 }]).mockResolvedValueOnce([{ id: 2 }])
+		expect(
+			await runCommand(service.program, 'system', '--mode', 'full-idempotent', '--yes'),
+		).toBe(0)
+		expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith(seeds)
+		expect(service.readByQuery).toHaveBeenLastCalledWith({
+			fields: ['id'],
+			filter: { id: { _lt: 50000, _nin: [1] } },
+			limit: -1,
+		})
+		expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([2])
+	})
+
+	it('limits empty seed deletion to the range and skips the collection when its file is missing', async () => {
+		presets.management = { type: 'id-range', max: 50000 }
+		const filename = path.join(directory, 'directus_presets.json')
+		await writeFile(filename, '[]')
+		const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+		service.readByQuery.mockResolvedValue([{ id: 2 }])
+		expect(
+			await runCommand(service.program, 'system', '--mode', 'full-idempotent', '--yes'),
+		).toBe(0)
+		expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+			fields: ['id'],
+			filter: { id: { _lt: 50000 } },
+			limit: -1,
+		})
+		expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([2])
+		await rm(filename)
+		await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+		service.ItemsService.mockClear()
+		service.readByQuery.mockClear().mockResolvedValue([])
+		service.deleteMany.mockClear()
+		expect(
+			await runCommand(service.program, 'system', '--mode', 'full-idempotent', '--yes'),
+		).toBe(0)
+		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+			'directus_roles',
+			expect.any(Object),
+		)
+		expect(service.deleteMany).not.toHaveBeenCalled()
+	})
+
+	it.each(['insert-missing', 'insert-update'])(
+		'keeps %s unchanged for seed IDs outside configured management',
+		async (mode) => {
+			presets.management = { type: 'id-range', max: 50000 }
+			const seeds = [{ id: 50001 }]
+			await writeFile(path.join(directory, 'directus_presets.json'), JSON.stringify(seeds))
+			const service = createProgram()
+			expect(await runCommand(service.program, 'system', '--mode', mode, '--yes')).toBe(0)
+			expect(
+				mode === 'insert-missing' ? service.createMany : service.upsertMany,
+			).toHaveBeenCalledExactlyOnceWith(seeds)
+			expect(service.deleteMany).not.toHaveBeenCalled()
+		},
+	)
 
 	it.each(['insert-missing', 'insert-update', 'full-idempotent'])(
 		'treats [] as intentional empty data in %s, retaining guarded deletion',

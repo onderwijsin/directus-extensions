@@ -1,3 +1,5 @@
+import type { CollectionManagement } from './collectionManagement'
+
 /**
  * Configuration types for the Directus Seeder extension.
  */
@@ -100,6 +102,14 @@ export interface SeederConfig {
 	 * into seed files for system collections on data changes.
 	 */
 	autoExtract: boolean
+}
+
+/** Internal collection settings shared by data scopes. */
+export interface CollectionConfig {
+	/** Collection to synchronize. */
+	collection: string
+	/** Optional full-idempotent boundary, independent of extraction filters. */
+	management?: CollectionManagement
 }
 
 /**

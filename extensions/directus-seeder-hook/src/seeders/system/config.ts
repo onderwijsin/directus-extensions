@@ -1,7 +1,7 @@
 import type { Filter, NestedDeepQuery } from '@directus/types'
+import type { CollectionConfig } from '../../lib/config'
 
-interface SystemCollectionConfig {
-	collection: string
+interface SystemCollectionConfig extends CollectionConfig {
 	filter?: Filter | null
 	fields?: string[] | null
 	sort?: string[] | null

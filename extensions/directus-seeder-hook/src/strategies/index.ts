@@ -1,3 +1,4 @@
+import type { CollectionManagement } from '../lib/collectionManagement'
 import type { PerformanceTracker } from '../lib/performanceTracker'
 import type { SeedItem } from '../lib/seedItem'
 import type { ServiceAdapter } from '../services/ServiceAdapter'
@@ -5,6 +6,7 @@ import type { SeederStrategy, SeedResult } from './SeederStrategy'
 
 import { z } from 'zod'
 
+import { validateManagedSeedData } from '../lib/collectionManagement'
 import { OperationMode } from '../lib/config'
 import { toSeedRecord } from '../lib/seedItem'
 
@@ -303,6 +305,7 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 		 * @param data - Original seed rows.
 		 * @param serviceAdapter - Directus service operations.
 		 * @param performanceTracker - Operation timing tracker.
+		 * @param management - Optional numeric management boundary.
 		 * @returns Counts, duration, and any captured mutation error.
 		 */
 		seedCollection: async (
@@ -310,11 +313,13 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 			data: SeedItem[],
 			serviceAdapter: ServiceAdapter,
 			performanceTracker: PerformanceTracker,
+			management?: CollectionManagement,
 		) => {
 			// Ensure data has id fields for this strategy
 			const dataWithIds = data
 
 			return executeSeedOperation(collectionName, data, async (result) => {
+				const range = validateManagedSeedData(collectionName, data, management)
 				// Get all seed data IDs
 				const seedDataIds = new Set(
 					dataWithIds
@@ -347,7 +352,12 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 						fields: ['id'],
 						filter: {
 							id: {
-								_nin: [...seedDataIds],
+								...(range?.min !== undefined ? { _gte: range.min } : {}),
+								...(range?.max !== undefined ? { _lt: range.max } : {}),
+								// Bounded empty seeds need only the range; never rely on _nin: [].
+								...(range === undefined || seedDataIds.size > 0
+									? { _nin: [...seedDataIds] }
+									: {}),
 							},
 						},
 						limit: -1,

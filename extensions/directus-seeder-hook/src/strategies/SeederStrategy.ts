@@ -1,3 +1,4 @@
+import type { CollectionManagement } from '../lib/collectionManagement'
 import type { PerformanceTracker } from '../lib/performanceTracker'
 import type { SeedItem } from '../lib/seedItem'
 import type { ServiceAdapter } from '../services/ServiceAdapter'
@@ -13,6 +14,7 @@ export interface SeederStrategy {
 	 * @param data Data to seed
 	 * @param serviceAdapter Service adapter for the collection
 	 * @param performanceTracker Performance tracker
+	 * @param management Optional boundary used only by full-idempotent
 	 * @returns Result of the seeding operation
 	 */
 	seedCollection: (
@@ -20,6 +22,7 @@ export interface SeederStrategy {
 		data: SeedItem[],
 		serviceAdapter: ServiceAdapter,
 		performanceTracker: PerformanceTracker,
+		management?: CollectionManagement,
 	) => Promise<SeedResult>
 }
 

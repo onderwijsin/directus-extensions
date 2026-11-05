@@ -148,7 +148,7 @@ SEEDER_ENABLE_FULL_IDEMPOTENT=false
 
 Opt in to automatic extraction with `SEEDER_AUTO_EXTRACT=true`; leave it `false` for manual-only
 extraction. Disable the entire hook with `SEEDER_ENABLED=false` and restart Directus. There is no
-project configuration file, per-collection configuration, TypeScript data-provider API, HTTP
+project configuration file, public per-collection configuration, TypeScript data-provider API, HTTP
 endpoint, Studio UI, or Flow operation.
 
 ### Password examples: shared Compose and standalone Directus
@@ -234,7 +234,8 @@ silently unless required as Flow metadata.
   in any mode, including `full-idempotent` deletes. A missing file never becomes empty input.
 - A valid `[]` is intentional empty data. `insert-missing` adds nothing; `insert-update` adds or
   updates nothing. In `full-idempotent` mode, with its existing safeguards satisfied, it deletes
-  every existing row of the selected collection.
+  every existing row of the selected collection, or only rows inside its internal management range
+  when one is defined.
 - For required input, invalid JSON syntax, a non-array JSON root, a zero-byte or whitespace-only
   file, and non-ENOENT read errors throw a file-context error naming the file; the CLI exits 1
   regardless of `SEEDER_CONTINUE_ON_ERROR`.
@@ -266,9 +267,9 @@ transactional two-pass import.
 ## Seeding safety and retained caveats
 
 `insert-missing` creates missing IDs; `insert-update` upserts records; `full-idempotent`
-additionally deletes target IDs absent from the selected seed data. Stable IDs are necessary for
-repeatability. ID-less input retains legacy batch-dependent handling and should not be used for
-synchronization.
+additionally deletes target IDs absent from the selected seed data, within any internal management
+range. Stable IDs are necessary for repeatability. Without a management range, ID-less input retains
+legacy batch-dependent handling and should not be used for synchronization.
 
 An interactive `insert-update` prompts for yes/no, defaulting to no. `full-idempotent` requires
 typing exact `DELETE`. Both prompts are skipped by `--force`, `--yes`, CI detection, or non-TTY
@@ -282,13 +283,30 @@ Review seed files and back up the target first. Preflight validates required see
 database mutation (see "Seed input semantics and preflight" above): missing selected files omit
 their collections, while invalid or unreadable required files abort with a nonzero exit code. In
 full-idempotent mode, intentional empty data (`[]`) for a selected collection deletes every existing
-target record in it, and deletes still run only behind the explicit opt-in and confirmation
-safeguards above. Extraction filters, omitted fields, and environment transformations mean an
-extract is not necessarily a safe full-idempotent restore source.
+target record in its management range, or the whole collection when no range is defined. Deletes
+still require the explicit opt-in and confirmation safeguards above. Extraction filters, omitted
+fields, and environment transformations mean an extract is not necessarily a safe full-idempotent
+restore source.
 
-Operations are batched without an extension-wide transaction or rollback. Preflight retains the
-existing array-boundary and transformation checks; it does not add per-collection record schemas or
-validate binary assets. Database or asset import errors can still occur after earlier mutations.
+Internal per-collection `management` supports only `type: 'id-range'`, with optional inclusive `min`
+and exclusive `max` bounds; at least one bound is required. Bounds and ranged seed IDs must be
+JavaScript safe-integer numbers, without numeric-string coercion. Empty ranges, unknown keys or
+types, nonfinite, fractional, or unsafe bounds, and `min >= max` are invalid. In `full-idempotent`,
+all selected collections with present seed files are preflighted before any database operations.
+Invalid management or a ranged record with a missing, nonnumeric, unsafe, or out-of-range ID aborts
+the entire import, even with `SEEDER_CONTINUE_ON_ERROR=true`.
+
+Ranged synchronization preserves records outside the range and deletes only in-range IDs absent from
+the seed data; `[]` deletes only within that range. Missing files still skip all collection work.
+`insert-missing` and `insert-update` ignore management, and explicit `--mode full-idempotent`
+preserves any internal management setting. No collection has management configured by default,
+including `directus_presets`. This is an internal source-level capability with no published
+configuration-file, environment, or CLI setting. Extraction filters remain separate and unchanged;
+the preset extraction filter does not establish a synchronization boundary.
+
+Operations are batched without an extension-wide transaction or rollback. Preflight checks array
+boundaries, transformations, and managed IDs; it does not add complete per-collection record schemas
+or validate binary assets. Database or asset import errors can still occur after earlier mutations.
 Every failed mutation is reported with its collection and makes `seed system` exit 1.
 `SEEDER_CONTINUE_ON_ERROR=false` (default) stops seeding on the first failed collection. With
 `true`, the failed collection stops and seeding continues with the next collections, but the final
