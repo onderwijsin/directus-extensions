@@ -110,6 +110,7 @@ function expectApplyExit(code: number) {
 describe('schema-split CLI', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks()
+		vi.spyOn(logger, 'error')
 		mocks.directory = await mkdtemp(path.join(tmpdir(), 'schema-split-cli-'))
 		directory = path.join(mocks.directory, 'snapshots')
 		await mkdir(directory)
@@ -210,6 +211,7 @@ describe('schema-split CLI', () => {
 			force: true,
 		})
 		expect(mocks.service.apply).not.toHaveBeenCalled()
+		expect(logger.error).not.toHaveBeenCalled()
 		expectApplyExit(0)
 	})
 
@@ -301,29 +303,93 @@ describe('schema-split CLI', () => {
 		},
 	)
 
-	it('verifies convergence after the tenth application before deciding the exit code', async () => {
+	it('logs the fresh remaining diff once before failing after ten applications', async () => {
 		await writeMetadata()
-		mocks.service.diff.mockResolvedValue(diff)
-		await createProgram().program.parseAsync(['schema-split', 'apply', directory], {
-			from: 'user',
-		})
-		expect(mocks.service.apply).toHaveBeenCalledTimes(10)
-		expect(mocks.service.diff).toHaveBeenCalledTimes(11)
-		expectApplyExit(1)
-
-		mocks.service.apply.mockClear()
-		mocks.service.diff.mockReset()
+		const finalSnapshot: Snapshot = { ...snapshot, systemFields: [systemField] }
+		const remainingDiff: SnapshotDiff = {
+			collections: [
+				{
+					collection: 'posts',
+					diff: [{ kind: 'E', path: ['meta', 'note'], lhs: 'old', rhs: 'new' }],
+				},
+			],
+			fields: [
+				{
+					collection: 'posts',
+					field: 'title',
+					diff: [{ kind: 'E', path: ['schema', 'is_nullable'], lhs: true, rhs: false }],
+				},
+			],
+			relations: [
+				{
+					collection: 'posts',
+					field: 'author',
+					related_collection: 'authors',
+					diff: [{ kind: 'E', path: ['meta', 'one_field'], lhs: null, rhs: 'posts' }],
+				},
+			],
+			systemFields: [
+				{
+					collection: 'directus_files',
+					field: 'title',
+					diff: [{ kind: 'E', path: ['schema', 'is_indexed'], lhs: false, rhs: true }],
+				},
+			],
+		}
 		for (let application = 0; application < 10; application++) {
+			mocks.service.snapshot.mockResolvedValueOnce(snapshot)
 			mocks.service.diff.mockResolvedValueOnce(diff)
 		}
-		mocks.service.diff.mockResolvedValueOnce(null)
+		mocks.service.snapshot.mockResolvedValueOnce(finalSnapshot)
+		mocks.service.diff.mockResolvedValueOnce(remainingDiff)
+		mocks.service.apply.mockImplementation(() => {
+			expect(logger.error).not.toHaveBeenCalled()
+			return Promise.resolve()
+		})
 		await createProgram().program.parseAsync(['schema-split', 'apply', directory], {
 			from: 'user',
 		})
 		expect(mocks.service.apply).toHaveBeenCalledTimes(10)
+		expect(mocks.service.apply).toHaveBeenLastCalledWith({
+			diff,
+			hash: hash({ version: snapshot.directus, item: snapshot }),
+		})
+		expect(mocks.service.snapshot).toHaveBeenCalledTimes(11)
 		expect(mocks.service.diff).toHaveBeenCalledTimes(11)
-		expectApplyExit(0)
+		expect(mocks.service.diff).toHaveBeenLastCalledWith(snapshot, {
+			currentSnapshot: finalSnapshot,
+			force: true,
+		})
+		expect(logger.error).toHaveBeenCalledTimes(3)
+		expect(logger.error).toHaveBeenNthCalledWith(
+			1,
+			'❌ Remaining schema diff after final application',
+		)
+		expect(logger.error).toHaveBeenNthCalledWith(2, remainingDiff)
+		expect(logger.error).toHaveBeenNthCalledWith(
+			3,
+			'❌ Error applying schema:  Schema did not converge after 10 applications',
+		)
+		expectApplyExit(1)
 	})
+
+	it.each([1, 9, 10])(
+		'does not log a failure diff when application %i converges',
+		async (applications) => {
+			await writeMetadata()
+			for (let application = 0; application < applications; application++) {
+				mocks.service.diff.mockResolvedValueOnce(diff)
+			}
+			mocks.service.diff.mockResolvedValueOnce(null)
+			await createProgram().program.parseAsync(['schema-split', 'apply', directory], {
+				from: 'user',
+			})
+			expect(mocks.service.apply).toHaveBeenCalledTimes(applications)
+			expect(mocks.service.diff).toHaveBeenCalledTimes(applications + 1)
+			expect(logger.error).not.toHaveBeenCalled()
+			expectApplyExit(0)
+		},
+	)
 
 	it.each(['missing metadata', 'malformed definition'])(
 		'stops before diffing %s',

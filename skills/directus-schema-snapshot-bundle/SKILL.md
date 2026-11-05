@@ -123,10 +123,15 @@ npx directus schema-split apply /directus/snapshots && npx directus start
 In hardened images, run `node /directus/cli.js schema-split apply /directus/snapshots` as a
 successful prerequisite to `node /directus/cli.js start` in the deployment's startup orchestration.
 
-Apply repeats diff/apply passes until no changes remain, allowing at most ten unsuccessful passes.
-Missing or invalid `metadata.yml`, malformed recognized YAML files, service errors, and failure to
-converge return a nonzero exit code. This is not an atomic restore of an entire database; inspect
-the target after a failed apply before retrying.
+Apply repeats diff/apply passes until no changes remain, allowing at most ten applications. If the
+fresh diff after the tenth application still contains changes, it logs the full remaining diff once
+at error level as a separate structured log entry after a descriptive message, before reporting
+`Schema did not converge after 10 applications`. This includes collections, fields, relations, and
+system fields. Detailed diffs are not logged during intermediate passes or on successful
+convergence, including convergence on the tenth application. Inspect the remaining diff for snapshot
+configuration problems before retrying. Missing or invalid `metadata.yml`, malformed recognized YAML
+files, service errors, and failure to converge return a nonzero exit code. This is not an atomic
+restore of an entire database; inspect the target after a failed apply before retrying.
 
 `apply` uses only the `metadata.yml` directly in the selected snapshot folder. Metadata in
 subfolders cannot replace it or change the snapshot root.
@@ -248,6 +253,6 @@ storage. This bundle supplies no distributed or database-wide lock.
 | Automatic snapshots are absent                                   | Check both enable switches, wait for the 15-second debounce, and inspect Directus logs and filesystem permissions.                                                                                                                                    |
 | Automatic snapshots remain suppressed after an interrupted apply | Check the apply flag and `directus-schema-snapshot/operation.lock` in the shared temporary directory. Recover only after all schema-split operations have stopped; repair incomplete snapshots before applying.                                       |
 | Apply rejects a snapshot                                         | Confirm root metadata, the generated layout, YAML validity, supported Directus version, and database vendor. Missing metadata after an interrupted write requires a successful snapshot or migration. Read the Directus logger error before retrying. |
-| Apply reaches the pass limit                                     | Investigate why Directus still reports a diff; the command fails after ten unsuccessful passes.                                                                                                                                                       |
+| Apply reaches the pass limit                                     | Inspect the full remaining diff logged at error level as a separate structured entry after the tenth application. Use it to identify snapshot configuration problems before retrying.                                                                 |
 | Migrated output contains unexpected definitions                  | Migrate into an empty output directory; migration preserves existing files.                                                                                                                                                                           |
 | A soft-exit command remains alive                                | Existing resources may keep Node running. Use default hard exit in startup automation.                                                                                                                                                                |
