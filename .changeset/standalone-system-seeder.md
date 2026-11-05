@@ -28,7 +28,8 @@ opt-in and prompts across selected collections with present seed files, includin
 files do not require destructive confirmation or opt-in. Reuse loaded, validated input for import
 and retain full preflight before mutations. CLI mode overrides preserve management. Use
 `SEEDER_SEEDS_DIR` for the seed path and `SEEDER_JSON_ONLY=false` for JSON plus binary extraction
-by default. `SEEDER_JSON_ONLY=true` and manual `--json-only` disable all binary reads, downloads, and
+by default, except selective automatic extraction without `directus_files` remains JSON-only.
+`SEEDER_JSON_ONLY=true` and manual `--json-only` disable all binary reads, downloads, and
 cleanup; `directus_files.json` remains ordinary selected JSON. Manual `--assets` overrides
 environment JSON-only mode and is mutually exclusive with `--json-only`. File imports without seed
 `storage` use the first validated `STORAGE_LOCATIONS` entry, including Directus-cast arrays, instead
@@ -42,9 +43,10 @@ always validated but applied only to spaces). Migrate old `SEEDER_JSON_INDENT=2|
 Seeder formatter dependency. Automatic extraction uses the same serialization and remains disabled
 by default.
 
-Clean extraction output by default for both manual and automatic runs, with manual-only
-`--skip-clean` to preserve other output. Clean only direct regular `.json` files in the seeds
-directory and, when binaries are enabled, all direct regular files in the assets directory, even
+Clean extraction output by default for manual runs and automatic runs without an explicit
+auto-extract allowlist, with manual-only `--skip-clean` to preserve other output. Clean only direct
+regular `.json` files in the seeds directory and, when binaries are enabled, all direct regular
+files in the assets directory, even
 when no file records exist. Never recurse into subdirectories or follow symlinks. Include/exclude
 selects JSON only and never narrows cleanup or binary extraction; binaries always come from all
 `directus_files`. Support nested or separate assets directories. Preflight paths before deletion
@@ -124,9 +126,17 @@ unreadable Flow metadata fails preflight; missing Flow input supplies no IDs to 
 imports unselected Flows. In exact `development`, unselected Flow input is ignored, including invalid
 content. Selected Flow input is always validated.
 
-Keep automatic extraction development-only and opt-in, with the existing events and 15-second
-debounce. It uses the same cleanup and JSON-only setting; repeated full exports of large assets may
-consume substantial I/O, network traffic, and time. Performance optimizations remain follow-up work.
+Keep automatic extraction development-only and opt-in, with the existing events, 15-second debounce,
+and bulk lock. Add optional `SEEDER_AUTO_EXTRACT_INCLUDE`: a nonempty, trimmed, case-sensitive list
+of supported collections that replaces general include/exclude only for automatic extraction.
+Only its collections' CRUD events trigger a run; every run exports all selected collections in
+effective configuration order with their existing query settings. Skip JSON and asset cleanup in
+this selective mode, preserving other output and potentially stale files. Without `directus_files`,
+force JSON-only; with it, retain export of all binaries when `SEEDER_JSON_ONLY=false`, independently
+of JSON filters or management ranges. An unset allowlist preserves general selection, cleanup, and
+asset behavior. Manual import/extraction and the JSON configuration contract remain unchanged.
+Repeated full exports of large assets may consume substantial I/O, network traffic, and time.
+Performance optimizations remain follow-up work.
 
 Bind bulk-operation flag cleanup to each successful acquisition. Failed commands preserve another
 operation's flag, and an expired owner leaves an already-replaced flag intact. Apply the same

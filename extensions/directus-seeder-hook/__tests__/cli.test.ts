@@ -1498,7 +1498,10 @@ describe('seeder registration and CLI', () => {
 		const preserved = ['notes.txt', 'nested/keep.json', 'assets/nested/keep.bin']
 		for (const filename of [...removed, ...preserved])
 			await writeFile(path.join(directory, filename), filename)
-		const service = createProgram({ DEPLOYMENT_ENV: 'development' })
+		const service = createProgram({
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_AUTO_EXTRACT_INCLUDE: 'directus_presets',
+		})
 		service.readByQuery.mockImplementation(async () => {
 			for (const filename of removed)
 				await expect(readFile(path.join(directory, filename))).rejects.toMatchObject({

@@ -50,12 +50,12 @@ docker compose exec -e DEPLOYMENT_ENV=development directus node /directus/cli.js
 | `-h, --help`                     | Show command help.                                                                                                                                                      | Show command help.                                                                                     |
 
 CLI collection names are separate space-delimited arguments, not comma-separated tokens. CLI lists
-override their respective environment lists; exclusions always win. During extraction,
+override their respective environment lists; exclusions always win. During manual extraction,
 include/exclude selects JSON output only: it never narrows cleanup or binary asset extraction.
 Selection retains the configured processing order and supports only the built-in collections. Import
-and extraction accept no positional seed path; configure directories through the environment.
-Extraction cleans output and writes JSON plus binaries by default. `--skip-clean` is manual-only;
-there is no environment setting to skip cleanup.
+and extraction accept no positional seed path; configure directories through the environment. Manual
+extraction cleans output and writes JSON plus binaries by default. `--skip-clean` is manual-only;
+selective automatic extraction has separate cleanup rules below.
 
 `seed system` does not run automatically at server startup. Run it explicitly after database
 bootstrap/schema setup. It clears the Directus system cache after seeding, except when no selected
@@ -145,13 +145,14 @@ another type. Credential strings retain whitespace and explicitly empty strings.
 | `SEEDER_MODE`                   | `insert-missing`                 | String: `insert-missing`, `insert-update`, or `full-idempotent`, case-insensitive without trimming. Unsupported values fail. Fallback when neither CLI `--mode` nor collection `operationMode` is set; an explicit CLI mode is case-sensitive.                                                                                                           |
 | `SEEDER_CONFIG_PATH`            | Unset                            | Optional nonblank string path to the consumer JSON configuration below. Relative paths resolve from the Directus runtime working directory. An explicitly configured missing, unreadable, malformed, or invalid file fails before database mutations or extraction cleanup.                                                                              |
 | `SEEDER_SCOPE`                  | `system`                         | String: only `system`, case-insensitive without trimming. Unsupported values fail. No custom scope is provided.                                                                                                                                                                                                                                          |
-| `SEEDER_INCLUDE`                | `[]` (all supported collections) | Singular nonblank string or array of nonblank strings, trimmed and normalized to an array. An empty array includes all. CLI `--include` overrides it.                                                                                                                                                                                                    |
-| `SEEDER_EXCLUDE`                | `[]` (none)                      | Same accepted list forms and normalization as inclusion. An empty array excludes none; exclusions win. CLI `--exclude` overrides it.                                                                                                                                                                                                                     |
+| `SEEDER_INCLUDE`                | `[]` (all supported collections) | Singular nonblank string or array of nonblank strings, trimmed and normalized to an array. An empty array includes all. CLI `--include` overrides it. Used for auto-extract only when `SEEDER_AUTO_EXTRACT_INCLUDE` is unset.                                                                                                                            |
+| `SEEDER_EXCLUDE`                | `[]` (none)                      | Same accepted list forms and normalization as inclusion. An empty array excludes none; exclusions win. CLI `--exclude` overrides it. Used for auto-extract only when `SEEDER_AUTO_EXTRACT_INCLUDE` is unset.                                                                                                                                             |
 | `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. `false` stops seeding on the first failed collection; `true` continues with the next collections. Any database or asset mutation failure exits 1 in either case. Required seed-input preflight and extraction read errors always fail the run.                                                                                                  |
 | `SEEDER_BATCH_SIZE`             | `50`                             | Positive integer number. Zero, negative, fractional, nonnumeric, and uncast string values fail.                                                                                                                                                                                                                                                          |
 | `SEEDER_ENABLE_FULL_IDEMPOTENT` | `false`                          | Boolean. Required before `full-idempotent` can delete records. `--force`/`--yes` does not bypass this gate.                                                                                                                                                                                                                                              |
-| `SEEDER_JSON_ONLY`              | `false`                          | Boolean. Default `false` extracts JSON plus binaries. `true` disables binary reads, downloads, and cleanup for manual and automatic extraction. Manual `--assets` overrides `true`; `--json-only` forces JSON-only output. `directus_files.json` remains normal selected JSON.                                                                           |
+| `SEEDER_JSON_ONLY`              | `false`                          | Boolean. `false` enables binaries except for selective auto-extract without `directus_files`. `true` disables binary reads, downloads, and cleanup for manual and automatic extraction. Manual `--assets` overrides `true`; `--json-only` forces JSON-only output. `directus_files.json` remains normal selected JSON.                                   |
 | `SEEDER_AUTO_EXTRACT`           | `false`                          | Boolean. Enable monitored system-record changes to schedule extraction; also requires exact `DEPLOYMENT_ENV=development`.                                                                                                                                                                                                                                |
+| `SEEDER_AUTO_EXTRACT_INCLUDE`   | Unset                            | Optional nonempty list: one supported collection name or a Directus-cast array, trimmed and case-sensitive. Replaces general include/exclude only for auto-extract; scopes triggers and JSON output, skips cleanup, and forces JSON-only unless `directus_files` is listed. Empty lists, blank entries, and unknown names fail startup validation.       |
 | `SEEDER_JSON_INDENT`            | `tab`                            | String: exact `tab` or `space`, without trimming. Controls manual and automatic JSON extraction. Unsupported values fail.                                                                                                                                                                                                                                |
 | `SEEDER_JSON_INDENT_SIZE`       | `2`                              | Integer number from `1` through `10`. Applies only with `SEEDER_JSON_INDENT=space`, but is always validated, including when indentation is `tab`.                                                                                                                                                                                                        |
 | `SEEDER_SEEDS_DIR`              | `/directus/seeds`                | Nonblank string, trimmed. Only missing values use the default; provided blank or nonstring values fail.                                                                                                                                                                                                                                                  |
@@ -166,6 +167,12 @@ The hook does not comma-split a string that remains a string after Directus cast
 nonstrings fail validation. `SEEDER_INCLUDE=json:[]` selects all supported collections;
 `SEEDER_EXCLUDE=json:[]` excludes none. `STORAGE_LOCATIONS=json:[]` is invalid.
 
+For `SEEDER_AUTO_EXTRACT_INCLUDE`, an omitted value preserves the existing automatic behavior; an
+explicitly empty value or `json:[]` is invalid. For example,
+`SEEDER_AUTO_EXTRACT_INCLUDE=directus_roles,directus_policies` becomes two collection names, while
+`SEEDER_AUTO_EXTRACT_INCLUDE=string:directus_roles,directus_policies` remains one unknown name and
+fails validation. Names are trimmed but retain case; use the supported names exactly.
+
 These controls remain outside the hook's configuration schema:
 
 | Variable                                                         | Default          | Behavior                                                                                                                                      |
@@ -178,10 +185,11 @@ These controls remain outside the hook's configuration schema:
 Configuration now rejects invalid representations instead of permissive boolean/integer parsing or
 silent mode, scope, and path fallbacks. An omitted CLI `--mode` honors `SEEDER_MODE`, and file
 imports without seed `storage` use the first configured location rather than falling back to `local`
-for Directus-cast arrays. Configure seed paths with `SEEDER_SEEDS_DIR`. Extraction now cleans by
-default; use manual `--skip-clean` to retain unselected output. `SEEDER_JSON_ONLY=false` includes
-binaries by default; set it to `true` to disable binary handling. The retained seed-import data
-handling and safety caveats below still apply.
+for Directus-cast arrays. Configure seed paths with `SEEDER_SEEDS_DIR`. Manual extraction now cleans
+by default; use manual `--skip-clean` to retain unselected output. Selective automatic extraction
+preserves other output as described below. `SEEDER_JSON_ONLY=false` includes binaries unless a
+selective automatic allowlist omits `directus_files`; set it to `true` to disable binary handling.
+The retained seed-import data handling and safety caveats below still apply.
 
 Replace old `SEEDER_JSON_INDENT=2` or `SEEDER_JSON_INDENT=4` with `space` and the matching size. For
 four spaces:
@@ -313,10 +321,11 @@ roles projection and omits `icon`, `description`, and `parent`; it does not add 
 `system.order` is an array of unique supported collection names forming a priority prefix. Remaining
 built-ins are appended in their original order. It changes processing order without selecting
 collections; configuring a single entry under `collections` also leaves every other collection
-available. Use CLI `--include`/`--exclude` or the corresponding environment lists for selection.
-Preserve dependency ordering when choosing a prefix. Batch size and error continuation remain global
-environment settings. This config does not add collections, alter automatic-extraction selection, or
-change cleanup and binary asset behavior.
+available. Use CLI `--include`/`--exclude` or the corresponding environment lists for import and
+manual extraction selection; `SEEDER_AUTO_EXTRACT_INCLUDE` can select automatic extraction
+separately. Preserve dependency ordering when choosing a prefix. Batch size and error continuation
+remain global environment settings. This config does not add collections, alter automatic-extraction
+selection, or change cleanup and binary asset behavior.
 
 For each selected collection, the effective seeding mode is explicit CLI `--mode`, then collection
 `operationMode`, then `SEEDER_MODE` (default `insert-missing`). The example leaves `operationMode`
@@ -519,7 +528,9 @@ one through ten spaces via `SEEDER_JSON_INDENT=space` and `SEEDER_JSON_INDENT_SI
 exactly one final newline. The same input produces the same output. The Seeder does not invoke a
 formatter or guarantee project-specific formatting rules.
 
-Every run first cleans output unless manual `--skip-clean` is set:
+Manual extraction and automatic extraction without `SEEDER_AUTO_EXTRACT_INCLUDE` first clean output
+unless manual `--skip-clean` is set. An explicit automatic allowlist skips cleanup of both output
+directories. When cleanup runs:
 
 - The seeds directory loses only its direct regular `.json` files, including unselected JSON.
 - With binary extraction enabled, the assets directory loses all its direct regular files, even when
@@ -537,7 +548,8 @@ the seeds directory or in a separate external directory. `SEEDER_ASSETS_DIR` is 
 
 Every selected collection overwrites its JSON file, including an empty collection as `[]` plus
 exactly one newline (`[]\n`), even with `--skip-clean`. That flag preserves other output but does
-not preserve stale contents of selected files. Extraction database read errors fail the run rather
+not preserve stale contents of selected files. Selective automatic extraction also overwrites every
+selected JSON file, including empty results. Extraction database read errors fail the run rather
 than writing an empty result. Extraction has no whole-run transaction or rollback: cleanup or
 earlier writes may already have happened, leaving partial output. Fix the error and rerun extraction
 to recover a complete export; inspect output and logs before using it for seeding.
@@ -549,12 +561,12 @@ with a nested assets directory. Manual `--assets` overrides environment JSON-onl
 `--assets` with `--json-only` is an error.
 
 With binary extraction enabled, extraction queries **all** `directus_files`, regardless of JSON
-inclusion/exclusion, and writes binary contents under `filename_disk` in the assets directory. Each
-asset is buffered in memory. Failed downloads fail the extraction run; inspect asset counts and
-errors, fix the cause, and rerun to recover partial output. File seeding reads these local files and
-uploads through Directus `FilesService`, preserving supplied IDs. Updates re-upload assets too;
-missing binaries or `filename_disk` cause errors. JSON-only mode affects extraction, not file
-import. The hook does not provision storage.
+selection, filters, or management ranges, and writes binary contents under `filename_disk` in the
+assets directory. Each asset is buffered in memory. Failed downloads fail the extraction run;
+inspect asset counts and errors, fix the cause, and rerun to recover partial output. File seeding
+reads these local files and uploads through Directus `FilesService`, preserving supplied IDs.
+Updates re-upload assets too; missing binaries or `filename_disk` cause errors. JSON-only mode
+affects extraction, not file import. The hook does not provision storage.
 
 Copyable manual examples (all require exact `DEPLOYMENT_ENV=development`):
 
@@ -573,17 +585,48 @@ DEPLOYMENT_ENV=development SEEDER_SEEDS_DIR=./seeds SEEDER_ASSETS_DIR=./seed-ass
 
 Automatic extraction requires both exact `DEPLOYMENT_ENV=development` and
 `SEEDER_AUTO_EXTRACT=true`. Selected collections' create/update/delete actions schedule a 15-second
-debounce; further events, including other processes' marker updates, extend it. A `users.update`
-payload containing only `last_page`, or an empty payload, is ignored. File uploads do not
-necessarily emit the create/update events monitored here; use manual extraction when needed.
+debounce; further events, including other processes' marker updates, extend it. Each debounced run
+extracts every selected collection in effective configuration order, using its configured `fields`,
+`filter`, `sort`, `deep`, and `management`. It exports the selected collections again rather than
+only the changed records. A `users.update` payload containing only `last_page`, or an empty payload,
+is ignored. File uploads do not necessarily emit the create/update events monitored here; use manual
+extraction when needed. Enabling auto-extract does not import seeds or extract data at startup.
 
-Auto-extract always uses the same default cleanup, `SEEDER_JSON_ONLY`, `SEEDER_JSON_INDENT`, and
-`SEEDER_JSON_INDENT_SIZE` as manual extraction; it has no skip-clean setting and never invokes a
-project formatter. Accept this output as-is, adapt or exclude it in your formatter configuration, or
-arrange a separate consumer workflow. Auto-extract remains a development-only opt-in
-(`SEEDER_AUTO_EXTRACT=false` by default). Each debounced run may clean and export all assets again,
-including large binaries. Repeated changes can cause substantial disk I/O, network traffic, and
-elapsed time. Debouncing is not incremental extraction; performance optimizations are deferred.
+- With `SEEDER_AUTO_EXTRACT_INCLUDE` unset, auto-extract retains the general
+  `SEEDER_INCLUDE`/`SEEDER_EXCLUDE` selection and default output cleanup. With
+  `SEEDER_JSON_ONLY=false`, it exports all binary assets even when general selection excludes
+  `directus_files` JSON.
+- With `SEEDER_AUTO_EXTRACT_INCLUDE` set, only CRUD events for its listed collections trigger
+  extraction. The allowlist replaces both general include/exclude lists for auto-extract only;
+  manual `seed extract` and `seed system` keep their existing selection. Each trigger still
+  refreshes all allowlisted collections in effective configuration order, not list order. Neither
+  the seeds nor assets directory is cleaned, and other files remain intact.
+- Selective auto-extract without `directus_files` forces JSON-only behavior, preserving every binary
+  even with `SEEDER_JSON_ONLY=false`. Including `directus_files` permits binary export only when
+  `SEEDER_JSON_ONLY=false`. That export still reads all `directus_files`, independently of JSON
+  fields, filters, or management ranges, and writes binaries without global asset cleanup.
+
+For selective automatic JSON extraction, configure:
+
+```dotenv
+DEPLOYMENT_ENV=development
+SEEDER_AUTO_EXTRACT=true
+SEEDER_AUTO_EXTRACT_INCLUDE=directus_roles,directus_policies
+```
+
+Omit `SEEDER_AUTO_EXTRACT_INCLUDE` to restore the existing behavior; an empty value or empty array
+is invalid. Selective auto-extract preserves JSON from previous selections and old binary files,
+including files whose database records were removed or renamed. These files can become stale. Review
+output before seeding, and use a deliberate manual clean export when a fresh snapshot is needed.
+
+Auto-extract uses the same `SEEDER_JSON_INDENT` and `SEEDER_JSON_INDENT_SIZE` as manual extraction
+and never invokes a project formatter. Accept this output as-is, adapt or exclude it in your
+formatter configuration, or arrange a separate consumer workflow. It has no manual `--skip-clean`
+option: the presence of the automatic allowlist determines cleanup. Auto-extract remains a
+development-only opt-in (`SEEDER_AUTO_EXTRACT=false` by default). Runs with binary extraction may
+export all assets again, including large binaries; without an allowlist they also clean asset output
+first. Repeated changes can cause substantial disk I/O, network traffic, and elapsed time.
+Debouncing is not incremental extraction; performance optimizations are deferred.
 
 Coordination retains temporary files `directus-lock-bulk-operation.flag` and
 `directus-debounce-seed-system-extract.lock` in the process temporary directory. Bulk flags older
@@ -600,8 +643,9 @@ changes and output files may remain.
 
 If commands are missing, check installation, extension loading, and `SEEDER_ENABLED`. For missing
 extraction also check the exact deployment environment. For automatic extraction check its switch,
-selected collections, the debounce delay, and bulk flag. For failures inspect Directus logs,
-directory permissions, runtime dependencies, storage configuration, and required local assets.
+the optional allowlist or general selection, the debounce delay, and bulk flag. For failures inspect
+Directus logs, directory permissions, runtime dependencies, storage configuration, and required
+local assets.
 
 ## Consumer formatting workflow
 

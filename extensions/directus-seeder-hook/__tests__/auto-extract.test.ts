@@ -3,6 +3,7 @@ import type { Logger } from 'pino'
 import { existsSync, utimesSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 
 import pino from 'pino'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,6 +28,8 @@ const mocks = vi.hoisted(() => ({
 	register: vi.fn<Register>(),
 	extract: vi.fn(),
 	readFiles: vi.fn(),
+	readCollection: vi.fn<(collection: string, query: unknown) => Promise<unknown[]>>(),
+	getAsset: vi.fn(),
 }))
 
 vi.mock('@onderwijsin/directus-extension-utils/hook', () => ({
@@ -75,13 +78,29 @@ function register(env: Record<string, unknown> = {}) {
 			logger,
 			services: {
 				ItemsService: class {
-					/** @returns Empty collection data for automatic extraction. */
-					public readByQuery() {
-						return Promise.resolve([])
+					private readonly collection: string
+
+					/**
+					 * Captures the queried collection.
+					 * @param collection - Collection being extracted.
+					 */
+					public constructor(collection: string) {
+						this.collection = collection
+					}
+					/**
+					 * Records extraction queries and supplies fixture data.
+					 * @param query - Effective collection query.
+					 * @returns Fixture records.
+					 */
+					public readByQuery(query: unknown) {
+						return mocks.readCollection(this.collection, query)
 					}
 				},
 				FilesService: class {
 					public readByQuery = mocks.readFiles
+				},
+				AssetsService: class {
+					public getAsset = mocks.getAsset
 				},
 			},
 			getSchema: () => Promise.resolve({}),
@@ -131,6 +150,8 @@ describe('automatic system extraction', () => {
 		mocks.directory = directory
 		mocks.extract.mockReset().mockResolvedValue(undefined)
 		mocks.readFiles.mockReset().mockResolvedValue([])
+		mocks.readCollection.mockReset().mockResolvedValue([])
+		mocks.getAsset.mockReset()
 		vi.useFakeTimers()
 	})
 
@@ -243,7 +264,7 @@ describe('automatic system extraction', () => {
 	})
 
 	it('skips an existing bulk lock without releasing it and releases its own lock after extraction fails', async () => {
-		const action = register()
+		const action = register({ SEEDER_AUTO_EXTRACT_INCLUDE: 'directus_users' })
 		const lock = acquireLock()
 		try {
 			emit(action, 'users.delete')
@@ -260,6 +281,124 @@ describe('automatic system extraction', () => {
 		expect(existsSync(lock.path)).toBe(false)
 		expect(await readdir(directory)).toEqual([])
 	})
+
+	it('ignores unselected events and preserves other output while extracting the whole allowlist in effective order', async () => {
+		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
+			'../src/seeders/system/extract',
+		)
+		mocks.extract.mockImplementation(actual.extractSystemData)
+		const seeds = path.join(directory, 'seeds')
+		const assets = path.join(seeds, 'assets')
+		await mkdir(assets, { recursive: true })
+		await writeFile(path.join(seeds, 'unrelated.json'), 'unrelated')
+		await writeFile(path.join(seeds, 'directus_roles.json'), 'old roles')
+		await writeFile(path.join(assets, 'old.bin'), 'old asset')
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: {
+					order: ['directus_presets'],
+					collections: {
+						directus_presets: {
+							fields: ['id', 'role'],
+							filter: { user: { _null: true } },
+							sort: ['id'],
+							deep: { role: { _limit: 1 } },
+							management: { type: 'id-range', min: 10, max: 50000 },
+						},
+					},
+				},
+			}),
+		)
+		const action = register({
+			SEEDER_AUTO_EXTRACT_INCLUDE: ['directus_roles', 'directus_presets'],
+			SEEDER_CONFIG_PATH: configPath,
+			SEEDER_ASSETS_DIR: assets,
+		})
+		expect(action.mock.calls.map(([event]) => event)).toEqual([
+			'presets.create',
+			'roles.create',
+			'presets.update',
+			'roles.update',
+			'presets.delete',
+			'roles.delete',
+		])
+		// Directus only dispatches an event to subscriptions that match it.
+		for (const [event, handler] of action.mock.calls)
+			if (event === 'users.update') handler({ payload: { first_name: 'Unselected' } })
+		expect(vi.getTimerCount()).toBe(0)
+		expect((await readdir(directory)).sort()).toEqual(['consumer.json', 'seeds'])
+		emit(action, 'roles.create')
+		await advance(10_000)
+		for (const [event, handler] of action.mock.calls)
+			if (event === 'users.update') handler({ payload: { first_name: 'Still unselected' } })
+		await vi.advanceTimersByTimeAsync(5_000)
+		expect(mocks.extract).toHaveBeenCalledOnce()
+		await expect(mocks.extract.mock.results[0]?.value).resolves.toBeUndefined()
+		expect(mocks.readCollection.mock.calls.map(([collection]) => collection)).toEqual([
+			'directus_presets',
+			'directus_roles',
+		])
+		expect(mocks.readCollection).toHaveBeenCalledWith('directus_presets', {
+			limit: -1,
+			fields: ['id', 'role'],
+			sort: ['id'],
+			deep: { role: { _limit: 1 } },
+			filter: {
+				_and: [{ user: { _null: true } }, { id: { _gte: 10 } }, { id: { _lt: 50000 } }],
+			},
+		})
+		expect(await readFile(path.join(seeds, 'directus_roles.json'), 'utf8')).toBe('[]\n')
+		expect(await readFile(path.join(seeds, 'directus_presets.json'), 'utf8')).toBe('[]\n')
+		expect(await readFile(path.join(seeds, 'unrelated.json'), 'utf8')).toBe('unrelated')
+		expect(await readFile(path.join(assets, 'old.bin'), 'utf8')).toBe('old asset')
+		expect(mocks.readFiles).not.toHaveBeenCalled()
+		expect(mocks.getAsset).not.toHaveBeenCalled()
+	})
+
+	it.each([false, true])(
+		'preserves stale assets and exports selected file JSON with jsonOnly=%s',
+		async (jsonOnly) => {
+			const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
+				'../src/seeders/system/extract',
+			)
+			mocks.extract.mockImplementation(actual.extractSystemData)
+			const seeds = path.join(directory, 'seeds')
+			const assets = path.join(seeds, 'assets')
+			await mkdir(assets, { recursive: true })
+			await writeFile(path.join(seeds, 'directus_roles.json'), 'untouched roles')
+			await writeFile(path.join(assets, 'old.bin'), 'old asset')
+			const files = [{ id: 'fixture-file', filename_disk: 'new.bin' }]
+			mocks.readCollection.mockResolvedValue(files)
+			mocks.readFiles.mockResolvedValue(files)
+			mocks.getAsset.mockResolvedValue({ stream: Readable.from([Buffer.from('new asset')]) })
+			const action = register({
+				SEEDER_AUTO_EXTRACT_INCLUDE: 'directus_files',
+				SEEDER_JSON_ONLY: jsonOnly,
+				SEEDER_ASSETS_DIR: assets,
+			})
+			emit(action, 'files.update')
+			await advance(15_000)
+			await expect(mocks.extract.mock.results[0]?.value).resolves.toBeUndefined()
+			expect(
+				JSON.parse(await readFile(path.join(seeds, 'directus_files.json'), 'utf8')),
+			).toEqual(files)
+			expect(await readFile(path.join(seeds, 'directus_roles.json'), 'utf8')).toBe(
+				'untouched roles',
+			)
+			expect(await readFile(path.join(assets, 'old.bin'), 'utf8')).toBe('old asset')
+			if (jsonOnly) {
+				expect(mocks.readFiles).not.toHaveBeenCalled()
+				expect(mocks.getAsset).not.toHaveBeenCalled()
+				expect(await readdir(assets)).toEqual(['old.bin'])
+			} else {
+				expect(mocks.readFiles).toHaveBeenCalledOnce()
+				expect(mocks.getAsset).toHaveBeenCalledWith('fixture-file')
+				expect(await readFile(path.join(assets, 'new.bin'), 'utf8')).toBe('new asset')
+			}
+		},
+	)
 
 	it.each([false, true])('cleans real automatic output with jsonOnly=%s', async (jsonOnly) => {
 		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(

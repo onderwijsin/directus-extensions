@@ -64,6 +64,15 @@ service's `environment` reach Directus. For those mappings, shell values take pr
 Keep real credentials in ignored local files or an external secret manager; checked-in defaults are
 for local development and E2E isolation only.
 
+The optional `SEEDER_AUTO_EXTRACT_INCLUDE` uses a value-less `environment` entry. Compose resolves
+it from the shell or root `.env`; when unset, it remains absent in the container instead of becoming
+an invalid empty string. See
+[Compose environment passthrough](https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/).
+Leave the example commented out for legacy full-clean auto-extraction. A nonempty allowlist enables
+selective auto-extraction without global cleanup; manual commands retain their existing behavior.
+The E2E overlay removes this passthrough with `!reset null`, isolating tests from developer
+selection.
+
 The template marks examples that also require a Compose override. The local stack intentionally
 fixes the Mailpit transport/connection and template path, the Redis URL, and internal database,
 storage, and search service addresses. Advanced lock/rate-limiter settings, Coolify polling/policy

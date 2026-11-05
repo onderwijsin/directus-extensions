@@ -159,6 +159,8 @@ services:
       SEEDER_ENABLE_FULL_IDEMPOTENT: ${SEEDER_ENABLE_FULL_IDEMPOTENT-false}
       SEEDER_JSON_ONLY: ${SEEDER_JSON_ONLY-false}
       SEEDER_AUTO_EXTRACT: ${SEEDER_AUTO_EXTRACT-false}
+      # Optional passthrough: leave absent when unset, rather than forwarding an empty string.
+      SEEDER_AUTO_EXTRACT_INCLUDE:
       SEEDER_JSON_INDENT: ${SEEDER_JSON_INDENT-tab}
       SEEDER_JSON_INDENT_SIZE: ${SEEDER_JSON_INDENT_SIZE-2}
       SEEDER_SEEDS_DIR: ${SEEDER_SEEDS_DIR-/directus/seeds}

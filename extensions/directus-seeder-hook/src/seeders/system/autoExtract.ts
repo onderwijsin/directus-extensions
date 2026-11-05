@@ -5,9 +5,10 @@ import { createAutoTaskHandler } from '../../lib/autoTaskHandler'
 import { getFolderPaths, resolveSeederConfig } from '../../lib/resolveConfig'
 import { toSeedRecord } from '../../lib/seedItem'
 import { extractSystemData, getFilteredCollections } from './extract'
+import { getSystemCollections } from './resolveConfig'
 
 /**
- * Registers the original debounced extraction handlers for selected system collection mutations.
+ * Registers debounced extraction for the effective automatic collection selection.
  * @param action - Directus action registration function.
  * @param context - Directus hook runtime.
  * @returns Nothing.
@@ -21,7 +22,18 @@ export const registerAutoExtractSystemHook = (
 	logger.info('[directus-seeder-hook] 🌱 Registering auto-extract system hook')
 
 	// Derive runtime values from the shared validated startup configuration
-	const config = resolveSeederConfig(env)
+	const autoInclude = env.SEEDER_AUTO_EXTRACT_INCLUDE
+	const config = resolveSeederConfig(
+		env,
+		autoInclude === undefined
+			? {}
+			: {
+					includeCollections: autoInclude,
+					excludeCollections: [],
+					skipClean: true,
+					jsonOnly: env.SEEDER_JSON_ONLY || !autoInclude.includes('directus_files'),
+				},
+	)
 	const { seedsFolder, assetsFolder } = getFolderPaths(env)
 
 	if (!config.autoExtract) {
@@ -38,6 +50,7 @@ export const registerAutoExtractSystemHook = (
 	const collectionsToExtract = getFilteredCollections(
 		config.includeCollections,
 		config.excludeCollections,
+		getSystemCollections(config).map(({ collection }) => collection),
 	)
 
 	// Action events of system collections don't have the "directus_" prefix, so we need to remove it

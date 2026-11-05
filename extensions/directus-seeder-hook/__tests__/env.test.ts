@@ -74,19 +74,21 @@ describe('Seeder startup configuration', () => {
 			expect(envSchema.safeParse({ SEEDER_JSON_INDENT_SIZE: size }).success).toBe(false)
 	})
 
-	it.each(['SEEDER_INCLUDE', 'SEEDER_EXCLUDE', 'STORAGE_LOCATIONS'])(
-		'normalizes single and pre-cast %s lists and validates their members',
-		(key) => {
-			expect(envSchema.parse({ [key]: ' directus_roles ' })).toMatchObject({
-				[key]: ['directus_roles'],
-			})
-			expect(
-				envSchema.parse({ [key]: [' directus_roles ', 'directus_users'] }),
-			).toMatchObject({ [key]: ['directus_roles', 'directus_users'] })
-			for (const value of [null, true, 1, {}, '', ' ', [''], [1], ['directus_roles', false]])
-				expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
-		},
-	)
+	it.each([
+		'SEEDER_INCLUDE',
+		'SEEDER_EXCLUDE',
+		'SEEDER_AUTO_EXTRACT_INCLUDE',
+		'STORAGE_LOCATIONS',
+	])('normalizes single and pre-cast %s lists and validates their members', (key) => {
+		expect(envSchema.parse({ [key]: ' directus_roles ' })).toMatchObject({
+			[key]: ['directus_roles'],
+		})
+		expect(envSchema.parse({ [key]: [' directus_roles ', 'directus_users'] })).toMatchObject({
+			[key]: ['directus_roles', 'directus_users'],
+		})
+		for (const value of [null, true, 1, {}, '', ' ', [''], [1], ['directus_roles', false]])
+			expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
+	})
 
 	it('allows empty collection selections but requires at least one storage location', () => {
 		expect(envSchema.parse({ SEEDER_INCLUDE: [], SEEDER_EXCLUDE: [] })).toMatchObject({
@@ -94,6 +96,24 @@ describe('Seeder startup configuration', () => {
 			SEEDER_EXCLUDE: [],
 		})
 		expect(envSchema.safeParse({ STORAGE_LOCATIONS: [] }).success).toBe(false)
+	})
+
+	it('requires a provided auto-extraction allowlist to contain known collections without re-splitting forced strings', () => {
+		expect(envSchema.parse({}).SEEDER_AUTO_EXTRACT_INCLUDE).toBeUndefined()
+		for (const value of [
+			[],
+			'unknown',
+			['directus_roles', 'unknown'],
+			'DIRECTUS_ROLES',
+			'directus_roles,directus_policies',
+		]) {
+			const parsed = envSchema.safeParse({ SEEDER_AUTO_EXTRACT_INCLUDE: value })
+			expect(parsed.success).toBe(false)
+			if (!parsed.success)
+				expect(parsed.error.issues[0]?.path[0]).toBe('SEEDER_AUTO_EXTRACT_INCLUDE')
+		}
+		const options = envSchema.parse({ SEEDER_AUTO_EXTRACT_INCLUDE: 'directus_roles' })
+		expect(resolveSeederConfig(options)).toEqual(resolveSeederConfig(envSchema.parse({})))
 	})
 
 	it('normalizes supported modes and scope while rejecting unknown or mistyped options', () => {

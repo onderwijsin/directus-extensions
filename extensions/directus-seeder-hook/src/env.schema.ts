@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { DataScope, OperationMode } from './lib/config'
+import { SYSTEM_COLLECTIONS_ORDER } from './seeders/system/config'
 
 /** Normalize Directus's singular or pre-cast list values without re-parsing environment strings. */
 const stringListSchema = z.preprocess(
@@ -25,6 +26,9 @@ export const envSchema = z.object({
 	SEEDER_ENABLE_FULL_IDEMPOTENT: z.boolean().default(false),
 	SEEDER_JSON_ONLY: z.boolean().default(false),
 	SEEDER_AUTO_EXTRACT: z.boolean().default(false),
+	SEEDER_AUTO_EXTRACT_INCLUDE: stringListSchema
+		.pipe(z.array(z.enum(SYSTEM_COLLECTIONS_ORDER)).min(1))
+		.optional(),
 	SEEDER_JSON_INDENT: z
 		.enum(['tab', 'space'], {
 			error: 'SEEDER_JSON_INDENT must be tab or space',
