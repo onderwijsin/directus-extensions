@@ -1,5 +1,13 @@
 # @onderwijsin/directus-iconify-bundle
 
+## 0.1.0
+
+### Minor Changes
+
+- 0d774ad: Add custom picker options with searchable collection selection and native drag-and-drop
+  ordering. Keep collection priority in browsing and search results while preserving existing saved
+  options.
+
 ## 0.0.4
 
 ### Patch Changes
