@@ -143,10 +143,15 @@ export default defineHook(({ init }, context) => {
 										currentSnapshot,
 										force: true,
 									})
-									if (diff)
+									if (diff) {
+										logger.error(
+											'❌ Remaining schema diff after final application',
+										)
+										logger.error(diff)
 										throw new Error(
 											`Schema did not converge after ${maxRetries} applications`,
 										)
+									}
 									break
 								}
 							} while (diff)

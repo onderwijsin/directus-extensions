@@ -82,10 +82,16 @@ Omitting the folder or output option uses the configured default folder. Supplyi
   It writes into the output directory without clearing it; use an empty directory to avoid retaining
   obsolete definitions.
 
-`apply` repeats diff/apply passes until no changes remain, with at most ten unsuccessful passes.
-Missing or invalid metadata, malformed recognized YAML files, service errors, and failure to
-converge produce a nonzero exit code. Commands normally terminate the process explicitly;
-`SCHEMA_SPLIT_HARD_EXIT=false` is useful when debugging open handles.
+`apply` repeats diff/apply passes until no changes remain, with at most ten applications. If the
+fresh diff after the tenth application still contains changes, it logs the full remaining diff once
+at error level as a separate structured log entry after a descriptive message, before reporting
+`Schema did not converge after 10 applications`. This includes collections, fields, relations, and
+system fields. Detailed diffs are not logged during intermediate passes or on successful
+convergence, including convergence on the tenth application. Inspect the remaining diff for snapshot
+configuration problems before retrying. Missing or invalid metadata, malformed recognized YAML
+files, service errors, and failure to converge produce a nonzero exit code. Commands normally
+terminate the process explicitly; `SCHEMA_SPLIT_HARD_EXIT=false` is useful when debugging open
+handles.
 
 `apply` uses only the `metadata.yml` directly in the selected snapshot folder. Metadata in
 subfolders cannot replace it or change the snapshot root.
