@@ -285,7 +285,7 @@ describe('seeder registration and CLI', () => {
 			const warn = vi.spyOn(logger, 'warn')
 			expect(await runCommand(service.program, 'system', '--mode', mode, '--force')).toBe(0)
 			expect(warn).toHaveBeenCalledExactlyOnceWith(
-				`No supported system seed files found in "${directory}"; skipping seeding`,
+				`No selected system seed files found in "${directory}"; skipping seeding`,
 			)
 			expectNoServiceCalls(service)
 			expect(mocks.releaseLock).toHaveBeenCalledOnce()
@@ -306,7 +306,7 @@ describe('seeder registration and CLI', () => {
 			await runCommand(service.program, 'system', '--mode', 'full-idempotent', '--force'),
 		).toBe(0)
 		expect(warn).toHaveBeenCalledExactlyOnceWith(
-			`No supported system seed files found in "${directory}"; skipping seeding`,
+			`No selected system seed files found in "${directory}"; skipping seeding`,
 		)
 		expectNoServiceCalls(service)
 	})

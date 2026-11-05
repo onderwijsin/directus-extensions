@@ -31,7 +31,7 @@ export async function seedSystem(
 	const collections = getSystemCollections(config)
 	if (dataProviders === null || dataProviders.length === 0) {
 		const { seedsFolder } = getFolderPaths(env)
-		logger.warn(`No supported system seed files found in "${seedsFolder}"; skipping seeding`)
+		logger.warn(`No selected system seed files found in "${seedsFolder}"; skipping seeding`)
 		return null
 	}
 	const systemDataProvider = createSeedDataProvider([...dataProviders])
