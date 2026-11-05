@@ -1,12 +1,15 @@
 import type { HookConfig } from '@onderwijsin/directus-extension-utils/types'
 import type { Command } from 'commander'
 
+import process from 'node:process'
+
 import { defineHook } from '@onderwijsin/directus-extension-utils/hook'
 import {
 	extensionSetup,
 	validateExtensionOptions,
 } from '@onderwijsin/directus-extension-utils/server'
 
+import { registerConfigCommand } from './commands/configCommand'
 import { registerExtractCommand } from './commands/extractCommand'
 import { registerSystemCommand } from './commands/systemCommand'
 import { envSchema } from './env.schema'
@@ -42,10 +45,15 @@ export const registerSeeder: HookConfig = (register, context) => {
 			.command('seed')
 			.description('Directus Seeder commands for system data and extraction')
 		registerSystemCommand(command, seederContext)
+		registerConfigCommand(command, seederContext)
 		if (extractionAvailable) registerExtractCommand(command, seederContext)
 	})
 
-	if (extractionAvailable) registerAutoExtractSystemHook(action, seederContext)
+	// Directus loads hooks before parsing CLI arguments. Inspection must not eagerly load
+	// consumer JSON through auto-extraction, including when --defaults bypasses that file.
+	const configInspection = process.argv[2] === 'seed' && process.argv[3] === 'config'
+	if (extractionAvailable && !configInspection)
+		registerAutoExtractSystemHook(action, seederContext)
 	setup.end()
 }
 

@@ -69,6 +69,94 @@ async function seed(environment: Record<string, string>, ...args: string[]) {
 }
 
 describe('installed seeder CLI', () => {
+	it('inspects configuration without seed input and bypasses consumer files for defaults', async () => {
+		const directory = `/tmp/seeder-config-e2e-${randomUUID()}`
+		const environment = {
+			LOG_LEVEL: 'silent',
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_AUTO_EXTRACT: 'true',
+			SEEDER_CONFIG_PATH: `${directory}/config.json`,
+			SEEDER_SEEDS_DIR: `${directory}/missing-seeds`,
+			SEEDER_MODE: 'insert-update',
+		}
+		try {
+			const defaults = await seed(
+				environment,
+				'config',
+				'--defaults',
+				'--collection',
+				'directus_roles',
+			)
+			expect(JSON.parse(defaults.stdout)).toMatchObject({
+				system: {
+					order: ['directus_roles'],
+					collections: {
+						directus_roles: {
+							operationMode: 'insert-missing',
+							fields: ['id', 'name', 'icon', 'description', 'parent'],
+						},
+					},
+				},
+			})
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'if (require("node:fs").existsSync(process.argv[1])) throw new Error("Inspection created its input directory")',
+				directory,
+			])
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'const fs = require("node:fs"); fs.mkdirSync(process.argv[1]); fs.writeFileSync(`${process.argv[1]}/config.json`, process.argv[2])',
+				directory,
+				JSON.stringify({
+					$comment: 'Inspection fixture',
+					system: {
+						order: ['directus_roles'],
+						collections: {
+							directus_roles: { fields: ['id'], operationMode: 'full-idempotent' },
+						},
+					},
+				}),
+			])
+			const effective = await seed(environment, 'config')
+			expect(JSON.parse(effective.stdout)).toMatchObject({
+				system: {
+					collections: {
+						directus_roles: {
+							fields: ['id'],
+							filter: null,
+							operationMode: 'full-idempotent',
+						},
+						directus_presets: { operationMode: 'insert-update' },
+					},
+				},
+			})
+			const contents = await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'process.stdout.write(JSON.stringify(require("node:fs").readdirSync(process.argv[1])))',
+				directory,
+			])
+			expect(JSON.parse(contents.stdout)).toEqual(['config.json'])
+		} finally {
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+				directory,
+			])
+		}
+	})
+
 	it('extracts and synchronizes the configured ID range while preserving outside presets', async () => {
 		const min = randomInt(2_000_000, 3_000_000)
 		const max = min + 3

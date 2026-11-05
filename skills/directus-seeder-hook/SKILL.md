@@ -1,6 +1,6 @@
 ---
 name: directus-seeder-hook
-description: Install, configure, seed, extract, and troubleshoot Directus system records.
+description: Install, configure, inspect, seed, extract, and troubleshoot Directus system records.
 ---
 
 # Directus seeder hook
@@ -10,23 +10,29 @@ development extraction.
 
 ## Choose and verify the operation
 
-1. Confirm Directus/Node compatibility, trusted extension loading, runtime dependencies, and access
-   to the configured database, storage, seed, asset, and temporary paths. Complete when the
-   installed CLI lists `seed system`; extraction also requires exact `DEPLOYMENT_ENV=development`.
-   If using `SEEDER_CONFIG_PATH`, verify the JSON file is readable in that runtime and outside
-   extraction output, then review its strict collection overrides, order, and management ranges.
-2. For extraction, verify dedicated output paths, default cleanup, and JSON-only or binary behavior
+1. Confirm Directus/Node compatibility, trusted extension loading, and runtime dependencies. For
+   import or extraction, also verify access to the configured database, storage, seed, asset, and
+   temporary paths. Complete when the installed CLI lists `seed config` and `seed system`;
+   extraction also requires exact `DEPLOYMENT_ENV=development`. If using `SEEDER_CONFIG_PATH`,
+   verify the JSON file is readable in that runtime and outside extraction output, then review its
+   strict collection overrides, order, and management ranges.
+2. Before customizing collection properties, inspect `seed config --defaults --collection <name>`
+   and compare it with `seed config --collection <name>`. Complete when the JSON confirms the
+   intended resolved mode and every retained field, query property, and management range. A supplied
+   `fields` array replaces the whole built-in projection; include every field you want to retain.
+   `--defaults` skips the consumer file and global mode; normal inspection reports invalid files.
+3. For extraction, verify dedicated output paths, default cleanup, and JSON-only or binary behavior
    below. Use `--skip-clean` only for a manual run that must retain other output. Complete when
    every selected JSON file exists (including `[]` for empty collections), expected binaries exist,
    and logs report no failures. After a read error or interruption, fix the cause and rerun to
    recover output.
-3. For seeding, resolve include/exclude and review selected files plus any required Flow metadata,
+4. For seeding, resolve include/exclude and review selected files plus any required Flow metadata,
    IDs, environment transformations, and target backup. Resolve every selected effective mode:
    explicit CLI `--mode`, then collection `operationMode`, then `SEEDER_MODE`/`insert-missing`.
    Review the strongest safety requirement across that selection and any full-idempotent ranges;
    extraction filters never protect omitted in-range records from deletion. Complete when exit code
    zero, logs, and target records confirm the expected result.
-4. After seeding, inspect Flow operation links, policy TFA, matching root-user status/credentials,
+5. After seeding, inspect Flow operation links, policy TFA, matching root-user status/credentials,
    and uploaded assets where selected. Complete when those results match the intended environment.
 
 The reference below covers the complete consumer contract, including optional JSON overrides for
@@ -35,7 +41,7 @@ not select collections.
 
 Seed Directus system records from JSON, extract their current state, and optionally extract changes
 automatically during development. Use `seed system` to import records and `seed extract` to export
-them.
+them. Use `seed config` to inspect collection configuration without importing or extracting data.
 
 ## Install
 
@@ -85,15 +91,76 @@ docker compose exec -e DEPLOYMENT_ENV=development directus node /directus/cli.js
 CLI collection names are separate space-delimited arguments, not comma-separated tokens. CLI lists
 override their respective environment lists; exclusions always win. During extraction,
 include/exclude selects JSON output only: it never narrows cleanup or binary asset extraction.
-Selection retains the configured processing order and supports only the built-in collections.
-Neither command accepts a positional seed path; configure directories through the environment.
+Selection retains the configured processing order and supports only the built-in collections. Import
+and extraction accept no positional seed path; configure directories through the environment.
 Extraction cleans output and writes JSON plus binaries by default. `--skip-clean` is manual-only;
 there is no environment setting to skip cleanup.
 
 `seed system` does not run automatically at server startup. Run it explicitly after database
 bootstrap/schema setup. It clears the Directus system cache after seeding, except when no selected
-seed files exist. Commands release their own bulk-operation flag and call `process.exit()` in their
-final cleanup.
+seed files exist. Import and extraction release their own bulk-operation flag and call
+`process.exit()` in their final cleanup.
+
+### Inspect collection configuration
+
+With the hook enabled, configuration inspection is available in every deployment environment:
+
+```sh
+# Effective collection configuration: built-ins plus consumer overrides and resolved modes
+npx directus seed config
+# Built-in collection configuration and the built-in global mode
+npx directus seed config --defaults
+# Effective configuration for one supported collection
+npx directus seed config --collection directus_roles
+# Built-in configuration for one supported collection
+npx directus seed config --defaults --collection directus_roles
+```
+
+Built-ins are the package's collection settings. Consumer overrides are the optional JSON file's
+explicit properties. Effective configuration merges those properties with built-ins and resolves
+each collection's `operationMode`: its JSON override, then `SEEDER_MODE`, then the built-in global
+default `insert-missing`. Every output collection includes its resolved mode. `--defaults` skips
+`SEEDER_CONFIG_PATH` and its file entirely, even if the file is missing or invalid, and ignores
+`SEEDER_MODE` in favor of the built-in global default `insert-missing`. Startup environment
+validation still applies.
+
+Output is JSON with two-space indentation and one final newline, independently of extraction's
+`SEEDER_JSON_INDENT` settings. The command itself writes only configuration JSON to stdout and
+errors to stderr. Directus startup may also log to stdout; use `LOG_LEVEL=silent` when piping the
+JSON, for example with `jq`:
+
+```sh
+LOG_LEVEL=silent npx directus seed config | jq '.system.order'
+```
+
+For example, built-in roles inspection has this structure:
+
+```json
+{
+  "system": {
+    "order": ["directus_roles"],
+    "collections": {
+      "directus_roles": {
+        "operationMode": "insert-missing",
+        "filter": null,
+        "fields": ["id", "name", "icon", "description", "parent"]
+      }
+    }
+  }
+}
+```
+
+`system.order` contains the full resolved order, including built-ins appended after any consumer
+priority prefix. Inspection lists all supported collections regardless of `SEEDER_INCLUDE` or
+`SEEDER_EXCLUDE`; those settings select import and extraction collections. `--collection` filters
+both `order` and `collections` to exactly one supported collection. An unknown collection produces a
+clear error and exit code 1. `seed config` accepts no `--mode`, `--include`, or `--exclude` options.
+
+Normal inspection loads and validates the configured JSON file; a missing, unreadable, malformed, or
+invalid file produces an error and exit code 1 without falling back to defaults. Inspection does not
+read seeds, initialize services, access the database or schema, clear caches, acquire locks, write
+files, or run extraction. It requires no destructive-seeding opt-in or confirmation, even when the
+inspected effective mode is `full-idempotent`.
 
 ## Configuration reference
 
@@ -190,29 +257,31 @@ data-provider API, HTTP endpoint, Studio UI, or Flow operation.
 Set `SEEDER_CONFIG_PATH` to customize existing system collections. When it is unset, the hook uses
 its built-in collection defaults. There is no automatic configuration-file discovery. A configured
 file must be readable by the Directus process; a missing or unreadable file, invalid JSON, or
-invalid configuration aborts before database mutations or extraction output cleanup. This applies
-even when an invalid collection override would be excluded from the command. The effective
-configuration, including built-in defaults, is structurally validated before operations. Load and
-validation errors never silently fall back to defaults.
+invalid configuration fails normal inspection and aborts before database mutations or extraction
+output cleanup. `seed config --defaults` skips this file entirely. Validation applies even when an
+invalid collection override would be excluded from the command. The effective configuration,
+including built-in defaults, is structurally validated before operations. Load and validation errors
+never silently fall back to defaults.
 
-The JSON file is read when runtime configuration is resolved: each CLI invocation reads it again,
-while automatic extraction captures the effective configuration when its hooks register. Restart
-Directus to reload JSON changes for automatic extraction. Environment options remain the validated
-startup snapshot described above.
+The JSON file is read when runtime configuration is resolved: each import, extraction, or normal
+inspection invocation reads it again, while automatic extraction captures the effective
+configuration when its hooks register. Restart Directus to reload JSON changes for automatic
+extraction. Environment options remain the validated startup snapshot described above.
 
 The published package includes `seeder.config.example.json` and `seeder-config.schema.json`. Copy
-both into your Directus project, outside the seed and asset output directories:
+the example into your Directus project, outside the seed and asset output directories, then set
+`$schema` to your installed package as shown below:
 
 ```sh
 cp node_modules/@onderwijsin/directus-seeder-hook/seeder.config.example.json ./seeder.config.json
-cp node_modules/@onderwijsin/directus-seeder-hook/seeder-config.schema.json ./seeder-config.schema.json
 ```
 
 For example, use this `seeder.config.json`:
 
 ```json
 {
-  "$schema": "./seeder-config.schema.json",
+  "$schema": "./node_modules/@onderwijsin/directus-seeder-hook/seeder-config.schema.json",
+  "$comment": "Overrides replace whole properties; inspect built-in defaults before replacing fields.",
   "system": {
     "collections": {
       "directus_presets": {
@@ -236,16 +305,23 @@ file separately, for example at `/directus/seeder.config.json`, and set that run
 the file to a host checkout alone does not make it readable inside Directus. Keep the config and
 schema outside both managed output directories: normal cleanup deletes direct JSON files in the
 seeds directory and, when binary extraction is enabled, all direct regular files in the assets
-directory. Configuration files receive no cleanup exception. `$schema` is optional editor metadata;
-runtime validation uses the hook's schema. The JSON Schema is also exported as
-`@onderwijsin/directus-seeder-hook/seeder-config.schema.json` for tooling. Configuration requires no
-TypeScript loader or additional consumer dependencies.
+directory. Configuration files receive no cleanup exception.
 
-The top-level object accepts only optional string `$schema` metadata and optional `system`. The
-`system` object accepts only `collections` and `order`; `{}` retains all defaults. `collections` is
-an object keyed by any of the supported collection names listed below. Unknown configuration keys
-and unsupported collection names fail validation, including unknown properties inside a collection
-or management object. Each collection accepts these properties:
+For a local npm installation, prefer the `$schema` path above, adjusted to the package's actual
+installed location relative to your config file. It uses the schema shipped with that installed
+version. For Docker or Marketplace installations without a local npm package for your editor, copy
+the shipped `seeder-config.schema.json` alongside the config and use
+`"$schema": "./seeder-config.schema.json"`. Keep that copy aligned with the installed extension. The
+JSON Schema is also exported as `@onderwijsin/directus-seeder-hook/seeder-config.schema.json` for
+tooling. Configuration requires no TypeScript loader or additional consumer dependencies.
+
+The top-level object accepts only optional string `$schema` and `$comment` metadata and optional
+`system`. `$schema` supports editor tooling; `$comment` holds explanatory text. Both are ignored
+when processing collection configuration; runtime validation uses the hook's schema. The `system`
+object accepts only `collections` and `order`; `{}` retains all defaults. `collections` is an object
+keyed by any of the supported collection names listed below. Unknown configuration keys and
+unsupported collection names fail validation, including unknown properties inside a collection or
+management object. Each collection accepts these properties:
 
 | Property        | Accepted value and effect                                                                                                                                              |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -267,6 +343,11 @@ each provided array, `filter`, `deep`, or `management` replaces that whole value
 recursive merge. For example, supplying a presets `filter` replaces the built-in `user = null`
 filter; include that rule yourself if you still need it. `fields`, `filter`, `sort`, and `deep` may
 be `null` to clear an option; `operationMode` and `management` may not.
+
+Before replacing `fields`, inspect `seed config --defaults --collection directus_roles` (or the
+collection you are changing). Copy every built-in field you want to retain into your replacement
+array: unlisted defaults are dropped. For example, `"fields": ["id", "name"]` replaces the entire
+roles projection and omits `icon`, `description`, and `parent`; it does not add to the built-ins.
 
 `system.order` is an array of unique supported collection names forming a priority prefix. Remaining
 built-ins are appended in their original order. It changes processing order without selecting

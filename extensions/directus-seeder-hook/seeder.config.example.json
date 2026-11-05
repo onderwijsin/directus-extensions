@@ -1,5 +1,6 @@
 {
-	"$schema": "./seeder-config.schema.json",
+	"$schema": "./node_modules/@onderwijsin/directus-seeder-hook/seeder-config.schema.json",
+	"$comment": "Only specify overrides. Inspect built-in defaults with directus seed config --defaults; each supplied fields, filter, sort, deep or management value replaces that entire default property.",
 	"system": {
 		"collections": {
 			"directus_presets": {

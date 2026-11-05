@@ -14,6 +14,7 @@ const collectionNameSchema = z.enum(SYSTEM_COLLECTIONS.map(({ collection }) => c
 /** JSON-only consumer configuration; unknown settings and collection names are errors. */
 export const consumerConfigSchema = z.strictObject({
 	$schema: z.string().optional(),
+	$comment: z.string().optional(),
 	system: z
 		.strictObject({
 			collections: z

@@ -5,6 +5,9 @@
 		"$schema": {
 			"type": "string"
 		},
+		"$comment": {
+			"type": "string"
+		},
 		"system": {
 			"type": "object",
 			"properties": {

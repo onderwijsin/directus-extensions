@@ -6,6 +6,7 @@ import {
 	mkdir,
 	mkdtemp,
 	readFile,
+	readdir,
 	realpath,
 	rm,
 	symlink,
@@ -213,6 +214,7 @@ describe('seeder registration and CLI', () => {
 		expect(program.commands.map((command) => command.name())).toEqual(['seed'])
 		expect(program.commands[0]?.commands.map((command) => command.name())).toEqual([
 			'system',
+			'config',
 			'extract',
 		])
 		expect(mocks.autoExtract).toHaveBeenCalledWith(action, expect.any(Object))
@@ -224,9 +226,207 @@ describe('seeder registration and CLI', () => {
 				createProgram({ DEPLOYMENT_ENV }).program.commands[0]?.commands.map((command) =>
 					command.name(),
 				),
-			).toEqual(['system'])
+			).toEqual(['system', 'config'])
 		}
 		expect(mocks.autoExtract).not.toHaveBeenCalled()
+	})
+
+	describe('read-only config inspection', () => {
+		const originalArgv = process.argv
+		beforeEach(() => {
+			process.argv = ['node', '/directus/cli.js', 'seed', 'config']
+		})
+		afterEach(() => {
+			process.argv = originalArgv
+		})
+
+		/**
+		 * Captures the JSON stream while allowing the command to await its flush.
+		 * @returns Captured output chunks.
+		 */
+		function captureOutput() {
+			const chunks: string[] = []
+			vi.spyOn(process.stdout, 'write').mockImplementation((chunk, _encoding, callback) => {
+				chunks.push(String(chunk))
+				callback?.()
+				return true
+			})
+			return chunks
+		}
+
+		it('shows built-in collection settings and modes without seed input, services, secrets or writes', async () => {
+			const missingSeeds = path.join(directory, 'missing-seeds')
+			const service = createProgram({
+				SEEDER_SEEDS_DIR: missingSeeds,
+				SEEDER_INCLUDE: ['directus_presets'],
+				SEEDER_EXCLUDE: ['directus_roles'],
+				DEFAULT_PASSWORD: 'inspection-must-not-expose-this',
+			})
+			const output = captureOutput()
+			expect(await runCommand(service.program, 'config')).toBe(0)
+			expect(JSON.parse(output.join(''))).toEqual({
+				system: {
+					order: SYSTEM_COLLECTIONS.map(({ collection }) => collection),
+					collections: Object.fromEntries(
+						SYSTEM_COLLECTIONS.map(({ collection, ...settings }) => [
+							collection,
+							{ ...settings, operationMode: 'insert-missing' },
+						]),
+					),
+				},
+			})
+			expect(output.join('')).toMatch(/^\{\n  "system":/u)
+			expect(output.join('')).toMatch(/\n$/u)
+			expect(await readdir(directory)).toEqual([])
+			expectNoServiceCalls(service)
+			expect(mocks.acquireLock).not.toHaveBeenCalled()
+		})
+
+		it('shows shallow consumer overrides, resolved order and global mode fallback without opt-in', async () => {
+			const configPath = path.join(directory, 'consumer.json')
+			await writeFile(
+				configPath,
+				JSON.stringify({
+					$comment: 'Only overrides, never exported as runtime settings',
+					system: {
+						order: ['directus_presets'],
+						collections: {
+							directus_presets: {
+								operationMode: 'full-idempotent',
+								fields: ['id'],
+								management: { type: 'id-range', max: 50000 },
+							},
+						},
+					},
+				}),
+			)
+			const contents = await readFile(configPath, 'utf8')
+			const service = createProgram({
+				SEEDER_CONFIG_PATH: configPath,
+				SEEDER_MODE: 'insert-update',
+				DEPLOYMENT_ENV: 'development',
+				SEEDER_AUTO_EXTRACT: true,
+			})
+			const output = captureOutput()
+			expect(await runCommand(service.program, 'config')).toBe(0)
+			expect(JSON.parse(output.join(''))).toMatchObject({
+				system: {
+					order: [
+						'directus_presets',
+						...SYSTEM_COLLECTIONS.map(({ collection }) => collection).filter(
+							(name) => name !== 'directus_presets',
+						),
+					],
+					collections: {
+						directus_presets: {
+							operationMode: 'full-idempotent',
+							fields: ['id'],
+							filter: { user: { _null: true } },
+							sort: ['-role', 'id'],
+							management: { type: 'id-range', max: 50000 },
+						},
+						directus_roles: { operationMode: 'insert-update' },
+					},
+				},
+			})
+			expect(output.join('')).not.toContain('$comment')
+			expect(await readFile(configPath, 'utf8')).toBe(contents)
+			expect(await readdir(directory)).toEqual(['consumer.json'])
+			expectNoServiceCalls(service)
+			expect(mocks.acquireLock).not.toHaveBeenCalled()
+			expect(mocks.autoExtract).not.toHaveBeenCalled()
+		})
+
+		it('selects one collection and bypasses missing or invalid consumer files and global settings for defaults', async () => {
+			const configPath = path.join(directory, 'consumer.json')
+			const service = createProgram({
+				SEEDER_CONFIG_PATH: configPath,
+				SEEDER_MODE: 'insert-update',
+				DEPLOYMENT_ENV: 'development',
+				SEEDER_AUTO_EXTRACT: true,
+			})
+			const roles = SYSTEM_COLLECTIONS.find(
+				({ collection }) => collection === 'directus_roles',
+			)
+			const { collection: _collection, ...settings } = roles ?? {}
+			const output = captureOutput()
+			for (const invalid of [
+				undefined,
+				'{broken',
+				'{"system":{"collections":{"unknown":{}}}}',
+			]) {
+				if (invalid !== undefined) await writeFile(configPath, invalid)
+				output.length = 0
+				expect(
+					await runCommand(
+						service.program,
+						'config',
+						'--defaults',
+						'--collection',
+						'directus_roles',
+					),
+				).toBe(0)
+				expect(JSON.parse(output.join(''))).toEqual({
+					system: {
+						order: ['directus_roles'],
+						collections: {
+							directus_roles: { ...settings, operationMode: 'insert-missing' },
+						},
+					},
+				})
+			}
+			await rm(configPath)
+			output.length = 0
+			expect(await runCommand(service.program, 'config', '--defaults')).toBe(0)
+			expect(JSON.parse(output.join(''))).toMatchObject({
+				system: { order: SYSTEM_COLLECTIONS.map(({ collection }) => collection) },
+			})
+			expectNoServiceCalls(service)
+			expect(mocks.acquireLock).not.toHaveBeenCalled()
+			expect(mocks.autoExtract).not.toHaveBeenCalled()
+		})
+
+		it('preserves automatic-hook registration unless both CLI tokens identify seed config', () => {
+			for (const args of [
+				['seed', 'system'],
+				['other', 'config'],
+			]) {
+				process.argv = ['node', '/directus/cli.js', ...args]
+				createProgram({ DEPLOYMENT_ENV: 'development', SEEDER_AUTO_EXTRACT: true })
+			}
+			expect(mocks.autoExtract).toHaveBeenCalledTimes(2)
+		})
+
+		it('shows one effective collection and rejects unknown names and invalid consumer files with exit 1', async () => {
+			const service = createProgram({ SEEDER_MODE: 'insert-update' })
+			const output = captureOutput()
+			expect(
+				await runCommand(service.program, 'config', '--collection', 'directus_roles'),
+			).toBe(0)
+			expect(JSON.parse(output.join(''))).toMatchObject({
+				system: {
+					order: ['directus_roles'],
+					collections: { directus_roles: { operationMode: 'insert-update' } },
+				},
+			})
+			const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+			output.length = 0
+			expect(await runCommand(service.program, 'config', '--collection', 'unknown')).toBe(1)
+			expect(error).toHaveBeenLastCalledWith(
+				'Failed to inspect Seeder configuration: Unknown system collection: "unknown"',
+			)
+			const missingConfig = createProgram({
+				SEEDER_CONFIG_PATH: path.join(directory, 'missing.json'),
+			})
+			expect(await runCommand(missingConfig.program, 'config')).toBe(1)
+			expect(error).toHaveBeenLastCalledWith(
+				expect.stringContaining('Failed to load Seeder configuration'),
+			)
+			expect(output).toEqual([])
+			expectNoServiceCalls(service)
+			expectNoServiceCalls(missingConfig)
+			expect(mocks.acquireLock).not.toHaveBeenCalled()
+		})
 	})
 
 	it.each(['system', 'extract'])(

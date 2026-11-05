@@ -102,6 +102,7 @@ describe('system JSON consumer configuration', () => {
 	})
 
 	it.each([
+		{ $comment: 1 },
 		{ core: {} },
 		{ system: { collections: { unknown: {} } } },
 		{ system: { order: ['directus_roles', 'directus_roles'] } },

@@ -73,11 +73,12 @@ validation and strategies without adding transactions or rollback.
 Add optional `SEEDER_CONFIG_PATH` for a consumer JSON file resolved relative to the Directus
 runtime working directory. With no path, retain built-in system collection defaults. An explicitly
 configured missing, unreadable, malformed, or invalid file fails before database mutations or
-extraction cleanup, without fallback. Read JSON when resolving runtime configuration: each CLI
-invocation reloads it, while automatic extraction captures it at hook registration. Validate query
-structure before cleanup; database-specific field and relation checks remain Directus read behavior.
+extraction cleanup, without fallback. Read JSON when resolving runtime configuration: each import,
+extraction, or normal inspection invocation reloads it, while automatic extraction captures it at
+hook registration. Validate query structure before cleanup; database-specific field and relation
+checks remain Directus read behavior.
 Keep config files outside managed seed/asset output, with no cleanup exception. Strictly validate
-optional `$schema` metadata and `system.collections`/`order`,
+optional string `$schema`/`$comment` metadata and `system.collections`/`order`,
 rejecting unknown keys and unsupported collections. Allow existing collections to override mode,
 fields, filter, sort, deep query, and management. Merge shallowly by property: provided arrays and
 objects replace whole values; omitted properties retain defaults. Allow `null` to clear only fields,
@@ -87,6 +88,11 @@ and exported JSON Schema without a TypeScript loader or new dependencies. The ex
 `operationMode`, retaining the global fallback; its range limits extraction and full-idempotent
 synchronization, not insert-mode imports. Batch/error settings, automatic-extraction selection,
 and cleanup remain unchanged.
+
+Add read-only `seed config` inspection of effective collection settings, full resolved order, and
+resolved modes, with `--defaults` for built-ins independent of the consumer JSON file and global
+mode, and optional `--collection` filtering. Ignore `$comment` explanatory metadata during
+processing. Inspection reads no seeds or database state and requires no destructive-seeding opt-in.
 
 Support optional consumer per-collection `management` with only `type: 'id-range'`, inclusive `min`
 and exclusive `max`, requiring at least one safe-integer numeric bound and `min < max` when both
