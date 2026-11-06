@@ -535,14 +535,26 @@ describe('seeder registration and CLI', () => {
 		expect(mocks.autoExtract).not.toHaveBeenCalled()
 	})
 
-	it('blocks full-idempotent without its environment opt-in and releases the process lock', async () => {
-		await writeFile(path.join(directory, 'directus_roles.json'), '[]')
-		const { program, ItemsService } = createProgram()
-		expect(await runCommand(program, 'system', '--mode', 'full-idempotent', '--force')).toBe(1)
-		expect(ItemsService).not.toHaveBeenCalled()
-		expect(mocks.acquireLock).toHaveBeenCalledOnce()
-		expect(mocks.releaseLock).toHaveBeenCalledOnce()
-	})
+	it.each([false, true])(
+		'blocks full-idempotent without its environment opt-in (full reset=%s) and releases the process lock',
+		async (fullReset) => {
+			await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+			const { program, ItemsService } = createProgram()
+			expect(
+				await runCommand(
+					program,
+					'system',
+					'--mode',
+					'full-idempotent',
+					'--force',
+					...(fullReset ? ['--full-reset'] : []),
+				),
+			).toBe(1)
+			expect(ItemsService).not.toHaveBeenCalled()
+			expect(mocks.acquireLock).toHaveBeenCalledOnce()
+			expect(mocks.releaseLock).toHaveBeenCalledOnce()
+		},
+	)
 
 	it.each([
 		{ kind: 'missing', message: 'Seed directory does not exist' },
@@ -2104,6 +2116,201 @@ describe('seeder registration and CLI', () => {
 		expect(service.deleteMany).not.toHaveBeenCalled()
 	})
 
+	describe('full reset', () => {
+		it.each([
+			{ type: 'id-range', max: 50000 },
+			{ type: 'relation', field: 'user', collection: 'directus_users' },
+			{ type: 'manifest' },
+		])(
+			'ignores $type management without management inputs and deletes outside the usual scope',
+			async (management) => {
+				const configPath = path.join(directory, 'consumer.config')
+				const config = JSON.stringify({
+					system: {
+						collections: {
+							directus_presets: { operationMode: 'insert-missing', management },
+						},
+					},
+				})
+				await writeFile(configPath, config)
+				const rows = [{ id: 50001, bookmark: 'Restored' }]
+				await writeFile(path.join(directory, 'directus_presets.json'), JSON.stringify(rows))
+				const service = createProgram({
+					SEEDER_CONFIG_PATH: configPath,
+					SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+				})
+				service.readByQuery
+					.mockResolvedValueOnce([{ id: 50001 }])
+					.mockResolvedValueOnce([{ id: 2 }, { id: 60000 }])
+				expect(
+					await runCommand(
+						service.program,
+						'system',
+						'--mode',
+						'full-idempotent',
+						'--full-reset',
+						'--include',
+						'directus_presets',
+						'--yes',
+					),
+				).toBe(0)
+				expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith(rows)
+				expect(service.readByQuery).toHaveBeenLastCalledWith({
+					fields: ['id'],
+					filter: { id: { _nin: [50001] } },
+					limit: -1,
+				})
+				expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([2, 60000])
+				expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+					'directus_presets',
+					expect.any(Object),
+				)
+				expect(await readFile(configPath, 'utf8')).toBe(config)
+				expect((await readdir(directory)).sort()).toEqual([
+					'consumer.config',
+					'directus_presets.json',
+				])
+			},
+		)
+
+		it('clears a selected collection with [] but skips it when its seed file is missing', async () => {
+			presets.management = { type: 'manifest' }
+			const filename = path.join(directory, 'directus_presets.json')
+			await writeFile(filename, '[]')
+			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+			service.readByQuery.mockResolvedValue([{ id: 2 }, { id: 60000 }])
+			const run = () =>
+				runCommand(
+					service.program,
+					'system',
+					'--mode',
+					'full-idempotent',
+					'--full-reset',
+					'--include',
+					'directus_presets',
+					'--yes',
+				)
+			expect(await run()).toBe(0)
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+				fields: ['id'],
+				filter: { id: { _nin: [] } },
+				limit: -1,
+			})
+			expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([2, 60000])
+			await rm(filename)
+			vi.clearAllMocks()
+			expect(await run()).toBe(0)
+			expectNoServiceCalls(service)
+		})
+
+		it.each(['insert-missing', 'insert-update'])(
+			'rejects an effective %s mode globally before mutations and confirmation',
+			async (operationMode) => {
+				const configPath = path.join(directory, 'consumer.config')
+				await writeFile(
+					configPath,
+					JSON.stringify({
+						system: { collections: { directus_presets: { operationMode } } },
+					}),
+				)
+				await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+				await writeFile(path.join(directory, 'directus_presets.json'), '[]')
+				const service = createProgram({
+					SEEDER_CONFIG_PATH: configPath,
+					SEEDER_MODE: 'full-idempotent',
+					SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+					SEEDER_CONTINUE_ON_ERROR: true,
+				})
+				const errorLog = vi.spyOn(logger, 'error')
+				const skip = vi.spyOn(confirmations, 'shouldSkipConfirmation')
+				expect(await runCommand(service.program, 'system', '--full-reset')).toBe(1)
+				expect(errorLog).toHaveBeenCalledWith(
+					expect.stringContaining(
+						'--full-reset requires full-idempotent mode for collection "directus_presets"',
+					),
+				)
+				expectNoServiceCalls(service)
+				expect(skip).not.toHaveBeenCalled()
+			},
+		)
+
+		it('checks only included, non-excluded collections with present seed files', async () => {
+			presets.operationMode = 'insert-update'
+			await writeFile(path.join(directory, 'directus_presets.json'), '[]')
+			await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+			await writeFile(
+				path.join(directory, 'directus_policies.json'),
+				'{invalid unselected data',
+			)
+			const service = createProgram({
+				SEEDER_MODE: 'full-idempotent',
+				SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+			})
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--full-reset',
+					'--include',
+					'directus_roles',
+					'directus_presets',
+					'directus_access',
+					'--exclude',
+					'directus_presets',
+					'--yes',
+				),
+			).toBe(0)
+			expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
+				'directus_roles',
+				expect.any(Object),
+			)
+		})
+
+		it('preserves global seed-file preflight before any full reset mutations', async () => {
+			await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+			await writeFile(path.join(directory, 'directus_presets.json'), '{broken')
+			const service = createProgram({
+				SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+				SEEDER_CONTINUE_ON_ERROR: true,
+			})
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--mode',
+					'full-idempotent',
+					'--full-reset',
+					'--yes',
+				),
+			).toBe(1)
+			expectNoServiceCalls(service)
+		})
+
+		it('warns about the entire collection, honors cancellation and DELETE, and retains --yes/--force', async () => {
+			await writeFile(path.join(directory, 'directus_presets.json'), '[]')
+			presets.management = { type: 'manifest' }
+			presets.operationMode = 'full-idempotent'
+			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+			vi.spyOn(confirmations, 'shouldSkipConfirmation').mockImplementation((force) => force)
+			const explicit = vi.spyOn(confirmations, 'confirmExplicit').mockResolvedValue(false)
+			expect(await runCommand(service.program, 'system', '--full-reset')).toBe(0)
+			expect(explicit).toHaveBeenCalledExactlyOnceWith(
+				expect.stringContaining('ENTIRE selected collection'),
+				'DELETE',
+				logger,
+			)
+			expectNoServiceCalls(service)
+			explicit.mockResolvedValue(true)
+			expect(await runCommand(service.program, 'system', '--full-reset')).toBe(0)
+			expect(service.clearCache).toHaveBeenCalledOnce()
+			explicit.mockClear()
+			for (const flag of ['--yes', '--force'])
+				expect(await runCommand(service.program, 'system', '--full-reset', flag)).toBe(0)
+			expect(explicit).not.toHaveBeenCalled()
+			expect(service.clearCache).toHaveBeenCalledTimes(3)
+		})
+	})
+
 	it.each(['insert-missing', 'insert-update'])(
 		'keeps %s unchanged for seed IDs outside configured management',
 		async (mode) => {
@@ -2879,28 +3086,30 @@ describe('seeder registration and CLI', () => {
 		})
 	})
 
-	it.each([['--json-only', '--assets'], ['--assets', '--json-only'], ['--clear']])(
-		'rejects invalid extraction flags %s %s before lock, read, or cleanup',
-		async (...flags) => {
-			const stale = path.join(directory, 'stale.json')
-			await writeFile(stale, 'stale')
-			const service = createProgram({ DEPLOYMENT_ENV: 'development' })
-			await expect(
-				service.program.parseAsync(['seed', 'extract', ...flags], { from: 'user' }),
-			).rejects.toMatchObject({ exitCode: 1 })
-			const message = service.writeErr.mock.calls.flat().join('')
-			if (flags.includes('--clear')) expect(message).toContain("unknown option '--clear'")
-			else {
-				expect(message).toContain('--json-only')
-				expect(message).toContain('--assets')
-				expect(message).toMatch(/cannot be used|conflict/iu)
-			}
-			expect(mocks.acquireLock).not.toHaveBeenCalled()
-			expect(service.readByQuery).not.toHaveBeenCalled()
-			expect(service.readFiles).not.toHaveBeenCalled()
-			expect(await readFile(stale, 'utf8')).toBe('stale')
-		},
-	)
+	it.each([
+		['--json-only', '--assets'],
+		['--assets', '--json-only'],
+		['--clear'],
+		['--full-reset'],
+	])('rejects invalid extraction flags %s %s before lock, read, or cleanup', async (...flags) => {
+		const stale = path.join(directory, 'stale.json')
+		await writeFile(stale, 'stale')
+		const service = createProgram({ DEPLOYMENT_ENV: 'development' })
+		await expect(
+			service.program.parseAsync(['seed', 'extract', ...flags], { from: 'user' }),
+		).rejects.toMatchObject({ exitCode: 1 })
+		const message = service.writeErr.mock.calls.flat().join('')
+		if (flags.length === 1) expect(message).toContain(`unknown option '${flags[0]}'`)
+		else {
+			expect(message).toContain('--json-only')
+			expect(message).toContain('--assets')
+			expect(message).toMatch(/cannot be used|conflict/iu)
+		}
+		expect(mocks.acquireLock).not.toHaveBeenCalled()
+		expect(service.readByQuery).not.toHaveBeenCalled()
+		expect(service.readFiles).not.toHaveBeenCalled()
+		expect(await readFile(stale, 'utf8')).toBe('stale')
+	})
 
 	it('cleans configured external directories while preserving adjacent files', async () => {
 		const seeds = path.join(directory, 'external-seeds')

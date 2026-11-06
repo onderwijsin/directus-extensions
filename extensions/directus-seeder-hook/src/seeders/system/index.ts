@@ -16,12 +16,14 @@ import { getSystemCollections } from './resolveConfig'
  * @param context Directus hook context
  * @param config Seeder configuration
  * @param dataProviders Selected input loaded and validated before CLI confirmation
+ * @param fullReset Whether this import deliberately ignores management boundaries
  * @returns Seeding results, or null when no selected seed files exist
  */
 export async function seedSystem(
 	context: ServiceAdapterContext,
 	config: SeederConfig,
 	dataProviders: CollectionDataProvider[] | null,
+	fullReset = false,
 ): Promise<SeedResult[] | null> {
 	const { logger, env } = context
 	const performanceTracker = createPerformanceTracker()
@@ -56,6 +58,7 @@ export async function seedSystem(
 				performanceTracker,
 				results,
 				'system',
+				fullReset,
 			)
 
 			return results

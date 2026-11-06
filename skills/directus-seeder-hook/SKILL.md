@@ -93,6 +93,7 @@ docker compose exec -e DEPLOYMENT_ENV=development directus node /directus/cli.js
 | Option                           | `seed system`                                                                                                                                                           | `seed extract`                                                                                         |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `-m, --mode <mode>`              | `insert-missing`, `insert-update`, or `full-idempotent` (case-sensitive). Overrides every collection mode; omitted: use collection `operationMode`, then `SEEDER_MODE`. | —                                                                                                      |
+| `--full-reset`                   | Ignore configured management boundaries for this import; all selected collections with seed files must resolve to `full-idempotent`.                                    | —                                                                                                      |
 | `-i, --include <collections...>` | Select supported collections.                                                                                                                                           | Select collections whose JSON is extracted.                                                            |
 | `-e, --exclude <collections...>` | Exclude collections after inclusion.                                                                                                                                    | Exclude collections after inclusion.                                                                   |
 | `-f, --force`                    | Skip confirmation prompts.                                                                                                                                              | —                                                                                                      |
@@ -576,8 +577,25 @@ nor managed-ID manifests. Explicit CLI `--mode` preserves the configured managem
 collection has management configured by default, including `directus_presets`; without it,
 full-idempotent retains whole-collection synchronization. Before the first mutation, preflight
 validates every selected collection's required input and every effective full-idempotent management
-boundary. Required preflight errors abort the entire import even with
-`SEEDER_CONTINUE_ON_ERROR=true`.
+boundary unless `--full-reset` is supplied. Required preflight errors abort the entire import even
+with `SEEDER_CONTINUE_ON_ERROR=true`.
+
+### Full reset
+
+Use `--full-reset` for a whole-collection full-idempotent import even when management is configured:
+
+```sh
+SEEDER_ENABLE_FULL_IDEMPOTENT=true npx directus seed system --mode full-idempotent --full-reset --include directus_roles --yes
+```
+
+Every selected collection with a present seed file must have effective mode `full-idempotent`;
+`--mode` can override configured modes. The existing environment opt-in and confirmation rules still
+apply. This option ignores ID-range, relation, and manifest boundaries for this execution, so it can
+delete unmanaged records outside the normal scope. It does not read relation sources or manifests
+for management, and leaves configuration and management files unchanged. A seed `[]` clears the
+entire selected collection; a missing seed file skips it. Include/exclude and other required
+preflight checks still apply. This synchronizes records using the existing unbounded full-idempotent
+behavior; it does not reset the schema or reinsert every record.
 
 ### ID-range management
 
@@ -630,9 +648,9 @@ for deletion on import. Existing unreadable or invalid manifests fail extraction
 overwritten. Manifest replacement is atomic so an interrupted write cannot truncate existing
 history; extraction still has no whole-run rollback.
 
-Only `full-idempotent` import reads manifests, and import leaves them unchanged. Before any selected
-collection is mutated, preflight validates every required manifest and seed ID against the live
-primary-key type. A missing, unreadable, or invalid manifest, a missing seed ID, or a seed ID
+Only bounded `full-idempotent` import reads manifests, and import leaves them unchanged. Before any
+selected collection is mutated, preflight validates every required manifest and seed ID against the
+live primary-key type. A missing, unreadable, or invalid manifest, a missing seed ID, or a seed ID
 outside the manifest aborts the entire import, even with `SEEDER_CONTINUE_ON_ERROR=true`.
 
 - A missing target seed file skips its collection without reading the manifest.
@@ -660,16 +678,16 @@ system collections listed above; this does not add custom collections or a core 
 relationship must point directly to the related collection's `id` primary key; relation paths,
 aliases, compound relationships, and nested relation objects are unsupported.
 
-For a full-idempotent import with a present target file, the source must be a readable, valid JSON
-array with explicit IDs. IDs and foreign-key values must match the live schema: canonical lowercase
-UUID strings, nonempty strings, or safe-integer numbers, without numeric-string coercion. UUID
-inputs with uppercase letters are rejected before mutations to keep membership consistent across
-database representations. Other string keys are compared exactly and retain their case. Duplicate
-source IDs are invalid. Every target seed row requires its own explicit `id` and a scalar value for
-the configured field (`policy` here) in the source ID set. Missing, null, nested, or out-of-set
-foreign keys fail preflight. Only raw source `id` values define membership: source filters, ID
-ranges, and environment transformations do not narrow that membership, and source management is not
-followed recursively. Reading a source does not import its records.
+For a bounded full-idempotent import with a present target file, the source must be a readable,
+valid JSON array with explicit IDs. IDs and foreign-key values must match the live schema: canonical
+lowercase UUID strings, nonempty strings, or safe-integer numbers, without numeric-string coercion.
+UUID inputs with uppercase letters are rejected before mutations to keep membership consistent
+across database representations. Other string keys are compared exactly and retain their case.
+Duplicate source IDs are invalid. Every target seed row requires its own explicit `id` and a scalar
+value for the configured field (`policy` here) in the source ID set. Missing, null, nested, or
+out-of-set foreign keys fail preflight. Only raw source `id` values define membership: source
+filters, ID ranges, and environment transformations do not narrow that membership, and source
+management is not followed recursively. Reading a source does not import its records.
 
 Before any selected collection is mutated, full-idempotent preflight validates the relationship
 schema, source IDs, target membership, and existing target seed-ID collisions. An existing row with

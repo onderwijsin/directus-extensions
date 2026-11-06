@@ -155,6 +155,13 @@ opt-in, prompts, mode resolution, and insert-mode behavior. Consumers may delibe
 historical IDs to relinquish management after reviewing remaining target rows. Store no lifecycle
 statuses, timestamps, or tombstones.
 
+Add import-only `seed system --full-reset` to ignore ID-range, relation, and manifest management
+boundaries for the current execution. Require effective `full-idempotent` mode for every selected
+collection with a present seed file, preserving mode overrides, opt-in, confirmation, selection,
+and global preflight. Use existing unbounded synchronization: `[]` clears the whole collection,
+missing seeds skip it, and unmanaged records may be deleted. Do not read management sources or
+change configuration and management files for this option.
+
 Remove the built-in presets `id < 50000` extraction cap while preserving `user = null`. Without
 consumer configuration, extraction now includes matching presets with IDs at or above 50000. Show
 consumer `management.max = 50000` to restore the extraction cap and bound synchronization; 50000 is

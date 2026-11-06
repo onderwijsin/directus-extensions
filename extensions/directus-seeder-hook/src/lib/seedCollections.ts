@@ -25,6 +25,7 @@ import { toSeedRecord } from './seedItem'
  * @param performanceTracker Performance tracker instance
  * @param results Array to store results
  * @param collectionType Optional string to identify the type of collections (e.g., "development", "system")
+ * @param fullReset Whether this import deliberately ignores management boundaries
  * @returns Updated results array
  */
 export async function seedCollections(
@@ -35,6 +36,7 @@ export async function seedCollections(
 	performanceTracker: PerformanceTracker,
 	results: SeedResult[],
 	collectionType = '',
+	fullReset = false,
 ): Promise<SeedResult[]> {
 	const { logger } = context
 
@@ -48,12 +50,20 @@ export async function seedCollections(
 		const collection = collectionConfigs.find(
 			(entry) => entry.collection === collectionName,
 		) ?? { collection: collectionName }
-		if (getCollectionMode(collection, config) !== OperationMode.FULL_IDEMPOTENT) continue
+		const mode = getCollectionMode(collection, config)
+		if (fullReset && mode !== OperationMode.FULL_IDEMPOTENT) {
+			throw new Error(
+				`--full-reset requires full-idempotent mode for collection "${collectionName}"`,
+			)
+		}
+		if (mode !== OperationMode.FULL_IDEMPOTENT) continue
 		if (!config.enableFullIdempotent) {
 			throw new Error(
 				'full-idempotent mode is disabled for safety. Set SEEDER_ENABLE_FULL_IDEMPOTENT=true to enable this destructive operation.',
 			)
 		}
+		// Reuse the existing whole-collection strategy without resolving management inputs.
+		if (fullReset) continue
 		let management: ResolvedCollectionManagement | undefined
 		const data = seedData[collectionName] ?? []
 		if (

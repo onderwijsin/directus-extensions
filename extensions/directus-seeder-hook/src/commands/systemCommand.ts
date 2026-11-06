@@ -35,6 +35,10 @@ export const registerSystemCommand = (
 		)
 		.option('-i, --include <collections...>', 'Space-separated collection names to include')
 		.option('-e, --exclude <collections...>', 'Space-separated collection names to exclude')
+		.option(
+			'--full-reset',
+			'Synchronize entire selected collections, ignoring management boundaries (requires full-idempotent)',
+		)
 		.option('-f, --force', 'Skip confirmation prompts for destructive operations')
 		.option(
 			'-y, --yes',
@@ -46,6 +50,7 @@ export const registerSystemCommand = (
 					mode: z.enum(OperationMode).optional(),
 					include: z.array(z.string()).optional(),
 					exclude: z.array(z.string()).optional(),
+					fullReset: z.boolean().optional(),
 					force: z.boolean().optional(),
 					yes: z.boolean().optional(),
 				})
@@ -71,11 +76,23 @@ export const registerSystemCommand = (
 					config,
 				)
 				const dataProviders = await getDataProviders(env, selected)
-				const modes = collections
-					.filter(({ collection }) =>
-						dataProviders?.some((provider) => provider.collectionName === collection),
+				const presentCollections = collections.filter(({ collection }) =>
+					dataProviders?.some((provider) => provider.collectionName === collection),
+				)
+				const modes = presentCollections.map((collection) =>
+					getCollectionMode(collection, config),
+				)
+				if (options.fullReset) {
+					const invalid = presentCollections.find(
+						(collection) =>
+							getCollectionMode(collection, config) !== OperationMode.FULL_IDEMPOTENT,
 					)
-					.map((collection) => getCollectionMode(collection, config))
+					if (invalid) {
+						throw new Error(
+							`--full-reset requires full-idempotent mode for collection "${invalid.collection}". Use --mode full-idempotent to override collection modes.`,
+						)
+					}
+				}
 				const hasFullIdempotent = modes.includes(OperationMode.FULL_IDEMPOTENT)
 
 				// Validate full-idempotent mode is enabled if requested
@@ -111,6 +128,9 @@ export const registerSystemCommand = (
 					} else if (hasFullIdempotent) {
 						const confirmed = await confirmExplicit(
 							'🚨 DANGER: full-idempotent mode will DELETE records not in seed data\n' +
+								(options.fullReset
+									? '--full-reset ignores management boundaries: the ENTIRE selected collection can be affected, including unmanaged records.\n'
+									: '') +
 								'This operation is DESTRUCTIVE and CANNOT BE UNDONE.\n' +
 								'Records in your database that are not in seed files will be permanently deleted.\n' +
 								"Type 'DELETE' to confirm this destructive operation:",
@@ -126,7 +146,7 @@ export const registerSystemCommand = (
 					}
 				}
 
-				const results = await seedSystem(context, config, dataProviders)
+				const results = await seedSystem(context, config, dataProviders, options.fullReset)
 				if (results?.some((result) => result.error !== undefined)) {
 					logger.error('❌ System data seeding failed; see collection errors above')
 					exitCode = 1
