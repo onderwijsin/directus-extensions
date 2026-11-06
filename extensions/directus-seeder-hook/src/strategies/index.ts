@@ -320,7 +320,7 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 
 			return executeSeedOperation(collectionName, data, async (result) => {
 				const boundary = validateManagedSeedData(collectionName, data, management)
-				if (boundary?.type === 'relation' && boundary.ids.length === 0) return
+				if (boundary && boundary.type !== 'id-range' && boundary.ids.length === 0) return
 				// Get all seed data IDs
 				const seedDataIds = new Set(
 					dataWithIds

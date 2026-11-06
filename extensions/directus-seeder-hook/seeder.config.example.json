@@ -12,6 +12,9 @@
 					"field": "policy",
 					"collection": "directus_policies"
 				}
+			},
+			"directus_access": {
+				"management": { "type": "manifest" }
 			}
 		}
 	}

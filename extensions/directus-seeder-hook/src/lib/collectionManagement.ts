@@ -25,11 +25,13 @@ const relationManagementSchema = z.strictObject({
 	field: identifierSchema,
 	collection: identifierSchema,
 })
+const manifestManagementSchema = z.strictObject({ type: z.literal('manifest') })
 
 /** Declarative management boundary, independent of extraction filters and import selection. */
 export const collectionManagementSchema = z.discriminatedUnion('type', [
 	idRangeManagementSchema,
 	relationManagementSchema,
+	manifestManagementSchema,
 ])
 
 /** Consumer-defined collection management. */
@@ -39,9 +41,10 @@ const primaryKeySchema = z.union([z.string().min(1), z.int()])
 const resolvedManagementSchema = z.discriminatedUnion('type', [
 	idRangeManagementSchema,
 	relationManagementSchema.extend({ ids: z.array(primaryKeySchema) }),
+	manifestManagementSchema.extend({ ids: z.array(primaryKeySchema) }),
 ])
 
-/** Management with a snapshotted related seed-ID selection; never persisted as configuration. */
+/** Management with snapshotted relation or manifest IDs; never persisted as configuration. */
 export type ResolvedCollectionManagement = z.infer<typeof resolvedManagementSchema>
 
 const numericSeedIdSchema = z.looseObject({ id: z.int() })
@@ -66,6 +69,20 @@ export function validateManagedSeedData(
 		throw new Error(
 			`Invalid management for collection "${collectionName}": ${parsed.error.message}`,
 		)
+	}
+
+	if (parsed.data.type === 'manifest') {
+		const managedIds = new Set(parsed.data.ids)
+		const rowSchema = z.looseObject({ id: primaryKeySchema })
+		for (const [index, item] of data.entries()) {
+			const record = rowSchema.safeParse(item)
+			if (!record.success || !managedIds.has(record.data.id)) {
+				throw new Error(
+					`Seed record ${index + 1} for collection "${collectionName}" requires an explicit ID inside the managed manifest selection`,
+				)
+			}
+		}
+		return parsed.data
 	}
 
 	if (parsed.data.type === 'relation') {
@@ -132,13 +149,14 @@ export function getIdRangeFilters(
 }
 
 /**
- * Builds the import management boundary. Empty relation IDs must be handled as a no-op.
- * @param management - Resolved boundary, including source seed IDs for relations.
+ * Builds the import management boundary. Empty ID selections must be handled as a no-op.
+ * @param management - Resolved boundary, including snapshotted relation or manifest IDs.
  * @returns Predicates to combine with an explicit _and.
  */
 export function getManagementFilters(management: ResolvedCollectionManagement): Filter[] {
 	if (management.type === 'id-range') return getIdRangeFilters(management)
 	if (management.ids.length === 0)
-		throw new Error('Empty managed relation selection must not be queried')
-	return [{ [management.field]: { _in: management.ids } }]
+		throw new Error(`Empty managed ${management.type} selection must not be queried`)
+	const field = management.type === 'manifest' ? 'id' : management.field
+	return [{ [field]: { _in: management.ids } }]
 }

@@ -45,9 +45,9 @@ by default.
 
 Clean extraction output by default for manual runs and automatic runs without an explicit
 auto-extract allowlist, with manual-only `--skip-clean` to preserve other output. Clean only direct
-regular `.json` files in the seeds directory and, when binaries are enabled, all direct regular
-files in the assets directory, even
-when no file records exist. Never recurse into subdirectories or follow symlinks. Include/exclude
+regular `.json` files except `*.managed-ids.json` in the seeds directory and, when binaries are
+enabled, all direct regular files in the assets directory, even when no file records exist. Never
+recurse into subdirectories or follow symlinks. Include/exclude
 selects JSON only and never narrows cleanup or binary extraction; binaries always come from all
 `directus_files`. Support nested or separate assets directories. Preflight paths before deletion
 and refuse filesystem roots, symlinked directories or directory ancestors, equal output directories,
@@ -88,14 +88,14 @@ filter, sort, and deep. Treat order as a unique known-name priority prefix with 
 appended in original order; keep include/exclude as collection selection. Publish the example JSON
 and exported JSON Schema without a TypeScript loader or new dependencies. The example omits
 `operationMode`, retaining the global fallback; its management limits full-idempotent synchronization;
-only ID-range management also limits extraction. Insert-mode imports ignore management. Batch/error settings, automatic-extraction selection,
-and cleanup remain unchanged.
+only ID-range management also limits extraction selection. Insert-mode imports ignore management.
+Batch/error settings, automatic-extraction selection, and other cleanup remain unchanged.
 
 Add read-only `seed config` inspection of effective collection settings, full resolved order, and
 resolved modes, with `--defaults` for built-ins independent of the consumer JSON file and global
 mode, and optional `--collection` filtering. Ignore `$comment` explanatory metadata during
-processing. Inspection prints relation management unchanged, reads no seeds, schema, or database
-state, and requires no destructive-seeding opt-in.
+processing. Inspection prints relation and manifest management unchanged, reads no seeds, manifests,
+schema, or database state, and requires no destructive-seeding opt-in.
 
 Support optional consumer per-collection `management` with `type: 'id-range'`, inclusive `min`
 and exclusive `max`, requiring at least one safe-integer numeric bound and `min < max` when both
@@ -129,9 +129,31 @@ new, changed, and removed records export normally. Collection filters remain ind
 automatic propagation from policies to permissions. Consumers remain responsible for source IDs
 and target seed data matching their intended full-idempotent management boundary; a narrower
 extraction filter can omit managed records that import deletes. Retain the absence of historical
-ownership: removing a source ID relinquishes its selection. Clear target rows before relinquishing
-an ID and review parent deletes/cascades separately. Add no historical manifest, transaction, or
-concurrency guarantees.
+ownership in relation management itself: removing a source ID relinquishes its selection. Clear
+target rows before relinquishing an ID and review parent deletes/cascades separately. Relation
+management adds no historical manifest, transaction, or concurrency guarantees.
+
+Add optional `management: { type: 'manifest' }` alongside ID-range and relation management. Derive
+`<seeds-dir>/<collection>.managed-ids.json` as a plain JSON ID array beside each ordinary seed file,
+without extra directories, environment variables, or options. Recommend versioning both files in Git.
+Manual and automatic extraction retain each collection's current fields/filter/sort/deep query and
+never read existing seed data. Validate explicit exported IDs and existing manifest IDs against the
+live primary-key type: canonical lowercase UUID, nonempty string, or safe integer without coercion.
+Create missing manifests, union exported IDs with history, deduplicate, and sort strings lexically
+or numbers numerically. Empty exports preserve history, and only extracted collections update their
+manifests. Deleted records leave ordinary seeds while their IDs remain managed. Preserve
+`*.managed-ids.json` during seeds-directory cleanup, with other cleanup unchanged. Atomically replace
+manifests so interrupted writes cannot truncate history; invalid or unreadable existing manifests
+fail and are never overwritten.
+
+Only full-idempotent import reads manifests, without modifying them. Preflight all selected required
+inputs before mutations; missing, invalid, or unreadable manifests, invalid seed IDs, and seed IDs
+outside the manifest reject the entire import. Empty manifest plus empty seeds skips collection
+reads and mutations; missing target seeds skip the collection without reading its manifest. With A/B
+managed, only A seeded, and target A/B/C, synchronize A, delete B, and preserve C. Keep existing
+opt-in, prompts, mode resolution, and insert-mode behavior. Consumers may deliberately remove
+historical IDs to relinquish management after reviewing remaining target rows. Store no lifecycle
+statuses, timestamps, or tombstones.
 
 Remove the built-in presets `id < 50000` extraction cap while preserving `user = null`. Without
 consumer configuration, extraction now includes matching presets with IDs at or above 50000. Show

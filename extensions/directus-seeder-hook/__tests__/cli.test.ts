@@ -817,6 +817,397 @@ describe('seeder registration and CLI', () => {
 		expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({ limit: -1, ...query })
 	})
 
+	describe('manifest management', () => {
+		const first = '10c85a66-944d-483c-8d74-602cc615f324'
+		const second = '6d6a24a9-0575-4eb0-92e1-a74cf88824bd'
+		const outsider = 'd48c8805-ac6e-48d2-b81e-ce580f49aa11'
+		const target = () => path.join(directory, 'directus_policies.json')
+		const manifest = () => path.join(directory, 'directus_policies.managed-ids.json')
+
+		/**
+		 * Registers manifest management with config outside cleaned JSON output.
+		 * @param overrides - Collection settings that replace defaults shallowly.
+		 * @param env - Runtime environment overrides.
+		 * @param keyType - Live primary-key type.
+		 * @returns Observable CLI fixture.
+		 */
+		async function createManifestProgram(
+			overrides: Record<string, unknown> = {},
+			env: Record<string, unknown> = {},
+			keyType: 'uuid' | 'string' | 'integer' = 'uuid',
+		) {
+			const configPath = path.join(directory, 'consumer.config')
+			await writeFile(
+				configPath,
+				JSON.stringify({
+					system: {
+						collections: {
+							directus_policies: {
+								operationMode: 'full-idempotent',
+								management: { type: 'manifest' },
+								...overrides,
+							},
+						},
+					},
+				}),
+			)
+			const service = createProgram({
+				SEEDER_CONFIG_PATH: configPath,
+				SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+				SEEDER_CONTINUE_ON_ERROR: true,
+				DEPLOYMENT_ENV: 'development',
+				SEEDER_JSON_ONLY: true,
+				...env,
+			})
+			service.getSchema.mockResolvedValue(relationSchema(keyType))
+			return service
+		}
+
+		/**
+		 * Checks global preflight prevented all writes, including earlier collections.
+		 * @param service - Observable CLI fixture.
+		 * @returns Nothing.
+		 */
+		function expectNoMutations(service: ReturnType<typeof createProgram>) {
+			for (const spy of [
+				service.createMany,
+				service.upsertMany,
+				service.deleteMany,
+				service.uploadOne,
+				service.clearCache,
+				service.database,
+			])
+				expect(spy).not.toHaveBeenCalled()
+		}
+
+		it('creates, unions and sorts history while refreshing current seed data through manual cleanup', async () => {
+			const filter = { name: { _eq: 'Managed' } }
+			const service = await createManifestProgram({
+				fields: ['id', 'name'],
+				filter,
+				sort: ['id'],
+				deep: { permissions: { _limit: 1 } },
+			})
+			const unrelated = path.join(directory, 'directus_access.managed-ids.json')
+			await writeFile(unrelated, 'unselected manifest')
+			await writeFile(target(), 'invalid old seed data')
+			const extract = () =>
+				runCommand(service.program, 'extract', '--include', 'directus_policies')
+			service.readByQuery.mockResolvedValue([{ id: second }, { id: second }])
+			expect(await extract()).toBe(0)
+			expect(JSON.parse(await readFile(manifest(), 'utf8'))).toEqual([second])
+			const current = [{ id: first, name: 'Managed' }]
+			service.readByQuery.mockResolvedValue(current)
+			expect(await extract()).toBe(0)
+			const history = await readFile(manifest(), 'utf8')
+			expect(history).toBe(JSON.stringify([first, second], null, '\t') + '\n')
+			expect(JSON.parse(await readFile(target(), 'utf8'))).toEqual(current)
+			expect(await extract()).toBe(0)
+			expect(await readFile(manifest(), 'utf8')).toBe(history)
+			service.readByQuery.mockResolvedValue([])
+			expect(await extract()).toBe(0)
+			expect(await readFile(target(), 'utf8')).toBe('[]\n')
+			expect(await readFile(manifest(), 'utf8')).toBe(history)
+			expect(await readFile(unrelated, 'utf8')).toBe('unselected manifest')
+			expect(service.readByQuery).toHaveBeenLastCalledWith({
+				limit: -1,
+				fields: ['id', 'name'],
+				filter,
+				sort: ['id'],
+				deep: { permissions: { _limit: 1 } },
+			})
+		})
+
+		it('sorts integer IDs numerically and string IDs lexically using the live schema', async () => {
+			const numeric = await createManifestProgram({}, {}, 'integer')
+			numeric.readByQuery.mockResolvedValue([{ id: 10 }, { id: 2 }, { id: 10 }])
+			expect(
+				await runCommand(numeric.program, 'extract', '--include', 'directus_policies'),
+			).toBe(0)
+			expect(JSON.parse(await readFile(manifest(), 'utf8'))).toEqual([2, 10])
+			await rm(manifest())
+			const strings = await createManifestProgram({}, {}, 'string')
+			strings.readByQuery.mockResolvedValue([
+				{ id: 'a' },
+				{ id: 'Z' },
+				{ id: 'a' },
+				{ id: '10' },
+				{ id: '2' },
+			])
+			expect(
+				await runCommand(strings.program, 'extract', '--include', 'directus_policies'),
+			).toBe(0)
+			expect(JSON.parse(await readFile(manifest(), 'utf8'))).toEqual(['10', '2', 'Z', 'a'])
+		})
+
+		it('fails extraction without overwriting invalid manifests or losing history on invalid exported IDs', async () => {
+			const service = await createManifestProgram({ fields: ['name'] })
+			service.readByQuery.mockResolvedValue([{ id: first }])
+			await writeFile(manifest(), 'invalid JSON')
+			expect(
+				await runCommand(service.program, 'extract', '--include', 'directus_policies'),
+			).toBe(1)
+			expect(await readFile(manifest(), 'utf8')).toBe('invalid JSON')
+			const history = JSON.stringify([first])
+			await writeFile(manifest(), history)
+			for (const row of [
+				{ name: 'ID omitted by fields' },
+				{ id: 1 },
+				{ id: first.toUpperCase() },
+			]) {
+				service.readByQuery.mockResolvedValue([row])
+				expect(
+					await runCommand(service.program, 'extract', '--include', 'directus_policies'),
+				).toBe(1)
+				expect(await readFile(manifest(), 'utf8')).toBe(history)
+			}
+		})
+
+		it('retains historical and newly exported IDs when the subsequent seed write fails', async () => {
+			await writeFile(manifest(), JSON.stringify([second]))
+			const outside = path.join(directory, 'outside.txt')
+			await writeFile(outside, 'unchanged')
+			await symlink(outside, target())
+			const service = await createManifestProgram()
+			service.readByQuery.mockResolvedValue([{ id: first }])
+			expect(
+				await runCommand(
+					service.program,
+					'extract',
+					'--skip-clean',
+					'--include',
+					'directus_policies',
+				),
+			).toBe(1)
+			expect(JSON.parse(await readFile(manifest(), 'utf8'))).toEqual([first, second])
+			expect(await readFile(outside, 'utf8')).toBe('unchanged')
+			expect((await readdir(directory)).filter((name) => name.endsWith('.tmp'))).toEqual([])
+		})
+
+		it('synchronizes manifest IDs under CLI mode override and leaves manifest bytes unchanged', async () => {
+			const rows = [{ id: first, name: 'Updated', enforce_tfa: false }]
+			await writeFile(target(), JSON.stringify(rows))
+			const history = JSON.stringify([second, first, first])
+			await writeFile(manifest(), history)
+			const service = await createManifestProgram({ operationMode: 'insert-missing' })
+			service.readByQuery
+				.mockResolvedValueOnce([{ id: first }])
+				.mockResolvedValueOnce([{ id: second }])
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--mode',
+					'full-idempotent',
+					'--yes',
+					'--include',
+					'directus_policies',
+				),
+			).toBe(0)
+			expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith(rows)
+			expect(service.readByQuery).toHaveBeenLastCalledWith({
+				fields: ['id'],
+				limit: -1,
+				filter: {
+					_and: [
+						{ id: { _in: expect.arrayContaining([first, second]) } },
+						{ id: { _nin: [first] } },
+					],
+				},
+			})
+			expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([second])
+			expect(await readFile(manifest(), 'utf8')).toBe(history)
+		})
+
+		it('bounds empty seed deletion and treats an empty manifest as an empty selection', async () => {
+			await writeFile(target(), '[]')
+			await writeFile(manifest(), JSON.stringify([first, second]))
+			const service = await createManifestProgram()
+			service.readByQuery.mockResolvedValue([{ id: second }])
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_policies',
+				),
+			).toBe(0)
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+				fields: ['id'],
+				filter: { _and: [{ id: { _in: [first, second] } }] },
+				limit: -1,
+			})
+			expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([second])
+			await writeFile(manifest(), '[]')
+			const empty = await createManifestProgram()
+			expect(
+				await runCommand(
+					empty.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_policies',
+				),
+			).toBe(0)
+			expect(empty.readByQuery).not.toHaveBeenCalled()
+			expect(empty.upsertMany).not.toHaveBeenCalled()
+			expect(empty.deleteMany).not.toHaveBeenCalled()
+			await writeFile(target(), JSON.stringify([{ id: first }]))
+			const outside = await createManifestProgram()
+			expect(
+				await runCommand(
+					outside.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_policies',
+				),
+			).toBe(1)
+			expectNoMutations(outside)
+		})
+
+		it('rejects missing, malformed and unreadable required manifests before any selected collection mutates', async () => {
+			await writeFile(
+				path.join(directory, 'directus_roles.json'),
+				JSON.stringify([{ id: outsider, name: 'Earlier' }]),
+			)
+			await writeFile(target(), JSON.stringify([{ id: first }]))
+			for (const contents of [undefined, '', '{}', '[null]', '[1]', 'invalid JSON']) {
+				if (contents === undefined) await rm(manifest(), { force: true })
+				else await writeFile(manifest(), contents)
+				const service = await createManifestProgram()
+				expect(
+					await runCommand(
+						service.program,
+						'system',
+						'--yes',
+						'--include',
+						'directus_roles',
+						'directus_policies',
+					),
+				).toBe(1)
+				expectNoMutations(service)
+			}
+			await rm(manifest())
+			await mkdir(manifest())
+			const unreadable = await createManifestProgram()
+			expect(
+				await runCommand(
+					unreadable.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_roles',
+					'directus_policies',
+				),
+			).toBe(1)
+			expectNoMutations(unreadable)
+		})
+
+		it('rejects schema-incompatible and outside-manifest seed IDs before earlier collection writes', async () => {
+			await writeFile(
+				path.join(directory, 'directus_roles.json'),
+				JSON.stringify([{ id: outsider }]),
+			)
+			await writeFile(manifest(), JSON.stringify([first]))
+			for (const row of [
+				{ id: outsider },
+				{ id: 1 },
+				{ id: first.toUpperCase() },
+				{ name: 'Missing ID' },
+			]) {
+				await writeFile(target(), JSON.stringify([row]))
+				const service = await createManifestProgram()
+				expect(
+					await runCommand(
+						service.program,
+						'system',
+						'--yes',
+						'--include',
+						'directus_roles',
+						'directus_policies',
+					),
+				).toBe(1)
+				expectNoMutations(service)
+			}
+		})
+
+		it('keeps opt-in, ignores manifests for insert modes and skips missing collection seeds', async () => {
+			const rows = [{ id: first, enforce_tfa: false }]
+			await writeFile(target(), JSON.stringify(rows))
+			const disabled = await createManifestProgram(
+				{},
+				{ SEEDER_ENABLE_FULL_IDEMPOTENT: false },
+			)
+			expect(
+				await runCommand(
+					disabled.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_policies',
+				),
+			).toBe(1)
+			expectNoServiceCalls(disabled)
+			for (const mode of ['insert-missing', 'insert-update']) {
+				const service = await createManifestProgram()
+				expect(
+					await runCommand(
+						service.program,
+						'system',
+						'--yes',
+						'--mode',
+						mode,
+						'--include',
+						'directus_policies',
+					),
+				).toBe(0)
+				expect(
+					mode === 'insert-missing' ? service.createMany : service.upsertMany,
+				).toHaveBeenCalledExactlyOnceWith(rows)
+				expect(service.deleteMany).not.toHaveBeenCalled()
+			}
+			await rm(target())
+			const missing = await createManifestProgram(
+				{},
+				{ SEEDER_ENABLE_FULL_IDEMPOTENT: false },
+			)
+			expect(
+				await runCommand(
+					missing.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_policies',
+				),
+			).toBe(0)
+			expectNoServiceCalls(missing)
+		})
+
+		it('inspects declarative manifest settings without reading manifest or live schema', async () => {
+			const service = await createManifestProgram(
+				{},
+				{ SEEDER_ENABLE_FULL_IDEMPOTENT: false },
+			)
+			const chunks: string[] = []
+			vi.spyOn(process.stdout, 'write').mockImplementation((chunk, _encoding, callback) => {
+				chunks.push(String(chunk))
+				callback?.()
+				return true
+			})
+			expect(
+				await runCommand(service.program, 'config', '--collection', 'directus_policies'),
+			).toBe(0)
+			expect(JSON.parse(chunks.join(''))).toMatchObject({
+				system: {
+					collections: { directus_policies: { management: { type: 'manifest' } } },
+				},
+			})
+			expectNoServiceCalls(service)
+		})
+	})
+
 	describe('relation management', () => {
 		const policy = '6d6a24a9-0575-4eb0-92e1-a74cf88824bd'
 		const outsider = '10c85a66-944d-483c-8d74-602cc615f324'

@@ -153,6 +153,7 @@ const systemManagementSchema: z.ZodType<CollectionManagement> = z.discriminatedU
 			),
 		),
 	}),
+	collectionManagementSchema.options[2],
 ])
 
 /** Collection properties consumers can replace independently; nested values replace in full. */

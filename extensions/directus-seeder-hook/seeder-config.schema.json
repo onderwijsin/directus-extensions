@@ -130,6 +130,17 @@
 										},
 										"required": ["type", "field", "collection"],
 										"additionalProperties": false
+									},
+									{
+										"type": "object",
+										"properties": {
+											"type": {
+												"type": "string",
+												"const": "manifest"
+											}
+										},
+										"required": ["type"],
+										"additionalProperties": false
 									}
 								]
 							}

@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto'
 import { constants } from 'node:fs'
-import { lstat, mkdir, open, readdir, realpath, unlink } from 'node:fs/promises'
+import { lstat, mkdir, open, readdir, realpath, rename, unlink } from 'node:fs/promises'
 import path from 'node:path'
 
 /**
@@ -64,7 +65,11 @@ export async function prepareExtractionDirectories(
 		for (const directory of jsonOnly ? [seeds] : [seeds, assets]) {
 			await validateDirectory(directory)
 			for (const entry of await readdir(directory, { withFileTypes: true })) {
-				if (entry.isFile() && (directory === assets || entry.name.endsWith('.json'))) {
+				if (
+					entry.isFile() &&
+					(directory === assets ||
+						(entry.name.endsWith('.json') && !entry.name.endsWith('.managed-ids.json')))
+				) {
 					await unlink(path.join(directory, entry.name))
 				}
 			}
@@ -94,5 +99,89 @@ export async function outputFile(filePath: string, content: string | Uint8Array)
 		await file.writeFile(content)
 	} finally {
 		await file.close()
+	}
+}
+
+/**
+ * Reads persisted history without following symlinks or accepting linked or special files.
+ * @param filePath - Required manifest filename.
+ * @returns UTF-8 content from a regular file with a single link.
+ */
+export async function readRegularFile(filePath: string): Promise<string> {
+	await validateDirectory(path.resolve(path.dirname(filePath)))
+	const file = await open(
+		filePath,
+		constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+	)
+	try {
+		const entry = await file.stat()
+		if (!entry.isFile() || entry.nlink !== 1) {
+			throw new Error(`Manifest input must be a regular file with one link: ${filePath}`)
+		}
+		return await file.readFile('utf8')
+	} finally {
+		await file.close()
+	}
+}
+
+/**
+ * Validates a destination before replacing it, permitting creation only when absent.
+ * @param filePath - Manifest destination.
+ * @returns Resolves when the destination is absent or a single-link regular file.
+ */
+async function validateReplacement(filePath: string): Promise<void> {
+	try {
+		const entry = await lstat(filePath)
+		if (!entry.isFile() || entry.nlink !== 1) {
+			throw new Error(`Extraction output must be a regular file with one link: ${filePath}`)
+		}
+	} catch (error) {
+		if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return
+		throw error
+	}
+}
+
+/**
+ * Writes history through a sibling temporary file so failures never truncate the destination.
+ * @param filePath - Manifest destination.
+ * @param content - Complete serialized history.
+ * @returns Resolves after atomic replacement; removes temporary output on failure.
+ */
+export async function outputFileAtomic(filePath: string, content: string): Promise<void> {
+	const directory = path.resolve(path.dirname(filePath))
+	await ensureDir(directory)
+	await validateReplacement(filePath)
+	const temporary = path.join(directory, `.${path.basename(filePath)}.${randomUUID()}.tmp`)
+	const file = await open(
+		temporary,
+		constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+	)
+	try {
+		try {
+			await file.writeFile(content)
+		} finally {
+			await file.close()
+		}
+		await validateDirectory(directory)
+		await validateReplacement(filePath)
+		await rename(temporary, filePath)
+	} catch (error) {
+		try {
+			await unlink(temporary)
+		} catch (cleanupError) {
+			if (
+				!(
+					cleanupError instanceof Error &&
+					'code' in cleanupError &&
+					cleanupError.code === 'ENOENT'
+				)
+			) {
+				throw new AggregateError(
+					[error, cleanupError],
+					`Failed to clean manifest temporary file: ${temporary}`,
+				)
+			}
+		}
+		throw error
 	}
 }

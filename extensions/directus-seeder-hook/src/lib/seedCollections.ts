@@ -10,6 +10,7 @@ import { createItemsServiceAdapter } from '../services/ItemsServiceAdapter'
 import { createSeederStrategy } from '../strategies'
 import { validateManagedSeedData } from './collectionManagement'
 import { getCollectionMode, OperationMode, selectCollections } from './config'
+import { getManifestSeedIds } from './manifestManagement'
 import { getFolderPaths } from './resolveConfig'
 import { resolveCollectionManagement, validateRelationSeedKeys } from './resolveManagement'
 import { toSeedRecord } from './seedItem'
@@ -55,7 +56,10 @@ export async function seedCollections(
 		}
 		let management: ResolvedCollectionManagement | undefined
 		const data = seedData[collectionName] ?? []
-		if (collection.management?.type === 'relation') {
+		if (
+			collection.management?.type === 'relation' ||
+			collection.management?.type === 'manifest'
+		) {
 			const schema = await context.getSchema()
 			management = await resolveCollectionManagement(
 				collectionName,
@@ -63,7 +67,11 @@ export async function seedCollections(
 				getFolderPaths(context.env).seedsFolder,
 				schema,
 			)
-			validateRelationSeedKeys(collectionName, data, schema)
+			if (collection.management.type === 'manifest') {
+				getManifestSeedIds(collectionName, data, schema)
+			} else {
+				validateRelationSeedKeys(collectionName, data, schema)
+			}
 		} else {
 			management = collection.management
 		}

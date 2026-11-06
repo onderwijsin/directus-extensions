@@ -133,6 +133,30 @@ describe('system JSON consumer configuration', () => {
 		expect(() => loadSystemConfig(filename)).toThrow(/consumer.json.*ENOENT/su)
 	})
 
+	it('resolves declarative manifest management without runtime membership', () => {
+		const management = { type: 'manifest' }
+		const effective = resolveSystemConfig({
+			system: { collections: { directus_access: { management } } },
+		})
+		expect(effective.find(({ collection }) => collection === 'directus_access')).toEqual({
+			...SYSTEM_COLLECTIONS.find(({ collection }) => collection === 'directus_access'),
+			management,
+		})
+		for (const extra of [{ ids: [] }, { path: 'other.json' }]) {
+			expect(() =>
+				resolveSystemConfig({
+					system: {
+						collections: {
+							directus_access: {
+								management: { ...management, ...extra },
+							},
+						},
+					},
+				}),
+			).toThrow()
+		}
+	})
+
 	it('resolves relation management for a supported source collection', () => {
 		const management = { type: 'relation', field: 'policy', collection: 'directus_policies' }
 		const collections = resolveSystemConfig({

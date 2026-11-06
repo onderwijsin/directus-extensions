@@ -7,25 +7,12 @@ import path from 'node:path'
 
 import { z } from 'zod'
 
+import { getManagementKeySchema } from './managementKeys'
+import { readManagedIds } from './manifestManagement'
 import { seedItemsSchema } from './seedItem'
 
 /**
- * Selects scalar key validation for the live field type without coercion or nested writes.
- * @param type - Directus field type.
- * @returns Schema for string or safe integer keys.
- */
-function getKeySchema(type: string | undefined) {
-	if (type === 'uuid')
-		return z.uuid().refine((value) => value === value.toLowerCase(), {
-			error: 'Relation management requires canonical lowercase UUIDs',
-		})
-	if (type === 'integer' || type === 'bigInteger') return z.int()
-	if (type === 'string') return z.string().min(1)
-	throw new Error(`Unsupported relation management key type: ${type ?? 'missing'}`)
-}
-
-/**
- * Resolves one direct M2O boundary from raw source seeds, independent of import selection.
+ * Resolves manifest history or one direct M2O boundary independently of import selection.
  * @param collectionName - Managed collection.
  * @param management - Validated declarative boundary.
  * @param seedsFolder - Git-managed seed directory used for import.
@@ -39,6 +26,9 @@ export async function resolveCollectionManagement(
 	schema: SchemaOverview,
 ): Promise<ResolvedCollectionManagement> {
 	if (management.type === 'id-range') return management
+	if (management.type === 'manifest') {
+		return { ...management, ids: await readManagedIds(collectionName, seedsFolder, schema) }
+	}
 	const filename = path.join(seedsFolder, `${management.collection}.json`)
 	try {
 		const target = schema.collections[collectionName]
@@ -70,9 +60,9 @@ export async function resolveCollectionManagement(
 				`Management field "${collectionName}.${management.field}" must be a direct scalar relation to "${management.collection}.id" with id primary keys`,
 			)
 		}
-		getKeySchema(target.fields.id?.type)
-		const fieldKeySchema = getKeySchema(field.type)
-		const sourceKeySchema = getKeySchema(source.fields.id?.type)
+		getManagementKeySchema(target.fields.id?.type)
+		const fieldKeySchema = getManagementKeySchema(field.type)
+		const sourceKeySchema = getManagementKeySchema(source.fields.id?.type)
 		const raw: unknown = JSON.parse(await readFile(filename, 'utf8'))
 		const rows = seedItemsSchema.parse(raw)
 		const ids = rows.map((row, index) => {
@@ -110,7 +100,9 @@ export function validateRelationSeedKeys(
 	for (const [index, row] of data.entries()) {
 		try {
 			const record = z.looseObject({ id: z.unknown() }).parse(row)
-			getKeySchema(schema.collections[collectionName]?.fields.id?.type).parse(record.id)
+			getManagementKeySchema(schema.collections[collectionName]?.fields.id?.type).parse(
+				record.id,
+			)
 		} catch (error) {
 			throw new Error(
 				`Invalid relation-managed seed ID for collection "${collectionName}" at row ${index + 1}`,

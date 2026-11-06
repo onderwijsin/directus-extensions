@@ -9,6 +9,7 @@ import { z } from 'zod'
 
 import { getIdRangeFilters } from '../../lib/collectionManagement'
 import { outputFile, prepareExtractionDirectories } from '../../lib/filesystem'
+import { updateManagedIds } from '../../lib/manifestManagement'
 import { createPerformanceTracker } from '../../lib/performanceTracker'
 import { seedItemsSchema, toSeedRecord } from '../../lib/seedItem'
 import { getCompatibleExtractionFields } from './compatibility'
@@ -215,6 +216,9 @@ const extractSingleCollection = async (
 		}
 
 		const absoluteFilePath = generateSeedFilePath(seedsFolder, collectionName)
+		if (collection.management?.type === 'manifest') {
+			await updateManagedIds(collectionName, data, seedsFolder, schema, jsonIndent)
+		}
 		await outputFile(absoluteFilePath, `${JSON.stringify(data, null, jsonIndent)}\n`)
 
 		logger.info(`✅ Extracted ${data.length} items from ${collectionName}`)

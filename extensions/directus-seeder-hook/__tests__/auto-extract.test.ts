@@ -358,6 +358,64 @@ describe('automatic system extraction', () => {
 		expect(mocks.getAsset).not.toHaveBeenCalled()
 	})
 
+	it('updates only selected manifests during automatic extraction and preserves history through empty results', async () => {
+		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
+			'../src/seeders/system/extract',
+		)
+		mocks.extract.mockImplementation(actual.extractSystemData)
+		const seeds = path.join(directory, 'seeds')
+		await mkdir(seeds)
+		const manifest = path.join(seeds, 'directus_access.managed-ids.json')
+		const untouched = path.join(seeds, 'directus_roles.managed-ids.json')
+		const first = '10c85a66-944d-483c-8d74-602cc615f324'
+		const historical = '6d6a24a9-0575-4eb0-92e1-a74cf88824bd'
+		await writeFile(manifest, JSON.stringify([historical]))
+		await writeFile(untouched, 'unselected manifest')
+		await writeFile(path.join(seeds, 'unrelated.json'), 'unrelated')
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: {
+					collections: {
+						directus_access: { fields: ['id'], management: { type: 'manifest' } },
+						directus_roles: { management: { type: 'manifest' } },
+					},
+				},
+			}),
+		)
+		mocks.readCollection.mockResolvedValue([{ id: first }])
+		const action = register(
+			{ SEEDER_CONFIG_PATH: configPath, SEEDER_AUTO_EXTRACT_INCLUDE: ['directus_access'] },
+			{
+				collections: {
+					directus_access: { primary: 'id', fields: { id: { type: 'uuid' } } },
+				},
+			},
+		)
+		emit(action, 'access.create')
+		await advance(15_000)
+		await expect(mocks.extract.mock.results[0]?.value).resolves.toBeUndefined()
+		const history = await readFile(manifest, 'utf8')
+		expect(JSON.parse(history)).toEqual([first, historical])
+		expect(
+			JSON.parse(await readFile(path.join(seeds, 'directus_access.json'), 'utf8')),
+		).toEqual([{ id: first }])
+		mocks.readCollection.mockResolvedValue([])
+		emit(action, 'access.delete')
+		await advance(15_000)
+		await expect(mocks.extract.mock.results[1]?.value).resolves.toBeUndefined()
+		expect(await readFile(manifest, 'utf8')).toBe(history)
+		expect(await readFile(path.join(seeds, 'directus_access.json'), 'utf8')).toBe('[]\n')
+		expect(await readFile(untouched, 'utf8')).toBe('unselected manifest')
+		expect(await readFile(path.join(seeds, 'unrelated.json'), 'utf8')).toBe('unrelated')
+		expect(mocks.readCollection.mock.calls.map(([collection]) => collection)).toEqual([
+			'directus_access',
+			'directus_access',
+		])
+		expect(mocks.readFiles).not.toHaveBeenCalled()
+	})
+
 	it('exports new, updated and deleted policies automatically while preserving other output', async () => {
 		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
 			'../src/seeders/system/extract',
