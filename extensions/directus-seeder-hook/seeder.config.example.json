@@ -5,6 +5,13 @@
 		"collections": {
 			"directus_presets": {
 				"management": { "type": "id-range", "max": 50000 }
+			},
+			"directus_permissions": {
+				"management": {
+					"type": "relation",
+					"field": "policy",
+					"collection": "directus_policies"
+				}
 			}
 		}
 	}

@@ -65,9 +65,9 @@ files and nested seed files when determining this no-op. Present `[]` still proc
 Resolve include/exclude before seed-input preflight: each CLI list overrides its corresponding
 environment list, and exclusions win. Validate selected seed files and their transformations before
 any database mutation. Ignore unselected invalid or unreadable files silently, except required Flow
-metadata below. Skip missing files (ENOENT only) without collection operations in any mode. Preserve
-valid `[]` as intentional empty data, including deleting existing records in explicitly enabled and
-confirmed `full-idempotent` mode, limited to its configured management range. Required
+metadata and relation sources below. Skip missing target files (ENOENT only) without collection
+operations in any mode. Preserve valid `[]` as intentional empty data, including deleting existing records in explicitly enabled and
+confirmed `full-idempotent` mode, limited to its configured management boundary. Required
 input with invalid JSON, non-array roots, zero-byte or whitespace-only files, or other read errors
 fails with file context and exit 1 regardless of `SEEDER_CONTINUE_ON_ERROR`. Retain existing record
 validation and strategies without adding transactions or rollback.
@@ -87,16 +87,17 @@ objects replace whole values; omitted properties retain defaults. Allow `null` t
 filter, sort, and deep. Treat order as a unique known-name priority prefix with remaining built-ins
 appended in original order; keep include/exclude as collection selection. Publish the example JSON
 and exported JSON Schema without a TypeScript loader or new dependencies. The example omits
-`operationMode`, retaining the global fallback; its range limits extraction and full-idempotent
+`operationMode`, retaining the global fallback; its management limits extraction and full-idempotent
 synchronization, not insert-mode imports. Batch/error settings, automatic-extraction selection,
 and cleanup remain unchanged.
 
 Add read-only `seed config` inspection of effective collection settings, full resolved order, and
 resolved modes, with `--defaults` for built-ins independent of the consumer JSON file and global
 mode, and optional `--collection` filtering. Ignore `$comment` explanatory metadata during
-processing. Inspection reads no seeds or database state and requires no destructive-seeding opt-in.
+processing. Inspection prints relation management unchanged, reads no seeds, schema, or database
+state, and requires no destructive-seeding opt-in.
 
-Support optional consumer per-collection `management` with only `type: 'id-range'`, inclusive `min`
+Support optional consumer per-collection `management` with `type: 'id-range'`, inclusive `min`
 and exclusive `max`, requiring at least one safe-integer numeric bound and `min < max` when both
 are supplied. Reject `null`, unknown properties, and invalid ranges in configuration. Full-idempotent
 preflight rejects missing, nonnumeric, unsafe, or out-of-range seed IDs before database operations.
@@ -107,6 +108,27 @@ all work. Other import modes ignore management. Keep unbounded synchronization d
 presets. Extraction ANDs the range with its separate filter; deletion uses only the range, never the
 extraction filter. A narrow extraction filter may omit in-range records that full-idempotent import
 subsequently deletes.
+
+Also support `management: { type: 'relation', field: 'policy', collection: 'directus_policies' }`
+for one direct scalar M2O foreign key to the related collection's `id` primary key. Both collections
+remain limited to supported system collections. Read membership from raw related `<collection>.json`
+IDs even when that source collection is excluded; require a present readable valid array with
+explicit schema-compatible canonical lowercase UUID, nonempty string, or safe-integer IDs.
+Reject uppercase UUID inputs and duplicate source IDs before mutations; preserve arbitrary string key case. Do not recursively resolve
+source management or evaluate source filters, ranges, or environment transformations.
+Full-idempotent preflight validates every selected collection's required input, relationship schema,
+membership, and existing seed-ID collisions outside that membership before any mutation. Other
+import modes ignore management. Source `[]` selects nothing and skips target collection reads and
+mutations, rejecting nonempty target seeds; missing target files skip work, while target `[]` clears
+only current membership. Missing or invalid required sources reject the run.
+
+Read extraction source IDs before existing cleanup or any writes, AND membership with the target's
+configured extraction filter, and reject missing sources before cleanup. Retain normal cleanup and
+overwrite behavior: source files can be removed or replaced, with no special preservation. Document
+reviewing and preserving source data, plus the absence of historical ownership: removing a policy
+ID relinquishes its selection. Retain the ID and import permissions as `[]` before relinquishing it;
+review parent deletes/cascades separately. Add no historical manifest, transaction, or concurrency
+guarantees.
 
 Remove the built-in presets `id < 50000` extraction cap while preserving `user = null`. Without
 consumer configuration, extraction now includes matching presets with IDs at or above 50000. Show

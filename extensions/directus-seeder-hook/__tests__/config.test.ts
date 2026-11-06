@@ -105,6 +105,16 @@ describe('system JSON consumer configuration', () => {
 		expect(() => loadSystemConfig(filename)).toThrow(/consumer.json.*ENOENT/su)
 	})
 
+	it('resolves relation management for a supported source collection', () => {
+		const management = { type: 'relation', field: 'policy', collection: 'directus_policies' }
+		const collections = resolveSystemConfig({
+			system: { collections: { directus_permissions: { management } } },
+		})
+		expect(
+			collections.find(({ collection }) => collection === 'directus_permissions'),
+		).toMatchObject({ management })
+	})
+
 	it.each([
 		{ $comment: 1 },
 		{ core: {} },
@@ -130,6 +140,14 @@ describe('system JSON consumer configuration', () => {
 			{ management: { type: 'id-range' } },
 			{ management: { type: 'id-range', min: 20, max: 10 } },
 			{ management: { type: 'id-range', max: '50000' } },
+			...[
+				{ field: 'policy', collection: 'unknown' },
+				{ field: 'policy', collection: 'directus_extensions' },
+				{ field: 'policy.id', collection: 'directus_policies' },
+				{ field: 'policy', collection: '../directus_policies' },
+				{ field: 'policy-name', collection: 'directus_policies' },
+				{ field: 'policy', collection: 'directus_policies', ids: [] },
+			].map((relation) => ({ management: { type: 'relation', ...relation } })),
 		].map((overrides) => ({ system: { collections: { directus_presets: overrides } } })),
 	])('rejects invalid config %# without fallback', (input) => {
 		expect(() => resolveSystemConfig(input)).toThrow('Invalid Seeder configuration')
@@ -174,6 +192,13 @@ describe('system JSON consumer configuration', () => {
 			JSON.stringify({
 				system: {
 					collections: {
+						directus_permissions: {
+							management: {
+								type: 'relation',
+								field: 'policy',
+								collection: 'directus_policies',
+							},
+						},
 						directus_presets: {
 							operationMode: 'full-idempotent',
 							management: { type: 'id-range', max: 50000 },
@@ -208,12 +233,19 @@ describe('system JSON consumer configuration', () => {
 			explicit.systemCollections?.find(({ collection }) => collection === 'directus_presets')
 				?.management,
 		).toEqual({ type: 'id-range', max: 50000 })
+		expect(
+			explicit.systemCollections?.find(
+				({ collection }) => collection === 'directus_permissions',
+			)?.management,
+		).toEqual({ type: 'relation', field: 'policy', collection: 'directus_policies' })
 	})
 
 	// Regenerate the shipped schema with: pnpm exec vitest run extensions/directus-seeder-hook/__tests__/config.test.ts -t 'published JSON Schema' --update
 	it('keeps the published JSON Schema generated from Zod and validates the shipped example', async () => {
 		expect(z.toJSONSchema(collectionManagementSchema)).toMatchObject({
-			anyOf: [{ required: ['min'] }, { required: ['max'] }],
+			oneOf: expect.arrayContaining([
+				expect.objectContaining({ anyOf: [{ required: ['min'] }, { required: ['max'] }] }),
+			]),
 		})
 		expect(
 			z.toJSONSchema(consumerConfigSchema.shape.system.unwrap().shape.order.unwrap()),

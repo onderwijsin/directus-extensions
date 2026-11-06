@@ -1,5 +1,6 @@
 import type { ServiceAdapterContext } from '../services/ServiceAdapter'
 import type { SeedResult } from '../strategies/SeederStrategy'
+import type { ResolvedCollectionManagement } from './collectionManagement'
 import type { CollectionConfig, SeederConfig } from './config'
 import type { PerformanceTracker } from './performanceTracker'
 import type { SeedData } from './seedDataParser'
@@ -9,6 +10,9 @@ import { createItemsServiceAdapter } from '../services/ItemsServiceAdapter'
 import { createSeederStrategy } from '../strategies'
 import { validateManagedSeedData } from './collectionManagement'
 import { getCollectionMode, OperationMode, selectCollections } from './config'
+import { getFolderPaths } from './resolveConfig'
+import { resolveCollectionManagement, validateRelationSeedKeys } from './resolveManagement'
+import { toSeedRecord } from './seedItem'
 
 /**
  * Helper function to seed collections with common logic.
@@ -37,6 +41,7 @@ export async function seedCollections(
 	const collectionsToSeed = selectCollections(Object.keys(seedData), config)
 	const collectionsOrder = collectionConfigs.map(({ collection }) => collection)
 
+	const boundaries = new Map<string, ResolvedCollectionManagement>()
 	// Preflight every selected collection before any service can mutate the database.
 	for (const collectionName of collectionsToSeed) {
 		const collection = collectionConfigs.find(
@@ -48,11 +53,40 @@ export async function seedCollections(
 				'full-idempotent mode is disabled for safety. Set SEEDER_ENABLE_FULL_IDEMPOTENT=true to enable this destructive operation.',
 			)
 		}
-		validateManagedSeedData(
-			collectionName,
-			seedData[collectionName] ?? [],
-			collection.management,
-		)
+		let management: ResolvedCollectionManagement | undefined
+		const data = seedData[collectionName] ?? []
+		if (collection.management?.type === 'relation') {
+			const schema = await context.getSchema()
+			management = await resolveCollectionManagement(
+				collectionName,
+				collection.management,
+				getFolderPaths(context.env).seedsFolder,
+				schema,
+			)
+			validateRelationSeedKeys(collectionName, data, schema)
+		} else {
+			management = collection.management
+		}
+		management = validateManagedSeedData(collectionName, data, management)
+		if (management) boundaries.set(collectionName, management)
+	}
+
+	// A seed ID must not upsert an existing record that belongs to an unmanaged parent.
+	// Read every collision before any collection starts mutating, even with continueOnError.
+	for (const collectionName of collectionsToSeed) {
+		const management = boundaries.get(collectionName)
+		const data = seedData[collectionName] ?? []
+		if (management?.type !== 'relation' || data.length === 0) continue
+		const adapter = await createItemsServiceAdapter(collectionName, context)
+		const ids = data.map((row) => {
+			return toSeedRecord(row).id
+		})
+		const existing = await adapter.getItems({
+			fields: ['id', management.field],
+			filter: { id: { _in: ids } },
+			limit: -1,
+		})
+		validateManagedSeedData(collectionName, existing, management)
 	}
 
 	// Filter collections based on include/exclude lists
@@ -108,7 +142,7 @@ export async function seedCollections(
 				collectionData,
 				serviceAdapter,
 				performanceTracker,
-				collection.management,
+				boundaries.get(collectionName),
 			)
 		} catch (error) {
 			result = {

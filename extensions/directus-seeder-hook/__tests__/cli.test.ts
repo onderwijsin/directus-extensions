@@ -1,3 +1,4 @@
+import type { SchemaOverview } from '@directus/types'
 import type { Logger } from 'pino'
 
 import {
@@ -188,6 +189,71 @@ function expectNoServiceCalls(service: ReturnType<typeof createProgram>) {
 		expect(spy).not.toHaveBeenCalled()
 }
 
+/**
+ * Models a direct scalar permissions.policy relation with the live schema's structural fields.
+ * @param keyType - Source key type; UUID keys use the string foreign key observed in Directus 12.2.
+ * @returns A schema fixture checked against the installed Directus contract.
+ */
+function relationSchema(keyType: 'uuid' | 'string' | 'integer' = 'uuid') {
+	const field = (name: string, type: 'uuid' | 'string' | 'integer') => ({
+		field: name,
+		type,
+		defaultValue: null,
+		nullable: false,
+		generated: false,
+		dbType: null,
+		precision: null,
+		scale: null,
+		special: [],
+		note: null,
+		validation: null,
+		alias: false,
+		searchable: true,
+	})
+	return {
+		collections: {
+			directus_permissions: {
+				collection: 'directus_permissions',
+				primary: 'id',
+				singleton: false,
+				sortField: null,
+				note: null,
+				accountability: null,
+				fields: {
+					id: field('id', 'integer'),
+					policy: field('policy', keyType === 'uuid' ? 'string' : keyType),
+				},
+			},
+			directus_policies: {
+				collection: 'directus_policies',
+				primary: 'id',
+				singleton: false,
+				sortField: null,
+				note: null,
+				accountability: null,
+				fields: { id: field('id', keyType) },
+			},
+		},
+		relations: [
+			{
+				collection: 'directus_permissions',
+				field: 'policy',
+				related_collection: 'directus_policies',
+				meta: null,
+				schema: {
+					table: 'directus_permissions',
+					column: 'policy',
+					foreign_key_table: 'directus_policies',
+					foreign_key_column: 'id',
+					constraint_name: null,
+					on_update: null,
+					on_delete: null,
+				},
+			},
+		],
+	} satisfies SchemaOverview
+}
+
 describe('seeder registration and CLI', () => {
 	const presets = SYSTEM_COLLECTIONS.find(({ collection }) => collection === 'directus_presets')
 	if (!presets) throw new Error('Expected the presets collection configuration')
@@ -291,6 +357,13 @@ describe('seeder registration and CLI', () => {
 					system: {
 						order: ['directus_presets'],
 						collections: {
+							directus_permissions: {
+								management: {
+									type: 'relation',
+									field: 'policy',
+									collection: 'directus_policies',
+								},
+							},
 							directus_presets: {
 								operationMode: 'full-idempotent',
 								fields: ['id'],
@@ -318,6 +391,13 @@ describe('seeder registration and CLI', () => {
 						),
 					],
 					collections: {
+						directus_permissions: {
+							management: {
+								type: 'relation',
+								field: 'policy',
+								collection: 'directus_policies',
+							},
+						},
 						directus_presets: {
 							operationMode: 'full-idempotent',
 							fields: ['id'],
@@ -735,6 +815,588 @@ describe('seeder registration and CLI', () => {
 			0,
 		)
 		expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({ limit: -1, ...query })
+	})
+
+	describe('relation management', () => {
+		const policy = '6d6a24a9-0575-4eb0-92e1-a74cf88824bd'
+		const outsider = '10c85a66-944d-483c-8d74-602cc615f324'
+		const management = { type: 'relation', field: 'policy', collection: 'directus_policies' }
+
+		/**
+		 * Registers relation management without putting configuration among cleaned JSON files.
+		 * @param overrides - Permission settings overriding the full-idempotent defaults.
+		 * @param env - Runtime environment overrides.
+		 * @param sources - Other collection settings, independent of raw source seed loading.
+		 * @returns Observable CLI fixture with a valid direct relation schema.
+		 */
+		async function createRelationProgram(
+			overrides: Record<string, unknown> = {},
+			env: Record<string, unknown> = {},
+			sources: Record<string, unknown> = {},
+		) {
+			const configPath = path.join(directory, 'consumer.config')
+			await writeFile(
+				configPath,
+				JSON.stringify({
+					system: {
+						collections: {
+							...sources,
+							directus_permissions: {
+								operationMode: 'full-idempotent',
+								management,
+								...overrides,
+							},
+						},
+					},
+				}),
+			)
+			const service = createProgram({
+				SEEDER_CONFIG_PATH: configPath,
+				SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+				SEEDER_CONTINUE_ON_ERROR: true,
+				DEPLOYMENT_ENV: 'development',
+				SEEDER_JSON_ONLY: true,
+				...env,
+			})
+			service.getSchema.mockResolvedValue(relationSchema())
+			return service
+		}
+
+		/**
+		 * Checks that a failure anywhere in preflight prevents earlier collection mutations.
+		 * @param service - Observable CLI fixture.
+		 * @returns Nothing.
+		 */
+		function expectNoMutations(service: ReturnType<typeof createProgram>) {
+			for (const spy of [
+				service.createMany,
+				service.upsertMany,
+				service.deleteMany,
+				service.uploadOne,
+				service.clearCache,
+				service.database,
+			])
+				expect(spy).not.toHaveBeenCalled()
+		}
+
+		it('uses excluded raw source IDs under a CLI mode override, without evaluating source settings', async () => {
+			await writeFile(
+				path.join(directory, 'directus_policies.json'),
+				JSON.stringify([{ id: policy, name: { raw: true } }]),
+			)
+			const rows = [{ id: 1, policy, collection: 'directus_roles', action: 'update' }]
+			await writeFile(path.join(directory, 'directus_permissions.json'), JSON.stringify(rows))
+			const service = await createRelationProgram(
+				{ operationMode: 'insert-missing', filter: { action: { _eq: 'read' } } },
+				{},
+				{
+					directus_policies: {
+						management: { type: 'id-range', max: 1 },
+						filter: { name: { _eq: 'excluded' } },
+					},
+				},
+			)
+			service.readByQuery
+				.mockResolvedValueOnce([{ id: 1, policy }])
+				.mockResolvedValueOnce([{ id: 1 }])
+				.mockResolvedValueOnce([{ id: 2 }])
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--mode',
+					'full-idempotent',
+					'--yes',
+					'--include',
+					'directus_permissions',
+					'--exclude',
+					'directus_policies',
+				),
+			).toBe(0)
+			expect(service.ItemsService.mock.calls.map(([collection]) => collection)).toEqual([
+				'directus_permissions',
+				'directus_permissions',
+			])
+			expect(service.readByQuery).toHaveBeenNthCalledWith(1, {
+				fields: ['id', 'policy'],
+				filter: { id: { _in: [1] } },
+				limit: -1,
+			})
+			expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith(rows)
+			expect(service.readByQuery).toHaveBeenLastCalledWith({
+				fields: ['id'],
+				limit: -1,
+				filter: { _and: [{ policy: { _in: [policy] } }, { id: { _nin: [1] } }] },
+			})
+			expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([2])
+		})
+
+		it('manages operations through raw excluded flow IDs and accepts the real two-pass reference updates', async () => {
+			const first = 'dbbf2f91-0152-4626-9921-c6bb91bb1ea8'
+			const second = '7eb10804-8e43-410b-a568-d77c8e30286d'
+			const rows = [
+				{ id: first, key: 'first', type: 'log', flow: policy, resolve: second },
+				{ id: second, key: 'second', type: 'log', flow: policy },
+			]
+			await writeFile(
+				path.join(directory, 'directus_flows.json'),
+				JSON.stringify([{ id: policy, name: 'Raw source flow' }]),
+			)
+			await writeFile(path.join(directory, 'directus_operations.json'), JSON.stringify(rows))
+			const service = await createRelationProgram(
+				{},
+				{ DEPLOYMENT_ENV: 'production' },
+				{
+					directus_operations: {
+						operationMode: 'full-idempotent',
+						management: {
+							type: 'relation',
+							field: 'flow',
+							collection: 'directus_flows',
+						},
+					},
+				},
+			)
+			const base = relationSchema()
+			const relation = base.relations[0]
+			if (!relation) throw new Error('Expected relation fixture')
+			service.getSchema.mockResolvedValue({
+				collections: {
+					directus_operations: {
+						...base.collections.directus_permissions,
+						collection: 'directus_operations',
+						fields: {
+							id: base.collections.directus_policies.fields.id,
+							flow: {
+								...base.collections.directus_permissions.fields.policy,
+								field: 'flow',
+							},
+						},
+					},
+					directus_flows: {
+						...base.collections.directus_policies,
+						collection: 'directus_flows',
+					},
+				},
+				relations: [
+					{
+						...relation,
+						collection: 'directus_operations',
+						field: 'flow',
+						related_collection: 'directus_flows',
+						schema: {
+							...relation.schema,
+							table: 'directus_operations',
+							column: 'flow',
+							foreign_key_table: 'directus_flows',
+						},
+					},
+				],
+			} satisfies SchemaOverview)
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_operations',
+					'--exclude',
+					'directus_flows',
+				),
+			).toBe(0)
+			expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith([
+				{ ...rows[0], resolve: null, reject: null },
+				{ ...rows[1], resolve: null, reject: null },
+				{ id: first, resolve: second, reject: null, __isUpdateOnly: true },
+			])
+			expect(service.ItemsService.mock.calls.map(([collection]) => collection)).toEqual([
+				'directus_operations',
+				'directus_operations',
+			])
+			expect(service.readByQuery).toHaveBeenLastCalledWith({
+				fields: ['id'],
+				filter: { _and: [{ flow: { _in: [policy] } }, { id: { _nin: [first, second] } }] },
+				limit: -1,
+			})
+		})
+
+		it.each([
+			{ type: 'string', schema: relationSchema('string'), id: 'exact-policy-key' },
+			{ type: 'integer', schema: relationSchema('integer'), id: 7 },
+		])('accepts a $type source key without coercion', async ({ schema, id }) => {
+			await writeFile(
+				path.join(directory, 'directus_policies.json'),
+				JSON.stringify([{ id }]),
+			)
+			await writeFile(
+				path.join(directory, 'directus_permissions.json'),
+				JSON.stringify([{ id: 1, policy: id }]),
+			)
+			const service = await createRelationProgram()
+			service.getSchema.mockResolvedValue(schema)
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_permissions',
+				),
+			).toBe(0)
+			expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith([{ id: 1, policy: id }])
+		})
+
+		it.each([
+			undefined,
+			'directory',
+			'{broken',
+			'{}',
+			'[{}]',
+			'[null]',
+			'[{"id":true}]',
+			'[{"id":"invalid-uuid"}]',
+			JSON.stringify([{ id: policy.toUpperCase() }]),
+		])(
+			'rejects required source %j before any earlier selected collection mutates',
+			async (contents) => {
+				const source = path.join(directory, 'directus_policies.json')
+				if (contents === 'directory') await mkdir(source)
+				else if (contents !== undefined) await writeFile(source, contents)
+				await writeFile(
+					path.join(directory, 'directus_roles.json'),
+					'[{"id":"earlier-role"}]',
+				)
+				await writeFile(path.join(directory, 'directus_permissions.json'), '[]')
+				const service = await createRelationProgram()
+				const error = vi.spyOn(logger, 'error')
+				expect(
+					await runCommand(
+						service.program,
+						'system',
+						'--yes',
+						'--include',
+						'directus_roles',
+						'directus_permissions',
+					),
+				).toBe(1)
+				expect(error).toHaveBeenCalledWith(expect.stringContaining(source))
+				expect(service.readByQuery).not.toHaveBeenCalled()
+				expectNoMutations(service)
+			},
+		)
+
+		it('requires id primary keys on both source and target before earlier writes', async () => {
+			await writeFile(
+				path.join(directory, 'directus_policies.json'),
+				JSON.stringify([{ id: policy }]),
+			)
+			await writeFile(path.join(directory, 'directus_permissions.json'), '[]')
+			await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"earlier-role"}]')
+			for (const collection of ['directus_policies', 'directus_permissions']) {
+				const schema = relationSchema()
+				if (collection === 'directus_policies')
+					schema.collections.directus_policies.primary = 'key'
+				else schema.collections.directus_permissions.primary = 'key'
+				const service = await createRelationProgram()
+				service.getSchema.mockResolvedValue(schema)
+				expect(
+					await runCommand(
+						service.program,
+						'system',
+						'--yes',
+						'--include',
+						'directus_roles',
+						'directus_permissions',
+					),
+				).toBe(1)
+				expect(service.readByQuery).not.toHaveBeenCalled()
+				expectNoMutations(service)
+			}
+		})
+
+		it.each(['foreign-key', 'alias'])(
+			'rejects an invalid %s relation before earlier writes',
+			async (invalid) => {
+				await writeFile(
+					path.join(directory, 'directus_policies.json'),
+					JSON.stringify([{ id: policy }]),
+				)
+				await writeFile(path.join(directory, 'directus_permissions.json'), '[]')
+				await writeFile(
+					path.join(directory, 'directus_roles.json'),
+					'[{"id":"earlier-role"}]',
+				)
+				const schema = relationSchema()
+				if (invalid === 'foreign-key') {
+					const relation = schema.relations[0]
+					if (!relation) throw new Error('Expected relation fixture')
+					relation.schema.foreign_key_column = 'name'
+				} else schema.collections.directus_permissions.fields.policy.alias = true
+				const service = await createRelationProgram()
+				service.getSchema.mockResolvedValue(schema)
+				expect(
+					await runCommand(
+						service.program,
+						'system',
+						'--yes',
+						'--include',
+						'directus_roles',
+						'directus_permissions',
+					),
+				).toBe(1)
+				expect(service.readByQuery).not.toHaveBeenCalled()
+				expectNoMutations(service)
+			},
+		)
+
+		it.each([
+			{ id: 1, policy: outsider },
+			{ id: 1, policy: { id: policy } },
+			{ id: 1, policy: null },
+			{ id: '1', policy },
+			{ policy },
+		])('rejects invalid managed target %# before earlier writes', async (row) => {
+			await writeFile(
+				path.join(directory, 'directus_policies.json'),
+				JSON.stringify([{ id: policy }]),
+			)
+			await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"earlier-role"}]')
+			await writeFile(
+				path.join(directory, 'directus_permissions.json'),
+				JSON.stringify([row]),
+			)
+			const service = await createRelationProgram()
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_roles',
+					'directus_permissions',
+				),
+			).toBe(1)
+			expect(service.readByQuery).not.toHaveBeenCalled()
+			expectNoMutations(service)
+		})
+
+		it('rejects a seed-ID collision owned by an outsider before earlier collection writes', async () => {
+			await writeFile(
+				path.join(directory, 'directus_policies.json'),
+				JSON.stringify([{ id: policy }]),
+			)
+			await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"earlier-role"}]')
+			await writeFile(
+				path.join(directory, 'directus_permissions.json'),
+				JSON.stringify([{ id: 1, policy }]),
+			)
+			const service = await createRelationProgram()
+			service.readByQuery.mockResolvedValue([{ id: 1, policy: outsider }])
+			expect(
+				await runCommand(
+					service.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_roles',
+					'directus_permissions',
+				),
+			).toBe(1)
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+				fields: ['id', 'policy'],
+				filter: { id: { _in: [1] } },
+				limit: -1,
+			})
+			expectNoMutations(service)
+		})
+
+		it('bounds empty target deletion, treats empty source as no-op, and rejects nonempty targets outside empty scope', async () => {
+			const source = path.join(directory, 'directus_policies.json')
+			const target = path.join(directory, 'directus_permissions.json')
+			await writeFile(source, JSON.stringify([{ id: policy }]))
+			await writeFile(target, '[]')
+			const bounded = await createRelationProgram()
+			bounded.readByQuery.mockResolvedValue([{ id: 2 }])
+			expect(
+				await runCommand(
+					bounded.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_permissions',
+				),
+			).toBe(0)
+			expect(bounded.readByQuery).toHaveBeenCalledExactlyOnceWith({
+				fields: ['id'],
+				filter: { _and: [{ policy: { _in: [policy] } }] },
+				limit: -1,
+			})
+			expect(bounded.deleteMany).toHaveBeenCalledExactlyOnceWith([2])
+			await writeFile(source, '[]')
+			const empty = await createRelationProgram()
+			expect(
+				await runCommand(
+					empty.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_permissions',
+				),
+			).toBe(0)
+			expect(empty.readByQuery).not.toHaveBeenCalled()
+			expect(empty.createMany).not.toHaveBeenCalled()
+			expect(empty.upsertMany).not.toHaveBeenCalled()
+			expect(empty.deleteMany).not.toHaveBeenCalled()
+			await writeFile(target, JSON.stringify([{ id: 1, policy }]))
+			const outside = await createRelationProgram()
+			expect(
+				await runCommand(
+					outside.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_permissions',
+				),
+			).toBe(1)
+			expect(outside.readByQuery).not.toHaveBeenCalled()
+			expectNoMutations(outside)
+		})
+
+		it('requires full-idempotent opt-in, ignores relation management in other modes, and skips missing targets without source input', async () => {
+			const target = path.join(directory, 'directus_permissions.json')
+			await writeFile(target, JSON.stringify([{ id: 1, policy }]))
+			const disabled = await createRelationProgram(
+				{},
+				{ SEEDER_ENABLE_FULL_IDEMPOTENT: false },
+			)
+			expect(
+				await runCommand(
+					disabled.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_permissions',
+				),
+			).toBe(1)
+			expectNoServiceCalls(disabled)
+			for (const mode of ['insert-missing', 'insert-update']) {
+				const service = await createRelationProgram()
+				expect(
+					await runCommand(
+						service.program,
+						'system',
+						'--mode',
+						mode,
+						'--yes',
+						'--include',
+						'directus_permissions',
+					),
+				).toBe(0)
+				expect(
+					mode === 'insert-missing' ? service.createMany : service.upsertMany,
+				).toHaveBeenCalledExactlyOnceWith([{ id: 1, policy }])
+				expect(service.deleteMany).not.toHaveBeenCalled()
+			}
+			await rm(target)
+			const missing = await createRelationProgram(
+				{},
+				{ SEEDER_ENABLE_FULL_IDEMPOTENT: false },
+			)
+			expect(
+				await runCommand(
+					missing.program,
+					'system',
+					'--yes',
+					'--include',
+					'directus_permissions',
+				),
+			).toBe(0)
+			expectNoServiceCalls(missing)
+		})
+
+		it('snapshots excluded raw source IDs and schema before normal extraction cleanup, combining the FK and extraction filters', async () => {
+			const source = path.join(directory, 'directus_policies.json')
+			await writeFile(source, JSON.stringify([{ id: policy }]))
+			await writeFile(path.join(directory, 'stale.json'), 'stale')
+			const filter = { action: { _eq: 'read' } }
+			const service = await createRelationProgram({ filter })
+			service.getSchema.mockImplementationOnce(async () => {
+				await expect(readFile(path.join(directory, 'stale.json'), 'utf8')).resolves.toBe(
+					'stale',
+				)
+				return relationSchema()
+			})
+			service.readByQuery.mockImplementation(async () => {
+				await expect(readFile(source)).rejects.toMatchObject({ code: 'ENOENT' })
+				return [{ id: 1, policy }]
+			})
+			expect(
+				await runCommand(
+					service.program,
+					'extract',
+					'--include',
+					'directus_permissions',
+					'--exclude',
+					'directus_policies',
+				),
+			).toBe(0)
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith(
+				expect.objectContaining({
+					filter: { _and: [filter, { policy: { _in: [policy] } }] },
+				}),
+			)
+			expect(
+				JSON.parse(
+					await readFile(path.join(directory, 'directus_permissions.json'), 'utf8'),
+				),
+			).toEqual([{ id: 1, policy }])
+		})
+
+		it('extracts an empty scope as [] without collection reads', async () => {
+			await writeFile(path.join(directory, 'directus_policies.json'), '[]')
+			const service = await createRelationProgram()
+			expect(
+				await runCommand(service.program, 'extract', '--include', 'directus_permissions'),
+			).toBe(0)
+			expect(service.readByQuery).not.toHaveBeenCalled()
+			expect(await readFile(path.join(directory, 'directus_permissions.json'), 'utf8')).toBe(
+				'[]\n',
+			)
+		})
+
+		it.each(['missing', 'invalid', 'schema'])(
+			'preserves extraction output when the related %s preflight fails',
+			async (invalid) => {
+				const source = path.join(directory, 'directus_policies.json')
+				if (invalid !== 'missing')
+					await writeFile(
+						source,
+						invalid === 'invalid' ? '[{}]' : JSON.stringify([{ id: policy }]),
+					)
+				await mkdir(path.join(directory, 'assets'))
+				await writeFile(path.join(directory, 'stale.json'), 'stale seeds')
+				await writeFile(path.join(directory, 'assets', 'stale.bin'), 'stale assets')
+				const service = await createRelationProgram({}, { SEEDER_JSON_ONLY: false })
+				if (invalid === 'schema')
+					service.getSchema.mockRejectedValue(new Error('schema unavailable'))
+				expect(
+					await runCommand(
+						service.program,
+						'extract',
+						'--include',
+						'directus_permissions',
+					),
+				).toBe(1)
+				expect(service.readByQuery).not.toHaveBeenCalled()
+				expect(service.readFiles).not.toHaveBeenCalled()
+				expect(await readFile(path.join(directory, 'stale.json'), 'utf8')).toBe(
+					'stale seeds',
+				)
+				expect(await readFile(path.join(directory, 'assets', 'stale.bin'), 'utf8')).toBe(
+					'stale assets',
+				)
+			},
+		)
 	})
 
 	describe('Flow-folder schema compatibility', () => {

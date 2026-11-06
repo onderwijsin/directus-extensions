@@ -1,4 +1,4 @@
-import type { CollectionManagement } from '../lib/collectionManagement'
+import type { ResolvedCollectionManagement } from '../lib/collectionManagement'
 import type { PerformanceTracker } from '../lib/performanceTracker'
 import type { SeedItem } from '../lib/seedItem'
 import type { ServiceAdapter } from '../services/ServiceAdapter'
@@ -6,7 +6,7 @@ import type { SeederStrategy, SeedResult } from './SeederStrategy'
 
 import { z } from 'zod'
 
-import { getIdRangeFilters, validateManagedSeedData } from '../lib/collectionManagement'
+import { getManagementFilters, validateManagedSeedData } from '../lib/collectionManagement'
 import { OperationMode } from '../lib/config'
 import { toSeedRecord } from '../lib/seedItem'
 
@@ -305,7 +305,7 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 		 * @param data - Original seed rows.
 		 * @param serviceAdapter - Directus service operations.
 		 * @param performanceTracker - Operation timing tracker.
-		 * @param management - Optional numeric management boundary.
+		 * @param management - Optional resolved boundary, including related seed IDs.
 		 * @returns Counts, duration, and any captured mutation error.
 		 */
 		seedCollection: async (
@@ -313,13 +313,14 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 			data: SeedItem[],
 			serviceAdapter: ServiceAdapter,
 			performanceTracker: PerformanceTracker,
-			management?: CollectionManagement,
+			management?: ResolvedCollectionManagement,
 		) => {
 			// Ensure data has id fields for this strategy
 			const dataWithIds = data
 
 			return executeSeedOperation(collectionName, data, async (result) => {
-				const range = validateManagedSeedData(collectionName, data, management)
+				const boundary = validateManagedSeedData(collectionName, data, management)
+				if (boundary?.type === 'relation' && boundary.ids.length === 0) return
 				// Get all seed data IDs
 				const seedDataIds = new Set(
 					dataWithIds
@@ -351,12 +352,12 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 					const allExistingItems = await serviceAdapter.getItems({
 						fields: ['id'],
 						filter:
-							range === undefined
+							boundary === undefined
 								? { id: { _nin: [...seedDataIds] } }
 								: {
 										_and: [
-											...getIdRangeFilters(range),
-											// Bounded empty seeds need only the range; never rely on _nin: [].
+											...getManagementFilters(boundary),
+											// Bounded empty seeds need only the management selection; never rely on _nin: [].
 											...(seedDataIds.size === 0
 												? []
 												: [{ id: { _nin: [...seedDataIds] } }]),

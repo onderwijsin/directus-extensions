@@ -4,11 +4,16 @@ import { promisify } from 'node:util'
 
 import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
+	createPermission,
+	createPolicy,
 	createPreset,
 	createTranslation,
+	deletePermission,
+	deletePolicy,
 	deletePreset,
 	deleteRole,
 	deleteTranslation,
+	readPermissions,
 	readPresets,
 	readRoles,
 	readTranslation,
@@ -251,6 +256,209 @@ describe('installed seeder CLI', () => {
 				)) {
 					await client.request(deletePreset(preset.id))
 				}
+			} finally {
+				await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				])
+			}
+		}
+	})
+
+	it('synchronizes only permissions of seed policies, rejects outsider collisions, and leaves permissions of removed source IDs untouched', async () => {
+		const policyIds = [randomUUID(), randomUUID(), randomUUID()]
+		const [managedId, removedId, outsiderId] = policyIds
+		if (!managedId || !removedId || !outsiderId) throw new Error('Expected three policy IDs')
+		const directory = `/tmp/seeder-relation-e2e-${randomUUID()}`
+		const environment = {
+			DEPLOYMENT_ENV: 'production',
+			SEEDER_CONFIG_PATH: `${directory}/config.json`,
+			SEEDER_SEEDS_DIR: `${directory}/seeds`,
+			SEEDER_ENABLE_FULL_IDEMPOTENT: 'true',
+		}
+		const createdPolicies: string[] = []
+
+		/**
+		 * Replaces only the raw source and target input for the next CLI invocation.
+		 * @param policies - Raw policy rows defining the bounded selection.
+		 * @param permissions - Raw permission rows to synchronize.
+		 * @returns Nothing.
+		 */
+		async function writeInputs(policies: unknown[], permissions: unknown[]) {
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'const fs = require("node:fs"); const [root, policies, permissions] = process.argv.slice(1); fs.writeFileSync(`${root}/seeds/directus_policies.json`, policies); fs.writeFileSync(`${root}/seeds/directus_permissions.json`, permissions)',
+				directory,
+				JSON.stringify(policies),
+				JSON.stringify(permissions),
+			])
+		}
+
+		try {
+			for (const id of policyIds) {
+				await client.request(
+					createPolicy({
+						id,
+						name: `Seeder relation ${id}`,
+						app_access: false,
+						admin_access: false,
+					}),
+				)
+				createdPolicies.push(id)
+			}
+			const kept = await client.request(
+				createPermission({
+					policy: managedId,
+					collection: 'directus_roles',
+					action: 'read',
+					fields: ['*'],
+				}),
+			)
+			const extra = await client.request(
+				createPermission({
+					policy: managedId,
+					collection: 'directus_roles',
+					action: 'update',
+					fields: ['*'],
+				}),
+			)
+			const removed = await client.request(
+				createPermission({
+					policy: removedId,
+					collection: 'directus_roles',
+					action: 'read',
+					fields: ['*'],
+				}),
+			)
+			const outsider = await client.request(
+				createPermission({
+					policy: outsiderId,
+					collection: 'directus_roles',
+					action: 'read',
+					fields: ['*'],
+				}),
+			)
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'const fs = require("node:fs"); fs.mkdirSync(`${process.argv[1]}/seeds`, { recursive: true }); fs.writeFileSync(`${process.argv[1]}/config.json`, process.argv[2])',
+				directory,
+				JSON.stringify({
+					system: {
+						collections: {
+							directus_permissions: {
+								operationMode: 'full-idempotent',
+								management: {
+									type: 'relation',
+									field: 'policy',
+									collection: 'directus_policies',
+								},
+							},
+						},
+					},
+				}),
+			])
+			const sources = [{ id: managedId }, { id: removedId }]
+			const rows = [
+				{
+					id: kept.id,
+					policy: managedId,
+					collection: 'directus_translations',
+					action: 'read',
+					fields: ['*'],
+				},
+				{
+					id: removed.id,
+					policy: removedId,
+					collection: 'directus_roles',
+					action: 'read',
+					fields: ['*'],
+				},
+			]
+			await writeInputs(sources, rows)
+			await seed(
+				environment,
+				'system',
+				'--yes',
+				'--include',
+				'directus_permissions',
+				'--exclude',
+				'directus_policies',
+			)
+			const synchronized = await client.request(
+				readPermissions({
+					filter: { policy: { _in: policyIds } },
+					fields: ['id', 'policy', 'collection'],
+					sort: ['id'],
+				}),
+			)
+			expect(synchronized).toEqual(
+				expect.arrayContaining([
+					{ id: kept.id, policy: managedId, collection: 'directus_translations' },
+					{ id: removed.id, policy: removedId, collection: 'directus_roles' },
+					{ id: outsider.id, policy: outsiderId, collection: 'directus_roles' },
+				]),
+			)
+			expect(synchronized).toHaveLength(3)
+			expect(synchronized.some(({ id }) => id === extra.id)).toBe(false)
+
+			await writeInputs(sources, [{ ...rows[0], id: outsider.id, policy: managedId }])
+			await expect(
+				seed(environment, 'system', '--yes', '--include', 'directus_permissions'),
+			).rejects.toMatchObject({ code: 1 })
+			expect(
+				await client.request(
+					readPermissions({
+						filter: { policy: { _eq: outsiderId } },
+						fields: ['id', 'policy', 'collection'],
+					}),
+				),
+			).toEqual([{ id: outsider.id, policy: outsiderId, collection: 'directus_roles' }])
+
+			// Removing a source ID forgets its historical membership; only the remaining policy clears.
+			await writeInputs([{ id: managedId }], [])
+			await seed(environment, 'system', '--yes', '--include', 'directus_permissions')
+			const survivors = await client.request(
+				readPermissions({
+					filter: { policy: { _in: policyIds } },
+					fields: ['id', 'policy'],
+					sort: ['id'],
+				}),
+			)
+			expect(survivors).toHaveLength(2)
+			expect(survivors).toEqual(
+				expect.arrayContaining([
+					{ id: removed.id, policy: removedId },
+					{ id: outsider.id, policy: outsiderId },
+				]),
+			)
+			await writeInputs([], [])
+			await seed(environment, 'system', '--yes', '--include', 'directus_permissions')
+			expect(
+				await client.request(
+					readPermissions({
+						filter: { policy: { _in: policyIds } },
+						fields: ['id', 'policy'],
+						sort: ['id'],
+					}),
+				),
+			).toEqual(survivors)
+		} finally {
+			try {
+				for (const permission of await client.request(
+					readPermissions({ filter: { policy: { _in: policyIds } } }),
+				))
+					await client.request(deletePermission(permission.id))
+				for (const id of createdPolicies) await client.request(deletePolicy(id))
 			} finally {
 				await execute('docker', [
 					...composeArguments,

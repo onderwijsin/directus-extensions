@@ -125,6 +125,9 @@ inspected effective mode is `full-idempotent`. It shows generic package defaults
 consumer configuration, not the target's available fields. Extraction adapts inherited default field
 selections when querying the target schema.
 
+Inspection prints relation management unchanged without resolving source IDs or validating the live
+relationship. Review the source file and target schema separately before import or extraction.
+
 ## Configuration reference
 
 Directus casts environment `true`/`false` to booleans, numeric values to numbers, and
@@ -257,6 +260,9 @@ For example, use this `seeder.config.json`:
     "collections": {
       "directus_presets": {
         "management": { "type": "id-range", "max": 50000 }
+      },
+      "directus_permissions": {
+        "management": { "type": "relation", "field": "policy", "collection": "directus_policies" }
       }
     },
     "order": ["directus_policies", "directus_roles"]
@@ -294,26 +300,27 @@ keyed by any of the supported collection names listed below. Unknown configurati
 unsupported collection names fail validation, including unknown properties inside a collection or
 management object. Each collection accepts these properties:
 
-| Property        | Accepted value and effect                                                                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `operationMode` | Exact `insert-missing`, `insert-update`, or `full-idempotent`. Overrides the global mode for this collection unless CLI `--mode` is supplied.                          |
-| `fields`        | Array of field names, or `null` to clear the built-in projection and use the existing all-fields behavior.                                                             |
-| `filter`        | Directus filter object, or `null` to clear the built-in extraction filter. This does not constrain synchronization deletes.                                            |
-| `sort`          | Array of sort strings, or `null` to clear the built-in sort option.                                                                                                    |
-| `deep`          | Directus deep-query object, or `null` to clear the built-in deep-query option.                                                                                         |
-| `management`    | Whole range object with `type: "id-range"` and optional safe-integer numeric `min`/`max`; at least one bound is required. `null` is invalid. See seeding safety below. |
+| Property        | Accepted value and effect                                                                                                                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `operationMode` | Exact `insert-missing`, `insert-update`, or `full-idempotent`. Overrides the global mode for this collection unless CLI `--mode` is supplied.                                                                                        |
+| `fields`        | Array of field names, or `null` to clear the built-in projection and use the existing all-fields behavior.                                                                                                                           |
+| `filter`        | Directus filter object, or `null` to clear the built-in extraction filter. This does not constrain synchronization deletes.                                                                                                          |
+| `sort`          | Array of sort strings, or `null` to clear the built-in sort option.                                                                                                                                                                  |
+| `deep`          | Directus deep-query object, or `null` to clear the built-in deep-query option.                                                                                                                                                       |
+| `management`    | Whole object: `type: "id-range"` with optional safe-integer numeric `min`/`max` (at least one required), or `type: "relation"` with required `field` and supported source `collection`. `null` is invalid. See seeding safety below. |
 
 See [Directus query parameters](https://directus.com/docs/guides/connect/query-parameters) and
 [filter rules](https://directus.com/docs/guides/connect/filter-rules) for query syntax. Query
-structure is validated before extraction cleanup; database-specific field and relation validation
-still occurs in Directus during reads. Combine comparisons on the same field as separate objects
-inside `_and`; multiple operators in one field predicate are rejected because Directus applies only
-the first. Those read errors can leave partial output under the existing extraction recovery
-behavior below. Overrides are shallow by property: an omitted property retains its default, while
-each provided array, `filter`, `deep`, or `management` replaces that whole value. There is no
-recursive merge. For example, supplying a presets `filter` replaces the built-in `user = null`
-filter; include that rule yourself if you still need it. `fields`, `filter`, `sort`, and `deep` may
-be `null` to clear an option; `operationMode` and `management` may not.
+structure is validated before extraction cleanup; query field and relation validation still occurs
+in Directus during reads. Relation management has additional schema checks described below. Combine
+comparisons on the same field as separate objects inside `_and`; multiple operators in one field
+predicate are rejected because Directus applies only the first. Those read errors can leave partial
+output under the existing extraction recovery behavior below. Overrides are shallow by property: an
+omitted property retains its default, while each provided array, `filter`, `deep`, or `management`
+replaces that whole value. There is no recursive merge. For example, supplying a presets `filter`
+replaces the built-in `user = null` filter; include that rule yourself if you still need it.
+`fields`, `filter`, `sort`, and `deep` may be `null` to clear an option; `operationMode` and
+`management` may not.
 
 Before replacing `fields`, inspect `seed config --defaults --collection directus_roles` (or the
 collection you are changing). Copy every built-in field you want to retain into your replacement
@@ -332,10 +339,10 @@ selection, or change cleanup and binary asset behavior.
 For each selected collection, the effective seeding mode is explicit CLI `--mode`, then collection
 `operationMode`, then `SEEDER_MODE` (default `insert-missing`). The example leaves `operationMode`
 unset, so every collection uses the global fallback unless CLI `--mode` overrides it. Its management
-range limits extraction and full-idempotent synchronization; it does not limit insert-missing or
+boundaries limit extraction and full-idempotent synchronization; they do not limit insert-missing or
 insert-update imports. Safety opt-in and confirmation prompts inspect the effective modes of
 selected collections with present seed files, including `[]`. Missing files require no confirmation
-or opt-in. Required input errors still abort before database operations. CLI mode overrides never
+or opt-in. Required input errors still abort before database mutations. CLI mode overrides never
 change `management`.
 
 The built-in presets extraction now retains only `user = null`, with no ID cap. Without a consumer
@@ -439,16 +446,17 @@ Seed input uses `<seeds-dir>/<collection>.json`; files for collections outside t
 above are ignored. The Seeder resolves include/exclude before preflight: each CLI list overrides
 only its corresponding environment list, and exclusions win. Before any database mutation, selected
 seed files and their data transformations are validated, plus any Flow metadata required for
-Operations filtering below. Invalid or unreadable required input aborts before any selected
-collection is mutated, even with `SEEDER_CONTINUE_ON_ERROR=true`. Unselected files are ignored
-silently unless required as Flow metadata.
+Operations filtering and raw related seed IDs required for full-idempotent relation management
+below. Invalid or unreadable required input aborts before any selected collection is mutated, even
+with `SEEDER_CONTINUE_ON_ERROR=true`. Unselected files are ignored silently unless required as Flow
+metadata or a relation source.
 
-- A missing file (ENOENT only) omits the collection and its data: no database operations run for it
-  in any mode, including `full-idempotent` deletes. A missing file never becomes empty input.
+- A missing target file (ENOENT only) omits the collection and its data: no database operations run
+  for it in any mode, including `full-idempotent` deletes. A missing file never becomes empty input.
 - A valid `[]` is intentional empty data. `insert-missing` adds nothing; `insert-update` adds or
   updates nothing. In `full-idempotent` mode, with its existing safeguards satisfied, it deletes
-  every existing row of the selected collection, or only rows inside its configured management range
-  when one is defined.
+  every existing row of the selected collection, or only rows inside its configured management
+  boundary when one is defined.
 - For required input, invalid JSON syntax, a non-array JSON root, a zero-byte or whitespace-only
   file, and non-ENOENT read errors throw a file-context error naming the file; the CLI exits 1
   regardless of `SEEDER_CONTINUE_ON_ERROR`.
@@ -481,7 +489,7 @@ transactional two-pass import.
 
 `insert-missing` creates missing IDs; `insert-update` upserts records; `full-idempotent`
 additionally deletes target IDs absent from the selected seed data, within any configured management
-range. Stable IDs are necessary for repeatability. Without a management range, ID-less input retains
+boundary. Stable IDs are necessary for repeatability. Without management, ID-less input retains
 legacy batch-dependent handling and should not be used for synchronization.
 
 If any selected collection with a present seed file has effective mode `full-idempotent`, the
@@ -498,25 +506,31 @@ Review seed files and back up the target first. Preflight validates required see
 database mutation (see "Seed input semantics and preflight" above): missing selected files omit
 their collections, while invalid or unreadable required files abort with a nonzero exit code. In
 full-idempotent mode, intentional empty data (`[]`) for a selected collection deletes every existing
-target record in its management range, or the whole collection when no range is defined. Deletes
+target record in its management boundary, or the whole collection when management is unset. Deletes
 still require the explicit opt-in and confirmation safeguards above. Extraction filters, omitted
 fields, and environment transformations mean an extract is not necessarily a safe full-idempotent
 restore source.
 
-Per-collection `management` supports only `type: 'id-range'`, with optional inclusive `min` and
-exclusive `max` bounds; at least one bound is required. Bounds and ranged seed IDs must be
-JavaScript safe-integer numbers, without numeric-string coercion. Empty ranges, unknown keys or
-types, `null`, nonfinite, fractional, or unsafe bounds, and `min >= max` are invalid. Consumer
-configuration validates ranges even when another mode is effective. Before any database operations,
-all selected collections with present seed files and effective `full-idempotent` mode are
-preflighted. Invalid management or a ranged record with a missing, nonnumeric, unsafe, or
-out-of-range ID aborts the entire import, even with `SEEDER_CONTINUE_ON_ERROR=true`.
+Imports in `insert-missing` and `insert-update` ignore management, including relation sources.
+Explicit CLI `--mode` preserves the configured management object. No collection has management
+configured by default, including `directus_presets`; without it, full-idempotent retains
+whole-collection synchronization. Before the first mutation, preflight validates every selected
+collection's required input and every effective full-idempotent management boundary. Required
+preflight errors abort the entire import even with `SEEDER_CONTINUE_ON_ERROR=true`.
+
+### ID-range management
+
+`management` with `type: 'id-range'` accepts optional inclusive `min` and exclusive `max` bounds; at
+least one bound is required. Bounds and ranged seed IDs must be JavaScript safe-integer numbers,
+without numeric-string coercion. Empty ranges, unknown keys or types, `null`, nonfinite, fractional,
+or unsafe bounds, and `min >= max` are invalid. Consumer configuration validates ranges even when
+another mode is effective. Before any database mutation, all selected collections with present seed
+files and effective `full-idempotent` mode are preflighted. Invalid management or a ranged record
+with a missing, nonnumeric, unsafe, or out-of-range ID aborts the entire import, even with
+`SEEDER_CONTINUE_ON_ERROR=true`.
 
 Ranged synchronization preserves records outside the range and deletes only in-range IDs absent from
 the seed data; `[]` deletes only within that range. Missing files still skip all collection work.
-Imports in `insert-missing` and `insert-update` ignore management, and explicit CLI `--mode` always
-preserves the configured range. No collection has management configured by default, including
-`directus_presets`; without a range, full-idempotent retains whole-collection synchronization.
 
 Extraction combines the management range with the separate extraction `filter` using AND.
 Full-idempotent deletion uses only the management range, never the extraction filter. A narrower
@@ -524,6 +538,73 @@ filter can omit in-range records from an export; importing that export in full-i
 then delete those records. For example, the default presets `user = null` filter omits personal
 presets even within a configured range, but it does not protect them from full-idempotent deletion.
 Review the complete intended range before using extracted JSON as a synchronization source.
+
+### Relation management
+
+Use one direct scalar many-to-one foreign key to select target rows by IDs in a related seed file.
+For example, the configuration above manages permissions whose `policy` is an `id` in
+`<seeds-dir>/directus_policies.json`. Membership comes from that raw Git seed file, independently of
+permission rows and whether policies are selected for import or extraction. Both collections must be
+supported system collections listed above; this does not add custom collections or a core scope. The
+live relationship must point directly to the related collection's `id` primary key; relation paths,
+aliases, compound relationships, and nested relation objects are unsupported.
+
+For a full-idempotent import with a present target file, and for every extraction of a
+relation-managed collection, the source must be a readable, valid JSON array with explicit IDs. IDs
+and foreign-key values must match the live schema: canonical lowercase UUID strings, nonempty
+strings, or safe-integer numbers, without numeric-string coercion. UUID inputs with uppercase
+letters are rejected before mutations to keep membership consistent across database representations.
+Other string keys are compared exactly and retain their case. Duplicate source IDs are invalid.
+Every target seed row requires its own explicit `id` and a scalar value for the configured field
+(`policy` here) in the source ID set. Missing, null, nested, or out-of-set foreign keys fail
+preflight. Only raw source `id` values define membership: source filters, ID ranges, and environment
+transformations are not evaluated, and source management is not followed recursively. Reading a
+source does not import its records.
+
+Before any selected collection is mutated, full-idempotent preflight validates the relationship
+schema, source IDs, target membership, and existing target seed-ID collisions. An existing row with
+the same seed ID outside the selected membership rejects the whole import rather than being moved
+into it. A missing, unreadable, malformed, or invalid required source also rejects the run; it never
+means an empty or unbounded selection.
+
+- Source `[]` means an empty managed set: no target collection reads or mutations run. Nonempty
+  target seed data is rejected.
+- A missing target seed file skips that collection, as in other modes.
+- Target `[]` with a nonempty source deletes only rows whose current foreign key belongs to that
+  source ID set. Rows linked to other policies remain outside the selection.
+
+With the policy already present in Directus, place this source in
+`<seeds-dir>/directus_policies.json`, and use the configuration above:
+
+```json
+[{ "id": "2a7d5e56-ba21-4fe5-b18e-f0d7147c7ae0", "name": "Editor" }]
+```
+
+To clear that policy's permissions, write `[]` to `<seeds-dir>/directus_permissions.json`, then run:
+
+```sh
+SEEDER_CONFIG_PATH=./seeder.config.json SEEDER_ENABLE_FULL_IDEMPOTENT=true npx directus seed system --mode full-idempotent --include directus_permissions --yes
+```
+
+The policy file supplies membership even though the command imports only permissions. Removing a
+policy ID from the source relinquishes its current selection: previously linked permissions can no
+longer be recognized by this configuration. There is no historical ownership manifest. Retain the
+policy ID, import permissions as `[]` to clear them, verify the result, and only then remove the ID.
+Review parent-policy deletion and database cascades separately; they are not this selection rule.
+
+Manual and automatic extraction read raw related seed IDs before existing cleanup or any output
+writes, then combine that membership with the target's configured extraction `filter` using AND. An
+empty source yields empty target JSON without reading that target collection. A missing or invalid
+source blocks extraction before cleanup. Full-idempotent deletion uses membership alone, so a
+narrower extraction filter can omit rows that a later import deletes.
+
+Normal cleanup and overwrite rules still apply to the source file: cleanup can delete an unselected
+source, and selecting it can replace its contents. There is no special preservation. Preserve and
+review your source data before extraction, then inspect or restore the intended source IDs before
+another run. Manual `--skip-clean` retains unselected files but still overwrites selected ones. The
+initial membership read is not a transaction or protection against concurrent writers.
+
+### Failure handling
 
 Operations are batched without an extension-wide transaction or rollback. Preflight checks array
 boundaries, transformations, and managed IDs; it does not add complete per-collection record schemas
@@ -582,8 +663,8 @@ with a nested assets directory. Manual `--assets` overrides environment JSON-onl
 `--assets` with `--json-only` is an error.
 
 With binary extraction enabled, extraction queries **all** `directus_files`, regardless of JSON
-selection, filters, or management ranges, and writes binary contents under `filename_disk` in the
-assets directory. Each asset is buffered in memory. Failed downloads fail the extraction run;
+selection, filters, or management boundaries, and writes binary contents under `filename_disk` in
+the assets directory. Each asset is buffered in memory. Failed downloads fail the extraction run;
 inspect asset counts and errors, fix the cause, and rerun to recover partial output. File seeding
 reads these local files and uploads through Directus `FilesService`, preserving supplied IDs.
 Updates re-upload assets too; missing binaries or `filename_disk` cause errors. JSON-only mode
@@ -625,7 +706,7 @@ extraction when needed. Enabling auto-extract does not import seeds or extract d
 - Selective auto-extract without `directus_files` forces JSON-only behavior, preserving every binary
   even with `SEEDER_JSON_ONLY=false`. Including `directus_files` permits binary export only when
   `SEEDER_JSON_ONLY=false`. That export still reads all `directus_files`, independently of JSON
-  fields, filters, or management ranges, and writes binaries without global asset cleanup.
+  fields, filters, or management boundaries, and writes binaries without global asset cleanup.
 
 For selective automatic JSON extraction, configure:
 

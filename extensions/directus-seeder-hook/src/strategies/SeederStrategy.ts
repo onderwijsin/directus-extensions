@@ -1,4 +1,4 @@
-import type { CollectionManagement } from '../lib/collectionManagement'
+import type { ResolvedCollectionManagement } from '../lib/collectionManagement'
 import type { PerformanceTracker } from '../lib/performanceTracker'
 import type { SeedItem } from '../lib/seedItem'
 import type { ServiceAdapter } from '../services/ServiceAdapter'
@@ -22,7 +22,7 @@ export interface SeederStrategy {
 		data: SeedItem[],
 		serviceAdapter: ServiceAdapter,
 		performanceTracker: PerformanceTracker,
-		management?: CollectionManagement,
+		management?: ResolvedCollectionManagement,
 	) => Promise<SeedResult>
 }
 

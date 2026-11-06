@@ -1,4 +1,5 @@
 import type { HookExtensionContext } from '@directus/types'
+import type { ResolvedCollectionManagement } from '../../lib/collectionManagement'
 import type { SeederConfig } from '../../lib/config'
 import type { SeedItem } from '../../lib/seedItem'
 import type { SystemCollectionConfig } from './config.schema'
@@ -7,9 +8,10 @@ import path from 'node:path'
 
 import { z } from 'zod'
 
-import { getIdRangeFilters } from '../../lib/collectionManagement'
+import { getManagementFilters } from '../../lib/collectionManagement'
 import { outputFile, prepareExtractionDirectories } from '../../lib/filesystem'
 import { createPerformanceTracker } from '../../lib/performanceTracker'
+import { resolveCollectionManagement } from '../../lib/resolveManagement'
 import { seedItemsSchema, toSeedRecord } from '../../lib/seedItem'
 import { getCompatibleExtractionFields } from './compatibility'
 import { SYSTEM_COLLECTIONS_ORDER } from './config'
@@ -125,16 +127,18 @@ const logDivider = (logger: HookExtensionContext['logger']): void => {
 }
 
 /**
- * Restricts extraction to both the management interval and the separate extraction filter.
+ * Restricts extraction to both the management boundary and the separate extraction filter.
  * @param collection - Validated effective settings.
- * @returns Directus filter; import deletion intentionally uses only the management interval.
+ * @param management - Resolved numeric or relation selection.
+ * @returns Directus filter; import deletion intentionally uses only the management boundary.
  */
 const getExtractionFilter = (
 	collection: SystemCollectionConfig,
+	management?: ResolvedCollectionManagement,
 ): SystemCollectionConfig['filter'] => {
-	const { management, filter } = collection
+	const { filter } = collection
 	if (!management) return filter
-	return { _and: [...(filter ? [filter] : []), ...getIdRangeFilters(management)] }
+	return { _and: [...(filter ? [filter] : []), ...getManagementFilters(management)] }
 }
 
 /**
@@ -172,6 +176,7 @@ const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem
  * @param context - Directus hook extension context
  * @param jsonIndent - Indentation for the extracted JSON
  * @param fieldOverrides - Collections whose consumer fields must be passed unchanged.
+ * @param management - Resolved numeric or relation selection.
  * @returns Promise<boolean> - True if extraction was successful, false otherwise
  */
 const extractSingleCollection = async (
@@ -180,6 +185,7 @@ const extractSingleCollection = async (
 	context: HookExtensionContext,
 	jsonIndent: SeederConfig['jsonIndent'],
 	fieldOverrides: SeederConfig['systemFieldOverrides'],
+	management?: ResolvedCollectionManagement,
 ): Promise<boolean> => {
 	const { logger, services, getSchema, database: knex } = context
 	const collectionName = collection.collection
@@ -197,11 +203,17 @@ const extractSingleCollection = async (
 		const query: Record<string, unknown> = {
 			limit: -1,
 			fields: getCompatibleExtractionFields(collection, schema, fieldOverrides),
-			filter: getExtractionFilter(collection),
+			filter:
+				management?.type === 'relation' && management.ids.length === 0
+					? undefined
+					: getExtractionFilter(collection, management),
 			sort: collection.sort ?? null,
 			deep: collection.deep ?? null,
 		}
-		let data: SeedItem[] = seedItemsSchema.parse(await service.readByQuery(query))
+		let data: SeedItem[] =
+			management?.type === 'relation' && management.ids.length === 0
+				? []
+				: seedItemsSchema.parse(await service.readByQuery(query))
 		data = filterExtractedData(collectionName, data)
 
 		// For operations, ensure exported JSON lists dependencies before dependents
@@ -302,10 +314,14 @@ const extractSingleAsset = async (
  * @param options.folders - Folder configuration for seeds and assets
  * @param options.context - Directus hook extension context containing services and utilities
  *
+ * @param boundaries - Selections snapshotted before cleanup; direct callers resolve them before writes.
  * @returns Resolves after collection extraction completes.
  * @throws Error if required options are missing or invalid
  */
-export const extractSeedsFromCollections = async (options: ExtractOptions): Promise<void> => {
+export const extractSeedsFromCollections = async (
+	options: ExtractOptions,
+	boundaries?: ReadonlyMap<string, ResolvedCollectionManagement>,
+): Promise<void> => {
 	validateExtractOptions(options)
 
 	const { logger } = options.context
@@ -317,6 +333,8 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 		excludeCollections,
 		collections.map(({ collection }) => collection),
 	)
+
+	const management = boundaries ?? (await resolveExtractionManagement(options))
 
 	logger.info(
 		`📋 Extracting ${collectionsToExtract.length} collections: ${collectionsToExtract.join(', ')}`,
@@ -341,6 +359,7 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 						options.context,
 						options.jsonIndent,
 						options.systemFieldOverrides,
+						management.get(collectionName),
 					)
 				},
 			)
@@ -467,6 +486,7 @@ export const extractAssets = async (options: ExtractOptions): Promise<void> => {
 export async function extractSystemData(options: ExtractOptions): Promise<void> {
 	validateExtractOptions(options)
 	const systemCollections = getSystemCollections(options)
+	const boundaries = await resolveExtractionManagement({ ...options, systemCollections })
 	let folders: ExtractOptions['folders']
 	try {
 		folders = await prepareExtractionDirectories(
@@ -481,6 +501,37 @@ export async function extractSystemData(options: ExtractOptions): Promise<void> 
 		})
 	}
 	const prepared = { ...options, folders, systemCollections }
-	await extractSeedsFromCollections(prepared)
+	await extractSeedsFromCollections(prepared, boundaries)
 	if (!options.jsonOnly) await extractAssets(prepared)
+}
+
+/**
+ * Snapshots all selected boundaries before cleanup can remove or extraction can replace source files.
+ * @param options - Effective extraction settings and existing Git seed directory.
+ * @returns Resolved management for selected collections only.
+ */
+async function resolveExtractionManagement(
+	options: ExtractOptions,
+): Promise<Map<string, ResolvedCollectionManagement>> {
+	const collections = getSystemCollections(options)
+	const selected = getFilteredCollections(
+		options.includeCollections,
+		options.excludeCollections,
+		collections.map(({ collection }) => collection),
+	)
+	const boundaries = new Map<string, ResolvedCollectionManagement>()
+	for (const collection of collections) {
+		if (!selected.includes(collection.collection) || !collection.management) continue
+		const management =
+			collection.management.type === 'relation'
+				? await resolveCollectionManagement(
+						collection.collection,
+						collection.management,
+						options.folders.seeds,
+						await options.context.getSchema(),
+					)
+				: collection.management
+		boundaries.set(collection.collection, management)
+	}
+	return boundaries
 }

@@ -1,9 +1,11 @@
 import type { JsonValue } from '@directus/types'
+import type { CollectionManagement } from '../../lib/collectionManagement'
 
 import { z } from 'zod'
 
 import { collectionManagementSchema } from '../../lib/collectionManagement'
 import { OperationMode } from '../../lib/config'
+import { SYSTEM_COLLECTIONS } from './config'
 
 type QueryObject = Record<string, JsonValue>
 
@@ -141,6 +143,18 @@ const deepNodeSchema: z.ZodType<QueryObject> = z.lazy(() =>
 		}),
 )
 
+// Keep the reusable boundary schema scope-neutral; this release supports system sources only.
+const systemManagementSchema: z.ZodType<CollectionManagement> = z.discriminatedUnion('type', [
+	collectionManagementSchema.options[0],
+	collectionManagementSchema.options[1].extend({
+		collection: z.enum(
+			SYSTEM_COLLECTIONS.map(({ collection }) => collection).filter(
+				(name) => name !== 'directus_extensions',
+			),
+		),
+	}),
+])
+
 /** Collection properties consumers can replace independently; nested values replace in full. */
 export const collectionOverridesSchema = z.strictObject({
 	operationMode: z.enum(OperationMode).optional(),
@@ -148,7 +162,7 @@ export const collectionOverridesSchema = z.strictObject({
 	filter: filterSchema.nullish(),
 	sort: fieldsSchema.nullish(),
 	deep: deepSchema.nullish(),
-	management: collectionManagementSchema.optional(),
+	management: systemManagementSchema.optional(),
 })
 
 /** Effective built-in or consumer-overridden system collection. */

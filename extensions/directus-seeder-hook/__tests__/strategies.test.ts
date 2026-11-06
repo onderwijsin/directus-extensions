@@ -140,6 +140,88 @@ describe('seed strategies', () => {
 		},
 	)
 
+	it('bounds relation deletions independently of the current target seed IDs', async () => {
+		const service = createAdapter()
+		service.getItems.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 2 }])
+		service.deleteItems.mockResolvedValue([2])
+		const management = {
+			type: 'relation',
+			field: 'owner',
+			collection: 'parents',
+			ids: ['parent'],
+		} satisfies Parameters<ReturnType<typeof createSeederStrategy>['seedCollection']>[4]
+		const strategy = createSeederStrategy(OperationMode.FULL_IDEMPOTENT)
+		const result = await strategy.seedCollection(
+			'children',
+			[{ id: 1, owner: 'parent' }],
+			service.adapter,
+			createPerformanceTracker(),
+			management,
+		)
+		expect(result).toMatchObject({ created: 1, deleted: 1 })
+		expect(service.getItems).toHaveBeenLastCalledWith({
+			fields: ['id'],
+			filter: { _and: [{ owner: { _in: ['parent'] } }, { id: { _nin: [1] } }] },
+			limit: -1,
+		})
+		expect(service.deleteItems).toHaveBeenCalledExactlyOnceWith([2])
+		service.getItems.mockClear().mockResolvedValue([])
+		await strategy.seedCollection(
+			'children',
+			[],
+			service.adapter,
+			createPerformanceTracker(),
+			management,
+		)
+		expect(service.getItems).toHaveBeenCalledExactlyOnceWith({
+			fields: ['id'],
+			filter: { _and: [{ owner: { _in: ['parent'] } }] },
+			limit: -1,
+		})
+	})
+
+	it('never queries or mutates an empty managed relation selection and fails closed without resolved IDs', async () => {
+		const service = createAdapter()
+		const strategy = createSeederStrategy(OperationMode.FULL_IDEMPOTENT)
+		const management = {
+			type: 'relation',
+			field: 'owner',
+			collection: 'parents',
+			ids: [],
+		} satisfies Parameters<typeof strategy.seedCollection>[4]
+		expect(
+			await strategy.seedCollection(
+				'children',
+				[],
+				service.adapter,
+				createPerformanceTracker(),
+				management,
+			),
+		).toMatchObject({ deleted: 0 })
+		expect(
+			(
+				await strategy.seedCollection(
+					'children',
+					[{ id: 1, owner: 'parent' }],
+					service.adapter,
+					createPerformanceTracker(),
+					management,
+				)
+			).error,
+		).toContain('inside the managed relation selection')
+		expect(() =>
+			validateManagedSeedData('children', [], {
+				type: 'relation',
+				field: 'owner',
+				collection: 'parents',
+			}),
+		).toThrow('Invalid management')
+		expect(service.getItems).not.toHaveBeenCalled()
+		expect(service.createItems).not.toHaveBeenCalled()
+		expect(service.upsertItems).not.toHaveBeenCalled()
+		expect(service.deleteItems).not.toHaveBeenCalled()
+	})
+
 	it('rejects a later out-of-range seed before processing even the first batch', async () => {
 		const service = createAdapter()
 		const result = await createSeederStrategy(OperationMode.FULL_IDEMPOTENT, 1).seedCollection(
@@ -192,6 +274,32 @@ describe('seed strategies', () => {
 		]) {
 			expect(() => validateManagedSeedData('fixture', [seed], management)).toThrow(
 				'requires a safe integer numeric ID',
+			)
+		}
+	})
+
+	it('allows only ordered internal updates of an already validated managed ID', () => {
+		const management = {
+			type: 'relation',
+			field: 'flow',
+			collection: 'directus_flows',
+			ids: ['flow'],
+		}
+		const full = { id: 'operation', flow: 'flow', resolve: null }
+		const update = { id: 'operation', resolve: 'next', __isUpdateOnly: true }
+		expect(() =>
+			validateManagedSeedData('directus_operations', [full, update], management),
+		).not.toThrow()
+		for (const data of [
+			[update, full],
+			[full, { ...update, flow: null }],
+			[full, { ...update, flow: 'outside' }],
+			[full, { ...update, flow: { id: 'flow' } }],
+			[full, { ...update, id: 'other' }],
+			[full, { id: 'operation' }],
+		]) {
+			expect(() => validateManagedSeedData('directus_operations', data, management)).toThrow(
+				'inside the managed relation selection',
 			)
 		}
 	})
