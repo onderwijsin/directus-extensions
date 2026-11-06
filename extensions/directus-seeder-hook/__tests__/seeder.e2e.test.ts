@@ -270,7 +270,7 @@ describe('installed seeder CLI', () => {
 		}
 	})
 
-	it('retains manifest history across clean extraction and synchronizes only managed UUIDs', async () => {
+	it('retains manifest history, synchronizes managed UUIDs, and resets the full collection', async () => {
 		const ids = [randomUUID(), randomUUID(), randomUUID()].sort()
 		const [keptId, historicalId, outsiderId] = ids
 		if (!keptId || !historicalId || !outsiderId)
@@ -380,6 +380,45 @@ describe('installed seeder CLI', () => {
 				manifestPath,
 			])
 			expect(afterImport.stdout).toBe(manifest.stdout)
+			const configBeforeReset = await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+				environment.SEEDER_CONFIG_PATH,
+			])
+			await seed(
+				environment,
+				'system',
+				'--yes',
+				'--full-reset',
+				'--include',
+				'directus_translations',
+			)
+			expect(
+				await client.request(
+					readTranslations({
+						filter: { id: { _in: ids } },
+						fields: ['id', 'key', 'language', 'value'],
+						sort: ['id'],
+					}),
+				),
+			).toEqual([updated])
+			for (const { path, original } of [
+				{ path: manifestPath, original: manifest.stdout },
+				{ path: environment.SEEDER_CONFIG_PATH, original: configBeforeReset.stdout },
+			]) {
+				const afterReset = await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+					path,
+				])
+				expect(afterReset.stdout).toBe(original)
+			}
 		} finally {
 			try {
 				for (const translation of await client.request(
