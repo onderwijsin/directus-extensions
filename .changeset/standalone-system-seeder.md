@@ -115,7 +115,7 @@ remain limited to supported system collections. Read membership from raw related
 IDs even when that source collection is excluded; require a present readable valid array with
 explicit schema-compatible canonical lowercase UUID, nonempty string, or safe-integer IDs.
 Reject uppercase UUID inputs and duplicate source IDs before mutations; preserve arbitrary string key case. Do not recursively resolve
-source management or evaluate source filters, ranges, or environment transformations.
+source management or apply source filters, ranges, or environment transformations to raw membership.
 Full-idempotent preflight validates every selected collection's required input, relationship schema,
 membership, and existing seed-ID collisions outside that membership before any mutation. Other
 import modes ignore management. Source `[]` selects nothing and skips target collection reads and
@@ -123,8 +123,13 @@ mutations, rejecting nonempty target seeds; missing target files skip work, whil
 only current membership. Missing or invalid required sources reject the run.
 
 Read extraction source IDs before existing cleanup or any writes, AND membership with the target's
-configured extraction filter, and reject missing sources before cleanup. Retain normal cleanup and
-overwrite behavior: source files can be removed or replaced, with no special preservation. Document
+configured extraction filter, and reject missing sources before cleanup. When a relation source is
+also selected, preflight its ordinary effective extraction query and require exported IDs to match
+the Git source ID set exactly, including empty sets. Added/removed IDs, duplicates, omitted IDs, or
+source read errors stop before cleanup or writes, including selective automatic extraction. Reuse
+those exact checked source rows for the eventual write instead of reading the source again. Other
+source fields/order may change; unselected sources retain raw-file membership without a source DB
+read. Retain normal cleanup and overwrite behavior: source files can be removed or replaced, with no special preservation. Document
 reviewing and preserving source data, plus the absence of historical ownership: removing a policy
 ID relinquishes its selection. Retain the ID and import permissions as `[]` before relinquishing it;
 review parent deletes/cascades separately. Add no historical manifest, transaction, or concurrency

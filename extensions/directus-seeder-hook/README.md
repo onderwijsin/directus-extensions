@@ -558,8 +558,8 @@ Other string keys are compared exactly and retain their case. Duplicate source I
 Every target seed row requires its own explicit `id` and a scalar value for the configured field
 (`policy` here) in the source ID set. Missing, null, nested, or out-of-set foreign keys fail
 preflight. Only raw source `id` values define membership: source filters, ID ranges, and environment
-transformations are not evaluated, and source management is not followed recursively. Reading a
-source does not import its records.
+transformations do not narrow that membership, and source management is not followed recursively.
+Reading a source does not import its records.
 
 Before any selected collection is mutated, full-idempotent preflight validates the relationship
 schema, source IDs, target membership, and existing target seed-ID collisions. An existing row with
@@ -595,8 +595,21 @@ Review parent-policy deletion and database cascades separately; they are not thi
 Manual and automatic extraction read raw related seed IDs before existing cleanup or any output
 writes, then combine that membership with the target's configured extraction `filter` using AND. An
 empty source yields empty target JSON without reading that target collection. A missing or invalid
-source blocks extraction before cleanup. Full-idempotent deletion uses membership alone, so a
-narrower extraction filter can omit rows that a later import deletes.
+source blocks extraction before cleanup.
+
+When both a relation source and its target are selected, extraction first reads the source using its
+own effective fields, filter, sort, deep query, management, and normal extraction transformations.
+Its exported IDs must exactly match the existing source seed IDs. Added or removed IDs, duplicate
+IDs, or a projection without valid IDs reject the run before cleanup or any output writes, including
+with `--skip-clean` and selective automatic extraction. The same checked source rows are later
+written without another database read; other fields and row order may change. Unselected sources
+continue to define membership from the existing Git seed file without a source database read.
+
+For example, if Git contains policy A but source extraction would export A+B, extraction stops
+instead of writing A+B with permissions for A alone. Review and intentionally align the source seed
+IDs with the desired export before retrying. This guard does not automatically expand or shrink
+management. Full-idempotent deletion uses membership alone, so a narrower target extraction filter
+can still omit rows that a later import deletes.
 
 Normal cleanup and overwrite rules still apply to the source file: cleanup can delete an unselected
 source, and selecting it can replace its contents. There is no special preservation. Preserve and

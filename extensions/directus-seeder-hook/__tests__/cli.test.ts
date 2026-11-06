@@ -1314,6 +1314,67 @@ describe('seeder registration and CLI', () => {
 			expectNoServiceCalls(missing)
 		})
 
+		it('refuses changed relation source IDs before extraction cleanup and writes checked source rows once', async () => {
+			const source = path.join(directory, 'directus_policies.json')
+			const target = path.join(directory, 'directus_permissions.json')
+			const stale = path.join(directory, 'stale.json')
+			const original = [{ id: policy, name: 'Git policy' }]
+			await writeFile(source, JSON.stringify(original))
+			await writeFile(target, 'original permissions')
+			await writeFile(stale, 'preserve until preflight passes')
+			const service = await createRelationProgram()
+			const error = vi.spyOn(logger, 'error')
+			// A -> A+B used to succeed with a widened source and stale target selection.
+			service.readByQuery.mockResolvedValue([{ id: policy }, { id: outsider }])
+			expect(
+				await runCommand(
+					service.program,
+					'extract',
+					'--include',
+					'directus_permissions',
+					'directus_policies',
+				),
+			).toBe(1)
+			expect(error).toHaveBeenCalledWith(
+				expect.stringContaining('would change relation source IDs'),
+			)
+			expect(service.readByQuery).toHaveBeenCalledOnce()
+			expect(JSON.parse(await readFile(source, 'utf8'))).toEqual(original)
+			expect(await readFile(target, 'utf8')).toBe('original permissions')
+			expect(await readFile(stale, 'utf8')).toBe('preserve until preflight passes')
+			// Removed IDs must also fail; non-ID changes are allowed and not queried a second time.
+			service.readByQuery.mockReset().mockResolvedValue([])
+			expect(
+				await runCommand(
+					service.program,
+					'extract',
+					'--include',
+					'directus_policies',
+					'directus_permissions',
+				),
+			).toBe(1)
+			expect(JSON.parse(await readFile(source, 'utf8'))).toEqual(original)
+			expect(await readFile(target, 'utf8')).toBe('original permissions')
+			const updated = [{ id: policy, name: 'Database policy' }]
+			service.readByQuery
+				.mockReset()
+				.mockResolvedValueOnce(updated)
+				.mockResolvedValueOnce([{ id: 1, policy }])
+			expect(
+				await runCommand(
+					service.program,
+					'extract',
+					'--include',
+					'directus_policies',
+					'directus_permissions',
+				),
+			).toBe(0)
+			expect(service.readByQuery).toHaveBeenCalledTimes(2)
+			expect(JSON.parse(await readFile(source, 'utf8'))).toEqual(updated)
+			expect(JSON.parse(await readFile(target, 'utf8'))).toEqual([{ id: 1, policy }])
+			await expect(readFile(stale)).rejects.toMatchObject({ code: 'ENOENT' })
+		})
+
 		it('snapshots excluded raw source IDs and schema before normal extraction cleanup, combining the FK and extraction filters', async () => {
 			const source = path.join(directory, 'directus_policies.json')
 			await writeFile(source, JSON.stringify([{ id: policy }]))

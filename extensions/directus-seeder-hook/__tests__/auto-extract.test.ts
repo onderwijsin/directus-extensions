@@ -59,9 +59,10 @@ let directory = ''
 /**
  * Registers real auto-extraction through the extension's public hook boundary.
  * @param env - Environment overrides controlling subscriptions and automatic extraction.
+ * @param schema - Live schema fixture for extraction preflight.
  * @returns Captured Directus event subscriptions.
  */
-function register(env: Record<string, unknown> = {}) {
+function register(env: Record<string, unknown> = {}, schema: unknown = { collections: {} }) {
 	const action = vi.fn<Action>()
 	mocks.register(
 		{ init: vi.fn(), action },
@@ -103,7 +104,7 @@ function register(env: Record<string, unknown> = {}) {
 					public getAsset = mocks.getAsset
 				},
 			},
-			getSchema: () => Promise.resolve({ collections: {} }),
+			getSchema: () => Promise.resolve(schema),
 			database: {},
 		},
 	)
@@ -355,6 +356,95 @@ describe('automatic system extraction', () => {
 		expect(await readFile(path.join(assets, 'old.bin'), 'utf8')).toBe('old asset')
 		expect(mocks.readFiles).not.toHaveBeenCalled()
 		expect(mocks.getAsset).not.toHaveBeenCalled()
+	})
+
+	it('checks selected relation source IDs before selective automatic writes while preserving other output', async () => {
+		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
+			'../src/seeders/system/extract',
+		)
+		mocks.extract.mockImplementation(actual.extractSystemData)
+		const seeds = path.join(directory, 'seeds')
+		const assets = path.join(seeds, 'assets')
+		await mkdir(assets, { recursive: true })
+		const policy = '6d6a24a9-0575-4eb0-92e1-a74cf88824bd'
+		const added = '10c85a66-944d-483c-8d74-602cc615f324'
+		const source = path.join(seeds, 'directus_policies.json')
+		const target = path.join(seeds, 'directus_permissions.json')
+		await writeFile(source, JSON.stringify([{ id: policy }]))
+		await writeFile(target, 'old permissions')
+		await writeFile(path.join(seeds, 'unrelated.json'), 'unrelated')
+		await writeFile(path.join(assets, 'old.bin'), 'old asset')
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: {
+					collections: {
+						directus_permissions: {
+							management: {
+								type: 'relation',
+								field: 'policy',
+								collection: 'directus_policies',
+							},
+						},
+					},
+				},
+			}),
+		)
+		let policies = [{ id: policy }, { id: added }]
+		mocks.readCollection.mockImplementation((collection) =>
+			Promise.resolve(collection === 'directus_policies' ? policies : [{ id: 1, policy }]),
+		)
+		const action = register(
+			{
+				SEEDER_CONFIG_PATH: configPath,
+				SEEDER_AUTO_EXTRACT_INCLUDE: ['directus_policies', 'directus_permissions'],
+				SEEDER_ASSETS_DIR: assets,
+			},
+			{
+				collections: {
+					directus_policies: { primary: 'id', fields: { id: { type: 'uuid' } } },
+					directus_permissions: {
+						primary: 'id',
+						fields: {
+							id: { type: 'integer' },
+							policy: { type: 'string', alias: false },
+						},
+					},
+				},
+				relations: [
+					{
+						collection: 'directus_permissions',
+						field: 'policy',
+						related_collection: 'directus_policies',
+						schema: {
+							foreign_key_table: 'directus_policies',
+							foreign_key_column: 'id',
+						},
+					},
+				],
+			},
+		)
+		emit(action, 'policies.update')
+		await advance(15_000)
+		await expect(mocks.extract.mock.results[0]?.value).rejects.toThrow(
+			'would change relation source IDs',
+		)
+		expect(JSON.parse(await readFile(source, 'utf8'))).toEqual([{ id: policy }])
+		expect(await readFile(target, 'utf8')).toBe('old permissions')
+		policies = [{ id: policy }]
+		emit(action, 'policies.update')
+		await advance(15_000)
+		await expect(mocks.extract.mock.results[1]?.value).resolves.toBeUndefined()
+		expect(JSON.parse(await readFile(target, 'utf8'))).toEqual([{ id: 1, policy }])
+		expect(mocks.readCollection.mock.calls.map(([collection]) => collection)).toEqual([
+			'directus_policies',
+			'directus_policies',
+			'directus_permissions',
+		])
+		expect(await readFile(path.join(seeds, 'unrelated.json'), 'utf8')).toBe('unrelated')
+		expect(await readFile(path.join(assets, 'old.bin'), 'utf8')).toBe('old asset')
+		expect(mocks.readFiles).not.toHaveBeenCalled()
 	})
 
 	it.each([false, true])(

@@ -33,6 +33,14 @@ interface ExtractOptions extends SeederConfig {
 	context: HookExtensionContext
 }
 
+/** Relation boundaries and exact selected source rows checked before output changes. */
+interface ExtractionPreparation {
+	/** Existing Git-defined management boundaries, including unselected relation sources. */
+	boundaries: ReadonlyMap<string, ResolvedCollectionManagement>
+	/** Selected related sources read once and reused when writing their JSON files. */
+	sourceData: ReadonlyMap<string, SeedItem[]>
+}
+
 interface ExtractionResults {
 	success: string[]
 	failed: string[]
@@ -169,6 +177,59 @@ const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem
 }
 
 /**
+ * Reads and prepares collection rows using the existing effective extraction query.
+ * @param collection - Validated effective collection settings.
+ * @param context - Directus hook context.
+ * @param fieldOverrides - Explicit consumer field selections.
+ * @param management - Resolved numeric or relation boundary.
+ * @returns Rows ready for the same JSON serialization used by ordinary extraction.
+ */
+async function readCollectionData(
+	collection: SystemCollectionConfig,
+	context: HookExtensionContext,
+	fieldOverrides: SeederConfig['systemFieldOverrides'],
+	management?: ResolvedCollectionManagement,
+): Promise<SeedItem[]> {
+	const { services, getSchema, database: knex } = context
+	const collectionName = collection.collection
+	const schema = await getSchema()
+
+	const service = new services.ItemsService(collectionName, {
+		schema,
+		knex,
+	})
+
+	// Like the service adapters, pass validated query data through a plain object. Directus's
+	// Filter types omit supported JSON logical predicates and GeoJSON geometry values.
+	const query: Record<string, unknown> = {
+		limit: -1,
+		fields: getCompatibleExtractionFields(collection, schema, fieldOverrides),
+		filter:
+			management?.type === 'relation' && management.ids.length === 0
+				? undefined
+				: getExtractionFilter(collection, management),
+		sort: collection.sort ?? null,
+		deep: collection.deep ?? null,
+	}
+	let data: SeedItem[] =
+		management?.type === 'relation' && management.ids.length === 0
+			? []
+			: seedItemsSchema.parse(await service.readByQuery(query))
+	data = filterExtractedData(collectionName, data)
+
+	// For operations, ensure exported JSON lists dependencies before dependents
+	// by sorting operations topologically based on resolve/reject references.
+	// This produces cleaner JSON and enables single-pass import in most cases.
+	// Circular dependencies are handled gracefully (a warning is logged and the order remains
+	// stable).
+	if (collectionName === 'directus_operations' && Array.isArray(data) && data.length > 0) {
+		data = sortOperationsForKeyConstraints(data)
+	}
+
+	return data
+}
+
+/**
  * Extracts data from a single collection and writes it to a JSON file.
  *
  * @param collection - Effective settings of the collection to extract
@@ -177,6 +238,7 @@ const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem
  * @param jsonIndent - Indentation for the extracted JSON
  * @param fieldOverrides - Collections whose consumer fields must be passed unchanged.
  * @param management - Resolved numeric or relation selection.
+ * @param preparedData - Exact related source rows checked before cleanup, when applicable.
  * @returns Promise<boolean> - True if extraction was successful, false otherwise
  */
 const extractSingleCollection = async (
@@ -186,44 +248,15 @@ const extractSingleCollection = async (
 	jsonIndent: SeederConfig['jsonIndent'],
 	fieldOverrides: SeederConfig['systemFieldOverrides'],
 	management?: ResolvedCollectionManagement,
+	preparedData?: SeedItem[],
 ): Promise<boolean> => {
-	const { logger, services, getSchema, database: knex } = context
+	const { logger } = context
 	const collectionName = collection.collection
 	try {
-		const schema = await getSchema()
 		logger.info(`📦 Extracting collection: ${collectionName}`)
-
-		const service = new services.ItemsService(collectionName, {
-			schema,
-			knex,
-		})
-
-		// Like the service adapters, pass validated query data through a plain object. Directus's
-		// Filter types omit supported JSON logical predicates and GeoJSON geometry values.
-		const query: Record<string, unknown> = {
-			limit: -1,
-			fields: getCompatibleExtractionFields(collection, schema, fieldOverrides),
-			filter:
-				management?.type === 'relation' && management.ids.length === 0
-					? undefined
-					: getExtractionFilter(collection, management),
-			sort: collection.sort ?? null,
-			deep: collection.deep ?? null,
-		}
-		let data: SeedItem[] =
-			management?.type === 'relation' && management.ids.length === 0
-				? []
-				: seedItemsSchema.parse(await service.readByQuery(query))
-		data = filterExtractedData(collectionName, data)
-
-		// For operations, ensure exported JSON lists dependencies before dependents
-		// by sorting operations topologically based on resolve/reject references.
-		// This produces cleaner JSON and enables single-pass import in most cases.
-		// Circular dependencies are handled gracefully (a warning is logged and the order remains
-		// stable).
-		if (collectionName === 'directus_operations' && Array.isArray(data) && data.length > 0) {
-			data = sortOperationsForKeyConstraints(data)
-		}
+		const data =
+			preparedData ??
+			(await readCollectionData(collection, context, fieldOverrides, management))
 
 		const absoluteFilePath = generateSeedFilePath(seedsFolder, collectionName)
 		await outputFile(absoluteFilePath, `${JSON.stringify(data, null, jsonIndent)}\n`)
@@ -314,13 +347,13 @@ const extractSingleAsset = async (
  * @param options.folders - Folder configuration for seeds and assets
  * @param options.context - Directus hook extension context containing services and utilities
  *
- * @param boundaries - Selections snapshotted before cleanup; direct callers resolve them before writes.
+ * @param preparation - Related sources checked before cleanup; direct callers prepare them before writes.
  * @returns Resolves after collection extraction completes.
  * @throws Error if required options are missing or invalid
  */
 export const extractSeedsFromCollections = async (
 	options: ExtractOptions,
-	boundaries?: ReadonlyMap<string, ResolvedCollectionManagement>,
+	preparation?: ExtractionPreparation,
 ): Promise<void> => {
 	validateExtractOptions(options)
 
@@ -334,7 +367,7 @@ export const extractSeedsFromCollections = async (
 		collections.map(({ collection }) => collection),
 	)
 
-	const management = boundaries ?? (await resolveExtractionManagement(options))
+	const { boundaries, sourceData } = preparation ?? (await prepareCollectionExtraction(options))
 
 	logger.info(
 		`📋 Extracting ${collectionsToExtract.length} collections: ${collectionsToExtract.join(', ')}`,
@@ -359,7 +392,8 @@ export const extractSeedsFromCollections = async (
 						options.context,
 						options.jsonIndent,
 						options.systemFieldOverrides,
-						management.get(collectionName),
+						boundaries.get(collectionName),
+						sourceData.get(collectionName),
 					)
 				},
 			)
@@ -486,7 +520,7 @@ export const extractAssets = async (options: ExtractOptions): Promise<void> => {
 export async function extractSystemData(options: ExtractOptions): Promise<void> {
 	validateExtractOptions(options)
 	const systemCollections = getSystemCollections(options)
-	const boundaries = await resolveExtractionManagement({ ...options, systemCollections })
+	const preparation = await prepareCollectionExtraction({ ...options, systemCollections })
 	let folders: ExtractOptions['folders']
 	try {
 		folders = await prepareExtractionDirectories(
@@ -501,18 +535,18 @@ export async function extractSystemData(options: ExtractOptions): Promise<void> 
 		})
 	}
 	const prepared = { ...options, folders, systemCollections }
-	await extractSeedsFromCollections(prepared, boundaries)
+	await extractSeedsFromCollections(prepared, preparation)
 	if (!options.jsonOnly) await extractAssets(prepared)
 }
 
 /**
- * Snapshots all selected boundaries before cleanup can remove or extraction can replace source files.
+ * Checks selected relation sources against the IDs their dependent collections will use, before cleanup.
  * @param options - Effective extraction settings and existing Git seed directory.
- * @returns Resolved management for selected collections only.
+ * @returns Boundaries and exact selected source rows whose IDs preserve those boundaries.
  */
-async function resolveExtractionManagement(
+async function prepareCollectionExtraction(
 	options: ExtractOptions,
-): Promise<Map<string, ResolvedCollectionManagement>> {
+): Promise<ExtractionPreparation> {
 	const collections = getSystemCollections(options)
 	const selected = getFilteredCollections(
 		options.includeCollections,
@@ -533,5 +567,42 @@ async function resolveExtractionManagement(
 				: collection.management
 		boundaries.set(collection.collection, management)
 	}
-	return boundaries
+	const sourceData = new Map<string, SeedItem[]>()
+	for (const management of boundaries.values()) {
+		if (management.type !== 'relation' || !selected.includes(management.collection)) continue
+		const source = collections.find(({ collection }) => collection === management.collection)
+		if (!source) throw new Error(`Unknown relation source "${management.collection}"`)
+		let data = sourceData.get(source.collection)
+		if (data === undefined) {
+			try {
+				data = await readCollectionData(
+					source,
+					options.context,
+					options.systemFieldOverrides,
+					boundaries.get(source.collection),
+				)
+			} catch (error) {
+				throw new Error(`Failed to preflight extraction source "${source.collection}"`, {
+					cause: error,
+				})
+			}
+			sourceData.set(source.collection, data)
+		}
+		const exportedIds = new Set(
+			data.map((item) => {
+				const row = z.looseObject({ id: z.unknown() }).safeParse(item)
+				return row.success ? row.data.id : undefined
+			}),
+		)
+		if (
+			data.length !== management.ids.length ||
+			exportedIds.size !== data.length ||
+			management.ids.some((id) => !exportedIds.has(id))
+		) {
+			throw new Error(
+				`Extraction would change relation source IDs in "${source.collection}.json"; align the reviewed source seed IDs with the intended extraction before retrying`,
+			)
+		}
+	}
+	return { boundaries, sourceData }
 }
