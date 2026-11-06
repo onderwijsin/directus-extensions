@@ -121,7 +121,9 @@ Normal inspection loads and validates the configured JSON file; a missing, unrea
 invalid file produces an error and exit code 1 without falling back to defaults. Inspection does not
 read seeds, initialize services, access the database or schema, clear caches, acquire locks, write
 files, or run extraction. It requires no destructive-seeding opt-in or confirmation, even when the
-inspected effective mode is `full-idempotent`.
+inspected effective mode is `full-idempotent`. It shows generic package defaults or effective
+consumer configuration, not the target's available fields. Extraction adapts inherited default field
+selections when querying the target schema.
 
 ## Configuration reference
 
@@ -404,6 +406,25 @@ JSON may contain additional Directus fields.
 scope. Extraction includes user password data and potentially other secrets in settings, Flow
 options, or arbitrary fields. Review output before sharing or committing it; license-field omission
 is not general secret redaction. This is not a complete database or storage backup.
+
+### Flow-folder compatibility
+
+Directus 12.2.0 and 12.3.0 lack `directus_folders.type` and `directus_flows.folder`, which were
+added in Directus 12.4.0. Manual and automatic extraction check the target schema and omit only
+these two absent fields from inherited package-default selections. When present, both fields and
+their values are retained. Overriding another property, such as `filter` or `sort`, keeps this
+adaptation. An explicit consumer `fields` array is passed unchanged, even when identical to the
+package default; selecting a missing field still fails in Directus. `fields: null` and wildcard or
+relational selections retain their existing meaning. The Seeder does not generally filter unknown
+fields or relax configuration validation.
+
+Before any selected collection is mutated, import checks the selected Folder and Flow data against
+the target schema. If the respective field is absent, it removes only `type: "files"` and
+`folder: null`, which preserve the older representation. Any other supplied value, including
+`type: "flows"` or a non-null Flow folder, fails with file, row, and field context and exit code 1,
+even with `SEEDER_CONTINUE_ON_ERROR=true`. Use a target with Flow-folder support for that data. When
+the fields exist, import preserves them. Omitted fields keep Directus's normal create defaults and
+update semantics; a newly created folder without `type` defaults to `files` on the newer schema.
 
 ### Seed input semantics and preflight
 

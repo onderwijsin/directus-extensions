@@ -7,6 +7,7 @@ import { createPerformanceTracker } from '../../lib/performanceTracker'
 import { getFolderPaths } from '../../lib/resolveConfig'
 import { seedCollections } from '../../lib/seedCollections'
 import { createSeedDataProvider } from '../../lib/seedDataParser'
+import { prepareCompatibleSystemData } from './compatibility'
 import { getSystemCollections } from './resolveConfig'
 
 /**
@@ -39,9 +40,12 @@ export async function seedSystem(
 	await performanceTracker.track('System data seeding', async () => {
 		try {
 			// Get seed data from a provider or parse from files
-			const seedData = await performanceTracker.track('Get seed data', () =>
+			let seedData = await performanceTracker.track('Get seed data', () =>
 				Promise.resolve(systemDataProvider.getSeedData()),
 			)
+			if ('directus_folders' in seedData || 'directus_flows' in seedData) {
+				seedData = prepareCompatibleSystemData(seedData, await context.getSchema())
+			}
 
 			// Seed collections using the helper function
 			await seedCollections(

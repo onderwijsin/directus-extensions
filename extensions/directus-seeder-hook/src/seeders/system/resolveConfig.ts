@@ -65,15 +65,26 @@ export function resolveSystemConfig(input: unknown = {}): SystemCollectionConfig
 /**
  * Loads an explicitly configured JSON file, retaining defaults only when no path was supplied.
  * @param configPath - Path in the Directus runtime, relative to its working directory if needed.
- * @returns Validated effective system collection configuration.
+ * @returns Effective collections and the provenance of explicit consumer field selections.
  * @throws Error for missing, unreadable, malformed or invalid explicitly configured files.
  */
-export function loadSystemConfig(configPath?: string): SystemCollectionConfig[] {
-	if (configPath === undefined) return resolveSystemConfig()
+export function loadSystemConfig(configPath?: string): {
+	systemCollections: SystemCollectionConfig[]
+	systemFieldOverrides: string[]
+} {
+	if (configPath === undefined)
+		return { systemCollections: resolveSystemConfig(), systemFieldOverrides: [] }
 	const filename = path.resolve(configPath)
 	try {
 		const input: unknown = JSON.parse(readFileSync(filename, 'utf8'))
-		return resolveSystemConfig(input)
+		const systemCollections = resolveSystemConfig(input)
+		const parsed = consumerConfigSchema.parse(input)
+		return {
+			systemCollections,
+			systemFieldOverrides: Object.entries(parsed.system?.collections ?? {})
+				.filter(([, overrides]) => overrides?.fields !== undefined)
+				.map(([collection]) => collection),
+		}
 	} catch (error) {
 		throw new Error(
 			`Failed to load Seeder configuration "${filename}": ${error instanceof Error ? error.message : 'Unknown error'}`,

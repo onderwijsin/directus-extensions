@@ -28,6 +28,7 @@ describe('Seeder startup configuration', () => {
 		})
 		expect(resolveSeederConfig(options)).toEqual({
 			systemCollections: SYSTEM_COLLECTIONS,
+			systemFieldOverrides: [],
 			operationMode: 'insert-missing',
 			dataScope: 'system',
 			includeCollections: [],

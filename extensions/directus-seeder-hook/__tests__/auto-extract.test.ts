@@ -103,7 +103,7 @@ function register(env: Record<string, unknown> = {}) {
 					public getAsset = mocks.getAsset
 				},
 			},
-			getSchema: () => Promise.resolve({}),
+			getSchema: () => Promise.resolve({ collections: {} }),
 			database: {},
 		},
 	)

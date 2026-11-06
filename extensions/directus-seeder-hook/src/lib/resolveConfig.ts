@@ -11,10 +11,14 @@ import { loadSystemConfig } from '../seeders/system/resolveConfig'
  */
 export function resolveSeederConfig(
 	options: SeederOptions,
-	overrides: Partial<Omit<SeederConfig, 'jsonIndent' | 'systemCollections'>> = {},
+	overrides: Partial<
+		Omit<SeederConfig, 'jsonIndent' | 'systemCollections' | 'systemFieldOverrides'>
+	> = {},
 ): SeederConfig {
+	const system = loadSystemConfig(options.SEEDER_CONFIG_PATH)
 	return {
-		systemCollections: loadSystemConfig(options.SEEDER_CONFIG_PATH).map((collection) => ({
+		systemFieldOverrides: system.systemFieldOverrides,
+		systemCollections: system.systemCollections.map((collection) => ({
 			...collection,
 			...(overrides.operationMode === undefined
 				? {}

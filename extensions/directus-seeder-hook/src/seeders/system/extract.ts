@@ -11,6 +11,7 @@ import { getIdRangeFilters } from '../../lib/collectionManagement'
 import { outputFile, prepareExtractionDirectories } from '../../lib/filesystem'
 import { createPerformanceTracker } from '../../lib/performanceTracker'
 import { seedItemsSchema, toSeedRecord } from '../../lib/seedItem'
+import { getCompatibleExtractionFields } from './compatibility'
 import { SYSTEM_COLLECTIONS_ORDER } from './config'
 import { sortOperationsForKeyConstraints } from './data'
 import { getSystemCollections } from './resolveConfig'
@@ -170,6 +171,7 @@ const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem
  * @param seedsFolder - The folder to write seed files to
  * @param context - Directus hook extension context
  * @param jsonIndent - Indentation for the extracted JSON
+ * @param fieldOverrides - Collections whose consumer fields must be passed unchanged.
  * @returns Promise<boolean> - True if extraction was successful, false otherwise
  */
 const extractSingleCollection = async (
@@ -177,6 +179,7 @@ const extractSingleCollection = async (
 	seedsFolder: string,
 	context: HookExtensionContext,
 	jsonIndent: SeederConfig['jsonIndent'],
+	fieldOverrides: SeederConfig['systemFieldOverrides'],
 ): Promise<boolean> => {
 	const { logger, services, getSchema, database: knex } = context
 	const collectionName = collection.collection
@@ -193,7 +196,7 @@ const extractSingleCollection = async (
 		// Filter types omit supported JSON logical predicates and GeoJSON geometry values.
 		const query: Record<string, unknown> = {
 			limit: -1,
-			fields: collection.fields ?? ['*'],
+			fields: getCompatibleExtractionFields(collection, schema, fieldOverrides),
 			filter: getExtractionFilter(collection),
 			sort: collection.sort ?? null,
 			deep: collection.deep ?? null,
@@ -337,6 +340,7 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 						folders.seeds,
 						options.context,
 						options.jsonIndent,
+						options.systemFieldOverrides,
 					)
 				},
 			)

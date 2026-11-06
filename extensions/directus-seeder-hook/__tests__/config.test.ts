@@ -27,7 +27,10 @@ afterEach(async () => {
 
 describe('system JSON consumer configuration', () => {
 	it('retains defaults, merges independent properties and appends collections omitted from order', () => {
-		expect(loadSystemConfig()).toEqual(SYSTEM_COLLECTIONS)
+		expect(loadSystemConfig()).toEqual({
+			systemCollections: SYSTEM_COLLECTIONS,
+			systemFieldOverrides: [],
+		})
 		const input = {
 			system: {
 				order: ['directus_translations', 'directus_presets'],
@@ -88,8 +91,9 @@ describe('system JSON consumer configuration', () => {
 			}),
 		)
 		expect(
-			loadSystemConfig(filename).find(({ collection }) => collection === 'directus_presets')
-				?.management,
+			loadSystemConfig(filename).systemCollections.find(
+				({ collection }) => collection === 'directus_presets',
+			)?.management,
 		).toEqual({ type: 'id-range', max: 50000 })
 		for (const contents of ['{broken', '{"system":{"collections":{"unknown":{}}}}']) {
 			await writeFile(filename, contents)

@@ -105,7 +105,7 @@ function createProgram(env: Record<string, unknown> = {}) {
 	const UtilsService = vi.fn(function () {
 		return { clearCache }
 	})
-	const getSchema = vi.fn().mockResolvedValue({})
+	const getSchema = vi.fn().mockResolvedValue({ collections: {} })
 	const database = vi.fn()
 	const context: TestContext = {
 		env: {
@@ -735,6 +735,234 @@ describe('seeder registration and CLI', () => {
 			0,
 		)
 		expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({ limit: -1, ...query })
+	})
+
+	describe('Flow-folder schema compatibility', () => {
+		it.each([false, true])(
+			'extracts inherited defaults with Flow-folder support=%s',
+			async (supported) => {
+				const configPath = path.join(directory, 'consumer.json')
+				// A non-fields override must retain compatibility for inherited fields.
+				await writeFile(
+					configPath,
+					JSON.stringify({
+						system: { collections: { directus_folders: { filter: null } } },
+					}),
+				)
+				const service = createProgram({
+					DEPLOYMENT_ENV: 'development',
+					SEEDER_JSON_ONLY: true,
+					SEEDER_CONFIG_PATH: configPath,
+				})
+				service.getSchema.mockResolvedValue({
+					collections: {
+						directus_folders: { fields: supported ? { type: {} } : {} },
+						directus_flows: { fields: supported ? { folder: {} } : {} },
+					},
+				})
+				const folders = [
+					{ id: 'folder', name: 'Folder', ...(supported ? { type: 'flows' } : {}) },
+				]
+				const flows = [
+					{ id: 'flow', name: 'Flow', ...(supported ? { folder: 'folder' } : {}) },
+				]
+				service.readByQuery.mockResolvedValueOnce(folders).mockResolvedValueOnce(flows)
+				expect(
+					await runCommand(
+						service.program,
+						'extract',
+						'--include',
+						'directus_folders',
+						'directus_flows',
+					),
+				).toBe(0)
+				for (const [index, collection, optionalField] of [
+					[0, 'directus_folders', 'type'],
+					[1, 'directus_flows', 'folder'],
+				] satisfies [number, string, string][]) {
+					const defaults = SYSTEM_COLLECTIONS.find(
+						(entry) => entry.collection === collection,
+					)?.fields
+					expect(service.readByQuery.mock.calls[index]?.[0]).toMatchObject({
+						fields: supported
+							? defaults
+							: defaults?.filter((field) => field !== optionalField),
+					})
+				}
+				expect(
+					JSON.parse(
+						await readFile(path.join(directory, 'directus_folders.json'), 'utf8'),
+					),
+				).toEqual(folders)
+				expect(
+					JSON.parse(await readFile(path.join(directory, 'directus_flows.json'), 'utf8')),
+				).toEqual(flows)
+			},
+		)
+
+		it.each(
+			[
+				['id'],
+				null,
+				['*'],
+				['id', 'folder.name'],
+				['id', 'unknown'],
+				SYSTEM_COLLECTIONS.find((entry) => entry.collection === 'directus_flows')?.fields,
+			].map((fields) => ({ fields })),
+		)('preserves explicit consumer fields %# on an older schema', async ({ fields }) => {
+			const configPath = path.join(directory, 'consumer.json')
+			await writeFile(
+				configPath,
+				JSON.stringify({ system: { collections: { directus_flows: { fields } } } }),
+			)
+			const service = createProgram({
+				DEPLOYMENT_ENV: 'development',
+				SEEDER_JSON_ONLY: true,
+				SEEDER_CONFIG_PATH: configPath,
+			})
+			await runCommand(service.program, 'extract', '--include', 'directus_flows')
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith(
+				expect.objectContaining({ fields: fields ?? ['*'] }),
+			)
+		})
+
+		it('propagates Directus errors for explicit missing fields without retrying or filtering', async () => {
+			const configPath = path.join(directory, 'consumer.json')
+			await writeFile(
+				configPath,
+				JSON.stringify({
+					system: {
+						collections: { directus_folders: { fields: ['id', 'type', 'unknown'] } },
+					},
+				}),
+			)
+			const service = createProgram({
+				DEPLOYMENT_ENV: 'development',
+				SEEDER_JSON_ONLY: true,
+				SEEDER_CONFIG_PATH: configPath,
+			})
+			service.readByQuery.mockRejectedValue(new Error('Unknown field'))
+			expect(
+				await runCommand(service.program, 'extract', '--include', 'directus_folders'),
+			).toBe(1)
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith(
+				expect.objectContaining({ fields: ['id', 'type', 'unknown'] }),
+			)
+		})
+
+		it.each([false, true])(
+			'imports legacy-equivalent newer data with Flow-folder support=%s',
+			async (supported) => {
+				const folders = [
+					{
+						id: 'folder',
+						name: 'Files',
+						type: 'files',
+						unknown: 'preserved for Directus',
+					},
+				]
+				const flows = [{ id: 'flow', name: 'Flow', folder: null }]
+				await writeFile(
+					path.join(directory, 'directus_folders.json'),
+					JSON.stringify(folders),
+				)
+				await writeFile(path.join(directory, 'directus_flows.json'), JSON.stringify(flows))
+				const service = createProgram({ DEPLOYMENT_ENV: 'development' })
+				service.getSchema.mockResolvedValue({
+					collections: {
+						directus_folders: { fields: supported ? { type: {} } : {} },
+						directus_flows: { fields: supported ? { folder: {} } : {} },
+					},
+				})
+				expect(
+					await runCommand(service.program, 'system', '--mode', 'insert-update', '--yes'),
+				).toBe(0)
+				expect(service.upsertMany.mock.calls).toEqual(
+					supported
+						? [[folders], [flows]]
+						: [
+								[
+									[
+										{
+											id: 'folder',
+											name: 'Files',
+											unknown: 'preserved for Directus',
+										},
+									],
+								],
+								[[{ id: 'flow', name: 'Flow' }]],
+							],
+				)
+				// Compatibility never rewrites source seed files.
+				expect(
+					JSON.parse(
+						await readFile(path.join(directory, 'directus_folders.json'), 'utf8'),
+					),
+				).toEqual(folders)
+			},
+		)
+
+		it.each([
+			{ collection: 'directus_folders', field: 'type', value: 'flows' },
+			{ collection: 'directus_folders', field: 'type', value: null },
+			{ collection: 'directus_flows', field: 'folder', value: 'folder' },
+		])(
+			'rejects unrepresentable $collection.$field before earlier mutations',
+			async ({ collection, field, value }) => {
+				await writeFile(
+					path.join(directory, 'directus_roles.json'),
+					'[{"id":"role","name":"Earlier role"}]',
+				)
+				await writeFile(
+					path.join(directory, `${collection}.json`),
+					JSON.stringify([{ id: 'item', name: 'Item', [field]: value }]),
+				)
+				const service = createProgram({
+					DEPLOYMENT_ENV: 'development',
+					SEEDER_CONTINUE_ON_ERROR: true,
+				})
+				const error = vi.spyOn(logger, 'error')
+				expect(
+					await runCommand(service.program, 'system', '--mode', 'insert-update', '--yes'),
+				).toBe(1)
+				expect(error).toHaveBeenCalledWith(
+					expect.stringContaining(
+						`${collection}.json processed row 1: target schema lacks ${collection}.${field}`,
+					),
+				)
+				expect(service.ItemsService).not.toHaveBeenCalled()
+				expect(service.createMany).not.toHaveBeenCalled()
+				expect(service.upsertMany).not.toHaveBeenCalled()
+				expect(service.deleteMany).not.toHaveBeenCalled()
+				expect(
+					await runCommand(service.program, 'system', '--include', 'directus_roles'),
+				).toBe(0)
+			},
+		)
+
+		it('preserves Flow-folder data and omitted legacy keys when the schema supports them', async () => {
+			const folders = [
+				{ id: 'folder', name: 'Flows', type: 'flows' },
+				{ id: 'legacy', name: 'Legacy' },
+			]
+			const flows = [
+				{ id: 'flow', name: 'Flow', folder: 'folder' },
+				{ id: 'legacy-flow', name: 'Legacy' },
+			]
+			await writeFile(path.join(directory, 'directus_folders.json'), JSON.stringify(folders))
+			await writeFile(path.join(directory, 'directus_flows.json'), JSON.stringify(flows))
+			const service = createProgram({ DEPLOYMENT_ENV: 'development' })
+			service.getSchema.mockResolvedValue({
+				collections: {
+					directus_folders: { fields: { type: {} } },
+					directus_flows: { fields: { folder: {} } },
+				},
+			})
+			expect(
+				await runCommand(service.program, 'system', '--mode', 'insert-update', '--yes'),
+			).toBe(0)
+			expect(service.upsertMany.mock.calls).toEqual([[folders], [flows]])
+		})
 	})
 
 	it('fails invalid effective configuration before database calls or destructive extraction cleanup', async () => {

@@ -52,6 +52,9 @@ export interface SeederConfig {
 	/** Effective system collection settings, including explicit CLI mode overrides. */
 	systemCollections?: SystemCollectionConfig[]
 
+	/** Collections with explicit consumer fields, which bypass default-field compatibility. */
+	systemFieldOverrides?: string[]
+
 	/**
 	 * Operation mode.
 	 */

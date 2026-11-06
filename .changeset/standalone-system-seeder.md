@@ -142,3 +142,9 @@ Bind bulk-operation flag cleanup to each successful acquisition. Failed commands
 operation's flag, and an expired owner leaves an already-replaced flag intact. Apply the same
 ownership check to automatic extraction and synchronous process-exit cleanup, including prompt
 cancellation. Retain the existing five-minute stale policy and local best-effort coordination.
+
+Adapt only inherited built-in `directus_folders.type` and `directus_flows.folder` extraction
+selections to the live Directus schema, retaining both fields on versions with Flow-folder support.
+Preserve explicit consumer field overrides and read-only configuration inspection. Before import
+mutations, translate only unsupported `type: "files"` and `folder: null` to their older equivalent;
+reject other supplied values with file, row, and field context instead of losing Flow-folder data.
