@@ -42,6 +42,15 @@ export const consumerConfigSchema = z.strictObject({
  * @throws Error with a configuration path when a setting is invalid.
  */
 export function resolveSystemConfig(input: unknown = {}): SystemCollectionConfig[] {
+	return resolveSystemConfigWithOverrides(input).systemCollections
+}
+
+/**
+ * Resolves collections and explicit field provenance from the same validated consumer configuration.
+ * @param input - Parsed JSON consumer configuration.
+ * @returns Ordered, validated settings and collections with explicit consumer field selections.
+ */
+function resolveSystemConfigWithOverrides(input: unknown) {
 	const parsed = consumerConfigSchema.safeParse(input)
 	if (!parsed.success) throw new Error(`Invalid Seeder configuration: ${parsed.error.message}`)
 	const system = parsed.data.system
@@ -56,10 +65,17 @@ export function resolveSystemConfig(input: unknown = {}): SystemCollectionConfig
 	const effective = z.array(systemCollectionSchema).safeParse(collections)
 	if (!effective.success)
 		throw new Error(`Invalid effective Seeder configuration: ${effective.error.message}`)
-	return [
-		...order.flatMap((name) => effective.data.filter(({ collection }) => collection === name)),
-		...effective.data.filter(({ collection }) => !order.includes(collection)),
-	]
+	return {
+		systemCollections: [
+			...order.flatMap((name) =>
+				effective.data.filter(({ collection }) => collection === name),
+			),
+			...effective.data.filter(({ collection }) => !order.includes(collection)),
+		],
+		systemFieldOverrides: Object.entries(system?.collections ?? {})
+			.filter(([, overrides]) => overrides?.fields !== undefined)
+			.map(([collection]) => collection),
+	}
 }
 
 /**
@@ -77,14 +93,7 @@ export function loadSystemConfig(configPath?: string): {
 	const filename = path.resolve(configPath)
 	try {
 		const input: unknown = JSON.parse(readFileSync(filename, 'utf8'))
-		const systemCollections = resolveSystemConfig(input)
-		const parsed = consumerConfigSchema.parse(input)
-		return {
-			systemCollections,
-			systemFieldOverrides: Object.entries(parsed.system?.collections ?? {})
-				.filter(([, overrides]) => overrides?.fields !== undefined)
-				.map(([collection]) => collection),
-		}
+		return resolveSystemConfigWithOverrides(input)
 	} catch (error) {
 		throw new Error(
 			`Failed to load Seeder configuration "${filename}": ${error instanceof Error ? error.message : 'Unknown error'}`,

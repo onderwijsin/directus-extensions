@@ -86,20 +86,48 @@ describe('system JSON consumer configuration', () => {
 				system: {
 					collections: {
 						directus_presets: { management: { type: 'id-range', max: 50000 } },
+						directus_roles: { fields: ['id'] },
+						directus_policies: { fields: null },
+						directus_flows: { fields: [] },
 					},
 				},
 			}),
 		)
+		const loaded = loadSystemConfig(filename)
 		expect(
-			loadSystemConfig(filename).systemCollections.find(
-				({ collection }) => collection === 'directus_presets',
-			)?.management,
+			loaded.systemCollections.find(({ collection }) => collection === 'directus_presets')
+				?.management,
 		).toEqual({ type: 'id-range', max: 50000 })
-		for (const contents of ['{broken', '{"system":{"collections":{"unknown":{}}}}']) {
+		expect(loaded.systemFieldOverrides).toEqual([
+			'directus_roles',
+			'directus_policies',
+			'directus_flows',
+		])
+		for (const [collection, fields] of Object.entries({
+			directus_presets: SYSTEM_COLLECTIONS.find(
+				(entry) => entry.collection === 'directus_presets',
+			)?.fields,
+			directus_roles: ['id'],
+			directus_policies: null,
+			directus_flows: [],
+		})) {
+			expect(
+				loaded.systemCollections.find((entry) => entry.collection === collection)?.fields,
+			).toEqual(fields)
+		}
+		for (const contents of [
+			'{broken',
+			'{"system":{"collections":{"unknown":{}}}}',
+			'{"system":{"collections":{"directus_roles":{"fields":"id"}}}}',
+		]) {
 			await writeFile(filename, contents)
 			expect(() => loadSystemConfig(filename)).toThrow(
 				`Failed to load Seeder configuration "${filename}"`,
 			)
+			if (contents !== '{broken')
+				expect(() => loadSystemConfig(filename)).toThrow(
+					`Failed to load Seeder configuration "${filename}": Invalid Seeder configuration:`,
+				)
 		}
 		await rm(filename)
 		expect(() => loadSystemConfig(filename)).toThrow(/consumer.json.*ENOENT/su)
