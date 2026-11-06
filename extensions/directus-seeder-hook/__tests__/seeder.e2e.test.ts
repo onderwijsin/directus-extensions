@@ -18,6 +18,7 @@ import {
 	readRoles,
 	readTranslation,
 	readTranslations,
+	updateTranslation,
 } from '@workspace/test-utils/commands'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -256,6 +257,135 @@ describe('installed seeder CLI', () => {
 				)) {
 					await client.request(deletePreset(preset.id))
 				}
+			} finally {
+				await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				])
+			}
+		}
+	})
+
+	it('retains manifest history across clean extraction and synchronizes only managed UUIDs', async () => {
+		const ids = [randomUUID(), randomUUID(), randomUUID()].sort()
+		const [keptId, historicalId, outsiderId] = ids
+		if (!keptId || !historicalId || !outsiderId)
+			throw new Error('Expected three translation IDs')
+		const directory = `/tmp/seeder-manifest-e2e-${randomUUID()}`
+		const seedsDirectory = `${directory}/seeds`
+		const manifestPath = `${seedsDirectory}/directus_translations.managed-ids.json`
+		const environment = {
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_CONFIG_PATH: `${directory}/config.json`,
+			SEEDER_SEEDS_DIR: seedsDirectory,
+			SEEDER_ASSETS_DIR: `${directory}/assets`,
+			SEEDER_ENABLE_FULL_IDEMPOTENT: 'true',
+		}
+		const kept = {
+			id: keptId,
+			key: `seeder_manifest_${keptId}`,
+			language: 'nl-NL',
+			value: 'selected',
+		}
+		const historical = { ...kept, id: historicalId, key: `seeder_manifest_${historicalId}` }
+		const outsider = {
+			...kept,
+			id: outsiderId,
+			key: `seeder_manifest_${outsiderId}`,
+			value: 'outsider',
+		}
+		try {
+			for (const translation of [kept, historical])
+				await client.request(createTranslation(translation))
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'const fs = require("node:fs"); fs.mkdirSync(process.argv[1]); fs.writeFileSync(`${process.argv[1]}/config.json`, process.argv[2])',
+				directory,
+				JSON.stringify({
+					system: {
+						collections: {
+							directus_translations: {
+								operationMode: 'full-idempotent',
+								management: { type: 'manifest' },
+								filter: {
+									_and: [{ id: { _in: ids } }, { value: { _eq: 'selected' } }],
+								},
+								sort: ['-id'],
+							},
+						},
+					},
+				}),
+			])
+			await seed(environment, 'extract', '--json-only', '--include', 'directus_translations')
+			const manifest = await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+				manifestPath,
+			])
+			expect(JSON.parse(manifest.stdout)).toEqual([keptId, historicalId])
+
+			await client.request(updateTranslation(historicalId, { value: 'historical' }))
+			await client.request(createTranslation(outsider))
+			// Default cleanup must retain history even when the current query returns only A.
+			await seed(environment, 'extract', '--json-only', '--include', 'directus_translations')
+			const extracted = await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'const fs = require("node:fs"); const root = process.argv[1]; process.stdout.write(JSON.stringify({ rows: JSON.parse(fs.readFileSync(`${root}/directus_translations.json`, "utf8")), manifest: fs.readFileSync(`${root}/directus_translations.managed-ids.json`, "utf8") }))',
+				seedsDirectory,
+			])
+			expect(JSON.parse(extracted.stdout)).toEqual({
+				rows: [kept],
+				manifest: manifest.stdout,
+			})
+
+			const updated = { ...kept, value: 'synchronized' }
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'require("node:fs").writeFileSync(process.argv[1], process.argv[2])',
+				`${seedsDirectory}/directus_translations.json`,
+				JSON.stringify([updated]),
+			])
+			await seed(environment, 'system', '--yes', '--include', 'directus_translations')
+			expect(
+				await client.request(
+					readTranslations({
+						filter: { id: { _in: ids } },
+						fields: ['id', 'key', 'language', 'value'],
+						sort: ['id'],
+					}),
+				),
+			).toEqual([updated, outsider])
+			const afterImport = await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+				manifestPath,
+			])
+			expect(afterImport.stdout).toBe(manifest.stdout)
+		} finally {
+			try {
+				for (const translation of await client.request(
+					readTranslations({ filter: { id: { _in: ids } } }),
+				))
+					await client.request(deleteTranslation(translation.id))
 			} finally {
 				await execute('docker', [
 					...composeArguments,
