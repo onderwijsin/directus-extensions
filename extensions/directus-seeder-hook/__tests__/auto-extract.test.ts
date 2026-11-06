@@ -59,7 +59,7 @@ let directory = ''
 /**
  * Registers real auto-extraction through the extension's public hook boundary.
  * @param env - Environment overrides controlling subscriptions and automatic extraction.
- * @param schema - Live schema fixture for extraction preflight.
+ * @param schema - Live schema fixture for compatible extraction fields.
  * @returns Captured Directus event subscriptions.
  */
 function register(env: Record<string, unknown> = {}, schema: unknown = { collections: {} }) {
@@ -358,7 +358,7 @@ describe('automatic system extraction', () => {
 		expect(mocks.getAsset).not.toHaveBeenCalled()
 	})
 
-	it('checks selected relation source IDs before selective automatic writes while preserving other output', async () => {
+	it('exports new, updated and deleted policies automatically while preserving other output', async () => {
 		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
 			'../src/seeders/system/extract',
 		)
@@ -391,57 +391,29 @@ describe('automatic system extraction', () => {
 				},
 			}),
 		)
-		let policies = [{ id: policy }, { id: added }]
+		let policies: { id: string; name?: string }[] = [{ id: policy }, { id: added }]
 		mocks.readCollection.mockImplementation((collection) =>
 			Promise.resolve(collection === 'directus_policies' ? policies : [{ id: 1, policy }]),
 		)
-		const action = register(
-			{
-				SEEDER_CONFIG_PATH: configPath,
-				SEEDER_AUTO_EXTRACT_INCLUDE: ['directus_policies', 'directus_permissions'],
-				SEEDER_ASSETS_DIR: assets,
-			},
-			{
-				collections: {
-					directus_policies: { primary: 'id', fields: { id: { type: 'uuid' } } },
-					directus_permissions: {
-						primary: 'id',
-						fields: {
-							id: { type: 'integer' },
-							policy: { type: 'string', alias: false },
-						},
-					},
-				},
-				relations: [
-					{
-						collection: 'directus_permissions',
-						field: 'policy',
-						related_collection: 'directus_policies',
-						schema: {
-							foreign_key_table: 'directus_policies',
-							foreign_key_column: 'id',
-						},
-					},
-				],
-			},
-		)
-		emit(action, 'policies.update')
-		await advance(15_000)
-		await expect(mocks.extract.mock.results[0]?.value).rejects.toThrow(
-			'would change relation source IDs',
-		)
-		expect(JSON.parse(await readFile(source, 'utf8'))).toEqual([{ id: policy }])
-		expect(await readFile(target, 'utf8')).toBe('old permissions')
-		policies = [{ id: policy }]
-		emit(action, 'policies.update')
-		await advance(15_000)
-		await expect(mocks.extract.mock.results[1]?.value).resolves.toBeUndefined()
-		expect(JSON.parse(await readFile(target, 'utf8'))).toEqual([{ id: 1, policy }])
-		expect(mocks.readCollection.mock.calls.map(([collection]) => collection)).toEqual([
-			'directus_policies',
-			'directus_policies',
-			'directus_permissions',
-		])
+		const action = register({
+			SEEDER_CONFIG_PATH: configPath,
+			SEEDER_AUTO_EXTRACT_INCLUDE: ['directus_policies', 'directus_permissions'],
+			SEEDER_ASSETS_DIR: assets,
+		})
+		for (const [index, event] of [
+			'policies.create',
+			'policies.update',
+			'policies.delete',
+		].entries()) {
+			if (event === 'policies.update')
+				policies = [{ id: policy, name: 'Updated' }, { id: added }]
+			if (event === 'policies.delete') policies = []
+			emit(action, event)
+			await advance(15_000)
+			await expect(mocks.extract.mock.results[index]?.value).resolves.toBeUndefined()
+			expect(JSON.parse(await readFile(source, 'utf8'))).toEqual(policies)
+			expect(JSON.parse(await readFile(target, 'utf8'))).toEqual([{ id: 1, policy }])
+		}
 		expect(await readFile(path.join(seeds, 'unrelated.json'), 'utf8')).toBe('unrelated')
 		expect(await readFile(path.join(assets, 'old.bin'), 'utf8')).toBe('old asset')
 		expect(mocks.readFiles).not.toHaveBeenCalled()

@@ -132,7 +132,7 @@ export function getIdRangeFilters(
 }
 
 /**
- * Builds the same boundary for extraction and deletion. Empty relation IDs must be handled as a no-op.
+ * Builds the import management boundary. Empty relation IDs must be handled as a no-op.
  * @param management - Resolved boundary, including source seed IDs for relations.
  * @returns Predicates to combine with an explicit _and.
  */

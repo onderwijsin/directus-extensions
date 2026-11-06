@@ -87,8 +87,8 @@ objects replace whole values; omitted properties retain defaults. Allow `null` t
 filter, sort, and deep. Treat order as a unique known-name priority prefix with remaining built-ins
 appended in original order; keep include/exclude as collection selection. Publish the example JSON
 and exported JSON Schema without a TypeScript loader or new dependencies. The example omits
-`operationMode`, retaining the global fallback; its management limits extraction and full-idempotent
-synchronization, not insert-mode imports. Batch/error settings, automatic-extraction selection,
+`operationMode`, retaining the global fallback; its management limits full-idempotent synchronization;
+only ID-range management also limits extraction. Insert-mode imports ignore management. Batch/error settings, automatic-extraction selection,
 and cleanup remain unchanged.
 
 Add read-only `seed config` inspection of effective collection settings, full resolved order, and
@@ -122,18 +122,16 @@ import modes ignore management. Source `[]` selects nothing and skips target col
 mutations, rejecting nonempty target seeds; missing target files skip work, while target `[]` clears
 only current membership. Missing or invalid required sources reject the run.
 
-Read extraction source IDs before existing cleanup or any writes, AND membership with the target's
-configured extraction filter, and reject missing sources before cleanup. When a relation source is
-also selected, preflight its ordinary effective extraction query and require exported IDs to match
-the Git source ID set exactly, including empty sets. Added/removed IDs, duplicates, omitted IDs, or
-source read errors stop before cleanup or writes, including selective automatic extraction. Reuse
-those exact checked source rows for the eventual write instead of reading the source again. Other
-source fields/order may change; unselected sources retain raw-file membership without a source DB
-read. Retain normal cleanup and overwrite behavior: source files can be removed or replaced, with no special preservation. Document
-reviewing and preserving source data, plus the absence of historical ownership: removing a policy
-ID relinquishes its selection. Retain the ID and import permissions as `[]` before relinquishing it;
-review parent deletes/cascades separately. Add no historical manifest, transaction, or concurrency
-guarantees.
+Keep relation management exclusive to full-idempotent import. Extract live Directus data using each
+collection's explicit fields, filter, sort, and deep query, with the existing ID-range boundary where
+configured. Require no existing seed files or source-ID equality for manual or automatic extraction;
+new, changed, and removed records export normally. Collection filters remain independent, without
+automatic propagation from policies to permissions. Consumers remain responsible for source IDs
+and target seed data matching their intended full-idempotent management boundary; a narrower
+extraction filter can omit managed records that import deletes. Retain the absence of historical
+ownership: removing a source ID relinquishes its selection. Clear target rows before relinquishing
+an ID and review parent deletes/cascades separately. Add no historical manifest, transaction, or
+concurrency guarantees.
 
 Remove the built-in presets `id < 50000` extraction cap while preserving `user = null`. Without
 consumer configuration, extraction now includes matching presets with IDs at or above 50000. Show

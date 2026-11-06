@@ -25,12 +25,12 @@ function getKeySchema(type: string | undefined) {
 }
 
 /**
- * Resolves one direct M2O boundary from raw source seeds, independent of import/extraction selection.
+ * Resolves one direct M2O boundary from raw source seeds, independent of import selection.
  * @param collectionName - Managed collection.
  * @param management - Validated declarative boundary.
- * @param seedsFolder - Git-managed seed directory, read before extraction cleanup.
+ * @param seedsFolder - Git-managed seed directory used for import.
  * @param schema - Live schema used to verify the direct relation and representable scalar keys.
- * @returns A snapshotted boundary shared by validation, extraction and synchronization.
+ * @returns A snapshotted boundary shared by import validation and synchronization.
  */
 export async function resolveCollectionManagement(
 	collectionName: string,

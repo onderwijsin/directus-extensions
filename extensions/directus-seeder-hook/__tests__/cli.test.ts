@@ -1314,132 +1314,76 @@ describe('seeder registration and CLI', () => {
 			expectNoServiceCalls(missing)
 		})
 
-		it('refuses changed relation source IDs before extraction cleanup and writes checked source rows once', async () => {
+		it('extracts live policies and permissions without seed input and refreshes added, changed and removed records', async () => {
 			const source = path.join(directory, 'directus_policies.json')
 			const target = path.join(directory, 'directus_permissions.json')
-			const stale = path.join(directory, 'stale.json')
-			const original = [{ id: policy, name: 'Git policy' }]
-			await writeFile(source, JSON.stringify(original))
-			await writeFile(target, 'original permissions')
-			await writeFile(stale, 'preserve until preflight passes')
 			const service = await createRelationProgram()
-			const error = vi.spyOn(logger, 'error')
-			// A -> A+B used to succeed with a widened source and stale target selection.
-			service.readByQuery.mockResolvedValue([{ id: policy }, { id: outsider }])
-			expect(
-				await runCommand(
-					service.program,
-					'extract',
-					'--include',
-					'directus_permissions',
-					'directus_policies',
-				),
-			).toBe(1)
-			expect(error).toHaveBeenCalledWith(
-				expect.stringContaining('would change relation source IDs'),
-			)
-			expect(service.readByQuery).toHaveBeenCalledOnce()
-			expect(JSON.parse(await readFile(source, 'utf8'))).toEqual(original)
-			expect(await readFile(target, 'utf8')).toBe('original permissions')
-			expect(await readFile(stale, 'utf8')).toBe('preserve until preflight passes')
-			// Removed IDs must also fail; non-ID changes are allowed and not queried a second time.
-			service.readByQuery.mockReset().mockResolvedValue([])
-			expect(
-				await runCommand(
-					service.program,
-					'extract',
-					'--include',
-					'directus_policies',
-					'directus_permissions',
-				),
-			).toBe(1)
-			expect(JSON.parse(await readFile(source, 'utf8'))).toEqual(original)
-			expect(await readFile(target, 'utf8')).toBe('original permissions')
-			const updated = [{ id: policy, name: 'Database policy' }]
-			service.readByQuery
-				.mockReset()
-				.mockResolvedValueOnce(updated)
-				.mockResolvedValueOnce([{ id: 1, policy }])
-			expect(
-				await runCommand(
-					service.program,
-					'extract',
-					'--include',
-					'directus_policies',
-					'directus_permissions',
-				),
-			).toBe(0)
-			expect(service.readByQuery).toHaveBeenCalledTimes(2)
-			expect(JSON.parse(await readFile(source, 'utf8'))).toEqual(updated)
-			expect(JSON.parse(await readFile(target, 'utf8'))).toEqual([{ id: 1, policy }])
-			await expect(readFile(stale)).rejects.toMatchObject({ code: 'ENOENT' })
+			for (const policies of [
+				[{ id: policy }],
+				[
+					{ id: policy, name: 'Updated' },
+					{ id: outsider, name: 'New' },
+				],
+				[],
+			]) {
+				const permissions = policies.map(({ id }, index) => ({ id: index + 1, policy: id }))
+				service.readByQuery
+					.mockResolvedValueOnce(policies)
+					.mockResolvedValueOnce(permissions)
+				expect(
+					await runCommand(
+						service.program,
+						'extract',
+						'--include',
+						'directus_policies',
+						'directus_permissions',
+					),
+				).toBe(0)
+				expect(JSON.parse(await readFile(source, 'utf8'))).toEqual(policies)
+				expect(JSON.parse(await readFile(target, 'utf8'))).toEqual(permissions)
+			}
 		})
 
-		it('snapshots excluded raw source IDs and schema before normal extraction cleanup, combining the FK and extraction filters', async () => {
+		it('uses each collection extraction query independently of relation management and existing source files', async () => {
 			const source = path.join(directory, 'directus_policies.json')
-			await writeFile(source, JSON.stringify([{ id: policy }]))
-			await writeFile(path.join(directory, 'stale.json'), 'stale')
+			const target = path.join(directory, 'directus_permissions.json')
+			const policyFilter = { name: { _eq: 'Editor' } }
 			const filter = { action: { _eq: 'read' } }
-			const service = await createRelationProgram({ filter })
-			service.getSchema.mockImplementationOnce(async () => {
-				await expect(readFile(path.join(directory, 'stale.json'), 'utf8')).resolves.toBe(
-					'stale',
-				)
-				return relationSchema()
-			})
-			service.readByQuery.mockImplementation(async () => {
-				await expect(readFile(source)).rejects.toMatchObject({ code: 'ENOENT' })
-				return [{ id: 1, policy }]
-			})
+			const service = await createRelationProgram(
+				{ fields: ['id', 'policy'], filter, sort: ['id'], deep: { policy: { _limit: 1 } } },
+				{},
+				{ directus_policies: { fields: ['id'], filter: policyFilter } },
+			)
+			const permissions = [{ id: 1, policy: outsider }]
+			service.readByQuery
+				.mockResolvedValueOnce([{ id: policy }])
+				.mockResolvedValueOnce(permissions)
 			expect(
 				await runCommand(
 					service.program,
 					'extract',
 					'--include',
-					'directus_permissions',
-					'--exclude',
 					'directus_policies',
+					'directus_permissions',
 				),
 			).toBe(0)
-			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith(
-				expect.objectContaining({
-					filter: { _and: [filter, { policy: { _in: [policy] } }] },
-				}),
+			expect(service.readByQuery).toHaveBeenNthCalledWith(
+				1,
+				expect.objectContaining({ filter: policyFilter }),
 			)
-			expect(
-				JSON.parse(
-					await readFile(path.join(directory, 'directus_permissions.json'), 'utf8'),
-				),
-			).toEqual([{ id: 1, policy }])
-		})
-
-		it('extracts an empty scope as [] without collection reads', async () => {
-			await writeFile(path.join(directory, 'directus_policies.json'), '[]')
-			const service = await createRelationProgram()
-			expect(
-				await runCommand(service.program, 'extract', '--include', 'directus_permissions'),
-			).toBe(0)
-			expect(service.readByQuery).not.toHaveBeenCalled()
-			expect(await readFile(path.join(directory, 'directus_permissions.json'), 'utf8')).toBe(
-				'[]\n',
-			)
-		})
-
-		it.each(['missing', 'invalid', 'schema'])(
-			'preserves extraction output when the related %s preflight fails',
-			async (invalid) => {
-				const source = path.join(directory, 'directus_policies.json')
-				if (invalid !== 'missing')
-					await writeFile(
-						source,
-						invalid === 'invalid' ? '[{}]' : JSON.stringify([{ id: policy }]),
-					)
-				await mkdir(path.join(directory, 'assets'))
-				await writeFile(path.join(directory, 'stale.json'), 'stale seeds')
-				await writeFile(path.join(directory, 'assets', 'stale.bin'), 'stale assets')
-				const service = await createRelationProgram({}, { SEEDER_JSON_ONLY: false })
-				if (invalid === 'schema')
-					service.getSchema.mockRejectedValue(new Error('schema unavailable'))
+			expect(service.readByQuery).toHaveBeenNthCalledWith(2, {
+				limit: -1,
+				fields: ['id', 'policy'],
+				filter,
+				sort: ['id'],
+				deep: { policy: { _limit: 1 } },
+			})
+			expect(JSON.parse(await readFile(target, 'utf8'))).toEqual(permissions)
+			// Stale, empty, invalid and absent source files never define the extraction selection.
+			for (const contents of ['[]', 'invalid JSON', undefined]) {
+				if (contents === undefined) await rm(source, { force: true })
+				else await writeFile(source, contents)
+				service.readByQuery.mockClear().mockResolvedValue(permissions)
 				expect(
 					await runCommand(
 						service.program,
@@ -1447,17 +1391,18 @@ describe('seeder registration and CLI', () => {
 						'--include',
 						'directus_permissions',
 					),
-				).toBe(1)
-				expect(service.readByQuery).not.toHaveBeenCalled()
-				expect(service.readFiles).not.toHaveBeenCalled()
-				expect(await readFile(path.join(directory, 'stale.json'), 'utf8')).toBe(
-					'stale seeds',
-				)
-				expect(await readFile(path.join(directory, 'assets', 'stale.bin'), 'utf8')).toBe(
-					'stale assets',
-				)
-			},
-		)
+				).toBe(0)
+				expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+					limit: -1,
+					fields: ['id', 'policy'],
+					filter,
+					sort: ['id'],
+					deep: { policy: { _limit: 1 } },
+				})
+				expect(JSON.parse(await readFile(target, 'utf8'))).toEqual(permissions)
+				await expect(readFile(source)).rejects.toMatchObject({ code: 'ENOENT' })
+			}
+		})
 	})
 
 	describe('Flow-folder schema compatibility', () => {

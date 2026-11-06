@@ -126,7 +126,7 @@ consumer configuration, not the target's available fields. Extraction adapts inh
 selections when querying the target schema.
 
 Inspection prints relation management unchanged without resolving source IDs or validating the live
-relationship. Review the source file and target schema separately before import or extraction.
+relationship. Review the source file and target schema separately before full-idempotent import.
 
 ## Configuration reference
 
@@ -312,15 +312,15 @@ management object. Each collection accepts these properties:
 See [Directus query parameters](https://directus.com/docs/guides/connect/query-parameters) and
 [filter rules](https://directus.com/docs/guides/connect/filter-rules) for query syntax. Query
 structure is validated before extraction cleanup; query field and relation validation still occurs
-in Directus during reads. Relation management has additional schema checks described below. Combine
-comparisons on the same field as separate objects inside `_and`; multiple operators in one field
-predicate are rejected because Directus applies only the first. Those read errors can leave partial
-output under the existing extraction recovery behavior below. Overrides are shallow by property: an
-omitted property retains its default, while each provided array, `filter`, `deep`, or `management`
-replaces that whole value. There is no recursive merge. For example, supplying a presets `filter`
-replaces the built-in `user = null` filter; include that rule yourself if you still need it.
-`fields`, `filter`, `sort`, and `deep` may be `null` to clear an option; `operationMode` and
-`management` may not.
+in Directus during reads. Relation management has additional import schema checks described below.
+Combine comparisons on the same field as separate objects inside `_and`; multiple operators in one
+field predicate are rejected because Directus applies only the first. Those read errors can leave
+partial output under the existing extraction recovery behavior below. Overrides are shallow by
+property: an omitted property retains its default, while each provided array, `filter`, `deep`, or
+`management` replaces that whole value. There is no recursive merge. For example, supplying a
+presets `filter` replaces the built-in `user = null` filter; include that rule yourself if you still
+need it. `fields`, `filter`, `sort`, and `deep` may be `null` to clear an option; `operationMode`
+and `management` may not.
 
 Before replacing `fields`, inspect `seed config --defaults --collection directus_roles` (or the
 collection you are changing). Copy every built-in field you want to retain into your replacement
@@ -339,11 +339,11 @@ selection, or change cleanup and binary asset behavior.
 For each selected collection, the effective seeding mode is explicit CLI `--mode`, then collection
 `operationMode`, then `SEEDER_MODE` (default `insert-missing`). The example leaves `operationMode`
 unset, so every collection uses the global fallback unless CLI `--mode` overrides it. Its management
-boundaries limit extraction and full-idempotent synchronization; they do not limit insert-missing or
-insert-update imports. Safety opt-in and confirmation prompts inspect the effective modes of
-selected collections with present seed files, including `[]`. Missing files require no confirmation
-or opt-in. Required input errors still abort before database mutations. CLI mode overrides never
-change `management`.
+boundaries limit full-idempotent synchronization; only ID-range management also limits extraction.
+Management does not limit insert-missing or insert-update imports. Safety opt-in and confirmation
+prompts inspect the effective modes of selected collections with present seed files, including `[]`.
+Missing files require no confirmation or opt-in. Required input errors still abort before database
+mutations. CLI mode overrides never change `management`.
 
 The built-in presets extraction now retains only `user = null`, with no ID cap. Without a consumer
 config, it includes matching presets with IDs `>= 50000`. The example's `management.max = 50000`
@@ -544,22 +544,21 @@ Review the complete intended range before using extracted JSON as a synchronizat
 Use one direct scalar many-to-one foreign key to select target rows by IDs in a related seed file.
 For example, the configuration above manages permissions whose `policy` is an `id` in
 `<seeds-dir>/directus_policies.json`. Membership comes from that raw Git seed file, independently of
-permission rows and whether policies are selected for import or extraction. Both collections must be
-supported system collections listed above; this does not add custom collections or a core scope. The
-live relationship must point directly to the related collection's `id` primary key; relation paths,
+permission rows and whether policies are selected for import. Both collections must be supported
+system collections listed above; this does not add custom collections or a core scope. The live
+relationship must point directly to the related collection's `id` primary key; relation paths,
 aliases, compound relationships, and nested relation objects are unsupported.
 
-For a full-idempotent import with a present target file, and for every extraction of a
-relation-managed collection, the source must be a readable, valid JSON array with explicit IDs. IDs
-and foreign-key values must match the live schema: canonical lowercase UUID strings, nonempty
-strings, or safe-integer numbers, without numeric-string coercion. UUID inputs with uppercase
-letters are rejected before mutations to keep membership consistent across database representations.
-Other string keys are compared exactly and retain their case. Duplicate source IDs are invalid.
-Every target seed row requires its own explicit `id` and a scalar value for the configured field
-(`policy` here) in the source ID set. Missing, null, nested, or out-of-set foreign keys fail
-preflight. Only raw source `id` values define membership: source filters, ID ranges, and environment
-transformations do not narrow that membership, and source management is not followed recursively.
-Reading a source does not import its records.
+For a full-idempotent import with a present target file, the source must be a readable, valid JSON
+array with explicit IDs. IDs and foreign-key values must match the live schema: canonical lowercase
+UUID strings, nonempty strings, or safe-integer numbers, without numeric-string coercion. UUID
+inputs with uppercase letters are rejected before mutations to keep membership consistent across
+database representations. Other string keys are compared exactly and retain their case. Duplicate
+source IDs are invalid. Every target seed row requires its own explicit `id` and a scalar value for
+the configured field (`policy` here) in the source ID set. Missing, null, nested, or out-of-set
+foreign keys fail preflight. Only raw source `id` values define membership: source filters, ID
+ranges, and environment transformations do not narrow that membership, and source management is not
+followed recursively. Reading a source does not import its records.
 
 Before any selected collection is mutated, full-idempotent preflight validates the relationship
 schema, source IDs, target membership, and existing target seed-ID collisions. An existing row with
@@ -592,30 +591,16 @@ longer be recognized by this configuration. There is no historical ownership man
 policy ID, import permissions as `[]` to clear them, verify the result, and only then remove the ID.
 Review parent-policy deletion and database cascades separately; they are not this selection rule.
 
-Manual and automatic extraction read raw related seed IDs before existing cleanup or any output
-writes, then combine that membership with the target's configured extraction `filter` using AND. An
-empty source yields empty target JSON without reading that target collection. A missing or invalid
-source blocks extraction before cleanup.
+Relation management applies only to full-idempotent import. Manual and automatic extraction read
+current Directus data using each collection's own `fields`, `filter`, `sort`, and `deep`, plus any
+configured ID-range boundary. Extraction works without existing seed files and exports new, changed,
+and removed records normally. A policy filter does not automatically filter permissions; configure
+each collection's extraction query explicitly.
 
-When both a relation source and its target are selected, extraction first reads the source using its
-own effective fields, filter, sort, deep query, management, and normal extraction transformations.
-Its exported IDs must exactly match the existing source seed IDs. Added or removed IDs, duplicate
-IDs, or a projection without valid IDs reject the run before cleanup or any output writes, including
-with `--skip-clean` and selective automatic extraction. The same checked source rows are later
-written without another database read; other fields and row order may change. Unselected sources
-continue to define membership from the existing Git seed file without a source database read.
-
-For example, if Git contains policy A but source extraction would export A+B, extraction stops
-instead of writing A+B with permissions for A alone. Review and intentionally align the source seed
-IDs with the desired export before retrying. This guard does not automatically expand or shrink
-management. Full-idempotent deletion uses membership alone, so a narrower target extraction filter
-can still omit rows that a later import deletes.
-
-Normal cleanup and overwrite rules still apply to the source file: cleanup can delete an unselected
-source, and selecting it can replace its contents. There is no special preservation. Preserve and
-review your source data before extraction, then inspect or restore the intended source IDs before
-another run. Manual `--skip-clean` retains unselected files but still overwrites selected ones. The
-initial membership read is not a transaction or protection against concurrent writers.
+Review exported seed data before full-idempotent import. The consumer must ensure that the related
+source IDs and target rows represent the intended management boundary. A narrow extraction filter
+can omit managed records that a later full-idempotent import deletes; extraction adds no automatic
+protection against that mismatch.
 
 ### Failure handling
 
@@ -637,6 +622,10 @@ preflight errors still abort before mutations, regardless of this option. Extrac
 errors fail the run; see the recovery guidance below.
 
 ## Extraction, assets, and automatic behavior
+
+Extraction exports current Directus data without reading existing seed files. Each selected
+collection uses its own explicit query; ID-range management remains an additional boundary, while
+relation management is used only during import.
 
 Extraction uses JavaScript `JSON.stringify` to write valid, readable JSON with tabs by default, or
 one through ten spaces via `SEEDER_JSON_INDENT=space` and `SEEDER_JSON_INDENT_SIZE`. Output has
@@ -702,10 +691,11 @@ Automatic extraction requires both exact `DEPLOYMENT_ENV=development` and
 `SEEDER_AUTO_EXTRACT=true`. Selected collections' create/update/delete actions schedule a 15-second
 debounce; further events, including other processes' marker updates, extend it. Each debounced run
 extracts every selected collection in effective configuration order, using its configured `fields`,
-`filter`, `sort`, `deep`, and `management`. It exports the selected collections again rather than
-only the changed records. A `users.update` payload containing only `last_page`, or an empty payload,
-is ignored. File uploads do not necessarily emit the create/update events monitored here; use manual
-extraction when needed. Enabling auto-extract does not import seeds or extract data at startup.
+`filter`, `sort`, `deep`, and optional ID-range boundary. Relation management does not filter
+extraction. It exports the selected collections again rather than only the changed records. A
+`users.update` payload containing only `last_page`, or an empty payload, is ignored. File uploads do
+not necessarily emit the create/update events monitored here; use manual extraction when needed.
+Enabling auto-extract does not import seeds or extract data at startup.
 
 - With `SEEDER_AUTO_EXTRACT_INCLUDE` unset, auto-extract retains the general
   `SEEDER_INCLUDE`/`SEEDER_EXCLUDE` selection and default output cleanup. With

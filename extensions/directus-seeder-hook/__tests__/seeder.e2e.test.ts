@@ -269,6 +269,95 @@ describe('installed seeder CLI', () => {
 		}
 	})
 
+	it('extracts permissions into fresh output and repeats clean extraction without policy seed input', async () => {
+		const policyId = randomUUID()
+		const directory = `/tmp/seeder-extract-e2e-${randomUUID()}`
+		const environment = {
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_CONFIG_PATH: `${directory}/config.json`,
+			SEEDER_SEEDS_DIR: `${directory}/seeds`,
+			SEEDER_ASSETS_DIR: `${directory}/assets`,
+		}
+		await client.request(
+			createPolicy({
+				id: policyId,
+				name: `Seeder extraction ${policyId}`,
+				app_access: false,
+				admin_access: false,
+			}),
+		)
+		try {
+			const permission = await client.request(
+				createPermission({
+					policy: policyId,
+					collection: 'directus_roles',
+					action: 'read',
+					fields: ['*'],
+				}),
+			)
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'const fs = require("node:fs"); fs.mkdirSync(process.argv[1], { recursive: true }); fs.writeFileSync(`${process.argv[1]}/config.json`, process.argv[2])',
+				directory,
+				JSON.stringify({
+					system: {
+						collections: {
+							directus_permissions: {
+								filter: { policy: { _eq: policyId } },
+								fields: ['id', 'policy'],
+								management: {
+									type: 'relation',
+									field: 'policy',
+									collection: 'directus_policies',
+								},
+							},
+						},
+					},
+				}),
+			])
+			for (let run = 0; run < 2; run++) {
+				await seed(
+					environment,
+					'extract',
+					'--json-only',
+					'--include',
+					'directus_permissions',
+				)
+				const exported = await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'const fs = require("node:fs"); const root = process.argv[1]; if (fs.existsSync(`${root}/seeds/directus_policies.json`)) throw new Error("Unexpected policy seed input"); process.stdout.write(fs.readFileSync(`${root}/seeds/directus_permissions.json`, "utf8"))',
+					directory,
+				])
+				expect(JSON.parse(exported.stdout)).toEqual([
+					{ id: permission.id, policy: policyId },
+				])
+			}
+		} finally {
+			try {
+				for (const permission of await client.request(
+					readPermissions({ filter: { policy: { _eq: policyId } } }),
+				))
+					await client.request(deletePermission(permission.id))
+				await client.request(deletePolicy(policyId))
+			} finally {
+				await execute('docker', [
+					...composeArguments,
+					'directus',
+					'node',
+					'-e',
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				])
+			}
+		}
+	})
+
 	it('synchronizes only permissions of seed policies, rejects outsider collisions, and leaves permissions of removed source IDs untouched', async () => {
 		const policyIds = [randomUUID(), randomUUID(), randomUUID()]
 		const [managedId, removedId, outsiderId] = policyIds
