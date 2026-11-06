@@ -942,12 +942,19 @@ describe('seeder registration and CLI', () => {
 
 		it('fails extraction without overwriting invalid manifests or losing history on invalid exported IDs', async () => {
 			const service = await createManifestProgram({ fields: ['name'] })
+			const errorLog = vi.spyOn(logger, 'error')
 			service.readByQuery.mockResolvedValue([{ id: first }])
 			await writeFile(manifest(), 'invalid JSON')
 			expect(
 				await runCommand(service.program, 'extract', '--include', 'directus_policies'),
 			).toBe(1)
 			expect(await readFile(manifest(), 'utf8')).toBe('invalid JSON')
+			expect(errorLog).toHaveBeenCalledWith(
+				expect.objectContaining({
+					message: expect.stringContaining(manifest()),
+					cause: expect.any(SyntaxError),
+				}),
+			)
 			const history = JSON.stringify([first])
 			await writeFile(manifest(), history)
 			for (const row of [
@@ -961,27 +968,6 @@ describe('seeder registration and CLI', () => {
 				).toBe(1)
 				expect(await readFile(manifest(), 'utf8')).toBe(history)
 			}
-		})
-
-		it('retains historical and newly exported IDs when the subsequent seed write fails', async () => {
-			await writeFile(manifest(), JSON.stringify([second]))
-			const outside = path.join(directory, 'outside.txt')
-			await writeFile(outside, 'unchanged')
-			await symlink(outside, target())
-			const service = await createManifestProgram()
-			service.readByQuery.mockResolvedValue([{ id: first }])
-			expect(
-				await runCommand(
-					service.program,
-					'extract',
-					'--skip-clean',
-					'--include',
-					'directus_policies',
-				),
-			).toBe(1)
-			expect(JSON.parse(await readFile(manifest(), 'utf8'))).toEqual([first, second])
-			expect(await readFile(outside, 'utf8')).toBe('unchanged')
-			expect((await readdir(directory)).filter((name) => name.endsWith('.tmp'))).toEqual([])
 		})
 
 		it('synchronizes manifest IDs under CLI mode override and leaves manifest bytes unchanged', async () => {

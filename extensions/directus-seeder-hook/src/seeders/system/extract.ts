@@ -216,10 +216,10 @@ const extractSingleCollection = async (
 		}
 
 		const absoluteFilePath = generateSeedFilePath(seedsFolder, collectionName)
+		await outputFile(absoluteFilePath, `${JSON.stringify(data, null, jsonIndent)}\n`)
 		if (collection.management?.type === 'manifest') {
 			await updateManagedIds(collectionName, data, seedsFolder, schema, jsonIndent)
 		}
-		await outputFile(absoluteFilePath, `${JSON.stringify(data, null, jsonIndent)}\n`)
 
 		logger.info(`✅ Extracted ${data.length} items from ${collectionName}`)
 		logger.trace(`📄 File written to: ${absoluteFilePath}`)
