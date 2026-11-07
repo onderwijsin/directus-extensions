@@ -83,7 +83,6 @@ describe('installed seeder CLI', () => {
 			SEEDER_AUTO_EXTRACT: 'true',
 			SEEDER_CONFIG_PATH: `${directory}/config.json`,
 			SEEDER_SEEDS_DIR: `${directory}/missing-seeds`,
-			SEEDER_MODE: 'insert-update',
 		}
 		try {
 			const defaults = await seed(
@@ -98,7 +97,7 @@ describe('installed seeder CLI', () => {
 					order: ['directus_roles'],
 					collections: {
 						directus_roles: {
-							operationMode: 'insert-missing',
+							operationMode: 'full-idempotent',
 							fields: ['id', 'name', 'icon', 'description', 'parent'],
 						},
 					},
@@ -234,7 +233,7 @@ describe('installed seeder CLI', () => {
 					{ id: min + 2, collection: 'directus_roles', bookmark: 'created' },
 				]),
 			])
-			// Global default remains insert-missing; collection-level full-idempotent drives import.
+			// Consumer full-idempotent overrides the built-in insert-update mode for presets.
 			await seed(environment, 'system', '--yes', '--include', 'directus_presets')
 			await seed(environment, 'system', '--yes', '--include', 'directus_presets')
 			const presets = await client.request(
@@ -1054,7 +1053,7 @@ describe('installed seeder CLI', () => {
 				JSON.stringify([fixture]),
 			])
 			await seed(
-				{ ...environment, SEEDER_MODE: 'insert-update' },
+				environment,
 				'system',
 				'--mode',
 				'insert-missing',
@@ -1066,8 +1065,10 @@ describe('installed seeder CLI', () => {
 				value: 'original',
 			})
 			await seed(
-				{ ...environment, SEEDER_MODE: 'INSERT-UPDATE' },
+				environment,
 				'system',
+				'--mode',
+				'insert-update',
 				'--include',
 				'directus_translations',
 				'--force',

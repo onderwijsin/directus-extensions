@@ -56,11 +56,6 @@ export interface SeederConfig {
 	systemFieldOverrides?: string[]
 
 	/**
-	 * Operation mode.
-	 */
-	operationMode: OperationMode
-
-	/**
 	 * Data scope.
 	 */
 	dataScope: DataScope
@@ -115,8 +110,8 @@ export interface SeederConfig {
 export interface CollectionConfig {
 	/** Collection to synchronize. */
 	collection: string
-	/** Optional per-collection import mode, before the global fallback. */
-	operationMode?: OperationMode
+	/** Effective per-collection import mode, including any explicit CLI override. */
+	operationMode: OperationMode
 	/** Optional full-idempotent boundary, independent of extraction filters. */
 	management?: CollectionManagement
 }
@@ -137,17 +132,4 @@ export function selectCollections(
 				config.includeCollections.includes(collection)) &&
 			!config.excludeCollections.includes(collection),
 	)
-}
-
-/**
- * Resolves a collection's mode after explicit CLI overrides have been applied.
- * @param collection - Effective collection settings.
- * @param config - Global runtime settings.
- * @returns Collection mode or global fallback.
- */
-export function getCollectionMode(
-	collection: CollectionConfig,
-	config: SeederConfig,
-): OperationMode {
-	return collection.operationMode ?? config.operationMode
 }

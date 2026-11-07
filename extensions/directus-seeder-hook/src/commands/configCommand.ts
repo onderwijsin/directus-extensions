@@ -6,7 +6,6 @@ import process from 'node:process'
 import { z } from 'zod'
 
 import { envSchema } from '../env.schema'
-import { getCollectionMode } from '../lib/config'
 import { resolveSeederConfig } from '../lib/resolveConfig'
 import { getSystemCollections } from '../seeders/system/resolveConfig'
 
@@ -47,13 +46,7 @@ export function registerConfigCommand(
 						collections: Object.fromEntries(
 							collections.map((entry) => {
 								const { collection, ...settings } = entry
-								return [
-									collection,
-									{
-										...settings,
-										operationMode: getCollectionMode(entry, config),
-									},
-								]
+								return [collection, settings]
 							}),
 						),
 					},

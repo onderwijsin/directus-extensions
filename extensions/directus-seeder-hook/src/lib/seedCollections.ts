@@ -9,7 +9,7 @@ import { createFilesServiceAdapter } from '../services/FilesServiceAdapter'
 import { createItemsServiceAdapter } from '../services/ItemsServiceAdapter'
 import { createSeederStrategy } from '../strategies'
 import { validateManagedSeedData } from './collectionManagement'
-import { getCollectionMode, OperationMode, selectCollections } from './config'
+import { OperationMode, selectCollections } from './config'
 import { getManifestSeedIds } from './manifestManagement'
 import { getFolderPaths } from './resolveConfig'
 import { resolveCollectionManagement, validateRelationSeedKeys } from './resolveManagement'
@@ -47,10 +47,9 @@ export async function seedCollections(
 	const boundaries = new Map<string, ResolvedCollectionManagement>()
 	// Preflight every selected collection before any service can mutate the database.
 	for (const collectionName of collectionsToSeed) {
-		const collection = collectionConfigs.find(
-			(entry) => entry.collection === collectionName,
-		) ?? { collection: collectionName }
-		const mode = getCollectionMode(collection, config)
+		const collection = collectionConfigs.find((entry) => entry.collection === collectionName)
+		if (!collection) throw new Error(`Missing configuration for collection "${collectionName}"`)
+		const mode = collection.operationMode
 		if (fullReset && mode !== OperationMode.FULL_IDEMPOTENT) {
 			throw new Error(
 				`--full-reset requires full-idempotent mode for collection "${collectionName}"`,
@@ -136,13 +135,9 @@ export async function seedCollections(
 	// Seed each collection
 	for (const collectionName of collectionsToSeed) {
 		const collectionData = seedData[collectionName] ?? []
-		const collection = collectionConfigs.find(
-			(entry) => entry.collection === collectionName,
-		) ?? { collection: collectionName }
-		const strategy = createSeederStrategy(
-			getCollectionMode(collection, config),
-			config.batchSize,
-		)
+		const collection = collectionConfigs.find((entry) => entry.collection === collectionName)
+		if (!collection) throw new Error(`Missing configuration for collection "${collectionName}"`)
+		const strategy = createSeederStrategy(collection.operationMode, config.batchSize)
 
 		logger.debug(`Seeding collection: ${collectionName} (${collectionData.length} items)`)
 

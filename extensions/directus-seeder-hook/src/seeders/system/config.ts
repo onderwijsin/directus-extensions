@@ -27,6 +27,8 @@ import type { SystemCollectionConfig } from './config.schema'
 export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	{
 		collection: 'directus_policies',
+		operationMode: 'full-idempotent',
+		management: { type: 'manifest' },
 		filter: null,
 		fields: [
 			'id',
@@ -41,11 +43,15 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	},
 	{
 		collection: 'directus_roles',
+		operationMode: 'full-idempotent',
+		management: { type: 'manifest' },
 		filter: null,
 		fields: ['id', 'name', 'icon', 'description', 'parent'],
 	},
 	{
 		collection: 'directus_users',
+		operationMode: 'full-idempotent',
+		management: { type: 'manifest' },
 		filter: null,
 		// Include all user properties we need for a working system
 		fields: [
@@ -67,11 +73,14 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	},
 	{
 		collection: 'directus_access',
+		operationMode: 'full-idempotent',
+		management: { type: 'manifest' },
 		filter: null,
 		fields: ['id', 'policy', 'role', 'sort', 'user'],
 	},
 	{
 		collection: 'directus_presets',
+		operationMode: 'insert-update',
 		filter: { user: { _null: true } },
 		sort: ['-role', 'id'],
 		fields: [
@@ -92,6 +101,8 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	},
 	{
 		collection: 'directus_permissions',
+		operationMode: 'full-idempotent',
+		management: { type: 'relation', field: 'policy', collection: 'directus_policies' },
 		filter: null,
 		fields: [
 			'id',
@@ -106,12 +117,16 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	},
 	{
 		collection: 'directus_folders',
+		operationMode: 'full-idempotent',
+		management: { type: 'manifest' },
 		filter: null,
 		fields: ['id', 'name', 'parent', 'type'],
 		sort: ['-parent'],
 	},
 	{
 		collection: 'directus_files',
+		operationMode: 'full-idempotent',
+		management: { type: 'manifest' },
 		filter: null,
 		fields: [
 			'id',
@@ -125,11 +140,13 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	},
 	{
 		collection: 'directus_dashboards',
+		operationMode: 'full-idempotent',
 		filter: null,
 		fields: ['id', 'name', 'note', 'icon', 'color'], // Exclude panels
 	},
 	{
 		collection: 'directus_panels',
+		operationMode: 'full-idempotent',
 		filter: null,
 		fields: [
 			'id',
@@ -149,6 +166,7 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	},
 	{
 		collection: 'directus_flows',
+		operationMode: 'full-idempotent',
 		filter: null,
 		fields: [
 			'id',
@@ -168,6 +186,7 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	},
 	{
 		collection: 'directus_operations',
+		operationMode: 'full-idempotent',
 		filter: null,
 		fields: [
 			'id',
@@ -186,12 +205,14 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 	},
 	{
 		collection: 'directus_settings',
+		operationMode: 'insert-update',
 		filter: null,
 		// We get ALL fields for settings: settings change more often than other collections.
 		fields: ['*'],
 	},
 	{
 		collection: 'directus_translations',
+		operationMode: 'full-idempotent',
 		filter: null,
 		fields: ['id', 'language', 'key', 'value'],
 		sort: ['key', 'language'],

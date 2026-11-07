@@ -4,8 +4,8 @@
 
 Release the standalone Directus system seeder hook as its first `1.0.0` release with `seed system`,
 development-only `seed extract`, and optional automatic extraction. Support Directus 12 and Node.js
-24.10 or newer, preserve seeding defaults and transformations, and document destructive
-synchronization, asset handling, environment transformations, and operational limitations.
+24.10 or newer, configure explicit collection defaults, and preserve transformations. Document
+destructive synchronization, asset handling, environment transformations, and operational limitations.
 
 Validate all `SEEDER_*` options plus `DEPLOYMENT_ENV`, `DEFAULT_EMAIL`, `DEFAULT_PASSWORD`, and
 `STORAGE_LOCATIONS` once at startup after Directus environment type casting, and reuse the validated
@@ -15,15 +15,15 @@ fails startup even when a CLI option would override it. Keep Directus logging an
 controls outside the hook's schema.
 
 Require booleans and integer numbers without string coercion or truncation, reject blank paths and
-invalid list entries, and accept supported environment modes/scope case-insensitively without silent
+invalid list entries, and accept the supported environment scope case-insensitively without silent
 fallbacks. Normalize singular strings and Directus-cast arrays to trimmed string lists without
 comma-splitting strings forced with `string:`. Preserve exact deployment-name semantics and string
 credential defaults, including explicit empty strings; numeric or boolean-like credentials require
 Directus's `string:` prefix in standalone Directus configuration. Shared Compose instead expects
 a plain root `.env` password and adds the prefix when forwarding it to Directus.
 
-Resolve each collection's mode as explicit CLI `--mode`, then JSON collection `operationMode`,
-then `SEEDER_MODE`/`insert-missing`; explicit CLI modes remain case-sensitive. Evaluate safety
+Resolve each collection's mode as explicit CLI `--mode`, then effective collection `operationMode`
+(consumer override or built-in default); explicit CLI modes remain case-sensitive. Evaluate safety
 opt-in and prompts across selected collections with present seed files, including `[]`; missing
 files do not require destructive confirmation or opt-in. Reuse loaded, validated input for import
 and retain full preflight before mutations. CLI mode overrides preserve management. Use
@@ -87,14 +87,13 @@ objects replace whole values; omitted properties retain defaults. Allow `null` t
 filter, sort, and deep. Treat order as a unique known-name priority prefix with remaining built-ins
 appended in original order; keep include/exclude as collection selection. Publish the example JSON
 and exported JSON Schema without a TypeScript loader or new dependencies. The example omits
-`operationMode`, retaining the global fallback; its management limits full-idempotent synchronization;
-only ID-range management also limits extraction selection. Insert-mode imports ignore management.
+`operationMode`, retaining the built-in collection modes; its management limits full-idempotent
+synchronization; only ID-range management also limits extraction selection. Insert-mode imports ignore management.
 Batch/error settings, automatic-extraction selection, and other cleanup remain unchanged.
 
 Add read-only `seed config` inspection of effective collection settings, full resolved order, and
-resolved modes, with `--defaults` for built-ins independent of the consumer JSON file and global
-mode, and optional `--collection` filtering. Ignore `$comment` explanatory metadata during
-processing. Inspection prints relation and manifest management unchanged, reads no seeds, manifests,
+resolved modes, with `--defaults` for built-ins independent of the consumer JSON file, and optional
+`--collection` filtering. Ignore `$comment` explanatory metadata during processing. Inspection prints relation and manifest management unchanged, reads no seeds, manifests,
 schema, or database state, and requires no destructive-seeding opt-in.
 
 Support optional consumer per-collection `management` with `type: 'id-range'`, inclusive `min`
@@ -104,9 +103,9 @@ preflight rejects missing, nonnumeric, unsafe, or out-of-range seed IDs before d
 Combine ID bounds and non-seed-ID exclusions as separate `_and` predicates so Directus applies
 every condition. Reject consumer field predicates with multiple operators instead of silently using
 only the first. Delete only in-range IDs absent from seeds; bounded `[]` clears that range, and missing files skip
-all work. Other import modes ignore management. Keep unbounded synchronization defaults, including
-presets. Extraction ANDs the range with its separate filter; deletion uses only the range, never the
-extraction filter. A narrow extraction filter may omit in-range records that full-idempotent import
+all work. Other import modes ignore management. Presets default to insert-update without management;
+consumers may opt into an ID range. Extraction ANDs the range with its separate filter; deletion uses
+only the range, never the extraction filter. A narrow extraction filter may omit in-range records that full-idempotent import
 subsequently deletes.
 
 Also support `management: { type: 'relation', field: 'policy', collection: 'directus_policies' }`
@@ -202,3 +201,9 @@ selections to the live Directus schema, retaining both fields on versions with F
 Preserve explicit consumer field overrides and read-only configuration inspection. Before import
 mutations, translate only unsupported `type: "files"` and `folder: null` to their older equivalent;
 reject other supplied values with file, row, and field context instead of losing Flow-folder data.
+
+Set built-in full-idempotent modes with manifest management for policies, roles, users, access,
+folders, and files; relation management for permissions through `policy` to `directus_policies`;
+and no management for dashboards, panels, flows, operations, and translations. Use insert-update
+without management for presets and settings. Preserve fields, filters, sorting, deep queries,
+and collection order. There is no global environment mode fallback.

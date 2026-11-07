@@ -106,7 +106,14 @@ function createProgram(env: Record<string, unknown> = {}) {
 	const UtilsService = vi.fn(function () {
 		return { clearCache }
 	})
-	const getSchema = vi.fn().mockResolvedValue({ collections: {} })
+	const getSchema = vi.fn().mockResolvedValue({
+		collections: Object.fromEntries(
+			SYSTEM_COLLECTIONS.map(({ collection }) => [
+				collection,
+				{ primary: 'id', fields: { id: { type: 'string' } } },
+			]),
+		),
+	})
 	const database = vi.fn()
 	const context: TestContext = {
 		env: {
@@ -336,7 +343,7 @@ describe('seeder registration and CLI', () => {
 					collections: Object.fromEntries(
 						SYSTEM_COLLECTIONS.map(({ collection, ...settings }) => [
 							collection,
-							{ ...settings, operationMode: 'insert-missing' },
+							settings,
 						]),
 					),
 				},
@@ -348,7 +355,7 @@ describe('seeder registration and CLI', () => {
 			expect(mocks.acquireLock).not.toHaveBeenCalled()
 		})
 
-		it('shows shallow consumer overrides, resolved order and global mode fallback without opt-in', async () => {
+		it('shows shallow consumer overrides, resolved order and inherited collection modes without opt-in', async () => {
 			const configPath = path.join(directory, 'consumer.json')
 			await writeFile(
 				configPath,
@@ -376,7 +383,6 @@ describe('seeder registration and CLI', () => {
 			const contents = await readFile(configPath, 'utf8')
 			const service = createProgram({
 				SEEDER_CONFIG_PATH: configPath,
-				SEEDER_MODE: 'insert-update',
 				DEPLOYMENT_ENV: 'development',
 				SEEDER_AUTO_EXTRACT: true,
 			})
@@ -405,7 +411,7 @@ describe('seeder registration and CLI', () => {
 							sort: ['-role', 'id'],
 							management: { type: 'id-range', max: 50000 },
 						},
-						directus_roles: { operationMode: 'insert-update' },
+						directus_roles: { operationMode: 'full-idempotent' },
 					},
 				},
 			})
@@ -417,11 +423,10 @@ describe('seeder registration and CLI', () => {
 			expect(mocks.autoExtract).not.toHaveBeenCalled()
 		})
 
-		it('selects one collection and bypasses missing or invalid consumer files and global settings for defaults', async () => {
+		it('selects one collection and bypasses missing or invalid consumer files for defaults', async () => {
 			const configPath = path.join(directory, 'consumer.json')
 			const service = createProgram({
 				SEEDER_CONFIG_PATH: configPath,
-				SEEDER_MODE: 'insert-update',
 				DEPLOYMENT_ENV: 'development',
 				SEEDER_AUTO_EXTRACT: true,
 			})
@@ -450,7 +455,7 @@ describe('seeder registration and CLI', () => {
 					system: {
 						order: ['directus_roles'],
 						collections: {
-							directus_roles: { ...settings, operationMode: 'insert-missing' },
+							directus_roles: settings,
 						},
 					},
 				})
@@ -478,7 +483,7 @@ describe('seeder registration and CLI', () => {
 		})
 
 		it('shows one effective collection and rejects unknown names and invalid consumer files with exit 1', async () => {
-			const service = createProgram({ SEEDER_MODE: 'insert-update' })
+			const service = createProgram()
 			const output = captureOutput()
 			expect(
 				await runCommand(service.program, 'config', '--collection', 'directus_roles'),
@@ -486,7 +491,7 @@ describe('seeder registration and CLI', () => {
 			expect(JSON.parse(output.join(''))).toMatchObject({
 				system: {
 					order: ['directus_roles'],
-					collections: { directus_roles: { operationMode: 'insert-update' } },
+					collections: { directus_roles: { operationMode: 'full-idempotent' } },
 				},
 			})
 			const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -544,8 +549,7 @@ describe('seeder registration and CLI', () => {
 				await runCommand(
 					program,
 					'system',
-					'--mode',
-					'full-idempotent',
+					...(fullReset ? ['--mode', 'full-idempotent'] : []),
 					'--force',
 					...(fullReset ? ['--full-reset'] : []),
 				),
@@ -562,7 +566,7 @@ describe('seeder registration and CLI', () => {
 	])('rejects a configured $kind seed directory with its path', async ({ kind, message }) => {
 		const seeds = path.join(directory, 'configured-seeds')
 		if (kind === 'file') await writeFile(seeds, 'not a directory')
-		const service = createProgram({ SEEDER_SEEDS_DIR: seeds, SEEDER_MODE: 'full-idempotent' })
+		const service = createProgram({ SEEDER_SEEDS_DIR: seeds })
 		const errorLog = vi.spyOn(logger, 'error')
 		expect(await runCommand(service.program, 'system')).toBe(1)
 		expect(errorLog).toHaveBeenCalledWith(expect.stringContaining(`${message}: "${seeds}"`))
@@ -606,11 +610,10 @@ describe('seeder registration and CLI', () => {
 	it('seeds a sparse dataset in full-idempotent mode without treating missing files as empty data', async () => {
 		const roles = [{ id: 'new-role', name: 'New role' }]
 		await writeFile(path.join(directory, 'directus_roles.json'), JSON.stringify(roles))
+		await writeFile(path.join(directory, 'directus_roles.managed-ids.json'), '["new-role"]')
 		const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
 		const warn = vi.spyOn(logger, 'warn')
-		expect(
-			await runCommand(service.program, 'system', '--mode', 'full-idempotent', '--force'),
-		).toBe(0)
+		expect(await runCommand(service.program, 'system', '--force')).toBe(0)
 		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
 			'directus_roles',
 			expect.any(Object),
@@ -621,14 +624,17 @@ describe('seeder registration and CLI', () => {
 		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 	})
 
-	it('applies collection modes, global fallback, explicit mode override and JSON processing order', async () => {
+	it('applies collection modes, explicit mode override and JSON processing order', async () => {
 		const configPath = path.join(directory, 'consumer.json')
 		await writeFile(
 			configPath,
 			JSON.stringify({
 				system: {
 					order: ['directus_presets', 'directus_roles'],
-					collections: { directus_presets: { operationMode: 'insert-update' } },
+					collections: {
+						directus_presets: { operationMode: 'insert-update' },
+						directus_roles: { operationMode: 'insert-missing' },
+					},
 				},
 			}),
 		)
@@ -716,7 +722,14 @@ describe('seeder registration and CLI', () => {
 		presets.operationMode = 'full-idempotent'
 		const roles = [{ id: 'role', name: 'Role' }]
 		await writeFile(path.join(directory, 'directus_roles.json'), JSON.stringify(roles))
-		const service = createProgram()
+		const configPath = path.join(directory, 'consumer.config')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				system: { collections: { directus_roles: { operationMode: 'insert-missing' } } },
+			}),
+		)
+		const service = createProgram({ SEEDER_CONFIG_PATH: configPath })
 		vi.spyOn(confirmations, 'shouldSkipConfirmation').mockReturnValue(false)
 		const explicit = vi.spyOn(confirmations, 'confirmExplicit').mockResolvedValue(false)
 		const yesNo = vi.spyOn(confirmations, 'confirmYesNo').mockResolvedValue(false)
@@ -751,6 +764,7 @@ describe('seeder registration and CLI', () => {
 			JSON.stringify({
 				system: {
 					collections: {
+						directus_roles: { operationMode: 'insert-missing' },
 						directus_presets: {
 							operationMode: 'full-idempotent',
 							management: { type: 'id-range', min: 10, max: 20 },
@@ -853,7 +867,9 @@ describe('seeder registration and CLI', () => {
 				configPath,
 				JSON.stringify({
 					system: {
+						order: ['directus_roles'],
 						collections: {
+							directus_roles: { operationMode: 'insert-missing' },
 							directus_policies: {
 								operationMode: 'full-idempotent',
 								management: { type: 'manifest' },
@@ -1229,6 +1245,7 @@ describe('seeder registration and CLI', () => {
 				JSON.stringify({
 					system: {
 						collections: {
+							directus_roles: { operationMode: 'insert-missing' },
 							...sources,
 							directus_permissions: {
 								operationMode: 'full-idempotent',
@@ -1813,7 +1830,10 @@ describe('seeder registration and CLI', () => {
 				})
 				service.getSchema.mockResolvedValue({
 					collections: {
-						directus_folders: { fields: supported ? { type: {} } : {} },
+						directus_folders: {
+							primary: 'id',
+							fields: { id: { type: 'string' }, ...(supported ? { type: {} } : {}) },
+						},
 						directus_flows: { fields: supported ? { folder: {} } : {} },
 					},
 				})
@@ -1992,7 +2012,14 @@ describe('seeder registration and CLI', () => {
 				expect(service.upsertMany).not.toHaveBeenCalled()
 				expect(service.deleteMany).not.toHaveBeenCalled()
 				expect(
-					await runCommand(service.program, 'system', '--include', 'directus_roles'),
+					await runCommand(
+						service.program,
+						'system',
+						'--mode',
+						'insert-missing',
+						'--include',
+						'directus_roles',
+					),
 				).toBe(0)
 			},
 		)
@@ -2047,6 +2074,7 @@ describe('seeder registration and CLI', () => {
 	it('rejects out-of-range seeds in preflight before earlier collections mutate, even with continue-on-error', async () => {
 		presets.management = { type: 'id-range', max: 50000 }
 		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
+		await writeFile(path.join(directory, 'directus_roles.managed-ids.json'), '["role"]')
 		await writeFile(path.join(directory, 'directus_presets.json'), '[{"id":50000}]')
 		const service = createProgram({
 			SEEDER_ENABLE_FULL_IDEMPOTENT: true,
@@ -2061,7 +2089,7 @@ describe('seeder registration and CLI', () => {
 				'collection "directus_presets" has ID 50000 outside managed ID range',
 			),
 		)
-		expectNoServiceCalls(service)
+		expect(service.ItemsService).not.toHaveBeenCalled()
 		expect(mocks.releaseLock).toHaveBeenCalledOnce()
 	})
 
@@ -2070,7 +2098,6 @@ describe('seeder registration and CLI', () => {
 		const seeds = [{ id: 1, bookmark: 'Restored' }]
 		await writeFile(path.join(directory, 'directus_presets.json'), JSON.stringify(seeds))
 		const service = createProgram({
-			SEEDER_MODE: 'insert-missing',
 			SEEDER_ENABLE_FULL_IDEMPOTENT: true,
 		})
 		service.readByQuery.mockResolvedValueOnce([{ id: 1 }]).mockResolvedValueOnce([{ id: 2 }])
@@ -2102,7 +2129,7 @@ describe('seeder registration and CLI', () => {
 		})
 		expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith([2])
 		await rm(filename)
-		await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+		await writeFile(path.join(directory, 'directus_translations.json'), '[]')
 		service.ItemsService.mockClear()
 		service.readByQuery.mockClear().mockResolvedValue([])
 		service.deleteMany.mockClear()
@@ -2110,7 +2137,7 @@ describe('seeder registration and CLI', () => {
 			await runCommand(service.program, 'system', '--mode', 'full-idempotent', '--yes'),
 		).toBe(0)
 		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
-			'directus_roles',
+			'directus_translations',
 			expect.any(Object),
 		)
 		expect(service.deleteMany).not.toHaveBeenCalled()
@@ -2217,7 +2244,6 @@ describe('seeder registration and CLI', () => {
 				await writeFile(path.join(directory, 'directus_presets.json'), '[]')
 				const service = createProgram({
 					SEEDER_CONFIG_PATH: configPath,
-					SEEDER_MODE: 'full-idempotent',
 					SEEDER_ENABLE_FULL_IDEMPOTENT: true,
 					SEEDER_CONTINUE_ON_ERROR: true,
 				})
@@ -2243,7 +2269,6 @@ describe('seeder registration and CLI', () => {
 				'{invalid unselected data',
 			)
 			const service = createProgram({
-				SEEDER_MODE: 'full-idempotent',
 				SEEDER_ENABLE_FULL_IDEMPOTENT: true,
 			})
 			expect(
@@ -2329,13 +2354,13 @@ describe('seeder registration and CLI', () => {
 	it.each(['insert-missing', 'insert-update', 'full-idempotent'])(
 		'treats [] as intentional empty data in %s, retaining guarded deletion',
 		async (mode) => {
-			await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+			await writeFile(path.join(directory, 'directus_translations.json'), '[]')
 			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
 			const warn = vi.spyOn(logger, 'warn')
 			service.readByQuery.mockResolvedValue([{ id: 'existing' }])
 			expect(await runCommand(service.program, 'system', '--mode', mode, '--yes')).toBe(0)
 			expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
-				'directus_roles',
+				'directus_translations',
 				expect.any(Object),
 			)
 			expect(service.createMany).not.toHaveBeenCalled()
@@ -2403,7 +2428,9 @@ describe('seeder registration and CLI', () => {
 			})
 			const warn = vi.spyOn(logger, 'warn')
 			const error = vi.spyOn(logger, 'error')
-			expect(await runCommand(service.program, 'system', ...flags)).toBe(0)
+			expect(
+				await runCommand(service.program, 'system', '--mode', 'insert-missing', ...flags),
+			).toBe(0)
 			expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
 				'directus_roles',
 				expect.any(Object),
@@ -2420,7 +2447,16 @@ describe('seeder registration and CLI', () => {
 		await writeFile(path.join(directory, 'directus_flows.json'), '{broken')
 		const service = createProgram({ DEPLOYMENT_ENV: 'production' })
 		const error = vi.spyOn(logger, 'error')
-		expect(await runCommand(service.program, 'system', '--include', 'directus_roles')).toBe(0)
+		expect(
+			await runCommand(
+				service.program,
+				'system',
+				'--mode',
+				'insert-missing',
+				'--include',
+				'directus_roles',
+			),
+		).toBe(0)
 		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
 			'directus_roles',
 			expect.any(Object),
@@ -2435,7 +2471,14 @@ describe('seeder registration and CLI', () => {
 		const service = createProgram()
 		const warn = vi.spyOn(logger, 'warn')
 		expect(
-			await runCommand(service.program, 'system', '--exclude', 'directus_permissions'),
+			await runCommand(
+				service.program,
+				'system',
+				'--mode',
+				'insert-missing',
+				'--exclude',
+				'directus_permissions',
+			),
 		).toBe(0)
 		expect(service.createMany).toHaveBeenCalledExactlyOnceWith([{ id: 'role' }])
 		expect(warn).not.toHaveBeenCalled()
@@ -2557,6 +2600,8 @@ describe('seeder registration and CLI', () => {
 				await runCommand(
 					service.program,
 					'system',
+					'--mode',
+					'insert-missing',
 					'--include',
 					'directus_operations',
 					'--exclude',
@@ -2628,6 +2673,8 @@ describe('seeder registration and CLI', () => {
 			await runCommand(
 				service.program,
 				'system',
+				'--mode',
+				'insert-missing',
 				'--include',
 				'directus_operations',
 				'--exclude',
@@ -2663,7 +2710,14 @@ describe('seeder registration and CLI', () => {
 		)
 		const service = createProgram({ DEPLOYMENT_ENV: 'production' })
 		expect(
-			await runCommand(service.program, 'system', '--include', 'directus_operations'),
+			await runCommand(
+				service.program,
+				'system',
+				'--mode',
+				'insert-missing',
+				'--include',
+				'directus_operations',
+			),
 		).toBe(0)
 		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
 			'directus_operations',
@@ -2714,7 +2768,7 @@ describe('seeder registration and CLI', () => {
 			.mockRejectedValueOnce(new Error('mutation failed'))
 		const errorLog = vi.spyOn(logger, 'error')
 		const info = vi.spyOn(logger, 'info')
-		expect(await runCommand(service.program, 'system')).toBe(1)
+		expect(await runCommand(service.program, 'system', '--mode', 'insert-missing')).toBe(1)
 		expect(service.createMany.mock.calls).toEqual([[[roles[0]]], [[roles[1]]]])
 		expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
 			'directus_roles',
@@ -2736,7 +2790,7 @@ describe('seeder registration and CLI', () => {
 		const service = createProgram({ SEEDER_CONTINUE_ON_ERROR: true })
 		service.createMany.mockRejectedValueOnce(new Error('mutation failed'))
 		const errorLog = vi.spyOn(logger, 'error')
-		expect(await runCommand(service.program, 'system')).toBe(1)
+		expect(await runCommand(service.program, 'system', '--mode', 'insert-missing')).toBe(1)
 		expect(service.createMany.mock.calls).toEqual([[roles], [settings]])
 		expect(errorLog).toHaveBeenCalledWith(
 			'Error seeding collection directus_roles: mutation failed',
@@ -2751,7 +2805,7 @@ describe('seeder registration and CLI', () => {
 		const service = createProgram({ SEEDER_CONTINUE_ON_ERROR: true })
 		service.getSchema.mockRejectedValueOnce(new Error('schema unavailable'))
 		const errorLog = vi.spyOn(logger, 'error')
-		expect(await runCommand(service.program, 'system')).toBe(1)
+		expect(await runCommand(service.program, 'system', '--mode', 'insert-missing')).toBe(1)
 		expect(service.createMany).toHaveBeenCalledExactlyOnceWith(settings)
 		expect(errorLog).toHaveBeenCalledWith(
 			'Error seeding collection directus_roles: schema unavailable',
@@ -2851,7 +2905,16 @@ describe('seeder registration and CLI', () => {
 			)
 			return typeof id === 'number' || typeof id === 'string' ? id : 'uploaded'
 		})
-		expect(await runCommand(service.program, 'system', '--include', 'directus_files')).toBe(0)
+		expect(
+			await runCommand(
+				service.program,
+				'system',
+				'--mode',
+				'insert-missing',
+				'--include',
+				'directus_files',
+			),
+		).toBe(0)
 		expect(uploadedBytes).toEqual([bytes, bytes])
 		expect(service.uploadOne.mock.calls.map(([, data, id]) => ({ data, id }))).toEqual([
 			{ data: rows[0], id: 7 },
@@ -2911,19 +2974,18 @@ describe('seeder registration and CLI', () => {
 		expect(mocks.acquireLock).not.toHaveBeenCalled()
 	})
 
-	it('uses the validated environment mode and lists unless explicit CLI options override them', async () => {
+	it('uses the built-in collection mode and validated environment lists unless explicit CLI options override them', async () => {
 		await writeFile(
 			path.join(directory, 'directus_settings.json'),
 			JSON.stringify([{ id: 1, project_name: 'Fixture' }]),
 		)
 		const service = createProgram({
-			SEEDER_MODE: 'INSERT-UPDATE',
 			SEEDER_INCLUDE: 'directus_settings',
 			SEEDER_EXCLUDE: 'directus_roles',
 		})
 		service.readByQuery.mockResolvedValue([{ id: 1 }])
 		// Startup is a snapshot: later raw-environment changes must not trigger another parse.
-		service.context.env.SEEDER_MODE = 'invalid-after-registration'
+		service.context.env.SEEDER_INCLUDE = 'invalid-after-registration'
 		expect(await runCommand(service.program, 'system', '--yes')).toBe(0)
 		expect(service.upsertMany).toHaveBeenCalledWith([{ id: 1, project_name: 'Fixture' }])
 		service.upsertMany.mockClear()
@@ -2948,6 +3010,8 @@ describe('seeder registration and CLI', () => {
 			await runCommand(
 				service.program,
 				'system',
+				'--mode',
+				'insert-missing',
 				'--include',
 				'directus_settings',
 				'directus_roles',

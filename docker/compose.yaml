@@ -150,7 +150,6 @@ services:
 
       # Seeder
       SEEDER_ENABLED: ${SEEDER_ENABLED-true}
-      SEEDER_MODE: ${SEEDER_MODE-insert-missing}
       SEEDER_SCOPE: ${SEEDER_SCOPE-system}
       SEEDER_INCLUDE: ${SEEDER_INCLUDE-json:[]}
       SEEDER_EXCLUDE: ${SEEDER_EXCLUDE-json:[]}

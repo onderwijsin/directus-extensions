@@ -170,6 +170,7 @@ export const collectionOverridesSchema = z.strictObject({
 export const systemCollectionSchema = z.strictObject({
 	collection: fieldNameSchema,
 	...collectionOverridesSchema.shape,
+	operationMode: z.enum(OperationMode),
 })
 
 /** Validated collection configuration shared by import and extraction. */

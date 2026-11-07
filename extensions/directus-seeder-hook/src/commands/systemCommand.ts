@@ -5,7 +5,7 @@ import process from 'node:process'
 
 import { z } from 'zod'
 
-import { DataScope, getCollectionMode, OperationMode, selectCollections } from '../lib/config'
+import { DataScope, OperationMode, selectCollections } from '../lib/config'
 import { confirmExplicit, confirmYesNo, shouldSkipConfirmation } from '../lib/confirmationPrompts'
 import { acquireLock } from '../lib/processLock'
 import { resolveSeederConfig } from '../lib/resolveConfig'
@@ -79,13 +79,10 @@ export const registerSystemCommand = (
 				const presentCollections = collections.filter(({ collection }) =>
 					dataProviders?.some((provider) => provider.collectionName === collection),
 				)
-				const modes = presentCollections.map((collection) =>
-					getCollectionMode(collection, config),
-				)
+				const modes = presentCollections.map((collection) => collection.operationMode)
 				if (options.fullReset) {
 					const invalid = presentCollections.find(
-						(collection) =>
-							getCollectionMode(collection, config) !== OperationMode.FULL_IDEMPOTENT,
+						(collection) => collection.operationMode !== OperationMode.FULL_IDEMPOTENT,
 					)
 					if (invalid) {
 						throw new Error(

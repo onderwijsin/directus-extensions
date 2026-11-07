@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { DataScope, OperationMode } from './lib/config'
+import { DataScope } from './lib/config'
 import { SYSTEM_COLLECTIONS_ORDER } from './seeders/system/config'
 
 /** Normalize Directus's singular or pre-cast list values without re-parsing environment strings. */
@@ -12,11 +12,6 @@ const stringListSchema = z.preprocess(
 /** Startup configuration after Directus environment type casting. */
 export const envSchema = z.object({
 	SEEDER_ENABLED: z.boolean().default(true),
-	SEEDER_MODE: z
-		.string()
-		.toLowerCase()
-		.pipe(z.enum(OperationMode))
-		.default(OperationMode.INSERT_MISSING),
 	SEEDER_CONFIG_PATH: z.string().trim().min(1).optional(),
 	SEEDER_SCOPE: z.string().toLowerCase().pipe(z.enum(DataScope)).default(DataScope.SYSTEM),
 	SEEDER_INCLUDE: stringListSchema,

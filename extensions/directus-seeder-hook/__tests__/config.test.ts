@@ -8,7 +8,6 @@ import { z } from 'zod'
 
 import { envSchema } from '../src/env.schema'
 import { collectionManagementSchema } from '../src/lib/collectionManagement'
-import { getCollectionMode } from '../src/lib/config'
 import { resolveSeederConfig } from '../src/lib/resolveConfig'
 import { SYSTEM_COLLECTIONS } from '../src/seeders/system/config'
 import {
@@ -31,6 +30,34 @@ describe('system JSON consumer configuration', () => {
 			systemCollections: SYSTEM_COLLECTIONS,
 			systemFieldOverrides: [],
 		})
+		expect(
+			loadSystemConfig().systemCollections.map(
+				({ collection, operationMode, management }) => [
+					collection,
+					operationMode,
+					management,
+				],
+			),
+		).toEqual([
+			['directus_policies', 'full-idempotent', { type: 'manifest' }],
+			['directus_roles', 'full-idempotent', { type: 'manifest' }],
+			['directus_users', 'full-idempotent', { type: 'manifest' }],
+			['directus_access', 'full-idempotent', { type: 'manifest' }],
+			['directus_presets', 'insert-update', undefined],
+			[
+				'directus_permissions',
+				'full-idempotent',
+				{ type: 'relation', field: 'policy', collection: 'directus_policies' },
+			],
+			['directus_folders', 'full-idempotent', { type: 'manifest' }],
+			['directus_files', 'full-idempotent', { type: 'manifest' }],
+			['directus_dashboards', 'full-idempotent', undefined],
+			['directus_panels', 'full-idempotent', undefined],
+			['directus_flows', 'full-idempotent', undefined],
+			['directus_operations', 'full-idempotent', undefined],
+			['directus_settings', 'insert-update', undefined],
+			['directus_translations', 'full-idempotent', undefined],
+		])
 		const input = {
 			system: {
 				order: ['directus_translations', 'directus_presets'],
@@ -57,6 +84,8 @@ describe('system JSON consumer configuration', () => {
 		})
 		expect(effective.find(({ collection }) => collection === 'directus_roles')).toEqual({
 			collection: 'directus_roles',
+			operationMode: 'full-idempotent',
+			management: { type: 'manifest' },
 			fields: ['id'],
 			filter: { name: { _eq: 'Editor' } },
 		})
@@ -237,7 +266,7 @@ describe('system JSON consumer configuration', () => {
 		).not.toThrow()
 	})
 
-	it('uses collection modes before global fallback and applies an explicit CLI mode to every collection without changing management', async () => {
+	it('uses consumer or built-in collection modes and applies an explicit CLI mode to every collection without changing management', async () => {
 		const filename = path.join(directory, 'consumer.json')
 		await writeFile(
 			filename,
@@ -259,27 +288,23 @@ describe('system JSON consumer configuration', () => {
 				},
 			}),
 		)
-		const env = envSchema.parse({ SEEDER_CONFIG_PATH: filename, SEEDER_MODE: 'insert-update' })
+		const env = envSchema.parse({ SEEDER_CONFIG_PATH: filename })
 		const config = resolveSeederConfig(env)
 		expect(
-			config.systemCollections?.map((collection) => getCollectionMode(collection, config)),
-		).toContain('full-idempotent')
+			config.systemCollections?.find(({ collection }) => collection === 'directus_presets')
+				?.operationMode,
+		).toBe('full-idempotent')
 		expect(
 			config.systemCollections?.find(({ collection }) => collection === 'directus_roles')
 				?.operationMode,
-		).toBeUndefined()
-		const role = config.systemCollections?.find(
-			({ collection }) => collection === 'directus_roles',
-		)
-		if (!role) throw new Error('Missing role config')
-		expect(getCollectionMode(role, config)).toBe('insert-update')
+		).toBe('full-idempotent')
+		expect(
+			config.systemCollections?.find(({ collection }) => collection === 'directus_settings')
+				?.operationMode,
+		).toBe('insert-update')
 		const explicit = resolveSeederConfig(env, { operationMode: 'insert-missing' })
 		expect(
-			new Set(
-				explicit.systemCollections?.map((collection) =>
-					getCollectionMode(collection, explicit),
-				),
-			),
+			new Set(explicit.systemCollections?.map((collection) => collection.operationMode)),
 		).toEqual(new Set(['insert-missing']))
 		expect(
 			explicit.systemCollections?.find(({ collection }) => collection === 'directus_presets')

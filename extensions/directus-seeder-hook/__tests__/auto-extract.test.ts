@@ -52,6 +52,7 @@ vi.mock('node:os', async (importOriginal) => {
 
 import '../src/index'
 import { acquireLock } from '../src/lib/processLock'
+import { SYSTEM_COLLECTIONS } from '../src/seeders/system/config'
 
 const logger = pino({ level: 'silent' })
 let directory = ''
@@ -62,7 +63,17 @@ let directory = ''
  * @param schema - Live schema fixture for compatible extraction fields.
  * @returns Captured Directus event subscriptions.
  */
-function register(env: Record<string, unknown> = {}, schema: unknown = { collections: {} }) {
+function register(
+	env: Record<string, unknown> = {},
+	schema: unknown = {
+		collections: Object.fromEntries(
+			SYSTEM_COLLECTIONS.map(({ collection }) => [
+				collection,
+				{ primary: 'id', fields: { id: { type: 'string' } } },
+			]),
+		),
+	},
+) {
 	const action = vi.fn<Action>()
 	mocks.register(
 		{ init: vi.fn(), action },

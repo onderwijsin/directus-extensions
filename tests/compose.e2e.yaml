@@ -92,7 +92,6 @@ services:
       SCHEMA_SNAPSHOT_ENABLED: 'true'
       SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: 'false'
       SEEDER_ENABLED: 'true'
-      SEEDER_MODE: 'insert-missing'
       SEEDER_SCOPE: 'system'
       SEEDER_INCLUDE: 'json:[]'
       SEEDER_EXCLUDE: 'json:[]'

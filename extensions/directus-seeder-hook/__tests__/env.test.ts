@@ -9,7 +9,6 @@ describe('Seeder startup configuration', () => {
 		const options = envSchema.parse({})
 		expect(options).toEqual({
 			SEEDER_ENABLED: true,
-			SEEDER_MODE: 'insert-missing',
 			SEEDER_SCOPE: 'system',
 			SEEDER_INCLUDE: [],
 			SEEDER_EXCLUDE: [],
@@ -29,7 +28,6 @@ describe('Seeder startup configuration', () => {
 		expect(resolveSeederConfig(options)).toEqual({
 			systemCollections: SYSTEM_COLLECTIONS,
 			systemFieldOverrides: [],
-			operationMode: 'insert-missing',
 			dataScope: 'system',
 			includeCollections: [],
 			excludeCollections: [],
@@ -117,13 +115,10 @@ describe('Seeder startup configuration', () => {
 		expect(resolveSeederConfig(options)).toEqual(resolveSeederConfig(envSchema.parse({})))
 	})
 
-	it('normalizes supported modes and scope while rejecting unknown or mistyped options', () => {
-		for (const mode of ['INSERT-MISSING', 'INSERT-UPDATE', 'FULL-IDEMPOTENT'])
-			expect(envSchema.parse({ SEEDER_MODE: mode }).SEEDER_MODE).toBe(mode.toLowerCase())
+	it('normalizes the supported scope while rejecting unknown or mistyped options', () => {
 		expect(envSchema.parse({ SEEDER_SCOPE: 'SYSTEM' }).SEEDER_SCOPE).toBe('system')
-		for (const key of ['SEEDER_MODE', 'SEEDER_SCOPE'])
-			for (const value of ['invalid', '', ' ', false, 1, null])
-				expect(envSchema.safeParse({ [key]: value }).success).toBe(false)
+		for (const value of ['invalid', '', ' ', false, 1, null])
+			expect(envSchema.safeParse({ SEEDER_SCOPE: value }).success).toBe(false)
 	})
 
 	it('preserves deployment names and credential strings, with all defaults owned by the schema', () => {
