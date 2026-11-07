@@ -17,7 +17,7 @@ let directory = ''
  * @returns The completed write.
  */
 async function writeSeed(collection: string, data: unknown) {
-	await writeFile(path.join(directory, `${collection}.json`), JSON.stringify(data))
+	await writeFile(path.join(directory, 'system', `${collection}.json`), JSON.stringify(data))
 }
 
 /**
@@ -34,6 +34,7 @@ async function loadData(env: Record<string, string> = {}) {
 describe('system seed data', () => {
 	beforeEach(async () => {
 		directory = await mkdtemp(path.join(tmpdir(), 'seeder-data-'))
+		await mkdir(path.join(directory, 'system'))
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 		vi.spyOn(console, 'log').mockImplementation(() => undefined)
 		vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -141,7 +142,7 @@ describe('system seed data', () => {
 	it.each(['{broken', '', ' \n\t'])(
 		'rejects malformed or empty JSON content %j with the filename and collection',
 		async (content) => {
-			const filename = path.join(directory, 'directus_roles.json')
+			const filename = path.join(directory, 'system', 'directus_roles.json')
 			await writeFile(filename, content)
 			await expect(loadData()).rejects.toThrow(
 				`Failed to load seed file "${filename}" for collection "directus_roles"`,
@@ -155,7 +156,7 @@ describe('system seed data', () => {
 	})
 
 	it('rejects an unreadable file instead of treating it as missing or empty', async () => {
-		const filename = path.join(directory, 'directus_roles.json')
+		const filename = path.join(directory, 'system', 'directus_roles.json')
 		await mkdir(filename)
 		const result = loadData()
 		await expect(result).rejects.toThrow(`Failed to load seed file "${filename}"`)
@@ -163,10 +164,9 @@ describe('system seed data', () => {
 	})
 
 	it('rejects a seed directory that is a file with a clear error and its path', async () => {
-		const filename = path.join(directory, 'not-a-directory')
+		await rm(path.join(directory, 'system'), { recursive: true })
+		const filename = path.join(directory, 'system')
 		await writeFile(filename, 'file')
-		await expect(loadData({ SEEDER_SEEDS_DIR: filename })).rejects.toThrow(
-			`Seed path is not a directory: "${filename}"`,
-		)
+		await expect(loadData()).rejects.toThrow(`Seed path is not a directory: "${filename}"`)
 	})
 })

@@ -58,6 +58,7 @@ import { SYSTEM_COLLECTIONS } from '../src/seeders/system/config'
 
 const logger = pino({ level: 'silent' })
 let directory = ''
+let seedRoot = ''
 
 /** Represents the host CLI's deliberate process exit without terminating Vitest. */
 class CliExit extends Error {
@@ -117,7 +118,7 @@ function createProgram(env: Record<string, unknown> = {}) {
 	const database = vi.fn()
 	const context: TestContext = {
 		env: {
-			SEEDER_SEEDS_DIR: directory,
+			SEEDER_SEEDS_DIR: seedRoot,
 			SEEDER_ASSETS_DIR: path.join(directory, 'assets'),
 			...env,
 		},
@@ -269,7 +270,9 @@ describe('seeder registration and CLI', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks()
 		mocks.acquireLock.mockReturnValue({ path: 'fixture-lock', release: mocks.releaseLock })
-		directory = await realpath(await mkdtemp(path.join(tmpdir(), 'seeder-cli-')))
+		seedRoot = await realpath(await mkdtemp(path.join(tmpdir(), 'seeder-cli-')))
+		directory = path.join(seedRoot, 'system')
+		await mkdir(directory)
 		vi.spyOn(process, 'exit').mockImplementation((code) => {
 			throw new CliExit(code)
 		})
@@ -279,7 +282,7 @@ describe('seeder registration and CLI', () => {
 	afterEach(async () => {
 		for (const key of Object.keys(presets)) Reflect.deleteProperty(presets, key)
 		Object.assign(presets, structuredClone(originalPresets))
-		await rm(directory, { recursive: true, force: true })
+		await rm(seedRoot, { recursive: true, force: true })
 	})
 
 	it('registers seed system and development extraction with the validated environment defaults', () => {
@@ -569,13 +572,22 @@ describe('seeder registration and CLI', () => {
 		{ kind: 'missing', message: 'Seed directory does not exist' },
 		{ kind: 'file', message: 'Seed path is not a directory' },
 	])('rejects a configured $kind seed directory with its path', async ({ kind, message }) => {
-		const seeds = path.join(directory, 'configured-seeds')
+		const root = path.join(directory, 'configured-seeds')
+		await mkdir(root)
+		const seeds = path.join(root, 'system')
 		if (kind === 'file') await writeFile(seeds, 'not a directory')
-		const service = createProgram({ SEEDER_SEEDS_DIR: seeds })
+		else await writeFile(path.join(root, 'directus_roles.json'), '[{"id":"legacy"}]')
+		const service = createProgram({ SEEDER_SEEDS_DIR: root })
 		const errorLog = vi.spyOn(logger, 'error')
 		expect(await runCommand(service.program, 'system')).toBe(1)
 		expect(errorLog).toHaveBeenCalledWith(expect.stringContaining(`${message}: "${seeds}"`))
 		expectNoServiceCalls(service)
+		if (kind === 'missing') {
+			await expect(lstat(seeds)).rejects.toMatchObject({ code: 'ENOENT' })
+			expect(await readFile(path.join(root, 'directus_roles.json'), 'utf8')).toBe(
+				'[{"id":"legacy"}]',
+			)
+		}
 		expect(mocks.releaseLock).toHaveBeenCalledOnce()
 	})
 
@@ -3055,6 +3067,10 @@ describe('seeder registration and CLI', () => {
 			'assets/stale.json',
 		]
 		const preserved = ['notes.txt', 'nested/keep.json', 'assets/nested/keep.bin']
+		await mkdir(path.join(seedRoot, 'core', 'assets'), { recursive: true })
+		const outsideSystem = ['root.json', 'core/posts.json', 'core/assets/keep.bin']
+		for (const filename of outsideSystem)
+			await writeFile(path.join(seedRoot, filename), filename)
 		for (const filename of [...removed, ...preserved])
 			await writeFile(path.join(directory, filename), filename)
 		const service = createProgram({
@@ -3087,6 +3103,17 @@ describe('seeder registration and CLI', () => {
 		expect(await readFile(path.join(directory, 'directus_roles.json'), 'utf8')).toBe('[]\n')
 		for (const filename of preserved)
 			expect(await readFile(path.join(directory, filename), 'utf8')).toBe(filename)
+		for (const filename of outsideSystem)
+			expect(await readFile(path.join(seedRoot, filename), 'utf8')).toBe(filename)
+	})
+
+	it('creates missing system and asset output directories without creating core', async () => {
+		await rm(directory, { recursive: true })
+		const service = createProgram({ DEPLOYMENT_ENV: 'development' })
+		expect(await runCommand(service.program, 'extract', '--include', 'directus_roles')).toBe(0)
+		expect(await readFile(path.join(directory, 'directus_roles.json'), 'utf8')).toBe('[]\n')
+		expect((await lstat(path.join(directory, 'assets'))).isDirectory()).toBe(true)
+		expect(await readdir(seedRoot)).toEqual(['system'])
 	})
 
 	it('retains unrelated output with skip-clean but overwrites an empty collection with exactly [] and a newline', async () => {
@@ -3191,16 +3218,17 @@ describe('seeder registration and CLI', () => {
 	})
 
 	it('cleans configured external directories while preserving adjacent files', async () => {
-		const seeds = path.join(directory, 'external-seeds')
+		const root = path.join(directory, 'external-seeds')
+		const seeds = path.join(root, 'system')
 		const assets = path.join(directory, 'external-assets')
-		await mkdir(seeds)
+		await mkdir(seeds, { recursive: true })
 		await mkdir(assets)
 		await writeFile(path.join(seeds, 'stale.json'), 'stale')
 		await writeFile(path.join(assets, 'stale.bin'), 'stale asset')
 		await writeFile(path.join(directory, 'outside.json'), 'outside')
 		const service = createProgram({
 			DEPLOYMENT_ENV: 'development',
-			SEEDER_SEEDS_DIR: seeds,
+			SEEDER_SEEDS_DIR: root,
 			SEEDER_ASSETS_DIR: assets,
 		})
 		expect(await runCommand(service.program, 'extract', '--include', 'directus_roles')).toBe(0)
@@ -3226,10 +3254,11 @@ describe('seeder registration and CLI', () => {
 	])(
 		'rejects %s output before deleting either directory, including JSON-only mode',
 		async (invalid) => {
-			const seeds = path.join(directory, 'seeds')
+			const root = path.join(directory, 'seeds')
+			const seeds = path.join(root, 'system')
 			const assets = path.join(directory, 'assets')
 			const blocked = path.join(directory, 'blocked')
-			await mkdir(seeds)
+			await mkdir(seeds, { recursive: true })
 			await mkdir(assets)
 			await writeFile(path.join(seeds, 'stale.json'), 'stale seeds')
 			await writeFile(path.join(assets, 'stale.bin'), 'stale assets')
@@ -3244,7 +3273,7 @@ describe('seeder registration and CLI', () => {
 								blocked,
 								...(invalid.endsWith('ancestor') ? ['new', 'seeds'] : []),
 							)
-						: seeds
+						: root
 			const selectedAssets =
 				invalid === 'equal'
 					? seeds
@@ -3295,17 +3324,18 @@ describe('seeder registration and CLI', () => {
 	)
 
 	it('skips linked children during cleanup and preserves their outside targets', async () => {
-		const seeds = path.join(directory, 'seeds')
+		const root = path.join(directory, 'seeds')
+		const seeds = path.join(root, 'system')
 		const assets = path.join(directory, 'assets')
 		const outside = path.join(directory, 'outside.json')
-		await mkdir(seeds)
+		await mkdir(seeds, { recursive: true })
 		await mkdir(assets)
 		await writeFile(outside, 'outside')
 		await symlink(outside, path.join(seeds, 'linked.json'))
 		await symlink(outside, path.join(assets, 'linked.bin'))
 		const service = createProgram({
 			DEPLOYMENT_ENV: 'development',
-			SEEDER_SEEDS_DIR: seeds,
+			SEEDER_SEEDS_DIR: root,
 			SEEDER_ASSETS_DIR: assets,
 		})
 		expect(await runCommand(service.program, 'extract', '--include', 'directus_roles')).toBe(0)
@@ -3322,10 +3352,11 @@ describe('seeder registration and CLI', () => {
 	])(
 		'refuses writing $kind through a linked child (hardlink=$hardlink) without touching its target',
 		async ({ kind, hardlink }) => {
-			const seeds = path.join(directory, 'seeds')
+			const root = path.join(directory, 'seeds')
+			const seeds = path.join(root, 'system')
 			const assets = path.join(directory, 'assets')
 			const outside = path.join(directory, 'outside')
-			await mkdir(seeds)
+			await mkdir(seeds, { recursive: true })
 			await mkdir(assets)
 			await writeFile(outside, 'outside bytes')
 			await (hardlink ? link : symlink)(
@@ -3336,7 +3367,7 @@ describe('seeder registration and CLI', () => {
 			)
 			const service = createProgram({
 				DEPLOYMENT_ENV: 'development',
-				SEEDER_SEEDS_DIR: seeds,
+				SEEDER_SEEDS_DIR: root,
 				SEEDER_ASSETS_DIR: assets,
 			})
 			service.readFiles.mockResolvedValue([{ id: 'asset', filename_disk: 'fixture.bin' }])

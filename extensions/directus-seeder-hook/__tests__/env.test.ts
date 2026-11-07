@@ -20,7 +20,7 @@ describe('Seeder startup configuration', () => {
 			SEEDER_JSON_INDENT: 'tab',
 			SEEDER_JSON_INDENT_SIZE: 2,
 			SEEDER_SEEDS_DIR: '/directus/seeds',
-			SEEDER_ASSETS_DIR: '/directus/seeds/assets',
+			SEEDER_ASSETS_DIR: '/directus/seeds/system/assets',
 			DEFAULT_EMAIL: 'admin@example.com',
 			DEFAULT_PASSWORD: 'p4ssw0rd!',
 			STORAGE_LOCATIONS: ['local'],
@@ -40,7 +40,18 @@ describe('Seeder startup configuration', () => {
 			jsonIndent: '\t',
 		})
 		expect(getFolderPaths(envSchema.parse({ SEEDER_SEEDS_DIR: ' /tmp/seeds ' }))).toEqual({
-			seedsFolder: '/tmp/seeds',
+			seedsFolder: '/tmp/seeds/system',
+			assetsFolder: '/directus/seeds/system/assets',
+		})
+		expect(
+			getFolderPaths(
+				envSchema.parse({
+					SEEDER_SEEDS_DIR: '/tmp/seeds',
+					SEEDER_ASSETS_DIR: '/directus/seeds/assets',
+				}),
+			),
+		).toEqual({
+			seedsFolder: '/tmp/seeds/system',
 			assetsFolder: '/directus/seeds/assets',
 		})
 	})

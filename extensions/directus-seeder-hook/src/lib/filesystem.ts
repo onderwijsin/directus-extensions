@@ -54,6 +54,8 @@ export async function prepareExtractionDirectories(
 	jsonOnly: boolean,
 	skipClean: boolean,
 ): Promise<{ seeds: string; assets: string }> {
+	// Preserve validation of the configured root before preparing its system output.
+	await validateDirectory(path.dirname(path.resolve(folders.seeds)))
 	const seeds = await validateDirectory(path.resolve(folders.seeds))
 	const assets = await validateDirectory(path.resolve(folders.assets))
 	if (seeds === assets || seeds.startsWith(`${assets}${path.sep}`)) {

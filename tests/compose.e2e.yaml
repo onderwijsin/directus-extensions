@@ -104,7 +104,7 @@ services:
       SEEDER_JSON_INDENT: 'tab'
       SEEDER_JSON_INDENT_SIZE: '2'
       SEEDER_SEEDS_DIR: '/directus/seeds'
-      SEEDER_ASSETS_DIR: '/directus/seeds/assets'
+      SEEDER_ASSETS_DIR: '/directus/seeds/system/assets'
       AI_METADATA_WRITER_PROVIDER: openai-compatible
       AI_METADATA_WRITER_MODEL: vision-test
       AI_METADATA_WRITER_API_KEY: e2e-unused-key

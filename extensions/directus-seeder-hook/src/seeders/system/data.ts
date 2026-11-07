@@ -158,7 +158,7 @@ const getSystemCollectionData = async (
 
 	// Process each collection in the defined order
 	for (const collection of SYSTEM_COLLECTIONS_ORDER) {
-		// Construct file path: seeds/{collection}.json
+		// Construct the collection path inside the resolved system directory.
 		const dataFilePath = path.join(seedsFolder, `${collection}.json`)
 		const required = requiredCollections.includes(collection)
 		try {

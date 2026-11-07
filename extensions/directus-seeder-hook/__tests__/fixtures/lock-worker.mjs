@@ -99,6 +99,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
 				[
 					'seed',
 					command === 'seed' ? 'system' : 'extract',
+					...(command === 'seed' ? ['--mode', 'insert-update'] : []),
 					'--include',
 					'directus_translations',
 				],

@@ -1,6 +1,8 @@
 import type { SeederOptions } from '../env.schema'
 import type { OperationMode, SeederConfig } from './config'
 
+import path from 'node:path'
+
 import { loadSystemConfig } from '../seeders/system/resolveConfig'
 
 /**
@@ -39,10 +41,13 @@ export function resolveSeederConfig(
 }
 
 /**
- * Expose validated paths under the runtime folder names.
+ * Derives system output from the seed root and preserves the independent asset path.
  * @param options - Validated startup options.
- * @returns Seed and asset paths.
+ * @returns System seed and asset paths.
  */
 export function getFolderPaths(options: SeederOptions) {
-	return { seedsFolder: options.SEEDER_SEEDS_DIR, assetsFolder: options.SEEDER_ASSETS_DIR }
+	return {
+		seedsFolder: path.join(options.SEEDER_SEEDS_DIR, 'system'),
+		assetsFolder: options.SEEDER_ASSETS_DIR,
+	}
 }

@@ -161,8 +161,8 @@ another type. Credential strings retain whitespace and explicitly empty strings.
 | `SEEDER_AUTO_EXTRACT_INCLUDE`   | Unset                            | Optional nonempty list: one supported collection name or a Directus-cast array, trimmed and case-sensitive. Replaces general include/exclude only for auto-extract; scopes triggers and JSON output, skips cleanup, and forces JSON-only unless `directus_files` is listed. Empty lists, blank entries, and unknown names fail startup validation.       |
 | `SEEDER_JSON_INDENT`            | `tab`                            | String: exact `tab` or `space`, without trimming. Controls manual and automatic JSON extraction. Unsupported values fail.                                                                                                                                                                                                                                |
 | `SEEDER_JSON_INDENT_SIZE`       | `2`                              | Integer number from `1` through `10`. Applies only with `SEEDER_JSON_INDENT=space`, but is always validated, including when indentation is `tab`.                                                                                                                                                                                                        |
-| `SEEDER_SEEDS_DIR`              | `/directus/seeds`                | Nonblank string, trimmed. Only missing values use the default; provided blank or nonstring values fail.                                                                                                                                                                                                                                                  |
-| `SEEDER_ASSETS_DIR`             | `/directus/seeds/assets`         | Same path validation. Independent of the seeds directory: changing that directory does not relocate this default. Supports a nested or separate asset directory; see output-path safety below.                                                                                                                                                           |
+| `SEEDER_SEEDS_DIR`              | `/directus/seeds`                | Seeds root; system JSON and managed-ID history use its `system/` subdirectory. Nonblank string, trimmed. Only missing values use the default; provided blank or nonstring values fail.                                                                                                                                                                   |
+| `SEEDER_ASSETS_DIR`             | `/directus/seeds/system/assets`  | Same path validation. Independent of the seeds root: changing that root never relocates the default or a configured asset path. Existing custom paths, including `/directus/seeds/assets`, remain valid subject to output-path safety below.                                                                                                             |
 | `DEFAULT_EMAIL`                 | `admin@example.com`              | String. Replaces the email of matching root-user seed records. An explicitly empty string is retained.                                                                                                                                                                                                                                                   |
 | `DEFAULT_PASSWORD`              | `p4ssw0rd!`                      | String. Replaces the password of matching root-user seed records. An explicitly empty string is retained. Supply a deployment-specific secret. For standalone Directus, numeric or boolean-like passwords require the `string:` prefix; shared Compose adds that prefix itself, so its root `.env` must contain the plain value. See the examples below. |
 | `STORAGE_LOCATIONS`             | `['local']`                      | Existing Directus storage configuration: singular nonblank string or nonempty array of nonblank strings, trimmed and normalized to an array. File imports retain supplied seed `storage`; otherwise they use the first validated location, including when Directus supplies an array. The hook does not configure storage drivers.                       |
@@ -191,12 +191,13 @@ These controls remain outside the hook's configuration schema:
 Configuration now rejects invalid representations instead of permissive boolean/integer parsing or
 silent scope and path fallbacks. An omitted CLI `--mode` uses each collection's effective
 `operationMode` (consumer override or built-in). File imports without seed `storage` use the first
-configured location rather than falling back to `local` for Directus-cast arrays. Configure seed
-paths with `SEEDER_SEEDS_DIR`. Manual extraction now cleans by default; use manual `--skip-clean` to
-retain unselected output. Selective automatic extraction preserves other output as described below.
-`SEEDER_JSON_ONLY=false` includes binaries unless a selective automatic allowlist omits
-`directus_files`; set it to `true` to disable binary handling. The retained seed-import data
-handling and safety caveats below still apply.
+configured location rather than falling back to `local` for Directus-cast arrays. Configure the
+seeds root with `SEEDER_SEEDS_DIR`; system JSON and history live in its `system/` subdirectory.
+Manual extraction now cleans by default; use manual `--skip-clean` to retain unselected output.
+Selective automatic extraction preserves other output as described below. `SEEDER_JSON_ONLY=false`
+includes binaries unless a selective automatic allowlist omits `directus_files`; set it to `true` to
+disable binary handling. The retained seed-import data handling and safety caveats below still
+apply.
 
 Replace old `SEEDER_JSON_INDENT=2` or `SEEDER_JSON_INDENT=4` with `space` and the matching size. For
 four spaces:
@@ -216,7 +217,7 @@ Example development configuration:
 SEEDER_ENABLED=true
 DEPLOYMENT_ENV=development
 SEEDER_SEEDS_DIR=/directus/seeds
-SEEDER_ASSETS_DIR=/directus/seeds/assets
+SEEDER_ASSETS_DIR=/directus/seeds/system/assets
 SEEDER_JSON_ONLY=false
 SEEDER_AUTO_EXTRACT=false
 SEEDER_JSON_INDENT=tab
@@ -245,7 +246,7 @@ configuration when its hooks register. Restart Directus to reload JSON changes f
 extraction. Environment options remain the validated startup snapshot described above.
 
 The published package includes `seeder.config.example.json` and `seeder-config.schema.json`. Copy
-the example into your Directus project, outside the seed and asset output directories, then set
+the example into your Directus project, outside the system and asset output directories, then set
 `$schema` to your installed package as shown below:
 
 ```sh
@@ -286,8 +287,8 @@ extension's installation directory or your host shell's directory. In a containe
 file separately, for example at `/directus/seeder.config.json`, and set that runtime path. Copying
 the file to a host checkout alone does not make it readable inside Directus. Keep the config and
 schema outside both managed output directories: normal cleanup deletes direct JSON files other than
-`*.managed-ids.json` in the seeds directory and, when binary extraction is enabled, all direct
-regular files in the assets directory. Configuration files receive no cleanup exception.
+`*.managed-ids.json` in the effective system directory and, when binary extraction is enabled, all
+direct regular files in the assets directory. Configuration files receive no cleanup exception.
 
 For a local npm installation, prefer the `$schema` path above, adjusted to the package's actual
 installed location relative to your config file. It uses the schema shipped with that installed
@@ -399,8 +400,35 @@ Use a deployment-specific secret; the values above illustrate casting only.
 
 ## Seed files and supported collections
 
-Supply one JSON array per collection as `<seeds-dir>/<collection>.json`, with stable `id` values and
-Directus foreign-key IDs. For example, `directus_roles.json`:
+`SEEDER_SEEDS_DIR` is the seeds root. Import, manual extraction, and automatic extraction use
+`<seeds-root>/system/` as the effective system directory for all collection JSON and managed-ID
+history. With defaults, these files live in `/directus/seeds/system/`. The root's `core/` directory
+is reserved for future use and is neither created nor processed. Root-level JSON and manifests are
+ignored; there is no flat-layout fallback or automatic migration.
+
+Default layout (`core/` is shown only as a future reserved location):
+
+```text
+/directus/seeds/
+├── system/
+│   ├── directus_roles.json
+│   ├── directus_roles.managed-ids.json
+│   ├── directus_files.json
+│   ├── directus_files.managed-ids.json
+│   └── assets/
+│       └── <filename_disk>
+└── core/  # reserved; not created or processed
+```
+
+Assets use the independent `SEEDER_ASSETS_DIR`, defaulting to `/directus/seeds/system/assets`.
+Changing only the seeds root never relocates assets; set both variables to relocate both outputs.
+
+Existing consumers must move system JSON and manifests into `system/` and update seed-file paths in
+scripts or mounts. To adopt the new asset location, move assets and update any explicit
+`SEEDER_ASSETS_DIR`; explicit paths continue to take precedence.
+
+Supply one JSON array per collection as `<seeds-root>/system/<collection>.json`, with stable `id`
+values and Directus foreign-key IDs. For example, `system/directus_roles.json` under the root:
 
 ```json
 [
@@ -473,18 +501,20 @@ update semantics; a newly created folder without `type` defaults to `files` on t
 
 ### Seed input semantics and preflight
 
-The configured `SEEDER_SEEDS_DIR` must exist and be a directory. A missing directory or a path that
-is not a directory fails with the configured path in the error and exit code 1. An existing
-directory without any selected system seed files logs a warning with its path and exits 0 without
-database operations, service creation, or cache clearing. Unsupported files and seed files inside
-subdirectories do not count. A directory with only some supported files is valid; missing collection
-files are skipped. An empty collection selection is also a successful no-op.
+Import requires `<seeds-root>/system/` to exist and be a directory. A missing system directory or a
+path that is not a directory fails with the effective system path in the error and exit code 1, even
+if flat seed files exist at the root. Extraction creates the system directory when absent. An
+existing system directory without any selected system seed files logs a warning with its path and
+exits 0 without database operations, service creation, or cache clearing. Unsupported files and seed
+files inside further subdirectories do not count. A system directory with only some supported files
+is valid; missing collection files are skipped. An empty collection selection is also a successful
+no-op once the system directory exists.
 
-Seed input uses `<seeds-dir>/<collection>.json`; files for collections outside the supported list
-above are ignored. The Seeder resolves include/exclude before preflight: each CLI list overrides
-only its corresponding environment list, and exclusions win. Before any database mutation, selected
-seed files and their data transformations are validated, plus any Flow metadata required for
-Operations filtering, raw related seed IDs for relation management, and managed-ID manifests
+Seed input uses `<seeds-root>/system/<collection>.json`; files for collections outside the supported
+list above are ignored. The Seeder resolves include/exclude before preflight: each CLI list
+overrides only its corresponding environment list, and exclusions win. Before any database mutation,
+selected seed files and their data transformations are validated, plus any Flow metadata required
+for Operations filtering, raw related seed IDs for relation management, and managed-ID manifests
 required for full-idempotent import below. Invalid or unreadable required input aborts before any
 selected collection is mutated, even with `SEEDER_CONTINUE_ON_ERROR=true`. Unselected files are
 ignored silently unless required as Flow metadata or a relation source.
@@ -598,8 +628,9 @@ Review the complete intended range before using extracted JSON as a synchronizat
 ### Manifest management
 
 Use `management: { "type": "manifest" }` to keep the IDs exported over time as the management
-boundary. The filename is derived from the collection: `<seeds-dir>/<collection>.managed-ids.json`,
-beside `<collection>.json`. No extra directory, environment variable, or manifest options are
+boundary. The filename is derived from the collection:
+`<seeds-root>/system/<collection>.managed-ids.json`, beside `<collection>.json` in the effective
+system directory. No extra per-collection directory, environment variable, or manifest options are
 required. Keeping both files together makes desired data and its management boundary easy to review
 and version as a pair in Git. The manifest is a plain JSON array of IDs, for example
 `directus_access.managed-ids.json`:
@@ -649,11 +680,11 @@ manifest. The array records IDs only, with no lifecycle statuses, timestamps, or
 
 Use one direct scalar many-to-one foreign key to select target rows by IDs in a related seed file.
 For example, the configuration above manages permissions whose `policy` is an `id` in
-`<seeds-dir>/directus_policies.json`. Membership comes from that raw Git seed file, independently of
-permission rows and whether policies are selected for import. Both collections must be supported
-system collections listed above; this does not add custom collections or a core scope. The live
-relationship must point directly to the related collection's `id` primary key; relation paths,
-aliases, compound relationships, and nested relation objects are unsupported.
+`<seeds-root>/system/directus_policies.json`. Membership comes from that raw Git seed file,
+independently of permission rows and whether policies are selected for import. Both collections must
+be supported system collections listed above; this does not add custom collections or a core scope.
+The live relationship must point directly to the related collection's `id` primary key; relation
+paths, aliases, compound relationships, and nested relation objects are unsupported.
 
 For a bounded full-idempotent import with a present target file, the source must be a readable,
 valid JSON array with explicit IDs. IDs and foreign-key values must match the live schema: canonical
@@ -679,13 +710,14 @@ means an empty or unbounded selection.
   source ID set. Rows linked to other policies remain outside the selection.
 
 With the policy already present in Directus, place this source in
-`<seeds-dir>/directus_policies.json`, and use the configuration above:
+`<seeds-root>/system/directus_policies.json`, and use the configuration above:
 
 ```json
 [{ "id": "2a7d5e56-ba21-4fe5-b18e-f0d7147c7ae0", "name": "Editor" }]
 ```
 
-To clear that policy's permissions, write `[]` to `<seeds-dir>/directus_permissions.json`, then run:
+To clear that policy's permissions, write `[]` to `<seeds-root>/system/directus_permissions.json`,
+then run:
 
 ```sh
 SEEDER_CONFIG_PATH=./seeder.config.json SEEDER_ENABLE_FULL_IDEMPOTENT=true npx directus seed system --mode full-idempotent --include directus_permissions --yes
@@ -742,22 +774,24 @@ formatter or guarantee project-specific formatting rules.
 
 Manual extraction and automatic extraction without `SEEDER_AUTO_EXTRACT_INCLUDE` first clean output
 unless manual `--skip-clean` is set. An explicit automatic allowlist skips cleanup of both output
-directories. When cleanup runs:
+directories. Cleanup is limited to the effective system directory and the configured asset
+directory; it never cleans the seeds root as a whole. Root-level files and sibling directories such
+as `core/` are outside system cleanup. When cleanup runs:
 
-- The seeds directory loses only its direct regular `.json` files other than `*.managed-ids.json`,
+- The system directory loses only its direct regular `.json` files other than `*.managed-ids.json`,
   including unselected seed JSON. Managed-ID history files remain even for unselected collections.
 - With binary extraction enabled, the assets directory loses all its direct regular files, even when
   `directus_files` is empty.
-- Cleanup never enters subdirectories, recurses, or follows symlinks. Non-JSON files in the seeds
+- Cleanup never enters subdirectories, recurses, or follows symlinks. Non-JSON files in the system
   directory and nested directories remain. Include/exclude selects JSON output, never cleanup scope.
 
 Matching files include hand-created or uncommitted output. Git can restore committed versions; it
 cannot restore uncommitted content removed by cleanup. Use dedicated output directories. Before the
-first deletion, extraction preflights both configured output paths, including in JSON-only mode, and
-refuses filesystem roots, symlinked directories or directory ancestors, equal seeds and assets
-directories, or an assets directory that is a parent of the seeds directory. Assets may live inside
-the seeds directory or in a separate external directory. `SEEDER_ASSETS_DIR` is independent of
-`SEEDER_SEEDS_DIR`; set both when relocating both outputs.
+first deletion, extraction checks the configured seeds root, effective system directory, and
+configured asset path, including in JSON-only mode, and refuses filesystem roots, symlinked
+directories or directory ancestors. The effective system and assets directories must differ, and
+assets must not be a parent of the system directory. Assets may live inside the system directory or
+in a separate directory, including the former `/directus/seeds/assets` location.
 
 Every selected collection overwrites its JSON file, including an empty collection as `[]` plus
 exactly one newline (`[]\n`), even with `--skip-clean`. That flag preserves other output but does
@@ -792,7 +826,7 @@ DEPLOYMENT_ENV=development npx directus seed extract --json-only
 DEPLOYMENT_ENV=development npx directus seed extract --json-only --skip-clean --include directus_roles
 # Explicitly enable binaries when the environment defaults to JSON-only
 DEPLOYMENT_ENV=development SEEDER_JSON_ONLY=true npx directus seed extract --assets
-# Store assets outside the seeds directory
+# Store assets outside the effective system directory
 DEPLOYMENT_ENV=development SEEDER_SEEDS_DIR=./seeds SEEDER_ASSETS_DIR=./seed-assets npx directus seed extract
 ```
 
@@ -815,7 +849,7 @@ not import seeds or extract data at startup.
   extraction. The allowlist replaces both general include/exclude lists for auto-extract only;
   manual `seed extract` and `seed system` keep their existing selection. Each trigger still
   refreshes all allowlisted collections in effective configuration order, not list order. Neither
-  the seeds nor assets directory is cleaned, and other files remain intact.
+  the system nor assets directory is cleaned, and other files remain intact.
 - Selective auto-extract without `directus_files` forces JSON-only behavior, preserving every binary
   even with `SEEDER_JSON_ONLY=false`. Including `directus_files` permits binary export only when
   `SEEDER_JSON_ONLY=false`. That export still reads all `directus_files`, independently of JSON
@@ -874,7 +908,7 @@ pnpm add -D oxfmt
 ```json
 {
   "scripts": {
-    "seed:extract": "DEPLOYMENT_ENV=development SEEDER_SEEDS_DIR=./seeds SEEDER_ASSETS_DIR=./seeds/assets directus seed extract && oxfmt 'seeds/*.json'"
+    "seed:extract": "DEPLOYMENT_ENV=development SEEDER_SEEDS_DIR=./seeds SEEDER_ASSETS_DIR=./seeds/system/assets directus seed extract && oxfmt 'seeds/system/*.json'"
   }
 }
 ```

@@ -163,7 +163,7 @@ services:
       SEEDER_JSON_INDENT: ${SEEDER_JSON_INDENT-tab}
       SEEDER_JSON_INDENT_SIZE: ${SEEDER_JSON_INDENT_SIZE-2}
       SEEDER_SEEDS_DIR: ${SEEDER_SEEDS_DIR-/directus/seeds}
-      SEEDER_ASSETS_DIR: ${SEEDER_ASSETS_DIR-/directus/seeds/assets}
+      SEEDER_ASSETS_DIR: ${SEEDER_ASSETS_DIR-/directus/seeds/system/assets}
       DEFAULT_EMAIL: ${DEFAULT_EMAIL-admin@example.com}
       # Root .env supplies the plain shared password; cast only this Directus setting.
       DEFAULT_PASSWORD: string:${DEFAULT_PASSWORD-p4ssw0rd!}

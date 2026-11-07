@@ -176,7 +176,7 @@ describe('installed seeder CLI', () => {
 			DEPLOYMENT_ENV: 'development',
 			SEEDER_CONFIG_PATH: configPath,
 			SEEDER_SEEDS_DIR: `${directory}/seeds`,
-			SEEDER_ASSETS_DIR: `${directory}/seeds/assets`,
+			SEEDER_ASSETS_DIR: `${directory}/seeds/system/assets`,
 			SEEDER_ENABLE_FULL_IDEMPOTENT: 'true',
 		}
 		try {
@@ -221,7 +221,7 @@ describe('installed seeder CLI', () => {
 				'node',
 				'-e',
 				'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
-				`${directory}/seeds/directus_presets.json`,
+				`${directory}/seeds/system/directus_presets.json`,
 			])
 			const rows: unknown = JSON.parse(extracted.stdout)
 			expect(rows).toEqual([expect.objectContaining({ id: min, bookmark: 'keep' })])
@@ -231,7 +231,7 @@ describe('installed seeder CLI', () => {
 				'node',
 				'-e',
 				'require("node:fs").writeFileSync(process.argv[1], process.argv[2])',
-				`${directory}/seeds/directus_presets.json`,
+				`${directory}/seeds/system/directus_presets.json`,
 				JSON.stringify([
 					{ id: min, collection: 'directus_roles', bookmark: 'updated' },
 					{ id: min + 2, collection: 'directus_roles', bookmark: 'created' },
@@ -279,12 +279,12 @@ describe('installed seeder CLI', () => {
 		if (!keptId || !historicalId || !outsiderId)
 			throw new Error('Expected three translation IDs')
 		const directory = `/tmp/seeder-manifest-e2e-${randomUUID()}`
-		const seedsDirectory = `${directory}/seeds`
+		const seedsDirectory = `${directory}/seeds/system`
 		const manifestPath = `${seedsDirectory}/directus_translations.managed-ids.json`
 		const environment = {
 			DEPLOYMENT_ENV: 'development',
 			SEEDER_CONFIG_PATH: `${directory}/config.json`,
-			SEEDER_SEEDS_DIR: seedsDirectory,
+			SEEDER_SEEDS_DIR: `${directory}/seeds`,
 			SEEDER_ASSETS_DIR: `${directory}/assets`,
 			SEEDER_ENABLE_FULL_IDEMPOTENT: 'true',
 		}
@@ -503,7 +503,7 @@ describe('installed seeder CLI', () => {
 					'directus',
 					'node',
 					'-e',
-					'const fs = require("node:fs"); const root = process.argv[1]; if (fs.existsSync(`${root}/seeds/directus_policies.json`)) throw new Error("Unexpected policy seed input"); process.stdout.write(fs.readFileSync(`${root}/seeds/directus_permissions.json`, "utf8"))',
+					'const fs = require("node:fs"); const root = process.argv[1]; if (fs.existsSync(`${root}/seeds/system/directus_policies.json`)) throw new Error("Unexpected policy seed input"); process.stdout.write(fs.readFileSync(`${root}/seeds/system/directus_permissions.json`, "utf8"))',
 					directory,
 				])
 				expect(JSON.parse(exported.stdout)).toEqual([
@@ -555,7 +555,7 @@ describe('installed seeder CLI', () => {
 				'directus',
 				'node',
 				'-e',
-				'const fs = require("node:fs"); const [root, policies, permissions] = process.argv.slice(1); fs.writeFileSync(`${root}/seeds/directus_policies.json`, policies); fs.writeFileSync(`${root}/seeds/directus_permissions.json`, permissions)',
+				'const fs = require("node:fs"); const [root, policies, permissions] = process.argv.slice(1); fs.writeFileSync(`${root}/seeds/system/directus_policies.json`, policies); fs.writeFileSync(`${root}/seeds/system/directus_permissions.json`, permissions)',
 				directory,
 				JSON.stringify(policies),
 				JSON.stringify(permissions),
@@ -611,7 +611,7 @@ describe('installed seeder CLI', () => {
 				'directus',
 				'node',
 				'-e',
-				'const fs = require("node:fs"); fs.mkdirSync(`${process.argv[1]}/seeds`, { recursive: true }); fs.writeFileSync(`${process.argv[1]}/config.json`, process.argv[2])',
+				'const fs = require("node:fs"); fs.mkdirSync(`${process.argv[1]}/seeds/system`, { recursive: true }); fs.writeFileSync(`${process.argv[1]}/config.json`, process.argv[2])',
 				directory,
 				JSON.stringify({
 					system: {
@@ -751,7 +751,7 @@ describe('installed seeder CLI', () => {
 					'directus',
 					'node',
 					'-e',
-					'const fs = require("node:fs"); const [root, roles, translations] = process.argv.slice(1); fs.mkdirSync(root); fs.writeFileSync(`${root}/directus_roles.json`, roles); fs.writeFileSync(`${root}/directus_translations.json`, translations)',
+					'const fs = require("node:fs"); const [root, roles, translations] = process.argv.slice(1); fs.mkdirSync(`${root}/system`, { recursive: true }); fs.writeFileSync(`${root}/system/directus_roles.json`, roles); fs.writeFileSync(`${root}/system/directus_translations.json`, translations)',
 					directory,
 					JSON.stringify([
 						{ id: roleId, name: 'Seeder partial import fixture' },
@@ -815,14 +815,14 @@ describe('installed seeder CLI', () => {
 		async (failure) => {
 			const id = randomUUID()
 			const directory = `/tmp/seeder-e2e-${randomUUID()}`
-			const filename = `${directory}/directus_permissions.json`
+			const filename = `${directory}/system/directus_permissions.json`
 			try {
 				await execute('docker', [
 					...composeArguments,
 					'directus',
 					'node',
 					'-e',
-					'const fs = require("node:fs"); const [root, id, failure] = process.argv.slice(1); fs.mkdirSync(root); fs.writeFileSync(`${root}/directus_roles.json`, JSON.stringify([{ id, name: "Seeder preflight fixture" }])); const filename = `${root}/directus_permissions.json`; if (failure === "read") fs.mkdirSync(filename); else fs.writeFileSync(filename, failure === "syntax" ? "{broken" : "{}")',
+					'const fs = require("node:fs"); const [root, id, failure] = process.argv.slice(1); fs.mkdirSync(`${root}/system`, { recursive: true }); fs.writeFileSync(`${root}/system/directus_roles.json`, JSON.stringify([{ id, name: "Seeder preflight fixture" }])); const filename = `${root}/system/directus_permissions.json`; if (failure === "read") fs.mkdirSync(filename); else fs.writeFileSync(filename, failure === "syntax" ? "{broken" : "{}")',
 					directory,
 					id,
 					failure,
@@ -900,7 +900,7 @@ describe('installed seeder CLI', () => {
 		'applies $mode output cleanup through the installed command',
 		async ({ jsonOnly, flags, retainJson, retainAssets }) => {
 			const directory = `/tmp/seeder-e2e-${randomUUID()}`
-			const seeds = `${directory}/seeds`
+			const seeds = `${directory}/seeds/system`
 			const assets = `${seeds}/assets`
 			try {
 				await execute('docker', [
@@ -908,13 +908,13 @@ describe('installed seeder CLI', () => {
 					'directus',
 					'node',
 					'-e',
-					'const fs = require("node:fs"); const root = process.argv[1]; fs.mkdirSync(`${root}/seeds/assets/nested`, { recursive: true }); for (const name of ["seeds/stale.json", "seeds/notes.txt", "seeds/assets/stale.bin", "seeds/assets/binary.json", "seeds/assets/nested/keep.bin", "outside.json"]) fs.writeFileSync(`${root}/${name}`, name)',
+					'const fs = require("node:fs"); const root = process.argv[1]; fs.mkdirSync(`${root}/seeds/system/assets/nested`, { recursive: true }); for (const name of ["seeds/system/stale.json", "seeds/system/notes.txt", "seeds/system/assets/stale.bin", "seeds/system/assets/binary.json", "seeds/system/assets/nested/keep.bin", "outside.json"]) fs.writeFileSync(`${root}/${name}`, name)',
 					directory,
 				])
 				await seed(
 					{
 						DEPLOYMENT_ENV: 'development',
-						SEEDER_SEEDS_DIR: seeds,
+						SEEDER_SEEDS_DIR: `${directory}/seeds`,
 						SEEDER_ASSETS_DIR: assets,
 						SEEDER_JSON_ONLY: jsonOnly,
 					},
@@ -928,7 +928,7 @@ describe('installed seeder CLI', () => {
 					'directus',
 					'node',
 					'-e',
-					'const fs = require("node:fs"); const root = process.argv[1]; process.stdout.write(JSON.stringify({ staleJson: fs.existsSync(`${root}/seeds/stale.json`), staleAsset: fs.existsSync(`${root}/seeds/assets/stale.bin`), jsonAsset: fs.existsSync(`${root}/seeds/assets/binary.json`), nested: fs.readFileSync(`${root}/seeds/assets/nested/keep.bin`, "utf8"), notes: fs.readFileSync(`${root}/seeds/notes.txt`, "utf8"), outside: fs.readFileSync(`${root}/outside.json`, "utf8"), outputIsArray: Array.isArray(JSON.parse(fs.readFileSync(`${root}/seeds/directus_roles.json`, "utf8"))) }))',
+					'const fs = require("node:fs"); const root = process.argv[1]; process.stdout.write(JSON.stringify({ staleJson: fs.existsSync(`${root}/seeds/system/stale.json`), staleAsset: fs.existsSync(`${root}/seeds/system/assets/stale.bin`), jsonAsset: fs.existsSync(`${root}/seeds/system/assets/binary.json`), nested: fs.readFileSync(`${root}/seeds/system/assets/nested/keep.bin`, "utf8"), notes: fs.readFileSync(`${root}/seeds/system/notes.txt`, "utf8"), outside: fs.readFileSync(`${root}/outside.json`, "utf8"), outputIsArray: Array.isArray(JSON.parse(fs.readFileSync(`${root}/seeds/system/directus_roles.json`, "utf8"))) }))',
 					directory,
 				])
 				const output: unknown = JSON.parse(stdout)
@@ -936,8 +936,8 @@ describe('installed seeder CLI', () => {
 					staleJson: retainJson,
 					staleAsset: retainAssets,
 					jsonAsset: retainAssets,
-					nested: 'seeds/assets/nested/keep.bin',
-					notes: 'seeds/notes.txt',
+					nested: 'seeds/system/assets/nested/keep.bin',
+					notes: 'seeds/system/notes.txt',
 					outside: 'outside.json',
 					outputIsArray: true,
 				})
@@ -990,7 +990,7 @@ describe('installed seeder CLI', () => {
 					'node',
 					'-e',
 					'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
-					`${directory}/directus_translations.json`,
+					`${directory}/system/directus_translations.json`,
 				])
 				const records: unknown = JSON.parse(stdout)
 				expect(records).toEqual(expect.arrayContaining([expect.objectContaining(fixture)]))
@@ -1052,7 +1052,7 @@ describe('installed seeder CLI', () => {
 				'directus',
 				'node',
 				'-e',
-				'const fs = require("node:fs"); fs.mkdirSync(process.argv[1], { recursive: true }); fs.writeFileSync(`${process.argv[1]}/directus_translations.json`, process.argv[2])',
+				'const fs = require("node:fs"); fs.mkdirSync(`${process.argv[1]}/system`, { recursive: true }); fs.writeFileSync(`${process.argv[1]}/system/directus_translations.json`, process.argv[2])',
 				directory,
 				JSON.stringify([fixture]),
 			])

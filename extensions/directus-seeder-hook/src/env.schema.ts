@@ -31,7 +31,7 @@ export const envSchema = z.object({
 		.default('tab'),
 	SEEDER_JSON_INDENT_SIZE: z.number().int().min(1).max(10).default(2),
 	SEEDER_SEEDS_DIR: z.string().trim().min(1).default('/directus/seeds'),
-	SEEDER_ASSETS_DIR: z.string().trim().min(1).default('/directus/seeds/assets'),
+	SEEDER_ASSETS_DIR: z.string().trim().min(1).default('/directus/seeds/system/assets'),
 	DEPLOYMENT_ENV: z.string().optional(),
 	DEFAULT_EMAIL: z.string().default('admin@example.com'),
 	DEFAULT_PASSWORD: z.string().default('p4ssw0rd!'),

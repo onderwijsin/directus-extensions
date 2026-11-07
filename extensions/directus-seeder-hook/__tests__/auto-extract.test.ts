@@ -197,7 +197,7 @@ describe('automatic system extraction', () => {
 				jsonOnly: false,
 				jsonIndent: 4,
 				folders: {
-					seeds: path.join(directory, 'seeds'),
+					seeds: path.join(directory, 'seeds', 'system'),
 					assets: path.join(directory, 'assets'),
 				},
 			}),
@@ -299,7 +299,7 @@ describe('automatic system extraction', () => {
 			'../src/seeders/system/extract',
 		)
 		mocks.extract.mockImplementation(actual.extractSystemData)
-		const seeds = path.join(directory, 'seeds')
+		const seeds = path.join(directory, 'seeds', 'system')
 		const assets = path.join(seeds, 'assets')
 		await mkdir(assets, { recursive: true })
 		await writeFile(path.join(seeds, 'unrelated.json'), 'unrelated')
@@ -374,8 +374,8 @@ describe('automatic system extraction', () => {
 			'../src/seeders/system/extract',
 		)
 		mocks.extract.mockImplementation(actual.extractSystemData)
-		const seeds = path.join(directory, 'seeds')
-		await mkdir(seeds)
+		const seeds = path.join(directory, 'seeds', 'system')
+		await mkdir(seeds, { recursive: true })
 		const manifest = path.join(seeds, 'directus_access.managed-ids.json')
 		const untouched = path.join(seeds, 'directus_roles.managed-ids.json')
 		const first = '10c85a66-944d-483c-8d74-602cc615f324'
@@ -432,7 +432,7 @@ describe('automatic system extraction', () => {
 			'../src/seeders/system/extract',
 		)
 		mocks.extract.mockImplementation(actual.extractSystemData)
-		const seeds = path.join(directory, 'seeds')
+		const seeds = path.join(directory, 'seeds', 'system')
 		const assets = path.join(seeds, 'assets')
 		await mkdir(assets, { recursive: true })
 		const policy = '6d6a24a9-0575-4eb0-92e1-a74cf88824bd'
@@ -495,7 +495,7 @@ describe('automatic system extraction', () => {
 				'../src/seeders/system/extract',
 			)
 			mocks.extract.mockImplementation(actual.extractSystemData)
-			const seeds = path.join(directory, 'seeds')
+			const seeds = path.join(directory, 'seeds', 'system')
 			const assets = path.join(seeds, 'assets')
 			await mkdir(assets, { recursive: true })
 			await writeFile(path.join(seeds, 'directus_roles.json'), 'untouched roles')
@@ -536,7 +536,7 @@ describe('automatic system extraction', () => {
 			'../src/seeders/system/extract',
 		)
 		mocks.extract.mockImplementation(actual.extractSystemData)
-		const seeds = path.join(directory, 'seeds')
+		const seeds = path.join(directory, 'seeds', 'system')
 		const assets = path.join(seeds, 'assets')
 		await mkdir(assets, { recursive: true })
 		await writeFile(path.join(seeds, 'stale.json'), 'stale')

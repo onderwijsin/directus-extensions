@@ -27,7 +27,7 @@ Resolve each collection's mode as explicit CLI `--mode`, then effective collecti
 opt-in and prompts across selected collections with present seed files, including `[]`; missing
 files do not require destructive confirmation or opt-in. Reuse loaded, validated input for import
 and retain full preflight before mutations. CLI mode overrides preserve management. Use
-`SEEDER_SEEDS_DIR` for the seed path and `SEEDER_JSON_ONLY=false` for JSON plus binary extraction
+`SEEDER_SEEDS_DIR` for the seeds root and `SEEDER_JSON_ONLY=false` for JSON plus binary extraction
 by default, except selective automatic extraction without `directus_files` remains JSON-only.
 `SEEDER_JSON_ONLY=true` and manual `--json-only` disable all binary reads, downloads, and
 cleanup; `directus_files.json` remains ordinary selected JSON. Manual `--assets` overrides
@@ -35,6 +35,14 @@ environment JSON-only mode and is mutually exclusive with `--json-only`. File im
 `storage` use the first validated `STORAGE_LOCATIONS` entry, including Directus-cast arrays, instead
 of an unintended `local` fallback. Retain the existing asset import algorithm and operational safety
 caveats.
+
+Keep `SEEDER_SEEDS_DIR` defaulting to `/directus/seeds`, with all system collection JSON and
+managed-ID history read and written only in its `system/` subdirectory. Extraction creates this
+directory; import errors if it is missing or not a directory. Ignore flat root files without
+migration or fallback. Reserve `core/` for future use without creating or processing it. Default
+the independent `SEEDER_ASSETS_DIR` to `/directus/seeds/system/assets`; explicit custom paths,
+including `/directus/seeds/assets`, remain valid under existing safety rules. Changing the seeds
+root never implicitly relocates assets.
 
 Write extracted JSON with JavaScript serialization and exactly one final newline. Configure
 `SEEDER_JSON_INDENT=tab|space` (default `tab`) and `SEEDER_JSON_INDENT_SIZE=1..10` (default `2`,
@@ -45,22 +53,23 @@ by default.
 
 Clean extraction output by default for manual runs and automatic runs without an explicit
 auto-extract allowlist, with manual-only `--skip-clean` to preserve other output. Clean only direct
-regular `.json` files except `*.managed-ids.json` in the seeds directory and, when binaries are
-enabled, all direct regular files in the assets directory, even when no file records exist. Never
+regular `.json` files except `*.managed-ids.json` in the effective system directory and, when binaries
+are enabled, all direct regular files in the assets directory, even when no file records exist. Never
 recurse into subdirectories or follow symlinks. Include/exclude
 selects JSON only and never narrows cleanup or binary extraction; binaries always come from all
-`directus_files`. Support nested or separate assets directories. Preflight paths before deletion
-and refuse filesystem roots, symlinked directories or directory ancestors, equal output directories,
-and an assets directory that contains the seeds directory.
+`directus_files`. Support nested or separate assets directories. Preflight the configured root and
+effective output paths before deletion and refuse filesystem roots, symlinked directories or
+directory ancestors, equal output directories, and an assets directory that contains the effective
+system directory. Clean only these two effective output directories, never the seeds root as a whole.
 
 Always overwrite every selected collection JSON, including empty results as `[]` plus exactly one
 newline, even with `--skip-clean`. Database read errors fail extraction; cleanup and earlier writes
 can leave partial output, so fix the error and rerun to recover.
 
-Require the configured seed directory to exist and be a directory; otherwise fail with its path and
-exit 1. Warn and exit 0 without database operations, service creation, or cache clearing when no
-selected system seed files are present, including an empty collection selection. Ignore unsupported
-files and nested seed files when determining this no-op. Present `[]` still processes its collection.
+Require the effective system directory to exist and be a directory for import; otherwise fail with
+its path and exit 1. Warn and exit 0 without database operations, service creation, or cache clearing
+when no selected system seed files are present, including an empty collection selection. Ignore
+unsupported files and nested seed files when determining this no-op. Present `[]` still processes its collection.
 
 Resolve include/exclude before seed-input preflight: each CLI list overrides its corresponding
 environment list, and exclusions win. Validate selected seed files and their transformations before
@@ -79,7 +88,7 @@ extraction cleanup, without fallback. Read JSON when resolving runtime configura
 extraction, or normal inspection invocation reloads it, while automatic extraction captures it at
 hook registration. Validate query structure before cleanup; database-specific field and relation
 checks remain Directus read behavior.
-Keep config files outside managed seed/asset output, with no cleanup exception. Strictly validate
+Keep config files outside managed system/asset output, with no cleanup exception. Strictly validate
 optional string `$schema`/`$comment` metadata and `system.collections`/`order`,
 rejecting unknown keys and unsupported collections. Allow existing collections to override mode,
 fields, filter, sort, deep query, and management. Merge shallowly by property: provided arrays and
@@ -134,15 +143,16 @@ target rows before relinquishing an ID and review parent deletes/cascades separa
 management adds no historical manifest, transaction, or concurrency guarantees.
 
 Add optional `management: { type: 'manifest' }` alongside ID-range and relation management. Derive
-`<seeds-dir>/<collection>.managed-ids.json` as a plain JSON ID array beside each ordinary seed file,
-without extra directories, environment variables, or options. Recommend versioning both files in Git.
+`<seeds-root>/system/<collection>.managed-ids.json` as a plain JSON ID array beside each ordinary
+seed file, without extra per-collection directories, environment variables, or options. Recommend
+versioning both files in Git.
 Manual and automatic extraction retain each collection's current fields/filter/sort/deep query and
 never read existing seed data. Validate explicit exported IDs and existing manifest IDs against the
 live primary-key type: canonical lowercase UUID, nonempty string, or safe integer without coercion.
 Create missing manifests, union exported IDs with history, deduplicate, and sort strings lexically
 or numbers numerically. Empty exports preserve history, and only extracted collections update their
 manifests. Deleted records leave ordinary seeds while their IDs remain managed. Preserve
-`*.managed-ids.json` during seeds-directory cleanup, with other cleanup unchanged. Atomically replace
+`*.managed-ids.json` during system-directory cleanup, with other cleanup unchanged. Atomically replace
 manifests so interrupted writes cannot truncate history; invalid or unreadable existing manifests
 fail and are never overwritten.
 

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, readFile, realpath, rm, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,7 +32,8 @@ describe('built seeder process lock', () => {
 			return worker
 		}
 		try {
-			await writeFile(path.join(directory, 'directus_translations.json'), '[]')
+			await mkdir(path.join(directory, 'system'))
+			await writeFile(path.join(directory, 'system', 'directus_translations.json'), '[]')
 			const owner = await start('owner')
 			owner.send('seed')
 			expect(await owner.next()).toEqual({ event: 'held' })
