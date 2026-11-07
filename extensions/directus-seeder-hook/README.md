@@ -305,14 +305,14 @@ keyed by any of the supported collection names listed below. Unknown configurati
 unsupported collection names fail validation, including unknown properties inside a collection or
 management object. Each collection accepts these properties:
 
-| Property        | Accepted value and effect                                                                                                                                                                                                                                                               |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `operationMode` | Exact `insert-missing`, `insert-update`, or `full-idempotent`. Overrides this collection's built-in mode unless CLI `--mode` is supplied.                                                                                                                                               |
-| `fields`        | Array of field names, or `null` to clear the built-in projection and use the existing all-fields behavior.                                                                                                                                                                              |
-| `filter`        | Directus filter object, or `null` to clear the built-in extraction filter. This does not constrain synchronization deletes.                                                                                                                                                             |
-| `sort`          | Array of sort strings, or `null` to clear the built-in sort option.                                                                                                                                                                                                                     |
-| `deep`          | Directus deep-query object, or `null` to clear the built-in deep-query option.                                                                                                                                                                                                          |
-| `management`    | Whole object: `type: "id-range"` with optional safe-integer numeric `min`/`max` (at least one required), `type: "relation"` with required `field` and supported source `collection`, or `{ "type": "manifest" }` without other properties. `null` is invalid. See seeding safety below. |
+| Property        | Accepted value and effect                                                                                                                                                                                                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `operationMode` | Exact `insert-missing`, `insert-update`, or `full-idempotent`. Overrides this collection's built-in mode unless CLI `--mode` is supplied.                                                                                                                                                                                  |
+| `fields`        | Array of field names, or `null` to clear the built-in projection and use the existing all-fields behavior.                                                                                                                                                                                                                 |
+| `filter`        | Directus filter object, or `null` to clear the built-in extraction filter. This does not constrain synchronization deletes.                                                                                                                                                                                                |
+| `sort`          | Array of sort strings, or `null` to clear the built-in sort option.                                                                                                                                                                                                                                                        |
+| `deep`          | Directus deep-query object, or `null` to clear the built-in deep-query option.                                                                                                                                                                                                                                             |
+| `management`    | Whole object: `type: "id-range"` with optional safe-integer numeric `min`/`max` (at least one required), `type: "relation"` with required `field` and supported source `collection`, or `{ "type": "manifest" }` without other properties. `null` removes this collection's management boundary. See seeding safety below. |
 
 See [Directus query parameters](https://directus.com/docs/guides/connect/query-parameters) and
 [filter rules](https://directus.com/docs/guides/connect/filter-rules) for query syntax. Query
@@ -325,8 +325,24 @@ leave partial output under the existing extraction recovery behavior below. Over
 property: an omitted property retains its default, while each provided array, `filter`, `deep`, or
 `management` replaces that whole value. There is no recursive merge. For example, supplying a
 presets `filter` replaces the built-in `user = null` filter; include that rule yourself if you still
-need it. `fields`, `filter`, `sort`, and `deep` may be `null` to clear an option; `operationMode`
-and `management` may not.
+need it. `fields`, `filter`, `sort`, `deep`, and `management` may be `null` to clear an option;
+`operationMode` may not.
+
+Omitting `management` retains the built-in boundary; an object replaces it. To remove it explicitly:
+
+```json
+{
+  "system": {
+    "collections": {
+      "directus_roles": { "management": null }
+    }
+  }
+}
+```
+
+This retains the roles mode `full-idempotent` and enables whole-collection synchronization, with the
+existing opt-in and confirmations. Effective `seed config` output omits `management` for roles;
+`--defaults` still shows its built-in manifest boundary.
 
 Before replacing `fields`, inspect `seed config --defaults --collection directus_roles` (or the
 collection you are changing). Copy every built-in field you want to retain into your replacement
@@ -562,12 +578,12 @@ behavior; it does not reset the schema or reinsert every record.
 
 `management` with `type: 'id-range'` accepts optional inclusive `min` and exclusive `max` bounds; at
 least one bound is required. Bounds and ranged seed IDs must be JavaScript safe-integer numbers,
-without numeric-string coercion. Empty ranges, unknown keys or types, `null`, nonfinite, fractional,
-or unsafe bounds, and `min >= max` are invalid. Consumer configuration validates ranges even when
-another mode is effective. Before any database mutation, all selected collections with present seed
-files and effective `full-idempotent` mode are preflighted. Invalid management or a ranged record
-with a missing, nonnumeric, unsafe, or out-of-range ID aborts the entire import, even with
-`SEEDER_CONTINUE_ON_ERROR=true`.
+without numeric-string coercion. Empty ranges, unknown keys or types, `null` bounds, nonfinite,
+fractional, or unsafe bounds, and `min >= max` are invalid. Consumer configuration validates ranges
+even when another mode is effective. Before any database mutation, all selected collections with
+present seed files and effective `full-idempotent` mode are preflighted. Invalid management or a
+ranged record with a missing, nonnumeric, unsafe, or out-of-range ID aborts the entire import, even
+with `SEEDER_CONTINUE_ON_ERROR=true`.
 
 Ranged synchronization preserves records outside the range and deletes only in-range IDs absent from
 the seed data; `[]` deletes only within that range. Missing files still skip all collection work.

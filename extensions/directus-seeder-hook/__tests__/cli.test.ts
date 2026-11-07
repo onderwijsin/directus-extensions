@@ -364,6 +364,7 @@ describe('seeder registration and CLI', () => {
 					system: {
 						order: ['directus_presets'],
 						collections: {
+							directus_roles: { management: null },
 							directus_permissions: {
 								management: {
 									type: 'relation',
@@ -415,6 +416,9 @@ describe('seeder registration and CLI', () => {
 					},
 				},
 			})
+			expect(JSON.parse(output.join(''))).not.toHaveProperty(
+				'system.collections.directus_roles.management',
+			)
 			expect(output.join('')).not.toContain('$comment')
 			expect(await readFile(configPath, 'utf8')).toBe(contents)
 			expect(await readdir(directory)).toEqual(['consumer.json'])
@@ -435,12 +439,13 @@ describe('seeder registration and CLI', () => {
 			)
 			const { collection: _collection, ...settings } = roles ?? {}
 			const output = captureOutput()
-			for (const invalid of [
+			for (const contents of [
 				undefined,
 				'{broken',
 				'{"system":{"collections":{"unknown":{}}}}',
+				'{"system":{"collections":{"directus_roles":{"management":null}}}}',
 			]) {
-				if (invalid !== undefined) await writeFile(configPath, invalid)
+				if (contents !== undefined) await writeFile(configPath, contents)
 				output.length = 0
 				expect(
 					await runCommand(
@@ -2352,15 +2357,25 @@ describe('seeder registration and CLI', () => {
 	)
 
 	it.each(['insert-missing', 'insert-update', 'full-idempotent'])(
-		'treats [] as intentional empty data in %s, retaining guarded deletion',
+		'treats [] as intentional empty data in %s with built-in management explicitly cleared',
 		async (mode) => {
-			await writeFile(path.join(directory, 'directus_translations.json'), '[]')
-			const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+			const configPath = path.join(directory, 'consumer.config')
+			await writeFile(
+				configPath,
+				JSON.stringify({
+					system: { collections: { directus_roles: { management: null } } },
+				}),
+			)
+			await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+			const service = createProgram({
+				SEEDER_CONFIG_PATH: configPath,
+				SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+			})
 			const warn = vi.spyOn(logger, 'warn')
 			service.readByQuery.mockResolvedValue([{ id: 'existing' }])
 			expect(await runCommand(service.program, 'system', '--mode', mode, '--yes')).toBe(0)
 			expect(service.ItemsService).toHaveBeenCalledExactlyOnceWith(
-				'directus_translations',
+				'directus_roles',
 				expect.any(Object),
 			)
 			expect(service.createMany).not.toHaveBeenCalled()

@@ -93,6 +93,7 @@ describe('system JSON consumer configuration', () => {
 			system: {
 				collections: {
 					directus_presets: { filter: null, sort: null, fields: null, deep: null },
+					directus_roles: { management: null },
 				},
 			},
 		})
@@ -102,6 +103,9 @@ describe('system JSON consumer configuration', () => {
 			sort: null,
 			deep: null,
 		})
+		const roles = cleared.find(({ collection }) => collection === 'directus_roles')
+		expect(roles).toMatchObject({ operationMode: 'full-idempotent' })
+		expect(roles).not.toHaveProperty('management')
 		expect(
 			SYSTEM_COLLECTIONS.find(({ collection }) => collection === 'directus_presets')?.filter,
 		).toEqual({ user: { _null: true } })
@@ -217,7 +221,6 @@ describe('system JSON consumer configuration', () => {
 			{ deep: { role: { _limit: '1' } } },
 			{ deep: { role: { _limti: {} } } },
 			{ deep: { role: { children: { _bogus: {} } } } },
-			{ management: null },
 			{ management: { type: 'id-range' } },
 			{ management: { type: 'id-range', min: 20, max: 10 } },
 			{ management: { type: 'id-range', max: '50000' } },

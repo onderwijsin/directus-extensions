@@ -163,7 +163,7 @@ export const collectionOverridesSchema = z.strictObject({
 	filter: filterSchema.nullish(),
 	sort: fieldsSchema.nullish(),
 	deep: deepSchema.nullish(),
-	management: systemManagementSchema.optional(),
+	management: systemManagementSchema.nullish(),
 })
 
 /** Effective built-in or consumer-overridden system collection. */
@@ -171,6 +171,7 @@ export const systemCollectionSchema = z.strictObject({
 	collection: fieldNameSchema,
 	...collectionOverridesSchema.shape,
 	operationMode: z.enum(OperationMode),
+	management: systemManagementSchema.optional(),
 })
 
 /** Validated collection configuration shared by import and extraction. */

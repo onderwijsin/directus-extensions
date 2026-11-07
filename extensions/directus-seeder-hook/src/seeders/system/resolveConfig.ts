@@ -58,10 +58,11 @@ function resolveSystemConfigWithOverrides(input: unknown) {
 	const defaults = z.array(systemCollectionSchema).safeParse(SYSTEM_COLLECTIONS)
 	if (!defaults.success)
 		throw new Error(`Invalid Seeder system defaults: ${defaults.error.message}`)
-	const collections = defaults.data.map((entry) => ({
-		...entry,
-		...system?.collections?.[entry.collection],
-	}))
+	const collections = defaults.data.map((entry) => {
+		const collection = { ...entry, ...system?.collections?.[entry.collection] }
+		if (collection.management === null) delete collection.management
+		return collection
+	})
 	const effective = z.array(systemCollectionSchema).safeParse(collections)
 	if (!effective.success)
 		throw new Error(`Invalid effective Seeder configuration: ${effective.error.message}`)

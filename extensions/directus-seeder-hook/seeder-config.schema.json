@@ -71,76 +71,83 @@
 								]
 							},
 							"management": {
-								"oneOf": [
+								"anyOf": [
 									{
-										"type": "object",
-										"properties": {
-											"type": {
-												"$ref": "#/$defs/__schema57"
-											},
-											"min": {
-												"$ref": "#/$defs/__schema58"
-											},
-											"max": {
-												"$ref": "#/$defs/__schema59"
-											}
-										},
-										"required": ["type"],
-										"additionalProperties": false,
-										"anyOf": [
+										"oneOf": [
 											{
-												"required": ["min"]
+												"type": "object",
+												"properties": {
+													"type": {
+														"$ref": "#/$defs/__schema57"
+													},
+													"min": {
+														"$ref": "#/$defs/__schema58"
+													},
+													"max": {
+														"$ref": "#/$defs/__schema59"
+													}
+												},
+												"required": ["type"],
+												"additionalProperties": false,
+												"anyOf": [
+													{
+														"required": ["min"]
+													},
+													{
+														"required": ["max"]
+													}
+												],
+												"description": "Managed safe integer IDs: min inclusive, max exclusive. Supply at least one bound; min must be less than max when both are set."
 											},
 											{
-												"required": ["max"]
+												"type": "object",
+												"properties": {
+													"type": {
+														"type": "string",
+														"const": "relation"
+													},
+													"field": {
+														"type": "string",
+														"pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+													},
+													"collection": {
+														"type": "string",
+														"enum": [
+															"directus_policies",
+															"directus_roles",
+															"directus_users",
+															"directus_access",
+															"directus_presets",
+															"directus_permissions",
+															"directus_folders",
+															"directus_files",
+															"directus_dashboards",
+															"directus_panels",
+															"directus_flows",
+															"directus_operations",
+															"directus_settings",
+															"directus_translations"
+														]
+													}
+												},
+												"required": ["type", "field", "collection"],
+												"additionalProperties": false
+											},
+											{
+												"type": "object",
+												"properties": {
+													"type": {
+														"type": "string",
+														"const": "manifest"
+													}
+												},
+												"required": ["type"],
+												"additionalProperties": false
 											}
-										],
-										"description": "Managed safe integer IDs: min inclusive, max exclusive. Supply at least one bound; min must be less than max when both are set."
+										]
 									},
 									{
-										"type": "object",
-										"properties": {
-											"type": {
-												"type": "string",
-												"const": "relation"
-											},
-											"field": {
-												"type": "string",
-												"pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
-											},
-											"collection": {
-												"type": "string",
-												"enum": [
-													"directus_policies",
-													"directus_roles",
-													"directus_users",
-													"directus_access",
-													"directus_presets",
-													"directus_permissions",
-													"directus_folders",
-													"directus_files",
-													"directus_dashboards",
-													"directus_panels",
-													"directus_flows",
-													"directus_operations",
-													"directus_settings",
-													"directus_translations"
-												]
-											}
-										},
-										"required": ["type", "field", "collection"],
-										"additionalProperties": false
-									},
-									{
-										"type": "object",
-										"properties": {
-											"type": {
-												"type": "string",
-												"const": "manifest"
-											}
-										},
-										"required": ["type"],
-										"additionalProperties": false
+										"type": "null"
 									}
 								]
 							}

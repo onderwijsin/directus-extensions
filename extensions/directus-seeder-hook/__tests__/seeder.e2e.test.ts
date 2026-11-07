@@ -123,7 +123,11 @@ describe('installed seeder CLI', () => {
 					system: {
 						order: ['directus_roles'],
 						collections: {
-							directus_roles: { fields: ['id'], operationMode: 'full-idempotent' },
+							directus_roles: {
+								fields: ['id'],
+								operationMode: 'full-idempotent',
+								management: null,
+							},
 						},
 					},
 				}),

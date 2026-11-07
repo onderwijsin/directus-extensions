@@ -83,9 +83,10 @@ Keep config files outside managed seed/asset output, with no cleanup exception. 
 optional string `$schema`/`$comment` metadata and `system.collections`/`order`,
 rejecting unknown keys and unsupported collections. Allow existing collections to override mode,
 fields, filter, sort, deep query, and management. Merge shallowly by property: provided arrays and
-objects replace whole values; omitted properties retain defaults. Allow `null` to clear only fields,
-filter, sort, and deep. Treat order as a unique known-name priority prefix with remaining built-ins
-appended in original order; keep include/exclude as collection selection. Publish the example JSON
+objects replace whole values; omitted properties retain defaults. Allow `null` to clear fields,
+filter, sort, deep, and management. Normalize explicit management `null` to an absent boundary after
+merging, while omitted management retains its built-in default. Treat order as a unique known-name
+priority prefix with remaining built-ins appended in original order; keep include/exclude as collection selection. Publish the example JSON
 and exported JSON Schema without a TypeScript loader or new dependencies. The example omits
 `operationMode`, retaining the built-in collection modes; its management limits full-idempotent
 synchronization; only ID-range management also limits extraction selection. Insert-mode imports ignore management.
@@ -98,8 +99,8 @@ schema, or database state, and requires no destructive-seeding opt-in.
 
 Support optional consumer per-collection `management` with `type: 'id-range'`, inclusive `min`
 and exclusive `max`, requiring at least one safe-integer numeric bound and `min < max` when both
-are supplied. Reject `null`, unknown properties, and invalid ranges in configuration. Full-idempotent
-preflight rejects missing, nonnumeric, unsafe, or out-of-range seed IDs before database operations.
+are supplied. Reject `null` bounds, unknown properties, and invalid ranges in configuration.
+Full-idempotent preflight rejects missing, nonnumeric, unsafe, or out-of-range seed IDs before database operations.
 Combine ID bounds and non-seed-ID exclusions as separate `_and` predicates so Directus applies
 every condition. Reject consumer field predicates with multiple operators instead of silently using
 only the first. Delete only in-range IDs absent from seeds; bounded `[]` clears that range, and missing files skip
