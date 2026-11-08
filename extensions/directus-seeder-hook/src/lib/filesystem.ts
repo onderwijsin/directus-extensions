@@ -1,3 +1,6 @@
+import type { SeederOptions } from '../env.schema'
+import type { DataScope } from './config'
+
 import { randomUUID } from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstat, mkdir, open, readdir, realpath, rename, unlink } from 'node:fs/promises'
@@ -185,5 +188,18 @@ export async function outputFileAtomic(filePath: string, content: string): Promi
 			}
 		}
 		throw error
+	}
+}
+
+/**
+ * Derives scope output from the seed root and preserves the independent asset path.
+ * @param options - Validated startup options.
+ * @param scope - Selected scope; existing callers retain system output.
+ * @returns Scoped seed and independent asset paths.
+ */
+export function getFolderPaths(options: SeederOptions, scope: DataScope = 'system') {
+	return {
+		seedsFolder: path.join(options.SEEDER_SEEDS_DIR, scope),
+		assetsFolder: options.SEEDER_ASSETS_DIR,
 	}
 }

@@ -6,9 +6,10 @@ import process from 'node:process'
 import { Option } from 'commander'
 import { z } from 'zod'
 
+import { getFolderPaths } from '../lib/filesystem'
 import { acquireLock } from '../lib/processLock'
 import { extractData } from '../seeders/extract'
-import { getFolderPaths, resolveSeederConfig } from '../seeders/resolveConfig'
+import { resolveSeederConfig } from '../seeders/resolveConfig'
 
 /**
  * Registers the extract command for extracting seed data from the current Directus instance.

@@ -1,5 +1,5 @@
 import type { SeederOptions } from '../env.schema'
-import type { DataScope, OperationMode, SeederConfig } from '../lib/config'
+import type { OperationMode, SeederConfig } from '../lib/config'
 import type { CollectionConfig } from './config.schema'
 
 import { readFileSync } from 'node:fs'
@@ -231,18 +231,5 @@ export function resolveSeederConfig(
 		jsonOnly: overrides.jsonOnly ?? options.SEEDER_JSON_ONLY,
 		autoExtract: overrides.autoExtract ?? options.SEEDER_AUTO_EXTRACT,
 		jsonIndent: options.SEEDER_JSON_INDENT === 'tab' ? '\t' : options.SEEDER_JSON_INDENT_SIZE,
-	}
-}
-
-/**
- * Derives scope output from the seed root and preserves the independent asset path.
- * @param options - Validated startup options.
- * @param scope - Selected scope; existing callers retain system output.
- * @returns Scoped seed and independent asset paths.
- */
-export function getFolderPaths(options: SeederOptions, scope: DataScope = 'system') {
-	return {
-		seedsFolder: path.join(options.SEEDER_SEEDS_DIR, scope),
-		assetsFolder: options.SEEDER_ASSETS_DIR,
 	}
 }

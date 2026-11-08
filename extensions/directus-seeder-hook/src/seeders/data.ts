@@ -6,9 +6,9 @@ import type { SeedItem } from '../lib/seedItem'
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 
+import { getFolderPaths } from '../lib/filesystem'
 import { createCollectionDataProvider } from '../lib/seedDataParser'
 import { seedItemsSchema } from '../lib/seedItem'
-import { getFolderPaths } from './resolveConfig'
 import { SYSTEM_COLLECTIONS_ORDER } from './system/config'
 import { createSystemDataProviders, getRequiredSystemCollections } from './system/data'
 

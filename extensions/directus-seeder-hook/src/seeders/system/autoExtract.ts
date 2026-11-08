@@ -2,9 +2,10 @@ import type { ActionHandler } from '@onderwijsin/directus-extension-utils/types'
 import type { ServiceAdapterContext } from '../../services/ServiceAdapter'
 
 import { createAutoTaskHandler } from '../../lib/autoTaskHandler'
+import { getFolderPaths } from '../../lib/filesystem'
 import { toSeedRecord } from '../../lib/seedItem'
 import { extractData, getFilteredCollections } from '../extract'
-import { getFolderPaths, getSystemCollections, resolveSeederConfig } from '../resolveConfig'
+import { getSystemCollections, resolveSeederConfig } from '../resolveConfig'
 
 /**
  * Registers debounced extraction for the effective automatic collection selection.

@@ -3,10 +3,11 @@ import type { CollectionDataProvider } from '../lib/seedDataParser'
 import type { ServiceAdapterContext } from '../services/ServiceAdapter'
 import type { SeedResult } from '../strategies/SeederStrategy'
 
+import { getFolderPaths } from '../lib/filesystem'
 import { createPerformanceTracker } from '../lib/performanceTracker'
 import { seedCollections } from '../lib/seedCollections'
 import { createSeedDataProvider } from '../lib/seedDataParser'
-import { getCollections, getFolderPaths } from './resolveConfig'
+import { getCollections } from './resolveConfig'
 import { prepareCompatibleSystemData } from './system/compatibility'
 
 /**
