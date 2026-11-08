@@ -30,7 +30,7 @@ import {
 	updateItem,
 	updateTranslation,
 } from '@workspace/test-utils/commands'
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 const baseUrl = process.env.DIRECTUS_E2E_URL
@@ -52,6 +52,7 @@ const composeArguments = [
 	'exec',
 	'-T',
 ]
+const cliExtensionsDirectory = `/tmp/seeder-cli-extensions-${randomUUID()}`
 
 /**
  * Runs the installed seeder in a fresh host CLI process with isolated output paths.
@@ -65,6 +66,10 @@ async function seed(environment: Record<string, string>, ...args: string[]) {
 			'docker',
 			[
 				...composeArguments,
+				'-e',
+				`EXTENSIONS_PATH=${cliExtensionsDirectory}`,
+				'-e',
+				'SERVE_APP=false',
 				...Object.entries(environment).flatMap(([name, value]) => [
 					'-e',
 					`${name}=${value}`,
@@ -302,6 +307,23 @@ async function withCoreCollections(run: (directory: string) => Promise<void>) {
 }
 
 describe('installed seeder CLI', () => {
+	beforeAll(async () => {
+		await inDirectus(
+			`const fs = require('node:fs');
+			const directory = process.argv[1];
+			fs.mkdirSync(directory);
+			fs.symlinkSync('/directus/extensions/directus-seeder-hook', directory + '/directus-seeder-hook', 'dir');`,
+			cliExtensionsDirectory,
+		)
+	})
+
+	afterAll(async () => {
+		await inDirectus(
+			'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+			cliExtensionsDirectory,
+		)
+	})
+
 	// Includes auxiliary startup, three debounce periods, polling, and fixture teardown.
 	it('auto-extracts real core CRUD with mixed system events and scope-isolated cleanup', async () => {
 		await withCoreCollections(async (directory) => {
@@ -1472,6 +1494,14 @@ describe('installed seeder CLI', () => {
 	})
 
 	it('honors enablement and exposes extraction help only in development', async () => {
+		// Keep command registration covered with the complete mounted extension set.
+		const fullEnvironment = await execute(
+			'docker',
+			[...composeArguments, 'directus', 'node', '/directus/cli.js', '--help'],
+			{ timeout: 60_000, maxBuffer: 2 * 1024 * 1024 },
+		)
+		expect(fullEnvironment.stdout).toMatch(/^\s+seed\s/mu)
+		expect(fullEnvironment.stdout).toMatch(/^\s+schema-split\s*$/mu)
 		const development = await seed({ DEPLOYMENT_ENV: 'development' }, '--help')
 		expect(development.stdout).toContain('system')
 		expect(development.stdout).toContain('extract')

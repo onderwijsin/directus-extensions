@@ -15,6 +15,7 @@ import { join, resolve } from 'node:path'
 /** @typedef {SpawnOptions & {streamOutput?: boolean, timeoutMs?: number, killGraceMs?: number, forceKillSettleMs?: number}} RunCommandOptions */
 const composeFiles = ['docker/compose.yaml', 'tests/compose.e2e.yaml']
 const e2eOperationTimeoutMs = 180_000
+const e2eSuiteTimeoutMs = 600_000
 const composeCommandTimeout = 900_000
 const composeProject = `directus-extensions-e2e-${process.pid}-${randomBytes(4).toString('hex')}`
 const port = process.env.DIRECTUS_E2E_PORT ?? '18055'
@@ -334,7 +335,7 @@ async function runTests(token) {
 			DIRECTUS_E2E_COMPOSE_PROJECT: composeProject,
 			DIRECTUS_E2E_MAILPIT_PORT: mailpitPort,
 		},
-		timeoutMs: e2eOperationTimeoutMs,
+		timeoutMs: e2eSuiteTimeoutMs,
 	})
 }
 
