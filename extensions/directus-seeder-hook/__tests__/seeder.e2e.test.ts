@@ -1382,6 +1382,8 @@ describe('installed seeder CLI', () => {
 							SEEDER_CONTINUE_ON_ERROR: continueOnError,
 						},
 						'system',
+						'--mode',
+						'insert-missing',
 					),
 				).rejects.toMatchObject({
 					code: 1,
