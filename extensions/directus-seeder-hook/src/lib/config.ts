@@ -1,5 +1,4 @@
-import type { SystemCollectionConfig } from '../seeders/system/config.schema'
-import type { CollectionManagement } from './collectionManagement'
+import type { CollectionConfig } from '../seeders/config.schema'
 
 /**
  * Configuration types for the Directus Seeder extension.
@@ -52,9 +51,9 @@ export type DataScope = (typeof DataScope)[keyof typeof DataScope]
  */
 export interface SeederConfig {
 	/** Effective consumer-declared application collections; no built-in defaults. */
-	coreCollections?: SystemCollectionConfig[]
+	coreCollections?: CollectionConfig[]
 	/** Effective system collection settings, including explicit CLI mode overrides. */
-	systemCollections?: SystemCollectionConfig[]
+	systemCollections?: CollectionConfig[]
 
 	/** Collections with explicit consumer fields, which bypass default-field compatibility. */
 	systemFieldOverrides?: string[]
@@ -108,16 +107,6 @@ export interface SeederConfig {
 	 * into seed files for system collections on data changes.
 	 */
 	autoExtract: boolean
-}
-
-/** Internal collection settings shared by data scopes. */
-export interface CollectionConfig {
-	/** Collection to synchronize. */
-	collection: string
-	/** Effective per-collection import mode, including any explicit CLI override. */
-	operationMode: OperationMode
-	/** Optional full-idempotent boundary, independent of extraction filters. */
-	management?: CollectionManagement
 }
 
 /**

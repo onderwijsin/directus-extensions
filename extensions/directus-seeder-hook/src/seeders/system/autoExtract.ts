@@ -2,10 +2,9 @@ import type { ActionHandler } from '@onderwijsin/directus-extension-utils/types'
 import type { ServiceAdapterContext } from '../../services/ServiceAdapter'
 
 import { createAutoTaskHandler } from '../../lib/autoTaskHandler'
-import { getFolderPaths, resolveSeederConfig } from '../../lib/resolveConfig'
 import { toSeedRecord } from '../../lib/seedItem'
-import { extractSystemData, getFilteredCollections } from './extract'
-import { getSystemCollections } from './resolveConfig'
+import { extractData, getFilteredCollections } from '../extract'
+import { getFolderPaths, getSystemCollections, resolveSeederConfig } from '../resolveConfig'
 
 /**
  * Registers debounced extraction for the effective automatic collection selection.
@@ -91,7 +90,7 @@ export const registerAutoExtractSystemHook = (
 
 			try {
 				// Extract and write seed data
-				await extractSystemData({
+				await extractData({
 					...config,
 					folders: {
 						seeds: seedsFolder,

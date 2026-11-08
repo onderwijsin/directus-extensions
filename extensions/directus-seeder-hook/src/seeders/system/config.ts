@@ -1,4 +1,4 @@
-import type { SystemCollectionConfig } from './config.schema'
+import type { CollectionConfig } from '../config.schema'
 
 /**
  * An array defining the explicit order of system Directus collections.
@@ -24,7 +24,7 @@ import type { SystemCollectionConfig } from './config.schema'
  * Filter can be defined to limit the data extracted for a collection.
  * Fields can be defined to limit the fields extracted for a collection.
  */
-export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
+export const SYSTEM_COLLECTIONS: CollectionConfig[] = [
 	{
 		collection: 'directus_policies',
 		operationMode: 'full-idempotent',
@@ -227,3 +227,6 @@ export const SYSTEM_COLLECTIONS: SystemCollectionConfig[] = [
 export const SYSTEM_COLLECTIONS_ORDER = SYSTEM_COLLECTIONS.map(
 	(collectionObj) => collectionObj.collection,
 ) satisfies string[]
+
+/** System collections that cannot be extracted as seed data. */
+export const SYSTEM_UNEXTRACTABLE_COLLECTIONS = ['directus_extensions']

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { envSchema } from '../src/env.schema'
-import { getFolderPaths, resolveSeederConfig } from '../src/lib/resolveConfig'
+import { getFolderPaths, resolveSeederConfig } from '../src/seeders/resolveConfig'
 import { SYSTEM_COLLECTIONS } from '../src/seeders/system/config'
 
 describe('Seeder startup configuration', () => {

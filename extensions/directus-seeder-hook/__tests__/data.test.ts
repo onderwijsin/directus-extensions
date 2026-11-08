@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { envSchema } from '../src/env.schema'
 import { createCollectionDataProvider, createSeedDataProvider } from '../src/lib/seedDataParser'
-import { getDataProviders, handlePolicyTFA, isSuperUser } from '../src/seeders/system/data'
+import { getDataProviders } from '../src/seeders/data'
+import { handlePolicyTFA, isSuperUser } from '../src/seeders/system/data'
 
 let directory = ''
 

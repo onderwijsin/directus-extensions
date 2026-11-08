@@ -9,8 +9,8 @@ import path from 'node:path'
 
 import { z } from 'zod'
 
-import { getFolderPaths } from '../lib/resolveConfig'
 import { toSeedRecord } from '../lib/seedItem'
+import { getFolderPaths } from '../seeders/resolveConfig'
 import { createServiceAdapter } from './ServiceAdapter'
 
 /** Validate the fields consumed by the file-upload boundary without stripping metadata. */

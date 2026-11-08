@@ -6,11 +6,10 @@ import process from 'node:process'
 import { z } from 'zod'
 
 import { envSchema } from '../env.schema'
-import { resolveSeederConfig } from '../lib/resolveConfig'
-import { getCollections } from '../seeders/system/resolveConfig'
+import { getCollections, resolveSeederConfig } from '../seeders/resolveConfig'
 
 /**
- * Registers read-only inspection of validated system settings, independent of seed input.
+ * Registers read-only inspection of validated collection settings, independent of seed input.
  * @param parentCommand - Seeder command namespace.
  * @param context - Validated Directus runtime options.
  * @returns Nothing.

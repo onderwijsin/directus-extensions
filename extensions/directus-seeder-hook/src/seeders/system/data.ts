@@ -1,19 +1,15 @@
 import type { SeederOptions } from '../../env.schema'
-import type { DataScope } from '../../lib/config'
 import type { CollectionDataProvider } from '../../lib/seedDataParser'
 import type { SeedItem } from '../../lib/seedItem'
-
-import { readFile, stat } from 'node:fs/promises'
+import type { CollectionData } from '../data'
 
 import { z } from 'zod'
 
-const seedStringSchema = z.coerce.string()
-import path from 'node:path'
-
-import { getFolderPaths } from '../../lib/resolveConfig'
 import { createCollectionDataProvider } from '../../lib/seedDataParser'
-import { seedItemsSchema, toSeedRecord, getStringField } from '../../lib/seedItem'
+import { toSeedRecord, getStringField } from '../../lib/seedItem'
 import { SYSTEM_COLLECTIONS_ORDER } from './config'
+
+const seedStringSchema = z.coerce.string()
 
 /**
  * System Directus Collections Data Management (simplified)
@@ -46,17 +42,6 @@ type EnvironmentConfig = Pick<
 	SeederOptions,
 	'DEFAULT_EMAIL' | 'DEFAULT_PASSWORD' | 'DEPLOYMENT_ENV'
 >
-
-/**
- * Interface representing a collection's data structure.
- * Combines collection metadata with its parsed data array.
- */
-interface SystemCollectionData {
-	/** The collection identifier from SYSTEM_COLLECTIONS_ORDER */
-	collection: SystemCollectionKey
-	/** Array of parsed items for this collection */
-	data: SeedItem[]
-}
 
 /**
  * Collections that should be excluded from system seeding.
@@ -96,97 +81,6 @@ const isExcludedCollection = (collection: SystemCollectionKey): boolean =>
  */
 const isSpecialCollection = (collection: SystemCollectionKey): boolean =>
 	specialSystemCollections.includes(collection)
-
-/**
- * Validates that parsed JSON data is an array as expected for collection data.
- * Collection seed files should always contain arrays of items.
- *
- * @param data - Unknown data from JSON parsing
- * @returns Type predicate confirming data is a valid collection array
- */
-const validateCollectionData = (data: unknown): data is SeedItem[] =>
-	seedItemsSchema.safeParse(data).success
-
-/**
- * Parses and validates JSON content for a specific collection.
- * Rejects invalid input without substituting an empty dataset.
- *
- * @param collection - Collection name for type inference and error reporting
- * @param fileContent - Raw JSON string content from file
- * @returns The original array, preserving every row unchanged
- * @throws If JSON syntax or the array boundary is invalid
- */
-const parseCollectionData = (collection: SystemCollectionKey, fileContent: string): SeedItem[] => {
-	const parsedData: unknown = JSON.parse(fileContent)
-	if (!validateCollectionData(parsedData)) {
-		throw new Error(`Expected a JSON array for collection "${collection}"`)
-	}
-	return parsedData
-}
-
-/**
- * Loads required system collection input from the seeds folder.
- * Preflights required JSON files in SYSTEM_COLLECTIONS_ORDER before any database operations.
- * Only ENOENT omits a collection; an explicit empty array remains seed data.
- * Reads of unused files only detect their presence; their content and errors are ignored.
- *
- * @param seedsFolder - Path to the folder containing collection JSON files
- * @param requiredCollections - Selected collections and any required Flow metadata
- * @param collectionsOrder - Available collections in the selected scope's processing order
- * @returns Required collection data, or null when no supported files exist
- * @throws If the seed directory is missing or invalid, or required input cannot be read, parsed, or validated
- */
-const getSystemCollectionData = async (
-	seedsFolder: string,
-	requiredCollections: string[],
-	collectionsOrder = SYSTEM_COLLECTIONS_ORDER,
-): Promise<SystemCollectionData[] | null> => {
-	try {
-		const directory = await stat(seedsFolder)
-		if (!directory.isDirectory()) {
-			throw new Error(`Seed path is not a directory: "${seedsFolder}"`)
-		}
-	} catch (error) {
-		if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-			throw new Error(`Seed directory does not exist: "${seedsFolder}"`, { cause: error })
-		}
-		const message = error instanceof Error ? error.message : 'Unknown directory error'
-		throw new Error(`Failed to inspect seed directory "${seedsFolder}": ${message}`, {
-			cause: error,
-		})
-	}
-
-	const results: SystemCollectionData[] = []
-	let hasSupportedSeedFiles = false
-
-	// Process each collection in the defined order
-	for (const collection of collectionsOrder) {
-		// Construct the collection path inside the resolved system directory.
-		const dataFilePath = path.join(seedsFolder, `${collection}.json`)
-		const required = requiredCollections.includes(collection)
-		try {
-			// Read and parse collection data file
-			const fileContent = await readFile(dataFilePath, 'utf-8')
-			hasSupportedSeedFiles = true
-			if (!required) continue
-			const data = parseCollectionData(collection, fileContent)
-			results.push({ collection, data })
-		} catch (error) {
-			if (error instanceof Error && 'code' in error && error.code === 'ENOENT') continue
-			if (!required) {
-				hasSupportedSeedFiles = true
-				continue
-			}
-			const errorMessage = error instanceof Error ? error.message : 'Unknown file error'
-			throw new Error(
-				`Failed to load seed file "${dataFilePath}" for collection "${collection}": ${errorMessage}`,
-				{ cause: error },
-			)
-		}
-	}
-
-	return hasSupportedSeedFiles ? results : null
-}
 
 /**
  * Builds a dependency graph for operations based on resolve/reject references.
@@ -454,7 +348,7 @@ export const handlePolicyTFA = (
  * @returns Typed array of items for the specified collection, empty if not found
  */
 const findCollectionData = (
-	systemCollectionData: SystemCollectionData[],
+	systemCollectionData: CollectionData[],
 	collectionName: SystemCollectionKey,
 ): SeedItem[] => {
 	// Find the collection in the loaded data
@@ -478,7 +372,7 @@ const findCollectionData = (
  * @returns CollectionDataProvider for policies
  */
 const createPolicyDataProvider = (
-	systemCollectionData: SystemCollectionData[],
+	systemCollectionData: CollectionData[],
 	env: EnvironmentConfig,
 ): CollectionDataProvider => {
 	const policyData = findCollectionData(systemCollectionData, 'directus_policies')
@@ -496,7 +390,7 @@ const createPolicyDataProvider = (
  * @returns CollectionDataProvider for users with minimal processing
  */
 const createUserDataProvider = (
-	systemCollectionData: SystemCollectionData[],
+	systemCollectionData: CollectionData[],
 	env: EnvironmentConfig,
 ): CollectionDataProvider => {
 	// Get users data from loaded collections
@@ -537,7 +431,7 @@ const shouldFilterFlowForEnvironment = (flowName: unknown, env: EnvironmentConfi
  * @returns Array of data providers for special collections
  */
 const createSpecialDataProviders = (
-	systemCollectionData: SystemCollectionData[],
+	systemCollectionData: CollectionData[],
 	env: EnvironmentConfig,
 ): CollectionDataProvider[] => {
 	const specialProviders: CollectionDataProvider[] = []
@@ -642,7 +536,7 @@ const createSpecialDataProviders = (
  * @returns Array of data providers for base collections
  */
 const createBaseDataProviders = (
-	systemCollectionData: SystemCollectionData[],
+	systemCollectionData: CollectionData[],
 ): CollectionDataProvider[] => {
 	return (
 		systemCollectionData
@@ -678,76 +572,92 @@ const sortDataProviders = (dataProviders: CollectionDataProvider[]): CollectionD
 }
 
 /**
- * Get data providers for system collections.
- *
- * This is the main entry point for loading and processing system Directus collections.
- * It fetches extracted seed data from the seeds folder for each system collection
- * and maps each collection to a data provider function that returns the processed data.
- *
- * The function handles two types of collections:
- * 1. Special collections: Require custom processing for nested relationships
- * 2. Base collections: Can be seeded directly with minimal processing
- *
- * Special collections currently include operations (two-pass import),
- * policies (environment-based TFA enforcement), and users (environment-based
- * superuser configuration).
- *
- * @param env - Environment variables for configuration (admin defaults, deployment type)
- * @param selectedCollections - Collection names selected by the resolved include/exclude settings
- * @param scope - Selected data scope; only system receives built-in transformations.
- * @returns Selected providers in dependency order, or null when no supported files exist
- * @throws Error if data provider creation fails
+ * Adds Flow metadata needed to filter development-only operations outside development.
+ * @param selectedCollections - Selected system collection names.
+ * @param env - Environment configuration controlling Flow filtering.
+ * @returns Selected collections plus any required Flow metadata.
  */
-export const getDataProviders = async (
-	env: SeederOptions,
-	selectedCollections: string[] = SYSTEM_COLLECTIONS_ORDER,
-	scope: DataScope = 'system',
-): Promise<CollectionDataProvider[] | null> => {
-	try {
-		// Get seeds folder path from environment configuration
-		const { seedsFolder } = getFolderPaths(env, scope)
-		if (scope === 'core') {
-			const data = await getSystemCollectionData(
-				seedsFolder,
-				selectedCollections,
-				selectedCollections,
-			)
-			return (
-				data?.map(({ collection, data: rows }) =>
-					createCollectionDataProvider(collection, () => rows),
-				) ?? null
-			)
+export const getRequiredSystemCollections = (
+	selectedCollections: string[],
+	env: Pick<SeederOptions, 'DEPLOYMENT_ENV'>,
+): string[] =>
+	selectedCollections.includes('directus_operations') && env.DEPLOYMENT_ENV !== 'development'
+		? [...selectedCollections, 'directus_flows']
+		: selectedCollections
+
+/**
+ * Creates selected system providers with the existing transformations and dependency order.
+ * @param systemCollectionData - Loaded system input and required Flow metadata.
+ * @param env - Environment configuration for system transformations.
+ * @param selectedCollections - Collections whose providers should be returned.
+ * @returns Selected system providers in their built-in dependency order.
+ */
+export const createSystemDataProviders = (
+	systemCollectionData: CollectionData[],
+	env: EnvironmentConfig,
+	selectedCollections: string[],
+): CollectionDataProvider[] => {
+	// Create data providers for special collections (complex processing)
+	const specialDataProviders = createSpecialDataProviders(systemCollectionData, env)
+
+	// Create data providers for base collections (simple processing)
+	const baseDataProviders = createBaseDataProviders(systemCollectionData)
+
+	// Combine all data providers
+	const allDataProviders = [...specialDataProviders, ...baseDataProviders]
+
+	// Sort by dependency order and return
+	return sortDataProviders(
+		allDataProviders.filter((provider) =>
+			selectedCollections.includes(provider.collectionName),
+		),
+	)
+}
+
+/**
+ * Removes values that must not be persisted in extracted seed files.
+ *
+ * @param collectionName - The name of the collection being extracted
+ * @param data - The collection data returned by Directus
+ * @returns The data prepared for serialization
+ */
+const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem[] => {
+	const omitFields: Record<string, string[]> = {
+		directus_settings: ['license_key', 'license_token'],
+	}
+
+	if (!omitFields[collectionName]) {
+		return data
+	}
+
+	return data.map((item) => {
+		const filteredItem = { ...toSeedRecord(item) }
+
+		for (const field of omitFields[collectionName] ?? []) {
+			delete filteredItem[field]
 		}
 
-		// Operations need Flow names and IDs for [dev] filtering outside exact development.
-		const requiredCollections =
-			selectedCollections.includes('directus_operations') &&
-			env.DEPLOYMENT_ENV !== 'development'
-				? [...selectedCollections, 'directus_flows']
-				: selectedCollections
-		const systemCollectionData = await getSystemCollectionData(seedsFolder, requiredCollections)
-		if (systemCollectionData === null) return null
+		return filteredItem
+	})
+}
 
-		// Create data providers for special collections (complex processing)
-		const specialDataProviders = createSpecialDataProviders(systemCollectionData, env)
-
-		// Create data providers for base collections (simple processing)
-		const baseDataProviders = createBaseDataProviders(systemCollectionData)
-
-		// Combine all data providers
-		const allDataProviders = [...specialDataProviders, ...baseDataProviders]
-
-		// Sort by dependency order and return
-		return sortDataProviders(
-			allDataProviders.filter((provider) =>
-				selectedCollections.includes(provider.collectionName),
-			),
-		)
-	} catch (error) {
-		// Handle any errors in the data provider creation process
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-		// @todo: replace console.* with logger.*
-		console.error(`Failed to create data providers: ${errorMessage}`)
-		throw new Error(`Data provider creation failed: ${errorMessage}`)
+/**
+ * Prepares system rows for extraction, omitting license values before sorting operations.
+ * @param collectionName - System collection being extracted.
+ * @param data - Validated rows returned by Directus.
+ * @returns Rows prepared for serialization with the existing system transformations.
+ */
+export const prepareSystemExtractionData = (
+	collectionName: string,
+	data: SeedItem[],
+): SeedItem[] => {
+	const filteredData = filterExtractedData(collectionName, data)
+	if (
+		collectionName === 'directus_operations' &&
+		Array.isArray(filteredData) &&
+		filteredData.length > 0
+	) {
+		return sortOperationsForKeyConstraints(filteredData)
 	}
+	return filteredData
 }

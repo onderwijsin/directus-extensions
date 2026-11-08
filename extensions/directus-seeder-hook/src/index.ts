@@ -11,7 +11,7 @@ import {
 
 import { registerConfigCommand } from './commands/configCommand'
 import { registerExtractCommand } from './commands/extractCommand'
-import { registerSystemCommand } from './commands/systemCommand'
+import { registerSeedCommand } from './commands/seedCommand'
 import { envSchema } from './env.schema'
 import { DataScope } from './lib/config'
 import { registerAutoExtractSystemHook } from './seeders/system/autoExtract'
@@ -45,8 +45,8 @@ export const registerSeeder: HookConfig = (register, context) => {
 		const command = program
 			.command('seed')
 			.description('Directus Seeder commands for system and application data')
-		registerSystemCommand(command, seederContext)
-		registerSystemCommand(command, seederContext, DataScope.CORE)
+		registerSeedCommand(command, seederContext)
+		registerSeedCommand(command, seederContext, DataScope.CORE)
 		registerConfigCommand(command, seederContext)
 		if (extractionAvailable) registerExtractCommand(command, seederContext)
 	})

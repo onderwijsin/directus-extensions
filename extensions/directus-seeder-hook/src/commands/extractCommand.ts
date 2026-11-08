@@ -7,8 +7,8 @@ import { Option } from 'commander'
 import { z } from 'zod'
 
 import { acquireLock } from '../lib/processLock'
-import { getFolderPaths, resolveSeederConfig } from '../lib/resolveConfig'
-import { extractSystemData } from '../seeders/system/extract'
+import { extractData } from '../seeders/extract'
+import { getFolderPaths, resolveSeederConfig } from '../seeders/resolveConfig'
 
 /**
  * Registers the extract command for extracting seed data from the current Directus instance.
@@ -78,7 +78,7 @@ export const registerExtractCommand = (
 						: [options.scope]
 				for (const scope of scopes) {
 					const { seedsFolder, assetsFolder } = getFolderPaths(env, scope)
-					await extractSystemData({
+					await extractData({
 						...config,
 						dataScope: scope,
 						folders: { seeds: seedsFolder, assets: assetsFolder },

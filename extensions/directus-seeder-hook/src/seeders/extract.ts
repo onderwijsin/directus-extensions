@@ -1,26 +1,23 @@
 import type { HookExtensionContext, SchemaOverview } from '@directus/types'
-import type { SeederConfig } from '../../lib/config'
-import type { SeedItem } from '../../lib/seedItem'
-import type { SystemCollectionConfig } from './config.schema'
+import type { SeederConfig } from '../lib/config'
+import type { CollectionConfig } from './config.schema'
 
 import path from 'node:path'
 
-import { z } from 'zod'
-
-import { getIdRangeFilters } from '../../lib/collectionManagement'
-import { outputFile, prepareExtractionDirectories } from '../../lib/filesystem'
-import { updateManagedIds } from '../../lib/manifestManagement'
-import { createPerformanceTracker } from '../../lib/performanceTracker'
-import { getCollectionPrimaryKey, validateCollectionSeedKeys } from '../../lib/primaryKey'
-import { seedItemsSchema, toSeedRecord } from '../../lib/seedItem'
-import { getCompatibleExtractionFields } from './compatibility'
-import { SYSTEM_COLLECTIONS_ORDER } from './config'
-import { sortOperationsForKeyConstraints } from './data'
+import { getIdRangeFilters } from '../lib/collectionManagement'
+import { outputFile, prepareExtractionDirectories } from '../lib/filesystem'
+import { updateManagedIds } from '../lib/manifestManagement'
+import { createPerformanceTracker } from '../lib/performanceTracker'
+import { getCollectionPrimaryKey, validateCollectionSeedKeys } from '../lib/primaryKey'
+import { seedItemsSchema } from '../lib/seedItem'
 import { getCollections } from './resolveConfig'
+import { extractAssets } from './system/assets'
+import { getCompatibleExtractionFields } from './system/compatibility'
+import { SYSTEM_COLLECTIONS_ORDER, SYSTEM_UNEXTRACTABLE_COLLECTIONS } from './system/config'
+import { prepareSystemExtractionData } from './system/data'
 
 // Constants
 
-const UNEXTRACTABLE_COLLECTIONS = ['directus_extensions']
 const LOG_DIVIDER = '-'.repeat(60)
 
 // Types and Interfaces
@@ -32,23 +29,6 @@ interface ExtractOptions extends SeederConfig {
 	}
 	context: HookExtensionContext
 }
-
-interface ExtractionResults {
-	success: string[]
-	failed: string[]
-}
-
-/** Validate asset-service fields at their point of use while retaining other file metadata. */
-const fileDataSchema = z.looseObject({
-	id: z.string(),
-	filename_disk: z
-		.string()
-		.min(1)
-		.refine((filename) => filename !== '.' && filename !== '..' && !/[\\/\0]/u.test(filename), {
-			error: 'Asset filename_disk must be a single filename inside the assets directory',
-		}),
-})
-type FileData = z.infer<typeof fileDataSchema>
 
 // Utility Functions
 
@@ -87,7 +67,7 @@ export const getFilteredCollections = (
 	collectionsOrder = SYSTEM_COLLECTIONS_ORDER,
 ): string[] => {
 	let collectionsToExtract = [...collectionsOrder].filter(
-		(collection) => !UNEXTRACTABLE_COLLECTIONS.includes(collection),
+		(collection) => !SYSTEM_UNEXTRACTABLE_COLLECTIONS.includes(collection),
 	)
 
 	if (includeCollections && includeCollections.length > 0) {
@@ -134,9 +114,9 @@ const logDivider = (logger: HookExtensionContext['logger']): void => {
  * @returns Directus extraction filter.
  */
 const getExtractionFilter = (
-	collection: SystemCollectionConfig,
+	collection: CollectionConfig,
 	primaryKey = 'id',
-): SystemCollectionConfig['filter'] => {
+): CollectionConfig['filter'] => {
 	const { filter, management } = collection
 	if (management?.type !== 'id-range') return filter
 	return { _and: [...(filter ? [filter] : []), ...getIdRangeFilters(management, primaryKey)] }
@@ -148,10 +128,7 @@ const getExtractionFilter = (
  * @param schema - Live schema supplied by Directus.
  * @returns The usable primary-key field name.
  */
-function validateCoreExtraction(
-	collection: SystemCollectionConfig,
-	schema: SchemaOverview,
-): string {
+function validateCoreExtraction(collection: CollectionConfig, schema: SchemaOverview): string {
 	const primary = getCollectionPrimaryKey(collection.collection, schema)
 	const fields = collection.fields ?? ['*']
 	if (!fields.includes('*') && !fields.includes(primary))
@@ -171,33 +148,6 @@ function validateCoreExtraction(
 }
 
 /**
- * Removes values that must not be persisted in extracted seed files.
- *
- * @param collectionName - The name of the collection being extracted
- * @param data - The collection data returned by Directus
- * @returns The data prepared for serialization
- */
-const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem[] => {
-	const omitFields: Record<string, string[]> = {
-		directus_settings: ['license_key', 'license_token'],
-	}
-
-	if (!omitFields[collectionName]) {
-		return data
-	}
-
-	return data.map((item) => {
-		const filteredItem = { ...toSeedRecord(item) }
-
-		for (const field of omitFields[collectionName] ?? []) {
-			delete filteredItem[field]
-		}
-
-		return filteredItem
-	})
-}
-
-/**
  * Extracts data from a single collection and writes it to a JSON file.
  *
  * @param collection - Effective settings of the collection to extract
@@ -209,7 +159,7 @@ const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem
  * @returns Promise<boolean> - True if extraction was successful, false otherwise
  */
 const extractSingleCollection = async (
-	collection: SystemCollectionConfig,
+	collection: CollectionConfig,
 	seedsFolder: string,
 	context: HookExtensionContext,
 	jsonIndent: SeederConfig['jsonIndent'],
@@ -241,22 +191,8 @@ const extractSingleCollection = async (
 			deep: collection.deep ?? null,
 		}
 		let data = seedItemsSchema.parse(await service.readByQuery(query))
-		if (scope === 'system') data = filterExtractedData(collectionName, data)
+		if (scope === 'system') data = prepareSystemExtractionData(collectionName, data)
 		else validateCollectionSeedKeys(collectionName, data, schema)
-
-		// For operations, ensure exported JSON lists dependencies before dependents
-		// by sorting operations topologically based on resolve/reject references.
-		// This produces cleaner JSON and enables single-pass import in most cases.
-		// Circular dependencies are handled gracefully (a warning is logged and the order remains
-		// stable).
-		if (
-			scope === 'system' &&
-			collectionName === 'directus_operations' &&
-			Array.isArray(data) &&
-			data.length > 0
-		) {
-			data = sortOperationsForKeyConstraints(data)
-		}
 
 		const absoluteFilePath = generateSeedFilePath(seedsFolder, collectionName)
 		await outputFile(absoluteFilePath, `${JSON.stringify(data, null, jsonIndent)}\n`)
@@ -276,71 +212,11 @@ const extractSingleCollection = async (
 	}
 }
 
-/**
- * Converts a readable stream to a Buffer.
- *
- * @param stream - The readable stream to convert
- * @returns Promise<Buffer> - The stream content as a Buffer
- */
-const streamToBuffer = async (stream: NodeJS.ReadableStream): Promise<Buffer> => {
-	return new Promise<Buffer>((resolve, reject) => {
-		const chunks: Buffer[] = []
-
-		stream.on('data', (chunk: Buffer) => chunks.push(chunk))
-		stream.on('end', () => resolve(Buffer.concat(chunks)))
-		stream.on('error', (error: Error) => reject(error))
-	})
-}
-
-/**
- * Extracts a single asset file and saves it to the assets folder.
- *
- * @param file - The file data from directus_files
- * @param assetsFolder - The folder to save assets to
- * @param context - Directus hook extension context
- * @returns Promise<boolean> - True if extraction was successful, false otherwise
- */
-const extractSingleAsset = async (
-	file: FileData,
-	assetsFolder: string,
-	context: HookExtensionContext,
-): Promise<boolean> => {
-	const { logger, services, getSchema, database: knex } = context
-	const schema = await getSchema()
-
-	const assetsService = new services.AssetsService({
-		schema,
-		knex,
-	})
-
-	const destinationPath = path.join(assetsFolder, file.filename_disk)
-	logger.trace(`📥 Downloading file: ${file.filename_disk}`)
-
-	try {
-		// Fetch the file stream from Directus
-		const { stream } = await assetsService.getAsset(file.id)
-
-		// Convert stream to buffer
-		const fileBuffer = await streamToBuffer(stream)
-
-		// Write the file buffer to the destination path
-		await outputFile(destinationPath, fileBuffer)
-
-		logger.trace(`✅ Downloaded file: ${file.filename_disk}`)
-		return true
-	} catch (error) {
-		const message = error instanceof Error ? error.message : 'Unknown error'
-		logger.error(`❌ Failed to download file ${file.filename_disk}: ${message}`)
-		logger.error(error)
-		return false
-	}
-}
-
 // Main Functions
 
 /**
- * Loops through system collections in order, extracts their data, and writes to JSON files in the
- * specified seeds folder. Some collections are skipped to avoid issues with system collections.
+ * Loops through selected collections in order and writes their data to JSON files in the
+ * specified seeds folder. System collections retain their built-in extraction handling.
  * Extracted collections can be filtered using include/exclude options.
  *
  * @param options - Configuration options for extraction
@@ -419,101 +295,12 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 }
 
 /**
- * Extracts all files from the directus_files collection and saves them to the specified asset
- * folder. Output directories are prepared by the shared extraction flow.
- *
- * @param options - Configuration options for extraction
- * @param options.folders - Folder configuration containing assets path
- * @param options.context - Directus hook extension context containing services and utilities
- *
- * @returns Resolves after asset extraction completes.
- * @throws Error if required options are missing or services are unavailable
- */
-export const extractAssets = async (options: ExtractOptions): Promise<void> => {
-	const { logger, getSchema, services, database: knex } = options.context
-	logDivider(logger)
-	logger.info('📁 Extracting asset files...')
-
-	validateExtractOptions(options)
-
-	const performanceTracker = createPerformanceTracker()
-
-	try {
-		await performanceTracker.track('Asset extraction', async () => {
-			const schema = await getSchema()
-
-			const filesService = new services.FilesService({
-				schema,
-				knex,
-			})
-
-			logger.trace('📋 Fetching directus_files data')
-
-			const fileData = seedItemsSchema.parse(
-				await filesService.readByQuery({
-					limit: -1,
-					fields: ['*'],
-				}),
-			)
-
-			if (fileData.length === 0) {
-				logger.info('📋 No files found in directus_files collection')
-				return
-			}
-
-			logger.info(
-				`📋 Found ${fileData.length} files in directus_files, starting asset extraction...`,
-			)
-
-			const results: ExtractionResults = {
-				success: [],
-				failed: [],
-			}
-
-			for (const item of fileData) {
-				const file = fileDataSchema.parse(item)
-				const success = await extractSingleAsset(
-					file,
-					options.folders.assets,
-					options.context,
-				)
-
-				if (success) {
-					results.success.push(file.filename_disk)
-				} else {
-					results.failed.push(file.filename_disk)
-				}
-			}
-
-			logger.info(
-				`📋 Asset extraction complete: ${results.success.length} succeeded, ${results.failed.length} failed`,
-			)
-
-			if (results.failed.length > 0) {
-				logger.warn('⚠️  Failed files:')
-				results.failed.forEach((filename) => logger.warn(` - ${filename}`))
-				throw new Error(`Failed to extract ${results.failed.length} asset(s)`)
-			}
-		})
-	} catch (error) {
-		const message = error instanceof Error ? error.message : 'Unknown error'
-		logger.error(`❌ Failed to extract assets: ${message}`)
-		logger.error(error)
-		throw error
-	}
-
-	// Log performance data
-	performanceTracker.outputFormatPerformanceData(logger)
-	logDivider(logger)
-}
-
-/**
  * Cleans managed output first, then exports selected JSON and optionally all binary assets.
  * Failures propagate to the CLI or automatic-task logger; partial output can be rerun.
  * @param options - Validated runtime configuration and output locations.
  * @returns Resolves only after every requested export succeeds.
  */
-export async function extractSystemData(options: ExtractOptions): Promise<void> {
+export async function extractData(options: ExtractOptions): Promise<void> {
 	validateExtractOptions(options)
 	const collections = getCollections(options)
 	if (options.dataScope === 'core') {
@@ -552,5 +339,5 @@ export async function extractSystemData(options: ExtractOptions): Promise<void> 
 	}
 	const prepared = { ...options, folders }
 	await extractSeedsFromCollections(prepared)
-	if (!jsonOnly) await extractAssets(prepared)
+	if (!jsonOnly) await extractAssets(prepared.context, prepared.folders.assets)
 }

@@ -1,19 +1,19 @@
-import type { SeederConfig } from '../../lib/config'
-import type { SystemCollectionConfig } from './config.schema'
+import type { SeederOptions } from '../env.schema'
+import type { DataScope, OperationMode, SeederConfig } from '../lib/config'
+import type { CollectionConfig } from './config.schema'
 
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { z } from 'zod'
 
-import { SYSTEM_COLLECTIONS } from './config'
 import {
-	collectionOverridesSchema,
 	coreCollectionNameSchema,
 	coreCollectionOverridesSchema,
 	coreCollectionSchema,
-	systemCollectionSchema,
 } from './config.schema'
+import { SYSTEM_COLLECTIONS } from './system/config'
+import { systemCollectionOverridesSchema, systemCollectionSchema } from './system/config.schema'
 
 const collectionNameSchema = z.enum(SYSTEM_COLLECTIONS.map(({ collection }) => collection))
 
@@ -60,7 +60,7 @@ export const consumerConfigSchema = z.strictObject({
 	system: z
 		.strictObject({
 			collections: z
-				.partialRecord(collectionNameSchema, collectionOverridesSchema)
+				.partialRecord(collectionNameSchema, systemCollectionOverridesSchema)
 				.optional(),
 			order: z
 				.array(collectionNameSchema)
@@ -83,8 +83,8 @@ export const consumerConfigSchema = z.strictObject({
  * @returns Ordered, validated settings; omitted order entries retain their default order.
  * @throws Error with a configuration path when a setting is invalid.
  */
-export function resolveSystemConfig(input: unknown = {}): SystemCollectionConfig[] {
-	return resolveSystemConfigWithOverrides(input).systemCollections
+export function resolveSystemConfig(input: unknown = {}): CollectionConfig[] {
+	return resolveConsumerConfig(input).systemCollections
 }
 
 /**
@@ -92,7 +92,7 @@ export function resolveSystemConfig(input: unknown = {}): SystemCollectionConfig
  * @param input - Parsed JSON consumer configuration.
  * @returns Ordered, validated settings and collections with explicit consumer field selections.
  */
-function resolveSystemConfigWithOverrides(input: unknown) {
+function resolveConsumerConfig(input: unknown) {
 	const parsed = consumerConfigSchema.safeParse(input)
 	if (!parsed.success) throw new Error(`Invalid Seeder configuration: ${parsed.error.message}`)
 	const system = parsed.data.system
@@ -141,16 +141,16 @@ function resolveSystemConfigWithOverrides(input: unknown) {
  * @returns Effective collections and the provenance of explicit consumer field selections.
  * @throws Error for missing, unreadable, malformed or invalid explicitly configured files.
  */
-export function loadSystemConfig(configPath?: string): {
-	coreCollections: SystemCollectionConfig[]
-	systemCollections: SystemCollectionConfig[]
+export function loadConsumerConfig(configPath?: string): {
+	coreCollections: CollectionConfig[]
+	systemCollections: CollectionConfig[]
 	systemFieldOverrides: string[]
 } {
-	if (configPath === undefined) return resolveSystemConfigWithOverrides({})
+	if (configPath === undefined) return resolveConsumerConfig({})
 	const filename = path.resolve(configPath)
 	try {
 		const input: unknown = JSON.parse(readFileSync(filename, 'utf8'))
-		return resolveSystemConfigWithOverrides(input)
+		return resolveConsumerConfig(input)
 	} catch (error) {
 		throw new Error(
 			`Failed to load Seeder configuration "${filename}": ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -166,7 +166,7 @@ export function loadSystemConfig(configPath?: string): {
  */
 export function getSystemCollections(
 	config: Pick<SeederConfig, 'systemCollections'>,
-): SystemCollectionConfig[] {
+): CollectionConfig[] {
 	const parsed = z
 		.array(systemCollectionSchema)
 		.safeParse(config.systemCollections ?? SYSTEM_COLLECTIONS)
@@ -182,10 +182,67 @@ export function getSystemCollections(
  */
 export function getCollections(
 	config: Pick<SeederConfig, 'dataScope' | 'systemCollections' | 'coreCollections'>,
-): SystemCollectionConfig[] {
+): CollectionConfig[] {
 	if (config.dataScope === 'system') return getSystemCollections(config)
 	const parsed = z.array(coreCollectionSchema).safeParse(config.coreCollections ?? [])
 	if (!parsed.success)
 		throw new Error(`Invalid effective Seeder core configuration: ${parsed.error.message}`)
 	return parsed.data
+}
+
+/**
+ * Map validated startup options and apply explicit CLI overrides.
+ * @param options - Validated, normalized startup configuration.
+ * @param overrides - Explicit CLI values; absent values retain the environment configuration.
+ * @returns Runtime configuration with validated JSON collection settings and explicit CLI overrides.
+ */
+export function resolveSeederConfig(
+	options: SeederOptions,
+	overrides: Partial<
+		Omit<
+			SeederConfig,
+			'jsonIndent' | 'systemCollections' | 'coreCollections' | 'systemFieldOverrides'
+		>
+	> & { operationMode?: OperationMode } = {},
+): SeederConfig {
+	const consumer = loadConsumerConfig(options.SEEDER_CONFIG_PATH)
+	return {
+		coreCollections: consumer.coreCollections.map((collection) => ({
+			...collection,
+			...(overrides.operationMode === undefined
+				? {}
+				: { operationMode: overrides.operationMode }),
+		})),
+		systemFieldOverrides: consumer.systemFieldOverrides,
+		systemCollections: consumer.systemCollections.map((collection) => ({
+			...collection,
+			...(overrides.operationMode === undefined
+				? {}
+				: { operationMode: overrides.operationMode }),
+		})),
+		dataScope: overrides.dataScope ?? options.SEEDER_SCOPE,
+		includeCollections: overrides.includeCollections ?? options.SEEDER_INCLUDE,
+		excludeCollections: overrides.excludeCollections ?? options.SEEDER_EXCLUDE,
+		continueOnError: overrides.continueOnError ?? options.SEEDER_CONTINUE_ON_ERROR,
+		batchSize: overrides.batchSize ?? options.SEEDER_BATCH_SIZE,
+		enableFullIdempotent:
+			overrides.enableFullIdempotent ?? options.SEEDER_ENABLE_FULL_IDEMPOTENT,
+		skipClean: overrides.skipClean ?? false,
+		jsonOnly: overrides.jsonOnly ?? options.SEEDER_JSON_ONLY,
+		autoExtract: overrides.autoExtract ?? options.SEEDER_AUTO_EXTRACT,
+		jsonIndent: options.SEEDER_JSON_INDENT === 'tab' ? '\t' : options.SEEDER_JSON_INDENT_SIZE,
+	}
+}
+
+/**
+ * Derives scope output from the seed root and preserves the independent asset path.
+ * @param options - Validated startup options.
+ * @param scope - Selected scope; existing callers retain system output.
+ * @returns Scoped seed and independent asset paths.
+ */
+export function getFolderPaths(options: SeederOptions, scope: DataScope = 'system') {
+	return {
+		seedsFolder: path.join(options.SEEDER_SEEDS_DIR, scope),
+		assetsFolder: options.SEEDER_ASSETS_DIR,
+	}
 }

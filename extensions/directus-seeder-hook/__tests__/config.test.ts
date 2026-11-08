@@ -8,13 +8,13 @@ import { z } from 'zod'
 
 import { envSchema } from '../src/env.schema'
 import { collectionManagementSchema } from '../src/lib/collectionManagement'
-import { resolveSeederConfig } from '../src/lib/resolveConfig'
-import { SYSTEM_COLLECTIONS } from '../src/seeders/system/config'
+import { resolveSeederConfig } from '../src/seeders/resolveConfig'
 import {
 	consumerConfigSchema,
-	loadSystemConfig,
+	loadConsumerConfig,
 	resolveSystemConfig,
-} from '../src/seeders/system/resolveConfig'
+} from '../src/seeders/resolveConfig'
+import { SYSTEM_COLLECTIONS } from '../src/seeders/system/config'
 
 let directory = ''
 beforeEach(async () => {
@@ -26,13 +26,13 @@ afterEach(async () => {
 
 describe('system JSON consumer configuration', () => {
 	it('retains defaults, merges independent properties and appends collections omitted from order', () => {
-		expect(loadSystemConfig()).toEqual({
+		expect(loadConsumerConfig()).toEqual({
 			coreCollections: [],
 			systemCollections: SYSTEM_COLLECTIONS,
 			systemFieldOverrides: [],
 		})
 		expect(
-			loadSystemConfig().systemCollections.map(
+			loadConsumerConfig().systemCollections.map(
 				({ collection, operationMode, management }) => [
 					collection,
 					operationMode,
@@ -126,7 +126,7 @@ describe('system JSON consumer configuration', () => {
 		}
 		const filename = path.join(directory, 'core.json')
 		await writeFile(filename, JSON.stringify({ core }))
-		const settings = loadSystemConfig(filename)
+		const settings = loadConsumerConfig(filename)
 		expect(settings.coreCollections).toEqual(
 			Object.entries(core.collections).map(([collection, entry]) => ({
 				collection,
@@ -136,7 +136,7 @@ describe('system JSON consumer configuration', () => {
 		expect(settings.systemCollections).toEqual(SYSTEM_COLLECTIONS)
 		await writeFile(filename, JSON.stringify({ core: { ...core, order: ['articles'] } }))
 		expect(
-			loadSystemConfig(filename).coreCollections.map(({ collection }) => collection),
+			loadConsumerConfig(filename).coreCollections.map(({ collection }) => collection),
 		).toEqual(['articles', 'categories', 'feature_flags'])
 		const explicit = resolveSeederConfig(envSchema.parse({ SEEDER_CONFIG_PATH: filename }), {
 			dataScope: 'core',
@@ -211,7 +211,7 @@ describe('system JSON consumer configuration', () => {
 				},
 			}),
 		)
-		const loaded = loadSystemConfig(filename)
+		const loaded = loadConsumerConfig(filename)
 		expect(
 			loaded.systemCollections.find(({ collection }) => collection === 'directus_presets')
 				?.management,
@@ -239,16 +239,16 @@ describe('system JSON consumer configuration', () => {
 			'{"system":{"collections":{"directus_roles":{"fields":"id"}}}}',
 		]) {
 			await writeFile(filename, contents)
-			expect(() => loadSystemConfig(filename)).toThrow(
+			expect(() => loadConsumerConfig(filename)).toThrow(
 				`Failed to load Seeder configuration "${filename}"`,
 			)
 			if (contents !== '{broken')
-				expect(() => loadSystemConfig(filename)).toThrow(
+				expect(() => loadConsumerConfig(filename)).toThrow(
 					`Failed to load Seeder configuration "${filename}": Invalid Seeder configuration:`,
 				)
 		}
 		await rm(filename)
-		expect(() => loadSystemConfig(filename)).toThrow(/consumer.json.*ENOENT/su)
+		expect(() => loadConsumerConfig(filename)).toThrow(/consumer.json.*ENOENT/su)
 	})
 
 	it('resolves declarative manifest management without runtime membership', () => {

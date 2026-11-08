@@ -1,14 +1,13 @@
-import type { SeederConfig } from '../../lib/config'
-import type { CollectionDataProvider } from '../../lib/seedDataParser'
-import type { ServiceAdapterContext } from '../../services/ServiceAdapter'
-import type { SeedResult } from '../../strategies/SeederStrategy'
+import type { SeederConfig } from '../lib/config'
+import type { CollectionDataProvider } from '../lib/seedDataParser'
+import type { ServiceAdapterContext } from '../services/ServiceAdapter'
+import type { SeedResult } from '../strategies/SeederStrategy'
 
-import { createPerformanceTracker } from '../../lib/performanceTracker'
-import { getFolderPaths } from '../../lib/resolveConfig'
-import { seedCollections } from '../../lib/seedCollections'
-import { createSeedDataProvider } from '../../lib/seedDataParser'
-import { prepareCompatibleSystemData } from './compatibility'
-import { getCollections } from './resolveConfig'
+import { createPerformanceTracker } from '../lib/performanceTracker'
+import { seedCollections } from '../lib/seedCollections'
+import { createSeedDataProvider } from '../lib/seedDataParser'
+import { getCollections, getFolderPaths } from './resolveConfig'
+import { prepareCompatibleSystemData } from './system/compatibility'
 
 /**
  * Imports previously loaded data through the existing engine for the selected scope.
@@ -19,7 +18,7 @@ import { getCollections } from './resolveConfig'
  * @param fullReset Whether this import deliberately ignores management boundaries
  * @returns Seeding results, or null when no selected seed files exist
  */
-export async function seedSystem(
+export async function seed(
 	context: ServiceAdapterContext,
 	config: SeederConfig,
 	dataProviders: CollectionDataProvider[] | null,

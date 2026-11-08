@@ -1,10 +1,12 @@
+import type { CollectionConfig } from '../seeders/config.schema'
 import type { ServiceAdapterContext } from '../services/ServiceAdapter'
 import type { SeedResult } from '../strategies/SeederStrategy'
 import type { ResolvedCollectionManagement } from './collectionManagement'
-import type { CollectionConfig, SeederConfig } from './config'
+import type { SeederConfig } from './config'
 import type { PerformanceTracker } from './performanceTracker'
 import type { SeedData } from './seedDataParser'
 
+import { getFolderPaths } from '../seeders/resolveConfig'
 import { createFilesServiceAdapter } from '../services/FilesServiceAdapter'
 import { createItemsServiceAdapter } from '../services/ItemsServiceAdapter'
 import { createSeederStrategy } from '../strategies'
@@ -12,7 +14,6 @@ import { validateManagedSeedData } from './collectionManagement'
 import { DataScope, OperationMode, selectCollections } from './config'
 import { getManifestSeedIds } from './manifestManagement'
 import { getCollectionPrimaryKey, validateCollectionSeedKeys } from './primaryKey'
-import { getFolderPaths } from './resolveConfig'
 import { resolveCollectionManagement, validateRelationSeedKeys } from './resolveManagement'
 import { toSeedRecord } from './seedItem'
 
@@ -82,6 +83,8 @@ export async function seedCollections(
 				`--full-reset requires full-idempotent mode for collection "${collectionName}"`,
 			)
 		}
+		// Management is schema-validated configuration in every mode; only full-idempotent
+		// resolves runtime sources and applies boundaries below.
 		if (mode !== OperationMode.FULL_IDEMPOTENT) continue
 		if (!config.enableFullIdempotent) {
 			throw new Error(

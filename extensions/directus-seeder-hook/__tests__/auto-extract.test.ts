@@ -35,11 +35,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@onderwijsin/directus-extension-utils/hook', () => ({
 	defineHook: (callback: Register) => mocks.register.mockImplementation(callback),
 }))
-vi.mock('../src/commands/systemCommand', () => ({ registerSystemCommand: vi.fn() }))
+vi.mock('../src/commands/seedCommand', () => ({ registerSeedCommand: vi.fn() }))
 vi.mock('../src/commands/extractCommand', () => ({ registerExtractCommand: vi.fn() }))
-vi.mock('../src/seeders/system/extract', async (importOriginal) => ({
-	...(await importOriginal<typeof import('../src/seeders/system/extract')>()),
-	extractSystemData: mocks.extract,
+vi.mock('../src/seeders/extract', async (importOriginal) => ({
+	...(await importOriginal<typeof import('../src/seeders/extract')>()),
+	extractData: mocks.extract,
 }))
 vi.mock('node:os', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('node:os')>()
@@ -295,10 +295,9 @@ describe('automatic system extraction', () => {
 	})
 
 	it('ignores unselected events and preserves other output while extracting the whole allowlist in effective order', async () => {
-		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
-			'../src/seeders/system/extract',
-		)
-		mocks.extract.mockImplementation(actual.extractSystemData)
+		const actual =
+			await vi.importActual<typeof import('../src/seeders/extract')>('../src/seeders/extract')
+		mocks.extract.mockImplementation(actual.extractData)
 		const seeds = path.join(directory, 'seeds', 'system')
 		const assets = path.join(seeds, 'assets')
 		await mkdir(assets, { recursive: true })
@@ -370,10 +369,9 @@ describe('automatic system extraction', () => {
 	})
 
 	it('updates only selected manifests during automatic extraction and preserves history through empty results', async () => {
-		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
-			'../src/seeders/system/extract',
-		)
-		mocks.extract.mockImplementation(actual.extractSystemData)
+		const actual =
+			await vi.importActual<typeof import('../src/seeders/extract')>('../src/seeders/extract')
+		mocks.extract.mockImplementation(actual.extractData)
 		const seeds = path.join(directory, 'seeds', 'system')
 		await mkdir(seeds, { recursive: true })
 		const manifest = path.join(seeds, 'directus_access.managed-ids.json')
@@ -428,10 +426,9 @@ describe('automatic system extraction', () => {
 	})
 
 	it('exports new, updated and deleted policies automatically while preserving other output', async () => {
-		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
-			'../src/seeders/system/extract',
-		)
-		mocks.extract.mockImplementation(actual.extractSystemData)
+		const actual =
+			await vi.importActual<typeof import('../src/seeders/extract')>('../src/seeders/extract')
+		mocks.extract.mockImplementation(actual.extractData)
 		const seeds = path.join(directory, 'seeds', 'system')
 		const assets = path.join(seeds, 'assets')
 		await mkdir(assets, { recursive: true })
@@ -491,10 +488,11 @@ describe('automatic system extraction', () => {
 	it.each([false, true])(
 		'preserves stale assets and exports selected file JSON with jsonOnly=%s',
 		async (jsonOnly) => {
-			const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
-				'../src/seeders/system/extract',
-			)
-			mocks.extract.mockImplementation(actual.extractSystemData)
+			const actual =
+				await vi.importActual<typeof import('../src/seeders/extract')>(
+					'../src/seeders/extract',
+				)
+			mocks.extract.mockImplementation(actual.extractData)
 			const seeds = path.join(directory, 'seeds', 'system')
 			const assets = path.join(seeds, 'assets')
 			await mkdir(assets, { recursive: true })
@@ -532,10 +530,9 @@ describe('automatic system extraction', () => {
 	)
 
 	it.each([false, true])('cleans real automatic output with jsonOnly=%s', async (jsonOnly) => {
-		const actual = await vi.importActual<typeof import('../src/seeders/system/extract')>(
-			'../src/seeders/system/extract',
-		)
-		mocks.extract.mockImplementation(actual.extractSystemData)
+		const actual =
+			await vi.importActual<typeof import('../src/seeders/extract')>('../src/seeders/extract')
+		mocks.extract.mockImplementation(actual.extractData)
 		const seeds = path.join(directory, 'seeds', 'system')
 		const assets = path.join(seeds, 'assets')
 		await mkdir(assets, { recursive: true })

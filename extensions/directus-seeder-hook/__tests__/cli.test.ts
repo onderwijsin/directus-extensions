@@ -512,6 +512,57 @@ describe('seeder registration and CLI', () => {
 			expect(service.upsertMany).not.toHaveBeenCalled()
 		})
 
+		it.each([
+			{
+				collection: 'categories',
+				operationMode: 'insert-missing',
+				management: { type: 'manifest' },
+				rows: [{ slug: 'managed' }],
+				missing: 'categories.managed-ids.json',
+			},
+			{
+				collection: 'articles',
+				operationMode: 'insert-update',
+				management: { type: 'relation', field: 'category', collection: 'categories' },
+				rows: [{ key: 1, category: 'managed' }],
+				missing: 'categories.json',
+			},
+		])(
+			'uses effective core modes before resolving missing management inputs for $collection',
+			async ({ collection, operationMode, management, rows, missing }) => {
+				const service = await coreProgram({ [collection]: { operationMode, management } })
+				const core = path.join(seedRoot, 'core')
+				await mkdir(core)
+				await writeFile(path.join(core, `${collection}.json`), JSON.stringify(rows))
+				const override =
+					operationMode === 'insert-missing' ? 'insert-update' : 'insert-missing'
+				for (const mode of [undefined, override]) {
+					vi.clearAllMocks()
+					const args = mode === undefined ? [] : ['--mode', mode]
+					expect(await runCommand(service.program, 'core', '--yes', ...args)).toBe(0)
+					expect(
+						(mode ?? operationMode) === 'insert-missing'
+							? service.createMany
+							: service.upsertMany,
+					).toHaveBeenCalledExactlyOnceWith(rows)
+					expect(service.deleteMany).not.toHaveBeenCalled()
+				}
+				vi.clearAllMocks()
+				const error = vi.spyOn(logger, 'error')
+				expect(
+					await runCommand(service.program, 'core', '--mode', 'full-idempotent', '--yes'),
+				).toBe(1)
+				expect(error).toHaveBeenCalledWith(
+					expect.stringContaining(path.join(core, missing)),
+				)
+				expect(service.ItemsService).not.toHaveBeenCalled()
+				expect(service.createMany).not.toHaveBeenCalled()
+				expect(service.upsertMany).not.toHaveBeenCalled()
+				expect(service.deleteMany).not.toHaveBeenCalled()
+				expect(await readdir(core)).toEqual([`${collection}.json`])
+			},
+		)
+
 		it('inspects core settings without schema or seed input and filters across both scopes', async () => {
 			const service = await coreProgram(
 				{
@@ -2363,12 +2414,17 @@ describe('seeder registration and CLI', () => {
 		)
 		const stale = path.join(directory, 'stale.json')
 		await writeFile(stale, 'keep')
-		for (const command of ['system', 'extract']) {
+		for (const args of [
+			['system'],
+			['system', '--mode', 'insert-missing'],
+			['core', '--mode', 'insert-update'],
+			['extract'],
+		]) {
 			const service = createProgram({
 				SEEDER_CONFIG_PATH: configPath,
 				DEPLOYMENT_ENV: 'development',
 			})
-			expect(await runCommand(service.program, command)).toBe(1)
+			expect(await runCommand(service.program, ...args)).toBe(1)
 			expectNoServiceCalls(service)
 			expect(await readFile(stale, 'utf8')).toBe('keep')
 			expect(await readFile(configPath, 'utf8')).toContain('id-range')

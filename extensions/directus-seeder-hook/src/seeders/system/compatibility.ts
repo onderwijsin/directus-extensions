@@ -1,7 +1,7 @@
 import type { SchemaOverview } from '@directus/types'
 import type { SeederConfig } from '../../lib/config'
 import type { SeedData } from '../../lib/seedDataParser'
-import type { SystemCollectionConfig } from './config.schema'
+import type { CollectionConfig } from '../config.schema'
 
 import { hasKey, isRecord } from '@onderwijsin/directus-extension-utils/server'
 
@@ -19,7 +19,7 @@ const FLOW_FOLDER_FIELDS = [
  * @returns Query fields, leaving every explicit selection unchanged.
  */
 export function getCompatibleExtractionFields(
-	collection: SystemCollectionConfig,
+	collection: CollectionConfig,
 	schema: SchemaOverview,
 	fieldOverrides: SeederConfig['systemFieldOverrides'],
 ): string[] {

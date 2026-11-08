@@ -8,20 +8,19 @@ import { z } from 'zod'
 import { DataScope, OperationMode, selectCollections } from '../lib/config'
 import { confirmExplicit, confirmYesNo, shouldSkipConfirmation } from '../lib/confirmationPrompts'
 import { acquireLock } from '../lib/processLock'
-import { resolveSeederConfig } from '../lib/resolveConfig'
-import { seedSystem } from '../seeders/system'
-import { getDataProviders } from '../seeders/system/data'
-import { getCollections } from '../seeders/system/resolveConfig'
+import { seed } from '../seeders'
+import { getDataProviders } from '../seeders/data'
+import { getCollections, resolveSeederConfig } from '../seeders/resolveConfig'
 
 /**
- * Registers the system command for seeding Directus with essential system data.
+ * Registers one data-scope import command using the shared CLI and safety flow.
  *
  * @param parentCommand - The parent command to register this command under
  * @param context - The Directus hook extension context
  * @param scope - Data scope to import using the shared command and safety flow.
  * @returns Nothing.
  */
-export const registerSystemCommand = (
+export const registerSeedCommand = (
 	parentCommand: Command,
 	context: ServiceAdapterContext,
 	scope: DataScope = DataScope.SYSTEM,
@@ -145,7 +144,7 @@ export const registerSystemCommand = (
 					}
 				}
 
-				const results = await seedSystem(context, config, dataProviders, options.fullReset)
+				const results = await seed(context, config, dataProviders, options.fullReset)
 				if (results?.some((result) => result.error !== undefined)) {
 					logger.error(
 						`❌ ${scope === 'system' ? 'System' : 'Core'} data seeding failed; see collection errors above`,
