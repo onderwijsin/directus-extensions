@@ -4,29 +4,25 @@
 	"system": {
 		"collections": {
 			"directus_presets": {
-				"management": { "type": "id-range", "max": 50000 }
-			},
-			"directus_permissions": {
 				"management": {
-					"type": "relation",
-					"field": "policy",
-					"collection": "directus_policies"
+					"type": "id-range",
+					"max": 50000
 				}
-			},
-			"directus_access": {
-				"management": { "type": "manifest" }
 			}
 		}
 	},
 	"core": {
 		"collections": {
-			"categories": { "operationMode": "insert-update" },
+			"categories": {
+				"operationMode": "insert-update"
+			},
 			"articles": {
 				"operationMode": "full-idempotent",
-				"management": { "type": "manifest" },
+				"management": {
+					"type": "manifest"
+				},
 				"fields": ["id", "title", "category"]
-			},
-			"feature_flags": { "operationMode": "insert-missing" }
+			}
 		},
 		"order": ["categories"]
 	}

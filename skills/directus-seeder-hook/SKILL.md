@@ -1,118 +1,77 @@
 ---
 name: directus-seeder-hook
-description: Seed, extract, inspect, configure, and troubleshoot Directus system and core data.
+description: Configure, seed, extract, and troubleshoot Directus system and core data.
 ---
 
 # Directus seeder hook
 
-Use `@onderwijsin/directus-seeder-hook` for JSON-based system and configured application-record
-seeding, manual development extraction, and optional automatic extraction for either scope.
+Use `@onderwijsin/directus-seeder-hook` for explicit JSON imports and development extraction. Read
+the installed package's `README.md` before operating it; that is the authoritative configuration,
+CLI, defaults, and safety reference. A local npm installation exposes it at
+`node_modules/@onderwijsin/directus-seeder-hook/README.md`; otherwise use the matching package
+artifact/release documentation. Use its shipped `seeder-config.schema.json` for configuration.
 
-## Read the installed contract
+## Establish the runtime and selection
 
-Use Directus `>=12.0.0 <13.0.0`, Node.js `>=24.10.0`, and a trusted, non-sandboxed installation.
-Install `@onderwijsin/directus-seeder-hook` in the Directus project and restart Directus to load it.
+1. Verify Directus `>=12.0.0 <13.0.0`, Node.js `>=24.10.0`, trusted non-sandboxed loading, and
+   `SEEDER_ENABLED`. Install the package in the Directus runtime and restart after changes. Confirm
+   `seed config`, `seed system`, and `seed core` appear in the installed CLI. The hook uses
+   administrator services; it neither applies schema nor imports at startup.
+2. Read the README's **Configuration reference**, **Consumer JSON configuration**, and **Seed files
+   and supported collections**. Verify database/storage access and readable runtime paths for
+   configuration, `<SEEDER_SEEDS_DIR>/{system,core}/`, independent `SEEDER_ASSETS_DIR`, and
+   temporary files. Keep config/schema files outside extraction output. Core requires declared
+   collections, per-collection `operationMode`, existing schema/related rows, and consumer-owned
+   dependency order.
+3. Inspect effective settings with `seed config --collection <name>`; compare system settings with
+   `seed config --defaults --collection <name>`. Core has no built-in declarations. Review mode,
+   order, query, and management for every selected collection. Overrides replace whole properties;
+   explicit fields must retain every field needed. Resolve CLI/environment include and exclude
+   before proceeding. Inspection does not validate live schema or management input files.
 
-Before configuring or running the hook, read the README shipped with that installed package and its
-`seeder-config.schema.json`. The README owns the complete environment/CLI reference, collection
-defaults, configuration examples, and safety/compatibility details; keep those references aligned
-with the installed version. A normal local installation exposes the README at
-`node_modules/@onderwijsin/directus-seeder-hook/README.md`. For other deployments, use the package
-artifact or its matching release documentation. Do not substitute newer defaults for the installed
-version.
+## Import
 
-Read the sections relevant to the operation:
+Read **Primary keys and input preflight**, **System transformations and compatibility**, and
+**Seeding safety and management**, including the configured management method.
 
-- Configuration: **Configuration reference**, **Consumer JSON configuration**, and **Seed files and
-  supported collections**; inspect effective settings with `seed config` before changing them.
-- Import: **Seed input semantics and preflight**, **Seeding safety and retained caveats**, the
-  chosen management method, and system transformations where applicable.
-- Extraction: **Extraction, assets, and automatic behavior** and, only for automatic extraction, its
-  allowlist rules.
+- Choose `seed system` or `seed core` and verify the scope directory exists. Missing target files
+  skip work; valid `[]` can delete the managed selection in full-idempotent. Invalid required input
+  must fail before any selected collection mutates.
+- Core rows require unique explicit live-schema primary keys: lowercase UUID, nonempty string, or
+  safe integer, including non-`id` field names. Verify scalar foreign keys and dependency order.
+- Review a target backup and every effective mode: CLI `--mode`, then collection configuration.
+  Full-idempotent requires `SEEDER_ENABLE_FULL_IDEMPOTENT=true` even with `--yes`/`--force`.
+  `--full-reset` bypasses management and can delete unmanaged rows in whole selected collections.
+- Validate manifests or same-scope raw relation sources when required. Extraction filters never
+  protect omitted managed rows from deletion. Before relinquishing a relation-source ID, retain it
+  while importing target `[]` and verify the clear. Review surviving target rows before removing IDs
+  from manifest history. Imports leave manifests unchanged.
+- Accept only after checking exit status, logs, and actual target rows, including system root-user
+  credentials/status, policy TFA, Flow links, and file uploads where selected. Mutation failures
+  exit 1 even with continuation enabled; earlier mutations are not rolled back. Diagnose partial
+  state before rerunning.
 
-## Choose and verify the operation
+## Extract
 
-1. Confirm Directus/Node compatibility, trusted extension loading, and runtime dependencies. For
-   import or extraction, also verify access to the configured database, storage, seeds root,
-   selected scope directory (`<seeds-root>/system/` or `<seeds-root>/core/`), independent system
-   asset path, and temporary paths. Complete when the CLI lists `seed config`, `seed system`, and
-   `seed core`; extraction also requires exact `DEPLOYMENT_ENV=development`. If using
-   `SEEDER_CONFIG_PATH`, verify the JSON file is readable in that runtime and outside extraction
-   output, then review its strict collection overrides, order, and management boundaries.
-2. Before customizing system properties, compare `seed config --defaults --collection <name>` with
-   `seed config --collection <name>`. For core, declare each collection with a required
-   `operationMode`, then inspect its effective configuration; core has no package defaults. Complete
-   when the JSON confirms the intended resolved mode and every retained field, query property, and
-   management object. A supplied `fields` array replaces the whole built-in projection; include
-   every field you want to retain. `--defaults` shows built-in modes and management without the
-   consumer file; normal inspection reports invalid files.
-3. For extraction, choose `--scope system|core|both` (default system), verify dedicated scope and
-   system asset paths, cleanup, and binary behavior in the README. Core does no binary work even
-   with `--assets`. Extraction creates selected scope directories; it never migrates flat root
-   files. Review each collection's explicit extraction query and optional ID-range boundary;
-   relation management applies only to import, so extraction needs no existing source seeds.
-   Manifest management retains exported IDs in a separate history file. For core, verify the actual
-   schema primary-key name and supported type, and include that field or `*` in explicit extraction
-   fields; the Seeder never adds it. Review existing manifests. Use `--skip-clean` only for a manual
-   run that must retain other output. Complete when every selected JSON file exists (including `[]`
-   for empty collections), required manifests contain the exported IDs and prior history, expected
-   binaries exist, and logs report no failures. After a read error or interruption, fix the cause
-   and rerun to recover output.
-4. For seeding, choose `seed system` or `seed core` and verify its scope directory exists; a missing
-   directory is an error even when flat seeds exist at the root. Core requires unique explicit
-   schema-compatible primary keys, dependency order, and existing schema/related records. Resolve
-   include/exclude and review selected files, required Flow metadata, relation-source IDs or
-   manifests, environment transformations, and target backup. Resolve every selected effective mode:
-   explicit CLI `--mode`, then the collection's effective `operationMode` (required core declaration
-   or system override/built-in). Full-idempotent requires `SEEDER_ENABLE_FULL_IDEMPOTENT=true`, even
-   with `--yes` or `--force`; `--full-reset` requires that mode and bypasses management. Review the
-   strongest safety requirement across that selection and any full-idempotent boundary; extraction
-   filters never protect omitted managed records from deletion. Before relinquishing a
-   relation-source ID, retain it while importing target `[]`, then verify the clear. Before removing
-   historical IDs from a manifest, review any remaining target rows that will leave management.
-   Complete when exit code zero, logs, and target records confirm the expected result; import must
-   leave manifests unchanged.
-5. After system seeding, inspect Flow operation links, policy TFA, matching root-user credentials,
-   and uploaded assets where selected. After core seeding, inspect primary keys and scalar
-   relations. Complete when those results match the intended environment.
-6. For automatic extraction, require exact `DEPLOYMENT_ENV=development` and enable
-   `SEEDER_AUTO_EXTRACT_SYSTEM`, `SEEDER_AUTO_EXTRACT_CORE`, or both (boolean, default `false`
-   each). These replace the old general switch without fallback. Leave `SEEDER_AUTO_EXTRACT_INCLUDE`
-   unset for general include/exclude and cleanup in each event-triggered scope, or supply one
-   nonblank name or a nonempty Directus-cast array of supported system/configured core names. Names
-   are trimmed, case-sensitive, and validated even for disabled scopes; unknown names, empty lists,
-   and blank entries fail. The allowlist overrides general filters, skips cleanup, and limits
-   triggers/output to listed names in enabled scopes. System CRUD uses events such as
-   `roles.create`; core uses `<collection>.items.create/update/delete`. Complete when one shared
-   15-second debounce coalesces changed scopes and refreshes all selected collections within only
-   those scopes, serialized under the shared bulk lock. Core-only events leave system JSON/assets
-   untouched. Core performs no binary work; system honors `SEEDER_JSON_ONLY`, and an allowlist
-   forces JSON-only unless `directus_files` is listed. Existing bulk-operation suppression remains.
-   Inspect JSON/manifests in `system/` or `core/` and review stale files retained by selective runs.
+Read **Extraction, assets, and automatic behavior** before writing output.
 
-## Core configuration checks
-
-Treat `core.collections` as the application selection; every entry requires `operationMode`, even
-when a CLI mode override is planned. Verify its optional order prefix contains unique declared
-names; remaining collections follow declaration order. System defaults do not supply core settings.
-Reject Directus system names and the reserved `__proto__` name.
-
-For each core collection, verify the live schema supplies a non-alias scalar primary key. Every
-imported row needs an explicit, unique canonical lowercase UUID, nonempty string, or safe integer
-matching that field. Explicit extraction fields must include the actual primary-key name or `*`;
-there is no consumer primary-key option or silent `id` fallback. Check direct scalar relation
-management against the source's actual primary key and same-scope raw seed file; ID ranges require
-numeric integer keys. The consumer owns dependency order and existing related records, including
-file references. Core neither downloads nor creates binary assets.
-
-Use `seed config --collection <name>` to inspect a declared core collection; `--defaults` has no
-core declarations. Use `seed extract --scope core` or `--scope both` for manual extraction and
-`seed core` for import.
-
-## Accept or recover the result
-
-Inspect exit status, collection errors, output JSON/manifests, and actual target records before
-accepting a run. Configuration, input, or management preflight errors must abort before mutations;
-service failures can leave earlier mutations in place. After extraction failure, inspect partial
-output, fix the cause, and rerun with the intended cleanup policy. Keep configuration outside the
-managed output directories. The hook neither applies schema nor seeds at startup.
+- Require exact `DEPLOYMENT_ENV=development`. Manual `seed extract` defaults to system; choose
+  `--scope core|both` when needed. Explicit core fields must include the actual primary key or `*`;
+  the Seeder never adds it. Relation management does not filter extraction or require source seeds.
+- Review cleanup first: it removes direct regular scope JSON except manifests, including unselected
+  files. System binary export reads all files independently of JSON filters and cleans the asset
+  directory. Use `--json-only` to preserve binaries and manual `--skip-clean` to preserve other
+  output. Core always leaves binaries untouched, including with `--assets`.
+- For auto-extract, enable `SEEDER_AUTO_EXTRACT_SYSTEM`, `SEEDER_AUTO_EXTRACT_CORE`, or both. Omit
+  `SEEDER_AUTO_EXTRACT_INCLUDE` for general filters and cleanup in changed scopes; a nonempty
+  allowlist overrides filters and skips cleanup. Names must be supported system/configured core
+  collections, even for disabled scopes. System allowlists force JSON-only unless `directus_files`
+  is included, and still honor `SEEDER_JSON_ONLY`.
+- Verify selected CRUD events refresh all selected collections within changed enabled scopes after
+  the shared 15-second debounce. Core-only changes must leave system JSON/assets untouched. Shared
+  bulk-lock contention suppresses auto work without retry; file uploads may need manual extraction.
+  Restart to reload auto-extract configuration.
+- Accept after checking logs, selected JSON (including `[]` for empty results), manifest history,
+  and expected binaries. Inspect secrets before sharing output and stale files retained by selective
+  runs. On failure, inspect partial output and rerun deliberately. Run writers sequentially: local
+  temporary-file coordination does not guarantee exclusion across processes or deployments.
