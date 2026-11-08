@@ -9,11 +9,25 @@ import { createFilesServiceAdapter } from '../services/FilesServiceAdapter'
 import { createItemsServiceAdapter } from '../services/ItemsServiceAdapter'
 import { createSeederStrategy } from '../strategies'
 import { validateManagedSeedData } from './collectionManagement'
-import { OperationMode, selectCollections } from './config'
+import { DataScope, OperationMode, selectCollections } from './config'
 import { getManifestSeedIds } from './manifestManagement'
+import { getCollectionPrimaryKey, validateCollectionSeedKeys } from './primaryKey'
 import { getFolderPaths } from './resolveConfig'
 import { resolveCollectionManagement, validateRelationSeedKeys } from './resolveManagement'
 import { toSeedRecord } from './seedItem'
+
+/**
+ * Reads the primary key snapshotted during import preflight.
+ * @param primaryKeys - Validated selected collection keys.
+ * @param collectionName - Collection being processed.
+ * @returns The resolved field, failing closed if preflight did not supply it.
+ */
+function getResolvedPrimaryKey(primaryKeys: Map<string, string>, collectionName: string): string {
+	const primary = primaryKeys.get(collectionName)
+	if (primary === undefined)
+		throw new Error(`Missing resolved primary key for collection "${collectionName}"`)
+	return primary
+}
 
 /**
  * Helper function to seed collections with common logic.
@@ -45,10 +59,23 @@ export async function seedCollections(
 	const collectionsOrder = collectionConfigs.map(({ collection }) => collection)
 
 	const boundaries = new Map<string, ResolvedCollectionManagement>()
+	const primaryKeys = new Map<string, string>()
+	const useSystemMetadata = config.dataScope === DataScope.SYSTEM
+	// Core keys are explicit in every mode, including full reset. Schema reads do not query items.
+	const coreSchema = useSystemMetadata ? undefined : await context.getSchema()
+	if (!useSystemMetadata && !coreSchema)
+		throw new Error('Core import requires a live collection schema')
 	// Preflight every selected collection before any service can mutate the database.
 	for (const collectionName of collectionsToSeed) {
 		const collection = collectionConfigs.find((entry) => entry.collection === collectionName)
 		if (!collection) throw new Error(`Missing configuration for collection "${collectionName}"`)
+		primaryKeys.set(
+			collectionName,
+			coreSchema ? getCollectionPrimaryKey(collectionName, coreSchema) : 'id',
+		)
+		if (coreSchema) {
+			validateCollectionSeedKeys(collectionName, seedData[collectionName] ?? [], coreSchema)
+		}
 		const mode = collection.operationMode
 		if (fullReset && mode !== OperationMode.FULL_IDEMPOTENT) {
 			throw new Error(
@@ -63,17 +90,27 @@ export async function seedCollections(
 		}
 		// Reuse the existing whole-collection strategy without resolving management inputs.
 		if (fullReset) continue
+		if (coreSchema && collection.management?.type === 'id-range') {
+			const primary = getCollectionPrimaryKey(collectionName, coreSchema)
+			const type = coreSchema.collections[collectionName]?.fields[primary]?.type
+			if (type !== 'integer' && type !== 'bigInteger') {
+				throw new Error(
+					`id-range management for collection "${collectionName}" requires a numeric primary key`,
+				)
+			}
+		}
 		let management: ResolvedCollectionManagement | undefined
 		const data = seedData[collectionName] ?? []
 		if (
 			collection.management?.type === 'relation' ||
 			collection.management?.type === 'manifest'
 		) {
-			const schema = await context.getSchema()
+			const schema = coreSchema ?? (await context.getSchema())
+			primaryKeys.set(collectionName, getCollectionPrimaryKey(collectionName, schema))
 			management = await resolveCollectionManagement(
 				collectionName,
 				collection.management,
-				getFolderPaths(context.env).seedsFolder,
+				getFolderPaths(context.env, config.dataScope).seedsFolder,
 				schema,
 			)
 			if (collection.management.type === 'manifest') {
@@ -84,7 +121,13 @@ export async function seedCollections(
 		} else {
 			management = collection.management
 		}
-		management = validateManagedSeedData(collectionName, data, management)
+		management = validateManagedSeedData(
+			collectionName,
+			data,
+			management,
+			getResolvedPrimaryKey(primaryKeys, collectionName),
+			useSystemMetadata,
+		)
 		if (management) boundaries.set(collectionName, management)
 	}
 
@@ -94,16 +137,17 @@ export async function seedCollections(
 		const management = boundaries.get(collectionName)
 		const data = seedData[collectionName] ?? []
 		if (management?.type !== 'relation' || data.length === 0) continue
+		const primaryKey = getResolvedPrimaryKey(primaryKeys, collectionName)
 		const adapter = await createItemsServiceAdapter(collectionName, context)
 		const ids = data.map((row) => {
-			return toSeedRecord(row).id
+			return toSeedRecord(row)[primaryKey]
 		})
 		const existing = await adapter.getItems({
-			fields: ['id', management.field],
-			filter: { id: { _in: ids } },
+			fields: [primaryKey, management.field],
+			filter: { [primaryKey]: { _in: ids } },
 			limit: -1,
 		})
-		validateManagedSeedData(collectionName, existing, management)
+		validateManagedSeedData(collectionName, existing, management, primaryKey, useSystemMetadata)
 	}
 
 	// Filter collections based on include/exclude lists
@@ -156,6 +200,8 @@ export async function seedCollections(
 				serviceAdapter,
 				performanceTracker,
 				boundaries.get(collectionName),
+				getResolvedPrimaryKey(primaryKeys, collectionName),
+				useSystemMetadata,
 			)
 		} catch (error) {
 			result = {

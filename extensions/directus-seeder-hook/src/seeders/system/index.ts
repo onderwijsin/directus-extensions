@@ -8,10 +8,10 @@ import { getFolderPaths } from '../../lib/resolveConfig'
 import { seedCollections } from '../../lib/seedCollections'
 import { createSeedDataProvider } from '../../lib/seedDataParser'
 import { prepareCompatibleSystemData } from './compatibility'
-import { getSystemCollections } from './resolveConfig'
+import { getCollections } from './resolveConfig'
 
 /**
- * Seed previously loaded system data
+ * Imports previously loaded data through the existing engine for the selected scope.
  *
  * @param context Directus hook context
  * @param config Seeder configuration
@@ -29,23 +29,28 @@ export async function seedSystem(
 	const performanceTracker = createPerformanceTracker()
 	const results: SeedResult[] = []
 
-	logger.info('Starting system data seeding')
+	logger.info(`Starting ${config.dataScope} data seeding`)
 
-	const collections = getSystemCollections(config)
+	const collections = getCollections(config)
 	if (dataProviders === null || dataProviders.length === 0) {
-		const { seedsFolder } = getFolderPaths(env)
-		logger.warn(`No selected system seed files found in "${seedsFolder}"; skipping seeding`)
+		const { seedsFolder } = getFolderPaths(env, config.dataScope)
+		logger.warn(
+			`No selected ${config.dataScope} seed files found in "${seedsFolder}"; skipping seeding`,
+		)
 		return null
 	}
-	const systemDataProvider = createSeedDataProvider([...dataProviders])
+	const dataProvider = createSeedDataProvider([...dataProviders])
 
-	await performanceTracker.track('System data seeding', async () => {
+	await performanceTracker.track(`${config.dataScope} data seeding`, async () => {
 		try {
 			// Get seed data from a provider or parse from files
 			let seedData = await performanceTracker.track('Get seed data', () =>
-				Promise.resolve(systemDataProvider.getSeedData()),
+				Promise.resolve(dataProvider.getSeedData()),
 			)
-			if ('directus_folders' in seedData || 'directus_flows' in seedData) {
+			if (
+				config.dataScope === 'system' &&
+				('directus_folders' in seedData || 'directus_flows' in seedData)
+			) {
 				seedData = prepareCompatibleSystemData(seedData, await context.getSchema())
 			}
 
@@ -57,14 +62,14 @@ export async function seedSystem(
 				collections,
 				performanceTracker,
 				results,
-				'system',
+				config.dataScope,
 				fullReset,
 			)
 
 			return results
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error'
-			logger.error(`Error seeding system data: ${message}`)
+			logger.error(`Error seeding ${config.dataScope} data: ${message}`)
 			throw error
 		}
 	})

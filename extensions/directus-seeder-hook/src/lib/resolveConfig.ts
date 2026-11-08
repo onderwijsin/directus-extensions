@@ -1,5 +1,5 @@
 import type { SeederOptions } from '../env.schema'
-import type { OperationMode, SeederConfig } from './config'
+import type { DataScope, OperationMode, SeederConfig } from './config'
 
 import path from 'node:path'
 
@@ -14,11 +14,20 @@ import { loadSystemConfig } from '../seeders/system/resolveConfig'
 export function resolveSeederConfig(
 	options: SeederOptions,
 	overrides: Partial<
-		Omit<SeederConfig, 'jsonIndent' | 'systemCollections' | 'systemFieldOverrides'>
+		Omit<
+			SeederConfig,
+			'jsonIndent' | 'systemCollections' | 'coreCollections' | 'systemFieldOverrides'
+		>
 	> & { operationMode?: OperationMode } = {},
 ): SeederConfig {
 	const system = loadSystemConfig(options.SEEDER_CONFIG_PATH)
 	return {
+		coreCollections: system.coreCollections.map((collection) => ({
+			...collection,
+			...(overrides.operationMode === undefined
+				? {}
+				: { operationMode: overrides.operationMode }),
+		})),
 		systemFieldOverrides: system.systemFieldOverrides,
 		systemCollections: system.systemCollections.map((collection) => ({
 			...collection,
@@ -41,13 +50,14 @@ export function resolveSeederConfig(
 }
 
 /**
- * Derives system output from the seed root and preserves the independent asset path.
+ * Derives scope output from the seed root and preserves the independent asset path.
  * @param options - Validated startup options.
- * @returns System seed and asset paths.
+ * @param scope - Selected scope; existing callers retain system output.
+ * @returns Scoped seed and independent asset paths.
  */
-export function getFolderPaths(options: SeederOptions) {
+export function getFolderPaths(options: SeederOptions, scope: DataScope = 'system') {
 	return {
-		seedsFolder: path.join(options.SEEDER_SEEDS_DIR, 'system'),
+		seedsFolder: path.join(options.SEEDER_SEEDS_DIR, scope),
 		assetsFolder: options.SEEDER_ASSETS_DIR,
 	}
 }

@@ -1,8 +1,10 @@
 # @onderwijsin/directus-seeder-hook
 
-Seed Directus system records from JSON, extract their current state, and optionally extract changes
-automatically during development. Use `seed system` to import records and `seed extract` to export
-them. Use `seed config` to inspect collection configuration without importing or extracting data.
+Seed Directus system records and configured application collections from JSON, and extract their
+current state during development. Use `seed system` or `seed core` to import records and
+`seed extract --scope system|core|both` to export them (default: `system`). Optional automatic
+extraction covers system records only. Use `seed config` to inspect both scopes without importing or
+extracting data.
 
 ## Install
 
@@ -27,7 +29,10 @@ API token.
 ```sh
 npx directus seed system --mode insert-missing
 npx directus seed system --mode insert-update --include directus_roles directus_permissions --yes
+# With core.collections declared in SEEDER_CONFIG_PATH
+npx directus seed core --include categories --yes
 DEPLOYMENT_ENV=development npx directus seed extract
+DEPLOYMENT_ENV=development npx directus seed extract --scope core
 ```
 
 In hardened Directus images without `npx`, invoke the installed CLI directly, for example:
@@ -37,7 +42,7 @@ docker compose exec directus node /directus/cli.js seed system --mode insert-mis
 docker compose exec -e DEPLOYMENT_ENV=development directus node /directus/cli.js seed extract
 ```
 
-| Option                           | `seed system`                                                                                                                                                           | `seed extract`                                                                                         |
+| Option                           | `seed system` / `seed core`                                                                                                                                             | `seed extract`                                                                                         |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `-m, --mode <mode>`              | `insert-missing`, `insert-update`, or `full-idempotent` (case-sensitive). Overrides every collection mode; omitted: use the effective collection `operationMode` value. | —                                                                                                      |
 | `--full-reset`                   | Ignore configured management boundaries for this import; all selected collections with seed files must resolve to `full-idempotent`.                                    | —                                                                                                      |
@@ -45,6 +50,7 @@ docker compose exec -e DEPLOYMENT_ENV=development directus node /directus/cli.js
 | `-e, --exclude <collections...>` | Exclude collections after inclusion.                                                                                                                                    | Exclude collections after inclusion.                                                                   |
 | `-f, --force`                    | Skip confirmation prompts.                                                                                                                                              | —                                                                                                      |
 | `-y, --yes`                      | Alias for `--force`.                                                                                                                                                    | —                                                                                                      |
+| `--scope <scope>`                | —                                                                                                                                                                       | Exact `system` (default), `core`, or `both`; selects extraction scopes.                                |
 | `--skip-clean`                   | —                                                                                                                                                                       | Skip the default output cleanup for this manual invocation; selected JSON files are still overwritten. |
 | `-a, --assets`                   | —                                                                                                                                                                       | Enable binary extraction even with `SEEDER_JSON_ONLY=true`. Mutually exclusive with `--json-only`.     |
 | `--json-only`                    | —                                                                                                                                                                       | Extract JSON without reading, downloading, or deleting binaries. Mutually exclusive with `--assets`.   |
@@ -53,15 +59,19 @@ docker compose exec -e DEPLOYMENT_ENV=development directus node /directus/cli.js
 CLI collection names are separate space-delimited arguments, not comma-separated tokens. CLI lists
 override their respective environment lists; exclusions always win. During manual extraction,
 include/exclude selects JSON output only: it never narrows cleanup or binary asset extraction.
-Selection retains the configured processing order and supports only the built-in collections. Import
-and extraction accept no positional seed path; configure directories through the environment. Manual
-extraction cleans output and writes JSON plus binaries by default. `--skip-clean` is manual-only;
-selective automatic extraction has separate cleanup rules below.
+Selection retains the configured processing order: built-in collections for system, declared
+application collections for core. Include/exclude applies across the scopes selected for extraction;
+`both` processes system then core. Import and extraction accept no positional seed path; configure
+directories through the environment. Default manual extraction cleans system output and writes JSON
+plus binaries. Core extraction handles JSON only, including with `--assets`; asset flags apply only
+when system is selected. `--skip-clean` is manual-only; selective automatic extraction has separate
+cleanup rules below.
 
-`seed system` does not run automatically at server startup. Run it explicitly after database
-bootstrap/schema setup. It clears the Directus system cache after seeding, except when no selected
-seed files exist. Import and extraction release their own bulk-operation flag and call
-`process.exit()` in their final cleanup.
+Run `seed system` and `seed core` explicitly after database bootstrap/schema setup; neither imports
+at server startup or applies schema. Core import uses the same modes, selection, prompts,
+full-idempotent opt-in, `--full-reset`, and error handling as system import. Seeding clears the
+Directus system cache, except when no selected seed files exist. Import and extraction release their
+own bulk-operation flag and call `process.exit()` in their final cleanup.
 
 ### Inspect collection configuration
 
@@ -74,6 +84,8 @@ npx directus seed config
 npx directus seed config --defaults
 # Effective configuration for one supported collection
 npx directus seed config --collection directus_roles
+# Effective configuration for a declared core collection
+npx directus seed config --collection articles
 # Built-in configuration for one supported collection
 npx directus seed config --defaults --collection directus_roles
 ```
@@ -84,6 +96,10 @@ each collection's `operationMode`: its JSON override or its built-in mode. Every
 includes its resolved mode. `--defaults` skips `SEEDER_CONFIG_PATH` and its file entirely, even if
 the file is missing or invalid, and shows built-in modes and management. Startup environment
 validation still applies.
+
+Output always includes `system` and `core`, each with `order` and `collections`; no scope flag is
+needed. Core entries use their required configured modes. `--defaults` shows an empty core scope
+because the package declares no application collections.
 
 Output is JSON with two-space indentation and one final newline, independently of extraction's
 `SEEDER_JSON_INDENT` settings. The command itself writes only configuration JSON to stdout and
@@ -108,15 +124,17 @@ For example, built-in roles inspection has this structure:
         "management": { "type": "manifest" }
       }
     }
-  }
+  },
+  "core": { "order": [], "collections": {} }
 }
 ```
 
 `system.order` contains the full resolved order, including built-ins appended after any consumer
 priority prefix. Inspection lists all supported collections regardless of `SEEDER_INCLUDE` or
 `SEEDER_EXCLUDE`; those settings select import and extraction collections. `--collection` filters
-both `order` and `collections` to exactly one supported collection. An unknown collection produces a
-clear error and exit code 1. `seed config` accepts no `--mode`, `--include`, or `--exclude` options.
+both scopes' `order` and `collections` to the matching built-in or declared core collection, leaving
+the other scope empty. An unknown collection produces a clear error and exit code 1. `seed config`
+accepts no `--mode`, `--include`, or `--exclude` options.
 
 Normal inspection loads and validates the configured JSON file; a missing, unreadable, malformed, or
 invalid file produces an error and exit code 1 without falling back to defaults. Inspection does not
@@ -150,7 +168,7 @@ another type. Credential strings retain whitespace and explicitly empty strings.
 | `SEEDER_ENABLED`                | `true`                           | Boolean master switch. Boolean `false` or string `false` disables all command and automatic-hook registration and skips remaining configuration validation.                                                                                                                                                                                              |
 | `DEPLOYMENT_ENV`                | Unset                            | Optional, untrimmed free string, including names such as `staging`. Only exact `development` registers manual and automatic extraction. Exact `production` adds policy TFA enforcement. Every other value, including unset, suspends matching root users and filters development flows during seeding.                                                   |
 | `SEEDER_CONFIG_PATH`            | Unset                            | Optional nonblank string path to the consumer JSON configuration below. Relative paths resolve from the Directus runtime working directory. An explicitly configured missing, unreadable, malformed, or invalid file fails before database mutations or extraction cleanup.                                                                              |
-| `SEEDER_SCOPE`                  | `system`                         | String: only `system`, case-insensitive without trimming. Unsupported values fail. No custom scope is provided.                                                                                                                                                                                                                                          |
+| `SEEDER_SCOPE`                  | `system`                         | Existing environment setting accepts only `system`, case-insensitive without trimming. Unsupported values fail. Select core with `seed core` or extraction `--scope`; no new scope environment variable is provided.                                                                                                                                     |
 | `SEEDER_INCLUDE`                | `[]` (all supported collections) | Singular nonblank string or array of nonblank strings, trimmed and normalized to an array. An empty array includes all. CLI `--include` overrides it. Used for auto-extract only when `SEEDER_AUTO_EXTRACT_INCLUDE` is unset.                                                                                                                            |
 | `SEEDER_EXCLUDE`                | `[]` (none)                      | Same accepted list forms and normalization as inclusion. An empty array excludes none; exclusions win. CLI `--exclude` overrides it. Used for auto-extract only when `SEEDER_AUTO_EXTRACT_INCLUDE` is unset.                                                                                                                                             |
 | `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. `false` stops seeding on the first failed collection; `true` continues with the next collections. Any database or asset mutation failure exits 1 in either case. Required seed-input preflight and extraction read errors always fail the run.                                                                                                  |
@@ -161,7 +179,7 @@ another type. Credential strings retain whitespace and explicitly empty strings.
 | `SEEDER_AUTO_EXTRACT_INCLUDE`   | Unset                            | Optional nonempty list: one supported collection name or a Directus-cast array, trimmed and case-sensitive. Replaces general include/exclude only for auto-extract; scopes triggers and JSON output, skips cleanup, and forces JSON-only unless `directus_files` is listed. Empty lists, blank entries, and unknown names fail startup validation.       |
 | `SEEDER_JSON_INDENT`            | `tab`                            | String: exact `tab` or `space`, without trimming. Controls manual and automatic JSON extraction. Unsupported values fail.                                                                                                                                                                                                                                |
 | `SEEDER_JSON_INDENT_SIZE`       | `2`                              | Integer number from `1` through `10`. Applies only with `SEEDER_JSON_INDENT=space`, but is always validated, including when indentation is `tab`.                                                                                                                                                                                                        |
-| `SEEDER_SEEDS_DIR`              | `/directus/seeds`                | Seeds root; system JSON and managed-ID history use its `system/` subdirectory. Nonblank string, trimmed. Only missing values use the default; provided blank or nonstring values fail.                                                                                                                                                                   |
+| `SEEDER_SEEDS_DIR`              | `/directus/seeds`                | Seeds root; JSON and managed-ID history use its `system/` or `core/` subdirectory. Nonblank string, trimmed. Only missing values use the default; provided blank or nonstring values fail.                                                                                                                                                               |
 | `SEEDER_ASSETS_DIR`             | `/directus/seeds/system/assets`  | Same path validation. Independent of the seeds root: changing that root never relocates the default or a configured asset path. Existing custom paths, including `/directus/seeds/assets`, remain valid subject to output-path safety below.                                                                                                             |
 | `DEFAULT_EMAIL`                 | `admin@example.com`              | String. Replaces the email of matching root-user seed records. An explicitly empty string is retained.                                                                                                                                                                                                                                                   |
 | `DEFAULT_PASSWORD`              | `p4ssw0rd!`                      | String. Replaces the password of matching root-user seed records. An explicitly empty string is retained. Supply a deployment-specific secret. For standalone Directus, numeric or boolean-like passwords require the `string:` prefix; shared Compose adds that prefix itself, so its root `.env` must contain the plain value. See the examples below. |
@@ -231,14 +249,15 @@ data-provider API, HTTP endpoint, Studio UI, or Flow operation.
 
 ### Consumer JSON configuration
 
-Set `SEEDER_CONFIG_PATH` to customize existing system collections. When it is unset, the hook uses
-its built-in collection defaults. There is no automatic configuration-file discovery. A configured
-file must be readable by the Directus process; a missing or unreadable file, invalid JSON, or
-invalid configuration fails normal inspection and aborts before database mutations or extraction
-output cleanup. `seed config --defaults` skips this file entirely. Validation applies even when an
-invalid collection override would be excluded from the command. The effective configuration,
-including built-in defaults, is structurally validated before operations. Load and validation errors
-never silently fall back to defaults.
+Set `SEEDER_CONFIG_PATH` to customize existing system collections and declare core application
+collections. When it is unset, the hook uses built-in system defaults and an empty core scope. There
+is no automatic configuration-file discovery. A configured file must be readable by the Directus
+process; a missing or unreadable file, invalid JSON, or invalid configuration fails normal
+inspection and aborts before database mutations or extraction output cleanup.
+`seed config --defaults` skips this file entirely. Validation applies even when an invalid
+collection override would be excluded from the command. The effective configuration, including
+built-in defaults, is structurally validated before operations. Load and validation errors never
+silently fall back to defaults.
 
 The JSON file is read when runtime configuration is resolved: each import, extraction, or normal
 inspection invocation reads it again, while automatic extraction captures the effective
@@ -246,8 +265,8 @@ configuration when its hooks register. Restart Directus to reload JSON changes f
 extraction. Environment options remain the validated startup snapshot described above.
 
 The published package includes `seeder.config.example.json` and `seeder-config.schema.json`. Copy
-the example into your Directus project, outside the system and asset output directories, then set
-`$schema` to your installed package as shown below:
+the example into your Directus project, outside the system, core, and asset output directories, then
+set `$schema` to your installed package as shown below:
 
 ```sh
 cp node_modules/@onderwijsin/directus-seeder-hook/seeder.config.example.json ./seeder.config.json
@@ -272,6 +291,18 @@ For example, use this `seeder.config.json`:
       }
     },
     "order": ["directus_policies", "directus_roles"]
+  },
+  "core": {
+    "collections": {
+      "categories": { "operationMode": "insert-update" },
+      "articles": {
+        "operationMode": "full-idempotent",
+        "management": { "type": "manifest" },
+        "fields": ["id", "title", "category"]
+      },
+      "feature_flags": { "operationMode": "insert-missing" }
+    },
+    "order": ["categories"]
   }
 }
 ```
@@ -286,9 +317,9 @@ Relative paths resolve from the Directus runtime's current working directory, ra
 extension's installation directory or your host shell's directory. In a container, mount the JSON
 file separately, for example at `/directus/seeder.config.json`, and set that runtime path. Copying
 the file to a host checkout alone does not make it readable inside Directus. Keep the config and
-schema outside both managed output directories: normal cleanup deletes direct JSON files other than
-`*.managed-ids.json` in the effective system directory and, when binary extraction is enabled, all
-direct regular files in the assets directory. Configuration files receive no cleanup exception.
+schema outside managed output directories: normal cleanup deletes direct JSON files other than
+`*.managed-ids.json` in each selected scope directory and, when system binary extraction is enabled,
+all direct regular files in the assets directory. Configuration files receive no cleanup exception.
 
 For a local npm installation, prefer the `$schema` path above, adjusted to the package's actual
 installed location relative to your config file. It uses the schema shipped with that installed
@@ -299,17 +330,17 @@ JSON Schema is also exported as `@onderwijsin/directus-seeder-hook/seeder-config
 tooling. Configuration requires no TypeScript loader or additional consumer dependencies.
 
 The top-level object accepts only optional string `$schema` and `$comment` metadata and optional
-`system`. `$schema` supports editor tooling; `$comment` holds explanatory text. Both are ignored
-when processing collection configuration; runtime validation uses the hook's schema. The `system`
-object accepts only `collections` and `order`; `{}` retains all defaults. `collections` is an object
-keyed by any of the supported collection names listed below. Unknown configuration keys and
-unsupported collection names fail validation, including unknown properties inside a collection or
-management object. Each collection accepts these properties:
+`system` and `core`. `$schema` supports editor tooling; `$comment` holds explanatory text. Both are
+ignored when processing collection configuration; runtime validation uses the hook's schema. The
+`system` object accepts only `collections` and `order`; `{}` retains all defaults. `collections` is
+an object keyed by any of the supported collection names listed below. Unknown configuration keys
+and unsupported collection names fail validation, including unknown properties inside a collection
+or management object. Each collection accepts these properties:
 
 | Property        | Accepted value and effect                                                                                                                                                                                                                                                                                                  |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `operationMode` | Exact `insert-missing`, `insert-update`, or `full-idempotent`. Overrides this collection's built-in mode unless CLI `--mode` is supplied.                                                                                                                                                                                  |
-| `fields`        | Array of field names, or `null` to clear the built-in projection and use the existing all-fields behavior.                                                                                                                                                                                                                 |
+| `operationMode` | Exact `insert-missing`, `insert-update`, or `full-idempotent`. Optional system override; required for every core declaration, even with CLI `--mode`. No global mode fallback.                                                                                                                                             |
+| `fields`        | Array of field names, or `null` for all fields. Omitted: system default projection; core `['*']`. Core explicit arrays must include the actual primary-key field or `'*'`; extraction never adds it.                                                                                                                       |
 | `filter`        | Directus filter object, or `null` to clear the built-in extraction filter. This does not constrain synchronization deletes.                                                                                                                                                                                                |
 | `sort`          | Array of sort strings, or `null` to clear the built-in sort option.                                                                                                                                                                                                                                                        |
 | `deep`          | Directus deep-query object, or `null` to clear the built-in deep-query option.                                                                                                                                                                                                                                             |
@@ -356,26 +387,39 @@ collections; configuring a single entry under `collections` also leaves every ot
 available. Use CLI `--include`/`--exclude` or the corresponding environment lists for import and
 manual extraction selection; `SEEDER_AUTO_EXTRACT_INCLUDE` can select automatic extraction
 separately. Preserve dependency ordering when choosing a prefix. Batch size and error continuation
-remain global environment settings. This config does not add collections or alter
+remain global environment settings. System overrides do not add system collections or alter
 automatic-extraction selection or binary asset behavior. Extraction cleanup preserves manifest
 history as described below.
 
 For each selected collection, the effective seeding mode is explicit CLI `--mode`, then the
-collection's effective `operationMode` (consumer override or built-in). The example inherits the
-built-in modes, including `insert-update` for presets. Choose `full-idempotent` explicitly to also
-delete presets absent from the seed data within the example's range. Management boundaries limit
-full-idempotent synchronization; only ID-range management also limits extraction selection. Manifest
-management records exported IDs without filtering the extraction query. Management does not limit
-insert-missing or insert-update imports. Safety opt-in and confirmation prompts inspect the
-effective modes of selected collections with present seed files, including `[]`. Missing files
-require no confirmation or opt-in. Required input errors still abort before database mutations. CLI
-mode overrides never change `management`.
+collection's effective `operationMode` (required core declaration or system override/built-in). The
+example's system entries inherit built-in modes, including `insert-update` for presets. Choose
+`full-idempotent` explicitly to also delete presets absent from the seed data within the example's
+range. Management boundaries limit full-idempotent synchronization; only ID-range management also
+limits extraction selection. Manifest management records exported IDs without filtering the
+extraction query. Management does not limit insert-missing or insert-update imports. Safety opt-in
+and confirmation prompts inspect the effective modes of selected collections with present seed
+files, including `[]`. Missing files require no confirmation or opt-in. Required input errors still
+abort before database mutations. CLI mode overrides never change `management`.
 
 Built-in presets use `insert-update` without management; extraction retains only `user = null`, with
 no ID cap. The example's optional `management.max = 50000` limits extraction to IDs below 50000,
 combined with that user filter. Choose a range to match your own requirements; there is no built-in
 project boundary. A management range also bounds full-idempotent deletion; review the
 extraction-filter caveat below before restoring an export.
+
+`core` accepts only `collections` and optional `order`. Declare application collection names only:
+start with a letter or underscore, followed by letters, digits, or underscores; the `directus_`
+prefix and reserved `__proto__` name are rejected. No package collection definitions or system
+transformations are inherited. Apart from required `operationMode`, core accepts the same optional
+`management`, `fields`, `filter`, `sort`, and `deep` structures above. Omitted fields use `['*']`;
+omitted query options and management add no query constraints or management boundary. `core.order`
+is a unique declared-name priority prefix, followed by remaining declarations in JSON declaration
+order. Duplicate or unknown order entries fail validation in either scope. Core declarations select
+the available application collections; include/exclude narrows them for a run. Create the schema and
+related records beforehand, and order dependencies yourself. Core has no automatic relationship
+resolver or file downloads; file foreign keys remain scalar references to records managed separately
+through the system functionality.
 
 ### Password examples: shared Compose and standalone Directus
 
@@ -401,12 +445,12 @@ Use a deployment-specific secret; the values above illustrate casting only.
 ## Seed files and supported collections
 
 `SEEDER_SEEDS_DIR` is the seeds root. Import, manual extraction, and automatic extraction use
-`<seeds-root>/system/` as the effective system directory for all collection JSON and managed-ID
-history. With defaults, these files live in `/directus/seeds/system/`. The root's `core/` directory
-is reserved for future use and is neither created nor processed. Root-level JSON and manifests are
-ignored; there is no flat-layout fallback or automatic migration.
+`<seeds-root>/system/` for system JSON and managed-ID history. Core import and manual extraction use
+`<seeds-root>/core/`. With defaults these are `/directus/seeds/system/` and `/directus/seeds/core/`.
+Root-level JSON and manifests are ignored; there is no flat-layout fallback or automatic migration.
+Automatic extraction uses only `system/`.
 
-Default layout (`core/` is shown only as a future reserved location):
+Example layout:
 
 ```text
 /directus/seeds/
@@ -417,7 +461,11 @@ Default layout (`core/` is shown only as a future reserved location):
 │   ├── directus_files.managed-ids.json
 │   └── assets/
 │       └── <filename_disk>
-└── core/  # reserved; not created or processed
+└── core/
+    ├── categories.json
+    ├── articles.json
+    ├── articles.managed-ids.json
+    └── feature_flags.json
 ```
 
 Assets use the independent `SEEDER_ASSETS_DIR`, defaulting to `/directus/seeds/system/assets`.
@@ -475,10 +523,11 @@ JSON may contain additional Directus fields.
 | `directus_settings`             | All fields except `license_key` and `license_token`.                                                                                                                                                                      |
 | `directus_translations`         | `id`, `language`, `key`, `value`; sorted by `key`, then `language`.                                                                                                                                                       |
 
-`directus_extensions`, custom collections, schema, and other system collections are outside this
-scope. Extraction includes user password data and potentially other secrets in settings, Flow
-options, or arbitrary fields. Review output before sharing or committing it; license-field omission
-is not general secret redaction. This is not a complete database or storage backup.
+`directus_extensions`, schema, and other system collections are outside the system scope.
+Application collections must be explicitly declared under `core.collections`. Extraction includes
+user password data and potentially other secrets in settings, Flow options, or arbitrary fields.
+Review output before sharing or committing it; license-field omission is not general secret
+redaction. This is not a complete database or storage backup.
 
 ### Flow-folder compatibility
 
@@ -501,23 +550,23 @@ update semantics; a newly created folder without `type` defaults to `files` on t
 
 ### Seed input semantics and preflight
 
-Import requires `<seeds-root>/system/` to exist and be a directory. A missing system directory or a
-path that is not a directory fails with the effective system path in the error and exit code 1, even
-if flat seed files exist at the root. Extraction creates the system directory when absent. An
-existing system directory without any selected system seed files logs a warning with its path and
+Import requires its `<seeds-root>/system/` or `<seeds-root>/core/` directory to exist and be a
+directory. A missing directory or a path that is not a directory fails with that path and exit code
+1, even if flat seed files exist at the root. Extraction creates selected scope directories when
+absent. An existing scope directory without any selected seed files logs a warning with its path and
 exits 0 without database operations, service creation, or cache clearing. Unsupported files and seed
-files inside further subdirectories do not count. A system directory with only some supported files
+files inside further subdirectories do not count. A scope directory with only some configured files
 is valid; missing collection files are skipped. An empty collection selection is also a successful
-no-op once the system directory exists.
+no-op once the scope directory exists.
 
-Seed input uses `<seeds-root>/system/<collection>.json`; files for collections outside the supported
-list above are ignored. The Seeder resolves include/exclude before preflight: each CLI list
-overrides only its corresponding environment list, and exclusions win. Before any database mutation,
-selected seed files and their data transformations are validated, plus any Flow metadata required
-for Operations filtering, raw related seed IDs for relation management, and managed-ID manifests
-required for full-idempotent import below. Invalid or unreadable required input aborts before any
-selected collection is mutated, even with `SEEDER_CONTINUE_ON_ERROR=true`. Unselected files are
-ignored silently unless required as Flow metadata or a relation source.
+Seed input uses `<seeds-root>/<scope>/<collection>.json`; files outside the built-in system list or
+declared core collections are ignored. The Seeder resolves include/exclude before preflight: each
+CLI list overrides only its corresponding environment list, and exclusions win. Before any database
+mutation, selected seed files and their data transformations are validated, plus any Flow metadata
+required for Operations filtering, raw related seed IDs for relation management, and managed-ID
+manifests required for full-idempotent import below. Invalid or unreadable required input aborts
+before any selected collection is mutated, even with `SEEDER_CONTINUE_ON_ERROR=true`. Unselected
+files are ignored silently unless required as Flow metadata or a relation source.
 
 - A missing target file (ENOENT only) omits the collection and its data: no database operations run
   for it in any mode, including `full-idempotent` deletes. A missing file never becomes empty input.
@@ -529,7 +578,16 @@ ignored silently unless required as Flow metadata or a relation source.
   file, and non-ENOENT read errors throw a file-context error naming the file; the CLI exits 1
   regardless of `SEEDER_CONTINUE_ON_ERROR`.
 
-### Retained import transformations
+Core uses the live schema's actual primary-key name, including names other than `id`. Each core seed
+row must provide a unique key matching that schema: a canonical lowercase UUID, nonempty string, or
+JavaScript safe-integer number, without coercion. Missing, duplicate, or invalid keys fail preflight
+before mutation in every import mode, including `--full-reset`. Missing collections, missing or
+alias primary keys, and unsupported primary-key types fail clearly without an implicit `id`
+fallback. Explicit extraction `fields` must include this primary-key field or `'*'`; `[]` fails this
+check. An absent or null projection uses `['*']`. The Seeder never adds a key to an explicit
+projection.
+
+### Retained system import transformations
 
 Root-user matching is case-insensitive: title exactly `super user`, or first name `admin` with last
 name `developer` or `user`. Matching records receive `DEFAULT_EMAIL` and `DEFAULT_PASSWORD` (or the
@@ -558,7 +616,8 @@ transactional two-pass import.
 `insert-missing` creates missing IDs; `insert-update` upserts records; `full-idempotent`
 additionally deletes target IDs absent from the selected seed data, within any configured management
 boundary. Stable IDs are necessary for repeatability. Without management, ID-less input retains
-legacy batch-dependent handling and should not be used for synchronization.
+legacy system batch-dependent handling and should not be used for synchronization. Core always
+requires valid explicit primary keys.
 
 If any selected collection with a present seed file has effective mode `full-idempotent`, the
 interactive run requires typing exact `DELETE`. Otherwise, any such `insert-update` mode prompts for
@@ -608,12 +667,13 @@ behavior; it does not reset the schema or reinsert every record.
 
 `management` with `type: 'id-range'` accepts optional inclusive `min` and exclusive `max` bounds; at
 least one bound is required. Bounds and ranged seed IDs must be JavaScript safe-integer numbers,
-without numeric-string coercion. Empty ranges, unknown keys or types, `null` bounds, nonfinite,
-fractional, or unsafe bounds, and `min >= max` are invalid. Consumer configuration validates ranges
-even when another mode is effective. Before any database mutation, all selected collections with
-present seed files and effective `full-idempotent` mode are preflighted. Invalid management or a
-ranged record with a missing, nonnumeric, unsafe, or out-of-range ID aborts the entire import, even
-with `SEEDER_CONTINUE_ON_ERROR=true`.
+without numeric-string coercion. Core extraction and bounded full-idempotent import also require an
+integer or big-integer schema primary key for ID ranges. Empty ranges, unknown keys or types, `null`
+bounds, nonfinite, fractional, or unsafe bounds, and `min >= max` are invalid. Consumer
+configuration validates ranges even when another mode is effective. Before any database mutation,
+all selected collections with present seed files and effective `full-idempotent` mode are
+preflighted. Invalid management or a ranged record with a missing, nonnumeric, unsafe, or
+out-of-range ID aborts the entire import, even with `SEEDER_CONTINUE_ON_ERROR=true`.
 
 Ranged synchronization preserves records outside the range and deletes only in-range IDs absent from
 the seed data; `[]` deletes only within that range. Missing files still skip all collection work.
@@ -629,8 +689,8 @@ Review the complete intended range before using extracted JSON as a synchronizat
 
 Use `management: { "type": "manifest" }` to keep the IDs exported over time as the management
 boundary. The filename is derived from the collection:
-`<seeds-root>/system/<collection>.managed-ids.json`, beside `<collection>.json` in the effective
-system directory. No extra per-collection directory, environment variable, or manifest options are
+`<seeds-root>/<scope>/<collection>.managed-ids.json`, beside `<collection>.json` in its scope
+directory. No extra per-collection directory, environment variable, or manifest options are
 required. Keeping both files together makes desired data and its management boundary easy to review
 and version as a pair in Git. The manifest is a plain JSON array of IDs, for example
 `directus_access.managed-ids.json`:
@@ -639,11 +699,11 @@ and version as a pair in Git. The manifest is a plain JSON array of IDs, for exa
 ["2a7d5e56-ba21-4fe5-b18e-f0d7147c7ae0", "6d4b31c2-314c-4fba-a067-8c7dbd439a25"]
 ```
 
-Manual and automatic extraction use the collection's current `fields`, `filter`, `sort`, and `deep`
-query, without reading existing seed data or filtering by the manifest. Include an explicit `id` in
-the exported fields. Exported IDs and existing manifest IDs must match the live primary-key type:
-canonical lowercase UUID strings, nonempty strings, or safe-integer numbers, without coercion. Other
-string keys retain their case.
+Manual extraction and automatic system extraction use the collection's current `fields`, `filter`,
+`sort`, and `deep` query, without reading existing seed data or filtering by the manifest. Include
+the actual primary key in the exported fields. Exported IDs and existing manifest IDs must match the
+live primary-key type: canonical lowercase UUID strings, nonempty strings, or safe-integer numbers,
+without coercion. Other string keys retain their case.
 
 Extraction creates a missing manifest and unions exported IDs with its existing history,
 deduplicating and sorting strings lexically or numbers numerically. Repeated exports with the same
@@ -681,20 +741,23 @@ manifest. The array records IDs only, with no lifecycle statuses, timestamps, or
 Use one direct scalar many-to-one foreign key to select target rows by IDs in a related seed file.
 For example, the configuration above manages permissions whose `policy` is an `id` in
 `<seeds-root>/system/directus_policies.json`. Membership comes from that raw Git seed file,
-independently of permission rows and whether policies are selected for import. Both collections must
-be supported system collections listed above; this does not add custom collections or a core scope.
-The live relationship must point directly to the related collection's `id` primary key; relation
-paths, aliases, compound relationships, and nested relation objects are unsupported.
+independently of permission rows and whether policies are selected for import. System sources must
+be supported system collections. Core reads source JSON from its own scope directory; the source
+does not need a separate core declaration or selection for import. Read
+`<seeds-root>/<scope>/<source-collection>.json` using its actual schema primary-key name, including
+a name other than `id`. The live relationship must point directly to that key with a compatible
+foreign-key type. Relation paths, aliases, compound relationships, and nested relation objects are
+unsupported.
 
 For a bounded full-idempotent import with a present target file, the source must be a readable,
 valid JSON array with explicit IDs. IDs and foreign-key values must match the live schema: canonical
 lowercase UUID strings, nonempty strings, or safe-integer numbers, without numeric-string coercion.
 UUID inputs with uppercase letters are rejected before mutations to keep membership consistent
 across database representations. Other string keys are compared exactly and retain their case.
-Duplicate source IDs are invalid. Every target seed row requires its own explicit `id` and a scalar
-value for the configured field (`policy` here) in the source ID set. Missing, null, nested, or
-out-of-set foreign keys fail preflight. Only raw source `id` values define membership: source
-filters, ID ranges, and environment transformations do not narrow that membership, and source
+Duplicate source IDs are invalid. Every target seed row requires its own explicit primary key and a
+scalar value for the configured field (`policy` here) in the source ID set. Missing, null, nested,
+or out-of-set foreign keys fail preflight. Only raw source primary-key values define membership:
+source filters, ID ranges, and environment transformations do not narrow that membership, and source
 management is not followed recursively. Reading a source does not import its records.
 
 Before any selected collection is mutated, full-idempotent preflight validates the relationship
@@ -746,7 +809,7 @@ protection against that mismatch.
 Operations are batched without an extension-wide transaction or rollback. Preflight checks array
 boundaries, transformations, and managed IDs; it does not add complete per-collection record schemas
 or validate binary assets. Database or asset import errors can still occur after earlier mutations.
-Every failed mutation is reported with its collection and makes `seed system` exit 1.
+Every failed mutation is reported with its collection and makes `seed system` or `seed core` exit 1.
 `SEEDER_CONTINUE_ON_ERROR=false` (default) stops seeding on the first failed collection. With
 `true`, the failed collection stops and seeding continues with the next collections, but the final
 exit code is still 1. The option controls continuation, not whether failures count as success. A
@@ -774,24 +837,27 @@ formatter or guarantee project-specific formatting rules.
 
 Manual extraction and automatic extraction without `SEEDER_AUTO_EXTRACT_INCLUDE` first clean output
 unless manual `--skip-clean` is set. An explicit automatic allowlist skips cleanup of both output
-directories. Cleanup is limited to the effective system directory and the configured asset
-directory; it never cleans the seeds root as a whole. Root-level files and sibling directories such
-as `core/` are outside system cleanup. When cleanup runs:
+directories. Cleanup is limited to the effective system directory and the configured asset directory
+for system extraction. Core extraction cleans only the core directory; `both` cleans each scope
+separately and handles assets only through system. Cleanup never cleans the seeds root as a whole or
+an unselected scope. When cleanup runs:
 
-- The system directory loses only its direct regular `.json` files other than `*.managed-ids.json`,
-  including unselected seed JSON. Managed-ID history files remain even for unselected collections.
+- Each selected scope directory loses only its direct regular `.json` files other than
+  `*.managed-ids.json`, including unselected seed JSON. Managed-ID history files remain even for
+  unselected collections.
 - With binary extraction enabled, the assets directory loses all its direct regular files, even when
   `directus_files` is empty.
-- Cleanup never enters subdirectories, recurses, or follows symlinks. Non-JSON files in the system
-  directory and nested directories remain. Include/exclude selects JSON output, never cleanup scope.
+- Cleanup never enters subdirectories, recurses, or follows symlinks. Non-JSON files in scope
+  directories and nested directories remain. Include/exclude selects JSON output, never cleanup
+  scope.
 
 Matching files include hand-created or uncommitted output. Git can restore committed versions; it
 cannot restore uncommitted content removed by cleanup. Use dedicated output directories. Before the
-first deletion, extraction checks the configured seeds root, effective system directory, and
-configured asset path, including in JSON-only mode, and refuses filesystem roots, symlinked
-directories or directory ancestors. The effective system and assets directories must differ, and
-assets must not be a parent of the system directory. Assets may live inside the system directory or
-in a separate directory, including the former `/directus/seeds/assets` location.
+first deletion, extraction checks the configured seeds root and effective output paths, and refuses
+filesystem roots, symlinked directories or directory ancestors. Assets must differ from and not
+contain the effective JSON directory, even in JSON-only mode. System binary extraction also rejects
+assets equal to or containing the core directory. Assets may live inside the system directory or
+separately, including the former `/directus/seeds/assets` location.
 
 Every selected collection overwrites its JSON file, including an empty collection as `[]` plus
 exactly one newline (`[]\n`), even with `--skip-clean`. That flag preserves other output but does
@@ -801,6 +867,7 @@ than writing an empty result. Extraction has no whole-run transaction or rollbac
 earlier writes may already have happened, leaving partial output. Fix the error and rerun extraction
 to recover a complete export; inspect output and logs before using it for seeding.
 
+Core extraction always performs no binary reads, downloads, or cleanup, even with `--assets`. System
 JSON-only mode (`SEEDER_JSON_ONLY=true` or manual `--json-only`) never reads, downloads, or deletes
 binary assets. It still extracts `directus_files.json` when selected, with the same cleanup and
 serialization as any other collection JSON. Use this mode to keep local binaries intact, including
@@ -822,6 +889,10 @@ Copyable manual examples (all require exact `DEPLOYMENT_ENV=development`):
 DEPLOYMENT_ENV=development npx directus seed extract
 # JSON-only export: clean JSON, preserve every binary
 DEPLOYMENT_ENV=development npx directus seed extract --json-only
+# Export configured application collections without touching system output or assets
+DEPLOYMENT_ENV=development npx directus seed extract --scope core
+# Export both scopes; include/exclude applies to names across both
+DEPLOYMENT_ENV=development npx directus seed extract --scope both --json-only
 # Preserve other files while refreshing selected JSON, including empty collections
 DEPLOYMENT_ENV=development npx directus seed extract --json-only --skip-clean --include directus_roles
 # Explicitly enable binaries when the environment defaults to JSON-only
@@ -830,16 +901,17 @@ DEPLOYMENT_ENV=development SEEDER_JSON_ONLY=true npx directus seed extract --ass
 DEPLOYMENT_ENV=development SEEDER_SEEDS_DIR=./seeds SEEDER_ASSETS_DIR=./seed-assets npx directus seed extract
 ```
 
-Automatic extraction requires both exact `DEPLOYMENT_ENV=development` and
-`SEEDER_AUTO_EXTRACT=true`. Selected collections' create/update/delete actions schedule a 15-second
-debounce; further events, including other processes' marker updates, extend it. Each debounced run
-extracts every selected collection in effective configuration order, using its configured `fields`,
-`filter`, `sort`, `deep`, and optional ID-range boundary. Relation and manifest management do not
-filter extraction; manifest management updates history for each extracted collection. It exports the
-selected collections again rather than only the changed records. A `users.update` payload containing
-only `last_page`, or an empty payload, is ignored. File uploads do not necessarily emit the
-create/update events monitored here; use manual extraction when needed. Enabling auto-extract does
-not import seeds or extract data at startup.
+Automatic extraction is system-only; core automatic extraction is not implemented, and
+`SEEDER_AUTO_EXTRACT_INCLUDE` accepts only supported system names. It requires both exact
+`DEPLOYMENT_ENV=development` and `SEEDER_AUTO_EXTRACT=true`. Selected collections'
+create/update/delete actions schedule a 15-second debounce; further events, including other
+processes' marker updates, extend it. Each debounced run extracts every selected collection in
+effective configuration order, using its configured `fields`, `filter`, `sort`, `deep`, and optional
+ID-range boundary. Relation and manifest management do not filter extraction; manifest management
+updates history for each extracted collection. It exports the selected collections again rather than
+only the changed records. A `users.update` payload containing only `last_page`, or an empty payload,
+is ignored. File uploads do not necessarily emit the create/update events monitored here; use manual
+extraction when needed. Enabling auto-extract does not import seeds or extract data at startup.
 
 - With `SEEDER_AUTO_EXTRACT_INCLUDE` unset, auto-extract retains the general
   `SEEDER_INCLUDE`/`SEEDER_EXCLUDE` selection and default output cleanup. With

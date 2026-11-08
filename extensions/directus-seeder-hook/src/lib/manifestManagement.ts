@@ -7,23 +7,7 @@ import path from 'node:path'
 import { z } from 'zod'
 
 import { outputFileAtomic, readRegularFile } from './filesystem'
-import { getManagementKeySchema } from './managementKeys'
-
-/**
- * Requires a representable scalar id primary key for manifest membership.
- * @param collectionName - Managed collection.
- * @param schema - Live Directus schema.
- * @returns Schema matching this collection's primary key.
- */
-function getManifestKeySchema(collectionName: string, schema: SchemaOverview) {
-	const collection = schema.collections[collectionName]
-	if (collection?.primary !== 'id' || collection.fields.id?.alias) {
-		throw new Error(
-			`Manifest management for collection "${collectionName}" requires an id primary key`,
-		)
-	}
-	return getManagementKeySchema(collection.fields.id?.type)
-}
+import { getCollectionPrimaryKey, getCollectionPrimaryKeySchema } from './primaryKey'
 
 /**
  * Reads and validates a manifest, allowing absence only during extraction.
@@ -34,7 +18,7 @@ function getManifestKeySchema(collectionName: string, schema: SchemaOverview) {
  */
 async function readManifest(
 	filename: string,
-	keySchema: ReturnType<typeof getManifestKeySchema>,
+	keySchema: ReturnType<typeof getCollectionPrimaryKeySchema>,
 	allowMissing: boolean,
 ): Promise<(string | number)[]> {
 	let content: string
@@ -63,7 +47,11 @@ export async function readManagedIds(
 ): Promise<(string | number)[]> {
 	const filename = path.join(seedsFolder, `${collectionName}.managed-ids.json`)
 	try {
-		return await readManifest(filename, getManifestKeySchema(collectionName, schema), false)
+		return await readManifest(
+			filename,
+			getCollectionPrimaryKeySchema(collectionName, schema),
+			false,
+		)
 	} catch (error) {
 		throw new Error(
 			`Failed to resolve manifest management for collection "${collectionName}" from "${filename}": ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -84,7 +72,9 @@ export function getManifestSeedIds(
 	data: SeedItem[],
 	schema: SchemaOverview,
 ): (string | number)[] {
-	const rowSchema = z.looseObject({ id: getManifestKeySchema(collectionName, schema) })
+	const primary = getCollectionPrimaryKey(collectionName, schema)
+	const keySchema = getCollectionPrimaryKeySchema(collectionName, schema)
+	const rowSchema = z.looseObject({})
 	return data.map((row, index) => {
 		const parsed = rowSchema.safeParse(row)
 		if (!parsed.success) {
@@ -92,7 +82,13 @@ export function getManifestSeedIds(
 				`Invalid manifest-managed seed ID for collection "${collectionName}" at row ${index + 1}: ${parsed.error.message}`,
 			)
 		}
-		return parsed.data.id
+		const key = keySchema.safeParse(parsed.data[primary])
+		if (!key.success) {
+			throw new Error(
+				`Invalid manifest-managed seed ID for collection "${collectionName}" at row ${index + 1}: ${key.error.message}`,
+			)
+		}
+		return key.data
 	})
 }
 
@@ -117,7 +113,7 @@ export async function updateManagedIds(
 		const current = getManifestSeedIds(collectionName, data, schema)
 		const historical = await readManifest(
 			filename,
-			getManifestKeySchema(collectionName, schema),
+			getCollectionPrimaryKeySchema(collectionName, schema),
 			true,
 		)
 		const ids = [...new Set([...historical, ...current])].sort((left, right) => {

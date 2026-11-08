@@ -1,10 +1,27 @@
+import type { FieldOverview, SchemaOverview } from '@directus/types'
+import type { ResolvedCollectionManagement } from '../src/lib/collectionManagement'
 import type { ServiceAdapter } from '../src/services/ServiceAdapter'
 
-import { describe, expect, it, vi } from 'vitest'
+import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 
-import { validateManagedSeedData } from '../src/lib/collectionManagement'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+
+import {
+	getIdRangeFilters,
+	getManagementFilters,
+	validateManagedSeedData,
+} from '../src/lib/collectionManagement'
 import { OperationMode } from '../src/lib/config'
+import { getManifestSeedIds, readManagedIds, updateManagedIds } from '../src/lib/manifestManagement'
 import { createPerformanceTracker } from '../src/lib/performanceTracker'
+import {
+	getCollectionPrimaryKey,
+	getCollectionPrimaryKeySchema,
+	validateCollectionSeedKeys,
+} from '../src/lib/primaryKey'
+import { resolveCollectionManagement, validateRelationSeedKeys } from '../src/lib/resolveManagement'
 import { createServiceAdapter } from '../src/services/ServiceAdapter'
 import { createSeederStrategy } from '../src/strategies'
 
@@ -347,5 +364,432 @@ describe('seed strategies', () => {
 		expect(result).toMatchObject({ error: 'fixture failure', created: 1, deleted: 0, total: 3 })
 		expect(service.upsertItems).toHaveBeenCalledTimes(2)
 		expect(service.deleteItems).not.toHaveBeenCalled()
+	})
+})
+
+/**
+ * Models a real scalar field using the installed Directus schema contract.
+ * @param field - Field name.
+ * @param type - Live Directus scalar type.
+ * @returns A non-alias field overview.
+ */
+function createField(field: string, type: FieldOverview['type']): FieldOverview {
+	return {
+		field,
+		type,
+		defaultValue: null,
+		nullable: false,
+		generated: false,
+		dbType: null,
+		precision: null,
+		scale: null,
+		special: [],
+		note: null,
+		validation: null,
+		alias: false,
+		searchable: true,
+	}
+}
+
+/**
+ * Models custom target/source primary keys and a direct scalar foreign key.
+ * @param type - Target primary-key type.
+ * @param sourceType - Source primary-key and foreign-key type.
+ * @returns Schema fixture checked against the installed Directus types.
+ */
+function createSchema(
+	type: FieldOverview['type'] = 'string',
+	sourceType: FieldOverview['type'] = 'string',
+) {
+	return {
+		collections: {
+			children: {
+				collection: 'children',
+				primary: 'code',
+				singleton: false,
+				sortField: null,
+				note: null,
+				accountability: null,
+				fields: {
+					code: createField('code', type),
+					owner: createField('owner', sourceType),
+				},
+			},
+			parents: {
+				collection: 'parents',
+				primary: 'slug',
+				singleton: false,
+				sortField: null,
+				note: null,
+				accountability: null,
+				fields: { slug: createField('slug', sourceType) },
+			},
+		},
+		relations: [
+			{
+				collection: 'children',
+				field: 'owner',
+				related_collection: 'parents',
+				meta: null,
+				schema: {
+					table: 'children',
+					column: 'owner',
+					foreign_key_table: 'parents',
+					foreign_key_column: 'slug',
+					constraint_name: null,
+					on_update: null,
+					on_delete: null,
+				},
+			},
+		],
+	} satisfies SchemaOverview
+}
+
+describe('schema primary keys', () => {
+	it.each([
+		{ old: 'old', fresh: 'new', extra: 'extra' },
+		{ old: 10, fresh: 11, extra: 12 },
+	])('uses custom keys in all three strategies for $old', async ({ old, fresh, extra }) => {
+		const data = [
+			{ code: old, id: 'irrelevant' },
+			{ code: fresh, id: 'irrelevant' },
+		]
+		for (const mode of Object.values(OperationMode)) {
+			const service = createAdapter()
+			service.getItems
+				.mockResolvedValueOnce([{ code: old }])
+				.mockResolvedValueOnce([{ code: extra }])
+			service.deleteItems.mockResolvedValue([extra])
+			const result = await createSeederStrategy(mode).seedCollection(
+				'children',
+				data,
+				service.adapter,
+				createPerformanceTracker(),
+				undefined,
+				'code',
+				false,
+			)
+			expect(result.error).toBeUndefined()
+			expect(service.getItems).toHaveBeenNthCalledWith(1, {
+				fields: ['code'],
+				filter: { code: { _in: [old, fresh] } },
+				limit: -1,
+			})
+			if (mode === OperationMode.INSERT_MISSING) {
+				expect(service.createItems).toHaveBeenCalledExactlyOnceWith([data[1]])
+				expect(result).toMatchObject({ created: 1, skipped: 1, updated: 0, deleted: 0 })
+			} else {
+				expect(service.upsertItems).toHaveBeenCalledExactlyOnceWith(data)
+				expect(result).toMatchObject({ created: 1, updated: 1, skipped: 0 })
+			}
+			if (mode === OperationMode.FULL_IDEMPOTENT) {
+				expect(service.getItems).toHaveBeenLastCalledWith({
+					fields: ['code'],
+					filter: { code: { _nin: [old, fresh] } },
+					limit: -1,
+				})
+				expect(service.deleteItems).toHaveBeenCalledExactlyOnceWith([extra])
+			} else {
+				expect(service.deleteItems).not.toHaveBeenCalled()
+			}
+		}
+	})
+
+	it('preserves a core business field named __isUpdateOnly', async () => {
+		const service = createAdapter()
+		const data = [{ code: 'new', __isUpdateOnly: true }]
+		const result = await createSeederStrategy(OperationMode.INSERT_MISSING).seedCollection(
+			'children',
+			data,
+			service.adapter,
+			createPerformanceTracker(),
+			undefined,
+			'code',
+			false,
+		)
+		expect(result).toMatchObject({ created: 1, updated: 0 })
+		expect(service.createItems).toHaveBeenCalledExactlyOnceWith(data)
+		expect(service.upsertItems).not.toHaveBeenCalled()
+		expect(() =>
+			validateManagedSeedData(
+				'children',
+				[
+					{ code: 'child', owner: 'parent' },
+					{ code: 'child', __isUpdateOnly: true },
+				],
+				{ type: 'relation', field: 'owner', collection: 'parents', ids: ['parent'] },
+				'code',
+				false,
+			),
+		).toThrow('inside the managed relation selection')
+	})
+
+	it.each([
+		{ type: 'id-range', min: 10, max: 20 },
+		{ type: 'manifest', ids: [10, 11] },
+		{ type: 'relation', field: 'owner', collection: 'parents', ids: ['parent'] },
+	] satisfies ResolvedCollectionManagement[])(
+		'bounds custom primary-key deletion with $type',
+		async (management) => {
+			const service = createAdapter()
+			service.getItems.mockResolvedValueOnce([]).mockResolvedValueOnce([{ code: 11 }])
+			service.deleteItems.mockResolvedValue([11])
+			const result = await createSeederStrategy(OperationMode.FULL_IDEMPOTENT).seedCollection(
+				'children',
+				[{ code: 10, owner: 'parent' }],
+				service.adapter,
+				createPerformanceTracker(),
+				management,
+				'code',
+				false,
+			)
+			expect(result.error).toBeUndefined()
+			expect(service.getItems).toHaveBeenLastCalledWith({
+				fields: ['code'],
+				filter: {
+					_and: [...getManagementFilters(management, 'code'), { code: { _nin: [10] } }],
+				},
+				limit: -1,
+			})
+			expect(service.deleteItems).toHaveBeenCalledExactlyOnceWith([11])
+		},
+	)
+
+	it('retains numeric id-range validation and custom-key empty-seed bounds', async () => {
+		const management = {
+			type: 'id-range',
+			min: 10,
+			max: 20,
+		} satisfies ResolvedCollectionManagement
+		expect(getIdRangeFilters(management, 'code')).toEqual([
+			{ code: { _gte: 10 } },
+			{ code: { _lt: 20 } },
+		])
+		const service = createAdapter()
+		const strategy = createSeederStrategy(OperationMode.FULL_IDEMPOTENT, 1)
+		const result = await strategy.seedCollection(
+			'children',
+			[{ code: 10 }, { code: '11' }],
+			service.adapter,
+			createPerformanceTracker(),
+			management,
+			'code',
+			false,
+		)
+		expect(result.error).toContain('requires a safe integer numeric ID')
+		expect(service.getItems).not.toHaveBeenCalled()
+		expect(service.upsertItems).not.toHaveBeenCalled()
+		await strategy.seedCollection(
+			'children',
+			[],
+			service.adapter,
+			createPerformanceTracker(),
+			management,
+			'code',
+			false,
+		)
+		expect(service.getItems).toHaveBeenCalledExactlyOnceWith({
+			fields: ['code'],
+			filter: { _and: getIdRangeFilters(management, 'code') },
+			limit: -1,
+		})
+	})
+
+	it('validates schema primary keys and every seed key without id fallback or coercion', () => {
+		const schema = createSchema()
+		expect(getCollectionPrimaryKey('children', schema)).toBe('code')
+		expect(getCollectionPrimaryKeySchema('children', schema).parse('valid')).toBe('valid')
+		expect(() =>
+			validateCollectionSeedKeys('children', [{ code: 'valid' }], schema),
+		).not.toThrow()
+		for (const row of [
+			{ id: 'wrong' },
+			{ code: null },
+			{ code: '' },
+			{ code: 1 },
+			null,
+			'value',
+			[],
+		]) {
+			expect(() =>
+				validateCollectionSeedKeys('children', [{ code: 'valid' }, row], schema),
+			).toThrow('at row 2')
+		}
+		expect(() =>
+			validateCollectionSeedKeys('children', [{ code: 'same' }, { code: 'same' }], schema),
+		).toThrow('at row 2')
+		expect(() => getCollectionPrimaryKey('missing', schema)).toThrow(
+			'requires a scalar primary key',
+		)
+		schema.collections.children.primary = 'id'
+		expect(() => getCollectionPrimaryKey('children', schema)).toThrow(
+			'requires a scalar primary key',
+		)
+		schema.collections.children.primary = ''
+		expect(() => getCollectionPrimaryKey('children', schema)).toThrow(
+			'requires a scalar primary key',
+		)
+		schema.collections.children.primary = 'code'
+		schema.collections.children.fields.code.alias = true
+		expect(() => getCollectionPrimaryKey('children', schema)).toThrow(
+			'requires a scalar primary key',
+		)
+		for (const type of ['json', 'float', 'text', 'boolean'] satisfies FieldOverview['type'][]) {
+			expect(() => getCollectionPrimaryKey('children', createSchema(type))).toThrow(
+				'Unsupported primary key',
+			)
+		}
+	})
+
+	it.each(['integer', 'bigInteger'] satisfies FieldOverview['type'][])(
+		'preflights safe %s keys without coercion',
+		(type) => {
+			const schema = createSchema(type)
+			expect(() =>
+				validateCollectionSeedKeys('children', [{ code: 0 }, { code: 42 }], schema),
+			).not.toThrow()
+			for (const code of ['42', 1.5, Number.MAX_SAFE_INTEGER + 1, Infinity, null]) {
+				expect(() =>
+					validateCollectionSeedKeys('children', [{ code: 0 }, { code }], schema),
+				).toThrow('at row 2')
+			}
+		},
+	)
+
+	it('preserves canonical lowercase UUID validation for custom keys', () => {
+		const schema = createSchema('uuid')
+		const code = '11111111-1111-4111-8111-11111111111a'
+		expect(() => validateCollectionSeedKeys('children', [{ code }], schema)).not.toThrow()
+		expect(() =>
+			validateCollectionSeedKeys('children', [{ code: code.toUpperCase() }], schema),
+		).toThrow('Invalid seed primary key')
+	})
+
+	it.each([
+		{ type: 'string', keys: ['new', 'old'] },
+		{ type: 'integer', keys: [10, 11] },
+	] satisfies { type: FieldOverview['type']; keys: (string | number)[] }[])(
+		'reads and updates manifests using custom $type primary keys',
+		async ({ type, keys }) => {
+			const directory = await mkdtemp(path.join(await realpath(tmpdir()), 'seeder-primary-'))
+			onTestFinished(() => rm(directory, { recursive: true, force: true }))
+			const schema = createSchema(type)
+			const rows = keys.map((code) => ({ code, id: 'irrelevant' }))
+			expect(getManifestSeedIds('children', rows, schema)).toEqual(keys)
+			await updateManagedIds('children', rows.slice(0, 1), directory, schema, 2)
+			await updateManagedIds('children', rows.slice(1), directory, schema, 2)
+			expect(await readManagedIds('children', directory, schema)).toEqual(keys)
+			expect(
+				JSON.parse(
+					await readFile(path.join(directory, 'children.managed-ids.json'), 'utf8'),
+				),
+			).toEqual(keys)
+			expect(() => getManifestSeedIds('children', [{ id: keys[0] }], schema)).toThrow(
+				'Invalid manifest-managed seed ID',
+			)
+			expect(() =>
+				validateManagedSeedData(
+					'children',
+					rows,
+					{ type: 'manifest', ids: keys.slice(0, 1) },
+					'code',
+					false,
+				),
+			).toThrow('inside the managed manifest selection')
+		},
+	)
+
+	it.each([
+		{ type: 'string', key: 'parent' },
+		{ type: 'integer', key: 10 },
+	] satisfies { type: FieldOverview['type']; key: string | number }[])(
+		'resolves a relation from the actual source $type primary key',
+		async ({ type, key }) => {
+			const directory = await mkdtemp(
+				path.join(await realpath(tmpdir()), 'seeder-relation-primary-'),
+			)
+			onTestFinished(() => rm(directory, { recursive: true, force: true }))
+			const schema = createSchema('string', type)
+			await writeFile(
+				path.join(directory, 'parents.json'),
+				JSON.stringify([{ slug: key, id: 'irrelevant' }]),
+			)
+			const management = {
+				type: 'relation',
+				field: 'owner',
+				collection: 'parents',
+			} satisfies Parameters<typeof resolveCollectionManagement>[1]
+			expect(
+				await resolveCollectionManagement('children', management, directory, schema),
+			).toEqual({ ...management, ids: [key] })
+			expect(() =>
+				validateRelationSeedKeys('children', [{ code: 'valid' }], schema),
+			).not.toThrow()
+			expect(() => validateRelationSeedKeys('children', [{ id: 'wrong' }], schema)).toThrow(
+				'Invalid relation-managed seed ID',
+			)
+			await writeFile(path.join(directory, 'parents.json'), JSON.stringify([{ id: key }]))
+			await expect(
+				resolveCollectionManagement('children', management, directory, schema),
+			).rejects.toThrow('Invalid related seed ID')
+		},
+	)
+
+	it('rejects unsafe relation schemas and invalid or duplicate source keys', async ({
+		onTestFinished,
+	}) => {
+		const directory = await mkdtemp(
+			path.join(await realpath(tmpdir()), 'seeder-relation-primary-'),
+		)
+		onTestFinished(() => rm(directory, { recursive: true, force: true }))
+		const management = {
+			type: 'relation',
+			field: 'owner',
+			collection: 'parents',
+		} satisfies Parameters<typeof resolveCollectionManagement>[1]
+		await writeFile(path.join(directory, 'parents.json'), JSON.stringify([{ slug: 'parent' }]))
+		const invalidSchemas = [
+			createSchema(),
+			createSchema(),
+			createSchema(),
+			createSchema(),
+			createSchema(),
+			createSchema(),
+		]
+		const [wrongColumn, missingRelation, alias, wrongType, sourceAlias, targetAlias] =
+			invalidSchemas
+		if (
+			!wrongColumn ||
+			!missingRelation ||
+			!alias ||
+			!wrongType ||
+			!sourceAlias ||
+			!targetAlias
+		)
+			throw new Error('Missing test schema')
+		const relation = wrongColumn.relations[0]
+		if (!relation) throw new Error('Missing relation fixture')
+		relation.schema.foreign_key_column = 'id'
+		missingRelation.relations = []
+		alias.collections.children.fields.owner.alias = true
+		wrongType.collections.children.fields.owner.type = 'integer'
+		sourceAlias.collections.parents.fields.slug.alias = true
+		targetAlias.collections.children.fields.code.alias = true
+		for (const schema of invalidSchemas) {
+			await expect(
+				resolveCollectionManagement('children', management, directory, schema),
+			).rejects.toThrow('Failed to resolve relation management')
+		}
+		const schema = createSchema()
+		for (const rows of [
+			[{ slug: 'same' }, { slug: 'same' }],
+			[{ slug: null }],
+			[{ slug: { id: 'nested' } }],
+		]) {
+			await writeFile(path.join(directory, 'parents.json'), JSON.stringify(rows))
+			await expect(
+				resolveCollectionManagement('children', management, directory, schema),
+			).rejects.toThrow('Failed to resolve relation management')
+		}
 	})
 })

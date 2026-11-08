@@ -66,7 +66,7 @@ export function createSeedDataProvider(collections: CollectionDataProvider[]): S
 		 * @returns Seed rows grouped by collection.
 		 */
 		getSeedData(): SeedData {
-			const result: SeedData = {}
+			const result = new Map<string, SeedItem[]>()
 
 			for (const collection of collections) {
 				const collectionName = collection.collectionName
@@ -74,14 +74,11 @@ export function createSeedDataProvider(collections: CollectionDataProvider[]): S
 
 				// If a collection already exists in the result, merge the arrays
 				// This supports multi-pass imports (e.g., two-pass import for operations)
-				if (result[collectionName]) {
-					result[collectionName] = [...result[collectionName], ...data]
-				} else {
-					result[collectionName] = data
-				}
+				const previous = result.get(collectionName)
+				result.set(collectionName, previous ? [...previous, ...data] : data)
 			}
 
-			return result
+			return Object.fromEntries(result)
 		},
 	}
 }

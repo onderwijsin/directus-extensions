@@ -4,20 +4,30 @@ import { promisify } from 'node:util'
 
 import { createDirectusE2EClient } from '@workspace/test-utils'
 import {
+	createCollection,
+	createDirectus,
+	createItem,
 	createPermission,
 	createPolicy,
 	createPreset,
+	createRelation,
 	createTranslation,
+	deleteCollection,
+	deleteItem,
 	deletePermission,
 	deletePolicy,
 	deletePreset,
 	deleteRole,
 	deleteTranslation,
 	readPermissions,
+	readItems,
 	readPresets,
 	readRoles,
 	readTranslation,
 	readTranslations,
+	rest,
+	staticToken,
+	updateItem,
 	updateTranslation,
 } from '@workspace/test-utils/commands'
 import { describe, expect, it } from 'vitest'
@@ -74,7 +84,362 @@ async function seed(environment: Record<string, string>, ...args: string[]) {
 	}
 }
 
+interface CoreCategory {
+	slug: string
+	title: string
+}
+
+interface CoreArticle {
+	key: number
+	title: string
+	category: string
+	notes: string | null
+}
+
+const categories = 'seeder_e2e_categories'
+const articles = 'seeder_e2e_articles'
+const coreClient = createDirectus<{
+	seeder_e2e_categories: CoreCategory[]
+	seeder_e2e_articles: CoreArticle[]
+}>(baseUrl)
+	.with(rest())
+	.with(staticToken(token))
+
+/**
+ * Runs fixture filesystem operations inside the disposable Directus container.
+ * @param script - Node script receiving the remaining arguments.
+ * @param args - Literal script arguments.
+ * @returns Captured process output.
+ */
+function inDirectus(script: string, ...args: string[]) {
+	return execute('docker', [...composeArguments, 'directus', 'node', '-e', script, ...args])
+}
+
+/**
+ * Owns two application collections with non-id primary keys and a real scalar foreign key.
+ * @param run - Scenario using an isolated container seed directory.
+ * @returns Resolves after the scenario and all fixture cleanup.
+ */
+async function withCoreCollections(run: (directory: string) => Promise<void>) {
+	const directory = `/tmp/seeder-core-e2e-${randomUUID()}`
+	let categoriesCreated = false
+	let articlesCreated = false
+	try {
+		await client.request(
+			createCollection({
+				collection: categories,
+				schema: {},
+				meta: {},
+				fields: [
+					{
+						field: 'slug',
+						type: 'string',
+						schema: { is_primary_key: true, is_nullable: false },
+					},
+					{ field: 'title', type: 'string' },
+				],
+			}),
+		)
+		categoriesCreated = true
+		await client.request(
+			createCollection({
+				collection: articles,
+				schema: {},
+				meta: {},
+				fields: [
+					{
+						field: 'key',
+						type: 'integer',
+						schema: {
+							is_primary_key: true,
+							is_nullable: false,
+							has_auto_increment: false,
+						},
+					},
+					{ field: 'title', type: 'string' },
+					{ field: 'category', type: 'string' },
+					{ field: 'notes', type: 'string' },
+				],
+			}),
+		)
+		articlesCreated = true
+		await client.request(
+			createRelation({
+				collection: articles,
+				field: 'category',
+				related_collection: categories,
+				schema: { on_delete: 'RESTRICT' },
+				meta: {
+					many_collection: articles,
+					many_field: 'category',
+					one_collection: categories,
+				},
+			}),
+		)
+		await run(directory)
+	} finally {
+		try {
+			if (articlesCreated) await client.request(deleteCollection(articles))
+		} finally {
+			try {
+				if (categoriesCreated) await client.request(deleteCollection(categories))
+			} finally {
+				await inDirectus(
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				)
+			}
+		}
+	}
+}
+
 describe('installed seeder CLI', () => {
+	it('extracts isolated core manifests and imports custom primary keys in configured order', async () => {
+		await withCoreCollections(async (directory) => {
+			const environment = {
+				DEPLOYMENT_ENV: 'development',
+				SEEDER_CONFIG_PATH: `${directory}/config.json`,
+				SEEDER_SEEDS_DIR: `${directory}/seeds`,
+				SEEDER_ENABLE_FULL_IDEMPOTENT: 'true',
+			}
+			for (const slug of ['News', 'Archive', 'New'])
+				await coreClient.request(createItem(categories, { slug, title: 'selected' }))
+			for (const key of [2, 10, 30])
+				await coreClient.request(
+					createItem(articles, {
+						key,
+						title: 'selected',
+						category: key === 30 ? 'New' : 'News',
+						notes: 'not exported',
+					}),
+				)
+			await inDirectus(
+				'const fs = require("node:fs"); const [root, config] = process.argv.slice(1); fs.mkdirSync(`${root}/seeds/system/assets`, { recursive: true }); fs.writeFileSync(`${root}/config.json`, config); fs.writeFileSync(`${root}/seeds/system/sentinel.json`, "system sentinel"); fs.writeFileSync(`${root}/seeds/system/assets/sentinel.bin`, "system asset")',
+				directory,
+				JSON.stringify({
+					core: {
+						order: [categories],
+						collections: {
+							[articles]: {
+								operationMode: 'full-idempotent',
+								management: { type: 'manifest' },
+								fields: ['key', 'title', 'category'],
+								filter: { title: { _eq: 'selected' } },
+								sort: ['key'],
+							},
+							[categories]: {
+								operationMode: 'insert-missing',
+								management: { type: 'manifest' },
+								fields: ['slug', 'title'],
+								filter: { title: { _eq: 'selected' } },
+								sort: ['slug'],
+							},
+						},
+					},
+				}),
+			)
+			await seed(
+				environment,
+				'extract',
+				'--scope',
+				'both',
+				'--json-only',
+				'--skip-clean',
+				'--include',
+				categories,
+				articles,
+				'directus_roles',
+			)
+			const initial = await inDirectus(
+				'const fs = require("node:fs"); const [root, categories, articles] = process.argv.slice(1); const read = name => JSON.parse(fs.readFileSync(`${root}/seeds/core/${name}`, "utf8")); process.stdout.write(JSON.stringify({ categories: read(`${categories}.managed-ids.json`), articles: read(`${articles}.managed-ids.json`), rows: read(`${articles}.json`), assets: fs.existsSync(`${root}/seeds/core/assets`), system: Array.isArray(JSON.parse(fs.readFileSync(`${root}/seeds/system/directus_roles.json`, "utf8"))) }))',
+				directory,
+				categories,
+				articles,
+			)
+			expect(JSON.parse(initial.stdout)).toEqual({
+				categories: ['Archive', 'New', 'News'],
+				articles: [2, 10, 30],
+				assets: false,
+				system: true,
+				rows: [
+					{ key: 2, title: 'selected', category: 'News' },
+					{ key: 10, title: 'selected', category: 'News' },
+					{ key: 30, title: 'selected', category: 'New' },
+				],
+			})
+			await coreClient.request(updateItem(articles, 10, { title: 'historical' }))
+			await coreClient.request(updateItem(categories, 'Archive', { title: 'historical' }))
+			await coreClient.request(deleteItem(articles, 30))
+			await coreClient.request(deleteItem(categories, 'New'))
+			await inDirectus(
+				'require("node:fs").writeFileSync(`${process.argv[1]}/seeds/core/stale.json`, "[]")',
+				directory,
+			)
+			await seed(environment, 'extract', '--scope', 'core', '--assets')
+			const cleaned = await inDirectus(
+				'const fs = require("node:fs"); const [root, categories, articles] = process.argv.slice(1); const read = name => JSON.parse(fs.readFileSync(`${root}/seeds/core/${name}`, "utf8")); process.stdout.write(JSON.stringify({ categories: read(`${categories}.managed-ids.json`), articles: read(`${articles}.managed-ids.json`), rows: read(`${articles}.json`), stale: fs.existsSync(`${root}/seeds/core/stale.json`), system: fs.readFileSync(`${root}/seeds/system/sentinel.json`, "utf8"), asset: fs.readFileSync(`${root}/seeds/system/assets/sentinel.bin`, "utf8") }))',
+				directory,
+				categories,
+				articles,
+			)
+			expect(JSON.parse(cleaned.stdout)).toEqual({
+				categories: ['Archive', 'New', 'News'],
+				articles: [2, 10, 30],
+				rows: [{ key: 2, title: 'selected', category: 'News' }],
+				stale: false,
+				system: 'system sentinel',
+				asset: 'system asset',
+			})
+			await coreClient.request(
+				createItem(articles, { key: 99, title: 'outsider', category: 'Archive' }),
+			)
+			await inDirectus(
+				'const fs = require("node:fs"); const [root, categories, articles, categoryRows, articleRows] = process.argv.slice(1); fs.writeFileSync(`${root}/seeds/core/${categories}.json`, categoryRows); fs.writeFileSync(`${root}/seeds/core/${articles}.json`, articleRows)',
+				directory,
+				categories,
+				articles,
+				JSON.stringify([
+					{ slug: 'News', title: 'seeded' },
+					{ slug: 'New', title: 'created' },
+				]),
+				JSON.stringify([
+					{ key: 2, title: 'seeded', category: 'News' },
+					{ key: 30, title: 'created', category: 'New' },
+				]),
+			)
+			// The prefix must create New before its article despite the opposite object order.
+			await seed(environment, 'core', '--yes')
+			expect(await coreClient.request(readItems(categories, { sort: ['slug'] }))).toEqual([
+				{ slug: 'Archive', title: 'historical' },
+				{ slug: 'New', title: 'created' },
+				{ slug: 'News', title: 'selected' },
+			])
+			expect(
+				await coreClient.request(
+					readItems(articles, { fields: ['key', 'title', 'category'], sort: ['key'] }),
+				),
+			).toEqual([
+				{ key: 2, title: 'seeded', category: 'News' },
+				{ key: 30, title: 'created', category: 'New' },
+				{ key: 99, title: 'outsider', category: 'Archive' },
+			])
+			await seed(environment, 'core', '--full-reset', '--yes', '--include', articles)
+			expect(
+				await coreClient.request(readItems(articles, { fields: ['key'], sort: ['key'] })),
+			).toEqual([{ key: 2 }, { key: 30 }])
+			const manifest = await inDirectus(
+				'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+				`${directory}/seeds/core/${articles}.managed-ids.json`,
+			)
+			expect(JSON.parse(manifest.stdout)).toEqual([2, 10, 30])
+		})
+	})
+
+	it('preflights core ranges and scalar relations before mutations and preserves unmanaged rows', async () => {
+		await withCoreCollections(async (directory) => {
+			const environment = {
+				DEPLOYMENT_ENV: 'production',
+				SEEDER_CONFIG_PATH: `${directory}/config.json`,
+				SEEDER_SEEDS_DIR: `${directory}/seeds`,
+				SEEDER_ENABLE_FULL_IDEMPOTENT: 'true',
+				SEEDER_CONTINUE_ON_ERROR: 'true',
+			}
+			for (const slug of ['News', 'Outside'])
+				await coreClient.request(createItem(categories, { slug, title: 'original' }))
+			for (const key of [2, 10, 11])
+				await coreClient.request(
+					createItem(articles, {
+						key,
+						title: 'original',
+						category: key === 11 ? 'Outside' : 'News',
+					}),
+				)
+			const coreConfig = {
+				order: [categories],
+				collections: {
+					[categories]: { operationMode: 'insert-update' },
+					[articles]: {
+						operationMode: 'full-idempotent',
+						management: { type: 'id-range', min: 2, max: 11 },
+					},
+				},
+			}
+			await inDirectus(
+				'const fs = require("node:fs"); const [root, config, categories, articles] = process.argv.slice(1); fs.mkdirSync(`${root}/seeds/core`, { recursive: true }); fs.writeFileSync(`${root}/config.json`, config); fs.writeFileSync(`${root}/seeds/core/${categories}.json`, JSON.stringify([{ slug: "News", title: "changed" }])); fs.writeFileSync(`${root}/seeds/core/${articles}.json`, JSON.stringify([{ key: 11, title: "invalid", category: "News" }]))',
+				directory,
+				JSON.stringify({ core: coreConfig }),
+				categories,
+				articles,
+			)
+			await expect(seed(environment, 'core', '--yes')).rejects.toMatchObject({
+				code: 1,
+				stdout: expect.stringContaining(articles),
+			})
+			expect(
+				await coreClient.request(
+					readItems(categories, { filter: { slug: { _eq: 'News' } } }),
+				),
+			).toEqual([{ slug: 'News', title: 'original' }])
+			await inDirectus(
+				'require("node:fs").writeFileSync(process.argv[1], JSON.stringify([{ key: 2, title: "ranged", category: "News" }]))',
+				`${directory}/seeds/core/${articles}.json`,
+			)
+			await seed(
+				environment,
+				'core',
+				'--yes',
+				'--include',
+				categories,
+				articles,
+				'--exclude',
+				categories,
+			)
+			expect(
+				await coreClient.request(
+					readItems(articles, { fields: ['key', 'title'], sort: ['key'] }),
+				),
+			).toEqual([
+				{ key: 2, title: 'ranged' },
+				{ key: 11, title: 'original' },
+			])
+			await inDirectus(
+				'const fs = require("node:fs"); const [root, articles, categories] = process.argv.slice(1); const config = JSON.parse(fs.readFileSync(`${root}/config.json`, "utf8")); config.core.collections[articles].management = { type: "relation", field: "category", collection: categories }; fs.writeFileSync(`${root}/config.json`, JSON.stringify(config)); fs.writeFileSync(`${root}/seeds/core/${articles}.json`, "[]")',
+				directory,
+				articles,
+				categories,
+			)
+			// Only raw source slugs define the boundary; the unselected source is never imported.
+			await seed(environment, 'core', '--yes', '--include', articles)
+			expect(
+				await coreClient.request(readItems(articles, { fields: ['key', 'category'] })),
+			).toEqual([{ key: 11, category: 'Outside' }])
+			await inDirectus(
+				'require("node:fs").writeFileSync(process.argv[1], JSON.stringify([{ key: 11, title: "collision", category: "News" }]))',
+				`${directory}/seeds/core/${articles}.json`,
+			)
+			await expect(seed(environment, 'core', '--yes')).rejects.toMatchObject({
+				code: 1,
+				stdout: expect.stringContaining(articles),
+			})
+			expect(
+				await coreClient.request(
+					readItems(categories, { filter: { slug: { _eq: 'News' } } }),
+				),
+			).toEqual([{ slug: 'News', title: 'original' }])
+			expect(
+				await coreClient.request(
+					readItems(articles, { fields: ['key', 'title', 'category'] }),
+				),
+			).toEqual([{ key: 11, title: 'original', category: 'Outside' }])
+			await seed(environment, 'core', '--yes', '--include', categories)
+			expect(
+				await coreClient.request(
+					readItems(categories, { filter: { slug: { _eq: 'News' } } }),
+				),
+			).toEqual([{ slug: 'News', title: 'changed' }])
+		})
+	})
+
 	it('inspects configuration without seed input and bypasses consumer files for defaults', async () => {
 		const directory = `/tmp/seeder-config-e2e-${randomUUID()}`
 		const environment = {

@@ -13,7 +13,11 @@ const stringListSchema = z.preprocess(
 export const envSchema = z.object({
 	SEEDER_ENABLED: z.boolean().default(true),
 	SEEDER_CONFIG_PATH: z.string().trim().min(1).optional(),
-	SEEDER_SCOPE: z.string().toLowerCase().pipe(z.enum(DataScope)).default(DataScope.SYSTEM),
+	SEEDER_SCOPE: z
+		.string()
+		.toLowerCase()
+		.pipe(z.literal(DataScope.SYSTEM))
+		.default(DataScope.SYSTEM),
 	SEEDER_INCLUDE: stringListSchema,
 	SEEDER_EXCLUDE: stringListSchema,
 	SEEDER_CONTINUE_ON_ERROR: z.boolean().default(false),

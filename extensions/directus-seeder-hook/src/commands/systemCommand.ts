@@ -11,24 +11,26 @@ import { acquireLock } from '../lib/processLock'
 import { resolveSeederConfig } from '../lib/resolveConfig'
 import { seedSystem } from '../seeders/system'
 import { getDataProviders } from '../seeders/system/data'
-import { getSystemCollections } from '../seeders/system/resolveConfig'
+import { getCollections } from '../seeders/system/resolveConfig'
 
 /**
  * Registers the system command for seeding Directus with essential system data.
  *
  * @param parentCommand - The parent command to register this command under
  * @param context - The Directus hook extension context
+ * @param scope - Data scope to import using the shared command and safety flow.
  * @returns Nothing.
  */
 export const registerSystemCommand = (
 	parentCommand: Command,
 	context: ServiceAdapterContext,
+	scope: DataScope = DataScope.SYSTEM,
 ): void => {
 	const { logger, env, services, getSchema } = context
 
 	parentCommand
-		.command('system')
-		.description('Seed Directus with essential system data (roles, permissions, settings)')
+		.command(scope)
+		.description(`Seed Directus with configured ${scope} data`)
 		.option(
 			'-m, --mode <mode>',
 			'Operation mode: insert-missing, insert-update, full-idempotent',
@@ -61,21 +63,21 @@ export const registerSystemCommand = (
 			try {
 				// Acquire lock to signal other extensions that a bulk operation is in progress
 				lock = acquireLock()
-				logger.info('🌱 Seeding Directus with system data using Directus Seeder...')
+				logger.info(`🌱 Seeding Directus with ${scope} data using Directus Seeder...`)
 
 				const config = resolveSeederConfig(env, {
 					operationMode: options.mode,
-					dataScope: DataScope.SYSTEM,
+					dataScope: scope,
 					includeCollections: options.include,
 					excludeCollections: options.exclude,
 				})
 
-				const collections = getSystemCollections(config)
+				const collections = getCollections(config)
 				const selected = selectCollections(
 					collections.map(({ collection }) => collection),
 					config,
 				)
-				const dataProviders = await getDataProviders(env, selected)
+				const dataProviders = await getDataProviders(env, selected, scope)
 				const presentCollections = collections.filter(({ collection }) =>
 					dataProviders?.some((provider) => provider.collectionName === collection),
 				)
@@ -145,7 +147,9 @@ export const registerSystemCommand = (
 
 				const results = await seedSystem(context, config, dataProviders, options.fullReset)
 				if (results?.some((result) => result.error !== undefined)) {
-					logger.error('❌ System data seeding failed; see collection errors above')
+					logger.error(
+						`❌ ${scope === 'system' ? 'System' : 'Core'} data seeding failed; see collection errors above`,
+					)
 					exitCode = 1
 				}
 
@@ -167,7 +171,7 @@ export const registerSystemCommand = (
 				}
 			} catch (error) {
 				const message = error instanceof Error ? error.message : 'Unknown error'
-				logger.error(`❌ Failed to seed system data: ${message}`)
+				logger.error(`❌ Failed to seed ${scope} data: ${message}`)
 				logger.error(error)
 				exitCode = 1
 			} finally {

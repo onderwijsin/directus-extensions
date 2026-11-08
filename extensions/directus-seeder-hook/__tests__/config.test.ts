@@ -27,6 +27,7 @@ afterEach(async () => {
 describe('system JSON consumer configuration', () => {
 	it('retains defaults, merges independent properties and appends collections omitted from order', () => {
 		expect(loadSystemConfig()).toEqual({
+			coreCollections: [],
 			systemCollections: SYSTEM_COLLECTIONS,
 			systemFieldOverrides: [],
 		})
@@ -109,6 +110,90 @@ describe('system JSON consumer configuration', () => {
 		expect(
 			SYSTEM_COLLECTIONS.find(({ collection }) => collection === 'directus_presets')?.filter,
 		).toEqual({ user: { _null: true } })
+	})
+
+	it('uses declared core collections only, with mandatory modes and a priority-prefix order', async () => {
+		const core = {
+			collections: {
+				categories: { operationMode: 'insert-update' },
+				articles: {
+					operationMode: 'full-idempotent',
+					management: { type: 'manifest' },
+					fields: ['id', 'title', 'category'],
+				},
+				feature_flags: { operationMode: 'insert-missing' },
+			},
+		}
+		const filename = path.join(directory, 'core.json')
+		await writeFile(filename, JSON.stringify({ core }))
+		const settings = loadSystemConfig(filename)
+		expect(settings.coreCollections).toEqual(
+			Object.entries(core.collections).map(([collection, entry]) => ({
+				collection,
+				...entry,
+			})),
+		)
+		expect(settings.systemCollections).toEqual(SYSTEM_COLLECTIONS)
+		await writeFile(filename, JSON.stringify({ core: { ...core, order: ['articles'] } }))
+		expect(
+			loadSystemConfig(filename).coreCollections.map(({ collection }) => collection),
+		).toEqual(['articles', 'categories', 'feature_flags'])
+		const explicit = resolveSeederConfig(envSchema.parse({ SEEDER_CONFIG_PATH: filename }), {
+			dataScope: 'core',
+			operationMode: 'insert-missing',
+		})
+		expect(explicit.coreCollections?.map(({ operationMode }) => operationMode)).toEqual([
+			'insert-missing',
+			'insert-missing',
+			'insert-missing',
+		])
+		expect(explicit.coreCollections?.[0]?.management).toEqual({ type: 'manifest' })
+	})
+
+	it('reuses query and management validation for core without system defaults', () => {
+		const settings = {
+			operationMode: 'full-idempotent',
+			management: { type: 'relation', field: 'category', collection: 'categories' },
+			fields: ['slug', 'title', 'category'],
+			filter: { title: { _nnull: true } },
+			sort: ['slug'],
+			deep: { category: { _fields: ['slug'] } },
+		}
+		for (const name of ['constructor', 'toString', 'hasOwnProperty'])
+			expect(
+				consumerConfigSchema.parse({ core: { collections: { [name]: settings } } }).core
+					?.collections[name],
+			).toEqual(settings)
+		const reserved: unknown = JSON.parse(
+			'{"core":{"collections":{"__proto__":{"operationMode":"insert-missing"}}}}',
+		)
+		expect(consumerConfigSchema.safeParse(reserved).success).toBe(false)
+		expect(
+			consumerConfigSchema.parse({ core: { collections: { articles: settings } } }).core
+				?.collections.articles,
+		).toEqual(settings)
+		for (const invalid of [
+			{},
+			{ operationMode: 'delete' },
+			{ operationMode: 'insert-update', primaryKeyField: 'slug' },
+			{ ...settings, management: { type: 'manifest', ids: [] } },
+			{ ...settings, management: { type: 'id-range' } },
+			{ ...settings, fields: 'id' },
+			{ ...settings, filter: { title: { _bogus: true } } },
+			{ ...settings, deep: { category: { _limti: 1 } } },
+		])
+			expect(
+				consumerConfigSchema.safeParse({ core: { collections: { articles: invalid } } })
+					.success,
+			).toBe(false)
+		for (const core of [
+			{ collections: { directus_roles: settings } },
+			{ collections: { '../articles': settings } },
+			{ collections: { articles: settings }, order: ['missing'] },
+			{ collections: { articles: settings }, order: ['articles', 'articles'] },
+			{ collections: {}, unknown: true },
+		])
+			expect(consumerConfigSchema.safeParse({ core }).success).toBe(false)
 	})
 
 	it('loads JSON from the runtime path and reports missing, malformed and invalid explicit files with their path', async () => {

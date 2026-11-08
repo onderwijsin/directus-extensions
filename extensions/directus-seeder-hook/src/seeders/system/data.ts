@@ -1,4 +1,5 @@
 import type { SeederOptions } from '../../env.schema'
+import type { DataScope } from '../../lib/config'
 import type { CollectionDataProvider } from '../../lib/seedDataParser'
 import type { SeedItem } from '../../lib/seedItem'
 
@@ -131,12 +132,14 @@ const parseCollectionData = (collection: SystemCollectionKey, fileContent: strin
  *
  * @param seedsFolder - Path to the folder containing collection JSON files
  * @param requiredCollections - Selected collections and any required Flow metadata
+ * @param collectionsOrder - Available collections in the selected scope's processing order
  * @returns Required collection data, or null when no supported files exist
  * @throws If the seed directory is missing or invalid, or required input cannot be read, parsed, or validated
  */
 const getSystemCollectionData = async (
 	seedsFolder: string,
 	requiredCollections: string[],
+	collectionsOrder = SYSTEM_COLLECTIONS_ORDER,
 ): Promise<SystemCollectionData[] | null> => {
 	try {
 		const directory = await stat(seedsFolder)
@@ -157,7 +160,7 @@ const getSystemCollectionData = async (
 	let hasSupportedSeedFiles = false
 
 	// Process each collection in the defined order
-	for (const collection of SYSTEM_COLLECTIONS_ORDER) {
+	for (const collection of collectionsOrder) {
 		// Construct the collection path inside the resolved system directory.
 		const dataFilePath = path.join(seedsFolder, `${collection}.json`)
 		const required = requiredCollections.includes(collection)
@@ -691,16 +694,30 @@ const sortDataProviders = (dataProviders: CollectionDataProvider[]): CollectionD
  *
  * @param env - Environment variables for configuration (admin defaults, deployment type)
  * @param selectedCollections - Collection names selected by the resolved include/exclude settings
+ * @param scope - Selected data scope; only system receives built-in transformations.
  * @returns Selected providers in dependency order, or null when no supported files exist
  * @throws Error if data provider creation fails
  */
 export const getDataProviders = async (
 	env: SeederOptions,
 	selectedCollections: string[] = SYSTEM_COLLECTIONS_ORDER,
+	scope: DataScope = 'system',
 ): Promise<CollectionDataProvider[] | null> => {
 	try {
 		// Get seeds folder path from environment configuration
-		const { seedsFolder } = getFolderPaths(env)
+		const { seedsFolder } = getFolderPaths(env, scope)
+		if (scope === 'core') {
+			const data = await getSystemCollectionData(
+				seedsFolder,
+				selectedCollections,
+				selectedCollections,
+			)
+			return (
+				data?.map(({ collection, data: rows }) =>
+					createCollectionDataProvider(collection, () => rows),
+				) ?? null
+			)
+		}
 
 		// Operations need Flow names and IDs for [dev] filtering outside exact development.
 		const requiredCollections =

@@ -1,4 +1,4 @@
-import type { HookExtensionContext } from '@directus/types'
+import type { HookExtensionContext, SchemaOverview } from '@directus/types'
 import type { SeederConfig } from '../../lib/config'
 import type { SeedItem } from '../../lib/seedItem'
 import type { SystemCollectionConfig } from './config.schema'
@@ -11,11 +11,12 @@ import { getIdRangeFilters } from '../../lib/collectionManagement'
 import { outputFile, prepareExtractionDirectories } from '../../lib/filesystem'
 import { updateManagedIds } from '../../lib/manifestManagement'
 import { createPerformanceTracker } from '../../lib/performanceTracker'
+import { getCollectionPrimaryKey, validateCollectionSeedKeys } from '../../lib/primaryKey'
 import { seedItemsSchema, toSeedRecord } from '../../lib/seedItem'
 import { getCompatibleExtractionFields } from './compatibility'
 import { SYSTEM_COLLECTIONS_ORDER } from './config'
 import { sortOperationsForKeyConstraints } from './data'
-import { getSystemCollections } from './resolveConfig'
+import { getCollections } from './resolveConfig'
 
 // Constants
 
@@ -129,14 +130,44 @@ const logDivider = (logger: HookExtensionContext['logger']): void => {
  * Combines the collection's extraction filter with its optional numeric ID range.
  * Relation management only bounds import and does not select extraction rows.
  * @param collection - Validated effective settings.
+ * @param primaryKey - Live primary key for application collections.
  * @returns Directus extraction filter.
  */
 const getExtractionFilter = (
 	collection: SystemCollectionConfig,
+	primaryKey = 'id',
 ): SystemCollectionConfig['filter'] => {
 	const { filter, management } = collection
 	if (management?.type !== 'id-range') return filter
-	return { _and: [...(filter ? [filter] : []), ...getIdRangeFilters(management)] }
+	return { _and: [...(filter ? [filter] : []), ...getIdRangeFilters(management, primaryKey)] }
+}
+
+/**
+ * Validates core identity and explicit field selections before cleanup or service reads.
+ * @param collection - Application collection settings.
+ * @param schema - Live schema supplied by Directus.
+ * @returns The usable primary-key field name.
+ */
+function validateCoreExtraction(
+	collection: SystemCollectionConfig,
+	schema: SchemaOverview,
+): string {
+	const primary = getCollectionPrimaryKey(collection.collection, schema)
+	const fields = collection.fields ?? ['*']
+	if (!fields.includes('*') && !fields.includes(primary))
+		throw new Error(
+			`Core extraction fields for collection "${collection.collection}" must include primary key "${primary}" or "*"`,
+		)
+	if (
+		collection.management?.type === 'id-range' &&
+		!['integer', 'bigInteger'].includes(
+			schema.collections[collection.collection]?.fields[primary]?.type ?? '',
+		)
+	)
+		throw new Error(
+			`id-range management for collection "${collection.collection}" requires a numeric integer primary key`,
+		)
+	return primary
 }
 
 /**
@@ -174,6 +205,7 @@ const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem
  * @param context - Directus hook extension context
  * @param jsonIndent - Indentation for the extracted JSON
  * @param fieldOverrides - Collections whose consumer fields must be passed unchanged.
+ * @param scope - Selected scope; compatibility transforms apply only to system.
  * @returns Promise<boolean> - True if extraction was successful, false otherwise
  */
 const extractSingleCollection = async (
@@ -182,12 +214,14 @@ const extractSingleCollection = async (
 	context: HookExtensionContext,
 	jsonIndent: SeederConfig['jsonIndent'],
 	fieldOverrides: SeederConfig['systemFieldOverrides'],
+	scope: SeederConfig['dataScope'],
 ): Promise<boolean> => {
 	const { logger, services, getSchema, database: knex } = context
 	const collectionName = collection.collection
 	try {
 		logger.info(`📦 Extracting collection: ${collectionName}`)
 		const schema = await getSchema()
+		const primaryKey = scope === 'core' ? validateCoreExtraction(collection, schema) : 'id'
 
 		const service = new services.ItemsService(collectionName, {
 			schema,
@@ -198,20 +232,29 @@ const extractSingleCollection = async (
 		// Filter types omit supported JSON logical predicates and GeoJSON geometry values.
 		const query: Record<string, unknown> = {
 			limit: -1,
-			fields: getCompatibleExtractionFields(collection, schema, fieldOverrides),
-			filter: getExtractionFilter(collection),
+			fields:
+				scope === 'system'
+					? getCompatibleExtractionFields(collection, schema, fieldOverrides)
+					: (collection.fields ?? ['*']),
+			filter: getExtractionFilter(collection, primaryKey),
 			sort: collection.sort ?? null,
 			deep: collection.deep ?? null,
 		}
 		let data = seedItemsSchema.parse(await service.readByQuery(query))
-		data = filterExtractedData(collectionName, data)
+		if (scope === 'system') data = filterExtractedData(collectionName, data)
+		else validateCollectionSeedKeys(collectionName, data, schema)
 
 		// For operations, ensure exported JSON lists dependencies before dependents
 		// by sorting operations topologically based on resolve/reject references.
 		// This produces cleaner JSON and enables single-pass import in most cases.
 		// Circular dependencies are handled gracefully (a warning is logged and the order remains
 		// stable).
-		if (collectionName === 'directus_operations' && Array.isArray(data) && data.length > 0) {
+		if (
+			scope === 'system' &&
+			collectionName === 'directus_operations' &&
+			Array.isArray(data) &&
+			data.length > 0
+		) {
 			data = sortOperationsForKeyConstraints(data)
 		}
 
@@ -316,7 +359,7 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 	const { logger } = options.context
 	const { includeCollections, excludeCollections, folders } = options
 
-	const collections = getSystemCollections(options)
+	const collections = getCollections(options)
 	const collectionsToExtract = getFilteredCollections(
 		includeCollections,
 		excludeCollections,
@@ -346,6 +389,7 @@ export const extractSeedsFromCollections = async (options: ExtractOptions): Prom
 						options.context,
 						options.jsonIndent,
 						options.systemFieldOverrides,
+						options.dataScope,
 					)
 				},
 			)
@@ -471,21 +515,42 @@ export const extractAssets = async (options: ExtractOptions): Promise<void> => {
  */
 export async function extractSystemData(options: ExtractOptions): Promise<void> {
 	validateExtractOptions(options)
-	const systemCollections = getSystemCollections(options)
+	const collections = getCollections(options)
+	if (options.dataScope === 'core') {
+		const selected = getFilteredCollections(
+			options.includeCollections,
+			options.excludeCollections,
+			collections.map(({ collection }) => collection),
+		)
+		const schema = await options.context.getSchema()
+		for (const collection of collections.filter(({ collection }) =>
+			selected.includes(collection),
+		))
+			validateCoreExtraction(collection, schema)
+	}
+	const jsonOnly = options.jsonOnly || options.dataScope === 'core'
+	if (!jsonOnly) {
+		const otherSeeds = path.resolve(
+			options.folders.seeds,
+			'..',
+			options.dataScope === 'system' ? 'core' : 'system',
+		)
+		const assets = path.resolve(options.folders.assets)
+		if (otherSeeds === assets || otherSeeds.startsWith(`${assets}${path.sep}`))
+			throw new Error(
+				'Extraction directories conflict: assets must not equal or contain the other seed scope',
+			)
+	}
 	let folders: ExtractOptions['folders']
 	try {
-		folders = await prepareExtractionDirectories(
-			options.folders,
-			options.jsonOnly,
-			options.skipClean,
-		)
+		folders = await prepareExtractionDirectories(options.folders, jsonOnly, options.skipClean)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'Unknown error'
 		throw new Error(`Failed to prepare extraction output directories: ${message}`, {
 			cause: error,
 		})
 	}
-	const prepared = { ...options, folders, systemCollections }
+	const prepared = { ...options, folders }
 	await extractSeedsFromCollections(prepared)
-	if (!options.jsonOnly) await extractAssets(prepared)
+	if (!jsonOnly) await extractAssets(prepared)
 }

@@ -22,11 +22,15 @@ export const registerExtractCommand = (
 	context: ServiceAdapterContext,
 ): void => {
 	const { logger, env } = context
-	const { seedsFolder, assetsFolder } = getFolderPaths(env)
 
 	parentCommand
 		.command('extract')
 		.description('Extract seed data from the current Directus instance')
+		.addOption(
+			new Option('--scope <scope>', 'Data scope to extract')
+				.choices(['system', 'core', 'both'])
+				.default('system'),
+		)
 		.option('-i, --include <collections...>', 'Space-separated collection names to include')
 		.option('-e, --exclude <collections...>', 'Space-separated collection names to exclude')
 		.option('--skip-clean', 'Keep existing output before extracting selected data')
@@ -44,6 +48,7 @@ export const registerExtractCommand = (
 		.action(async (input: unknown) => {
 			const options = z
 				.object({
+					scope: z.enum(['system', 'core', 'both']),
 					include: z.array(z.string()).optional(),
 					exclude: z.array(z.string()).optional(),
 					skipClean: z.boolean().optional(),
@@ -67,15 +72,19 @@ export const registerExtractCommand = (
 					jsonOnly: options.assets ? false : options.jsonOnly,
 				})
 
-				// Extract and write seed data
-				await extractSystemData({
-					...config,
-					folders: {
-						seeds: seedsFolder,
-						assets: assetsFolder,
-					},
-					context,
-				})
+				const scopes =
+					options.scope === 'both'
+						? (['system', 'core'] satisfies ('system' | 'core')[])
+						: [options.scope]
+				for (const scope of scopes) {
+					const { seedsFolder, assetsFolder } = getFolderPaths(env, scope)
+					await extractSystemData({
+						...config,
+						dataScope: scope,
+						folders: { seeds: seedsFolder, assets: assetsFolder },
+						context,
+					})
+				}
 
 				logger.info('✅ Seed data successfully extracted!')
 				exitCode = 0

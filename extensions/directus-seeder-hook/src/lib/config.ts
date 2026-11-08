@@ -38,7 +38,9 @@ export const DataScope = {
 	 * Essential system data (roles, permissions, settings).
 	 */
 	SYSTEM: 'system',
-} satisfies Record<string, 'system'>
+	/** Consumer-declared application data. */
+	CORE: 'core',
+} satisfies Record<string, 'system' | 'core'>
 
 /**
  * Data scope type
@@ -49,6 +51,8 @@ export type DataScope = (typeof DataScope)[keyof typeof DataScope]
  * Configuration for the seeder.
  */
 export interface SeederConfig {
+	/** Effective consumer-declared application collections; no built-in defaults. */
+	coreCollections?: SystemCollectionConfig[]
 	/** Effective system collection settings, including explicit CLI mode overrides. */
 	systemCollections?: SystemCollectionConfig[]
 

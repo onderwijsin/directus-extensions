@@ -290,6 +290,7 @@ describe('seeder registration and CLI', () => {
 		expect(program.commands.map((command) => command.name())).toEqual(['seed'])
 		expect(program.commands[0]?.commands.map((command) => command.name())).toEqual([
 			'system',
+			'core',
 			'config',
 			'extract',
 		])
@@ -302,9 +303,293 @@ describe('seeder registration and CLI', () => {
 				createProgram({ DEPLOYMENT_ENV }).program.commands[0]?.commands.map((command) =>
 					command.name(),
 				),
-			).toEqual(['system', 'config'])
+			).toEqual(['system', 'core', 'config'])
 		}
 		expect(mocks.autoExtract).not.toHaveBeenCalled()
+	})
+
+	describe('core scope through the shared CLI', () => {
+		/**
+		 * Configures application collections outside the cleaned output, with non-id keys.
+		 * @param collections - Consumer-declared collection settings.
+		 * @param order - Optional priority prefix.
+		 * @returns Real CLI fixture using a live-schema-shaped application definition.
+		 */
+		async function coreProgram(collections: Record<string, unknown>, order?: string[]) {
+			const configPath = path.join(seedRoot, 'consumer.config')
+			await writeFile(configPath, JSON.stringify({ core: { collections, order } }))
+			const service = createProgram({
+				DEPLOYMENT_ENV: 'development',
+				SEEDER_CONFIG_PATH: configPath,
+				SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+				SEEDER_CONTINUE_ON_ERROR: true,
+			})
+			const systemSchema = await service.getSchema()
+			service.getSchema.mockResolvedValue({
+				collections: {
+					...systemSchema.collections,
+					categories: { primary: 'slug', fields: { slug: { type: 'string' } } },
+					articles: {
+						primary: 'key',
+						fields: { key: { type: 'integer' }, category: { type: 'string' } },
+					},
+				},
+				relations: [
+					{
+						collection: 'articles',
+						field: 'category',
+						related_collection: 'categories',
+						schema: {
+							table: 'articles',
+							column: 'category',
+							foreign_key_table: 'categories',
+							foreign_key_column: 'slug',
+						},
+					},
+				],
+			})
+			service.getSchema.mockClear()
+			return service
+		}
+
+		it('extracts core queries without system transformations or assets and isolates clean and manifest history', async () => {
+			const query = {
+				fields: ['slug', 'title'],
+				filter: { title: { _nnull: true } },
+				sort: ['slug'],
+				deep: { parent: { _limit: 1 } },
+			}
+			const service = await coreProgram({
+				categories: {
+					operationMode: 'full-idempotent',
+					management: { type: 'manifest' },
+					...query,
+				},
+			})
+			const core = path.join(seedRoot, 'core')
+			await mkdir(path.join(core, 'nested'), { recursive: true })
+			await mkdir(path.join(directory, 'assets'))
+			await writeFile(path.join(directory, 'keep.json'), 'system')
+			await writeFile(path.join(directory, 'assets', 'keep.bin'), 'asset')
+			await writeFile(path.join(core, 'stale.json'), 'old')
+			await writeFile(path.join(core, 'nested', 'keep.json'), 'nested')
+			await writeFile(path.join(core, 'categories.managed-ids.json'), '["historical"]')
+			const rows = [{ slug: 'current', title: 'super user', license_key: 'application data' }]
+			service.readByQuery.mockResolvedValue(rows)
+			expect(
+				await runCommand(service.program, 'extract', '--scope', 'core', '--assets'),
+			).toBe(0)
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({ limit: -1, ...query })
+			expect(JSON.parse(await readFile(path.join(core, 'categories.json'), 'utf8'))).toEqual(
+				rows,
+			)
+			expect(
+				JSON.parse(await readFile(path.join(core, 'categories.managed-ids.json'), 'utf8')),
+			).toEqual(['current', 'historical'])
+			await expect(readFile(path.join(core, 'stale.json'))).rejects.toMatchObject({
+				code: 'ENOENT',
+			})
+			expect(await readFile(path.join(core, 'nested', 'keep.json'), 'utf8')).toBe('nested')
+			expect(await readFile(path.join(directory, 'keep.json'), 'utf8')).toBe('system')
+			expect(await readFile(path.join(directory, 'assets', 'keep.bin'), 'utf8')).toBe('asset')
+			expect(service.readFiles).not.toHaveBeenCalled()
+			expect(service.AssetsService).not.toHaveBeenCalled()
+			await writeFile(path.join(core, 'stale.json'), 'keep')
+			expect(
+				await runCommand(service.program, 'extract', '--scope', 'core', '--skip-clean'),
+			).toBe(0)
+			expect(await readFile(path.join(core, 'stale.json'), 'utf8')).toBe('keep')
+		})
+
+		it('creates both scopes with one asset extraction and retains effective collection order and default fields', async () => {
+			const service = await coreProgram(
+				{
+					categories: { operationMode: 'insert-update' },
+					articles: { operationMode: 'insert-missing' },
+				},
+				['articles'],
+			)
+			service.readByQuery
+				.mockResolvedValueOnce([{ id: 'role' }])
+				.mockResolvedValueOnce([{ key: 1 }])
+				.mockResolvedValueOnce([{ slug: 'category' }])
+			expect(
+				await runCommand(
+					service.program,
+					'extract',
+					'--scope',
+					'both',
+					'--include',
+					'directus_roles',
+					'categories',
+					'articles',
+				),
+			).toBe(0)
+			expect(service.ItemsService.mock.calls.map(([collection]) => collection)).toEqual([
+				'directus_roles',
+				'articles',
+				'categories',
+			])
+			expect(service.readByQuery.mock.calls[1]?.[0]).toEqual({
+				fields: ['*'],
+				filter: undefined,
+				sort: null,
+				deep: null,
+				limit: -1,
+			})
+			expect(service.FilesService).toHaveBeenCalledTimes(1)
+			expect(await readdir(path.join(seedRoot, 'core'))).toEqual([
+				'articles.json',
+				'categories.json',
+			])
+		})
+
+		it('rejects excluded primary keys and missing schema before core cleanup', async () => {
+			const service = await coreProgram({
+				categories: { operationMode: 'insert-update', fields: ['title'] },
+			})
+			const core = path.join(seedRoot, 'core')
+			await mkdir(core)
+			await writeFile(path.join(core, 'keep.json'), 'keep')
+			const error = vi.spyOn(service.context.logger, 'error')
+			expect(await runCommand(service.program, 'extract', '--scope', 'core')).toBe(1)
+			expect(error).toHaveBeenCalledWith(
+				expect.stringContaining('must include primary key "slug"'),
+			)
+			expect(await readFile(path.join(core, 'keep.json'), 'utf8')).toBe('keep')
+			service.getSchema.mockResolvedValue({ collections: {}, relations: [] })
+			expect(await runCommand(service.program, 'extract', '--scope', 'core')).toBe(1)
+			expect(error).toHaveBeenCalledWith(
+				expect.stringContaining('requires a scalar primary key'),
+			)
+			expect(service.ItemsService).not.toHaveBeenCalled()
+		})
+
+		it.each([false, true])(
+			'preflights every core key before earlier writes, including full reset=%s',
+			async (fullReset) => {
+				const service = await coreProgram({
+					categories: { operationMode: 'insert-update' },
+					articles: { operationMode: 'insert-update' },
+				})
+				const core = path.join(seedRoot, 'core')
+				await mkdir(core)
+				await writeFile(path.join(core, 'categories.json'), '[{"slug":"valid"}]')
+				await writeFile(path.join(core, 'articles.json'), '[{"id":1}]')
+				const args = fullReset ? ['--mode', 'full-idempotent', '--full-reset'] : []
+				expect(await runCommand(service.program, 'core', '--yes', ...args)).toBe(1)
+				expect(service.ItemsService).not.toHaveBeenCalled()
+				expect(service.createMany).not.toHaveBeenCalled()
+				expect(service.upsertMany).not.toHaveBeenCalled()
+				expect(service.deleteMany).not.toHaveBeenCalled()
+				await writeFile(path.join(core, 'articles.json'), '[{"key":1}]')
+				service.getSchema.mockResolvedValue({
+					collections: {
+						categories: { primary: 'slug', fields: { slug: { type: 'string' } } },
+					},
+				})
+				expect(await runCommand(service.program, 'core', '--yes', ...args)).toBe(1)
+				expect(service.ItemsService).not.toHaveBeenCalled()
+			},
+		)
+
+		it('uses the schema key for imports and preserves application fields that resemble system metadata', async () => {
+			const service = await coreProgram({ categories: { operationMode: 'insert-missing' } })
+			const core = path.join(seedRoot, 'core')
+			await writeFile(path.join(seedRoot, 'categories.json'), '[{"slug":"flat"}]')
+			expect(await runCommand(service.program, 'core')).toBe(1)
+			expectNoServiceCalls(service)
+			await mkdir(core)
+			const rows = [{ slug: 'application', title: 'super user', __isUpdateOnly: true }]
+			await writeFile(path.join(core, 'categories.json'), JSON.stringify(rows))
+			expect(await runCommand(service.program, 'core')).toBe(0)
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+				fields: ['slug'],
+				filter: { slug: { _in: ['application'] } },
+				limit: -1,
+			})
+			expect(service.createMany).toHaveBeenCalledExactlyOnceWith(rows)
+			expect(service.upsertMany).not.toHaveBeenCalled()
+		})
+
+		it('inspects core settings without schema or seed input and filters across both scopes', async () => {
+			const service = await coreProgram(
+				{
+					articles: { operationMode: 'insert-update' },
+					categories: { operationMode: 'insert-missing' },
+				},
+				['categories'],
+			)
+			const chunks: string[] = []
+			vi.spyOn(process.stdout, 'write').mockImplementation((chunk, _encoding, callback) => {
+				chunks.push(String(chunk))
+				callback?.()
+				return true
+			})
+			expect(await runCommand(service.program, 'config', '--collection', 'categories')).toBe(
+				0,
+			)
+			expect(JSON.parse(chunks.join(''))).toEqual({
+				system: { order: [], collections: {} },
+				core: {
+					order: ['categories'],
+					collections: { categories: { operationMode: 'insert-missing' } },
+				},
+			})
+			expectNoServiceCalls(service)
+		})
+
+		it('extracts a numeric range using the schema key and rejects assets overlapping the other scope', async () => {
+			const service = await coreProgram({
+				articles: {
+					operationMode: 'full-idempotent',
+					management: { type: 'id-range', min: 10, max: 20 },
+				},
+			})
+			service.readByQuery.mockResolvedValue([{ key: 10 }])
+			expect(await runCommand(service.program, 'extract', '--scope', 'core')).toBe(0)
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+				fields: ['*'],
+				filter: { _and: [{ key: { _gte: 10 } }, { key: { _lt: 20 } }] },
+				sort: null,
+				deep: null,
+				limit: -1,
+			})
+			const overlapping = createProgram({
+				DEPLOYMENT_ENV: 'development',
+				SEEDER_ASSETS_DIR: path.join(seedRoot, 'core'),
+			})
+			await writeFile(path.join(directory, 'keep.json'), 'system')
+			expect(await runCommand(overlapping.program, 'extract', '--scope', 'system')).toBe(1)
+			expect(await readFile(path.join(directory, 'keep.json'), 'utf8')).toBe('system')
+			expect(await readFile(path.join(seedRoot, 'core', 'articles.json'), 'utf8')).toContain(
+				'"key": 10',
+			)
+			expectNoServiceCalls(overlapping)
+		})
+
+		it('preflights relation collisions using the actual target primary key before earlier inserts', async () => {
+			const service = await coreProgram({
+				categories: { operationMode: 'insert-update' },
+				articles: {
+					operationMode: 'full-idempotent',
+					management: { type: 'relation', field: 'category', collection: 'categories' },
+				},
+			})
+			const core = path.join(seedRoot, 'core')
+			await mkdir(core)
+			await writeFile(path.join(core, 'categories.json'), '[{"slug":"managed"}]')
+			await writeFile(path.join(core, 'articles.json'), '[{"key":1,"category":"managed"}]')
+			service.readByQuery.mockResolvedValue([{ key: 1, category: 'outsider' }])
+			expect(await runCommand(service.program, 'core', '--yes')).toBe(1)
+			expect(service.readByQuery).toHaveBeenCalledExactlyOnceWith({
+				fields: ['key', 'category'],
+				filter: { key: { _in: [1] } },
+				limit: -1,
+			})
+			expect(service.upsertMany).not.toHaveBeenCalled()
+			expect(service.createMany).not.toHaveBeenCalled()
+		})
 	})
 
 	describe('read-only config inspection', () => {
@@ -341,6 +626,7 @@ describe('seeder registration and CLI', () => {
 			const output = captureOutput()
 			expect(await runCommand(service.program, 'config')).toBe(0)
 			expect(JSON.parse(output.join(''))).toEqual({
+				core: { order: [], collections: {} },
 				system: {
 					order: SYSTEM_COLLECTIONS.map(({ collection }) => collection),
 					collections: Object.fromEntries(
@@ -460,6 +746,7 @@ describe('seeder registration and CLI', () => {
 					),
 				).toBe(0)
 				expect(JSON.parse(output.join(''))).toEqual({
+					core: { order: [], collections: {} },
 					system: {
 						order: ['directus_roles'],
 						collections: {
@@ -506,7 +793,7 @@ describe('seeder registration and CLI', () => {
 			output.length = 0
 			expect(await runCommand(service.program, 'config', '--collection', 'unknown')).toBe(1)
 			expect(error).toHaveBeenLastCalledWith(
-				'Failed to inspect Seeder configuration: Unknown system collection: "unknown"',
+				'Failed to inspect Seeder configuration: Unknown Seeder collection: "unknown"',
 			)
 			const missingConfig = createProgram({
 				SEEDER_CONFIG_PATH: path.join(directory, 'missing.json'),

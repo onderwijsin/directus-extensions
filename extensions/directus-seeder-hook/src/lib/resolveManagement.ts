@@ -9,6 +9,7 @@ import { z } from 'zod'
 
 import { getManagementKeySchema } from './managementKeys'
 import { readManagedIds } from './manifestManagement'
+import { getCollectionPrimaryKey, getCollectionPrimaryKeySchema } from './primaryKey'
 import { seedItemsSchema } from './seedItem'
 
 /**
@@ -33,11 +34,13 @@ export async function resolveCollectionManagement(
 	try {
 		const target = schema.collections[collectionName]
 		const source = schema.collections[management.collection]
+		getCollectionPrimaryKey(collectionName, schema)
+		const sourcePrimary = getCollectionPrimaryKey(management.collection, schema)
 		const field = target?.fields[management.field]
 		const relation = schema.relations.find(
 			(entry) => entry.collection === collectionName && entry.field === management.field,
 		)
-		const sourceType = source?.fields.id?.type
+		const sourceType = source?.fields[sourcePrimary]?.type
 		// Directus can expose a UUID FK as string (for example SQLite permissions.policy).
 		const compatibleKeyTypes =
 			field?.type === sourceType ||
@@ -46,29 +49,28 @@ export async function resolveCollectionManagement(
 			(['integer', 'bigInteger'].includes(field?.type ?? '') &&
 				['integer', 'bigInteger'].includes(sourceType ?? ''))
 		if (
-			target?.primary !== 'id' ||
-			source?.primary !== 'id' ||
 			!field ||
 			field.alias ||
 			!compatibleKeyTypes ||
 			relation?.related_collection !== management.collection ||
 			!relation.schema ||
 			relation.schema.foreign_key_table !== management.collection ||
-			relation.schema.foreign_key_column !== 'id'
+			relation.schema.foreign_key_column !== sourcePrimary ||
+			relation.schema.table !== collectionName ||
+			relation.schema.column !== management.field
 		) {
 			throw new Error(
-				`Management field "${collectionName}.${management.field}" must be a direct scalar relation to "${management.collection}.id" with id primary keys`,
+				`Management field "${collectionName}.${management.field}" must be a direct scalar relation to "${management.collection}.${sourcePrimary}" with scalar primary keys`,
 			)
 		}
-		getManagementKeySchema(target.fields.id?.type)
 		const fieldKeySchema = getManagementKeySchema(field.type)
-		const sourceKeySchema = getManagementKeySchema(source.fields.id?.type)
+		const sourceKeySchema = getCollectionPrimaryKeySchema(management.collection, schema)
 		const raw: unknown = JSON.parse(await readFile(filename, 'utf8'))
 		const rows = seedItemsSchema.parse(raw)
 		const ids = rows.map((row, index) => {
 			try {
-				const record = z.looseObject({ id: z.unknown() }).parse(row)
-				const id = sourceKeySchema.parse(record.id)
+				const record = z.looseObject({}).parse(row)
+				const id = sourceKeySchema.parse(record[sourcePrimary])
 				fieldKeySchema.parse(id)
 				return id
 			} catch (error) {
@@ -97,12 +99,12 @@ export function validateRelationSeedKeys(
 	data: SeedItem[],
 	schema: SchemaOverview,
 ): void {
+	const primary = getCollectionPrimaryKey(collectionName, schema)
+	const keySchema = getCollectionPrimaryKeySchema(collectionName, schema)
 	for (const [index, row] of data.entries()) {
 		try {
-			const record = z.looseObject({ id: z.unknown() }).parse(row)
-			getManagementKeySchema(schema.collections[collectionName]?.fields.id?.type).parse(
-				record.id,
-			)
+			const record = z.looseObject({}).parse(row)
+			keySchema.parse(record[primary])
 		} catch (error) {
 			throw new Error(
 				`Invalid relation-managed seed ID for collection "${collectionName}" at row ${index + 1}`,

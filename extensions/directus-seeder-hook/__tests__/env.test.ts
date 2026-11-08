@@ -26,6 +26,7 @@ describe('Seeder startup configuration', () => {
 			STORAGE_LOCATIONS: ['local'],
 		})
 		expect(resolveSeederConfig(options)).toEqual({
+			coreCollections: [],
 			systemCollections: SYSTEM_COLLECTIONS,
 			systemFieldOverrides: [],
 			dataScope: 'system',

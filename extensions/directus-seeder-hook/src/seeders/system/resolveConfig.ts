@@ -7,7 +7,13 @@ import path from 'node:path'
 import { z } from 'zod'
 
 import { SYSTEM_COLLECTIONS } from './config'
-import { collectionOverridesSchema, systemCollectionSchema } from './config.schema'
+import {
+	collectionOverridesSchema,
+	coreCollectionNameSchema,
+	coreCollectionOverridesSchema,
+	coreCollectionSchema,
+	systemCollectionSchema,
+} from './config.schema'
 
 const collectionNameSchema = z.enum(SYSTEM_COLLECTIONS.map(({ collection }) => collection))
 
@@ -15,6 +21,42 @@ const collectionNameSchema = z.enum(SYSTEM_COLLECTIONS.map(({ collection }) => c
 export const consumerConfigSchema = z.strictObject({
 	$schema: z.string().optional(),
 	$comment: z.string().optional(),
+	core: z
+		.strictObject({
+			// Zod records omit __proto__; reject it before parsing so declarations never disappear.
+			collections: z
+				.unknown()
+				.refine(
+					(value) =>
+						value === null ||
+						typeof value !== 'object' ||
+						!Object.hasOwn(value, '__proto__'),
+					{ error: 'Reserved core collection name: __proto__' },
+				)
+				.pipe(z.record(coreCollectionNameSchema, coreCollectionOverridesSchema)),
+			order: z
+				.array(coreCollectionNameSchema)
+				.refine((order) => new Set(order).size === order.length, {
+					error: 'core.order must not contain duplicate collections',
+				})
+				.meta({
+					uniqueItems: true,
+					description:
+						'Priority prefix; omitted collections follow in declaration order.',
+				})
+				.optional(),
+		})
+		.superRefine((core, context) => {
+			for (const name of core.order ?? []) {
+				if (!Object.hasOwn(core.collections, name))
+					context.addIssue({
+						code: 'custom',
+						path: ['order'],
+						message: `Unknown core collection: "${name}"`,
+					})
+			}
+		})
+		.optional(),
 	system: z
 		.strictObject({
 			collections: z
@@ -54,6 +96,14 @@ function resolveSystemConfigWithOverrides(input: unknown) {
 	const parsed = consumerConfigSchema.safeParse(input)
 	if (!parsed.success) throw new Error(`Invalid Seeder configuration: ${parsed.error.message}`)
 	const system = parsed.data.system
+	const core = parsed.data.core
+	const coreOrder = core?.order ?? []
+	const coreCollections = Object.entries(core?.collections ?? {}).map(
+		([collection, settings]) => {
+			const { management, ...rest } = settings
+			return { collection, ...rest, ...(management == null ? {} : { management }) }
+		},
+	)
 	const order = system?.order ?? []
 	const defaults = z.array(systemCollectionSchema).safeParse(SYSTEM_COLLECTIONS)
 	if (!defaults.success)
@@ -67,6 +117,12 @@ function resolveSystemConfigWithOverrides(input: unknown) {
 	if (!effective.success)
 		throw new Error(`Invalid effective Seeder configuration: ${effective.error.message}`)
 	return {
+		coreCollections: [
+			...coreOrder.flatMap((name) =>
+				coreCollections.filter(({ collection }) => collection === name),
+			),
+			...coreCollections.filter(({ collection }) => !coreOrder.includes(collection)),
+		],
 		systemCollections: [
 			...order.flatMap((name) =>
 				effective.data.filter(({ collection }) => collection === name),
@@ -86,11 +142,11 @@ function resolveSystemConfigWithOverrides(input: unknown) {
  * @throws Error for missing, unreadable, malformed or invalid explicitly configured files.
  */
 export function loadSystemConfig(configPath?: string): {
+	coreCollections: SystemCollectionConfig[]
 	systemCollections: SystemCollectionConfig[]
 	systemFieldOverrides: string[]
 } {
-	if (configPath === undefined)
-		return { systemCollections: resolveSystemConfig(), systemFieldOverrides: [] }
+	if (configPath === undefined) return resolveSystemConfigWithOverrides({})
 	const filename = path.resolve(configPath)
 	try {
 		const input: unknown = JSON.parse(readFileSync(filename, 'utf8'))
@@ -116,5 +172,20 @@ export function getSystemCollections(
 		.safeParse(config.systemCollections ?? SYSTEM_COLLECTIONS)
 	if (!parsed.success)
 		throw new Error(`Invalid effective Seeder configuration: ${parsed.error.message}`)
+	return parsed.data
+}
+
+/**
+ * Returns validated settings for the selected scope at import and extraction boundaries.
+ * @param config - Effective runtime settings and explicit scope.
+ * @returns Ordered collections, with no application defaults.
+ */
+export function getCollections(
+	config: Pick<SeederConfig, 'dataScope' | 'systemCollections' | 'coreCollections'>,
+): SystemCollectionConfig[] {
+	if (config.dataScope === 'system') return getSystemCollections(config)
+	const parsed = z.array(coreCollectionSchema).safeParse(config.coreCollections ?? [])
+	if (!parsed.success)
+		throw new Error(`Invalid effective Seeder core configuration: ${parsed.error.message}`)
 	return parsed.data
 }

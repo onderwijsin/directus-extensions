@@ -143,7 +143,7 @@ const deepNodeSchema: z.ZodType<QueryObject> = z.lazy(() =>
 		}),
 )
 
-// Keep the reusable boundary schema scope-neutral; this release supports system sources only.
+// Preserve the existing system source allowlist independently of application collections.
 const systemManagementSchema: z.ZodType<CollectionManagement> = z.discriminatedUnion('type', [
 	collectionManagementSchema.options[0],
 	collectionManagementSchema.options[1].extend({
@@ -172,6 +172,25 @@ export const systemCollectionSchema = z.strictObject({
 	...collectionOverridesSchema.shape,
 	operationMode: z.enum(OperationMode),
 	management: systemManagementSchema.optional(),
+})
+
+/** Safe application collection identifier, excluding Directus-owned collections. */
+export const coreCollectionNameSchema = z
+	.string()
+	.regex(/^(?!directus_|__proto__$)[A-Za-z_][A-Za-z0-9_]*$/u)
+
+/** Core has no package defaults: every declared collection must choose its import mode. */
+export const coreCollectionOverridesSchema = z.strictObject({
+	...collectionOverridesSchema.shape,
+	operationMode: z.enum(OperationMode),
+	management: collectionManagementSchema.nullish(),
+})
+
+/** Effective application settings share the existing query and management contracts. */
+export const coreCollectionSchema = z.strictObject({
+	collection: coreCollectionNameSchema,
+	...coreCollectionOverridesSchema.shape,
+	management: collectionManagementSchema.optional(),
 })
 
 /** Validated collection configuration shared by import and extraction. */

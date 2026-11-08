@@ -13,6 +13,7 @@ import { registerConfigCommand } from './commands/configCommand'
 import { registerExtractCommand } from './commands/extractCommand'
 import { registerSystemCommand } from './commands/systemCommand'
 import { envSchema } from './env.schema'
+import { DataScope } from './lib/config'
 import { registerAutoExtractSystemHook } from './seeders/system/autoExtract'
 
 /**
@@ -43,8 +44,9 @@ export const registerSeeder: HookConfig = (register, context) => {
 		if (!program) throw new TypeError('Directus CLI program is missing')
 		const command = program
 			.command('seed')
-			.description('Directus Seeder commands for system data and extraction')
+			.description('Directus Seeder commands for system and application data')
 		registerSystemCommand(command, seederContext)
+		registerSystemCommand(command, seederContext, DataScope.CORE)
 		registerConfigCommand(command, seederContext)
 		if (extractionAvailable) registerExtractCommand(command, seederContext)
 	})

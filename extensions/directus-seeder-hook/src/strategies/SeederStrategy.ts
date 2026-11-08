@@ -15,6 +15,8 @@ export interface SeederStrategy {
 	 * @param serviceAdapter Service adapter for the collection
 	 * @param performanceTracker Performance tracker
 	 * @param management Optional boundary used only by full-idempotent
+	 * @param primaryKey Resolved primary-key field; defaults to id for existing callers
+	 * @param useSystemMetadata Whether system pass-two metadata is supported
 	 * @returns Result of the seeding operation
 	 */
 	seedCollection: (
@@ -23,6 +25,8 @@ export interface SeederStrategy {
 		serviceAdapter: ServiceAdapter,
 		performanceTracker: PerformanceTracker,
 		management?: ResolvedCollectionManagement,
+		primaryKey?: string,
+		useSystemMetadata?: boolean,
 	) => Promise<SeedResult>
 }
 

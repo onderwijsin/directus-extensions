@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/@onderwijsin/directus-seeder-hook/seeder-config.schema.json",
-	"$comment": "Only specify overrides. Inspect built-in defaults with directus seed config --defaults; each supplied fields, filter, sort, deep or management value replaces that entire default property.",
+	"$comment": "System entries override defaults; core entries require operationMode. Fields, filter, sort, deep and management replace whole properties. Inspect with directus seed config.",
 	"system": {
 		"collections": {
 			"directus_presets": {
@@ -17,5 +17,17 @@
 				"management": { "type": "manifest" }
 			}
 		}
+	},
+	"core": {
+		"collections": {
+			"categories": { "operationMode": "insert-update" },
+			"articles": {
+				"operationMode": "full-idempotent",
+				"management": { "type": "manifest" },
+				"fields": ["id", "title", "category"]
+			},
+			"feature_flags": { "operationMode": "insert-missing" }
+		},
+		"order": ["categories"]
 	}
 }

@@ -5,7 +5,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { envSchema } from '../src/env.schema'
-import { createSeedDataProvider } from '../src/lib/seedDataParser'
+import { createCollectionDataProvider, createSeedDataProvider } from '../src/lib/seedDataParser'
 import { getDataProviders, handlePolicyTFA, isSuperUser } from '../src/seeders/system/data'
 
 let directory = ''
@@ -32,6 +32,19 @@ async function loadData(env: Record<string, string> = {}) {
 }
 
 describe('system seed data', () => {
+	it('combines arbitrary collection names without inheriting Object prototype members', () => {
+		const names = ['constructor', 'toString', 'hasOwnProperty', '__proto__']
+		const providers = names.flatMap((name) => [
+			createCollectionDataProvider(name, () => [{ key: 'first' }]),
+			createCollectionDataProvider(name, () => [{ key: 'second' }]),
+		])
+		const data = createSeedDataProvider(providers).getSeedData()
+		for (const name of names) {
+			expect(Object.hasOwn(data, name)).toBe(true)
+			expect(data[name]).toEqual([{ key: 'first' }, { key: 'second' }])
+		}
+		expect(Object.getPrototypeOf(data)).toBe(Object.prototype)
+	})
 	beforeEach(async () => {
 		directory = await mkdtemp(path.join(tmpdir(), 'seeder-data-'))
 		await mkdir(path.join(directory, 'system'))

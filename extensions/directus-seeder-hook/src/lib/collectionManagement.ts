@@ -47,13 +47,16 @@ const resolvedManagementSchema = z.discriminatedUnion('type', [
 /** Management with snapshotted relation or manifest IDs; never persisted as configuration. */
 export type ResolvedCollectionManagement = z.infer<typeof resolvedManagementSchema>
 
-const numericSeedIdSchema = z.looseObject({ id: z.int() })
+const seedRowSchema = z.looseObject({})
+const numericSeedKeySchema = z.int()
 
 /**
  * Validates the resolved management boundary and every seed row before any import mutations.
  * @param collectionName - Collection whose boundary is being checked.
  * @param data - All seed rows for the collection.
  * @param management - Optional internal management boundary.
+ * @param primaryKey - Resolved primary-key field; defaults to id for existing system callers.
+ * @param useSystemMetadata - Whether ordered Operations pass-two metadata is supported.
  * @returns The validated boundary, or undefined for a fully managed collection.
  * @throws Error when the range or a seed ID is invalid or outside the boundary.
  */
@@ -61,6 +64,8 @@ export function validateManagedSeedData(
 	collectionName: string,
 	data: SeedItem[],
 	management: unknown,
+	primaryKey = 'id',
+	useSystemMetadata = true,
 ): ResolvedCollectionManagement | undefined {
 	if (management === undefined) return undefined
 
@@ -73,10 +78,12 @@ export function validateManagedSeedData(
 
 	if (parsed.data.type === 'manifest') {
 		const managedIds = new Set(parsed.data.ids)
-		const rowSchema = z.looseObject({ id: primaryKeySchema })
 		for (const [index, item] of data.entries()) {
-			const record = rowSchema.safeParse(item)
-			if (!record.success || !managedIds.has(record.data.id)) {
+			const record = seedRowSchema.safeParse(item)
+			const id = primaryKeySchema.safeParse(
+				record.success ? record.data[primaryKey] : undefined,
+			)
+			if (!id.success || !managedIds.has(id.data)) {
 				throw new Error(
 					`Seed record ${index + 1} for collection "${collectionName}" requires an explicit ID inside the managed manifest selection`,
 				)
@@ -89,41 +96,47 @@ export function validateManagedSeedData(
 		const { field, ids } = parsed.data
 		const managedIds = new Set(ids)
 		const validatedSeedIds = new Set<string | number>()
-		const rowSchema = z.looseObject({ id: primaryKeySchema })
 		for (const [index, item] of data.entries()) {
-			const record = rowSchema.safeParse(item)
+			const record = seedRowSchema.safeParse(item)
+			const id = primaryKeySchema.safeParse(
+				record.success ? record.data[primaryKey] : undefined,
+			)
 			const value = record.success ? record.data[field] : undefined
 			const relation = primaryKeySchema.safeParse(value)
 			// Synthesized Operations pass-two updates omit the FK. Only a preceding fully
 			// validated row with this ID can authorize such an update; partial rows cannot.
 			const updateOnly =
+				useSystemMetadata &&
 				record.success &&
+				id.success &&
 				record.data.__isUpdateOnly === true &&
 				value === undefined &&
-				validatedSeedIds.has(record.data.id)
+				validatedSeedIds.has(id.data)
 			if (
-				!record.success ||
+				!id.success ||
 				(!updateOnly && (!relation.success || !managedIds.has(relation.data)))
 			) {
 				throw new Error(
 					`Seed record ${index + 1} for collection "${collectionName}" requires an explicit ID and scalar ${field} inside the managed relation selection`,
 				)
 			}
-			if (relation.success && managedIds.has(relation.data))
-				validatedSeedIds.add(record.data.id)
+			if (relation.success && managedIds.has(relation.data)) validatedSeedIds.add(id.data)
 		}
 		return parsed.data
 	}
 
 	const { min, max } = parsed.data
 	for (const [index, item] of data.entries()) {
-		const record = numericSeedIdSchema.safeParse(item)
-		if (!record.success) {
+		const record = seedRowSchema.safeParse(item)
+		const parsedId = numericSeedKeySchema.safeParse(
+			record.success ? record.data[primaryKey] : undefined,
+		)
+		if (!parsedId.success) {
 			throw new Error(
 				`Seed record ${index + 1} for collection "${collectionName}" requires a safe integer numeric ID for id-range management`,
 			)
 		}
-		const { id } = record.data
+		const id = parsedId.data
 		if ((min !== undefined && id < min) || (max !== undefined && id >= max)) {
 			throw new Error(
 				`Seed record ${index + 1} for collection "${collectionName}" has ID ${id} outside managed ID range [${min ?? '-infinity'}, ${max ?? 'infinity'})`,
@@ -137,26 +150,32 @@ export function validateManagedSeedData(
 /**
  * Creates separate Directus predicates so every bound is applied, even on the same ID field.
  * @param range - Validated numeric management interval.
+ * @param primaryKey - Resolved primary-key field; defaults to id for existing callers.
  * @returns Predicates to combine with an explicit _and and any separate filter.
  */
 export function getIdRangeFilters(
 	range: Extract<CollectionManagement, { type: 'id-range' }>,
+	primaryKey = 'id',
 ): Filter[] {
 	return [
-		...(range.min === undefined ? [] : [{ id: { _gte: range.min } }]),
-		...(range.max === undefined ? [] : [{ id: { _lt: range.max } }]),
+		...(range.min === undefined ? [] : [{ [primaryKey]: { _gte: range.min } }]),
+		...(range.max === undefined ? [] : [{ [primaryKey]: { _lt: range.max } }]),
 	]
 }
 
 /**
  * Builds the import management boundary. Empty ID selections must be handled as a no-op.
  * @param management - Resolved boundary, including snapshotted relation or manifest IDs.
+ * @param primaryKey - Resolved primary-key field; defaults to id for existing callers.
  * @returns Predicates to combine with an explicit _and.
  */
-export function getManagementFilters(management: ResolvedCollectionManagement): Filter[] {
-	if (management.type === 'id-range') return getIdRangeFilters(management)
+export function getManagementFilters(
+	management: ResolvedCollectionManagement,
+	primaryKey = 'id',
+): Filter[] {
+	if (management.type === 'id-range') return getIdRangeFilters(management, primaryKey)
 	if (management.ids.length === 0)
 		throw new Error(`Empty managed ${management.type} selection must not be queried`)
-	const field = management.type === 'manifest' ? 'id' : management.field
+	const field = management.type === 'manifest' ? primaryKey : management.field
 	return [{ [field]: { _in: management.ids } }]
 }

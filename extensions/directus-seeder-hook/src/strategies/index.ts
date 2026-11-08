@@ -67,6 +67,8 @@ async function executeSeedOperation(
  * @param performanceTracker Performance tracker
  * @param result Seed result to update
  * @param updateExisting Whether to update existing items
+ * @param primaryKey Resolved primary-key field
+ * @param useSystemMetadata Whether system pass-two metadata is supported
  * @returns Resolves after the batch is processed.
  */
 async function processBatch(
@@ -75,10 +77,12 @@ async function processBatch(
 	performanceTracker: PerformanceTracker,
 	result: SeedResult,
 	updateExisting = false,
+	primaryKey = 'id',
+	useSystemMetadata = true,
 ): Promise<void> {
 	// Extract IDs from the batch
 	const batchIds = batch
-		.map((item) => toSeedRecord(item).id)
+		.map((item) => toSeedRecord(item)[primaryKey])
 		.filter((id) => id !== undefined && id !== null)
 
 	if (batchIds.length === 0) {
@@ -96,16 +100,16 @@ async function processBatch(
 			'Find existing items for counting',
 			() =>
 				serviceAdapter.getItems({
-					filter: { id: { _in: batchIds } },
-					fields: ['id'],
+					filter: { [primaryKey]: { _in: batchIds } },
+					fields: [primaryKey],
 					limit: -1,
 				}),
 		)
 
 		const existingIds = new Set(
 			existingItems.map((item) => {
-				if (typeof item === 'object' && item !== null && 'id' in item) {
-					return toSeedRecord(item).id
+				if (typeof item === 'object' && item !== null && primaryKey in item) {
+					return toSeedRecord(item)[primaryKey]
 				}
 				return item
 			}),
@@ -118,7 +122,8 @@ async function processBatch(
 		// Count created and updated items for reporting
 		const createdCount = batch.filter(
 			(item) =>
-				toSeedRecord(item).id !== undefined && !existingIds.has(toSeedRecord(item).id),
+				toSeedRecord(item)[primaryKey] !== undefined &&
+				!existingIds.has(toSeedRecord(item)[primaryKey]),
 		).length
 		const updatedCount = batch.length - createdCount
 
@@ -129,8 +134,8 @@ async function processBatch(
 
 	const existingItems = await performanceTracker.track('Find existing items', () =>
 		serviceAdapter.getItems({
-			filter: { id: { _in: batchIds } },
-			fields: ['id'],
+			filter: { [primaryKey]: { _in: batchIds } },
+			fields: [primaryKey],
 			limit: -1,
 		}),
 	)
@@ -138,8 +143,8 @@ async function processBatch(
 	// Create a set of existing IDs for fast lookup
 	const existingIds = new Set(
 		existingItems.map((item) => {
-			if (typeof item === 'object' && item !== null && 'id' in item) {
-				return toSeedRecord(item).id
+			if (typeof item === 'object' && item !== null && primaryKey in item) {
+				return toSeedRecord(item)[primaryKey]
 			}
 			return item
 		}),
@@ -147,7 +152,9 @@ async function processBatch(
 
 	// Filter to only create items that don't exist
 	const itemsToCreate = batch.filter(
-		(item) => toSeedRecord(item).id !== undefined && !existingIds.has(toSeedRecord(item).id),
+		(item) =>
+			toSeedRecord(item)[primaryKey] !== undefined &&
+			!existingIds.has(toSeedRecord(item)[primaryKey]),
 	)
 
 	// Separate items into full create vs update-only items
@@ -160,7 +167,9 @@ async function processBatch(
 		// Check if the item is marked as update-only
 		const itemWithMeta = toSeedRecord(item)
 		const isUpdateOnly =
-			'__isUpdateOnly' in itemWithMeta && itemWithMeta.__isUpdateOnly === true
+			useSystemMetadata &&
+			'__isUpdateOnly' in itemWithMeta &&
+			itemWithMeta.__isUpdateOnly === true
 
 		if (isUpdateOnly) {
 			// Remove the metadata field before processing
@@ -209,6 +218,9 @@ function createInsertMissingStrategy(batchSize = 50): SeederStrategy {
 		 * @param data - Original seed rows.
 		 * @param serviceAdapter - Directus service operations.
 		 * @param performanceTracker - Operation timing tracker.
+		 * @param _management - Unused boundary for insert modes.
+		 * @param primaryKey - Resolved primary-key field; defaults to id for existing callers.
+		 * @param useSystemMetadata - Whether system pass-two metadata is supported.
 		 * @returns Counts, duration, and any captured mutation error.
 		 */
 		seedCollection: async (
@@ -216,8 +228,11 @@ function createInsertMissingStrategy(batchSize = 50): SeederStrategy {
 			data: SeedItem[],
 			serviceAdapter: ServiceAdapter,
 			performanceTracker: PerformanceTracker,
+			_management?: ResolvedCollectionManagement,
+			primaryKey = 'id',
+			useSystemMetadata = true,
 		) => {
-			// Ensure data has id fields for this strategy
+			// Keep the original seed rows and their resolved primary keys.
 			const dataWithIds = data
 
 			return executeSeedOperation(collectionName, data, async (result) => {
@@ -234,6 +249,8 @@ function createInsertMissingStrategy(batchSize = 50): SeederStrategy {
 								performanceTracker,
 								result,
 								false,
+								primaryKey,
+								useSystemMetadata,
 							)
 						},
 					)
@@ -257,6 +274,9 @@ function createInsertUpdateStrategy(batchSize = 50): SeederStrategy {
 		 * @param data - Original seed rows.
 		 * @param serviceAdapter - Directus service operations.
 		 * @param performanceTracker - Operation timing tracker.
+		 * @param _management - Unused boundary for insert modes.
+		 * @param primaryKey - Resolved primary-key field; defaults to id for existing callers.
+		 * @param useSystemMetadata - Whether system pass-two metadata is supported.
 		 * @returns Counts, duration, and any captured mutation error.
 		 */
 		seedCollection: async (
@@ -264,8 +284,11 @@ function createInsertUpdateStrategy(batchSize = 50): SeederStrategy {
 			data: SeedItem[],
 			serviceAdapter: ServiceAdapter,
 			performanceTracker: PerformanceTracker,
+			_management?: ResolvedCollectionManagement,
+			primaryKey = 'id',
+			useSystemMetadata = true,
 		) => {
-			// Ensure data has id fields for this strategy
+			// Keep the original seed rows and their resolved primary keys.
 			const dataWithIds = data
 
 			return executeSeedOperation(collectionName, data, async (result) => {
@@ -282,6 +305,8 @@ function createInsertUpdateStrategy(batchSize = 50): SeederStrategy {
 								performanceTracker,
 								result,
 								true,
+								primaryKey,
+								useSystemMetadata,
 							)
 						},
 					)
@@ -306,6 +331,8 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 		 * @param serviceAdapter - Directus service operations.
 		 * @param performanceTracker - Operation timing tracker.
 		 * @param management - Optional resolved boundary, including related seed IDs.
+		 * @param primaryKey - Resolved primary-key field; defaults to id for existing callers.
+		 * @param useSystemMetadata - Whether system pass-two metadata is supported.
 		 * @returns Counts, duration, and any captured mutation error.
 		 */
 		seedCollection: async (
@@ -314,17 +341,25 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 			serviceAdapter: ServiceAdapter,
 			performanceTracker: PerformanceTracker,
 			management?: ResolvedCollectionManagement,
+			primaryKey = 'id',
+			useSystemMetadata = true,
 		) => {
-			// Ensure data has id fields for this strategy
+			// Keep the original seed rows and their resolved primary keys.
 			const dataWithIds = data
 
 			return executeSeedOperation(collectionName, data, async (result) => {
-				const boundary = validateManagedSeedData(collectionName, data, management)
+				const boundary = validateManagedSeedData(
+					collectionName,
+					data,
+					management,
+					primaryKey,
+					useSystemMetadata,
+				)
 				if (boundary && boundary.type !== 'id-range' && boundary.ids.length === 0) return
 				// Get all seed data IDs
 				const seedDataIds = new Set(
 					dataWithIds
-						.map((item) => toSeedRecord(item).id)
+						.map((item) => toSeedRecord(item)[primaryKey])
 						.filter((id) => id !== undefined && id !== null),
 				)
 
@@ -341,6 +376,8 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 								performanceTracker,
 								result,
 								true,
+								primaryKey,
+								useSystemMetadata,
 							)
 						},
 					)
@@ -350,17 +387,17 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 				await performanceTracker.track(`  Delete extra items`, async () => {
 					// Get all the IDs of the existing items that are not in the seed data
 					const allExistingItems = await serviceAdapter.getItems({
-						fields: ['id'],
+						fields: [primaryKey],
 						filter:
 							boundary === undefined
-								? { id: { _nin: [...seedDataIds] } }
+								? { [primaryKey]: { _nin: [...seedDataIds] } }
 								: {
 										_and: [
-											...getManagementFilters(boundary),
+											...getManagementFilters(boundary, primaryKey),
 											// Bounded empty seeds need only the management selection; never rely on _nin: [].
 											...(seedDataIds.size === 0
 												? []
-												: [{ id: { _nin: [...seedDataIds] } }]),
+												: [{ [primaryKey]: { _nin: [...seedDataIds] } }]),
 										],
 									},
 						limit: -1,
@@ -368,8 +405,8 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 
 					// Prepare the IDs that are in the database but not in the seed data
 					const idsToDelete = allExistingItems.map((item) => {
-						if (typeof item === 'object' && item !== null && 'id' in item) {
-							return toSeedRecord(item).id
+						if (typeof item === 'object' && item !== null && primaryKey in item) {
+							return toSeedRecord(item)[primaryKey]
 						}
 						return item
 					})
