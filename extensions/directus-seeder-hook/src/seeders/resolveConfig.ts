@@ -206,6 +206,19 @@ export function resolveSeederConfig(
 	> & { operationMode?: OperationMode } = {},
 ): SeederConfig {
 	const consumer = loadConsumerConfig(options.SEEDER_CONFIG_PATH)
+	// Core names can only be checked after loading consumer declarations. Keep this validation
+	// independent of enablement and never apply the automatic allowlist to manual selection.
+	if (options.SEEDER_AUTO_EXTRACT_INCLUDE !== undefined) {
+		const names = [...consumer.systemCollections, ...consumer.coreCollections].map(
+			({ collection }) => collection,
+		)
+		const selection = z
+			.array(z.enum(names))
+			.min(1)
+			.safeParse(options.SEEDER_AUTO_EXTRACT_INCLUDE)
+		if (!selection.success)
+			throw new Error(`Invalid SEEDER_AUTO_EXTRACT_INCLUDE: ${selection.error.message}`)
+	}
 	return {
 		coreCollections: consumer.coreCollections.map((collection) => ({
 			...collection,
@@ -229,7 +242,6 @@ export function resolveSeederConfig(
 			overrides.enableFullIdempotent ?? options.SEEDER_ENABLE_FULL_IDEMPOTENT,
 		skipClean: overrides.skipClean ?? false,
 		jsonOnly: overrides.jsonOnly ?? options.SEEDER_JSON_ONLY,
-		autoExtract: overrides.autoExtract ?? options.SEEDER_AUTO_EXTRACT,
 		jsonIndent: options.SEEDER_JSON_INDENT === 'tab' ? '\t' : options.SEEDER_JSON_INDENT_SIZE,
 	}
 }

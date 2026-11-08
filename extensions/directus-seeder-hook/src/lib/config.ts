@@ -101,12 +101,6 @@ export interface SeederConfig {
 
 	/** Indentation used when writing extracted JSON. */
 	jsonIndent: '\t' | number
-
-	/**
-	 * Whether to automatically extract seed data from the current database state
-	 * into seed files for system collections on data changes.
-	 */
-	autoExtract: boolean
 }
 
 /**

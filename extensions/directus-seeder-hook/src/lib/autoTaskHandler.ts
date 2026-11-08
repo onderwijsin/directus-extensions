@@ -1,6 +1,7 @@
 import type { Logger } from 'pino'
 
-import { existsSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -13,9 +14,11 @@ interface AutoTaskOptions {
 	debounceId: string
 	/** Called when debounce period ends and task should execute */
 	task: () => Promise<void> | void
+	/** Discards pending work when another bulk operation suppresses this task. */
+	onSkip?: () => void
 	/** Called to log messages */
 	logger?: Logger
-	/** Milliseconds to wait after first event before running task */
+	/** Milliseconds to wait after the most recent event before running task */
 	debounceTime?: number
 	/** Max age of lock file before it's considered stale */
 	maxLockAge?: number
@@ -31,6 +34,7 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 	const {
 		debounceId,
 		task,
+		onSkip,
 		logger: loggerInstance,
 		debounceTime = 15_000,
 		maxLockAge = 5 * 60 * 1000,
@@ -40,12 +44,29 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 
 	const debounceLockPath = join(tmpdir(), `directus-debounce-${debounceId}.lock`)
 	let timer: NodeJS.Timeout | null = null
+	let running = false
+
+	/**
+	 * Reads the marker while tolerating cleanup by another process.
+	 * @returns Event token, or undefined when no work remains.
+	 */
+	const readMarker = (): string | undefined => {
+		try {
+			return readFileSync(debounceLockPath, 'utf8')
+		} catch (error) {
+			if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return
+			throw error
+		}
+	}
 
 	/**
 	 * Runs the pending task, preserving the original skip-on-contention semantics.
 	 * @returns Resolves after execution or cleanup.
 	 */
 	const run = async () => {
+		// A later event may finish its debounce while this task still holds the lock.
+		// Its marker remains pending and is scheduled again by the running task.
+		if (running) return
 		const debounceLockStats = statSync(debounceLockPath, { throwIfNoEntry: false })
 		if (!debounceLockStats) return
 
@@ -60,12 +81,15 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 			return
 		}
 
+		const marker = readMarker()
+		if (marker === undefined) return
 		let lock: ReturnType<typeof acquireLock> | undefined
 
 		try {
 			// Check if bulk operation is in progress → skip
 			if (isLocked({ maxLockAge })) {
 				logger.info(`🪝 Bulk operation active, skipping ${debounceId}`)
+				onSkip?.()
 				return
 			}
 
@@ -75,12 +99,14 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 			} catch (error) {
 				if (error instanceof ProcessLockAlreadyExistsError) {
 					logger.info(`🪝 Bulk operation became active, skipping ${debounceId}`)
+					onSkip?.()
 					return
 				}
 
 				throw error
 			}
 
+			running = true
 			logger.info(`🪝 Running auto task: ${debounceId}`)
 			await task()
 			logger.info(`🪝 Completed auto task: ${debounceId}`)
@@ -91,9 +117,17 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 			// Only release a lock acquired by this task
 			lock?.release()
 
-			// Clean up debounce lock file
-			if (existsSync(debounceLockPath))
-				rmSync(debounceLockPath, { recursive: true, force: true })
+			running = false
+			// Never erase an event that arrived while extraction was awaiting I/O.
+			const nextMarker = readMarker()
+			if (nextMarker !== undefined) {
+				if (nextMarker === marker) {
+					rmSync(debounceLockPath, { force: true })
+				} else {
+					if (timer) clearTimeout(timer)
+					timer = setTimeout(() => void run(), 0)
+				}
+			}
 		}
 	}
 
@@ -110,7 +144,7 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 		}
 
 		// Create or update the debounce lock file and (re)start the timer
-		writeFileSync(debounceLockPath, String(Date.now()))
+		writeFileSync(debounceLockPath, randomUUID())
 		logger.info(`🪝 ${debounceId}: debounce lock updated`)
 		if (timer) clearTimeout(timer)
 		timer = setTimeout(() => void run(), debounceTime)

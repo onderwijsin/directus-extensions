@@ -6,7 +6,7 @@ description: Seed, extract, inspect, configure, and troubleshoot Directus system
 # Directus seeder hook
 
 Use `@onderwijsin/directus-seeder-hook` for JSON-based system and configured application-record
-seeding, manual development extraction, and optional system automatic extraction.
+seeding, manual development extraction, and optional automatic extraction for either scope.
 
 ## Read the installed contract
 
@@ -27,8 +27,8 @@ Read the sections relevant to the operation:
   supported collections**; inspect effective settings with `seed config` before changing them.
 - Import: **Seed input semantics and preflight**, **Seeding safety and retained caveats**, the
   chosen management method, and system transformations where applicable.
-- Extraction: **Extraction, assets, and automatic behavior** and, only for automatic system
-  extraction, its allowlist rules.
+- Extraction: **Extraction, assets, and automatic behavior** and, only for automatic extraction, its
+  allowlist rules.
 
 ## Choose and verify the operation
 
@@ -75,12 +75,20 @@ Read the sections relevant to the operation:
 5. After system seeding, inspect Flow operation links, policy TFA, matching root-user credentials,
    and uploaded assets where selected. After core seeding, inspect primary keys and scalar
    relations. Complete when those results match the intended environment.
-6. For system-only automatic extraction, choose general selection and cleanup by leaving
-   `SEEDER_AUTO_EXTRACT_INCLUDE` unset, or supply a nonempty allowlist for selective output without
-   cleanup. Require exact `development` and `SEEDER_AUTO_EXTRACT=true`. Complete when a selected
-   CRUD event refreshes every selected collection after the debounce, other files remain in
-   selective mode, and binaries are exported only under the documented system asset rules. Review
-   retained stale files before using the output for seeding.
+6. For automatic extraction, require exact `DEPLOYMENT_ENV=development` and enable
+   `SEEDER_AUTO_EXTRACT_SYSTEM`, `SEEDER_AUTO_EXTRACT_CORE`, or both (boolean, default `false`
+   each). These replace the old general switch without fallback. Leave `SEEDER_AUTO_EXTRACT_INCLUDE`
+   unset for general include/exclude and cleanup in each event-triggered scope, or supply one
+   nonblank name or a nonempty Directus-cast array of supported system/configured core names. Names
+   are trimmed, case-sensitive, and validated even for disabled scopes; unknown names, empty lists,
+   and blank entries fail. The allowlist overrides general filters, skips cleanup, and limits
+   triggers/output to listed names in enabled scopes. System CRUD uses events such as
+   `roles.create`; core uses `<collection>.items.create/update/delete`. Complete when one shared
+   15-second debounce coalesces changed scopes and refreshes all selected collections within only
+   those scopes, serialized under the shared bulk lock. Core-only events leave system JSON/assets
+   untouched. Core performs no binary work; system honors `SEEDER_JSON_ONLY`, and an allowlist
+   forces JSON-only unless `directus_files` is listed. Existing bulk-operation suppression remains.
+   Inspect JSON/manifests in `system/` or `core/` and review stale files retained by selective runs.
 
 ## Core configuration checks
 
@@ -99,8 +107,7 @@ file references. Core neither downloads nor creates binary assets.
 
 Use `seed config --collection <name>` to inspect a declared core collection; `--defaults` has no
 core declarations. Use `seed extract --scope core` or `--scope both` for manual extraction and
-`seed core` for import. Core automatic extraction is unavailable; the existing automatic allowlist
-still accepts system collections only.
+`seed core` for import.
 
 ## Accept or recover the result
 

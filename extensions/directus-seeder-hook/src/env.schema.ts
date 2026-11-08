@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { DataScope } from './lib/config'
+import { coreCollectionNameSchema } from './seeders/config.schema'
 import { SYSTEM_COLLECTIONS_ORDER } from './seeders/system/config'
 
 /** Normalize Directus's singular or pre-cast list values without re-parsing environment strings. */
@@ -24,9 +25,10 @@ export const envSchema = z.object({
 	SEEDER_BATCH_SIZE: z.number().int().positive().default(50),
 	SEEDER_ENABLE_FULL_IDEMPOTENT: z.boolean().default(false),
 	SEEDER_JSON_ONLY: z.boolean().default(false),
-	SEEDER_AUTO_EXTRACT: z.boolean().default(false),
+	SEEDER_AUTO_EXTRACT_SYSTEM: z.boolean().default(false),
+	SEEDER_AUTO_EXTRACT_CORE: z.boolean().default(false),
 	SEEDER_AUTO_EXTRACT_INCLUDE: stringListSchema
-		.pipe(z.array(z.enum(SYSTEM_COLLECTIONS_ORDER)).min(1))
+		.pipe(z.array(z.union([z.enum(SYSTEM_COLLECTIONS_ORDER), coreCollectionNameSchema])).min(1))
 		.optional(),
 	SEEDER_JSON_INDENT: z
 		.enum(['tab', 'space'], {

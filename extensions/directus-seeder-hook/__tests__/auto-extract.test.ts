@@ -26,7 +26,7 @@ type Register = (
 const mocks = vi.hoisted(() => ({
 	directory: '',
 	register: vi.fn<Register>(),
-	extract: vi.fn(),
+	extract: vi.fn<typeof import('../src/seeders/extract').extractData>(),
 	readFiles: vi.fn(),
 	readCollection: vi.fn<(collection: string, query: unknown) => Promise<unknown[]>>(),
 	getAsset: vi.fn(),
@@ -80,7 +80,7 @@ function register(
 		{
 			env: {
 				DEPLOYMENT_ENV: 'development',
-				SEEDER_AUTO_EXTRACT: true,
+				SEEDER_AUTO_EXTRACT_SYSTEM: true,
 				SEEDER_INCLUDE: ['directus_users', 'directus_roles'],
 				SEEDER_EXCLUDE: 'directus_roles',
 				SEEDER_SEEDS_DIR: path.join(directory, 'seeds'),
@@ -154,7 +154,7 @@ async function advance(milliseconds: number) {
 	await vi.advanceTimersByTimeAsync(milliseconds)
 }
 
-describe('automatic system extraction', () => {
+describe('automatic scoped extraction', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks()
 		const os = await vi.importActual<typeof import('node:os')>('node:os')
@@ -179,8 +179,247 @@ describe('automatic system extraction', () => {
 			'users.update',
 			'users.delete',
 		])
-		expect(register({ SEEDER_AUTO_EXTRACT: false })).not.toHaveBeenCalled()
+		expect(register({ SEEDER_AUTO_EXTRACT_SYSTEM: false })).not.toHaveBeenCalled()
 	})
+
+	/**
+	 * Declares two core collections for selection and manifest regression cases.
+	 * @returns Environment pointing to the consumer configuration.
+	 */
+	async function coreEnvironment() {
+		const configPath = path.join(directory, 'consumer.json')
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				core: {
+					collections: {
+						posts: { operationMode: 'insert-update', management: { type: 'manifest' } },
+						tags: { operationMode: 'insert-update' },
+					},
+				},
+			}),
+		)
+		return {
+			SEEDER_CONFIG_PATH: configPath,
+			SEEDER_AUTO_EXTRACT_CORE: true,
+			SEEDER_INCLUDE: ['directus_users', 'directus_files', 'posts', 'tags'],
+			SEEDER_EXCLUDE: ['directus_files', 'tags'],
+		}
+	}
+
+	it.each([
+		[false, false],
+		[true, false],
+		[false, true],
+		[true, true],
+	])(
+		'registers only selected collections in enabled scopes (system=%s, core=%s)',
+		async (system, core) => {
+			const action = register({
+				...(await coreEnvironment()),
+				SEEDER_AUTO_EXTRACT_SYSTEM: system,
+				SEEDER_AUTO_EXTRACT_CORE: core,
+			})
+			expect(action.mock.calls.map(([event]) => event)).toEqual([
+				...(system ? ['users.create', 'users.update', 'users.delete'] : []),
+				...(core ? ['posts.items.create', 'posts.items.update', 'posts.items.delete'] : []),
+			])
+		},
+	)
+
+	it.each([undefined, 'production', 'Development', 'staging', ''])(
+		'requires the exact development environment for either automatic scope (%s)',
+		async (DEPLOYMENT_ENV) => {
+			expect(
+				register({ ...(await coreEnvironment()), DEPLOYMENT_ENV }),
+			).not.toHaveBeenCalled()
+		},
+	)
+
+	it('validates the shared allowlist against configured names even when scopes are disabled', async () => {
+		const environment = await coreEnvironment()
+		const action = register({
+			...environment,
+			SEEDER_AUTO_EXTRACT_SYSTEM: false,
+			SEEDER_AUTO_EXTRACT_INCLUDE: ['directus_files', 'tags'],
+		})
+		// Explicit selection overrides the general exclusion, but cannot enable system.
+		expect(action.mock.calls.map(([event]) => event)).toEqual([
+			'tags.items.create',
+			'tags.items.update',
+			'tags.items.delete',
+		])
+		for (const DEPLOYMENT_ENV of ['development', 'production']) {
+			expect(() =>
+				register({
+					...environment,
+					DEPLOYMENT_ENV,
+					SEEDER_AUTO_EXTRACT_SYSTEM: false,
+					SEEDER_AUTO_EXTRACT_CORE: false,
+					SEEDER_AUTO_EXTRACT_INCLUDE: ['directus_files', 'undeclared'],
+				}),
+			).toThrow('SEEDER_AUTO_EXTRACT_INCLUDE')
+		}
+	})
+
+	it.each([false, true])(
+		'coalesces both scopes under one lock with allowlist=%s',
+		async (allowlist) => {
+			const action = register({
+				...(await coreEnvironment()),
+				...(allowlist ? { SEEDER_AUTO_EXTRACT_INCLUDE: ['posts', 'directus_users'] } : {}),
+			})
+			mocks.extract.mockImplementation(() => {
+				expect(existsSync(path.join(directory, 'directus-lock-bulk-operation.flag'))).toBe(
+					true,
+				)
+				return Promise.resolve()
+			})
+			emit(action, 'posts.items.create')
+			await advance(10_000)
+			emit(action, 'users.create')
+			emit(action, 'posts.items.update')
+			await advance(14_999)
+			expect(mocks.extract).not.toHaveBeenCalled()
+			await vi.advanceTimersByTimeAsync(1)
+			expect(mocks.extract.mock.calls.map(([options]) => options.dataScope)).toEqual([
+				'system',
+				'core',
+			])
+			expect(existsSync(path.join(directory, 'directus-lock-bulk-operation.flag'))).toBe(
+				false,
+			)
+			expect((await readdir(directory)).sort()).toEqual(['consumer.json'])
+			expect(mocks.extract.mock.calls.map(([options]) => options.skipClean)).toEqual([
+				allowlist,
+				allowlist,
+			])
+			expect(mocks.extract.mock.calls.map(([options]) => options.jsonOnly)).toEqual([
+				allowlist,
+				true,
+			])
+		},
+	)
+
+	it.each([1_000, 16_000])(
+		'retains events during extraction without concurrent writes after %sms',
+		async (delay) => {
+			const action = register(await coreEnvironment())
+			let finish: (() => void) | undefined
+			mocks.extract.mockImplementationOnce(
+				() =>
+					new Promise<void>((resolve) => {
+						finish = resolve
+					}),
+			)
+			emit(action, 'users.create')
+			await advance(15_000)
+			expect(mocks.extract).toHaveBeenCalledOnce()
+			emit(action, 'posts.items.update')
+			await advance(delay)
+			expect(mocks.extract).toHaveBeenCalledOnce()
+			finish?.()
+			// Let the original task release its lock and schedule the remaining debounce window.
+			await vi.advanceTimersByTimeAsync(Math.max(0, 15_000 - delay) + 1)
+			expect(mocks.extract.mock.calls.map(([options]) => options.dataScope)).toEqual([
+				'system',
+				'core',
+			])
+			expect(existsSync(path.join(directory, 'directus-lock-bulk-operation.flag'))).toBe(
+				false,
+			)
+		},
+	)
+
+	it('attempts core after a system failure and discards both scopes when a bulk import suppresses extraction', async () => {
+		const action = register(await coreEnvironment())
+		const lock = acquireLock()
+		try {
+			emit(action, 'users.create')
+			emit(action, 'posts.items.create')
+			await advance(15_000)
+			expect(mocks.extract).not.toHaveBeenCalled()
+			expect(existsSync(lock.path)).toBe(true)
+		} finally {
+			lock.release()
+		}
+		emit(action, 'posts.items.update')
+		await advance(15_000)
+		expect(mocks.extract.mock.calls.map(([options]) => options.dataScope)).toEqual(['core'])
+		mocks.extract.mockClear().mockRejectedValueOnce(new Error('system failure'))
+		emit(action, 'users.create')
+		emit(action, 'posts.items.delete')
+		await advance(15_000)
+		expect(mocks.extract.mock.calls.map(([options]) => options.dataScope)).toEqual([
+			'system',
+			'core',
+		])
+		expect(existsSync(lock.path)).toBe(false)
+	})
+
+	it.each([false, true])(
+		'keeps core cleanup, manifests and binary handling isolated with allowlist=%s',
+		async (allowlist) => {
+			const actual =
+				await vi.importActual<typeof import('../src/seeders/extract')>(
+					'../src/seeders/extract',
+				)
+			mocks.extract.mockImplementation(actual.extractData)
+			const environment = await coreEnvironment()
+			const system = path.join(directory, 'seeds', 'system')
+			const core = path.join(directory, 'seeds', 'core')
+			const assets = path.join(system, 'assets')
+			await mkdir(assets, { recursive: true })
+			await mkdir(core, { recursive: true })
+			await writeFile(path.join(system, 'untouched.json'), 'system')
+			await writeFile(path.join(system, 'directus_files.managed-ids.json'), 'system history')
+			await writeFile(path.join(assets, 'old.bin'), 'binary')
+			await writeFile(path.join(core, 'stale.json'), 'stale')
+			await writeFile(path.join(core, 'posts.managed-ids.json'), '["old"]')
+			await writeFile(path.join(core, 'tags.managed-ids.json'), 'unselected history')
+			mocks.readCollection.mockResolvedValue([{ slug: 'new', title: 'Created' }])
+			const action = register(
+				{
+					...environment,
+					SEEDER_ASSETS_DIR: assets,
+					...(allowlist
+						? { SEEDER_AUTO_EXTRACT_INCLUDE: ['posts', 'directus_files'] }
+						: {}),
+				},
+				{
+					collections: {
+						posts: { primary: 'slug', fields: { slug: { type: 'string' } } },
+					},
+				},
+			)
+			emit(action, 'posts.items.create')
+			await advance(15_000)
+			await expect(mocks.extract.mock.results[0]?.value).resolves.toBeUndefined()
+			expect(mocks.readCollection.mock.calls.map(([name]) => name)).toEqual(['posts'])
+			expect(JSON.parse(await readFile(path.join(core, 'posts.json'), 'utf8'))).toEqual([
+				{ slug: 'new', title: 'Created' },
+			])
+			expect(
+				JSON.parse(await readFile(path.join(core, 'posts.managed-ids.json'), 'utf8')),
+			).toEqual(['new', 'old'])
+			expect(await readFile(path.join(core, 'tags.managed-ids.json'), 'utf8')).toBe(
+				'unselected history',
+			)
+			if (allowlist)
+				expect(await readFile(path.join(core, 'stale.json'), 'utf8')).toBe('stale')
+			else
+				await expect(readFile(path.join(core, 'stale.json'))).rejects.toMatchObject({
+					code: 'ENOENT',
+				})
+			expect(await readFile(path.join(system, 'untouched.json'), 'utf8')).toBe('system')
+			expect(
+				await readFile(path.join(system, 'directus_files.managed-ids.json'), 'utf8'),
+			).toBe('system history')
+			expect(await readFile(path.join(assets, 'old.bin'), 'utf8')).toBe('binary')
+			expect(mocks.readFiles).not.toHaveBeenCalled()
+			expect(mocks.getAsset).not.toHaveBeenCalled()
+		},
+	)
 
 	it('debounces repeated events for fifteen seconds and calls the shared extractor once', async () => {
 		const action = register({ SEEDER_JSON_INDENT: 'space', SEEDER_JSON_INDENT_SIZE: 4 })
@@ -537,6 +776,10 @@ describe('automatic system extraction', () => {
 		const assets = path.join(seeds, 'assets')
 		await mkdir(assets, { recursive: true })
 		await writeFile(path.join(seeds, 'stale.json'), 'stale')
+		const core = path.join(directory, 'seeds', 'core')
+		await mkdir(core, { recursive: true })
+		await writeFile(path.join(core, 'untouched.json'), 'core')
+		await writeFile(path.join(core, 'posts.managed-ids.json'), 'core history')
 		await writeFile(path.join(seeds, 'directus_users.json'), 'stale users')
 		await writeFile(path.join(assets, 'binary.bin'), 'bytes')
 		await writeFile(path.join(assets, 'binary.json'), 'asset bytes')
@@ -549,6 +792,10 @@ describe('automatic system extraction', () => {
 			code: 'ENOENT',
 		})
 		expect(await readFile(path.join(seeds, 'directus_users.json'), 'utf8')).toBe('[]\n')
+		expect(await readFile(path.join(core, 'untouched.json'), 'utf8')).toBe('core')
+		expect(await readFile(path.join(core, 'posts.managed-ids.json'), 'utf8')).toBe(
+			'core history',
+		)
 		if (jsonOnly) {
 			expect(await readFile(path.join(assets, 'binary.bin'), 'utf8')).toBe('bytes')
 			expect(await readFile(path.join(assets, 'binary.json'), 'utf8')).toBe('asset bytes')

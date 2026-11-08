@@ -14,7 +14,8 @@ import { registerExtractCommand } from './commands/extractCommand'
 import { registerSeedCommand } from './commands/seedCommand'
 import { envSchema } from './env.schema'
 import { DataScope } from './lib/config'
-import { registerAutoExtractSystemHook } from './seeders/system/autoExtract'
+import { registerAutoExtractHook } from './seeders/autoExtract'
+import { resolveSeederConfig } from './seeders/resolveConfig'
 
 /**
  * Extraction is available only for the exact legacy development environment value.
@@ -54,8 +55,10 @@ export const registerSeeder: HookConfig = (register, context) => {
 	// Directus loads hooks before parsing CLI arguments. Inspection must not eagerly load
 	// consumer JSON through auto-extraction, including when --defaults bypasses that file.
 	const configInspection = process.argv[2] === 'seed' && process.argv[3] === 'config'
-	if (extractionAvailable && !configInspection)
-		registerAutoExtractSystemHook(action, seederContext)
+	// Validate declared core allowlist names even when this environment cannot extract.
+	if (!configInspection && !extractionAvailable && options.SEEDER_AUTO_EXTRACT_INCLUDE)
+		resolveSeederConfig(options)
+	if (extractionAvailable && !configInspection) registerAutoExtractHook(action, seederContext)
 	setup.end()
 }
 

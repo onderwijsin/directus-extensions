@@ -17,7 +17,8 @@ describe('Seeder startup configuration', () => {
 			SEEDER_BATCH_SIZE: 50,
 			SEEDER_ENABLE_FULL_IDEMPOTENT: false,
 			SEEDER_JSON_ONLY: false,
-			SEEDER_AUTO_EXTRACT: false,
+			SEEDER_AUTO_EXTRACT_SYSTEM: false,
+			SEEDER_AUTO_EXTRACT_CORE: false,
 			SEEDER_JSON_INDENT: 'tab',
 			SEEDER_JSON_INDENT_SIZE: 2,
 			SEEDER_SEEDS_DIR: '/directus/seeds',
@@ -38,7 +39,6 @@ describe('Seeder startup configuration', () => {
 			enableFullIdempotent: false,
 			skipClean: false,
 			jsonOnly: false,
-			autoExtract: false,
 			jsonIndent: '\t',
 		})
 		expect(getFolderPaths(envSchema.parse({ SEEDER_SEEDS_DIR: ' /tmp/seeds ' }))).toEqual({
@@ -63,7 +63,8 @@ describe('Seeder startup configuration', () => {
 		'SEEDER_CONTINUE_ON_ERROR',
 		'SEEDER_ENABLE_FULL_IDEMPOTENT',
 		'SEEDER_JSON_ONLY',
-		'SEEDER_AUTO_EXTRACT',
+		'SEEDER_AUTO_EXTRACT_SYSTEM',
+		'SEEDER_AUTO_EXTRACT_CORE',
 	])('accepts Directus booleans and rejects invalid %s values without coercion', (key) => {
 		for (const value of [true, false])
 			expect(envSchema.parse({ [key]: value })).toMatchObject({ [key]: value })
@@ -120,9 +121,11 @@ describe('Seeder startup configuration', () => {
 			'directus_roles,directus_policies',
 		]) {
 			const parsed = envSchema.safeParse({ SEEDER_AUTO_EXTRACT_INCLUDE: value })
-			expect(parsed.success).toBe(false)
-			if (!parsed.success)
-				expect(parsed.error.issues[0]?.path[0]).toBe('SEEDER_AUTO_EXTRACT_INCLUDE')
+			if (parsed.success)
+				expect(() => resolveSeederConfig(parsed.data)).toThrow(
+					'SEEDER_AUTO_EXTRACT_INCLUDE',
+				)
+			else expect(parsed.error.issues[0]?.path[0]).toBe('SEEDER_AUTO_EXTRACT_INCLUDE')
 		}
 		const options = envSchema.parse({ SEEDER_AUTO_EXTRACT_INCLUDE: 'directus_roles' })
 		expect(resolveSeederConfig(options)).toEqual(resolveSeederConfig(envSchema.parse({})))

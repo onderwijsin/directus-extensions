@@ -99,7 +99,8 @@ services:
       SEEDER_BATCH_SIZE: '50'
       SEEDER_ENABLE_FULL_IDEMPOTENT: 'false'
       SEEDER_JSON_ONLY: 'false'
-      SEEDER_AUTO_EXTRACT: 'false'
+      SEEDER_AUTO_EXTRACT_SYSTEM: 'false'
+      SEEDER_AUTO_EXTRACT_CORE: 'false'
       SEEDER_AUTO_EXTRACT_INCLUDE: !reset null
       SEEDER_JSON_INDENT: 'tab'
       SEEDER_JSON_INDENT_SIZE: '2'

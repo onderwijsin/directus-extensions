@@ -3,8 +3,8 @@
 Seed Directus system records and configured application collections from JSON, and extract their
 current state during development. Use `seed system` or `seed core` to import records and
 `seed extract --scope system|core|both` to export them (default: `system`). Optional automatic
-extraction covers system records only. Use `seed config` to inspect both scopes without importing or
-extracting data.
+extraction can be enabled independently for either scope. Use `seed config` to inspect both scopes
+without importing or extracting data.
 
 ## Install
 
@@ -174,9 +174,10 @@ another type. Credential strings retain whitespace and explicitly empty strings.
 | `SEEDER_CONTINUE_ON_ERROR`      | `false`                          | Boolean. `false` stops seeding on the first failed collection; `true` continues with the next collections. Any database or asset mutation failure exits 1 in either case. Required seed-input preflight and extraction read errors always fail the run.                                                                                                  |
 | `SEEDER_BATCH_SIZE`             | `50`                             | Positive integer number. Zero, negative, fractional, nonnumeric, and uncast string values fail.                                                                                                                                                                                                                                                          |
 | `SEEDER_ENABLE_FULL_IDEMPOTENT` | `false`                          | Boolean. Required before `full-idempotent` can delete records. `--force`/`--yes` does not bypass this gate.                                                                                                                                                                                                                                              |
-| `SEEDER_JSON_ONLY`              | `false`                          | Boolean. `false` enables binaries except for selective auto-extract without `directus_files`. `true` disables binary reads, downloads, and cleanup for manual and automatic extraction. Manual `--assets` overrides `true`; `--json-only` forces JSON-only output. `directus_files.json` remains normal selected JSON.                                   |
-| `SEEDER_AUTO_EXTRACT`           | `false`                          | Boolean. Enable monitored system-record changes to schedule extraction; also requires exact `DEPLOYMENT_ENV=development`.                                                                                                                                                                                                                                |
-| `SEEDER_AUTO_EXTRACT_INCLUDE`   | Unset                            | Optional nonempty list: one supported collection name or a Directus-cast array, trimmed and case-sensitive. Replaces general include/exclude only for auto-extract; scopes triggers and JSON output, skips cleanup, and forces JSON-only unless `directus_files` is listed. Empty lists, blank entries, and unknown names fail startup validation.       |
+| `SEEDER_JSON_ONLY`              | `false`                          | Boolean. Controls system binaries: `true` disables reads, downloads, and cleanup; manual `--assets` overrides it. Selective auto-extract also forces JSON-only unless `directus_files` is listed. Core always handles JSON only. `directus_files.json` remains normal selected JSON.                                                                     |
+| `SEEDER_AUTO_EXTRACT_SYSTEM`    | `false`                          | Boolean. Enable selected system-record changes to schedule extraction; requires exact `DEPLOYMENT_ENV=development`.                                                                                                                                                                                                                                      |
+| `SEEDER_AUTO_EXTRACT_CORE`      | `false`                          | Boolean. Independently enable selected configured core-record changes to schedule extraction; requires exact `DEPLOYMENT_ENV=development`.                                                                                                                                                                                                               |
+| `SEEDER_AUTO_EXTRACT_INCLUDE`   | Unset                            | Optional nonempty list: one supported system or configured core name, or a Directus-cast array; trimmed and case-sensitive. Overrides general filters for auto-extract in enabled scopes and skips cleanup. Empty lists, blank entries, and unknown names fail validation even for disabled scopes.                                                      |
 | `SEEDER_JSON_INDENT`            | `tab`                            | String: exact `tab` or `space`, without trimming. Controls manual and automatic JSON extraction. Unsupported values fail.                                                                                                                                                                                                                                |
 | `SEEDER_JSON_INDENT_SIZE`       | `2`                              | Integer number from `1` through `10`. Applies only with `SEEDER_JSON_INDENT=space`, but is always validated, including when indentation is `tab`.                                                                                                                                                                                                        |
 | `SEEDER_SEEDS_DIR`              | `/directus/seeds`                | Seeds root; JSON and managed-ID history use its `system/` or `core/` subdirectory. Nonblank string, trimmed. Only missing values use the default; provided blank or nonstring values fail.                                                                                                                                                               |
@@ -191,11 +192,12 @@ The hook does not comma-split a string that remains a string after Directus cast
 nonstrings fail validation. `SEEDER_INCLUDE=json:[]` selects all supported collections;
 `SEEDER_EXCLUDE=json:[]` excludes none. `STORAGE_LOCATIONS=json:[]` is invalid.
 
-For `SEEDER_AUTO_EXTRACT_INCLUDE`, an omitted value preserves the existing automatic behavior; an
-explicitly empty value or `json:[]` is invalid. For example,
+For `SEEDER_AUTO_EXTRACT_INCLUDE`, an omitted value uses general selection and scope-local cleanup;
+an explicitly empty value or `json:[]` is invalid. For example,
 `SEEDER_AUTO_EXTRACT_INCLUDE=directus_roles,directus_policies` becomes two collection names, while
 `SEEDER_AUTO_EXTRACT_INCLUDE=string:directus_roles,directus_policies` remains one unknown name and
-fails validation. Names are trimmed but retain case; use the supported names exactly.
+fails validation. Names are trimmed but retain case; use supported system or configured core names
+exactly. Invalid or unknown names fail validation even when that scope's automatic switch is off.
 
 These controls remain outside the hook's configuration schema:
 
@@ -212,10 +214,12 @@ silent scope and path fallbacks. An omitted CLI `--mode` uses each collection's 
 configured location rather than falling back to `local` for Directus-cast arrays. Configure the
 seeds root with `SEEDER_SEEDS_DIR`; system JSON and history live in its `system/` subdirectory.
 Manual extraction now cleans by default; use manual `--skip-clean` to retain unselected output.
-Selective automatic extraction preserves other output as described below. `SEEDER_JSON_ONLY=false`
-includes binaries unless a selective automatic allowlist omits `directus_files`; set it to `true` to
-disable binary handling. The retained seed-import data handling and safety caveats below still
-apply.
+Selective automatic extraction preserves other output as described below. Replace
+`SEEDER_AUTO_EXTRACT` with `SEEDER_AUTO_EXTRACT_SYSTEM` and/or `SEEDER_AUTO_EXTRACT_CORE`; both
+default to `false` and the removed switch has no fallback. `SEEDER_JSON_ONLY=false` includes system
+binaries unless a selective automatic allowlist omits `directus_files`; set it to `true` to disable
+binary handling. Core always handles JSON only. The retained seed-import data handling and safety
+caveats below still apply.
 
 Replace old `SEEDER_JSON_INDENT=2` or `SEEDER_JSON_INDENT=4` with `space` and the matching size. For
 four spaces:
@@ -237,15 +241,16 @@ DEPLOYMENT_ENV=development
 SEEDER_SEEDS_DIR=/directus/seeds
 SEEDER_ASSETS_DIR=/directus/seeds/system/assets
 SEEDER_JSON_ONLY=false
-SEEDER_AUTO_EXTRACT=false
+SEEDER_AUTO_EXTRACT_SYSTEM=false
+SEEDER_AUTO_EXTRACT_CORE=false
 SEEDER_JSON_INDENT=tab
 SEEDER_ENABLE_FULL_IDEMPOTENT=false
 ```
 
-Opt in to automatic extraction with `SEEDER_AUTO_EXTRACT=true`; leave it `false` for manual-only
-extraction. Disable the entire hook with `SEEDER_ENABLED=false` and restart Directus. Consumer
-collection overrides use JSON as described below. The hook provides no TypeScript loader or
-data-provider API, HTTP endpoint, Studio UI, or Flow operation.
+Opt in with either automatic switch; leave both `false` for manual-only extraction. Disable the
+entire hook with `SEEDER_ENABLED=false` and restart Directus. Consumer collection overrides use JSON
+as described below. The hook provides no TypeScript loader or data-provider API, HTTP endpoint,
+Studio UI, or Flow operation.
 
 ### Consumer JSON configuration
 
@@ -445,10 +450,10 @@ Use a deployment-specific secret; the values above illustrate casting only.
 ## Seed files and supported collections
 
 `SEEDER_SEEDS_DIR` is the seeds root. Import, manual extraction, and automatic extraction use
-`<seeds-root>/system/` for system JSON and managed-ID history. Core import and manual extraction use
+`<seeds-root>/system/` for system JSON and managed-ID history. Core import and extraction use
 `<seeds-root>/core/`. With defaults these are `/directus/seeds/system/` and `/directus/seeds/core/`.
 Root-level JSON and manifests are ignored; there is no flat-layout fallback or automatic migration.
-Automatic extraction uses only `system/`.
+Automatic extraction writes only the scopes enabled and triggered by selected collection events.
 
 Example layout:
 
@@ -699,11 +704,11 @@ and version as a pair in Git. The manifest is a plain JSON array of IDs, for exa
 ["2a7d5e56-ba21-4fe5-b18e-f0d7147c7ae0", "6d4b31c2-314c-4fba-a067-8c7dbd439a25"]
 ```
 
-Manual extraction and automatic system extraction use the collection's current `fields`, `filter`,
-`sort`, and `deep` query, without reading existing seed data or filtering by the manifest. Include
-the actual primary key in the exported fields. Exported IDs and existing manifest IDs must match the
-live primary-key type: canonical lowercase UUID strings, nonempty strings, or safe-integer numbers,
-without coercion. Other string keys retain their case.
+Manual and automatic extraction use the collection's current `fields`, `filter`, `sort`, and `deep`
+query, without reading existing seed data or filtering by the manifest. Include the actual primary
+key in the exported fields. Exported IDs and existing manifest IDs must match the live primary-key
+type: canonical lowercase UUID strings, nonempty strings, or safe-integer numbers, without coercion.
+Other string keys retain their case.
 
 Extraction creates a missing manifest and unions exported IDs with its existing history,
 deduplicating and sorting strings lexically or numbers numerically. Repeated exports with the same
@@ -836,11 +841,12 @@ exactly one final newline. The same input produces the same output. The Seeder d
 formatter or guarantee project-specific formatting rules.
 
 Manual extraction and automatic extraction without `SEEDER_AUTO_EXTRACT_INCLUDE` first clean output
-unless manual `--skip-clean` is set. An explicit automatic allowlist skips cleanup of both output
-directories. Cleanup is limited to the effective system directory and the configured asset directory
-for system extraction. Core extraction cleans only the core directory; `both` cleans each scope
-separately and handles assets only through system. Cleanup never cleans the seeds root as a whole or
-an unselected scope. When cleanup runs:
+unless manual `--skip-clean` is set. An explicit automatic allowlist skips all cleanup. Automatic
+cleanup covers only event-triggered scopes, even when both switches are enabled. Cleanup is limited
+to the effective system directory and the configured asset directory for system extraction. Core
+extraction cleans only the core directory; `both` cleans each scope separately and handles assets
+only through system. Cleanup never cleans the seeds root as a whole or an unselected scope. When
+cleanup runs:
 
 - Each selected scope directory loses only its direct regular `.json` files other than
   `*.managed-ids.json`, including unselected seed JSON. Managed-ID history files remain even for
@@ -901,72 +907,79 @@ DEPLOYMENT_ENV=development SEEDER_JSON_ONLY=true npx directus seed extract --ass
 DEPLOYMENT_ENV=development SEEDER_SEEDS_DIR=./seeds SEEDER_ASSETS_DIR=./seed-assets npx directus seed extract
 ```
 
-Automatic extraction is system-only; core automatic extraction is not implemented, and
-`SEEDER_AUTO_EXTRACT_INCLUDE` accepts only supported system names. It requires both exact
-`DEPLOYMENT_ENV=development` and `SEEDER_AUTO_EXTRACT=true`. Selected collections'
-create/update/delete actions schedule a 15-second debounce; further events, including other
-processes' marker updates, extend it. Each debounced run extracts every selected collection in
-effective configuration order, using its configured `fields`, `filter`, `sort`, `deep`, and optional
-ID-range boundary. Relation and manifest management do not filter extraction; manifest management
-updates history for each extracted collection. It exports the selected collections again rather than
-only the changed records. A `users.update` payload containing only `last_page`, or an empty payload,
-is ignored. File uploads do not necessarily emit the create/update events monitored here; use manual
-extraction when needed. Enabling auto-extract does not import seeds or extract data at startup.
+Automatic extraction requires exact `DEPLOYMENT_ENV=development`. Enable
+`SEEDER_AUTO_EXTRACT_SYSTEM`, `SEEDER_AUTO_EXTRACT_CORE`, or both; only enabled scopes participate.
+Core requires declarations under `core.collections`. Selected create/update/delete actions share one
+15-second debounce; further events extend it and coalesce the changed scopes. After the delay, those
+scopes extract sequentially under the shared bulk-operation lock. Each changed scope refreshes all
+its selected collections in effective configuration order, using their configured queries and
+management rules above. A core-only event leaves system JSON and assets untouched, even when system
+automatic extraction is enabled. Manual commands are unchanged; extraction still defaults to system.
 
-- With `SEEDER_AUTO_EXTRACT_INCLUDE` unset, auto-extract retains the general
-  `SEEDER_INCLUDE`/`SEEDER_EXCLUDE` selection and default output cleanup. With
-  `SEEDER_JSON_ONLY=false`, it exports all binary assets even when general selection excludes
-  `directus_files` JSON.
+System events use names such as `roles.create`, `roles.update`, and `roles.delete`; core events use
+`<collection>.items.create`, `<collection>.items.update`, and `<collection>.items.delete`. See
+[Directus event hooks](https://directus.com/docs/guides/extensions/api-extensions/hooks). A
+`users.update` payload containing only `last_page`, or an empty payload, is ignored. File uploads do
+not necessarily emit the monitored create/update events; use manual extraction when needed. Enabling
+auto-extract does not import seeds or extract data at startup.
+
+- With `SEEDER_AUTO_EXTRACT_INCLUDE` unset, each changed scope uses general
+  `SEEDER_INCLUDE`/`SEEDER_EXCLUDE` selection and default scope-local cleanup. System exports all
+  binary assets with `SEEDER_JSON_ONLY=false`, even when general selection excludes `directus_files`
+  JSON. Core never reads, downloads, or cleans binaries.
 - With `SEEDER_AUTO_EXTRACT_INCLUDE` set, only CRUD events for its listed collections trigger
-  extraction. The allowlist replaces both general include/exclude lists for auto-extract only;
-  manual `seed extract` and `seed system` keep their existing selection. Each trigger still
-  refreshes all allowlisted collections in effective configuration order, not list order. Neither
-  the system nor assets directory is cleaned, and other files remain intact.
-- Selective auto-extract without `directus_files` forces JSON-only behavior, preserving every binary
-  even with `SEEDER_JSON_ONLY=false`. Including `directus_files` permits binary export only when
-  `SEEDER_JSON_ONLY=false`. That export still reads all `directus_files`, independently of JSON
+  extraction in enabled scopes. This shared allowlist accepts supported system and configured core
+  names and replaces both general filters for auto-extract only. Each changed scope refreshes its
+  allowlisted collections in effective configuration order, not list order. Other scopes and
+  unlisted collections do not run. No scope or asset directory is cleaned; other files remain
+  intact.
+- Selective system auto-extract without `directus_files` forces JSON-only behavior, preserving every
+  binary even with `SEEDER_JSON_ONLY=false`. Including `directus_files` permits binary export only
+  when `SEEDER_JSON_ONLY=false`. That export still reads all `directus_files`, independently of JSON
   fields, filters, or management boundaries, and writes binaries without global asset cleanup.
 
-For selective automatic JSON extraction, configure:
+For selective automatic JSON extraction across both scopes, with `articles` declared in the consumer
+configuration:
 
 ```dotenv
 DEPLOYMENT_ENV=development
-SEEDER_AUTO_EXTRACT=true
-SEEDER_AUTO_EXTRACT_INCLUDE=directus_roles,directus_policies
+SEEDER_AUTO_EXTRACT_SYSTEM=true
+SEEDER_AUTO_EXTRACT_CORE=true
+SEEDER_AUTO_EXTRACT_INCLUDE=directus_roles,articles
 ```
 
-Omit `SEEDER_AUTO_EXTRACT_INCLUDE` to restore the existing behavior; an empty value or empty array
-is invalid. Selective auto-extract preserves JSON from previous selections and old binary files,
-including files whose database records were removed or renamed. These files can become stale. Review
-output before seeding, and use a deliberate manual clean export when a fresh snapshot is needed.
+Omit `SEEDER_AUTO_EXTRACT_INCLUDE` to restore general filters and scope-local cleanup; an empty
+value or empty array is invalid. Selective auto-extract preserves JSON from previous selections and
+old binary files, including files whose database records were removed or renamed. These files can
+become stale. Review output before seeding, and use a deliberate manual clean export when a fresh
+snapshot is needed.
 
 Auto-extract uses the same `SEEDER_JSON_INDENT` and `SEEDER_JSON_INDENT_SIZE` as manual extraction
 and never invokes a project formatter. Accept this output as-is, adapt or exclude it in your
 formatter configuration, or arrange a separate consumer workflow. It has no manual `--skip-clean`
 option: the presence of the automatic allowlist determines cleanup. Auto-extract remains a
-development-only opt-in (`SEEDER_AUTO_EXTRACT=false` by default). Runs with binary extraction may
-export all assets again, including large binaries; without an allowlist they also clean asset output
-first. Repeated changes can cause substantial disk I/O, network traffic, and elapsed time.
-Debouncing is not incremental extraction; performance optimizations are deferred.
+development-only opt-in (both switches default to `false`). Runs with binary extraction may export
+all assets again, including large binaries; without an allowlist they also clean asset output first.
+Repeated changes can cause substantial disk I/O, network traffic, and elapsed time. Debouncing is
+not incremental extraction; performance optimizations are deferred.
 
-Coordination retains temporary files `directus-lock-bulk-operation.flag` and
-`directus-debounce-seed-system-extract.lock` in the process temporary directory. Bulk flags older
-than five minutes are treated as stale; ownership is not renewed. Manual commands fail before doing
-work if an active flag already exists. Automatic work skips contention and removes its debounce
-marker instead of retrying. Cleanup runs only for a successfully acquired flag and checks its owner,
-leaving an already-replaced flag intact. Synchronous process-exit cleanup also covers cancellation
-from confirmation prompts. Expiration can still allow overlap, and filesystem checks and removal are
-not atomic across processes. These remain local coordination limits, not a distributed lock or a
-guarantee against overlap. Run commands sequentially and keep extraction writers stopped during
-deployment seeding. Processes with separate temporary filesystems do not coordinate. After
-interruption, inspect active operations before removing stale flags or retrying; partial database
-changes and output files may remain.
+Coordination retains a shared debounce marker and `directus-lock-bulk-operation.flag` in the process
+temporary directory. Bulk flags older than five minutes are treated as stale; ownership is not
+renewed. Manual commands fail before doing work if an active flag already exists. Automatic work
+skips contention and removes its debounce marker instead of retrying. Cleanup runs only for a
+successfully acquired flag and checks its owner, leaving an already-replaced flag intact.
+Synchronous process-exit cleanup also covers cancellation from confirmation prompts. Expiration can
+still allow overlap, and filesystem checks and removal are not atomic across processes. These remain
+local coordination limits, not a distributed lock or a guarantee against overlap. Run commands
+sequentially and keep extraction writers stopped during deployment seeding. Processes with separate
+temporary filesystems do not coordinate. After interruption, inspect active operations before
+removing stale flags or retrying; partial database changes and output files may remain.
 
 If commands are missing, check installation, extension loading, and `SEEDER_ENABLED`. For missing
-extraction also check the exact deployment environment. For automatic extraction check its switch,
-the optional allowlist or general selection, the debounce delay, and bulk flag. For failures inspect
-Directus logs, directory permissions, runtime dependencies, storage configuration, and required
-local assets.
+extraction also check the exact deployment environment. For automatic extraction check the scope's
+switch, the optional allowlist or general selection, the debounce delay, and bulk flag. For failures
+inspect Directus logs, directory permissions, runtime dependencies, storage configuration, and
+required local assets.
 
 ## Consumer formatting workflow
 

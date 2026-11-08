@@ -45,8 +45,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@onderwijsin/directus-extension-utils/hook', () => ({
 	defineHook: (callback: HookRegister) => mocks.register.mockImplementation(callback),
 }))
-vi.mock('../src/seeders/system/autoExtract', () => ({
-	registerAutoExtractSystemHook: mocks.autoExtract,
+vi.mock('../src/seeders/autoExtract', () => ({
+	registerAutoExtractHook: mocks.autoExtract,
 }))
 vi.mock('../src/lib/processLock', () => ({
 	acquireLock: mocks.acquireLock,
@@ -725,7 +725,7 @@ describe('seeder registration and CLI', () => {
 			const service = createProgram({
 				SEEDER_CONFIG_PATH: configPath,
 				DEPLOYMENT_ENV: 'development',
-				SEEDER_AUTO_EXTRACT: true,
+				SEEDER_AUTO_EXTRACT_SYSTEM: true,
 			})
 			const output = captureOutput()
 			expect(await runCommand(service.program, 'config')).toBe(0)
@@ -772,7 +772,7 @@ describe('seeder registration and CLI', () => {
 			const service = createProgram({
 				SEEDER_CONFIG_PATH: configPath,
 				DEPLOYMENT_ENV: 'development',
-				SEEDER_AUTO_EXTRACT: true,
+				SEEDER_AUTO_EXTRACT_SYSTEM: true,
 			})
 			const roles = SYSTEM_COLLECTIONS.find(
 				({ collection }) => collection === 'directus_roles',
@@ -823,7 +823,7 @@ describe('seeder registration and CLI', () => {
 				['other', 'config'],
 			]) {
 				process.argv = ['node', '/directus/cli.js', ...args]
-				createProgram({ DEPLOYMENT_ENV: 'development', SEEDER_AUTO_EXTRACT: true })
+				createProgram({ DEPLOYMENT_ENV: 'development', SEEDER_AUTO_EXTRACT_SYSTEM: true })
 			}
 			expect(mocks.autoExtract).toHaveBeenCalledTimes(2)
 		})

@@ -112,7 +112,115 @@ const coreClient = createDirectus<{
  * @returns Captured process output.
  */
 function inDirectus(script: string, ...args: string[]) {
-	return execute('docker', [...composeArguments, 'directus', 'node', '-e', script, ...args])
+	return execute('docker', [...composeArguments, 'directus', 'node', '-e', script, ...args], {
+		timeout: 60_000,
+	})
+}
+
+type AutoExtractRequest = (
+	path: string,
+	method: 'POST' | 'PATCH' | 'DELETE',
+	body?: unknown,
+) => Promise<void>
+
+/**
+ * Runs an auxiliary installed Directus server with isolated automatic-extraction settings.
+ * HTTP stays inside the disposable container; the runner owns its final container cleanup.
+ * @param directory - Fixture directory containing configuration and temporary process files.
+ * @param environment - Server-specific environment overrides.
+ * @param run - Scenario issuing real HTTP requests to this server.
+ * @returns Resolves after the server has been stopped, including on startup/assertion failures.
+ */
+async function withAutoExtractServer(
+	directory: string,
+	environment: Record<string, string>,
+	run: (request: AutoExtractRequest) => Promise<void>,
+) {
+	if (!token) throw new Error('The Directus E2E token was not initialized')
+	const port = String(randomInt(20_000, 30_000))
+	try {
+		await inDirectus(
+			`const fs = require('node:fs');
+			const { spawn } = require('node:child_process');
+			const [root, environment, port] = process.argv.slice(1);
+			const log = fs.openSync(root + '/server.log', 'a');
+			const server = spawn(process.execPath, ['/directus/cli.js', 'start'], {
+				env: { ...process.env, ...JSON.parse(environment), HOST: '127.0.0.1', PORT: port },
+				detached: true,
+				stdio: ['ignore', log, log],
+			});
+			fs.writeFileSync(root + '/server.pid', String(server.pid));
+			fs.closeSync(log);
+			server.unref();`,
+			directory,
+			JSON.stringify(environment),
+			port,
+		)
+		await inDirectus(
+			`const { setTimeout: delay } = require('node:timers/promises');
+			(async () => {
+				const deadline = Date.now() + 55_000;
+				while (Date.now() < deadline) {
+					try {
+						const response = await fetch('http://127.0.0.1:' + process.argv[1] + '/server/ping', {
+							signal: AbortSignal.timeout(1_000),
+						});
+						if (response.ok) return;
+					} catch {}
+					await delay(250);
+				}
+				throw new Error('Auxiliary Directus server did not become ready');
+			})().catch(error => { console.error(error); process.exitCode = 1; });`,
+			port,
+		)
+		await run(async (path, method, body) => {
+			await inDirectus(
+				`const [port, token, path, method, body] = process.argv.slice(1);
+				(async () => {
+					const response = await fetch('http://127.0.0.1:' + port + path, {
+						method,
+						headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' },
+						...(body ? { body } : {}),
+						signal: AbortSignal.timeout(10_000),
+					});
+					if (!response.ok) throw new Error(method + ' ' + path + ': ' + response.status + ' ' + await response.text());
+					await response.arrayBuffer();
+				})().catch(error => { console.error(error); process.exitCode = 1; });`,
+				port,
+				token,
+				path,
+				method,
+				body === undefined ? '' : JSON.stringify(body),
+			)
+		})
+	} catch (error) {
+		const { stdout } = await inDirectus(
+			'const fs = require("node:fs"); const log = process.argv[1] + "/server.log"; if (fs.existsSync(log)) process.stdout.write(fs.readFileSync(log, "utf8"))',
+			directory,
+		)
+		// execFile errors include argv; keep the ephemeral bearer token out of test diagnostics.
+		if (error instanceof Error)
+			throw new Error(`${error.message.replaceAll(token, '[redacted]')}\n${stdout}`)
+		throw error
+	} finally {
+		await inDirectus(
+			`const fs = require('node:fs');
+			const { setTimeout: delay } = require('node:timers/promises');
+			(async () => {
+				const filename = process.argv[1] + '/server.pid';
+				if (!fs.existsSync(filename)) return;
+				const pid = Number(fs.readFileSync(filename, 'utf8'));
+				try { process.kill(pid, 'SIGTERM'); } catch (error) { if (error.code === 'ESRCH') return; throw error; }
+				const deadline = Date.now() + 5_000;
+				while (Date.now() < deadline) {
+					try { process.kill(pid, 0); } catch (error) { if (error.code === 'ESRCH') return; throw error; }
+					await delay(100);
+				}
+				try { process.kill(pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+			})().catch(error => { console.error(error); process.exitCode = 1; });`,
+			directory,
+		)
+	}
 }
 
 /**
@@ -194,6 +302,148 @@ async function withCoreCollections(run: (directory: string) => Promise<void>) {
 }
 
 describe('installed seeder CLI', () => {
+	// Includes auxiliary startup, three debounce periods, polling, and fixture teardown.
+	it('auto-extracts real core CRUD with mixed system events and scope-isolated cleanup', async () => {
+		await withCoreCollections(async (directory) => {
+			const translation = {
+				id: randomUUID(),
+				key: `seeder_auto_e2e_${randomUUID()}`,
+				language: 'nl-NL',
+				value: 'mixed batch',
+			}
+			const historicalRole = randomUUID()
+			const fixture = { slug: 'auto', title: 'created' }
+			await inDirectus(
+				`const fs = require('node:fs');
+					const [root, config, categories, historicalRole] = process.argv.slice(1);
+					fs.mkdirSync(root + '/seeds/core', { recursive: true });
+					fs.mkdirSync(root + '/seeds/system/assets', { recursive: true });
+					fs.writeFileSync(root + '/config.json', config);
+					fs.writeFileSync(root + '/seeds/core/' + categories + '.managed-ids.json', '["historical"]');
+					fs.writeFileSync(root + '/seeds/system/directus_roles.managed-ids.json', JSON.stringify([historicalRole]));
+					for (const scope of ['core', 'system']) fs.writeFileSync(root + '/seeds/' + scope + '/stale.json', '[]');
+					fs.writeFileSync(root + '/seeds/system/assets/sentinel.bin', 'protected asset');`,
+				directory,
+				JSON.stringify({
+					core: {
+						collections: {
+							[categories]: {
+								operationMode: 'insert-update',
+								management: { type: 'manifest' },
+								fields: ['slug', 'title'],
+							},
+							[articles]: {
+								operationMode: 'insert-update',
+								fields: ['key', 'title'],
+							},
+						},
+					},
+					system: {
+						collections: {
+							directus_translations: { filter: { id: { _eq: translation.id } } },
+						},
+					},
+				}),
+				categories,
+				historicalRole,
+			)
+
+			/**
+			 * Observes both scopes without requiring extraction files to exist yet.
+			 * @returns Current JSON output and cleanup sentinels.
+			 */
+			async function readOutput() {
+				const { stdout } = await inDirectus(
+					`const fs = require('node:fs');
+						const [root, categories, articles] = process.argv.slice(1);
+						const filename = name => root + '/seeds/' + name;
+						const read = name => fs.existsSync(filename(name)) ? JSON.parse(fs.readFileSync(filename(name), 'utf8')) : null;
+						const asset = filename('system/assets/sentinel.bin');
+						process.stdout.write(JSON.stringify({
+							core: read('core/' + categories + '.json'),
+							manifest: read('core/' + categories + '.managed-ids.json'),
+							excluded: read('core/' + articles + '.json'),
+							coreStale: fs.existsSync(filename('core/stale.json')),
+							coreAssets: fs.existsSync(filename('core/assets')),
+							system: read('system/directus_translations.json'),
+							systemManifest: read('system/directus_roles.managed-ids.json'),
+							systemStale: fs.existsSync(filename('system/stale.json')),
+							asset: fs.existsSync(asset) ? fs.readFileSync(asset, 'utf8') : null,
+						}));`,
+					directory,
+					categories,
+					articles,
+				)
+				const output: unknown = JSON.parse(stdout)
+				return output
+			}
+
+			const firstBatch = {
+				core: [fixture],
+				manifest: ['auto', 'historical'],
+				excluded: null,
+				coreStale: false,
+				coreAssets: false,
+				system: null,
+				systemManifest: [historicalRole],
+				systemStale: true,
+				asset: 'protected asset',
+			}
+			try {
+				await withAutoExtractServer(
+					directory,
+					{
+						DEPLOYMENT_ENV: 'development',
+						SEEDER_AUTO_EXTRACT_SYSTEM: 'true',
+						SEEDER_AUTO_EXTRACT_CORE: 'true',
+						SEEDER_CONFIG_PATH: `${directory}/config.json`,
+						SEEDER_SEEDS_DIR: `${directory}/seeds`,
+						SEEDER_ASSETS_DIR: `${directory}/seeds/system/assets`,
+						SEEDER_JSON_ONLY: 'false',
+						SEEDER_INCLUDE: `${categories},${articles},directus_translations`,
+						SEEDER_EXCLUDE: articles,
+					},
+					async (request) => {
+						// Each assertion waits for a distinct real 15-second debounce batch.
+						await request(`/items/${categories}`, 'POST', fixture)
+						await expect
+							.poll(readOutput, { interval: 1_000, timeout: 30_000 })
+							.toEqual(firstBatch)
+
+						await request(`/items/${categories}/${fixture.slug}`, 'PATCH', {
+							title: 'updated',
+						})
+						await request('/translations', 'POST', translation)
+						const mixedBatch = {
+							...firstBatch,
+							core: [{ ...fixture, title: 'updated' }],
+							system: [translation],
+							systemStale: false,
+							asset: null,
+						}
+						await expect
+							.poll(readOutput, { interval: 1_000, timeout: 30_000 })
+							.toEqual(mixedBatch)
+
+						await inDirectus(
+							'const fs = require("node:fs"); const root = process.argv[1]; for (const scope of ["core", "system"]) fs.writeFileSync(root + "/seeds/" + scope + "/stale.json", "[]"); fs.writeFileSync(root + "/seeds/system/assets/sentinel.bin", "protected asset")',
+							directory,
+						)
+						await request(`/items/${categories}/${fixture.slug}`, 'DELETE')
+						await expect
+							.poll(readOutput, { interval: 1_000, timeout: 30_000 })
+							.toEqual({ ...firstBatch, core: [], system: [translation] })
+					},
+				)
+			} finally {
+				const translations = await client.request(
+					readTranslations({ filter: { id: { _eq: translation.id } } }),
+				)
+				if (translations.length > 0) await client.request(deleteTranslation(translation.id))
+			}
+		})
+	}, 180_000)
+
 	it('extracts isolated core manifests and imports custom primary keys in configured order', async () => {
 		await withCoreCollections(async (directory) => {
 			const environment = {
@@ -445,7 +695,7 @@ describe('installed seeder CLI', () => {
 		const environment = {
 			LOG_LEVEL: 'silent',
 			DEPLOYMENT_ENV: 'development',
-			SEEDER_AUTO_EXTRACT: 'true',
+			SEEDER_AUTO_EXTRACT_SYSTEM: 'true',
 			SEEDER_CONFIG_PATH: `${directory}/config.json`,
 			SEEDER_SEEDS_DIR: `${directory}/missing-seeds`,
 		}

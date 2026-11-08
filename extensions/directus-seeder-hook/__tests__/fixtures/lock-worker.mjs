@@ -55,7 +55,7 @@ extension.default(
 		logger,
 		env: {
 			DEPLOYMENT_ENV: 'development',
-			SEEDER_AUTO_EXTRACT: mode !== 'owner',
+			SEEDER_AUTO_EXTRACT_SYSTEM: mode !== 'owner',
 			SEEDER_INCLUDE: 'directus_translations',
 			SEEDER_SEEDS_DIR: directory,
 			SEEDER_ASSETS_DIR: `${directory}/assets`,

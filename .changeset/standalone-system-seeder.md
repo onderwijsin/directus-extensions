@@ -30,9 +30,16 @@ including when continuation is enabled; successful earlier work has no whole-run
 Validate environment configuration after Directus casting; disabling the hook skips remaining
 validation. Keep `SEEDER_SCOPE` system-only. Extract deterministic JSON with configured tab/space
 indentation and one final newline. Support JSON-only extraction, explicit assets, safe output paths,
-and ownership-aware bulk locking. Keep automatic extraction development-only, opt-in, and
-system-only, with its existing debounce and optional selective allowlist. Preserve Flow-folder
-schema compatibility and document secrets, partial-output recovery, and operational limits.
+and ownership-aware bulk locking. Replace `SEEDER_AUTO_EXTRACT` with independent
+`SEEDER_AUTO_EXTRACT_SYSTEM` and `SEEDER_AUTO_EXTRACT_CORE` switches, both defaulting to false with
+no fallback. Coalesce changed scopes through one 15-second debounce and serialize them under the
+shared bulk lock. A shared nonempty allowlist accepts supported system and configured core names,
+validates disabled-scope names too, overrides general filters, and skips cleanup. Otherwise honor
+general filters and clean only event-triggered scopes. Core never touches binary assets; system
+retains JSON-only rules, with allowlists forcing JSON-only unless `directus_files` is listed.
+Automatic extraction remains development-only and uses each scope's JSON/manifest directory.
+Preserve Flow-folder schema compatibility and document secrets, partial-output recovery, and
+operational limits.
 
 Use manifest defaults for policies, roles, users, access, folders, and files; policy relation
 management for permissions; unbounded full-idempotent for dashboards, panels, flows, operations,
