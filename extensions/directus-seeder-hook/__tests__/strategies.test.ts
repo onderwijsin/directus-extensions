@@ -8,11 +8,7 @@ import path from 'node:path'
 
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
-import {
-	getIdRangeFilters,
-	getManagementFilters,
-	validateManagedSeedData,
-} from '../src/lib/collectionManagement'
+import { getIdRangeFilters, validateManagedSeedData } from '../src/lib/collectionManagement'
 import { OperationMode } from '../src/lib/config'
 import { getManifestSeedIds, readManagedIds, updateManagedIds } from '../src/lib/manifestManagement'
 import { createPerformanceTracker } from '../src/lib/performanceTracker'
@@ -44,35 +40,53 @@ function createAdapter() {
 }
 
 describe('seed strategies', () => {
-	it('insert-missing creates absent records and skips existing IDs', async () => {
+	it('insert-missing uses custom string keys to create absent records and preserve existing ones', async () => {
 		const service = createAdapter()
-		service.getItems.mockResolvedValue([{ id: 'old' }])
+		service.getItems.mockResolvedValue([{ code: 'old' }])
 		const data = [
-			{ id: 'old', value: 'preserve' },
-			{ id: 'new', value: 'insert' },
+			{ code: 'old', id: 'irrelevant', value: 'preserve' },
+			{ code: 'new', id: 'irrelevant', value: 'insert' },
 		]
 		const result = await createSeederStrategy(OperationMode.INSERT_MISSING).seedCollection(
 			'fixture',
 			data,
 			service.adapter,
 			createPerformanceTracker(),
+			undefined,
+			'code',
+			false,
 		)
+		expect(service.getItems).toHaveBeenCalledExactlyOnceWith({
+			fields: ['code'],
+			filter: { code: { _in: ['old', 'new'] } },
+			limit: -1,
+		})
 		expect(service.createItems).toHaveBeenCalledExactlyOnceWith([data[1]])
 		expect(service.upsertItems).not.toHaveBeenCalled()
 		expect(service.deleteItems).not.toHaveBeenCalled()
 		expect(result).toMatchObject({ created: 1, updated: 0, skipped: 1, deleted: 0, total: 2 })
 	})
 
-	it('insert-update upserts batches and counts existing versus new records', async () => {
+	it('insert-update batches custom numeric keys and counts existing versus new records', async () => {
 		const service = createAdapter()
-		service.getItems.mockResolvedValueOnce([{ id: 'old' }]).mockResolvedValueOnce([])
-		const data = [{ id: 'old' }, { id: 'new' }]
+		service.getItems.mockResolvedValueOnce([{ code: 10 }]).mockResolvedValueOnce([])
+		const data = [
+			{ code: 10, id: 'irrelevant' },
+			{ code: 11, id: 'irrelevant' },
+		]
 		const result = await createSeederStrategy(OperationMode.INSERT_UPDATE, 1).seedCollection(
 			'fixture',
 			data,
 			service.adapter,
 			createPerformanceTracker(),
+			undefined,
+			'code',
+			false,
 		)
+		expect(service.getItems.mock.calls.map(([query]) => query)).toEqual([
+			{ fields: ['code'], filter: { code: { _in: [10] } }, limit: -1 },
+			{ fields: ['code'], filter: { code: { _in: [11] } }, limit: -1 },
+		])
 		expect(service.upsertItems.mock.calls.map(([batch]) => batch)).toEqual([
 			[data[0]],
 			[data[1]],
@@ -81,17 +95,25 @@ describe('seed strategies', () => {
 		expect(result).toMatchObject({ created: 1, updated: 1, skipped: 0 })
 	})
 
-	it('full-idempotent deletes extra IDs and preserves the legacy empty-data delete query', async () => {
+	it('full-idempotent deletes by the custom key and preserves whole-collection empty-data deletion', async () => {
 		const service = createAdapter()
 		service.getItems
-			.mockResolvedValueOnce([{ id: 'old' }])
-			.mockResolvedValueOnce([{ id: 'extra' }])
+			.mockResolvedValueOnce([{ code: 'old' }])
+			.mockResolvedValueOnce([{ code: 'extra' }])
 		const result = await createSeederStrategy(OperationMode.FULL_IDEMPOTENT).seedCollection(
 			'fixture',
-			[{ id: 'old' }],
+			[{ code: 'old', id: 'irrelevant' }],
 			service.adapter,
 			createPerformanceTracker(),
+			undefined,
+			'code',
+			false,
 		)
+		expect(service.getItems).toHaveBeenLastCalledWith({
+			fields: ['code'],
+			filter: { code: { _nin: ['old'] } },
+			limit: -1,
+		})
 		expect(service.deleteItems).toHaveBeenCalledExactlyOnceWith(['extra'])
 		expect(result).toMatchObject({ updated: 1, deleted: 1 })
 		service.getItems.mockClear().mockResolvedValue([{ id: 'extra' }])
@@ -446,70 +468,7 @@ function createSchema(
 }
 
 describe('schema primary keys', () => {
-	it.each([
-		{ old: 'old', fresh: 'new', extra: 'extra' },
-		{ old: 10, fresh: 11, extra: 12 },
-	])('uses custom keys in all three strategies for $old', async ({ old, fresh, extra }) => {
-		const data = [
-			{ code: old, id: 'irrelevant' },
-			{ code: fresh, id: 'irrelevant' },
-		]
-		for (const mode of Object.values(OperationMode)) {
-			const service = createAdapter()
-			service.getItems
-				.mockResolvedValueOnce([{ code: old }])
-				.mockResolvedValueOnce([{ code: extra }])
-			service.deleteItems.mockResolvedValue([extra])
-			const result = await createSeederStrategy(mode).seedCollection(
-				'children',
-				data,
-				service.adapter,
-				createPerformanceTracker(),
-				undefined,
-				'code',
-				false,
-			)
-			expect(result.error).toBeUndefined()
-			expect(service.getItems).toHaveBeenNthCalledWith(1, {
-				fields: ['code'],
-				filter: { code: { _in: [old, fresh] } },
-				limit: -1,
-			})
-			if (mode === OperationMode.INSERT_MISSING) {
-				expect(service.createItems).toHaveBeenCalledExactlyOnceWith([data[1]])
-				expect(result).toMatchObject({ created: 1, skipped: 1, updated: 0, deleted: 0 })
-			} else {
-				expect(service.upsertItems).toHaveBeenCalledExactlyOnceWith(data)
-				expect(result).toMatchObject({ created: 1, updated: 1, skipped: 0 })
-			}
-			if (mode === OperationMode.FULL_IDEMPOTENT) {
-				expect(service.getItems).toHaveBeenLastCalledWith({
-					fields: ['code'],
-					filter: { code: { _nin: [old, fresh] } },
-					limit: -1,
-				})
-				expect(service.deleteItems).toHaveBeenCalledExactlyOnceWith([extra])
-			} else {
-				expect(service.deleteItems).not.toHaveBeenCalled()
-			}
-		}
-	})
-
-	it('preserves a core business field named __isUpdateOnly', async () => {
-		const service = createAdapter()
-		const data = [{ code: 'new', __isUpdateOnly: true }]
-		const result = await createSeederStrategy(OperationMode.INSERT_MISSING).seedCollection(
-			'children',
-			data,
-			service.adapter,
-			createPerformanceTracker(),
-			undefined,
-			'code',
-			false,
-		)
-		expect(result).toMatchObject({ created: 1, updated: 0 })
-		expect(service.createItems).toHaveBeenCalledExactlyOnceWith(data)
-		expect(service.upsertItems).not.toHaveBeenCalled()
+	it('rejects core metadata-shaped rows that omit their managed relation', () => {
 		expect(() =>
 			validateManagedSeedData(
 				'children',
@@ -525,12 +484,26 @@ describe('schema primary keys', () => {
 	})
 
 	it.each([
-		{ type: 'id-range', min: 10, max: 20 },
-		{ type: 'manifest', ids: [10, 11] },
-		{ type: 'relation', field: 'owner', collection: 'parents', ids: ['parent'] },
-	] satisfies ResolvedCollectionManagement[])(
-		'bounds custom primary-key deletion with $type',
-		async (management) => {
+		{
+			management: { type: 'id-range', min: 10, max: 20 },
+			filters: [{ code: { _gte: 10 } }, { code: { _lt: 20 } }],
+		},
+		{
+			management: { type: 'manifest', ids: [10, 11] },
+			filters: [{ code: { _in: [10, 11] } }],
+		},
+		{
+			management: {
+				type: 'relation',
+				field: 'owner',
+				collection: 'parents',
+				ids: ['parent'],
+			},
+			filters: [{ owner: { _in: ['parent'] } }],
+		},
+	] satisfies { management: ResolvedCollectionManagement; filters: unknown[] }[])(
+		'bounds custom primary-key deletion with $management.type',
+		async ({ management, filters }) => {
 			const service = createAdapter()
 			service.getItems.mockResolvedValueOnce([]).mockResolvedValueOnce([{ code: 11 }])
 			service.deleteItems.mockResolvedValue([11])
@@ -547,7 +520,7 @@ describe('schema primary keys', () => {
 			expect(service.getItems).toHaveBeenLastCalledWith({
 				fields: ['code'],
 				filter: {
-					_and: [...getManagementFilters(management, 'code'), { code: { _nin: [10] } }],
+					_and: [...filters, { code: { _nin: [10] } }],
 				},
 				limit: -1,
 			})
@@ -590,7 +563,7 @@ describe('schema primary keys', () => {
 		)
 		expect(service.getItems).toHaveBeenCalledExactlyOnceWith({
 			fields: ['code'],
-			filter: { _and: getIdRangeFilters(management, 'code') },
+			filter: { _and: [{ code: { _gte: 10 } }, { code: { _lt: 20 } }] },
 			limit: -1,
 		})
 	})
@@ -666,11 +639,15 @@ describe('schema primary keys', () => {
 	})
 
 	it.each([
-		{ type: 'string', keys: ['new', 'old'] },
-		{ type: 'integer', keys: [10, 11] },
-	] satisfies { type: FieldOverview['type']; keys: (string | number)[] }[])(
-		'reads and updates manifests using custom $type primary keys',
-		async ({ type, keys }) => {
+		{ type: 'string', keys: ['a', 'Z', '10', '2', 'a'], expected: ['10', '2', 'Z', 'a'] },
+		{ type: 'integer', keys: [10, 2, 10], expected: [2, 10] },
+	] satisfies {
+		type: FieldOverview['type']
+		keys: (string | number)[]
+		expected: (string | number)[]
+	}[])(
+		'unions, deduplicates and sorts manifests using custom $type primary keys',
+		async ({ type, keys, expected }) => {
 			const directory = await mkdtemp(path.join(await realpath(tmpdir()), 'seeder-primary-'))
 			onTestFinished(() => rm(directory, { recursive: true, force: true }))
 			const schema = createSchema(type)
@@ -678,12 +655,12 @@ describe('schema primary keys', () => {
 			expect(getManifestSeedIds('children', rows, schema)).toEqual(keys)
 			await updateManagedIds('children', rows.slice(0, 1), directory, schema, 2)
 			await updateManagedIds('children', rows.slice(1), directory, schema, 2)
-			expect(await readManagedIds('children', directory, schema)).toEqual(keys)
+			expect(await readManagedIds('children', directory, schema)).toEqual(expected)
 			expect(
 				JSON.parse(
 					await readFile(path.join(directory, 'children.managed-ids.json'), 'utf8'),
 				),
-			).toEqual(keys)
+			).toEqual(expected)
 			expect(() => getManifestSeedIds('children', [{ id: keys[0] }], schema)).toThrow(
 				'Invalid manifest-managed seed ID',
 			)

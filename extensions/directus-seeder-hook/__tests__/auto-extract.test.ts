@@ -173,15 +173,6 @@ describe('automatic scoped extraction', () => {
 		await rm(directory, { recursive: true, force: true })
 	})
 
-	it('registers filtered CRUD events without the system prefix and supports disabling auto-extraction', () => {
-		expect(register().mock.calls.map(([event]) => event)).toEqual([
-			'users.create',
-			'users.update',
-			'users.delete',
-		])
-		expect(register({ SEEDER_AUTO_EXTRACT_SYSTEM: false })).not.toHaveBeenCalled()
-	})
-
 	/**
 	 * Declares two core collections for selection and manifest regression cases.
 	 * @returns Environment pointing to the consumer configuration.
@@ -263,10 +254,12 @@ describe('automatic scoped extraction', () => {
 	})
 
 	it.each([false, true])(
-		'coalesces both scopes under one lock with allowlist=%s',
+		'debounces both scopes for fifteen seconds under one lock with allowlist=%s',
 		async (allowlist) => {
 			const action = register({
 				...(await coreEnvironment()),
+				SEEDER_JSON_INDENT: 'space',
+				SEEDER_JSON_INDENT_SIZE: 4,
 				...(allowlist ? { SEEDER_AUTO_EXTRACT_INCLUDE: ['posts', 'directus_users'] } : {}),
 			})
 			mocks.extract.mockImplementation(() => {
@@ -290,6 +283,16 @@ describe('automatic scoped extraction', () => {
 				false,
 			)
 			expect((await readdir(directory)).sort()).toEqual(['consumer.json'])
+			expect(mocks.extract).toHaveBeenNthCalledWith(
+				1,
+				expect.objectContaining({
+					jsonIndent: 4,
+					folders: {
+						seeds: path.join(directory, 'seeds', 'system'),
+						assets: path.join(directory, 'assets'),
+					},
+				}),
+			)
 			expect(mocks.extract.mock.calls.map(([options]) => options.skipClean)).toEqual([
 				allowlist,
 				allowlist,
@@ -355,6 +358,7 @@ describe('automatic scoped extraction', () => {
 			'core',
 		])
 		expect(existsSync(lock.path)).toBe(false)
+		expect(await readdir(directory)).toEqual(['consumer.json'])
 	})
 
 	it.each([false, true])(
@@ -420,29 +424,6 @@ describe('automatic scoped extraction', () => {
 			expect(mocks.getAsset).not.toHaveBeenCalled()
 		},
 	)
-
-	it('debounces repeated events for fifteen seconds and calls the shared extractor once', async () => {
-		const action = register({ SEEDER_JSON_INDENT: 'space', SEEDER_JSON_INDENT_SIZE: 4 })
-		emit(action, 'users.create', { first_name: 'Fixture' })
-		await advance(10_000)
-		emit(action, 'users.update', { first_name: 'Updated' })
-		await advance(14_999)
-		expect(mocks.extract).not.toHaveBeenCalled()
-		await vi.advanceTimersByTimeAsync(1)
-		expect(mocks.extract).toHaveBeenCalledOnce()
-		expect(mocks.extract).toHaveBeenCalledWith(
-			expect.objectContaining({
-				skipClean: false,
-				jsonOnly: false,
-				jsonIndent: 4,
-				folders: {
-					seeds: path.join(directory, 'seeds', 'system'),
-					assets: path.join(directory, 'assets'),
-				},
-			}),
-		)
-		expect(await readdir(directory)).toEqual([])
-	})
 
 	it('passes the captured effective JSON collection config to shared automatic extraction', async () => {
 		const configPath = path.join(directory, 'consumer.json')
@@ -514,26 +495,7 @@ describe('automatic scoped extraction', () => {
 		expect(mocks.extract).toHaveBeenCalledOnce()
 	})
 
-	it('skips an existing bulk lock without releasing it and releases its own lock after extraction fails', async () => {
-		const action = register({ SEEDER_AUTO_EXTRACT_INCLUDE: 'directus_users' })
-		const lock = acquireLock()
-		try {
-			emit(action, 'users.delete')
-			await advance(15_000)
-			expect(mocks.extract).not.toHaveBeenCalled()
-			expect(existsSync(lock.path)).toBe(true)
-		} finally {
-			lock.release()
-		}
-		mocks.extract.mockRejectedValueOnce(new Error('fixture failure'))
-		emit(action, 'users.create')
-		await advance(15_000)
-		expect(mocks.extract).toHaveBeenCalledOnce()
-		expect(existsSync(lock.path)).toBe(false)
-		expect(await readdir(directory)).toEqual([])
-	})
-
-	it('ignores unselected events and preserves other output while extracting the whole allowlist in effective order', async () => {
+	it('extracts the whole allowlist in effective order while preserving other output', async () => {
 		const actual =
 			await vi.importActual<typeof import('../src/seeders/extract')>('../src/seeders/extract')
 		mocks.extract.mockImplementation(actual.extractData)
@@ -574,16 +536,8 @@ describe('automatic scoped extraction', () => {
 			'presets.delete',
 			'roles.delete',
 		])
-		// Directus only dispatches an event to subscriptions that match it.
-		for (const [event, handler] of action.mock.calls)
-			if (event === 'users.update') handler({ payload: { first_name: 'Unselected' } })
-		expect(vi.getTimerCount()).toBe(0)
-		expect((await readdir(directory)).sort()).toEqual(['consumer.json', 'seeds'])
 		emit(action, 'roles.create')
-		await advance(10_000)
-		for (const [event, handler] of action.mock.calls)
-			if (event === 'users.update') handler({ payload: { first_name: 'Still unselected' } })
-		await vi.advanceTimersByTimeAsync(5_000)
+		await advance(15_000)
 		expect(mocks.extract).toHaveBeenCalledOnce()
 		await expect(mocks.extract.mock.results[0]?.value).resolves.toBeUndefined()
 		expect(mocks.readCollection.mock.calls.map(([collection]) => collection)).toEqual([

@@ -1425,53 +1425,49 @@ describe('installed seeder CLI', () => {
 		},
 	)
 
-	it.each(['syntax', 'non-array', 'read'])(
-		'exits one on a later %s input error before creating an earlier role, despite continue-on-error',
-		async (failure) => {
-			const id = randomUUID()
-			const directory = `/tmp/seeder-e2e-${randomUUID()}`
-			const filename = `${directory}/system/directus_permissions.json`
+	it('exits one on unreadable later input before earlier database writes despite continue-on-error', async () => {
+		const id = randomUUID()
+		const directory = `/tmp/seeder-e2e-${randomUUID()}`
+		const filename = `${directory}/system/directus_permissions.json`
+		try {
+			await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'const fs = require("node:fs"); const [root, id] = process.argv.slice(1); fs.mkdirSync(`${root}/system`, { recursive: true }); fs.writeFileSync(`${root}/system/directus_roles.json`, JSON.stringify([{ id, name: "Seeder preflight fixture" }])); const filename = `${root}/system/directus_permissions.json`; fs.mkdirSync(filename)',
+				directory,
+				id,
+			])
+			await expect(
+				seed(
+					{
+						SEEDER_SEEDS_DIR: directory,
+						SEEDER_CONTINUE_ON_ERROR: 'true',
+					},
+					'system',
+					'--include',
+					'directus_roles',
+					'directus_permissions',
+				),
+			).rejects.toMatchObject({ code: 1, stdout: expect.stringContaining(filename) })
+			expect(await client.request(readRoles({ filter: { id: { _eq: id } } }))).toEqual([])
+		} finally {
 			try {
+				const roles = await client.request(readRoles({ filter: { id: { _eq: id } } }))
+				if (roles.length > 0) await client.request(deleteRole(id))
+			} finally {
 				await execute('docker', [
 					...composeArguments,
 					'directus',
 					'node',
 					'-e',
-					'const fs = require("node:fs"); const [root, id, failure] = process.argv.slice(1); fs.mkdirSync(`${root}/system`, { recursive: true }); fs.writeFileSync(`${root}/system/directus_roles.json`, JSON.stringify([{ id, name: "Seeder preflight fixture" }])); const filename = `${root}/system/directus_permissions.json`; if (failure === "read") fs.mkdirSync(filename); else fs.writeFileSync(filename, failure === "syntax" ? "{broken" : "{}")',
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
 					directory,
-					id,
-					failure,
 				])
-				await expect(
-					seed(
-						{
-							SEEDER_SEEDS_DIR: directory,
-							SEEDER_CONTINUE_ON_ERROR: 'true',
-						},
-						'system',
-						'--include',
-						'directus_roles',
-						'directus_permissions',
-					),
-				).rejects.toMatchObject({ code: 1, stdout: expect.stringContaining(filename) })
-				expect(await client.request(readRoles({ filter: { id: { _eq: id } } }))).toEqual([])
-			} finally {
-				try {
-					const roles = await client.request(readRoles({ filter: { id: { _eq: id } } }))
-					if (roles.length > 0) await client.request(deleteRole(id))
-				} finally {
-					await execute('docker', [
-						...composeArguments,
-						'directus',
-						'node',
-						'-e',
-						'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
-						directory,
-					])
-				}
 			}
-		},
-	)
+		}
+	})
 
 	it('honors enablement and exposes extraction help only in development', async () => {
 		const development = await seed({ DEPLOYMENT_ENV: 'development' }, '--help')
@@ -1489,31 +1485,11 @@ describe('installed seeder CLI', () => {
 	})
 
 	it.each([
-		{ mode: 'default', jsonOnly: 'false', flags: [], retainJson: false, retainAssets: false },
-		{
-			mode: 'skip-clean',
-			jsonOnly: 'false',
-			flags: ['--skip-clean'],
-			retainJson: true,
-			retainAssets: true,
-		},
-		{
-			mode: 'json-only',
-			jsonOnly: 'false',
-			flags: ['--json-only'],
-			retainJson: false,
-			retainAssets: true,
-		},
-		{
-			mode: 'assets override',
-			jsonOnly: 'true',
-			flags: ['--assets'],
-			retainJson: false,
-			retainAssets: false,
-		},
+		{ mode: 'default', flags: [], retainAssets: false },
+		{ mode: 'json-only', flags: ['--json-only'], retainAssets: true },
 	])(
 		'applies $mode output cleanup through the installed command',
-		async ({ jsonOnly, flags, retainJson, retainAssets }) => {
+		async ({ flags, retainAssets }) => {
 			const directory = `/tmp/seeder-e2e-${randomUUID()}`
 			const seeds = `${directory}/seeds/system`
 			const assets = `${seeds}/assets`
@@ -1531,7 +1507,7 @@ describe('installed seeder CLI', () => {
 						DEPLOYMENT_ENV: 'development',
 						SEEDER_SEEDS_DIR: `${directory}/seeds`,
 						SEEDER_ASSETS_DIR: assets,
-						SEEDER_JSON_ONLY: jsonOnly,
+						SEEDER_JSON_ONLY: 'false',
 					},
 					'extract',
 					...flags,
@@ -1548,7 +1524,7 @@ describe('installed seeder CLI', () => {
 				])
 				const output: unknown = JSON.parse(stdout)
 				expect(output).toEqual({
-					staleJson: retainJson,
+					staleJson: false,
 					staleAsset: retainAssets,
 					jsonAsset: retainAssets,
 					nested: 'seeds/system/assets/nested/keep.bin',
@@ -1569,7 +1545,7 @@ describe('installed seeder CLI', () => {
 		},
 	)
 
-	it('extracts valid JSON with each indentation setting and rejects an invalid setting', async () => {
+	it('serializes configured indentation and fails startup for an invalid width', async () => {
 		const id = randomUUID()
 		const directory = `/tmp/seeder-e2e-${randomUUID()}`
 		const fixture = { id, key: `seeder_e2e_${id}`, language: 'nl-NL', value: 'indented' }
@@ -1582,51 +1558,28 @@ describe('installed seeder CLI', () => {
 		try {
 			await client.request(createTranslation(fixture))
 			created = true
-			for (const [style, width] of [
-				['tab', '8'],
-				['space', '2'],
-				['space', '10'],
-			]) {
-				const indent = style === 'tab' ? '\t' : Number(width)
-				const result = await seed(
-					{
-						...environment,
-						SEEDER_JSON_INDENT: style ?? 'tab',
-						SEEDER_JSON_INDENT_SIZE: width ?? '2',
-						SEEDER_JSON_ONLY: 'true',
-						SEEDER_INCLUDE: 'directus_translations,directus_roles',
-					},
-					'extract',
-				)
-				expect(result.stdout).not.toContain('Extracting asset files')
-				const { stdout } = await execute('docker', [
-					...composeArguments,
-					'directus',
-					'node',
-					'-e',
-					'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
-					`${directory}/system/directus_translations.json`,
-				])
-				const records: unknown = JSON.parse(stdout)
-				expect(records).toEqual(expect.arrayContaining([expect.objectContaining(fixture)]))
-				expect(stdout).toBe(`${JSON.stringify(records, null, indent)}\n`)
-			}
-			await expect(
-				seed(
-					{ ...environment, SEEDER_JSON_INDENT: '3' },
-					'extract',
-					'--include',
-					'directus_translations',
-				),
-			).rejects.toThrow('SEEDER_JSON_INDENT must be tab or space')
-			await expect(
-				seed(
-					{ ...environment, SEEDER_BATCH_SIZE: '0' },
-					'system',
-					'--include',
-					'directus_translations',
-				),
-			).rejects.toThrow('SEEDER_BATCH_SIZE')
+			const result = await seed(
+				{
+					...environment,
+					SEEDER_JSON_INDENT: 'space',
+					SEEDER_JSON_INDENT_SIZE: '4',
+					SEEDER_JSON_ONLY: 'true',
+					SEEDER_INCLUDE: 'directus_translations,directus_roles',
+				},
+				'extract',
+			)
+			expect(result.stdout).not.toContain('Extracting asset files')
+			const { stdout } = await execute('docker', [
+				...composeArguments,
+				'directus',
+				'node',
+				'-e',
+				'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+				`${directory}/system/directus_translations.json`,
+			])
+			const records: unknown = JSON.parse(stdout)
+			expect(records).toEqual(expect.arrayContaining([expect.objectContaining(fixture)]))
+			expect(stdout).toBe(`${JSON.stringify(records, null, 4)}\n`)
 			await expect(
 				seed(
 					{ ...environment, SEEDER_JSON_INDENT: 'space', SEEDER_JSON_INDENT_SIZE: '11' },

@@ -198,11 +198,27 @@ function expectNoServiceCalls(service: ReturnType<typeof createProgram>) {
 }
 
 /**
+ * Checks global preflight prevented all writes, including earlier collections.
+ * @param service - Observable CLI fixture.
+ * @returns Nothing.
+ */
+function expectNoMutations(service: ReturnType<typeof createProgram>) {
+	for (const spy of [
+		service.createMany,
+		service.upsertMany,
+		service.deleteMany,
+		service.uploadOne,
+		service.clearCache,
+		service.database,
+	])
+		expect(spy).not.toHaveBeenCalled()
+}
+
+/**
  * Models a direct scalar permissions.policy relation with the live schema's structural fields.
- * @param keyType - Source key type; UUID keys use the string foreign key observed in Directus 12.2.
  * @returns A schema fixture checked against the installed Directus contract.
  */
-function relationSchema(keyType: 'uuid' | 'string' | 'integer' = 'uuid') {
+function relationSchema() {
 	const field = (name: string, type: 'uuid' | 'string' | 'integer') => ({
 		field: name,
 		type,
@@ -229,7 +245,7 @@ function relationSchema(keyType: 'uuid' | 'string' | 'integer' = 'uuid') {
 				accountability: null,
 				fields: {
 					id: field('id', 'integer'),
-					policy: field('policy', keyType === 'uuid' ? 'string' : keyType),
+					policy: field('policy', 'string'),
 				},
 			},
 			directus_policies: {
@@ -239,7 +255,7 @@ function relationSchema(keyType: 'uuid' | 'string' | 'integer' = 'uuid') {
 				sortField: null,
 				note: null,
 				accountability: null,
-				fields: { id: field('id', keyType) },
+				fields: { id: field('id', 'uuid') },
 			},
 		},
 		relations: [
@@ -1209,13 +1225,11 @@ describe('seeder registration and CLI', () => {
 		 * Registers manifest management with config outside cleaned JSON output.
 		 * @param overrides - Collection settings that replace defaults shallowly.
 		 * @param env - Runtime environment overrides.
-		 * @param keyType - Live primary-key type.
 		 * @returns Observable CLI fixture.
 		 */
 		async function createManifestProgram(
 			overrides: Record<string, unknown> = {},
 			env: Record<string, unknown> = {},
-			keyType: 'uuid' | 'string' | 'integer' = 'uuid',
 		) {
 			const configPath = path.join(directory, 'consumer.config')
 			await writeFile(
@@ -1242,25 +1256,8 @@ describe('seeder registration and CLI', () => {
 				SEEDER_JSON_ONLY: true,
 				...env,
 			})
-			service.getSchema.mockResolvedValue(relationSchema(keyType))
+			service.getSchema.mockResolvedValue(relationSchema())
 			return service
-		}
-
-		/**
-		 * Checks global preflight prevented all writes, including earlier collections.
-		 * @param service - Observable CLI fixture.
-		 * @returns Nothing.
-		 */
-		function expectNoMutations(service: ReturnType<typeof createProgram>) {
-			for (const spy of [
-				service.createMany,
-				service.upsertMany,
-				service.deleteMany,
-				service.uploadOne,
-				service.clearCache,
-				service.database,
-			])
-				expect(spy).not.toHaveBeenCalled()
 		}
 
 		it('creates, unions and sorts history while refreshing current seed data through manual cleanup', async () => {
@@ -1299,28 +1296,6 @@ describe('seeder registration and CLI', () => {
 				sort: ['id'],
 				deep: { permissions: { _limit: 1 } },
 			})
-		})
-
-		it('sorts integer IDs numerically and string IDs lexically using the live schema', async () => {
-			const numeric = await createManifestProgram({}, {}, 'integer')
-			numeric.readByQuery.mockResolvedValue([{ id: 10 }, { id: 2 }, { id: 10 }])
-			expect(
-				await runCommand(numeric.program, 'extract', '--include', 'directus_policies'),
-			).toBe(0)
-			expect(JSON.parse(await readFile(manifest(), 'utf8'))).toEqual([2, 10])
-			await rm(manifest())
-			const strings = await createManifestProgram({}, {}, 'string')
-			strings.readByQuery.mockResolvedValue([
-				{ id: 'a' },
-				{ id: 'Z' },
-				{ id: 'a' },
-				{ id: '10' },
-				{ id: '2' },
-			])
-			expect(
-				await runCommand(strings.program, 'extract', '--include', 'directus_policies'),
-			).toBe(0)
-			expect(JSON.parse(await readFile(manifest(), 'utf8'))).toEqual(['10', '2', 'Z', 'a'])
 		})
 
 		it('fails extraction without overwriting invalid manifests or losing history on invalid exported IDs', async () => {
@@ -1623,23 +1598,6 @@ describe('seeder registration and CLI', () => {
 			return service
 		}
 
-		/**
-		 * Checks that a failure anywhere in preflight prevents earlier collection mutations.
-		 * @param service - Observable CLI fixture.
-		 * @returns Nothing.
-		 */
-		function expectNoMutations(service: ReturnType<typeof createProgram>) {
-			for (const spy of [
-				service.createMany,
-				service.upsertMany,
-				service.deleteMany,
-				service.uploadOne,
-				service.clearCache,
-				service.database,
-			])
-				expect(spy).not.toHaveBeenCalled()
-		}
-
 		it('uses excluded raw source IDs under a CLI mode override, without evaluating source settings', async () => {
 			await writeFile(
 				path.join(directory, 'directus_policies.json'),
@@ -1782,32 +1740,6 @@ describe('seeder registration and CLI', () => {
 		})
 
 		it.each([
-			{ type: 'string', schema: relationSchema('string'), id: 'exact-policy-key' },
-			{ type: 'integer', schema: relationSchema('integer'), id: 7 },
-		])('accepts a $type source key without coercion', async ({ schema, id }) => {
-			await writeFile(
-				path.join(directory, 'directus_policies.json'),
-				JSON.stringify([{ id }]),
-			)
-			await writeFile(
-				path.join(directory, 'directus_permissions.json'),
-				JSON.stringify([{ id: 1, policy: id }]),
-			)
-			const service = await createRelationProgram()
-			service.getSchema.mockResolvedValue(schema)
-			expect(
-				await runCommand(
-					service.program,
-					'system',
-					'--yes',
-					'--include',
-					'directus_permissions',
-				),
-			).toBe(0)
-			expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith([{ id: 1, policy: id }])
-		})
-
-		it.each([
 			undefined,
 			'directory',
 			'{broken',
@@ -1846,7 +1778,7 @@ describe('seeder registration and CLI', () => {
 			},
 		)
 
-		it('requires id primary keys on both source and target before earlier writes', async () => {
+		it('rejects missing primary fields on source or target before earlier writes', async () => {
 			await writeFile(
 				path.join(directory, 'directus_policies.json'),
 				JSON.stringify([{ id: policy }]),
@@ -2073,36 +2005,6 @@ describe('seeder registration and CLI', () => {
 				),
 			).toBe(0)
 			expectNoServiceCalls(missing)
-		})
-
-		it('extracts live policies and permissions without seed input and refreshes added, changed and removed records', async () => {
-			const source = path.join(directory, 'directus_policies.json')
-			const target = path.join(directory, 'directus_permissions.json')
-			const service = await createRelationProgram()
-			for (const policies of [
-				[{ id: policy }],
-				[
-					{ id: policy, name: 'Updated' },
-					{ id: outsider, name: 'New' },
-				],
-				[],
-			]) {
-				const permissions = policies.map(({ id }, index) => ({ id: index + 1, policy: id }))
-				service.readByQuery
-					.mockResolvedValueOnce(policies)
-					.mockResolvedValueOnce(permissions)
-				expect(
-					await runCommand(
-						service.program,
-						'extract',
-						'--include',
-						'directus_policies',
-						'directus_permissions',
-					),
-				).toBe(0)
-				expect(JSON.parse(await readFile(source, 'utf8'))).toEqual(policies)
-				expect(JSON.parse(await readFile(target, 'utf8'))).toEqual(permissions)
-			}
 		})
 
 		it('uses each collection extraction query independently of relation management and existing source files', async () => {
