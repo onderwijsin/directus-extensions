@@ -19,16 +19,21 @@ import {
 	deletePreset,
 	deleteRole,
 	deleteTranslation,
+	deleteUser,
 	readPermissions,
 	readItems,
 	readPresets,
 	readRoles,
 	readTranslation,
 	readTranslations,
+	readUser,
+	readUsers,
+	authentication,
 	rest,
 	staticToken,
 	updateItem,
 	updateTranslation,
+	updateUser,
 } from '@workspace/test-utils/commands'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -43,6 +48,9 @@ if (!baseUrl || !token || !composeProject)
 	throw new Error('The Directus E2E environment was not initialized')
 
 const client = createDirectusE2EClient({ baseUrl, token, composeFiles, composeProject })
+const passwordClient = createDirectus(baseUrl)
+	.with(rest())
+	.with(authentication('json', { autoRefresh: false }))
 const execute = promisify(execFile)
 const composeArguments = [
 	'compose',
@@ -120,6 +128,21 @@ function inDirectus(script: string, ...args: string[]) {
 	return execute('docker', [...composeArguments, 'directus', 'node', '-e', script, ...args], {
 		timeout: 60_000,
 	})
+}
+
+/**
+ * Authenticates against Directus with the supplied password and closes the login session.
+ * @param email - Fixture user's email address.
+ * @param password - Plaintext password whose validity is under test.
+ * @returns Resolves after a successful login and logout.
+ */
+async function expectPasswordLogin(email: string, password: string) {
+	const result = await passwordClient.login({ email, password })
+	try {
+		expect(result.access_token).toEqual(expect.any(String))
+	} finally {
+		await passwordClient.logout()
+	}
 }
 
 type AutoExtractRequest = (
@@ -1366,6 +1389,77 @@ describe('installed seeder CLI', () => {
 					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
 					directory,
 				])
+			}
+		}
+	})
+
+	it('seeds user passwords, preserves them through extraction and reseeding, and updates them explicitly', async () => {
+		const id = randomUUID()
+		const directory = `/tmp/seeder-password-e2e-${randomUUID()}`
+		const filename = `${directory}/system/directus_users.json`
+		const fixture = {
+			id,
+			email: `seeder-password-${id}@example.com`,
+			password: `Original-${randomUUID()}!`,
+			first_name: 'Seeder password fixture',
+			status: 'active',
+		}
+		const environment = {
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_SEEDS_DIR: directory,
+			SEEDER_CONFIG_PATH: `${directory}/config.json`,
+			SEEDER_INCLUDE: 'directus_users',
+		}
+		try {
+			await inDirectus(
+				'const fs = require("node:fs"); const [root, config, users] = process.argv.slice(1); fs.mkdirSync(root + "/system", { recursive: true }); fs.writeFileSync(root + "/config.json", config); fs.writeFileSync(root + "/system/directus_users.json", users)',
+				directory,
+				JSON.stringify({
+					system: {
+						collections: {
+							directus_users: { fields: ['*'], filter: { id: { _eq: id } } },
+						},
+					},
+				}),
+				JSON.stringify([fixture]),
+			)
+			await seed(environment, 'system', '--mode', 'insert-missing')
+			await expectPasswordLogin(fixture.email, fixture.password)
+
+			await seed(environment, 'extract', '--json-only')
+			const exported = await inDirectus(
+				'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+				filename,
+			)
+			const rows = z
+				.array(z.record(z.string(), z.unknown()))
+				.parse(JSON.parse(exported.stdout))
+			expect(rows).toHaveLength(1)
+			expect(rows[0]).not.toHaveProperty('password')
+			await client.request(updateUser(id, { first_name: 'Changed outside seed' }))
+			await seed(environment, 'system', '--mode', 'insert-update', '--yes')
+			expect(await client.request(readUser(id, { fields: ['first_name'] }))).toEqual({
+				first_name: fixture.first_name,
+			})
+			await expectPasswordLogin(fixture.email, fixture.password)
+
+			const replacementPassword = `Changed*${randomUUID()}!`
+			await inDirectus(
+				'require("node:fs").writeFileSync(process.argv[1], process.argv[2])',
+				filename,
+				JSON.stringify([{ ...fixture, password: replacementPassword }]),
+			)
+			await seed(environment, 'system', '--mode', 'insert-update', '--yes')
+			await expectPasswordLogin(fixture.email, replacementPassword)
+		} finally {
+			try {
+				const users = await client.request(readUsers({ filter: { id: { _eq: id } } }))
+				if (users.length > 0) await client.request(deleteUser(id))
+			} finally {
+				await inDirectus(
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				)
 			}
 		}
 	})

@@ -267,7 +267,7 @@ example adds one for that consumer only.
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `directus_policies`             | `id`, `name`, `icon`, `description`, `ip_access`, `enforce_tfa`, `admin_access`, `app_access`                                                                                                                             |
 | `directus_roles`                | `id`, `name`, `icon`, `description`, `parent`                                                                                                                                                                             |
-| `directus_users`                | `id`, `avatar`, `first_name`, `last_name`, `title`, `description`, `email`, `password`, `status`, `provider`, `role`, `email_notifications`, `tags`, `language`                                                           |
+| `directus_users`                | `id`, `avatar`, `first_name`, `last_name`, `title`, `description`, `email`, `status`, `provider`, `role`, `email_notifications`, `tags`, `language`                                                                       |
 | `directus_access`               | `id`, `policy`, `role`, `sort`, `user`                                                                                                                                                                                    |
 | `directus_presets`              | `id`, `bookmark`, `user`, `role`, `collection`, `search`, `layout`, `layout_query`, `layout_options`, `refresh_interval`, `filter`, `icon`, `color`; only `user = null`, without an ID cap, sorted by `-role`, then `id`. |
 | `directus_permissions`          | `id`, `collection`, `action`, `permissions`, `validation`, `presets`, `fields`, `policy`                                                                                                                                  |
@@ -283,9 +283,11 @@ example adds one for that consumer only.
 Other system collections, including `directus_extensions`, and schema are outside system scope.
 Declare application collections under `core.collections`.
 
-Extraction can contain password data and secrets in settings, Flow options, or custom fields.
-Omitting license fields is not general secret redaction. Review output before sharing or committing
-it. Seeder output is not a complete database/storage backup.
+Extraction always omits `directus_users.password`, including with explicit `fields` overrides,
+wildcards, or `fields: null`. Directus conceals existing passwords, so they cannot be recovered by
+extraction. Output can still contain secrets in settings, Flow options, or custom fields; these
+omissions are not general secret redaction. Review output before sharing or committing it. Seeder
+output is not a complete database/storage backup.
 
 ### Primary keys and input preflight
 
@@ -314,9 +316,18 @@ Explicit extraction `fields` must contain that key or `'*'`; `[]` fails. Omitted
 
 ### System transformations and compatibility
 
-Matching root-user seeds always receive `DEFAULT_EMAIL` and `DEFAULT_PASSWORD`. Their status is
-`active` only in exact `development`, otherwise `suspended`. Matching is case-insensitive: title
-exactly `super user`, or first name `admin` and last name `developer` or `user`. This is not a
+For ordinary users, explicit seed `password` values are passed to Directus when creating or updating
+records according to the selected mode. Use an explicit password for local development users that
+need to log in immediately. Omitting `password` leaves an existing user's password unchanged;
+`insert-missing` never updates existing users. Any supplied `password` consisting solely of one or
+more asterisks (`*`, `**`, etc.) is rejected during input preflight, before any selected collection
+mutates, even with `SEEDER_CONTINUE_ON_ERROR=true`. This validation also applies to root-user seed
+input before the environment overrides below.
+
+Matching root-user seeds always receive `DEFAULT_EMAIL` and `DEFAULT_PASSWORD`, including when the
+JSON omits `password`: this existing transformation supplies an effective seed password. Their
+status is `active` only in exact `development`, otherwise `suspended`. Matching is case-insensitive:
+title exactly `super user`, or first name `admin` and last name `developer` or `user`. This is not a
 permission check and does not create a missing seed user. Update modes overwrite the matching target
 values.
 

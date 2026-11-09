@@ -3112,9 +3112,38 @@ describe('seeder registration and CLI', () => {
 		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 	})
 
-	it('extracts settings without license secrets and sorts operation dependencies before dependents', async () => {
+	it.each(['*', '**********'])(
+		'rejects masked user passwords %j before any collection mutates',
+		async (password) => {
+			await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"earlier-role"}]')
+			await writeFile(
+				path.join(directory, 'directus_users.json'),
+				JSON.stringify([
+					{ id: 'first-user', password: 'explicit-password' },
+					{ id: 'masked-user', title: 'super user', password },
+				]),
+			)
+			const service = createProgram({
+				DEFAULT_PASSWORD: 'environment-password',
+				SEEDER_CONTINUE_ON_ERROR: true,
+			})
+			const error = vi.spyOn(logger, 'error')
+			expect(
+				await runCommand(service.program, 'system', '--mode', 'insert-update', '--yes'),
+			).toBe(1)
+			expect(error).toHaveBeenCalledWith(
+				expect.stringContaining('Masked passwords are not allowed'),
+			)
+			expectNoMutations(service)
+		},
+	)
+
+	it('omits protected system fields and sorts operation dependencies before dependents', async () => {
 		const service = createProgram({ DEPLOYMENT_ENV: 'development' })
 		service.readByQuery
+			.mockResolvedValueOnce([
+				{ id: 'user', email: 'local@example.test', password: '**********' },
+			])
 			.mockResolvedValueOnce([
 				{ id: 'dependent', resolve: 'dependency', reject: null },
 				{ id: 'dependency', resolve: null, reject: null },
@@ -3132,10 +3161,14 @@ describe('seeder registration and CLI', () => {
 				service.program,
 				'extract',
 				'--include',
+				'directus_users',
 				'directus_settings',
 				'directus_operations',
 			),
 		).toBe(0)
+		expect(
+			JSON.parse(await readFile(path.join(directory, 'directus_users.json'), 'utf8')),
+		).toEqual([{ id: 'user', email: 'local@example.test' }])
 		expect(
 			JSON.parse(await readFile(path.join(directory, 'directus_operations.json'), 'utf8')),
 		).toEqual([

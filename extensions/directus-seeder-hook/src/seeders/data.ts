@@ -20,6 +20,26 @@ export interface CollectionData {
 	data: SeedItem[]
 }
 
+/** Reject concealed passwords in raw user input before transformations or import mutations. */
+const userSeedItemsSchema = seedItemsSchema.superRefine((items, context) => {
+	for (const [index, item] of items.entries()) {
+		if (
+			item !== null &&
+			typeof item === 'object' &&
+			'password' in item &&
+			typeof item.password === 'string' &&
+			/^\*+$/.test(item.password)
+		) {
+			context.addIssue({
+				code: 'custom',
+				path: [index, 'password'],
+				message:
+					'Masked passwords are not allowed; omit password to preserve it or provide an explicit password',
+			})
+		}
+	}
+})
+
 /**
  * Validates that parsed JSON data is an array as expected for collection data.
  * Collection seed files should always contain arrays of items.
@@ -37,13 +57,14 @@ const validateCollectionData = (data: unknown): data is SeedItem[] =>
  * @param collection - Collection name for type inference and error reporting
  * @param fileContent - Raw JSON string content from file
  * @returns The original array, preserving every row unchanged
- * @throws If JSON syntax or the array boundary is invalid
+ * @throws If JSON syntax or the array boundary is invalid, or user input contains masked passwords
  */
 const parseCollectionData = (collection: string, fileContent: string): SeedItem[] => {
 	const parsedData: unknown = JSON.parse(fileContent)
 	if (!validateCollectionData(parsedData)) {
 		throw new Error(`Expected a JSON array for collection "${collection}"`)
 	}
+	if (collection === 'directus_users') userSeedItemsSchema.parse(parsedData)
 	return parsedData
 }
 

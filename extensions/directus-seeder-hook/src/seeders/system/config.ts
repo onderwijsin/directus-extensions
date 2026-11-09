@@ -62,7 +62,6 @@ export const SYSTEM_COLLECTIONS: CollectionConfig[] = [
 			'title',
 			'description',
 			'email',
-			'password',
 			'status',
 			'provider',
 			'role',

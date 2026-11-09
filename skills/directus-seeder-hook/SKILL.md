@@ -39,6 +39,13 @@ Read **Primary keys and input preflight**, **System transformations and compatib
   must fail before any selected collection mutates.
 - Core rows require unique explicit live-schema primary keys: lowercase UUID, nonempty string, or
   safe integer, including non-`id` field names. Verify scalar foreign keys and dependency order.
+- For ordinary users, supply an explicit `password` to create a login-ready development user or
+  change an existing password in an updating mode. Omitting it preserves an existing password;
+  `insert-missing` never updates existing users. A `password` containing only one or more asterisks
+  is rejected before any selected collection mutates, even with continuation enabled and before
+  root-user environment overrides. Matching root users still receive an effective seed password from
+  `DEFAULT_PASSWORD`, even when their JSON omits `password`. Their email and status transformations
+  still apply as described in the README.
 - Review a target backup and every effective mode: CLI `--mode`, then collection configuration.
   Full-idempotent requires `SEEDER_ENABLE_FULL_IDEMPOTENT=true` even with `--yes`/`--force`.
   `--full-reset` bypasses management and can delete unmanaged rows in whole selected collections.
@@ -58,6 +65,9 @@ Read **Extraction, assets, and automatic behavior** before writing output.
 - Require exact `DEPLOYMENT_ENV=development`. Manual `seed extract` defaults to system; choose
   `--scope core|both` when needed. Explicit core fields must include the actual primary key or `*`;
   the Seeder never adds it. Relation management does not filter extraction or require source seeds.
+- Expect `directus_users.password` to be omitted from extracted JSON even with explicit fields,
+  wildcards, or `fields: null`; Directus conceals existing passwords. Reseeding ordinary users from
+  that output preserves their passwords. Review other fields for secrets before sharing output.
 - Review cleanup first: it removes direct regular scope JSON except manifests, including unselected
   files. System binary export reads all files independently of JSON filters and cleans the asset
   directory. Use `--json-only` to preserve binaries and manual `--skip-clean` to preserve other

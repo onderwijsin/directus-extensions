@@ -623,6 +623,7 @@ export const createSystemDataProviders = (
  */
 const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem[] => {
 	const omitFields: Record<string, string[]> = {
+		directus_users: ['password'],
 		directus_settings: ['license_key', 'license_token'],
 	}
 
@@ -642,7 +643,7 @@ const filterExtractedData = (collectionName: string, data: SeedItem[]): SeedItem
 }
 
 /**
- * Prepares system rows for extraction, omitting license values before sorting operations.
+ * Prepares system rows for extraction, omitting passwords and license values before sorting operations.
  * @param collectionName - System collection being extracted.
  * @param data - Validated rows returned by Directus.
  * @returns Rows prepared for serialization with the existing system transformations.
