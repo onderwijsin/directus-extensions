@@ -111,7 +111,12 @@ function createProgram(env: Record<string, unknown> = {}) {
 		collections: Object.fromEntries(
 			SYSTEM_COLLECTIONS.map(({ collection }) => [
 				collection,
-				{ primary: 'id', fields: { id: { type: 'string' } } },
+				{
+					primary: 'id',
+					fields: {
+						id: { type: collection === 'directus_presets' ? 'integer' : 'string' },
+					},
+				},
 			]),
 		),
 	})
@@ -1128,7 +1133,7 @@ describe('seeder registration and CLI', () => {
 		expect(yesNo).not.toHaveBeenCalled()
 	})
 
-	it('preflights every present managed collection under its effective mode before earlier inserts', async () => {
+	it('preflights system range key types under the effective mode before earlier inserts', async () => {
 		const configPath = path.join(directory, 'consumer.json')
 		await writeFile(
 			configPath,
@@ -1145,14 +1150,19 @@ describe('seeder registration and CLI', () => {
 			}),
 		)
 		await writeFile(path.join(directory, 'directus_roles.json'), '[{"id":"role"}]')
-		await writeFile(path.join(directory, 'directus_presets.json'), '[{"id":20}]')
+		await writeFile(path.join(directory, 'directus_presets.json'), '[{"id":"10"}]')
 		const service = createProgram({
 			SEEDER_CONFIG_PATH: configPath,
 			SEEDER_ENABLE_FULL_IDEMPOTENT: true,
 			SEEDER_CONTINUE_ON_ERROR: true,
 		})
+		const errorLog = vi.spyOn(logger, 'error')
 		expect(await runCommand(service.program, 'system', '--yes')).toBe(1)
-		expectNoServiceCalls(service)
+		expect(errorLog).toHaveBeenCalledWith(
+			expect.stringContaining('Invalid seed primary key "directus_presets.id"'),
+		)
+		expectNoMutations(service)
+		expect(service.readByQuery).not.toHaveBeenCalled()
 		// Selection still controls which present seed files are preflighted.
 		expect(
 			await runCommand(service.program, 'system', '--yes', '--exclude', 'directus_presets'),

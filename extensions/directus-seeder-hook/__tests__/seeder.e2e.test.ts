@@ -114,6 +114,7 @@ const articles = 'seeder_e2e_articles'
 const coreClient = createDirectus<{
 	seeder_e2e_categories: CoreCategory[]
 	seeder_e2e_articles: CoreArticle[]
+	seeder_e2e_bigints: { key: string; title: string }[]
 }>(baseUrl)
 	.with(rest())
 	.with(staticToken(token))
@@ -628,6 +629,113 @@ describe('installed seeder CLI', () => {
 			)
 			expect(JSON.parse(manifest.stdout)).toEqual([2, 10, 30])
 		})
+	})
+
+	it('roundtrips PostgreSQL bigint strings and manifests through repeated imports', async () => {
+		const collection = 'seeder_e2e_bigints'
+		const directory = `/tmp/seeder-bigint-e2e-${randomUUID()}`
+		const ids = ['2', '9007199254740992', '9007199254740993']
+		const staleId = '9007199254740994'
+		const rows = [...ids, staleId].map((key) => ({ key, title: 'extracted' }))
+		const environment = {
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_CONFIG_PATH: `${directory}/config.json`,
+			SEEDER_SEEDS_DIR: `${directory}/seeds`,
+			SEEDER_ENABLE_FULL_IDEMPOTENT: 'true',
+		}
+		let created = false
+		try {
+			await coreClient.request(
+				createCollection({
+					collection,
+					schema: {},
+					meta: {},
+					fields: [
+						{
+							field: 'key',
+							type: 'bigInteger',
+							schema: {
+								is_primary_key: true,
+								is_nullable: false,
+								has_auto_increment: false,
+							},
+						},
+						{ field: 'title', type: 'string' },
+					],
+				}),
+			)
+			created = true
+			for (const row of rows) await coreClient.request(createItem(collection, row))
+			await inDirectus(
+				'const fs = require("node:fs"); const [root, config] = process.argv.slice(1); fs.mkdirSync(root, { recursive: true }); fs.writeFileSync(`${root}/config.json`, config)',
+				directory,
+				JSON.stringify({
+					core: {
+						collections: {
+							[collection]: {
+								operationMode: 'full-idempotent',
+								management: { type: 'manifest' },
+								sort: ['key'],
+							},
+						},
+					},
+				}),
+			)
+			await seed(environment, 'extract', '--scope', 'core')
+			const extracted = await inDirectus(
+				'const fs = require("node:fs"); const [root, collection] = process.argv.slice(1); const read = suffix => JSON.parse(fs.readFileSync(`${root}/seeds/core/${collection}${suffix}.json`, "utf8")); process.stdout.write(JSON.stringify({ rows: read(""), ids: read(".managed-ids") }))',
+				directory,
+				collection,
+			)
+			expect(JSON.parse(extracted.stdout)).toEqual({ rows, ids: [...ids, staleId] })
+			// Retain stale history and its database row while importing the other extracted rows.
+			await inDirectus(
+				'const fs = require("node:fs"); const [root, collection, stale] = process.argv.slice(1); const file = `${root}/seeds/core/${collection}.json`; fs.writeFileSync(file, JSON.stringify(JSON.parse(fs.readFileSync(file, "utf8")).filter(row => row.key !== stale)))',
+				directory,
+				collection,
+				staleId,
+			)
+			for (const id of ids) await coreClient.request(deleteItem(collection, id))
+			const first = await seed(environment, 'core', '--mode', 'insert-missing', '--yes')
+			expect(first.stdout).toContain(
+				`Seeded ${collection}: 3 created, 0 updated, 0 deleted, 0 skipped`,
+			)
+			const repeated = await seed(environment, 'core', '--mode', 'insert-missing', '--yes')
+			expect(repeated.stdout).toContain(
+				`Seeded ${collection}: 0 created, 0 updated, 0 deleted, 3 skipped`,
+			)
+			await coreClient.request(
+				updateItem(collection, '9007199254740993', { title: 'changed' }),
+			)
+			const synchronized = await seed(environment, 'core', '--yes')
+			expect(synchronized.stdout).toContain(
+				`Seeded ${collection}: 0 created, 3 updated, 1 deleted, 0 skipped`,
+			)
+			expect(await coreClient.request(readItems(collection, { sort: ['key'] }))).toEqual(
+				rows.slice(0, 3),
+			)
+			const resynchronized = await seed(environment, 'core', '--yes')
+			expect(resynchronized.stdout).toContain(
+				`Seeded ${collection}: 0 created, 3 updated, 0 deleted, 0 skipped`,
+			)
+			expect(await coreClient.request(readItems(collection, { sort: ['key'] }))).toEqual(
+				rows.slice(0, 3),
+			)
+			const manifest = await inDirectus(
+				'process.stdout.write(require("node:fs").readFileSync(process.argv[1], "utf8"))',
+				`${directory}/seeds/core/${collection}.managed-ids.json`,
+			)
+			expect(JSON.parse(manifest.stdout)).toEqual([...ids, staleId])
+		} finally {
+			try {
+				if (created) await coreClient.request(deleteCollection(collection))
+			} finally {
+				await inDirectus(
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				)
+			}
+		}
 	})
 
 	it('preflights core ranges and scalar relations before mutations and preserves unmanaged rows', async () => {

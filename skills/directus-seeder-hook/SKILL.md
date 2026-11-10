@@ -37,8 +37,17 @@ Read **Primary keys and input preflight**, **System transformations and compatib
 - Choose `seed system` or `seed core` and verify the scope directory exists. Missing target files
   skip work; valid `[]` can delete the managed selection in full-idempotent. Invalid required input
   must fail before any selected collection mutates.
-- Core rows require unique explicit live-schema primary keys: lowercase UUID, nonempty string, or
-  safe integer, including non-`id` field names. Verify scalar foreign keys and dependency order.
+- Core rows require unique explicit live-schema primary keys, including non-`id` field names:
+  lowercase UUID, nonempty string, safe `integer` number, or canonical decimal `bigInteger` string.
+  Preserve bigint strings in seeds and manifests, including small IDs (`"2"`) and large IDs
+  (`"9007199254740993"`). Accept `0` or an optional minus sign followed by digits without leading
+  zeroes; reject numeric bigint IDs, plus signs, leading zeroes, `-0`, whitespace, fractions, and
+  exponents. PostgreSQL roundtrips are verified; other databases require Directus and its driver to
+  return bigint strings too. Verify scalar foreign keys and dependency order.
+- Keep ID-range bounds as safe integer numbers. Seed IDs use their schema representation, with exact
+  numeric comparisons for bigint strings. For mixed integer/bigInteger relations, source membership
+  uses the FK representation (safe number for integer, decimal string for bigint); unrepresentable
+  source IDs fail preflight. Keep seed payloads in their original representation.
 - For ordinary users, supply an explicit `password` to create a login-ready development user or
   change an existing password in an updating mode. Omitting it preserves an existing password;
   `insert-missing` never updates existing users. A `password` containing only one or more asterisks

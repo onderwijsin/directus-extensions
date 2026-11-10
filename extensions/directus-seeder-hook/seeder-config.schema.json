@@ -1034,7 +1034,7 @@
 					"required": ["max"]
 				}
 			],
-			"description": "Managed safe integer IDs: min inclusive, max exclusive. Supply at least one bound; min must be less than max when both are set."
+			"description": "Managed integer IDs: safe-integer min inclusive, max exclusive. Supply at least one bound; min must be less than max when both are set."
 		},
 		"__schema63": {
 			"type": "string",

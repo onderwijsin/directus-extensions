@@ -308,11 +308,16 @@ Unselected files are ignored unless needed as Flow metadata or a relation source
   file context. Missing data is never silently converted to `[]`.
 
 Core resolves the actual live schema primary key, including names other than `id`. Every imported
-row requires a unique schema-compatible key: canonical lowercase UUID, nonempty string, or safe
-integer number, without coercion. Missing/duplicate/invalid keys, missing collections, alias or
-missing keys, and unsupported key types fail before mutations in every mode, including full reset.
-Explicit extraction `fields` must contain that key or `'*'`; `[]` fails. Omitted/null fields use
-`['*']`. The Seeder never inserts a key into an explicit projection.
+row requires a unique schema-compatible key: canonical lowercase UUID, nonempty string, safe
+`integer` number, or canonical decimal `bigInteger` string, without coercion. Big-integer keys
+retain their string representation, including small IDs such as `"2"` and values beyond JavaScript's
+safe integer range such as `"9007199254740993"`. Decimal strings allow `0` or an optional minus sign
+followed by digits without leading zeroes; numbers, `+2`, `02`, `-0`, whitespace, fractions, and
+exponents are rejected for big-integer keys. PostgreSQL roundtrips are verified; other databases
+require Directus and its driver to return bigint strings as well. Missing/duplicate/invalid keys,
+missing collections, alias or missing keys, and unsupported key types fail before mutations in every
+mode, including full reset. Explicit extraction `fields` must contain that key or `'*'`; `[]` fails.
+Omitted/null fields use `['*']`. The Seeder never inserts a key into an explicit projection.
 
 ### System transformations and compatibility
 
@@ -387,8 +392,9 @@ that full-idempotent later deletes.
 `min` is inclusive, `max` exclusive; at least one is required and `min < max` when both are present.
 Bounds must be safe-integer numbers; unknown properties/types, null, fractional, unsafe, or empty
 bounds fail configuration validation regardless of mode. Bounded full-idempotent seed IDs must be
-explicit safe integers within the range. Core range extraction/import also requires an integer or
-big-integer schema primary key.
+explicit safe integer numbers or canonical decimal bigint strings within the range. Comparisons are
+exact even for bigint IDs outside JavaScript's safe integer range; bounds remain safe-integer
+numbers. Core range extraction/import also requires an integer or big-integer schema primary key.
 
 Full-idempotent preserves out-of-range rows; `[]` deletes only in-range rows. Extraction ANDs the
 range with its query filter, but deletion uses only the range. For example, the presets
@@ -404,8 +410,9 @@ deletion.
 History lives beside seeds at `<seeds-root>/<scope>/<collection>.managed-ids.json`, as a plain ID
 array. Extraction queries current data independently of existing seeds/history and unions exported
 IDs into that manifest, deduplicated and sorted lexically for strings or numerically for numbers.
-IDs must match the live primary-key type: lowercase UUID, nonempty string, or safe integer; other
-string keys retain case. Include the primary key in extracted fields.
+IDs must match the live primary-key type: lowercase UUID, nonempty string, safe integer number, or
+canonical decimal bigint string. Bigint IDs remain strings in history; other string keys retain
+case. Include the primary key in extracted fields.
 
 A missing manifest is created on extraction. Empty exports write ordinary seed `[]` while keeping
 history. Only extracted collections update history. Invalid/unreadable existing manifests fail and
@@ -441,8 +448,11 @@ types. Paths, aliases, compound relationships, and nested relation objects are u
 Required sources must be readable valid arrays with explicit unique schema-compatible keys. Source
 filters, management, and transformations do not narrow raw membership; management is not recursive.
 Target rows need explicit primary keys and a non-null scalar foreign key belonging to that set.
-Lowercase UUIDs, exact nonempty string keys, and safe integers are validated without coercion. An
-existing target seed-ID collision outside membership aborts instead of moving that row into it.
+Lowercase UUIDs, exact nonempty string keys, safe integer numbers, and canonical decimal bigint
+strings are validated. For mixed integer/bigInteger relations, source membership is represented in
+the foreign key's type: a bigint FK uses strings, an integer FK uses safe numbers. Seed payloads
+retain their values; unrepresentable source IDs fail preflight. An existing target seed-ID collision
+outside membership aborts instead of moving that row into it.
 
 A missing/invalid source fails preflight rather than implying an empty/unbounded set. Source `[]`
 with target `[]` does no target reads/mutations; nonempty target seeds fail. Target `[]` with a

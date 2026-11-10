@@ -104,6 +104,9 @@ export async function seedCollections(
 		}
 		let management: ResolvedCollectionManagement | undefined
 		const data = seedData[collectionName] ?? []
+		if (!coreSchema && collection.management?.type === 'id-range') {
+			validateCollectionSeedKeys(collectionName, data, await context.getSchema())
+		}
 		if (
 			collection.management?.type === 'relation' ||
 			collection.management?.type === 'manifest'

@@ -34,7 +34,7 @@ export function getCollectionPrimaryKey(collectionName: string, schema: SchemaOv
  * Selects strict key validation for the collection's actual primary field.
  * @param collectionName - Collection to inspect.
  * @param schema - Live Directus schema.
- * @returns A validator for canonical UUIDs, nonempty strings, or safe integers.
+ * @returns A validator for canonical UUIDs, nonempty strings, safe integers, or decimal bigints.
  */
 export function getCollectionPrimaryKeySchema(collectionName: string, schema: SchemaOverview) {
 	const primary = getCollectionPrimaryKey(collectionName, schema)
@@ -42,7 +42,7 @@ export function getCollectionPrimaryKeySchema(collectionName: string, schema: Sc
 }
 
 /**
- * Preflights every core seed key before any selected collection can mutate.
+ * Preflights schema-compatible seed keys before any selected collection can mutate.
  * @param collectionName - Collection being imported.
  * @param data - Unmodified seed rows.
  * @param schema - Live Directus schema.

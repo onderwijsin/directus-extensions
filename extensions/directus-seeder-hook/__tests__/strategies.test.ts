@@ -297,22 +297,35 @@ describe('seed strategies', () => {
 		}
 	})
 
-	it('requires explicit safe integer seed IDs and respects the inclusive lower bound', () => {
-		const management = { type: 'id-range', min: 10 }
-		expect(validateManagedSeedData('fixture', [{ id: 10 }], management)).toEqual(management)
+	it('compares integer and decimal bigint IDs exactly against safe numeric bounds', () => {
+		const management = { type: 'id-range', min: 10, max: 20 }
+		expect(
+			validateManagedSeedData(
+				'fixture',
+				[{ id: 10 }, { id: '10' }, { id: '19' }],
+				management,
+			),
+		).toEqual(management)
+		const unbounded = { type: 'id-range', min: 10 }
+		expect(validateManagedSeedData('fixture', [{ id: '9007199254740993' }], unbounded)).toEqual(
+			unbounded,
+		)
 		expect(() => validateManagedSeedData('fixture', [{ id: 9 }], management)).toThrow(
 			'ID 9 outside managed ID range',
 		)
+		expect(() => validateManagedSeedData('fixture', [{ id: '20' }], management)).toThrow(
+			'outside managed ID range',
+		)
 		for (const seed of [
 			{},
-			{ id: '10' },
+			{ id: '1e1' },
 			{ id: null },
 			{ id: 10.5 },
 			{ id: Number.MAX_SAFE_INTEGER + 1 },
 			null,
 		]) {
 			expect(() => validateManagedSeedData('fixture', [seed], management)).toThrow(
-				'requires a safe integer numeric ID',
+				'requires a safe integer number or canonical decimal string ID',
 			)
 		}
 	})
@@ -542,14 +555,16 @@ describe('schema primary keys', () => {
 		const strategy = createSeederStrategy(OperationMode.FULL_IDEMPOTENT, 1)
 		const result = await strategy.seedCollection(
 			'children',
-			[{ code: 10 }, { code: '11' }],
+			[{ code: 10 }, { code: '11.5' }],
 			service.adapter,
 			createPerformanceTracker(),
 			management,
 			'code',
 			false,
 		)
-		expect(result.error).toContain('requires a safe integer numeric ID')
+		expect(result.error).toContain(
+			'requires a safe integer number or canonical decimal string ID',
+		)
 		expect(service.getItems).not.toHaveBeenCalled()
 		expect(service.upsertItems).not.toHaveBeenCalled()
 		await strategy.seedCollection(
@@ -614,20 +629,29 @@ describe('schema primary keys', () => {
 		}
 	})
 
-	it.each(['integer', 'bigInteger'] satisfies FieldOverview['type'][])(
-		'preflights safe %s keys without coercion',
-		(type) => {
-			const schema = createSchema(type)
+	it('preflights safe integer keys without coercion', () => {
+		const schema = createSchema('integer')
+		expect(() =>
+			validateCollectionSeedKeys('children', [{ code: 0 }, { code: 42 }], schema),
+		).not.toThrow()
+		for (const code of ['42', 1.5, Number.MAX_SAFE_INTEGER + 1, Infinity, null]) {
 			expect(() =>
-				validateCollectionSeedKeys('children', [{ code: 0 }, { code: 42 }], schema),
-			).not.toThrow()
-			for (const code of ['42', 1.5, Number.MAX_SAFE_INTEGER + 1, Infinity, null]) {
-				expect(() =>
-					validateCollectionSeedKeys('children', [{ code: 0 }, { code }], schema),
-				).toThrow('at row 2')
-			}
-		},
-	)
+				validateCollectionSeedKeys('children', [{ code: 0 }, { code }], schema),
+			).toThrow('at row 2')
+		}
+	})
+
+	it('preserves canonical bigint strings and rejects numeric or noncanonical keys', () => {
+		const schema = createSchema('bigInteger')
+		const codes = ['0', '42', '9007199254740992', '9007199254740993', '-42']
+		const rows = codes.map((code) => ({ code }))
+		expect(() => validateCollectionSeedKeys('children', rows, schema)).not.toThrow()
+		for (const code of [42, '+42', '042', '-0', ' 42', '4.2', '4e2']) {
+			expect(() => validateCollectionSeedKeys('children', [{ code }], schema)).toThrow(
+				'at row 1',
+			)
+		}
+	})
 
 	it('preserves canonical lowercase UUID validation for custom keys', () => {
 		const schema = createSchema('uuid')
@@ -641,6 +665,11 @@ describe('schema primary keys', () => {
 	it.each([
 		{ type: 'string', keys: ['a', 'Z', '10', '2', 'a'], expected: ['10', '2', 'Z', 'a'] },
 		{ type: 'integer', keys: [10, 2, 10], expected: [2, 10] },
+		{
+			type: 'bigInteger',
+			keys: ['9007199254740993', '2', '9007199254740992', '2'],
+			expected: ['2', '9007199254740992', '9007199254740993'],
+		},
 	] satisfies {
 		type: FieldOverview['type']
 		keys: (string | number)[]
@@ -677,16 +706,30 @@ describe('schema primary keys', () => {
 	)
 
 	it.each([
-		{ type: 'string', key: 'parent' },
-		{ type: 'integer', key: 10 },
-	] satisfies { type: FieldOverview['type']; key: string | number }[])(
-		'resolves a relation from the actual source $type primary key',
-		async ({ type, key }) => {
+		{ type: 'string', key: 'parent', fieldType: 'string', foreignId: 'parent' },
+		{ type: 'integer', key: 10, fieldType: 'integer', foreignId: 10 },
+		{
+			type: 'bigInteger',
+			key: '9007199254740993',
+			fieldType: 'bigInteger',
+			foreignId: '9007199254740993',
+		},
+		{ type: 'integer', key: 10, fieldType: 'bigInteger', foreignId: '10' },
+		{ type: 'bigInteger', key: '10', fieldType: 'integer', foreignId: 10 },
+	] satisfies {
+		type: FieldOverview['type']
+		key: string | number
+		fieldType: FieldOverview['type']
+		foreignId: string | number
+	}[])(
+		'resolves $type source keys as $fieldType foreign keys',
+		async ({ type, key, fieldType, foreignId }) => {
 			const directory = await mkdtemp(
 				path.join(await realpath(tmpdir()), 'seeder-relation-primary-'),
 			)
 			onTestFinished(() => rm(directory, { recursive: true, force: true }))
 			const schema = createSchema('string', type)
+			schema.collections.children.fields.owner.type = fieldType
 			await writeFile(
 				path.join(directory, 'parents.json'),
 				JSON.stringify([{ slug: key, id: 'irrelevant' }]),
@@ -696,19 +739,31 @@ describe('schema primary keys', () => {
 				field: 'owner',
 				collection: 'parents',
 			} satisfies Parameters<typeof resolveCollectionManagement>[1]
-			expect(
-				await resolveCollectionManagement('children', management, directory, schema),
-			).toEqual({ ...management, ids: [key] })
-			expect(() =>
-				validateRelationSeedKeys('children', [{ code: 'valid' }], schema),
-			).not.toThrow()
-			expect(() => validateRelationSeedKeys('children', [{ id: 'wrong' }], schema)).toThrow(
-				'Invalid relation-managed seed ID',
+			const resolved = await resolveCollectionManagement(
+				'children',
+				management,
+				directory,
+				schema,
 			)
-			await writeFile(path.join(directory, 'parents.json'), JSON.stringify([{ id: key }]))
-			await expect(
-				resolveCollectionManagement('children', management, directory, schema),
-			).rejects.toThrow('Invalid related seed ID')
+			expect(resolved).toEqual({ ...management, ids: [foreignId] })
+			expect(() =>
+				validateManagedSeedData(
+					'children',
+					[{ code: 'child', owner: foreignId }],
+					resolved,
+					'code',
+					false,
+				),
+			).not.toThrow()
+			if (type === 'bigInteger' && fieldType === 'integer') {
+				await writeFile(
+					path.join(directory, 'parents.json'),
+					JSON.stringify([{ slug: '9007199254740993' }]),
+				)
+				await expect(
+					resolveCollectionManagement('children', management, directory, schema),
+				).rejects.toThrow('Invalid related seed ID')
+			}
 		},
 	)
 
@@ -758,10 +813,17 @@ describe('schema primary keys', () => {
 			).rejects.toThrow('Failed to resolve relation management')
 		}
 		const schema = createSchema()
+		expect(() =>
+			validateRelationSeedKeys('children', [{ code: 'valid' }], schema),
+		).not.toThrow()
+		expect(() => validateRelationSeedKeys('children', [{ id: 'wrong' }], schema)).toThrow(
+			'Invalid relation-managed seed ID',
+		)
 		for (const rows of [
 			[{ slug: 'same' }, { slug: 'same' }],
 			[{ slug: null }],
 			[{ slug: { id: 'nested' } }],
+			[{ id: 'parent' }],
 		]) {
 			await writeFile(path.join(directory, 'parents.json'), JSON.stringify(rows))
 			await expect(

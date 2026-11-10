@@ -71,8 +71,12 @@ export async function resolveCollectionManagement(
 			try {
 				const record = z.looseObject({}).parse(row)
 				const id = sourceKeySchema.parse(record[sourcePrimary])
-				fieldKeySchema.parse(id)
-				return id
+				// Mixed numeric relations use the FK's representation for membership and filters.
+				if (sourceType === 'integer' && field.type === 'bigInteger')
+					return fieldKeySchema.parse(String(id))
+				if (sourceType === 'bigInteger' && field.type === 'integer')
+					return fieldKeySchema.parse(Number(id))
+				return fieldKeySchema.parse(id)
 			} catch (error) {
 				throw new Error(`Invalid related seed ID at row ${index + 1}`, { cause: error })
 			}

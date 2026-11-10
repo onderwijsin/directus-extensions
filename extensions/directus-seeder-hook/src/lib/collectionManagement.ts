@@ -3,6 +3,8 @@ import type { SeedItem } from './seedItem'
 
 import { z } from 'zod'
 
+import { bigIntegerKeySchema } from './managementKeys'
+
 /** Complete numeric management boundary; lower bound inclusive, upper bound exclusive. */
 const idRangeManagementSchema = z
 	.strictObject({ type: z.literal('id-range'), min: z.int().optional(), max: z.int().optional() })
@@ -16,7 +18,7 @@ const idRangeManagementSchema = z
 	.meta({
 		anyOf: [{ required: ['min'] }, { required: ['max'] }],
 		description:
-			'Managed safe integer IDs: min inclusive, max exclusive. Supply at least one bound; min must be less than max when both are set.',
+			'Managed integer IDs: safe-integer min inclusive, max exclusive. Supply at least one bound; min must be less than max when both are set.',
 	})
 
 const identifierSchema = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/u)
@@ -48,7 +50,7 @@ const resolvedManagementSchema = z.discriminatedUnion('type', [
 export type ResolvedCollectionManagement = z.infer<typeof resolvedManagementSchema>
 
 const seedRowSchema = z.looseObject({})
-const numericSeedKeySchema = z.int()
+const numericSeedKeySchema = z.union([z.int(), bigIntegerKeySchema])
 
 /**
  * Validates the resolved management boundary and every seed row before any import mutations.
@@ -133,11 +135,11 @@ export function validateManagedSeedData(
 		)
 		if (!parsedId.success) {
 			throw new Error(
-				`Seed record ${index + 1} for collection "${collectionName}" requires a safe integer numeric ID for id-range management`,
+				`Seed record ${index + 1} for collection "${collectionName}" requires a safe integer number or canonical decimal string ID for id-range management`,
 			)
 		}
-		const id = parsedId.data
-		if ((min !== undefined && id < min) || (max !== undefined && id >= max)) {
+		const id = BigInt(parsedId.data)
+		if ((min !== undefined && id < BigInt(min)) || (max !== undefined && id >= BigInt(max))) {
 			throw new Error(
 				`Seed record ${index + 1} for collection "${collectionName}" has ID ${id} outside managed ID range [${min ?? '-infinity'}, ${max ?? 'infinity'})`,
 			)
