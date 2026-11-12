@@ -214,6 +214,8 @@ describe('automatic scoped extraction', () => {
 			expect(action.mock.calls.map(([event]) => event)).toEqual([
 				...(system ? ['users.create', 'users.update', 'users.delete'] : []),
 				...(core ? ['posts.items.create', 'posts.items.update', 'posts.items.delete'] : []),
+				'server.stop',
+				'extensions.unload',
 			])
 		},
 	)
@@ -239,6 +241,8 @@ describe('automatic scoped extraction', () => {
 			'tags.items.create',
 			'tags.items.update',
 			'tags.items.delete',
+			'server.stop',
+			'extensions.unload',
 		])
 		for (const DEPLOYMENT_ENV of ['development', 'production']) {
 			expect(() =>
@@ -303,6 +307,38 @@ describe('automatic scoped extraction', () => {
 			])
 		},
 	)
+
+	it('cancels pending extraction on server stop and ignores subsequent events', async () => {
+		const action = register()
+		emit(action, 'users.create')
+		emit(action, 'server.stop')
+		emit(action, 'server.stop')
+		emit(action, 'users.update', { first_name: 'After disposal' })
+		expect(vi.getTimerCount()).toBe(0)
+		await advance(15_000)
+		expect(mocks.extract).not.toHaveBeenCalled()
+	})
+
+	it('lets running extraction finish after unload without scheduling pending events', async () => {
+		let finish: (() => void) | undefined
+		mocks.extract.mockImplementationOnce(
+			() =>
+				new Promise<void>((resolve) => {
+					finish = resolve
+				}),
+		)
+		const action = register()
+		emit(action, 'users.create')
+		await advance(15_000)
+		expect(mocks.extract).toHaveBeenCalledOnce()
+		emit(action, 'users.update', { first_name: 'While running' })
+		emit(action, 'extensions.unload')
+		const schedule = vi.spyOn(globalThis, 'setTimeout')
+		finish?.()
+		await vi.advanceTimersByTimeAsync(0)
+		expect(schedule).not.toHaveBeenCalled()
+		expect(existsSync(path.join(directory, 'directus-lock-bulk-operation.flag'))).toBe(false)
+	})
 
 	it.each([1_000, 16_000])(
 		'retains events during extraction without concurrent writes after %sms',
@@ -535,6 +571,8 @@ describe('automatic scoped extraction', () => {
 			'roles.update',
 			'presets.delete',
 			'roles.delete',
+			'server.stop',
+			'extensions.unload',
 		])
 		emit(action, 'roles.create')
 		await advance(15_000)

@@ -58,8 +58,11 @@ export const registerSeeder: HookConfig = (register, context) => {
 	// Validate declared core allowlist names even when this environment cannot extract.
 	if (!configInspection && !extractionAvailable && options.SEEDER_AUTO_EXTRACT_INCLUDE)
 		resolveSeederConfig(options)
-	if (extractionAvailable && process.argv[2] !== 'seed')
-		registerAutoExtractHook(action, seederContext)
+	if (extractionAvailable && process.argv[2] !== 'seed') {
+		const dispose = registerAutoExtractHook(action, seederContext)
+		action('server.stop', dispose)
+		action('extensions.unload', dispose)
+	}
 	setup.end()
 }
 

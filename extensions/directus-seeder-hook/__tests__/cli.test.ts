@@ -38,7 +38,7 @@ type HookRegister = (
 
 const mocks = vi.hoisted(() => ({
 	register: vi.fn<HookRegister>(),
-	autoExtract: vi.fn(),
+	autoExtract: vi.fn(() => vi.fn()),
 	acquireLock: vi.fn(),
 	releaseLock: vi.fn(() => true),
 }))
@@ -852,13 +852,13 @@ describe('seeder registration and CLI', () => {
 			expect(mocks.autoExtract).not.toHaveBeenCalled()
 		})
 
-		it('skips automatic-hook registration for seed commands while preserving other commands', () => {
+		it('skips automatic-hook registration for seed commands while preserving server startup', () => {
 			for (const command of ['system', 'core', 'extract']) {
 				process.argv = ['node', '/directus/cli.js', 'seed', command]
 				createProgram({ DEPLOYMENT_ENV: 'development', SEEDER_AUTO_EXTRACT_SYSTEM: true })
 			}
 			expect(mocks.autoExtract).not.toHaveBeenCalled()
-			process.argv = ['node', '/directus/cli.js', 'other', 'config']
+			process.argv = ['node', '/directus/cli.js', 'start']
 			createProgram({ DEPLOYMENT_ENV: 'development', SEEDER_AUTO_EXTRACT_SYSTEM: true })
 			expect(mocks.autoExtract).toHaveBeenCalledOnce()
 		})

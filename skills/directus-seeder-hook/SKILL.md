@@ -92,6 +92,10 @@ Read **Extraction, assets, and automatic behavior** before writing output.
   the shared 15-second debounce. Core-only changes must leave system JSON/assets untouched. Shared
   bulk-lock contention suppresses auto work without retry; file uploads may need manual extraction.
   Restart to reload auto-extract configuration.
+- On `server.stop` or a received `extensions.unload`, pending auto-extraction is canceled and future
+  scheduling stops; running extraction may finish. Reload/disable cleanup requires a Directus
+  version containing [the upstream unload fix](https://github.com/directus/directus/pull/28421);
+  older versions remove listeners before emitting the event and cannot guarantee this cleanup.
 - Accept after checking logs, selected JSON (including `[]` for empty results), manifest history,
   and expected binaries. Inspect secrets before sharing output and stale files retained by selective
   runs. On failure, inspect partial output and rerun deliberately. Run writers sequentially: local

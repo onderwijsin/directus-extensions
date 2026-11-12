@@ -28,7 +28,7 @@ interface AutoTaskOptions {
  * Creates a debounced and lock-protected task handler for automatic operations.
  * Useful for tasks like auto-snapshotting or auto-extracting seeds in response to events.
  * @param options - Configuration options for the auto task handler.
- * @returns A function that can be called to trigger the task with debouncing and locking.
+ * @returns A debounced trigger with disposal that lets running work finish.
  */
 export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 	const {
@@ -45,6 +45,7 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 	const debounceLockPath = join(tmpdir(), `directus-debounce-${debounceId}.lock`)
 	let timer: NodeJS.Timeout | null = null
 	let running = false
+	let disposed = false
 
 	/**
 	 * Reads the marker while tolerating cleanup by another process.
@@ -66,7 +67,7 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 	const run = async () => {
 		// A later event may finish its debounce while this task still holds the lock.
 		// Its marker remains pending and is scheduled again by the running task.
-		if (running) return
+		if (disposed || running) return
 		const debounceLockStats = statSync(debounceLockPath, { throwIfNoEntry: false })
 		if (!debounceLockStats) return
 
@@ -123,7 +124,7 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 			if (nextMarker !== undefined) {
 				if (nextMarker === marker) {
 					rmSync(debounceLockPath, { force: true })
-				} else {
+				} else if (!disposed) {
 					if (timer) clearTimeout(timer)
 					timer = setTimeout(() => void run(), 0)
 				}
@@ -131,7 +132,12 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 		}
 	}
 
-	return () => {
+	/**
+	 * Records an event and restarts the debounce unless this handler has been disposed.
+	 * @returns Nothing.
+	 */
+	const trigger = () => {
+		if (disposed) return
 		const debounceLockStats = statSync(debounceLockPath, { throwIfNoEntry: false })
 
 		if (debounceLockStats) {
@@ -150,4 +156,16 @@ export const createAutoTaskHandler = (options: AutoTaskOptions) => {
 		timer = setTimeout(() => void run(), debounceTime)
 		logger.info(`🪝 ${debounceId}: scheduled after ${debounceTime / 1000}s`)
 	}
+
+	/**
+	 * Cancels pending work and prevents future scheduling without interrupting a running task.
+	 * @returns Nothing.
+	 */
+	trigger.dispose = (): void => {
+		disposed = true
+		if (timer) clearTimeout(timer)
+		timer = null
+	}
+
+	return trigger
 }

@@ -567,6 +567,12 @@ system JSON/assets untouched. Enabling auto-extract does not extract or import a
 Automatic extraction hooks are not registered in Seeder CLI processes (`seed system`, `seed core`,
 `seed extract`, or `seed config`).
 
+On `server.stop` or a received `extensions.unload` event, pending automatic extraction is canceled
+and new events no longer schedule work; an extraction already running may finish. Unload cleanup
+requires a Directus version containing
+[the upstream fix](https://github.com/directus/directus/pull/28421). Older versions unregister hook
+listeners before emitting that event, so reload/disable cleanup is not guaranteed there.
+
 Automatic failures are logged per scope; other changed scopes are still attempted. There is no
 automatic retry. Inspect partial output, fix the cause, and trigger a new event or extract manually.
 

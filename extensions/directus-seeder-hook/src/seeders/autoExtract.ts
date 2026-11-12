@@ -12,12 +12,12 @@ import { getCollections, resolveSeederConfig } from './resolveConfig'
  * Registers scope-specific CRUD events with one debounce and bulk-operation lock.
  * @param action - Directus action registration function.
  * @param context - Validated Directus hook runtime.
- * @returns Nothing.
+ * @returns Cleanup for pending automatic extraction; running work may finish.
  */
 export function registerAutoExtractHook(
 	action: (event: string, handler: ActionHandler) => void,
 	context: ServiceAdapterContext,
-): void {
+): () => void {
 	const { logger, env } = context
 	const autoInclude = env.SEEDER_AUTO_EXTRACT_INCLUDE
 	const base = resolveSeederConfig(env)
@@ -105,4 +105,6 @@ export function registerAutoExtractHook(
 			`[directus-seeder-hook] ✅ Auto-extract ${config.dataScope} hook registered for events: ${events.join(', ')}`,
 		)
 	}
+
+	return schedule.dispose
 }
