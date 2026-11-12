@@ -5,7 +5,7 @@ import type { CollectionConfig } from './config.schema'
 import path from 'node:path'
 
 import { getIdRangeFilters } from '../lib/collectionManagement'
-import { outputFile, prepareExtractionDirectories } from '../lib/filesystem'
+import { outputFile, prepareExtractionDirectories, validateDirectory } from '../lib/filesystem'
 import { updateManagedIds } from '../lib/manifestManagement'
 import { createPerformanceTracker } from '../lib/performanceTracker'
 import { getCollectionPrimaryKey, validateCollectionSeedKeys } from '../lib/primaryKey'
@@ -317,12 +317,14 @@ export async function extractData(options: ExtractOptions): Promise<void> {
 	}
 	const jsonOnly = options.jsonOnly || options.dataScope === 'core'
 	if (!jsonOnly) {
-		const otherSeeds = path.resolve(
-			options.folders.seeds,
-			'..',
-			options.dataScope === 'system' ? 'core' : 'system',
+		const otherSeeds = await validateDirectory(
+			path.resolve(
+				options.folders.seeds,
+				'..',
+				options.dataScope === 'system' ? 'core' : 'system',
+			),
 		)
-		const assets = path.resolve(options.folders.assets)
+		const assets = await validateDirectory(path.resolve(options.folders.assets))
 		if (otherSeeds === assets || otherSeeds.startsWith(`${assets}${path.sep}`))
 			throw new Error(
 				'Extraction directories conflict: assets must not equal or contain the other seed scope',

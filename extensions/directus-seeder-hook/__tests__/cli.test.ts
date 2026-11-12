@@ -1,6 +1,7 @@
 import type { SchemaOverview } from '@directus/types'
 import type { Logger } from 'pino'
 
+import { existsSync } from 'node:fs'
 import {
 	link,
 	lstat,
@@ -627,15 +628,28 @@ describe('seeder registration and CLI', () => {
 				deep: null,
 				limit: -1,
 			})
+			const core = path.join(seedRoot, 'core')
+			const caseVariant = path.join(seedRoot, 'CORE')
+			const seed = await readFile(path.join(core, 'articles.json'), 'utf8')
+			const manifest = '[10]\n'
+			await writeFile(path.join(core, 'articles.managed-ids.json'), manifest)
 			const overlapping = createProgram({
 				DEPLOYMENT_ENV: 'development',
-				SEEDER_ASSETS_DIR: path.join(seedRoot, 'core'),
+				// Use the case alias only when the filesystem maps it to the existing scope.
+				SEEDER_ASSETS_DIR: existsSync(caseVariant) ? caseVariant : core,
 			})
 			await writeFile(path.join(directory, 'keep.json'), 'system')
+			const error = vi.spyOn(logger, 'error')
 			expect(await runCommand(overlapping.program, 'extract', '--scope', 'system')).toBe(1)
 			expect(await readFile(path.join(directory, 'keep.json'), 'utf8')).toBe('system')
-			expect(await readFile(path.join(seedRoot, 'core', 'articles.json'), 'utf8')).toContain(
-				'"key": 10',
+			expect(await readFile(path.join(core, 'articles.json'), 'utf8')).toBe(seed)
+			expect(await readFile(path.join(core, 'articles.managed-ids.json'), 'utf8')).toBe(
+				manifest,
+			)
+			expect(error).toHaveBeenCalledWith(
+				expect.stringContaining(
+					'Extraction directories conflict: assets must not equal or contain the other seed scope',
+				),
 			)
 			expectNoServiceCalls(overlapping)
 		})

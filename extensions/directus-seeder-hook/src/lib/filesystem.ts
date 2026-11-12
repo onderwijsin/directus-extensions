@@ -11,7 +11,7 @@ import path from 'node:path'
  * @param directory - Resolved output directory to inspect.
  * @returns Canonical path, including any not-yet-existing suffix.
  */
-async function validateDirectory(directory: string): Promise<string> {
+export async function validateDirectory(directory: string): Promise<string> {
 	let current = path.parse(directory).root
 	if (directory === current) throw new Error(`Unsafe extraction directory: ${directory}`)
 	for (const component of directory.slice(current.length).split(path.sep)) {
