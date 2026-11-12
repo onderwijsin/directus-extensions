@@ -319,6 +319,15 @@ missing collections, alias or missing keys, and unsupported key types fail befor
 mode, including full reset. Explicit extraction `fields` must contain that key or `'*'`; `[]` fails.
 Omitted/null fields use `['*']`. The Seeder never inserts a key into an explicit projection.
 
+**Integer primary key `0`**
+
+The Seeder currently does not support records with an integer primary key of `0` due to limitations
+in Directus' `ItemsService`. This is intentionally not worked around by the Seeder.
+
+For further context and Directus' rationale for not addressing this edge case, see
+[issue #28318](https://github.com/directus/directus/issues/28318) and
+[PR #28319](https://github.com/directus/directus/pull/28319).
+
 ### System transformations and compatibility
 
 For ordinary users, explicit seed `password` values are passed to Directus when creating or updating
