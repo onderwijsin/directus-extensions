@@ -564,6 +564,9 @@ a 15-second debounce; further events extend it. Changed scopes run sequentially 
 bulk lock, each refreshing all its selected collections in configured order. Core-only events leave
 system JSON/assets untouched. Enabling auto-extract does not extract or import at startup.
 
+Automatic extraction hooks are not registered in Seeder CLI processes (`seed system`, `seed core`,
+`seed extract`, or `seed config`).
+
 Automatic failures are logged per scope; other changed scopes are still attempted. There is no
 automatic retry. Inspect partial output, fix the cause, and trigger a new event or extract manually.
 

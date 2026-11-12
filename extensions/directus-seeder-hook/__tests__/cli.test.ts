@@ -852,15 +852,15 @@ describe('seeder registration and CLI', () => {
 			expect(mocks.autoExtract).not.toHaveBeenCalled()
 		})
 
-		it('preserves automatic-hook registration unless both CLI tokens identify seed config', () => {
-			for (const args of [
-				['seed', 'system'],
-				['other', 'config'],
-			]) {
-				process.argv = ['node', '/directus/cli.js', ...args]
+		it('skips automatic-hook registration for seed commands while preserving other commands', () => {
+			for (const command of ['system', 'core', 'extract']) {
+				process.argv = ['node', '/directus/cli.js', 'seed', command]
 				createProgram({ DEPLOYMENT_ENV: 'development', SEEDER_AUTO_EXTRACT_SYSTEM: true })
 			}
-			expect(mocks.autoExtract).toHaveBeenCalledTimes(2)
+			expect(mocks.autoExtract).not.toHaveBeenCalled()
+			process.argv = ['node', '/directus/cli.js', 'other', 'config']
+			createProgram({ DEPLOYMENT_ENV: 'development', SEEDER_AUTO_EXTRACT_SYSTEM: true })
+			expect(mocks.autoExtract).toHaveBeenCalledOnce()
 		})
 
 		it('shows one effective collection and rejects unknown names and invalid consumer files with exit 1', async () => {

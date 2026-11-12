@@ -86,6 +86,8 @@ Read **Extraction, assets, and automatic behavior** before writing output.
   allowlist overrides filters and skips cleanup. Names must be supported system/configured core
   collections, even for disabled scopes. System allowlists force JSON-only unless `directus_files`
   is included, and still honor `SEEDER_JSON_ONLY`.
+- Seeder CLI processes (`seed system`, `seed core`, `seed extract`, and `seed config`) do not
+  register automatic extraction hooks.
 - Verify selected CRUD events refresh all selected collections within changed enabled scopes after
   the shared 15-second debounce. Core-only changes must leave system JSON/assets untouched. Shared
   bulk-lock contention suppresses auto work without retry; file uploads may need manual extraction.
