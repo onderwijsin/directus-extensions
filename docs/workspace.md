@@ -195,23 +195,7 @@ and package validation must continue to run after typechecking.
 
 ## Validation order
 
-Run the baseline checks from the repository root:
-
-```sh
-pnpm format
-pnpm build:utils
-pnpm lint:fix
-pnpm lint:actions
-pnpm validate:docs
-pnpm typecheck
-pnpm test:unit
-pnpm build
-pnpm validate:packages
-```
-
-Add `pnpm test:e2e` when the change affects Directus loading, built artifacts, runtime integration,
-Compose services, or E2E behavior. If a required check cannot run, record the exact command and
-blocker; a narrower successful check does not imply that a broader check passed.
-
-Add `pnpm build:utils && pnpm test:integration` when the change affects process coordination,
-filesystem locks, marker stores, or other behavior that crosses a real Node process boundary.
+Select local checks using [`agent-workflow.md`](agent-workflow.md#4-validate-and-review), the source
+of truth for validation by affected surface. The build prerequisites and packed-consumer commands
+above apply when those surfaces change. Required CI and release gates are documented in
+[`ci.md`](ci.md) and [`publishing.md`](publishing.md).

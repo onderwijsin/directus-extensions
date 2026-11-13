@@ -9,16 +9,14 @@ evidence.
 Before editing:
 
 1. Run `git status --short` and preserve existing changes.
-2. State the requested outcome and identify the affected package, extension type, runtime, public
-   contract, tests, documentation, skills, Compose integration, and release surface.
+2. Identify the requested outcome and affected surfaces: code, tests, documentation, runtime, public
+   contracts, and release behavior. Inspect only what is relevant to those surfaces.
 3. Select every matching row in the routing table. Multiple rows commonly apply.
 4. Use the Directus documentation MCP for version-sensitive framework facts. Do not invent event
    names, service APIs, permissions, sandbox scopes, package metadata, or loading behavior.
-5. Decide implementation, tests, maintainer docs, consumer docs, skills, dependencies,
-   compatibility, and Changeset impact before editing.
 
-Trace behavior across configuration, source, built output, tests, package metadata, and consumer
-documentation. Do not start from an isolated file when the contract crosses a package boundary.
+When the contract crosses a package boundary, trace the affected path through configuration, source,
+built output, tests, metadata, and consumer documentation.
 
 ## 2. Route the task to its sources of truth
 
@@ -40,36 +38,49 @@ documentation. Do not start from an isolated file when the contract crosses a pa
 
 Read each selected article completely. Nearby implementations are evidence for local patterns, not
 permission to contradict a documented contract. Use a decision record when a choice affects multiple
-packages, runtime boundaries, security, release behavior, or maintenance impact.
+packages, runtime boundaries, security, release behavior, or maintenance impact and cannot be
+explained adequately in an implementation comment.
 
 ## 3. Plan and implement
 
-Prefer the smallest root-cause change. Preserve public behavior unless a compatibility change is
-explicitly requested. Keep Directus registration at the entrypoint, use documented services and
-accountability, and validate external boundaries. For this repository’s accepted sandbox trade-off,
-read
+Apply the design priorities in `AGENTS.md` and preserve public behavior unless a compatibility
+change is explicitly requested. For Directus implementation work, keep registration at the
+entrypoint, use documented services and accountability, and validate external boundaries. When
+sandbox compatibility is relevant, read
 [`decisions/do-not-sandbox-directus-extensions.md`](decisions/do-not-sandbox-directus-extensions.md).
 
-Before editing, decide whether each category is affected: implementation, tests, maintainer docs,
-consumer docs, consumer skills, package/release, dependencies, and compatibility. If public behavior
-changes, update the package README, matching skill, and Changeset when applicable.
+Before editing, decide which tests, documentation, consumer skills, dependencies, and release
+metadata need to change for the affected contracts. Use
+[`testing.md`](testing.md#testing-philosophy) for test selection. If public behavior changes, update
+the package README, matching skill, and Changeset when applicable.
 
 ## 4. Validate and review
 
-Run the applicable checks:
+Choose local validation by the changed surfaces and concrete risks. Use focused file or package
+checks when they cover the affected contract; broaden validation when shared behavior or unresolved
+risk requires it. Documentation-only changes need formatting, documentation validation, and a review
+of links and consistency, rather than builds or test suites. Required CI and release gates remain
+unchanged; see [`ci.md`](ci.md) and [`publishing.md`](publishing.md).
 
-```sh
-corepack pnpm format
-corepack pnpm build:utils
-corepack pnpm lint:fix
-corepack pnpm typecheck
-corepack pnpm test:unit
-```
+| Affected surface                                                                           | Local validation                                                                                                      |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Any changed files                                                                          | `corepack pnpm format` and diff review                                                                                |
+| Documentation                                                                              | `corepack pnpm validate:docs`, links and consistency review                                                           |
+| Source or tests                                                                            | Applicable `corepack pnpm lint:fix`, `corepack pnpm typecheck`, and `corepack pnpm test:unit`, or focused equivalents |
+| GitHub Actions                                                                             | `corepack pnpm lint:actions` and the review in [`actions.md`](actions.md)                                             |
+| Process or filesystem coordination, including locks and marker stores                      | `corepack pnpm build:utils` then `corepack pnpm test:integration`                                                     |
+| Public package metadata, exports, dependencies, build output, or runtime behavior          | Build, package, and packed-consumer checks in [`workspace.md`](workspace.md#external-and-directus-validation)         |
+| Directus loading, built extensions, runtime integration, Compose services, or E2E behavior | `corepack pnpm test:e2e`; use the packed-consumer path when package loading or artifacts are affected                 |
+
+Build extension-utils before type-aware linting as documented in
+[`workspace.md`](workspace.md#working-with-packages-and-extensions). Run
+`corepack pnpm test:unit:coverage` when coverage output or coverage-sensitive source changes are
+relevant.
 
 Lint is successful only when it reports zero errors and zero warnings. Treat warnings as findings
 that must be fixed before handoff; do not describe a warning-producing lint run as passing.
 
-Add focused package, packed-consumer, or E2E checks when the change affects those surfaces. Review:
+Review the complete diff and final state:
 
 ```sh
 git diff --check
@@ -78,10 +89,30 @@ git status --short
 ```
 
 Confirm every changed file belongs to the task, generated output and unrelated work are absent, and
-no unrun check is described as passing. Do not commit changes.
+no unrun check is described as passing. Commit only when the user explicitly requests it.
+
+Distinguish demonstrated defects and concrete risks from optional improvements. Keep findings within
+the requested scope; a review may conclude that no further changes are needed.
 
 ## 5. Required handoff
 
-For changes, use `Changed`, `Validation`, `Contracts and documentation`, `Risks and follow-up`, and
-`Commit message`. For read-only audits, use `Verdict`, `Findings`, `Validation and evidence`,
-`Contracts and impact`, `Risks and follow-up`, and `Suggested commit message`.
+Use the structures below as guidance, with detail proportional to the task. For small changes, omit
+irrelevant sections; avoid empty sections or boilerplate. Always report relevant changes or
+findings, validation actually performed with exact commands and results, and concrete risks or
+limitations.
+
+For changes, useful sections are:
+
+- `Changed`: concrete changes;
+- `Validation`: checks and results with exact commands, including relevant skipped or blocked
+  checks;
+- `Contracts and documentation`: material compatibility and documentation impact, consumer skills,
+  and the Changeset decision;
+- `Risks and follow-up`: concrete risks, limitations, and useful next steps; and
+- `Commit message`: an optional proposed Conventional Commit message for uncommitted changes.
+
+For committed changes, report the commit hash(es) instead of a proposed commit message.
+
+For read-only diagnoses, reviews, or audits, useful sections are `Verdict`, `Findings`,
+`Validation and evidence`, `Contracts and impact`, and `Risks and follow-up`.
+`Suggested commit message` is optional when a concrete proposed change makes it useful.
