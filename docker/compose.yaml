@@ -148,6 +148,27 @@ services:
       SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT: ${SCHEMA_SPLIT_MANAGEMENT_AUTO_SNAPSHOT:-false}
       SCHEMA_SPLIT_HARD_EXIT: ${SCHEMA_SPLIT_HARD_EXIT:-true}
 
+      # Seeder
+      SEEDER_ENABLED: ${SEEDER_ENABLED-true}
+      SEEDER_SCOPE: ${SEEDER_SCOPE-system}
+      SEEDER_INCLUDE: ${SEEDER_INCLUDE-json:[]}
+      SEEDER_EXCLUDE: ${SEEDER_EXCLUDE-json:[]}
+      SEEDER_CONTINUE_ON_ERROR: ${SEEDER_CONTINUE_ON_ERROR-false}
+      SEEDER_BATCH_SIZE: ${SEEDER_BATCH_SIZE-50}
+      SEEDER_ENABLE_FULL_IDEMPOTENT: ${SEEDER_ENABLE_FULL_IDEMPOTENT-false}
+      SEEDER_JSON_ONLY: ${SEEDER_JSON_ONLY-false}
+      SEEDER_AUTO_EXTRACT_SYSTEM: ${SEEDER_AUTO_EXTRACT_SYSTEM-false}
+      SEEDER_AUTO_EXTRACT_CORE: ${SEEDER_AUTO_EXTRACT_CORE-false}
+      # Optional passthrough: leave absent when unset, rather than forwarding an empty string.
+      SEEDER_AUTO_EXTRACT_INCLUDE:
+      SEEDER_JSON_INDENT: ${SEEDER_JSON_INDENT-tab}
+      SEEDER_JSON_INDENT_SIZE: ${SEEDER_JSON_INDENT_SIZE-2}
+      SEEDER_SEEDS_DIR: ${SEEDER_SEEDS_DIR-/directus/seeds}
+      SEEDER_ASSETS_DIR: ${SEEDER_ASSETS_DIR-/directus/seeds/system/assets}
+      DEFAULT_EMAIL: ${DEFAULT_EMAIL-admin@example.com}
+      # Root .env supplies the plain shared password; cast only this Directus setting.
+      DEFAULT_PASSWORD: string:${DEFAULT_PASSWORD-p4ssw0rd!}
+
       # Magic links
       MAGIC_LINKS_ENABLED: ${MAGIC_LINKS_ENABLED:-true}
       MAGIC_LINKS_COLLECTION: ${MAGIC_LINKS_COLLECTION:-magic_links}

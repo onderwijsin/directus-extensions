@@ -1,0 +1,29 @@
+{
+	"$schema": "./node_modules/@onderwijsin/directus-seeder-hook/seeder-config.schema.json",
+	"$comment": "System entries override defaults; core entries require operationMode. Fields, filter, sort, deep and management replace whole properties. Inspect with directus seed config.",
+	"system": {
+		"collections": {
+			"directus_presets": {
+				"management": {
+					"type": "id-range",
+					"max": 50000
+				}
+			}
+		}
+	},
+	"core": {
+		"collections": {
+			"categories": {
+				"operationMode": "insert-update"
+			},
+			"articles": {
+				"operationMode": "full-idempotent",
+				"management": {
+					"type": "manifest"
+				},
+				"fields": ["id", "title", "category"]
+			}
+		},
+		"order": ["categories"]
+	}
+}

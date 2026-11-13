@@ -1,0 +1,122 @@
+import type { CollectionConfig } from '../seeders/config.schema'
+
+/**
+ * Configuration types for the Directus Seeder extension.
+ */
+
+/**
+ * Operation modes for the seeder.
+ */
+export const OperationMode = {
+	/**
+	 * Only add records that don't exist yet.
+	 */
+	INSERT_MISSING: 'insert-missing',
+
+	/**
+	 * Add missing records and update existing ones.
+	 */
+	INSERT_UPDATE: 'insert-update',
+
+	/**
+	 * Add missing, update existing, and remove records not in seed data.
+	 */
+	FULL_IDEMPOTENT: 'full-idempotent',
+} satisfies Record<string, 'insert-missing' | 'insert-update' | 'full-idempotent'>
+
+/**
+ * Operation mode type.
+ */
+export type OperationMode = (typeof OperationMode)[keyof typeof OperationMode]
+
+/**
+ * Data scopes for the seeder.
+ */
+export const DataScope = {
+	/**
+	 * Essential system data (roles, permissions, settings).
+	 */
+	SYSTEM: 'system',
+	/** Consumer-declared application data. */
+	CORE: 'core',
+} satisfies Record<string, 'system' | 'core'>
+
+/**
+ * Data scope type
+ */
+export type DataScope = (typeof DataScope)[keyof typeof DataScope]
+
+/**
+ * Configuration for the seeder.
+ */
+export interface SeederConfig {
+	/** Effective consumer-declared application collections; no built-in defaults. */
+	coreCollections?: CollectionConfig[]
+	/** Effective system collection settings, including explicit CLI mode overrides. */
+	systemCollections?: CollectionConfig[]
+
+	/** Collections with explicit consumer fields, which bypass default-field compatibility. */
+	systemFieldOverrides?: string[]
+
+	/**
+	 * Data scope.
+	 */
+	dataScope: DataScope
+
+	/**
+	 * Collections to include (if empty, include all).
+	 */
+	includeCollections: string[]
+
+	/**
+	 * Collections to exclude.
+	 */
+	excludeCollections: string[]
+
+	/**
+	 * Whether to continue on error.
+	 */
+	continueOnError: boolean
+
+	/**
+	 * Batch size for operations.
+	 */
+	batchSize: number
+
+	/**
+	 * Whether full-idempotent mode is enabled.
+	 * This is a safety feature to prevent accidental data deletion.
+	 */
+	enableFullIdempotent: boolean
+
+	/**
+	 * Whether to skip the default cleanup before extraction.
+	 */
+	skipClean: boolean
+
+	/**
+	 * Whether to extract JSON without reading, downloading, or cleaning binary assets.
+	 */
+	jsonOnly: boolean
+
+	/** Indentation used when writing extracted JSON. */
+	jsonIndent: '\t' | number
+}
+
+/**
+ * Applies the resolved collection selection, with exclusions taking precedence.
+ * @param collections - Available collection names in their existing order.
+ * @param config - Resolved include and exclude settings.
+ * @returns Selected collection names without changing their order.
+ */
+export function selectCollections(
+	collections: string[],
+	config: Pick<SeederConfig, 'includeCollections' | 'excludeCollections'>,
+): string[] {
+	return collections.filter(
+		(collection) =>
+			(config.includeCollections.length === 0 ||
+				config.includeCollections.includes(collection)) &&
+			!config.excludeCollections.includes(collection),
+	)
+}
