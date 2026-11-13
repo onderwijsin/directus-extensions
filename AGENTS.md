@@ -34,13 +34,13 @@ For every task:
 3. Use the routing table in [`docs/agent-workflow.md`](docs/agent-workflow.md) and read every
    article triggered by the task. Do not rely on memory or on this file as a substitute for the
    docs.
-4. Inspect the affected implementation and tests. Before introducing a pattern, inspect a comparable
-   implementation elsewhere in the repository.
+4. Inspect the affected implementation, tests, and existing helpers, patterns, and error handling
+   before introducing something new. Keep inspection relevant to the affected contract.
 5. Decide the expected impact on code, tests, documentation, consumer skills, dependencies,
    compatibility, and Changesets before editing.
 6. Implement the smallest root-cause change that satisfies the request and documented contracts.
 7. Review the complete diff, run applicable validation, and reconcile every impact decision.
-8. Use the exact handoff structure in [`docs/agent-workflow.md`](docs/agent-workflow.md).
+8. Follow the handoff guidance in [`docs/agent-workflow.md`](docs/agent-workflow.md).
 
 For extension creation, maintenance, testing, documentation, or restructuring, use the
 `authoring-directus-extensions` skill. For a production-readiness or pre-publish review, use the
@@ -48,6 +48,9 @@ For extension creation, maintenance, testing, documentation, or restructuring, u
 of truth.
 
 ## Design priorities
+
+KISS: choose the smallest correct, maintainable solution for the current task. Introduce
+abstractions, defensive code, configuration, or refactors only when a concrete need justifies them.
 
 When multiple valid solutions exist, prefer, in order:
 
@@ -72,8 +75,7 @@ route and file naming contracts. Do not perform opportunistic refactors.
 - Do not add dependencies unless explicitly requested and demonstrated to improve codebase health
   and quality.
 - Do not change Vitest coverage include paths unless explicitly requested.
-- Do not add tests solely to meet coverage thresholds. Add tests for known risks, contracts, or
-  regression prevention.
+- Follow [`docs/testing.md`](docs/testing.md#testing-philosophy) for test selection.
 - Do not add global type stubs to fix TypeScript issues unless specifically requested.
 - Do not introduce TypeScript assertions or casts unless explicitly requested or approved by the
   human maintainer. Model the types correctly.
@@ -110,43 +112,24 @@ Follow [`docs/workspace.md`](docs/workspace.md) for the complete tooling contrac
 
 ## Completion gates
 
-A task is complete only when every applicable gate is satisfied or explicitly reported as blocked:
+A task is complete when the applicable gates below pass or blockers are explicitly reported:
 
-- formatting applied with `corepack pnpm format`;
-- lint autofixes applied and lint passing with `corepack pnpm lint:fix` with zero errors and zero
-  warnings;
-- TypeScript checks passing with `corepack pnpm typecheck`;
-- unit tests passing with `corepack pnpm test:unit`;
-- broader build, package, playground, or packed-consumer checks run when triggered by the change;
-- maintainer and consumer documentation synchronized, or a concrete no-doc-impact reason recorded;
-- matching consumer skill synchronized when public extension behavior changes;
+- local validation selected by affected surface under
+  [`docs/agent-workflow.md`](docs/agent-workflow.md#4-validate-and-review), without waiving required
+  CI or release checks;
+- affected maintainer and consumer documentation and matching consumer skills synchronized;
 - proper JSDoc present where applicable for code written or touched;
 - runtime and compatibility contracts preserved unless an explicit change was requested; and
-- one correctly scoped Changeset per affected public-package concern, or a concrete no-Changeset
-  reason recorded.
+- one correctly scoped Changeset per affected public-package concern when required.
 
 Never claim success for a skipped or failing check. Include the exact command and blocker in the
 handoff.
 
 ## Required handoff
 
-Every final handoff must use the applicable exact template in
-[`docs/agent-workflow.md`](docs/agent-workflow.md). The requirement is part of the contract, not
-optional presentation guidance.
-
-For a change, include all of these sections:
-
-- `Changed`: a list of concrete changes;
-- `Validation`: passed, skipped, blocked, or failing checks with exact commands;
-- `Contracts and documentation`: compatibility impact, synchronized documentation and consumer
-  skills, and the Changeset decision;
-- `Risks and follow-up`: remaining risks or `None`; and
-- `Commit message`: a ready-to-copy Conventional Commit message in a fenced `text` block.
-
-For a read-only diagnosis, review, or audit, include `Verdict`, `Findings`,
-`Validation and evidence`, `Contracts and impact`, `Risks and follow-up`, and
-`Suggested commit message`. Use the documented read-only value when there is no coherent change to
-commit.
+Follow the handoff guidance in
+[`docs/agent-workflow.md`](docs/agent-workflow.md#5-required-handoff), with detail proportional to
+the change or review.
 
 ## When to ask
 

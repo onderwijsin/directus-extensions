@@ -2,6 +2,22 @@
 
 Test the contract a Directus consumer depends on. Keep tests beside the package they exercise.
 
+## Testing philosophy
+
+> Test primarily the intended workflow, not every possible misuse of its input. Tests should protect
+> meaningful behavioral contracts and concrete risks, not implementation history or theoretical edge
+> cases.
+
+Aim for the smallest maintainable suite that gives sufficient confidence, rather than maximum
+coverage or the fewest possible tests. Prefer improving existing tests over adding overlapping
+cases, redundant parameter combinations, or implementation-specific assertions. Do not add tests
+solely to meet coverage thresholds.
+
+Test the intended end contract rather than the history of implementation mistakes. A bugfix does not
+automatically require a separate permanent regression test, especially before the first release.
+Protect concrete safety risks and important regressions when there is a clear reason. When mocks
+cannot establish the relevant runtime behavior, use a real integration or E2E test.
+
 ## Directus Core plan limits
 
 The E2E stack runs on the Directus Core plan. Tests must stay within these project limits:
@@ -43,7 +59,8 @@ inputs, and are excluded from every Vitest project.
 ## Test layers
 
 - Unit tests cover schemas, guards, utilities, and deterministic logic.
-- Extension tests cover registration, observable behavior, malformed input, and errors.
+- Extension tests cover registration, observable behavior, and malformed input or error paths that
+  protect a meaningful contract or concrete risk.
 - Process integration tests cover real child-process and filesystem coordination.
 - Directus E2E tests load the built extension through Directus.
 

@@ -43,32 +43,16 @@ orchestration in the owning extension and reusable behavior in the appropriate p
 
 ## Required checks
 
-Run the full baseline from the repository root:
-
-```sh
-pnpm format
-pnpm build:utils
-pnpm lint:fix
-pnpm lint:actions
-pnpm validate:docs
-pnpm typecheck
-pnpm test:unit
-pnpm build
-pnpm validate:packages
-```
-
-Run `pnpm test:e2e` when the change affects Directus loading, built extensions, package artifacts,
-runtime integration, Compose services, or E2E behavior. Run `pnpm test:unit:coverage` when coverage
-output or coverage-sensitive source changes are relevant.
-
-For a publishable package change, inspect the packed archive and confirm that its README, metadata,
-declarations, runtime dependencies, and public exports match the documented contract.
+Select local checks using [`agent-workflow.md`](agent-workflow.md#4-validate-and-review). It defines
+validation by affected surface, including documentation-only changes and package/E2E checks. Use
+[`testing.md`](testing.md#testing-philosophy) for test selection. Required CI and release checks
+remain documented in [`ci.md`](ci.md) and [`publishing.md`](publishing.md).
 
 ## Pull request checklist
 
 - [ ] The change is focused and unrelated work is preserved.
-- [ ] Formatting, linting, typechecking, tests, and applicable package/E2E checks pass.
-- [ ] Public exports and runtime boundaries are tested.
+- [ ] Applicable validation passes.
+- [ ] Public exports and runtime boundaries are tested when affected.
 - [ ] Documentation and matching consumer skills are synchronized.
 - [ ] A correctly scoped Changeset is present when a published package changes.
 - [ ] No secrets, local data, generated output, or private test dependencies are included.
