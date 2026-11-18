@@ -56,6 +56,7 @@ function remove(index: number) {
 		<VInput
 			:id="id"
 			v-model="draft"
+			:nullable="false"
 			:aria-describedby="describedBy"
 			:aria-invalid="invalid || undefined"
 			:aria-required="required || undefined"

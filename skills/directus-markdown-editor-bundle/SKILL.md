@@ -160,6 +160,70 @@ media drawer used for insertion. The image drawer accepts optional alt text and 
 Markdown; editing an image loads its current alt text. Videos fit within the editor and preview
 width while retaining their natural size when smaller.
 
+### Provider video embeds
+
+In **Video / media**, choose **Media location → File library** for the existing video picker, or
+**Embed** to paste a complete YouTube or Vimeo **Video URL**. The file picker accepts only videos;
+audio is not supported. Unsupported or malformed URLs show a validation message and cannot be saved.
+
+Supported links include YouTube watch, `youtu.be`, Shorts, live-video and embed URLs, and Vimeo
+video, unlisted and player URLs. Provider and video ID are recognized locally without an API call.
+Supported playback parameters and Vimeo's unlisted privacy hash are preserved. Tracking, start-time
+and other unsupported parameters are discarded.
+
+**Use privacy mode** defaults to enabled for new embeds. YouTube uses `www.youtube-nocookie.com`;
+Vimeo adds `dnt=1`. Disabling it uses `www.youtube.com` or omits Vimeo's `dnt` parameter. Editing an
+existing embed restores its saved privacy, playback and iframe permission settings.
+
+Provider embeds offer these per-video settings in addition to privacy mode:
+
+| Setting                  | Default | Behavior                                                                                                     |
+| ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------ |
+| **Allow fullscreen**     | On      | Enables the provider fullscreen button and iframe fullscreen permission.                                     |
+| **Show player controls** | On      | Shows the provider's playback controls.                                                                      |
+| **Loop**                 | Off     | Repeats the selected video. YouTube's required single-video `playlist` parameter is generated automatically. |
+| **Autoplay**             | Off     | Requests playback when the iframe loads. Browsers may block autoplay, especially with sound.                 |
+| **Start muted**          | Off     | Requests muted playback on load.                                                                             |
+
+Start time is not configurable. New embeds enable fullscreen and player controls; autoplay, looping
+and muted playback start disabled. Supported options in a pasted URL populate the playback settings.
+Editing a video preserves its saved options. Some Vimeo player controls require a supported uploader
+plan. Hiding controls does not add replacement controls.
+
+Fullscreen uses YouTube's `fs` or Vimeo's `fullscreen` parameter together with the iframe
+permission. Disabling fullscreen omits `allowfullscreen` and writes `fullscreen 'none'` in `allow`.
+Autoplay adds `autoplay=1` and grants the iframe `autoplay` permission. Muted playback uses
+YouTube's `mute=1` or Vimeo's `muted=1`.
+
+The canonical Markdown remains HTML, with each video on its own block:
+
+```md
+<video src="/assets/FILE_ID" controls></video>
+
+<iframe src="https://www.youtube-nocookie.com/embed/M7lc1UVf-VE" allow="fullscreen; encrypted-media" allowfullscreen></iframe>
+
+<iframe src="https://player.vimeo.com/video/76979871?dnt=1" allow="fullscreen; encrypted-media" allowfullscreen></iframe>
+
+<iframe src="https://player.vimeo.com/video/76979871?h=8272103f6e&amp;dnt=1" allow="fullscreen; encrypted-media" allowfullscreen></iframe>
+```
+
+Existing file-library video syntax is unchanged. Embeds round-trip through Markdown source editing,
+and the video block's **Edit video** action reopens the media drawer for either source.
+
+Studio renders valid provider videos immediately in the media drawer, editor and Markdown previews,
+without a loading button or confirmation step. To play these previews, allow the selected provider
+hosts in Directus's CSP `frame-src` directive using `CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_SRC`:
+`https://www.youtube-nocookie.com`, `https://www.youtube.com`, and `https://player.vimeo.com`.
+Preserve existing allowed sources.
+
+Privacy mode reduces provider tracking; it does not guarantee anonymous or cookie-free playback
+([YouTube privacy-enhanced mode](https://support.google.com/youtube/answer/171780?hl=en),
+[Vimeo player cookies](https://help.vimeo.com/hc/en-us/articles/26080940921361-Vimeo-Player-Cookies)).
+The consuming frontend owns rendering, responsive sizing, sanitization, and consent. Forward the
+stored `src`, `allow` and `allowfullscreen` attributes to honor the selected controls. Loading the
+stored iframe directly contacts the provider; use a local placeholder until consent if required. URL
+validation does not verify whether a video exists or whether its owner allows embedding.
+
 For metadata image and URL controls, use `{ "name": "specialInputType", "text": "image" }` or
 `{ "name": "specialInputType", "text": "url" }` on a `string` property. The former `editor` tag
 remains readable, with `specialInputType` taking precedence. The default image storage format is now
@@ -316,6 +380,9 @@ from `config.collections`, for example `{ "collections": ["lucide"] }`. Older `@
 readable, and `specialInputType` takes precedence if both are supplied. Nested required fields and
 URL hints participate in Apply/Insert validation. Object and object-array values persist as
 JSON-backed MDC attributes. Optional object fields may remain absent until edited.
+
+Clearing text fields, including with Undo, keeps their drawers usable. Empty required fields
+continue to block Apply/Insert until completed.
 
 - `tags` preserves JSDoc tags; `{ "name": "deprecated", "text": "Use newProp instead." }` displays a
   deprecation hint without changing runtime behavior.

@@ -1,4 +1,6 @@
-import { createApp, h, nextTick } from 'vue'
+// @vitest-environment-options {"settings":{"navigation":{"disableChildFrameNavigation":true}}}
+
+import { createApp, h, nextTick, shallowRef } from 'vue'
 
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -53,6 +55,38 @@ describe('Markdown preview', () => {
 	it('declares left-aligned table header content', () => {
 		expect(contentStyles).toMatch(
 			/\.markdown-editor-content \.ProseMirror th\s*\{[^}]*text-align: left;/u,
+		)
+	})
+
+	it('renders provider players immediately and updates their source and permissions', async () => {
+		const content = shallowRef(
+			'<iframe src="https://www.youtube-nocookie.com/embed/M7lc1UVf-VE" allowfullscreen></iframe>',
+		)
+		const element = document.createElement('div')
+		document.body.append(element)
+		const app = createApp({
+			render: () => h(MarkdownPreview, { content: content.value, label: 'Video preview' }),
+		})
+		app.mount(element)
+		mounted.push({ app, element })
+		await nextTick()
+		await new Promise((resolve) => setTimeout(resolve, 0))
+		await nextTick()
+
+		expect(element.querySelector('button')).toBeNull()
+		expect(element.querySelector('iframe')?.getAttribute('src')).toBe(
+			'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE',
+		)
+
+		content.value = `<iframe src="https://player.vimeo.com/video/76979871?dnt=1&fullscreen=0&autoplay=1&muted=1" allow="autoplay; fullscreen 'none'; encrypted-media"></iframe>`
+		await nextTick()
+		expect(element.querySelector('button')).toBeNull()
+		expect(element.querySelector('iframe')?.getAttribute('src')).toBe(
+			'https://player.vimeo.com/video/76979871?dnt=1&fullscreen=0&autoplay=1&muted=1',
+		)
+		expect(element.querySelector('iframe')?.hasAttribute('allowfullscreen')).toBe(false)
+		expect(element.querySelector('iframe')?.getAttribute('allow')).toBe(
+			"autoplay; fullscreen 'none'; encrypted-media",
 		)
 	})
 })

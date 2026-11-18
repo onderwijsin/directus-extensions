@@ -14,9 +14,17 @@ import {
 	sanitizeImageUrl,
 	type AssetStorageMode,
 } from '../../editor/media'
+import {
+	defaultVideoPlaybackOptions,
+	parseVideoEmbed,
+	videoEmbedPermissions,
+	videoEmbedUrl,
+} from '../../editor/video-embed'
 import Field from '../fields/Field.vue'
 import ImageInput from '../fields/ImageInput.vue'
+import SelectInput from '../fields/SelectInput.vue'
 import StringInput from '../fields/StringInput.vue'
+import VideoEmbedInput from '../fields/VideoEmbedInput.vue'
 import VideoUploadField from '../fields/VideoUploadField.vue'
 
 const props = defineProps<{
@@ -30,6 +38,11 @@ const props = defineProps<{
 const open = defineModel<boolean>({ default: false })
 const activeTab = ref('image')
 const source = ref('')
+const mediaLocation = shallowRef('File library')
+const embedSource = shallowRef('')
+const privacyMode = shallowRef(true)
+const playbackOptions = ref(defaultVideoPlaybackOptions())
+const embed = computed(() => parseVideoEmbed(embedSource.value))
 const editing = shallowRef(false)
 const {
 	altText,
@@ -58,7 +71,9 @@ const canApply = computed(
 		Boolean(
 			activeTab.value === 'image'
 				? imagePreviewUrl(source.value)
-				: sanitizeImageUrl(source.value),
+				: mediaLocation.value === 'Embed'
+					? embed.value
+					: sanitizeImageUrl(source.value),
 		),
 )
 const drawerTitle = computed(() =>
@@ -87,6 +102,15 @@ watch(
 		editing.value = props.editor.isActive(nodeType)
 		const attrs = editing.value ? props.editor.getAttributes(nodeType) : {}
 		source.value = isString(attrs.src) ? attrs.src : ''
+		const video =
+			nodeType === 'video'
+				? parseVideoEmbed(source.value, isString(attrs.allow) ? attrs.allow : undefined)
+				: undefined
+		mediaLocation.value = video ? 'Embed' : 'File library'
+		embedSource.value = video ? source.value : ''
+		privacyMode.value = video?.privacyMode ?? true
+		playbackOptions.value = video?.options ?? defaultVideoPlaybackOptions()
+		if (video) source.value = ''
 		beginDraft(
 			editing.value,
 			nodeType === 'image' && isString(attrs.alt) ? attrs.alt : '',
@@ -126,20 +150,29 @@ function save() {
 	const src =
 		activeTab.value === 'image'
 			? imagePreviewUrl(source.value) && source.value.trim()
-			: sanitizeImageUrl(source.value)
+			: mediaLocation.value === 'Embed'
+				? embed.value &&
+					videoEmbedUrl(embed.value, privacyMode.value, playbackOptions.value)
+				: sanitizeImageUrl(source.value)
 	if (!src) return
 	const nodeType = activeTab.value === 'video' ? 'video' : 'image'
+	const attrs =
+		nodeType === 'image'
+			? { src, alt: altText.value }
+			: {
+					src,
+					allow:
+						mediaLocation.value === 'Embed'
+							? videoEmbedPermissions(playbackOptions.value)
+							: null,
+				}
 	let insertedPosition: number | undefined
 	const chain = props.editor.chain().focus()
-	if (editing.value && props.editor.isActive(nodeType))
-		chain.updateAttributes(
-			nodeType,
-			nodeType === 'image' ? { src, alt: altText.value } : { src },
-		)
+	if (editing.value && props.editor.isActive(nodeType)) chain.updateAttributes(nodeType, attrs)
 	else
 		chain.insertContent({
 			type: nodeType,
-			attrs: nodeType === 'image' ? { src, alt: altText.value, title: null } : { src },
+			attrs: nodeType === 'image' ? { ...attrs, title: null } : attrs,
 		})
 	if (!editing.value && nodeType === 'image') {
 		chain.command(({ tr }) => {
@@ -209,13 +242,31 @@ function remove() {
 					</p>
 				</template>
 			</Field>
-			<VideoUploadField
-				v-else
-				:preview-source="sanitizeImageUrl(source)"
-				:disabled="disabled"
-				@select="onFileSelect"
-				@clear="clearSource"
-			/>
+			<template v-else>
+				<Field label="Media location" :disabled="disabled">
+					<template #default="field">
+						<SelectInput
+							v-model="mediaLocation"
+							v-bind="field"
+							:values="['File library', 'Embed']"
+						/>
+					</template>
+				</Field>
+				<VideoEmbedInput
+					v-if="mediaLocation === 'Embed'"
+					v-model="embedSource"
+					v-model:privacy-mode="privacyMode"
+					v-model:options="playbackOptions"
+					:disabled="disabled"
+				/>
+				<VideoUploadField
+					v-else
+					:preview-source="sanitizeImageUrl(source)"
+					:disabled="disabled"
+					@select="onFileSelect"
+					@clear="clearSource"
+				/>
+			</template>
 		</div>
 		<template #actions>
 			<VButton v-if="editing" secondary small :disabled="disabled" @click="remove"

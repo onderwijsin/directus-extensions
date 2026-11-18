@@ -15,6 +15,7 @@ const model = defineModel<string>({ required: true })
 	<VInput
 		:id="id"
 		v-model="model"
+		:nullable="false"
 		:aria-describedby="describedBy"
 		:aria-invalid="invalid || undefined"
 		:aria-required="required || undefined"
