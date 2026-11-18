@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+import { createMetadataSchema, optionsSchema } from '../src/shared/configuration/options'
+
 const mocks = vi.hoisted(() => ({
 	generateText: vi.fn(),
 	model: {},
@@ -109,8 +111,8 @@ describe('metadata provider boundary', () => {
 			),
 		).rejects.toThrow()
 	})
-	it.each(
-		[
+	it.each([
+		...[
 			{ generateTags: false, generateFilename: false },
 			{ generateTags: true, generateFilename: false },
 			{ generateTags: false, generateFilename: true },
@@ -121,13 +123,29 @@ describe('metadata provider boundary', () => {
 					...options,
 					generateAltText,
 					generateFocalPoint,
+					generateTitle: false,
 				})),
 			),
 		),
-	)('requests and validates only enabled fields: %j', async (options) => {
+		{
+			generateAltText: false,
+			generateTitle: true,
+			generateTags: false,
+			generateFilename: false,
+			generateFocalPoint: false,
+		},
+		{
+			generateAltText: true,
+			generateTitle: true,
+			generateTags: true,
+			generateFilename: true,
+			generateFocalPoint: true,
+		},
+	])('requests and validates only enabled fields: %j', async (options) => {
 		mocks.generateText.mockResolvedValue({
 			output: {
 				altText: options.generateAltText ? 'A classroom.' : null,
+				title: options.generateTitle ? 'A classroom' : null,
 				focalPoint: options.generateFocalPoint ? { x: 250, y: 600 } : null,
 				tags: options.generateTags ? ['classroom'] : null,
 				filename: options.generateFilename ? 'classroom' : 'Klassenfoto 2026.jpg',
@@ -143,6 +161,7 @@ describe('metadata provider boundary', () => {
 		)
 		expect(result).toEqual({
 			...(options.generateAltText ? { altText: 'A classroom.' } : {}),
+			...(options.generateTitle ? { title: 'A classroom' } : {}),
 			...(options.generateFocalPoint ? { focalPoint: { x: 250, y: 600 } } : {}),
 			...(options.generateTags ? { tags: ['classroom'] } : {}),
 			...(options.generateFilename ? { filename: 'classroom' } : {}),
@@ -158,12 +177,17 @@ describe('metadata provider boundary', () => {
 			request.messages[0]?.content.filter((part: { type: string }) => part.type === 'file'),
 		).toHaveLength(1)
 		expect(request.instructions).toBe(
-			`prompt\n\nReturn only these JSON fields: ${[...(options.generateAltText ? ['altText'] : []), ...(options.generateTags ? ['tags'] : []), ...(options.generateFilename ? ['filename'] : []), ...(options.generateFocalPoint ? ['focalPoint'] : [])].join(', ')}. Do not generate omitted fields.`,
+			`prompt\n\nReturn only these JSON fields: ${[...(options.generateAltText ? ['altText'] : []), ...(options.generateTitle ? ['title'] : []), ...(options.generateTags ? ['tags'] : []), ...(options.generateFilename ? ['filename'] : []), ...(options.generateFocalPoint ? ['focalPoint'] : [])].join(', ')}. Do not generate omitted fields.`,
 		)
 	})
-	it.each(['tags', 'filename'])('rejects invalid requested %s output', async (field) => {
+	it.each(['title', 'tags', 'filename'])('rejects invalid requested %s output', async (field) => {
 		mocks.generateText.mockResolvedValue({
-			output: { altText: 'A classroom.', tags: null, filename: 'Klassenfoto 2026.jpg' },
+			output: {
+				altText: 'A classroom.',
+				title: null,
+				tags: null,
+				filename: 'Klassenfoto 2026.jpg',
+			},
 		})
 		await expect(
 			generateMetadata(
@@ -172,9 +196,24 @@ describe('metadata provider boundary', () => {
 				'image/png',
 				'prompt',
 				AbortSignal.timeout(1000),
-				{ generateTags: field === 'tags', generateFilename: field === 'filename' },
+				{
+					generateTitle: field === 'title',
+					generateTags: field === 'tags',
+					generateFilename: field === 'filename',
+				},
 			),
 		).rejects.toThrow()
+	})
+	it('validates nonblank human-readable titles up to the Directus field limit', () => {
+		const schema = createMetadataSchema(
+			optionsSchema.parse({ generateAltText: false, generateTitle: true }),
+		)
+		expect(schema.parse({ title: '  Élèves dans une salle de classe  ' })).toEqual({
+			title: 'Élèves dans une salle de classe',
+		})
+		expect(schema.safeParse({ title: 'x'.repeat(255) }).success).toBe(true)
+		expect(schema.safeParse({ title: 'x'.repeat(256) }).success).toBe(false)
+		expect(schema.safeParse({ title: ' \t\n' }).success).toBe(false)
 	})
 
 	it('requires a compatible-provider endpoint and rejects unsupported adapters', () => {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "TypeScript conventions"
+  short_description: "Apply project standards to TypeScript code"
+  default_prompt: "Use $typescript-conventions as the conventions reference for this TypeScript task."

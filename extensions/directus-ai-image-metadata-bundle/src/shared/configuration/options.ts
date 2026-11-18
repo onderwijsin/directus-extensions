@@ -55,11 +55,13 @@ const baseOptionsSchema = z.object({
 	includeFolders: folderListSchema.default([]),
 	includeRoot: z.boolean().default(false),
 	generateAltText: z.boolean().default(true),
+	generateTitle: z.boolean().default(false),
 	excludeFolders: folderListSchema.default([]),
 	generateTags: z.boolean().default(false),
 	generateFilename: z.boolean().default(false),
 	generateFocalPoint: z.boolean().default(false),
 	overwriteAltText: z.boolean().default(false),
+	overwriteTitle: z.boolean().default(false),
 	overwriteTags: z.boolean().default(false),
 	overwriteFilename: z.boolean().default(false),
 	overwriteFocalPoint: z.boolean().default(false),
@@ -122,6 +124,7 @@ export const fileSchema = z.object({
 	id: z.uuid(),
 	type: z.string().nullable(),
 	folder: z.uuid().nullable(),
+	title: z.string().nullable().default(null),
 	description: z.string().nullable(),
 	tags: z.union([z.array(z.string()), z.string()]).nullable(),
 	filename_download: z.string().nullable(),
@@ -148,6 +151,7 @@ export type MetadataFile = z.output<typeof fileSchema>
 /** Validated provider output; filenames are extension-free safe slugs. */
 export const metadataSchema = z.object({
 	altText: z.string().trim().min(1).max(1000),
+	title: z.string().trim().min(1).max(255),
 	tags: z.array(z.string().trim().min(1).max(100)).max(30),
 	filename: z
 		.string()
@@ -164,12 +168,17 @@ export const metadataSchema = z.object({
 export function createMetadataSchema(
 	options: Pick<
 		MetadataOptions,
-		'generateAltText' | 'generateTags' | 'generateFilename' | 'generateFocalPoint'
+		| 'generateAltText'
+		| 'generateTitle'
+		| 'generateTags'
+		| 'generateFilename'
+		| 'generateFocalPoint'
 	>,
 ): z.ZodType<GeneratedMetadata> {
 	const schema = metadataSchema.extend({ focalPoint: focalPointSchema })
 	const fields: Partial<Record<keyof z.output<typeof schema>, true>> = {}
 	if (options.generateAltText) fields.altText = true
+	if (options.generateTitle) fields.title = true
 	if (options.generateTags) fields.tags = true
 	if (options.generateFilename) fields.filename = true
 	if (options.generateFocalPoint) fields.focalPoint = true
@@ -179,6 +188,7 @@ export function createMetadataSchema(
 /** Validated metadata fields present only when requested. */
 export interface GeneratedMetadata {
 	altText?: string
+	title?: string
 	tags?: string[]
 	filename?: string
 	focalPoint?: z.output<typeof focalPointSchema>

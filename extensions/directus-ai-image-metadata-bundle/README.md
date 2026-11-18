@@ -1,9 +1,9 @@
 # `@onderwijsin/directus-ai-image-metadata-bundle`
 
-Generate accessible image alt text, optional tags, optional download filenames, and optional focal
-points from Directus Flows using the Vercel AI SDK. Includes `ai-image-metadata` for explicit files
-and `ai-image-metadata-regenerate` for manual, resumable batches. Private assets are read through
-Directus; they do not need public URLs.
+Generate accessible image alt text, optional titles, optional tags, optional download filenames, and
+optional focal points from Directus Flows using the Vercel AI SDK. Includes `ai-image-metadata` for
+explicit files and `ai-image-metadata-regenerate` for manual, resumable batches. Private assets are
+read through Directus; they do not need public URLs.
 
 ## Install
 
@@ -38,7 +38,7 @@ environment or Directus settings, rather than stored in Flow options.
 | `AI_METADATA_WRITER_MODEL`           | string, unset                                 | Extension model override.                                                                      |
 | `AI_METADATA_WRITER_API_KEY`         | string, unset                                 | Server-only API key override.                                                                  |
 | `AI_METADATA_WRITER_BASE_URL`        | URL, unset                                    | Provider endpoint override. Required for `openai-compatible` unless supplied by a lower layer. |
-| `AI_METADATA_WRITER_LANGUAGE`        | accepted language, `English`                  | Global language for generated alt text, tags, and filename words.                              |
+| `AI_METADATA_WRITER_LANGUAGE`        | accepted language, `English`                  | Global language for generated alt text, titles, tags, and filename words.                      |
 | `AI_METADATA_WRITER_PROMPT`          | Markdown string, default accessibility prompt | Replacement system instructions; blank uses the default.                                       |
 | `AI_METADATA_WRITER_MAX_IMAGE_BYTES` | positive integer, `10000000`                  | Hard provider-input collection limit; effective maximum 5 MB.                                  |
 | `AI_METADATA_WRITER_TIMEOUT_MS`      | positive integer, `60000`                     | Deadline for acquisition, preparation, and generation.                                         |
@@ -84,11 +84,13 @@ whitespace-only) use their environment/default fallback:
 | `excludeFolders`       | `[]`                             | Folder selection objects; exclusion wins. Root inclusion is controlled by `includeRoot`.                                                                                           |
 | `includeRoot`          | `false`                          | Include root files alongside selected folders; unchecked excludes root.                                                                                                            |
 | `generateAltText`      | `true`                           | Generate alt text in description; disabling prevents description writes.                                                                                                           |
+| `generateTitle`        | `false`                          | Generate a short human-readable title in `directus_files.title`.                                                                                                                   |
 | `generateTags`         | `false`                          | Write generated tags to directus_files.tags.                                                                                                                                       |
 | `generateFilename`     | `false`                          | Write a safe download filename, preserving its extension.                                                                                                                          |
 | `generateFocalPoint`   | `false`                          | Generate an approximate crop center in directus_files.focal_point_x and focal_point_y.                                                                                             |
 | `overwriteFocalPoint`  | `false`                          | Replace complete focal-point pairs when generation is enabled; otherwise fill incomplete pairs together.                                                                           |
 | `overwriteAltText`     | `false`                          | Replace populated description when generateAltText is enabled; otherwise fill only missing alt text.                                                                               |
+| `overwriteTitle`       | `false`                          | Replace populated titles when `generateTitle` is enabled; otherwise fill only missing titles.                                                                                      |
 | `overwriteTags`        | `false`                          | Replace populated tags when generateTags is enabled; otherwise fill only missing tags.                                                                                             |
 | `overwriteFilename`    | `false`                          | Replace the download filename when generateFilename is enabled; otherwise fill only a missing filename.                                                                            |
 
@@ -174,25 +176,56 @@ with other files; explicit-file rejection semantics remain unchanged. Diagnostic
 bytes and credentials. Captured upstream failure details are described below.
 
 The Studio shows **Overwrite Alt Text** only when **Generate Alt Text** is enabled, **Overwrite
-Tags** only when **Generate Tags** is enabled, and **Overwrite Filename** only when **Generate
-Download Filename** is enabled, and **Overwrite Focal Point** only when **Generate Focal Point** is
-enabled. Disabling generation hides its overwrite control and prevents writes for that field, even
-if a previously saved overwrite value is true.
+Title** only when **Generate Title** is enabled, **Overwrite Tags** only when **Generate Tags** is
+enabled, and **Overwrite Filename** only when **Generate Download Filename** is enabled, and
+**Overwrite Focal Point** only when **Generate Focal Point** is enabled. Disabling generation hides
+its overwrite control and prevents writes for that field, even if a previously saved overwrite value
+is true.
 
 Alt text is written to `directus_files.description`. Consumers must map that value to rendered image
-alt attributes; the extension does not modify frontend rendering. Whitespace-only descriptions and
-filenames, null tags, empty tag strings, and arrays without nonblank tags count as missing.
-Serialized tag arrays are interpreted the same way as real arrays, including all-blank arrays.
-Populated fields are preserved individually and rechecked under a database row lock before updates.
-Generated tags are deduplicated. Physical storage filenames and file titles are unchanged. Uploaded
-files normally already have `filename_download`, so renaming them requires `generateFilename: true`
-and `overwriteFilename: true`. Alt text and tags retain their independent overwrite policies.
+alt attributes; the extension does not modify frontend rendering. Whitespace-only descriptions,
+titles, and filenames, null tags, empty tag strings, and arrays without nonblank tags count as
+missing. Serialized tag arrays are interpreted the same way as real arrays, including all-blank
+arrays. Populated fields are preserved individually and rechecked under a database row lock before
+updates. Generated tags are deduplicated. Physical storage filenames are unchanged; file titles
+change only when title generation is enabled. Uploaded files normally already have
+`filename_download`, so renaming them requires `generateFilename: true` and
+`overwriteFilename: true`. Alt text, titles, and tags retain their independent overwrite policies.
 
 Default instructions request concise descriptions of meaningful visible content, relevant visible
 text, no “Image of”/“Picture of” prefixes, and no invented identities or context. Custom prompts
-replace those instructions. Responses are validated: nonblank alt text up to 1000 characters, up to
-30 tags of 100 characters, and a lowercase hyphenated filename stem up to 150 characters. Human
-review remains appropriate before using generated descriptions for accessibility.
+replace those instructions. Responses are validated: nonblank alt text up to 1000 characters,
+nonblank titles up to 255 characters, up to 30 tags of 100 characters, and a lowercase hyphenated
+filename stem up to 150 characters. Human review remains appropriate before using generated
+descriptions for accessibility.
+
+### File titles
+
+Enable **Generate Title** (`generateTitle: true`) to write a short, human-readable title to
+`directus_files.title` in the configured metadata language. Titles are trimmed, nonblank, and at
+most 255 characters. Existing titles are preserved unless **Overwrite Title**
+(`overwriteTitle: true`) is enabled. Uploaded files normally already have an automatically generated
+title, so replacing those titles requires both controls. The Flow needs read and update access to
+`directus_files.title`.
+
+For title-only generation on an explicit file, use:
+
+```json
+{
+  "files": "{{$trigger.key}}",
+  "generateAltText": false,
+  "generateTitle": true,
+  "overwriteTitle": true,
+  "includeRoot": true
+}
+```
+
+Tags, download filenames, and focal points remain disabled by default. The returned `fields` list
+contains `"title"` when a title is written, and `summary.options` reports `generateTitle` and
+`overwriteTitle`. To regenerate populated titles in a batch, use `ai-image-metadata-regenerate`
+without `files` and add `"missingOnly": false`. For a missing-title backfill, leave
+`missingOnly: true` and `overwriteTitle: false`; null, empty, and whitespace-only titles count as
+missing.
 
 ### Focal points and focal-only backfills
 
@@ -220,6 +253,7 @@ text, even where a textual field is missing:
 ```json
 {
   "generateAltText": false,
+  "generateTitle": false,
   "generateTags": false,
   "generateFilename": false,
   "generateFocalPoint": true,
@@ -259,10 +293,10 @@ The operation's `language` overrides `AI_METADATA_WRITER_LANGUAGE`, which defaul
 Omitted, null, empty, or whitespace-only operation values use the global default. Unsupported
 languages are rejected by environment or operation validation. The effective language is appended to
 every system prompt, including custom prompts; it takes precedence over conflicting language
-instructions in that prompt. Alt text, tags, and descriptive filename words use that language.
-Filenames remain lowercase ASCII slugs, with transliteration where necessary. Existing populated
-fields still follow their independent overwrite controls; changing the language does not translate
-preserved metadata.
+instructions in that prompt. Alt text, titles, tags, and descriptive filename words use that
+language. Filenames remain lowercase ASCII slugs, with transliteration where necessary. Existing
+populated fields still follow their independent overwrite controls; changing the language does not
+translate preserved metadata.
 
 For example, set `AI_METADATA_WRITER_LANGUAGE=Dutch` globally and use `"language": "French"` in an
 operation to generate French metadata for those files. To regenerate existing alt text in French,
@@ -321,11 +355,11 @@ they do not make a complete file eligible in missing-only mode. To regenerate co
 Reads use Flow accountability, exact folders, MIME filters, and enabled-field missing predicates. A
 single ID-sorted query selects a superset of missing values, followed by exact refinement before
 admission. Directus exposes tags as JSON and rejects `_empty`, `_eq`, and text operators for tags,
-so both NULL and non-NULL tags must be inspected. Whitespace-prefixed descriptions and filenames
-also require refinement. Complete values never consume `maxFiles`. Each run inspects at most 1000
-rows using 50-row prefetches. If that budget is reached, continue with `afterId: nextCursor`.
-Restart without `afterId` after finishing a traversal to include lower IDs or newly missing files.
-This handles current stored representations; it is not a compatibility mode.
+so both NULL and non-NULL tags must be inspected. Whitespace-prefixed descriptions, titles, and
+filenames also require refinement. Complete values never consume `maxFiles`. Each run inspects at
+most 1000 rows using 50-row prefetches. If that budget is reached, continue with
+`afterId: nextCursor`. Restart without `afterId` after finishing a traversal to include lower IDs or
+newly missing files. This handles current stored representations; it is not a compatibility mode.
 
 The processing queue refills whenever any slot settles, including across prefetch boundaries.
 Concurrency bounds asset acquisition, byte reads, generation and writes together. It is not a
@@ -431,12 +465,12 @@ lower-layer credentials are not inherited.
 
 ### Requested metadata outputs
 
-Alt text, tags, filename, and focal point are requested and validated only when their respective
-`generateAltText`, `generateTags`, `generateFilename`, and `generateFocalPoint` controls are
-enabled. Alt text defaults to enabled; all other outputs default to disabled. When all four are
-disabled, files are skipped without provider calls. Disabled fields are omitted from the output
-schema and discarded if the model returns them, so malformed unused tags or filenames cannot fail
-alt-text-only generation.
+Alt text, title, tags, filename, and focal point are requested and validated only when their
+respective `generateAltText`, `generateTitle`, `generateTags`, `generateFilename`, and
+`generateFocalPoint` controls are enabled. Alt text defaults to enabled; all other outputs default
+to disabled. When all five are disabled, files are skipped without provider calls. Disabled fields
+are omitted from the output schema and discarded if the model returns them, so malformed unused
+titles, tags, or filenames cannot fail alt-text-only generation.
 
 An empty or whitespace-only `DIRECTUS_EXTENSIONS_AI_API_KEY` environment value is treated as unset,
 allowing startup without an AI key and provider-matched credential fallback. Generation still
@@ -596,6 +630,7 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "includeFolders": [],
       "excludeFolders": [null],
       "generateAltText": true,
+      "generateTitle": false,
       "generateTags": false,
       "generateFilename": false,
       "generateFocalPoint": false,
@@ -604,6 +639,7 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "targetImageDimension": 800,
       "overwriteFocalPoint": false,
       "overwriteAltText": false,
+      "overwriteTitle": false,
       "overwriteTags": false,
       "overwriteFilename": false
     },
@@ -659,6 +695,7 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "includeFolders": [],
       "excludeFolders": [null],
       "generateAltText": true,
+      "generateTitle": false,
       "generateTags": false,
       "generateFilename": false,
       "generateFocalPoint": false,
@@ -667,6 +704,7 @@ stage-specific failures distinguish actionable causes without exposing upstream 
       "targetImageDimension": 800,
       "overwriteFocalPoint": false,
       "overwriteAltText": false,
+      "overwriteTitle": false,
       "overwriteTags": false,
       "overwriteFilename": false
     },

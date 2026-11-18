@@ -53,7 +53,7 @@ describe('metadata language configuration', () => {
 		)
 		expect(prompt).toMatch(/^Describe visible text\./u)
 		expect(prompt).toContain('Metadata language: French.')
-		expect(prompt).toContain('alt text, tags, and descriptive filename words in French')
+		expect(prompt).toContain('alt text, title, tags, and descriptive filename words in French')
 		expect(prompt).toContain('Transliterate filename words')
 		expect(prompt).toContain('Keep JSON property names unchanged')
 	})

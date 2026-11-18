@@ -21,6 +21,7 @@ export function createFileReader(
 	schema: SchemaOverview,
 	options: MetadataOptions,
 ) {
+	const fields = options.generateTitle ? [...fileFields, 'title'] : fileFields
 	const files = new context.services.FilesService({
 		schema,
 		accountability: context.accountability,
@@ -33,7 +34,7 @@ export function createFileReader(
 	 * @returns Validated image metadata, or null for an unsupported MIME type.
 	 */
 	async function readFile(id: string, onRead?: (file: MetadataFile) => void) {
-		const file = fileSchema.parse(await files.readOne(id, { fields: fileFields }))
+		const file = fileSchema.parse(await files.readOne(id, { fields }))
 		onRead?.(file)
 		return imageMimeTypes.includes(file.type ?? '') ? file : null
 	}
@@ -74,7 +75,7 @@ export function createFileReader(
 		}
 		return z.array(fileSchema).parse(
 			await files.readByQuery({
-				fields: fileFields,
+				fields,
 				filter,
 				sort: ['id'],
 				offset: 0,
@@ -161,11 +162,12 @@ export function createFileReader(
  * Builds a portable superset of missing metadata, refined in memory before admission.
  * Tags are text with cast-json in Directus; all tag representations require bounded refinement.
  * @param options - Enabled metadata fields.
- * @returns OR predicates excluding ordinary complete descriptions and filenames.
+ * @returns OR predicates excluding ordinary complete descriptions, titles, and filenames.
  */
 function missingMetadataFilters(options: MetadataOptions): Filter[] {
 	const fields = [
 		...(options.generateAltText ? ['description'] : []),
+		...(options.generateTitle ? ['title'] : []),
 		...(options.generateTags ? ['tags'] : []),
 		...(options.generateFilename ? ['filename_download'] : []),
 	]
