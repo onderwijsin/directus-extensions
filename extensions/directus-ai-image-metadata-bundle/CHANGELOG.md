@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- e81dddd: Add optional localized file title generation to both image metadata Flow operations.
+  Enable `generateTitle` to fill missing `directus_files.title` values and `overwriteTitle` to
+  replace populated titles, independently of other metadata fields.
+
 ## 0.3.0
 
 ### Minor Changes
