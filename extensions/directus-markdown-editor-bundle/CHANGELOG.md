@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.8.0
+
+### Minor Changes
+
+- a5fa958: Add YouTube and Vimeo URL embeds alongside file-library videos, with privacy mode enabled
+  by default, friendly URL validation, and automatic Studio previews. Preserve Vimeo unlisted hashes
+  and persist provider players as iframe HTML in Markdown.
+- a5fa958: Add provider-video options for fullscreen, player controls, looping, autoplay and muted
+  playback. Persist provider parameters and iframe permissions through Markdown and restore them
+  when editing a video.
+- 752ad58: Add the optional RelatedItemList block with independent collection configuration,
+  permission-aware item search, drag-and-drop reordering, Directus empty states, and ordered source
+  snapshots embedded in Markdown as YAML properties.
+
+### Patch Changes
+
+- 752ad58: Add insertable JSON example templates to the Reference collections and Related item
+  collections interface options.
+- a5fa958: Fix crashes when undo or clearing empties a text field in an editor drawer, tag input, or
+  component search. Preserve empty strings so validation stays usable without closing the editor.
+
 ## 0.7.1
 
 ### Patch Changes

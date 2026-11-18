@@ -1,6 +1,6 @@
 {
 	"name": "@onderwijsin/directus-seeder-hook",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"description": "Seed and extract Directus system and application data with three import strategies and optional development auto-extraction.",
 	"keywords": [
 		"directus",
