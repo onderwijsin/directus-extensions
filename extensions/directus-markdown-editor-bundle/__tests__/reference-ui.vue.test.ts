@@ -216,9 +216,9 @@ describe('Reference interface', () => {
 		await Promise.resolve()
 		await nextTick()
 
-		const row = element.querySelector('.reference-picker__result')
-		expect(row?.querySelector('.reference-picker__label')?.textContent).toBe('Alpha')
-		expect(row?.querySelector('.reference-picker__collection')?.textContent).toBe('articles')
+		const row = element.querySelector('.reference-search__result')
+		expect(row?.querySelector('.reference-search__label')?.textContent).toBe('Alpha')
+		expect(row?.querySelector('.reference-search__collection')?.textContent).toBe('articles')
 	})
 
 	it('keeps the drag-handle menus mutually exclusive and hides unavailable Components', async () => {
@@ -691,7 +691,7 @@ describe('Reference interface', () => {
 		await new Promise((resolve) => window.setTimeout(resolve, 225))
 		await nextTick()
 		element
-			.querySelector('.reference-picker__result')
+			.querySelector('.reference-search__result')
 			?.closest('button')
 			?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 		await nextTick()

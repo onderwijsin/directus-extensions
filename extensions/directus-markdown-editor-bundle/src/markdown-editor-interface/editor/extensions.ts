@@ -21,6 +21,8 @@ export interface EditorExtensionActions {
 	openImage?: () => void
 	openVideo?: () => void
 	openComponent?: (component: ComponentMetadata) => void
+	openRelatedItems?: () => void
+	canOpenRelatedItems?: () => boolean
 	openReference?: (position: number) => void
 	canOpenReference?: () => boolean
 	openAiInsert?: (skillId?: string) => void
@@ -58,6 +60,7 @@ export function createEditorExtensions(
 		Video,
 		MarkdownCodeBlock.configure({ enableTabIndentation: true }),
 		MdcBlock.configure({
+			getRelatedItemsEnabled: actions.canOpenRelatedItems ?? (() => false),
 			/**
 			 * Resolve the editor-facing label for a serialized component name.
 			 * @param name Serialized component name.

@@ -21,6 +21,7 @@ const props = defineProps<{
 	enabledTools?: string[] | null
 	disabled?: boolean
 	referencesEnabled?: boolean
+	relatedItemsEnabled?: boolean
 	componentsAvailable?: boolean
 	aiEnabled?: boolean
 	aiSkills?: EditorSkillMenuItem[]
@@ -29,6 +30,7 @@ const emit = defineEmits<{
 	openLink: []
 	openComponents: []
 	openReference: []
+	openRelatedItems: []
 	openImage: []
 	openMedia: []
 	runAi: [scope: EditorAiScope, skillId: string]
@@ -210,6 +212,13 @@ function openReferenceInsert() {
 	emit('openReference')
 }
 
+function openRelatedItemsInsert() {
+	if (!props.relatedItemsEnabled || props.disabled || !props.editor.isEditable) return
+	if (!prepareInsertionPoint()) return
+	setInsertMenuState(false)
+	emit('openRelatedItems')
+}
+
 function openLinkInsert() {
 	if (
 		!isEditorToolEnabled(props.enabledTools, 'link') ||
@@ -382,7 +391,8 @@ function runAi(skillId?: string) {
 						v-if="
 							isEditorToolEnabled(enabledTools, 'link') ||
 							componentsAvailable ||
-							referencesEnabled
+							referencesEnabled ||
+							relatedItemsEnabled
 						"
 					/>
 					<VListItem
@@ -401,6 +411,10 @@ function runAi(skillId?: string) {
 						</VListItemIcon>
 						<VListItemContent>Component</VListItemContent>
 					</VListItem>
+					<VListItem v-if="relatedItemsEnabled" clickable @click="openRelatedItemsInsert"
+						><VListItemIcon><VIcon name="account_tree" /></VListItemIcon
+						><VListItemContent>Related items</VListItemContent></VListItem
+					>
 					<VListItem v-if="referencesEnabled" clickable @click="openReferenceInsert">
 						<VListItemIcon>
 							<VIcon name="alternate_email" />

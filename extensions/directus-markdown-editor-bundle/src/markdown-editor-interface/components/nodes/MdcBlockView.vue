@@ -15,6 +15,7 @@ import { NodeViewContent, NodeViewWrapper } from '@tiptap/vue-3'
 
 import { getEditorComponentState } from '../../component-meta/status'
 import { useEditorEditable } from '../../composables/useEditorEditable'
+import { RelatedItemListPropsSchema } from '../../related-items/schema'
 import { mdcNodeViewProps } from './mdcNodeViewProps'
 
 const props = defineProps(mdcNodeViewProps)
@@ -26,9 +27,15 @@ const componentName = computed(() =>
 	isString(props.node.attrs.name) ? props.node.attrs.name : 'Unknown component',
 )
 const componentLabel = computed(() => {
+	if (componentName.value === 'RelatedItemList') return 'Related items'
 	const getComponentLabel = props.extension.options.getComponentLabel
 	return getComponentLabel(componentName.value)
 })
+const isRelatedItemList = computed(() => componentName.value === 'RelatedItemList')
+const relatedItems = computed(() => RelatedItemListPropsSchema.safeParse(props.node.attrs.props))
+const settingsAvailable = computed(
+	() => !isRelatedItemList.value || props.extension.options.getRelatedItemsEnabled(),
+)
 const componentProps = computed(() => {
 	const value = props.node.attrs.props
 	return isRecord(value) ? toEntries(value) : []
@@ -68,21 +75,27 @@ function selectComponent() {
 }
 
 function editComponent() {
+	if (!settingsAvailable.value) return
 	if (!selectComponent()) return
 	if (!isFunction(props.getPos)) return
 	const position = props.getPos()
 	if (!isInteger(position)) return
 	menuOpen.value = false
 	props.editor.view.dom.dispatchEvent(
-		new CustomEvent('markdown-editor-edit-component', {
-			bubbles: true,
-			detail: {
-				name: componentName.value,
-				props: props.node.attrs.props,
-				nodeType: 'mdcBlock',
-				position,
+		new CustomEvent(
+			isRelatedItemList.value
+				? 'markdown-editor-edit-related-items'
+				: 'markdown-editor-edit-component',
+			{
+				bubbles: true,
+				detail: {
+					name: componentName.value,
+					props: props.node.attrs.props,
+					nodeType: 'mdcBlock',
+					position,
+				},
 			},
-		}),
+		),
 	)
 }
 
@@ -131,6 +144,16 @@ function deleteComponent() {
 				<strong>{{ componentLabel }}</strong>
 			</div>
 			<div class="mdc-block__summary">
+				<VButton
+					v-if="isRelatedItemList && settingsAvailable"
+					small
+					secondary
+					:disabled="!editable"
+					aria-label="Edit related items"
+					@mousedown.stop.prevent
+					@click.stop="editComponent"
+					>Edit items</VButton
+				>
 				<VMenu v-model="menuOpen" placement="bottom-end" show-arrow>
 					<template #activator>
 						<VButton
@@ -147,7 +170,7 @@ function deleteComponent() {
 					</template>
 					<VList class="mdc-block__menu">
 						<VListItem
-							v-if="integrityState !== 'missing'"
+							v-if="integrityState !== 'missing' && settingsAvailable"
 							clickable
 							@click="editComponent"
 							><VListItemIcon><VIcon name="tune" /></VListItemIcon
@@ -169,7 +192,20 @@ function deleteComponent() {
 				</VMenu>
 			</div>
 		</header>
-		<div v-if="componentProps.length" class="mdc-block__props" contenteditable="false">
+		<div v-if="isRelatedItemList" class="mdc-block__related-items" contenteditable="false">
+			<ol
+				v-if="relatedItems.success && relatedItems.data.items.length"
+				aria-label="Related items"
+			>
+				<li v-for="(item, index) in relatedItems.data.items" :key="index">
+					<strong>{{ item.label }}</strong
+					><span>{{ item.collection }} · {{ item.item }}</span>
+				</li>
+			</ol>
+			<p v-else-if="relatedItems.success">No related items selected.</p>
+			<p v-else role="alert">This list contains invalid item data.</p>
+		</div>
+		<div v-else-if="componentProps.length" class="mdc-block__props" contenteditable="false">
 			<code v-for="[name, value] in componentProps" :key="name"
 				>{{ name }}={{ JSON.stringify(value) }}</code
 			>
@@ -255,6 +291,21 @@ function deleteComponent() {
 	flex-wrap: wrap;
 	gap: 0.375rem;
 	padding: 0.5rem 0.75rem;
+}
+.mdc-block__related-items {
+	padding: 0.75rem 1rem;
+}
+.mdc-block__related-items ol {
+	margin: 0;
+	padding-inline-start: 1.25rem;
+}
+.mdc-block__related-items li {
+	padding-block: 0.25rem;
+}
+.mdc-block__related-items span {
+	margin-inline-start: 0.75rem;
+	font-size: 0.75rem;
+	color: var(--theme--foreground-subdued, #8b98a5);
 }
 .mdc-block__props code {
 	padding: 0.125rem 0.375rem;

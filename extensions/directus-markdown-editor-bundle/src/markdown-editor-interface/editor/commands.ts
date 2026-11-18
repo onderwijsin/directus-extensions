@@ -172,6 +172,7 @@ const codeBlockDisabledToolIds = new Set([
 	'link',
 	'ordered-list',
 	'reference',
+	'related-items',
 	'video',
 ])
 

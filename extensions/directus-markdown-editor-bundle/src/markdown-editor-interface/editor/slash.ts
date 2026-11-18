@@ -20,6 +20,8 @@ import {
 import { componentRequiresProps, insertComponent, resolveComponentDefaultProps } from './insertion'
 
 export interface SlashMenuActions {
+	openRelatedItems?: () => void
+	canOpenRelatedItems?: () => boolean
 	openLink?: () => void
 	openImage?: () => void
 	openVideo?: () => void
@@ -152,7 +154,25 @@ export function createSlashItems(
 		if (item.id === 'insert-link') return isEditorToolEnabled(enabledTools, 'link')
 		return isEditorToolEnabled(enabledTools, item.id === 'insert-image' ? 'image' : 'video')
 	})
-	return [...aiItems, ...configured, ...mediaItems, ...componentItems]
+	const relatedItems: SlashItem[] =
+		actions.openRelatedItems && actions.canOpenRelatedItems?.()
+			? [
+					{
+						id: 'related-items',
+						label: 'Related items',
+						description: 'Select and order related Directus items',
+						icon: 'account_tree',
+						group: 'Insert',
+						aliases: ['RelatedItemList', 'related', 'items', 'collection'],
+						command: () => {
+							if (!actions.canOpenRelatedItems?.()) return false
+							actions.openRelatedItems?.()
+							return true
+						},
+					},
+				]
+			: []
+	return [...aiItems, ...configured, ...mediaItems, ...relatedItems, ...componentItems]
 }
 
 /**

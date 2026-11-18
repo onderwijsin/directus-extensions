@@ -23,6 +23,7 @@ interface MarkdownEditorOption {
 			showDeselect?: boolean
 			choices?: { text: string; value: string }[]
 			language?: string
+			template?: string
 			allowOther?: boolean
 		}
 	}
@@ -103,6 +104,44 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			schema: { default_value: false },
 		},
 		{
+			field: 'useRelatedItems',
+			name: 'Use related items',
+			type: 'boolean',
+			meta: {
+				width: 'full',
+				interface: 'checkbox',
+				note: 'Allow authors to select and reorder embedded Directus item snapshots in a RelatedItemList block.',
+			},
+			schema: { default_value: false },
+		},
+		{
+			field: 'relatedItemCollections',
+			name: 'Related item collections',
+			type: 'json',
+			required: true,
+			meta: {
+				width: 'full',
+				interface: 'input-code',
+				note: 'Separate from Reference collections. Insert the template, then replace the example collection and fields with your own.',
+				conditions: [{ rule: { useRelatedItems: { _eq: false } }, hidden: true }],
+				options: {
+					language: 'json',
+					template: JSON.stringify(
+						[
+							{
+								collection: 'articles',
+								displayField: 'title',
+								searchFields: ['title', 'slug'],
+								dataFields: ['slug', 'summary'],
+							},
+						],
+						null,
+						2,
+					),
+				},
+			},
+		},
+		{
 			field: 'useReferences',
 			name: 'Use item references',
 			type: 'boolean',
@@ -121,9 +160,23 @@ export function createMarkdownEditorOptions(): MarkdownEditorOption[] {
 			meta: {
 				width: 'full',
 				interface: 'input-code',
-				note: 'JSON array, for example [{"collection":"articles","displayField":"title","searchFields":["title","slug"],"dataFields":["slug"]}].',
+				note: 'Insert the template, then replace the example collection and fields with your own.',
 				conditions: [{ rule: { useReferences: { _eq: false } }, hidden: true }],
-				options: { language: 'json' },
+				options: {
+					language: 'json',
+					template: JSON.stringify(
+						[
+							{
+								collection: 'articles',
+								displayField: 'title',
+								searchFields: ['title', 'slug'],
+								dataFields: ['slug'],
+							},
+						],
+						null,
+						2,
+					),
+				},
 			},
 		},
 		{

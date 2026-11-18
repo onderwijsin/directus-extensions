@@ -119,7 +119,12 @@ export function scanComponentIntegrity(
 	const occurrences: ComponentOccurrence[] = []
 	editor.state.doc.descendants((node, position) => {
 		if (node.type.name !== 'mdcBlock' && node.type.name !== 'mdcInline') return
-		if (node.attrs.name === 'Reference' || !isString(node.attrs.name)) return
+		if (
+			node.attrs.name === 'Reference' ||
+			node.attrs.name === 'RelatedItemList' ||
+			!isString(node.attrs.name)
+		)
+			return
 		const storedProps = isRecord(node.attrs.props) ? node.attrs.props : {}
 		const component = byName.get(node.attrs.name)
 		if (!component) {

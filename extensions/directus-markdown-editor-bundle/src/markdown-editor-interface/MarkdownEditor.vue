@@ -15,6 +15,7 @@ import MediaDrawer from './components/drawers/MediaDrawer.vue'
 import SourceDrawer from './components/drawers/SourceDrawer.vue'
 import EditorNotices from './components/preview/EditorNotices.vue'
 import ReferenceController from './components/references/ReferenceController.vue'
+import RelatedItemListController from './components/related-items/RelatedItemListController.vue'
 import ComponentInsertMenu from './components/toolbar/ComponentInsertMenu.vue'
 import EditorContextMenus from './components/toolbar/EditorContextMenus.vue'
 import EditorTableMenu from './components/toolbar/EditorTableMenu.vue'
@@ -38,6 +39,8 @@ const props = withDefaults(
 		useStaticComponentMeta?: boolean
 		staticComponentMeta?: unknown
 		tools?: string[] | null
+		useRelatedItems?: boolean
+		relatedItemCollections?: unknown
 		useReferences?: boolean
 		enableReferenceIcon?: boolean
 		iconifyCollections?: string[]
@@ -57,6 +60,8 @@ const props = withDefaults(
 			useStaticComponentMeta?: boolean
 			staticComponentMeta?: unknown
 			tools?: string[] | null
+			useRelatedItems?: boolean
+			relatedItemCollections?: unknown
 			useReferences?: boolean
 			enableReferenceIcon?: boolean
 			iconifyCollections?: string[]
@@ -68,7 +73,7 @@ const props = withDefaults(
 			referenceSnapshotMode?: ReferenceSnapshotMode
 		}
 	}>(),
-	{ useStaticComponentMeta: undefined },
+	{ useStaticComponentMeta: undefined, useRelatedItems: undefined },
 )
 const emit = defineEmits<{ input: [value: string] }>()
 const syncing = shallowRef(false)
@@ -90,6 +95,12 @@ const assetBaseUrl = computed(() => props.assetBaseUrl ?? props.options?.assetBa
 const aiEnabled = computed(() => props.ai ?? props.options?.ai ?? false)
 const referencesEnabled = computed(
 	() => props.useReferences ?? props.options?.useReferences ?? false,
+)
+const relatedItemsEnabled = computed(
+	() => props.useRelatedItems ?? props.options?.useRelatedItems ?? false,
+)
+const relatedItemCollections = computed(
+	() => props.relatedItemCollections ?? props.options?.relatedItemCollections,
 )
 const referenceIconEnabled = computed(
 	() => props.enableReferenceIcon ?? props.options?.enableReferenceIcon ?? false,
@@ -141,6 +152,24 @@ function dispatchReferencePicker(from: number, to: number) {
 			detail: { from, to },
 		}),
 	)
+}
+
+/**
+ * Open the built-in related-items drawer at the current insertion selection.
+ * @returns Nothing.
+ */
+function openRelatedItems() {
+	const instance = editor.value
+	if (
+		!instance ||
+		!relatedItemsEnabled.value ||
+		props.comparisonMode ||
+		!canInteract() ||
+		instance.isActive('codeBlock')
+	)
+		return
+	dismissSlashMenu()
+	instance.view.dom.dispatchEvent(new CustomEvent('markdown-editor-open-related-items'))
 }
 
 /**
@@ -306,6 +335,9 @@ const extensions = createEditorExtensions(
 		openImage: openImageDrawer,
 		openVideo: openVideoDrawer,
 		openComponent: openComponentFromSlash,
+		openRelatedItems,
+		/** @returns Whether this field enables related-item insertion and editing. */
+		canOpenRelatedItems: () => relatedItemsEnabled.value && !props.comparisonMode,
 		openAiInsert: openAiInsertFromSlash,
 		/** @returns Currently loaded editor skills. */
 		getAiSkills: () => editorSkills.value,
@@ -458,9 +490,11 @@ watch(
 					:disabled="disabled"
 					:fullscreen="fullscreen"
 					:references-enabled="referencesEnabled"
+					:related-items-enabled="relatedItemsEnabled && !comparisonMode"
 					:components-available="metadata.hasComponents.value"
 					@open-link="openLinkDrawer"
 					@open-reference="openReferencePicker"
+					@open-related-items="openRelatedItems"
 					@open-image="openMediaDrawer('image')"
 					@open-media="openMediaDrawer('video')"
 					@open-source="openSourceDrawer"
@@ -498,6 +532,7 @@ watch(
 				:enabled-tools="enabledTools"
 				:disabled="disabled"
 				:references-enabled="referencesEnabled"
+				:related-items-enabled="relatedItemsEnabled && !comparisonMode"
 				:components-available="metadata.hasComponents.value"
 				:ai-enabled="aiEnabled && Boolean(collection) && Boolean(field) && !comparisonMode"
 				:ai-skills="editorSkills"
@@ -506,6 +541,7 @@ watch(
 				@open-media="openMediaDrawer('video')"
 				@open-components="openComponentInsert"
 				@open-reference="openReferencePicker"
+				@open-related-items="openRelatedItems"
 				@run-ai="runContextualAi"
 				@ask-ai="askContextualAi"
 			/>
@@ -552,6 +588,12 @@ watch(
 				:asset-base-url="assetBaseUrl"
 				:use-iconify-proxy="useIconifyProxy"
 				@attention-change="componentPropsNeedAttention = $event"
+			/>
+			<RelatedItemListController
+				v-if="relatedItemsEnabled && !comparisonMode"
+				:editor="editor"
+				:collections="relatedItemCollections"
+				:disabled="disabled"
 			/>
 			<ReferenceController
 				v-if="referencesEnabled && !comparisonMode"

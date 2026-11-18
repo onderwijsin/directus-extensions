@@ -131,7 +131,7 @@ export function resolveReferenceCollections(
 	if (!list.success) {
 		return {
 			collections: [],
-			errors: ['Reference collections must be a non-empty valid JSON array.'],
+			errors: ['Item collections must be a non-empty valid JSON array.'],
 		}
 	}
 

@@ -197,6 +197,8 @@ export const MdcBlock = Node.create({
 		 * @returns Editor-facing component label.
 		 */
 		getComponentLabel: (name: string) => name,
+		/** @returns Whether the built-in related-items drawer is enabled. */
+		getRelatedItemsEnabled: (): boolean => false,
 	}),
 	addNodeView: /**
 	 * Editor callback.

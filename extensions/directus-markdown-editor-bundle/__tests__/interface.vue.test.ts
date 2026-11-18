@@ -15,6 +15,7 @@ import PropertyInput from '../src/markdown-editor-interface/components/fields/Pr
 import StringInput from '../src/markdown-editor-interface/components/fields/StringInput.vue'
 import TagsInput from '../src/markdown-editor-interface/components/fields/TagsInput.vue'
 import VideoUploadField from '../src/markdown-editor-interface/components/fields/VideoUploadField.vue'
+import RelatedItemListController from '../src/markdown-editor-interface/components/related-items/RelatedItemListController.vue'
 import EditorTableMenu from '../src/markdown-editor-interface/components/toolbar/EditorTableMenu.vue'
 import EditorToolbar from '../src/markdown-editor-interface/components/toolbar/EditorToolbar.vue'
 import { useImageAltText } from '../src/markdown-editor-interface/composables/useImageAltText'
@@ -349,6 +350,13 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 		}),
 	)
 	app.component('VNotice', defineComponent({ template: '<div><slot /></div>' }))
+	app.component(
+		'VInfo',
+		defineComponent({
+			props: ['title', 'icon'],
+			template: '<div class="v-info"><h2>{{ title }}</h2><p><slot /></p></div>',
+		}),
+	)
 	app.component('VProgressCircular', defineComponent({ template: '<div />' }))
 	app.component('VChip', defineComponent({ template: '<span><slot /></span>' }))
 }
@@ -360,10 +368,14 @@ function mountEditor(
 	metadataOptions?: {
 		useStaticComponentMeta?: boolean
 		staticComponentMeta?: unknown
+		useRelatedItems?: boolean
+		relatedItemCollections?: unknown
 		useReferences?: boolean
 		referenceCollections?: unknown
 		comparisonMode?: boolean
 		options?: {
+			useRelatedItems?: boolean
+			relatedItemCollections?: unknown
 			useStaticComponentMeta?: boolean
 			staticComponentMeta?: unknown
 		}
@@ -794,8 +806,20 @@ describe('Markdown editor interface', () => {
 		})
 	})
 
-	it('configures opt-in references with conditional collections and detect mode by default', () => {
+	it('configures opt-in item tools with independent conditional collections', () => {
 		const options = createMarkdownEditorOptions()
+		expect(options.find((option) => option.field === 'useRelatedItems')).toMatchObject({
+			type: 'boolean',
+			schema: { default_value: false },
+		})
+		expect(options.find((option) => option.field === 'relatedItemCollections')).toMatchObject({
+			type: 'json',
+			required: true,
+			meta: {
+				interface: 'input-code',
+				conditions: [{ rule: { useRelatedItems: { _eq: false } }, hidden: true }],
+			},
+		})
 		expect(options.find((option) => option.field === 'useReferences')).toMatchObject({
 			name: 'Use item references',
 			type: 'boolean',
@@ -1468,5 +1492,219 @@ describe('Markdown editor interface', () => {
 			const token = element.querySelector('.code-block.shiki code span')
 			expect(token instanceof HTMLElement ? token.style.color : '').not.toBe('')
 		})
+	})
+})
+
+describe('RelatedItemList interface', () => {
+	it('uses its own optional capability with restricted tools and preserves disabled content', async () => {
+		const source =
+			'::RelatedItemList\n---\nitems:\n  - collection: articles\n    item: 7\n    label: Stored article\n    data: {}\n---\n::'
+		const enabled = mountEditor(source, false, ['paragraph'], {
+			options: { useRelatedItems: true, relatedItemCollections: [] },
+		})
+		const disabled = mountEditor(source, false, [], {
+			useRelatedItems: false,
+			useStaticComponentMeta: true,
+			staticComponentMeta: [{ name: 'Callout', nodeType: 'block' }],
+		})
+		const comparison = mountEditor(source, false, [], {
+			useRelatedItems: true,
+			comparisonMode: true,
+		})
+		await nextTick()
+		await nextTick()
+
+		expect(enabled.element.querySelector('[aria-label="Insert related items"]')).not.toBeNull()
+		expect(enabled.element.querySelector('[aria-label="Insert reference"]')).toBeNull()
+		expect(enabled.element.querySelector('[aria-label="Edit related items"]')).not.toBeNull()
+		expect(disabled.element.querySelector('[aria-label="Insert related items"]')).toBeNull()
+		expect(disabled.element.querySelector('[aria-label="Edit related items"]')).toBeNull()
+		expect(disabled.element.querySelector('.mdc-block--error')).toBeNull()
+		expect(
+			disabled.element.querySelector('[aria-label="Related items"]')?.textContent,
+		).toContain('Stored article')
+		expect(disabled.input).not.toHaveBeenCalled()
+		expect(comparison.element.querySelector('[aria-label="Insert related items"]')).toBeNull()
+
+		enabled.element
+			.querySelector<HTMLButtonElement>('[aria-label="Insert related items"]')
+			?.click()
+		await nextTick()
+		expect(
+			enabled.element.querySelector('aside input[aria-label="Search items"]'),
+		).not.toBeNull()
+		enabled.disabled.value = true
+		await nextTick()
+		expect(enabled.element.querySelector('aside')).toBeNull()
+	})
+
+	it('searches separate collections, prevents duplicate selections, persists sorted snapshots and cancels edits', async () => {
+		vi.useFakeTimers()
+		const editor = new Editor({
+			content: 'Before',
+			contentType: 'markdown',
+			extensions: createEditorExtensions(),
+		})
+		const element = document.createElement('div')
+		document.body.appendChild(element)
+		const get = vi.fn((url: string) =>
+			Promise.resolve({
+				data: {
+					data: url.startsWith('/items/articles?')
+						? [{ id: 'article-7', title: 'Article seven', slug: 'article-seven' }]
+						: [{ id: 42, title: 'Program forty-two', slug: 'program-forty-two' }],
+				},
+			}),
+		)
+		const app = createApp(
+			defineComponent({
+				setup: () => () =>
+					h(RelatedItemListController, {
+						editor,
+						collections: [
+							{ collection: 'articles', displayField: 'title', dataFields: ['slug'] },
+							{ collection: 'programs', displayField: 'title', dataFields: ['slug'] },
+						],
+					}),
+			}),
+		)
+		app.provide('api', { get })
+		app.provide('stores', {
+			useFieldsStore: () => ({
+				getFieldsForCollection: () => [
+					{ field: 'id', type: 'integer', schema: { is_primary_key: true } },
+					{ field: 'title', type: 'string' },
+					{ field: 'slug', type: 'string' },
+				],
+			}),
+			useCollectionsStore: () => ({ getCollection: () => undefined }),
+		})
+		registerDirectusPrimitives(app)
+		app.component(
+			'VDrawer',
+			defineComponent({
+				props: ['modelValue'],
+				emits: ['cancel'],
+				template:
+					'<aside v-if="modelValue"><slot /><slot name="actions:primary" /><button aria-label="Cancel drawer" @click="$emit(\'cancel\')">Cancel</button></aside>',
+			}),
+		)
+		app.mount(element)
+		mounted.push({ app, element })
+		try {
+			editor.commands.setTextSelection(7)
+			editor.view.dom.dispatchEvent(new CustomEvent('markdown-editor-open-related-items'))
+			await nextTick()
+			expect(element.querySelector('[role="status"]')?.textContent).toContain(
+				'No related items selected',
+			)
+			expect(element.querySelector('[role="status"]')?.textContent).toContain(
+				'Search above to add items.',
+			)
+			expect(element.querySelector('[aria-label="Selected related items"]')).toBeNull()
+			const input = element.querySelector<HTMLInputElement>('[aria-label="Search items"]')
+			if (!input) throw new Error('Expected search input')
+			input.value = 'search'
+			input.dispatchEvent(new Event('input', { bubbles: true }))
+			await nextTick()
+			await vi.advanceTimersByTimeAsync(200)
+			await nextTick()
+			expect(
+				get.mock.calls.map(
+					([url]) => new URL(url, 'https://directus.example.com').pathname,
+				),
+			).toEqual(['/items/articles', '/items/programs'])
+			expect(element.querySelector('[role="status"]')).toBeNull()
+			for (const result of element.querySelectorAll('.reference-search__result'))
+				result.closest('button')?.click()
+			await nextTick()
+			element.querySelector('.reference-search__result')?.closest('button')?.click()
+			await nextTick()
+			expect(element.querySelectorAll('.related-items-drawer__item')).toHaveLength(2)
+			expect(element.querySelector('[aria-label^="Move item"]')).toBeNull()
+			expect(editor.getMarkdown()).toBe('Before')
+			element
+				.querySelector<HTMLButtonElement>('[aria-label="Simulate drag reorder"]')
+				?.click()
+			await nextTick()
+			const apply = [...element.querySelectorAll('button')].find(
+				(button) => button.textContent === 'Apply',
+			)
+			apply?.click()
+			await nextTick()
+			const stored = editor.getMarkdown()
+			expect(stored).toContain('::RelatedItemList\n---\nitems:')
+			expect(stored.indexOf('label: Program forty-two')).toBeLessThan(
+				stored.indexOf('label: Article seven'),
+			)
+			expect(stored).toContain('item: 42')
+			expect(stored).toContain('slug: article-seven')
+			expect(stored).toContain('Before')
+			expect(editor.commands.undo()).toBe(true)
+			expect(editor.getMarkdown()).toBe('Before')
+			editor.commands.setContent(stored, { contentType: 'markdown' })
+			let position = -1
+			editor.state.doc.descendants((node, pos) => {
+				if (node.attrs.name === 'RelatedItemList') position = pos
+			})
+			expect(editor.state.doc.nodeAt(position)?.attrs.props.items).toEqual([
+				{
+					collection: 'programs',
+					item: 42,
+					label: 'Program forty-two',
+					data: { slug: 'program-forty-two' },
+				},
+				{
+					collection: 'articles',
+					item: 'article-7',
+					label: 'Article seven',
+					data: { slug: 'article-seven' },
+				},
+			])
+			editor.view.dom.dispatchEvent(
+				new CustomEvent('markdown-editor-edit-related-items', { detail: { position } }),
+			)
+			await nextTick()
+			element
+				.querySelector<HTMLButtonElement>('[aria-label="Simulate drag reorder"]')
+				?.click()
+			element.querySelector<HTMLButtonElement>('[aria-label="Remove item 1"]')?.click()
+			await nextTick()
+			expect(element.querySelectorAll('.related-items-drawer__item')).toHaveLength(1)
+			element.querySelector<HTMLButtonElement>('[aria-label="Cancel drawer"]')?.click()
+			await nextTick()
+			expect(editor.getMarkdown()).toBe(stored)
+			editor.view.dom.dispatchEvent(
+				new CustomEvent('markdown-editor-edit-related-items', { detail: { position } }),
+			)
+			await nextTick()
+			element
+				.querySelector<HTMLButtonElement>('[aria-label="Simulate drag reorder"]')
+				?.click()
+			await nextTick()
+			editor.commands.insertContentAt(0, {
+				type: 'paragraph',
+				content: [{ type: 'text', text: 'New introduction' }],
+			})
+			;[...element.querySelectorAll('button')]
+				.find((button) => button.textContent === 'Apply')
+				?.click()
+			await nextTick()
+			const updated = editor.getMarkdown()
+			expect(updated).toContain('New introduction')
+			expect(updated.indexOf('label: Article seven')).toBeLessThan(
+				updated.indexOf('label: Program forty-two'),
+			)
+			expect(updated).toContain('slug: program-forty-two')
+		} finally {
+			app.unmount()
+			mounted.splice(
+				mounted.findIndex((entry) => entry.app === app),
+				1,
+			)
+			element.remove()
+			editor.destroy()
+			vi.useRealTimers()
+		}
 	})
 })

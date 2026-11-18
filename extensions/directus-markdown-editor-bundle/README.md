@@ -20,6 +20,7 @@ attributes.
   components;
 - hydration-time component property freshness reports with editor-controlled refresh;
 - permission-aware Directus item references with source snapshots and integrity reporting;
+- optional related-item lists with independent collection settings and sortable embedded snapshots;
 - opt-in AI transformations with reusable skills, custom prompts, document comparison, and
   stale-safe selection replacement;
 - an optional Dutch Studio Docs article for editors.
@@ -99,6 +100,8 @@ Configure these options on each field using the **Markdown Editor** interface.
 | **Component metadata URL**        | unset    | Browser-accessible JSONURL used while static metadata is disabled.                                                                                                                                                                |
 | **Static component metadata**     | unset    | Required JSON value while static metadata is enabled.                                                                                                                                                                             |
 | **Use item references**           | `false`  | Enables the Reference picker, Reference editing, and document integrity checks.                                                                                                                                                   |
+| **Use related items**             | `false`  | Enables RelatedItemList insertion and item editing independently of References and component metadata.                                                                                                                            |
+| **Related item collections**      | unset    | Required non-empty JSON array when related items are enabled; uses its own collection, display, search, and data fields.                                                                                                          |
 | **Reference collections**         | unset    | Required non-empty JSON array when item references are enabled.                                                                                                                                                                   |
 | **Enable reference icon**         | `false`  | Shows an Iconify picker in the Reference drawer when item references are enabled. Existing stored icons remain intact when disabled.                                                                                              |
 | **Iconify collections**           | all      | Searchable collection selection for Reference icons. Leave empty to include every collection. Component icon properties use their own config.                                                                                     |
@@ -184,8 +187,8 @@ links, dividers, hard breaks, tables, clear formatting, history, source mode, an
 
 Component insertion is available whenever the selected metadata source provides components.
 Reference insertion and integrity checks are controlled by **Use item references**. These features
-are independent of **Available editor tools**. Saved `component` and `reference` tool IDs are
-ignored.
+are independent of **Available editor tools**. Saved `component`, `reference`, and `related-items`
+tool IDs are ignored.
 
 ## Component metadata contract
 
@@ -240,15 +243,15 @@ framework and accepts either an array or an object with a `components` array:
 
 ### Component fields
 
-| Field         | Required | Contract                                                                                            |
-| ------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `name`        | yes      | Non-empty MDC component name. `Reference` is reserved and omitted from generic component insertion. |
-| `nodeType`    | yes      | `block` or `inline`. Components with slots always insert as blocks.                                 |
-| `label`       | no       | Editor-facing name; defaults to `name`.                                                             |
-| `description` | no       | Editor-facing explanation shown during component selection.                                         |
-| `tags`        | no       | JSDoc tags; `deprecated` marks a supported component for replacement or removal.                    |
-| `props`       | no       | Object keyed by property name, or an array whose entries contain `name`; defaults to `{}`.          |
-| `slots`       | no       | Array of slot-name strings or `{ "name": "..." }` objects; defaults to `[]`.                        |
+| Field         | Required | Contract                                                                                                                   |
+| ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | yes      | Non-empty MDC component name. `Reference` and `RelatedItemList` are reserved and omitted from generic component insertion. |
+| `nodeType`    | yes      | `block` or `inline`. Components with slots always insert as blocks.                                                        |
+| `label`       | no       | Editor-facing name; defaults to `name`.                                                                                    |
+| `description` | no       | Editor-facing explanation shown during component selection.                                                                |
+| `tags`        | no       | JSDoc tags; `deprecated` marks a supported component for replacement or removal.                                           |
+| `props`       | no       | Object keyed by property name, or an array whose entries contain `name`; defaults to `{}`.                                 |
+| `slots`       | no       | Array of slot-name strings or `{ "name": "..." }` objects; defaults to `[]`.                                               |
 
 ### Property fields
 
@@ -380,7 +383,10 @@ nodes so stored content is not tied to the current metadata list.
 References let authors select Directus items without creating a relational field. They are inline
 MDC snapshots, not database relations.
 
-Enable **Use item references** and configure direct fields only:
+Enable **Use item references** and configure direct fields only.
+
+Use the code input's template action to insert the example configuration, then replace the
+collection and field names with your own.
 
 ```json
 [
@@ -444,6 +450,85 @@ Archived items are omitted from search and reported as **Archived** when still r
 items and permission-hidden items are both reported as **Unavailable**. The editor never uses an
 administrator token, changes the source item, saves the containing item automatically, or creates a
 reverse index.
+
+## Related item lists
+
+Enable **Use related items** (`useRelatedItems`, default `false`) to insert the built-in
+`RelatedItemList` block. It is independent of **Use item references**, component metadata, and
+**Available editor tools**. The toolbar, `/` menu, and block **+** menu offer **Related items** only
+when enabled. Disabling it preserves stored lists and their previews, while hiding list insertion
+and item editing. Related-item drawers are also unavailable in read-only and comparison views.
+
+Configure **Related item collections** (`relatedItemCollections`) with a non-empty JSON array.
+
+Use the code input's template action to insert its example configuration, then replace the
+collection and field names with your own. Each collection option has its own template; inserting one
+does not configure the other.
+
+```json
+[
+  {
+    "collection": "articles",
+    "displayField": "title",
+    "searchFields": ["title", "slug"],
+    "dataFields": ["slug", "summary"]
+  },
+  {
+    "collection": "programs",
+    "displayField": "name",
+    "dataFields": ["slug", "duration"]
+  }
+]
+```
+
+These settings are stored separately from `referenceCollections`; neither configuration falls back
+to the other. Each entry requires a unique `collection` and a `displayField`. `searchFields`
+defaults to `[displayField]`; `dataFields` defaults to `[]`. The same direct-field validation and
+author read permissions described for References apply, including rejection of relational fields,
+nested paths, and wildcards. Searches use the signed-in Studio user's permissions and exclude
+archived items.
+
+The drawer searches across these collections after a query is entered. When no items are selected,
+search guidance appears until results are shown. Select multiple results, drag selected rows to
+change order, and remove unwanted selections. Each source can occur once per list; different lists
+can select the same source. **Apply** requires at least one item and writes the complete ordered
+list in one undoable editor transaction. Cancel leaves the stored list unchanged. Use the block's
+**Edit items** button or **Settings** action to reopen the drawer; delete the block to remove the
+entire list.
+
+Lists store YAML properties in Markdown:
+
+```text
+::RelatedItemList
+---
+items:
+  - collection: articles
+    item: article-7
+    label: Becoming a teacher
+    data:
+      slug: becoming-a-teacher
+      summary: Explore the routes into teaching.
+  - collection: programs
+    item: 42
+    label: Teaching traineeship
+    data:
+      slug: teaching-traineeship
+      duration: 24
+---
+::
+```
+
+Every entry requires `collection`, string or finite-number `item`, string `label`, and
+JSON-compatible object `data`. Array order is display order. `label` copies the configured display
+field, and `data` copies the configured data fields when selected. Lists retain these snapshots
+until an author removes and selects an item again; `referenceSnapshotMode` does not apply, and list
+sources are not automatically checked or synchronized. Invalid stored lists remain intact and show a
+warning; repair them through the Markdown source before editing items.
+
+`RelatedItemList` is reserved and excluded from project component metadata. Consumers provide their
+own frontend `RelatedItemList` renderer accepting the ordered `items` prop. Rendering needs no
+source item requests because all configured values are embedded. No Directus relations or reverse
+index are created.
 
 ## Links
 

@@ -150,7 +150,7 @@ export function normalizeComponentMetadata(payload: unknown): ComponentMetadata[
 		)
 	}
 	const components = (isArray(result.data) ? result.data : result.data.components).filter(
-		(component) => component.name !== 'Reference',
+		(component) => component.name !== 'Reference' && component.name !== 'RelatedItemList',
 	)
 	return components.map(
 		/**
