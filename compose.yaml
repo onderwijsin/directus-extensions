@@ -13,6 +13,10 @@ services:
       - ./.data/cache:/data
 
   directus:
+    environment:
+      CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_SRC:
+        "${CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_SRC:-'self' http://localhost:*
+        https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com}"
     ports:
       - '8055:8055'
     depends_on:

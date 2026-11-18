@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+// @vitest-environment-options {"settings":{"navigation":{"disableChildFrameNavigation":true}}}
 import { Editor } from '@tiptap/core'
 import { Markdown } from '@tiptap/markdown'
 import { NodeSelection } from '@tiptap/pm/state'
@@ -1146,9 +1147,83 @@ describe('editor commands', () => {
 
 		expect(editor.getJSON().content).toContainEqual({
 			type: 'video',
-			attrs: { src: '/assets/video-id' },
+			attrs: { src: '/assets/video-id', allow: null },
 		})
 		expect(editor.getMarkdown()).toContain('<video src="/assets/video-id" controls></video>')
+		editor.destroy()
+	})
+
+	it.each([
+		{
+			src: 'https://www.youtube.com/embed/M7lc1UVf-VE',
+			canonical: 'https://www.youtube.com/embed/M7lc1UVf-VE',
+		},
+		{
+			src: 'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE',
+			canonical: 'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE',
+		},
+		{
+			src: 'https://player.vimeo.com/video/76979871',
+			canonical: 'https://player.vimeo.com/video/76979871',
+		},
+		{
+			src: 'https://player.vimeo.com/video/76979871?dnt=1',
+			canonical: 'https://player.vimeo.com/video/76979871?dnt=1',
+		},
+		{
+			src: 'https://player.vimeo.com/video/76979871?h=8272103f6e&amp;dnt=1',
+			canonical: 'https://player.vimeo.com/video/76979871?h=8272103f6e&amp;dnt=1',
+		},
+	])('round-trips the provider player and privacy settings in $src', ({ src, canonical }) => {
+		const input = `<iframe src="${src}" allowfullscreen></iframe>\n\nAfter video`
+		const markdown = `<iframe src="${canonical}" allow="fullscreen; encrypted-media" allowfullscreen></iframe>\n\nAfter video`
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: input,
+			contentType: 'markdown',
+		})
+		expect(editor.getJSON().content).toContainEqual({
+			type: 'video',
+			attrs: {
+				src: canonical.replaceAll('&amp;', '&'),
+				allow: 'fullscreen; encrypted-media',
+			},
+		})
+		expect(editor.getMarkdown()).toBe(markdown)
+		editor.commands.setContent(editor.getMarkdown(), { contentType: 'markdown' })
+		expect(editor.getMarkdown()).toBe(markdown)
+		editor.commands.setContent(editor.getHTML(), { contentType: 'html' })
+		expect(editor.getMarkdown()).toBe(markdown)
+		editor.destroy()
+	})
+
+	it.each([
+		'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE?fs=0&controls=0&loop=1&playlist=M7lc1UVf-VE&autoplay=1&mute=1',
+		'https://player.vimeo.com/video/76979871?h=8272103f6e&dnt=1&fullscreen=0&controls=0&loop=1&autoplay=1&muted=1',
+	])('preserves disabled fullscreen and all supported playback settings in %s', (src) => {
+		const markdown = `<iframe src="${src.replaceAll('&', '&amp;')}" allow="autoplay; fullscreen 'none'; encrypted-media"></iframe>\n\nAfter video`
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: markdown,
+			contentType: 'markdown',
+		})
+		expect(editor.getMarkdown()).toBe(markdown)
+		expect(editor.getHTML()).not.toContain('allowfullscreen')
+		editor.commands.setContent(editor.getHTML(), { contentType: 'html' })
+		expect(editor.getMarkdown()).toBe(markdown)
+		editor.commands.setContent(editor.getMarkdown(), { contentType: 'markdown' })
+		expect(editor.getMarkdown()).toBe(markdown)
+		editor.destroy()
+	})
+
+	it('does not admit unsupported iframes into the video node', () => {
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			content: '<iframe src="https://example.com/embed/123"></iframe>',
+			contentType: 'markdown',
+		})
+		expect(editor.getJSON().content?.some((node) => node.type === 'video')).toBe(false)
+		expect(editor.getHTML()).not.toContain('<iframe')
 		editor.destroy()
 	})
 

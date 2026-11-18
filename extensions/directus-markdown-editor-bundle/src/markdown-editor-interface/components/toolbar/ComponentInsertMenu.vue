@@ -179,6 +179,7 @@ watch(
 				<div class="component-picker__search">
 					<VInput
 						v-model="query"
+						:nullable="false"
 						autofocus
 						placeholder="Search components…"
 						aria-label="Search components"

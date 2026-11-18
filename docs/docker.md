@@ -122,6 +122,11 @@ starting the one-shot service does not download a binary. When upgrading Garage,
 and manifest digest together in both `docker/compose.yaml` and `docker/garage-init.Dockerfile`; the
 digest is the multi-architecture manifest digest.
 
+Local Compose allows `https://www.youtube-nocookie.com`, `https://www.youtube.com` and
+`https://player.vimeo.com` in the Directus CSP `frame-src` directive for provider video previews,
+alongside `'self'` and `http://localhost:*`. Set `CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_SRC` to
+replace this local allowlist. The shared and E2E Compose defaults remain unchanged.
+
 The local defaults are intentionally development-only. Override them in an ignored `.env`:
 
 ```sh

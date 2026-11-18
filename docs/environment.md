@@ -44,6 +44,11 @@ local-development CORS and CSP settings, HSTS, and `MARKETPLACE_TRUST=sandbox`. 
 disabled by default; set `TUS_ENABLED=true` when resumable uploads are required. These defaults keep
 the local runtime explicit and easy to override.
 
+Local Compose allows `https://www.youtube-nocookie.com`, `https://www.youtube.com` and
+`https://player.vimeo.com` in the Directus CSP `frame-src` directive for provider video previews,
+alongside `'self'` and `http://localhost:*`. Set `CONTENT_SECURITY_POLICY_DIRECTIVES__FRAME_SRC` to
+replace this local allowlist. The shared and E2E Compose defaults remain unchanged.
+
 ## Environment files and defaults
 
 The local Compose stack does not require a `.env` file. Its shared Compose file provides development

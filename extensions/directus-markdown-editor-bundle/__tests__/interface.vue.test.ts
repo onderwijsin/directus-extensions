@@ -190,6 +190,37 @@ describe('object array input', () => {
 })
 
 describe('tags input', () => {
+	it('ignores a draft cleared by undo and accepts the next tag', async () => {
+		const tags = shallowRef(['existing'])
+		const element = document.createElement('div')
+		const app = createApp({
+			setup: () => () =>
+				h(TagsInput, {
+					modelValue: tags.value,
+					'onUpdate:modelValue': (value: string[]) => {
+						tags.value = value
+					},
+				}),
+		})
+		registerDirectusPrimitives(app)
+		app.mount(element)
+		mounted.push({ app, element })
+		const input = element.querySelector('input')
+		if (!input) throw new Error('Missing tag input')
+		input.value = 'draft'
+		input.dispatchEvent(new Event('input', { bubbles: true }))
+		input.value = ''
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'historyUndo' }))
+		await nextTick()
+		input.dispatchEvent(new Event('blur'))
+		expect(tags.value).toEqual(['existing'])
+		input.value = 'next'
+		input.dispatchEvent(new Event('input', { bubbles: true }))
+		input.dispatchEvent(new Event('blur'))
+		await nextTick()
+		expect(tags.value).toEqual(['existing', 'next'])
+	})
+
 	it('persists chip drag order', async () => {
 		const tags = shallowRef(['first', 'second'])
 		const element = document.createElement('div')
@@ -294,10 +325,10 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 	app.component(
 		'VInput',
 		defineComponent({
-			props: ['modelValue'],
+			props: { modelValue: [String, Number], nullable: { type: Boolean, default: true } },
 			emits: ['update:modelValue'],
 			template:
-				'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+				'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value === \'\' && nullable ? null : $event.target.value)" />',
 		}),
 	)
 	app.component(
@@ -1217,6 +1248,17 @@ describe('Markdown editor interface', () => {
 		await nextTick()
 
 		expect(element.textContent).toContain('Insert component')
+		expect(element.textContent).toContain('Hero')
+		expect(element.textContent).toContain('Callout')
+		const search = element.querySelector<HTMLInputElement>('[aria-label="Search components"]')
+		if (!search) throw new Error('Missing component search input')
+		search.value = 'Hero'
+		search.dispatchEvent(new Event('input', { bubbles: true }))
+		await nextTick()
+		expect(element.textContent).not.toContain('Callout')
+		search.value = ''
+		search.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'historyUndo' }))
+		await nextTick()
 		expect(element.textContent).toContain('Hero')
 		expect(element.textContent).toContain('Callout')
 	})
