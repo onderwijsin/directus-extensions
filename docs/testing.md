@@ -8,15 +8,86 @@ Test the contract a Directus consumer depends on. Keep tests beside the package 
 > meaningful behavioral contracts and concrete risks, not implementation history or theoretical edge
 > cases.
 
-Aim for the smallest maintainable suite that gives sufficient confidence, rather than maximum
-coverage or the fewest possible tests. Prefer improving existing tests over adding overlapping
-cases, redundant parameter combinations, or implementation-specific assertions. Do not add tests
-solely to meet coverage thresholds.
+Aim for the smallest maintainable suite that provides sufficient confidence, not maximum coverage or
+the fewest possible tests. Rejection and failure cases earn their place through supported contracts
+or concrete risks. Runtime validation, authorization, persistence, concurrency, compatibility and
+resource cleanup can need distinct protection even for rare inputs.
 
-Test the intended end contract rather than the history of implementation mistakes. A bugfix does not
-automatically require a separate permanent regression test, especially before the first release.
-Protect concrete safety risks and important regressions when there is a clear reason. When mocks
-cannot establish the relevant runtime behavior, use a real integration or E2E test.
+Use [review-test-value](../.agents/skills/review-test-value/SKILL.md) to assess that protection and
+recommend keep, improve, consolidate or remove. The skill's review is read-only; apply justified
+changes through the [agent workflow](agent-workflow.md).
+
+## Choosing and maintaining tests
+
+Add a permanent test only for a concrete protection gap in existing coverage. When choosing or
+reviewing cases, establish for each case or equivalent group:
+
+1. The supported behavior or invariant and plausible regression it protects.
+2. The production path exercised and observable result asserted.
+3. The independent basis for the expected result: a requirement, protocol example, known result,
+   still-relevant regression or independently derived invariant.
+4. Whether that regression would make the assertion fail.
+5. The distinct protection beyond neighboring tests and which harmless refactors would break it.
+
+Keep this reasoning proportional; working notes suffice. Explicit current requirements can supersede
+historical expectations. A cleanup preference cannot retire a supported contract.
+
+Prefer improving existing workflow tests over adding overlapping cases, excessive parameterization
+or assertions about private structure. A bug fix does not automatically require a permanent
+regression test, especially before the first release. Reproduce the failure when practical and
+confirm the fix; retain a new case only when it adds meaningful protection. A coverage target or
+missing helper test alone does not establish a gap.
+
+Expected values obtained by calling the subject again, copying its algorithm or repeating mock setup
+can share the defect being tested. Characterization tests can establish unchanged behavior while
+offering weaker evidence of correctness; make that distinction explicit. Mocks, snapshots and
+interaction assertions remain useful when they observe a real contract, such as an outbound payload,
+transaction order or retry limit. Use a real integration or E2E test when mocks cannot establish
+runtime wiring or compatibility.
+
+Before consolidating tests, compare their contract, meaningful input class, production path,
+observable result and failure mode. Similar outputs alone do not prove redundancy. Name the
+surviving evidence and any protection lost; a passing remaining suite alone does not justify
+removal. Preserve uncertain cases and identify the missing evidence. Remove fixtures and mocks only
+after checking surviving consumers. Removing a test does not authorize removing production behavior.
+
+## Selecting verification for a change
+
+Select local checks for the task's changed or explicitly reviewed surfaces and their affected
+consumers. Unrelated dirty files do not expand the scope. Use focused file, Vitest project or
+package checks when they cover the contract; broaden only for a concrete risk or failure. Stop once
+sufficient evidence is established. Required hooks, CI and release gates remain unchanged; see
+[CI](ci.md) and [publishing](publishing.md).
+
+The commands below use `pnpm` for readability; agents invoke them through `corepack pnpm` under
+[workspace safety](workspace.md#for-agents). Root commands are available when the scope needs them;
+use their focused equivalents for narrower changes.
+
+| Affected surface                                                                          | Local validation                                                                                                                                |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Any changed files                                                                         | Oxfmt check of task files, e.g. `pnpm exec oxfmt --check <files>`, and scoped diff review                                                       |
+| Documentation only                                                                        | Formatting, `pnpm validate:docs`, and links, anchors and consistency review; no builds or test suites                                           |
+| Source or tests                                                                           | Applicable lint, owning package typecheck and focused unit/component tests; root scripts are `pnpm lint`, `pnpm typecheck` and `pnpm test:unit` |
+| GitHub Actions                                                                            | `pnpm lint:actions` and the review in [Actions](actions.md)                                                                                     |
+| Process or filesystem coordination, including locks and marker stores                     | `pnpm build:utils`, then `pnpm test:integration` or its focused equivalent                                                                      |
+| Public package metadata, exports, dependencies, build output or runtime behavior          | Applicable build, package and packed-consumer checks in [workspace](workspace.md#external-and-directus-validation)                              |
+| Directus loading, built extensions, runtime integration, Compose services or E2E behavior | `pnpm test:e2e`; use the packed-consumer path when package loading or artifacts are affected                                                    |
+
+Build extension-utils before type-aware linting as documented in
+[workspace](workspace.md#working-with-packages-and-extensions). Lint passes only with zero errors
+and zero warnings. Keep formatting and autofixes within task files; read-only reviews use no-write
+check modes.
+
+For example, select an owning package's typecheck with `pnpm --filter <package> typecheck` and
+existing unit cases with `pnpm test:unit --project node <test-file>`. Check
+[`vitest.config.ts`](../vitest.config.ts) for discovery and enabled projects. Integration and E2E
+projects need their runner setup; a green run that collected no relevant tests is not evidence.
+Investigate unexpected collection drops, skips or deselections when tests or tooling change.
+
+Run `pnpm test:unit:coverage` when coverage output or coverage-sensitive source changes are
+relevant. Coverage supports investigation; it does not determine which tests deserve to exist.
+Report exact commands and actual results, including blocked relevant checks, in the workflow
+handoff.
 
 ## Directus Core plan limits
 
@@ -177,6 +248,13 @@ pnpm test:e2e
 The runner builds extensions, starts Compose with health checks, logs in the root administrator,
 runs the E2E Vitest project, and removes containers, networks, and named volumes in `finally`. It
 does not collect Compose logs.
+
+Allow the full startup window before diagnosing an unresponsive stack: image and dependency cache
+misses can make Compose-backed services take one to eight minutes to become responsive. E2E runners
+must remove their Compose project and disposable volumes on success, failure and interruption; never
+stop the shared Docker daemon for test cleanup. See
+[Docker readiness and timeouts](docker.md#readiness-and-timeouts) for the operation, health-check
+and startup limits.
 
 The E2E overlay explicitly enables the Schema Snapshot bundle for its CLI tests and disables
 automatic snapshots. These settings are independent of the local development defaults.
