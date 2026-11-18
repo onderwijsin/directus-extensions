@@ -17,6 +17,7 @@ export function createMetadataWriter(
 	schema: SchemaOverview,
 	options: MetadataOptions,
 ) {
+	const readFields = options.generateTitle ? [...fileFields, 'title'] : fileFields
 	const serviceOptions = {
 		schema,
 		accountability: context.accountability,
@@ -35,7 +36,7 @@ export function createMetadataWriter(
 				knex: transaction,
 			})
 			const latest = fileSchema.parse(
-				await transactionalFiles.readOne(file.id, { fields: fileFields }),
+				await transactionalFiles.readOne(file.id, { fields: readFields }),
 			)
 			if (!isSelected(latest, options)) return skipped
 			// Discard focal output if the coordinate frame changed during generation (#197 remains separate).

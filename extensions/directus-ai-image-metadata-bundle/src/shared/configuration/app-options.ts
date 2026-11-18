@@ -12,7 +12,7 @@ export const metadataAppOptions = [
 			interface: 'select-dropdown',
 			width: 'full',
 			options: { choices: acceptedLanguages.map((value) => ({ text: value, value })) },
-			note: 'Optional override for alt text, tags, and filename words; defaults to the server language (English when unset).',
+			note: 'Optional override for alt text, titles, tags, and filename words; defaults to the server language (English when unset).',
 		},
 	},
 	{
@@ -139,6 +139,25 @@ export const metadataAppOptions = [
 			interface: 'boolean',
 			width: 'half',
 			note: 'Replace an existing description; otherwise only fill missing alt text.',
+		},
+	},
+	{
+		field: 'generateTitle',
+		name: 'Generate Title',
+		type: 'boolean',
+		schema: { default_value: false },
+		meta: { interface: 'boolean', width: 'half' },
+	},
+	{
+		field: 'overwriteTitle',
+		name: 'Overwrite Title',
+		type: 'boolean',
+		schema: { default_value: false },
+		meta: {
+			conditions: [{ rule: { generateTitle: { _neq: true } }, hidden: true }],
+			interface: 'boolean',
+			width: 'half',
+			note: 'Replace an existing file title; otherwise only fill missing titles.',
 		},
 	},
 	{

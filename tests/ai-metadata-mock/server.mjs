@@ -126,11 +126,13 @@ async function handle(request, response) {
 		language === 'Dutch'
 			? {
 					altText: 'Een kleine testafbeelding.',
+					title: 'Kleine testafbeelding',
 					tags: ['test', 'afbeelding'],
 					filename: 'kleine-testafbeelding',
 				}
 			: {
 					altText: 'A small test image.',
+					title: 'Small test image',
 					tags: ['test', 'image'],
 					filename: 'small-test-image',
 				}

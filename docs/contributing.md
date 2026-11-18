@@ -43,10 +43,11 @@ orchestration in the owning extension and reusable behavior in the appropriate p
 
 ## Required checks
 
-Select local checks using [`agent-workflow.md`](agent-workflow.md#4-validate-and-review). It defines
-validation by affected surface, including documentation-only changes and package/E2E checks. Use
-[`testing.md`](testing.md#testing-philosophy) for test selection. Required CI and release checks
-remain documented in [`ci.md`](ci.md) and [`publishing.md`](publishing.md).
+Select local checks using [verification selection](testing.md#selecting-verification-for-a-change),
+including documentation-only changes and package/E2E checks. Use the
+[testing policy](testing.md#choosing-and-maintaining-tests) when adding or maintaining tests.
+Required CI and release checks remain documented in [`ci.md`](ci.md) and
+[`publishing.md`](publishing.md).
 
 ## Pull request checklist
 

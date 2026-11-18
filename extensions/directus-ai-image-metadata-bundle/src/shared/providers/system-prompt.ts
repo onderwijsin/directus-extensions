@@ -18,7 +18,7 @@ export function createMetadataSystemPrompt(
 	const language = options.language ?? env.AI_METADATA_WRITER_LANGUAGE
 	return [
 		prompt,
-		`Metadata language: ${language}. Write the alt text, tags, and descriptive filename words in ${language}, regardless of the image's language or any conflicting language instruction above. Keep JSON property names unchanged. Transliterate filename words when needed to preserve the lowercase ASCII letters, digits, and hyphens required by the filename format; do not include an extension.`,
+		`Metadata language: ${language}. Write the alt text, title, tags, and descriptive filename words in ${language}, regardless of the image's language or any conflicting language instruction above. Keep JSON property names unchanged. Transliterate filename words when needed to preserve the lowercase ASCII letters, digits, and hyphens required by the filename format; do not include an extension.`,
 		...(options.generateFocalPoint ? [focalPointInstructions] : []),
 	].join('\n\n')
 }

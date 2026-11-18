@@ -26,6 +26,7 @@ function file(index: number): MetadataFile {
 		id: id(index),
 		type: 'image/png',
 		folder: null,
+		title: null,
 		description: null,
 		tags: null,
 		filename_download: 'image.png',

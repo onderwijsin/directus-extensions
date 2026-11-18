@@ -32,6 +32,7 @@ export function isSelected(file: MetadataFile, options: MetadataOptions): boolea
 export function hasMissingMetadata(file: MetadataFile, options: MetadataOptions): boolean {
 	return (
 		(options.generateAltText && !isNonBlankString(file.description)) ||
+		(options.generateTitle && !isNonBlankString(file.title)) ||
 		(options.generateTags && !hasTags(file.tags)) ||
 		(options.generateFilename && !isNonBlankString(file.filename_download)) ||
 		(options.generateFocalPoint && !hasFocalPoint(file))
@@ -52,6 +53,7 @@ export function createMetadataPatch(
 ) {
 	const patch: {
 		description?: string
+		title?: string
 		tags?: string[]
 		filename_download?: string
 		focal_point_x?: number
@@ -63,6 +65,12 @@ export function createMetadataPatch(
 		(options.overwriteAltText || !isNonBlankString(file.description))
 	)
 		patch.description = generated.altText
+	if (
+		options.generateTitle &&
+		generated.title !== undefined &&
+		(options.overwriteTitle || !isNonBlankString(file.title))
+	)
+		patch.title = generated.title
 	if (
 		generated.tags !== undefined &&
 		options.generateTags &&
@@ -112,6 +120,7 @@ export function needsMetadataUpdate(file: MetadataFile, options: MetadataOptions
 			hasFocalPointDimensions(file) &&
 			(options.overwriteFocalPoint || !hasFocalPoint(file))) ||
 		(options.generateAltText && options.overwriteAltText) ||
+		(options.generateTitle && options.overwriteTitle) ||
 		(options.generateTags && options.overwriteTags) ||
 		(options.generateFilename && options.overwriteFilename)
 	)

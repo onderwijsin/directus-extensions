@@ -34,6 +34,7 @@ export async function runRegenerationQueue(
 	let inspected = 0
 	let exhausted =
 		!options.generateAltText &&
+		!options.generateTitle &&
 		!options.generateTags &&
 		!options.generateFilename &&
 		!options.generateFocalPoint

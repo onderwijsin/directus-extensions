@@ -211,6 +211,63 @@ async function providerGate(key: string, action: 'wait' | 'release') {
 }
 
 describe('image metadata installed Flow operations', () => {
+	it('generates localized titles alone, backfills missing titles, and preserves populated titles', async () => {
+		const folder = await client.request(createFolder({ name: 'Title generation E2E' }))
+		const ids: string[] = []
+		try {
+			for (const title of [null, ' \t', 'Human title']) {
+				const id = await uploadImage(folder.id)
+				ids.push(id)
+				await client.request(
+					updateFile(id, { title, description: 'Human description', tags: ['manual'] }),
+				)
+			}
+			const options = {
+				generateAltText: false,
+				generateTitle: true,
+				language: 'Dutch',
+				includeFolders: [{ key: folder.id, collection: 'directus_folders' }],
+			}
+			const backfill = await runOperation('ai-image-metadata-regenerate', options)
+			expect(backfill.results).toHaveLength(2)
+			for (const result of backfill.results)
+				expect(result).toMatchObject({ status: 'updated', fields: ['title'] })
+			expect(backfill.complete).toBe(true)
+			expect(backfill.summary?.options).toMatchObject({
+				generateTitle: true,
+				overwriteTitle: false,
+			})
+			for (const [index, id] of ids.entries())
+				expect(await client.request(readFile(id))).toMatchObject({
+					title: index < 2 ? 'Kleine testafbeelding' : 'Human title',
+					description: 'Human description',
+					tags: ['manual'],
+					filename_download: 'original.png',
+				})
+			const overwrite = await runOperation('ai-image-metadata', {
+				...options,
+				files: ids,
+				language: 'English',
+				overwriteTitle: true,
+			})
+			expect(overwrite.results).toHaveLength(3)
+			for (const result of overwrite.results) {
+				expect(result).toMatchObject({ status: 'updated', fields: ['title'] })
+				expect((await client.request(readFile(result.id))).title).toBe('Small test image')
+			}
+			const disabled = await runOperation('ai-image-metadata', {
+				...options,
+				files: ids,
+				generateTitle: false,
+				overwriteTitle: true,
+			})
+			for (const result of disabled.results)
+				expect(result).toMatchObject({ status: 'skipped', fields: [] })
+		} finally {
+			for (const id of ids) await client.request(deleteFile(id))
+			await client.request(deleteFolder(folder.id))
+		}
+	})
 	it('backfills focal points alone and persists only coordinate pairs through normal revisions', async () => {
 		const folder = await client.request(createFolder({ name: 'Focal-only E2E' }))
 		const ids: string[] = []

@@ -29,6 +29,7 @@ const file = fileSchema.parse({
 })
 const generated = metadataSchema.parse({
 	altText: 'A red bicycle beside a brick wall.',
+	title: 'Red bicycle by a brick wall',
 	tags: ['bicycle', 'red', 'bicycle'],
 	filename: 'red-bicycle',
 })
@@ -264,6 +265,41 @@ describe('native folder selection', () => {
 })
 
 describe('generation switches', () => {
+	it('fills missing titles and preserves existing titles unless overwriting is enabled', () => {
+		const options = optionsSchema.parse({ generateAltText: false, generateTitle: true })
+		for (const title of [null, '', ' \t\n']) {
+			const current = { ...file, title }
+			expect(hasMissingMetadata(current, options)).toBe(true)
+			expect(needsMetadataUpdate(current, options)).toBe(true)
+			expect(createMetadataPatch(current, generated, options)).toEqual({
+				title: generated.title,
+			})
+		}
+		const current = { ...file, title: 'Human title' }
+		expect(hasMissingMetadata(current, options)).toBe(false)
+		expect(needsMetadataUpdate(current, options)).toBe(false)
+		expect(createMetadataPatch(current, generated, options)).toEqual({})
+		const overwrite = { ...options, overwriteTitle: true }
+		expect(needsMetadataUpdate(current, overwrite)).toBe(true)
+		expect(createMetadataPatch(current, generated, overwrite)).toEqual({
+			title: generated.title,
+		})
+		expect(
+			createMetadataPatch(current, generated, { ...overwrite, generateTitle: false }),
+		).toEqual({})
+	})
+	it('defaults title generation off and shows overwriting only when generation is enabled', () => {
+		expect(optionsSchema.parse({})).toMatchObject({
+			generateTitle: false,
+			overwriteTitle: false,
+		})
+		expect(
+			metadataAppOptions.find((option) => option.field === 'generateTitle')?.schema,
+		).toEqual({ default_value: false })
+		expect(
+			metadataAppOptions.find((option) => option.field === 'overwriteTitle')?.meta.conditions,
+		).toEqual([{ rule: { generateTitle: { _neq: true } }, hidden: true }])
+	})
 	it('does not generate or overwrite disabled alt text, even when missing', () => {
 		const options = optionsSchema.parse({ generateAltText: false, overwriteAltText: true })
 		expect(hasMissingMetadata(file, options)).toBe(false)

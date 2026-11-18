@@ -195,7 +195,7 @@ and package validation must continue to run after typechecking.
 
 ## Validation order
 
-Select local checks using [`agent-workflow.md`](agent-workflow.md#4-validate-and-review), the source
-of truth for validation by affected surface. The build prerequisites and packed-consumer commands
-above apply when those surfaces change. Required CI and release gates are documented in
+Select local checks using [verification selection](testing.md#selecting-verification-for-a-change),
+the source of truth for validation by affected surface. The build prerequisites and packed-consumer
+commands above apply when those surfaces change. Required CI and release gates are documented in
 [`ci.md`](ci.md) and [`publishing.md`](publishing.md).
