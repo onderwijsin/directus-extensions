@@ -74,6 +74,8 @@ Create or select a `text`/`string` field and assign **Markdown Editor**. Configu
 | `metadataUrl`                            | unset    | Optional browser-accessible JSON URL. Hidden when static mode is enabled.                                                                                                                                                                                                                              |
 | `staticComponentMeta`                    | unset    | Required JSON while static mode is enabled. No metadata request is made.                                                                                                                                                                                                                               |
 | `useReferences`                          | `false`  | Boolean capability gate for Reference picking, editing, and integrity checks.                                                                                                                                                                                                                          |
+| `useRelatedItems`                        | `false`  | Boolean capability gate for RelatedItemList insertion and editing, independent of References and component metadata.                                                                                                                                                                                   |
+| `relatedItemCollections`                 | unset    | Required non-empty JSON array while related items are enabled; configured independently of `referenceCollections`.                                                                                                                                                                                     |
 | `referenceCollections`                   | unset    | Required non-empty JSON array while References are enabled.                                                                                                                                                                                                                                            |
 | `enableReferenceIcon`                    | `false`  | Show an Iconify picker in the Reference drawer when References are enabled. Hidden icons in existing content are preserved.                                                                                                                                                                            |
 | `iconifyCollections`                     | all      | Searchable static collection choices for Reference icons; an empty selection includes all. Component icon properties use their own tag config.                                                                                                                                                         |
@@ -274,8 +276,8 @@ Leave the selection empty unless the content model deliberately restricts author
 
 Component insertion is available whenever the selected metadata source provides components.
 Reference insertion and integrity checks are controlled by `useReferences`. Both features are
-independent of `tools`; saved `component` and `reference` tool IDs are ignored. Turning
-`useReferences` off preserves stored Reference MDC.
+independent of `tools`; saved `component`, `reference`, and `related-items` tool IDs are ignored.
+Turning `useReferences` off preserves stored Reference MDC.
 
 The saved API value must remain a Markdown string:
 
@@ -337,15 +339,15 @@ or `{ "components": [...] }`.
 
 ### Validate component entries
 
-| Field         | Requirement                                                                                |
-| ------------- | ------------------------------------------------------------------------------------------ |
-| `name`        | Required non-empty string. Exclude reserved name `Reference`; the editor filters it.       |
-| `nodeType`    | Required `block` or `inline`. Any component with slots is inserted as a block.             |
-| `label`       | Optional author-facing label; defaults to `name`.                                          |
-| `description` | Optional selector help text.                                                               |
-| `tags`        | Optional JSDoc tags; `deprecated` marks a supported component for urgent replacement.      |
-| `props`       | Optional object keyed by property name or array of property definitions; defaults to `{}`. |
-| `slots`       | Optional string array or array of objects containing non-empty `name`; defaults to `[]`.   |
+| Field         | Requirement                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `name`        | Required non-empty string. Exclude reserved names `Reference` and `RelatedItemList`; the editor filters them. |
+| `nodeType`    | Required `block` or `inline`. Any component with slots is inserted as a block.                                |
+| `label`       | Optional author-facing label; defaults to `name`.                                                             |
+| `description` | Optional selector help text.                                                                                  |
+| `tags`        | Optional JSDoc tags; `deprecated` marks a supported component for urgent replacement.                         |
+| `props`       | Optional object keyed by property name or array of property definitions; defaults to `{}`.                    |
+| `slots`       | Optional string array or array of objects containing non-empty `name`; defaults to `[]`.                      |
 
 For a property definition:
 
@@ -456,7 +458,10 @@ safely. The editor does not provide frontend components.
 ## Configure Directus item References
 
 References are inline snapshots, not Directus relations. Enable `useReferences` and configure unique
-collections:
+collections.
+
+Use the code input's template action to insert the example configuration, then replace the
+collection and field names with your own.
 
 ```json
 [
@@ -519,6 +524,85 @@ The integrity scan runs after hydration and full external replacements. It can r
 unconfigured, unavailable, archived, outdated, and transient-error occurrences. It never updates the
 source item, automatically saves the document, scans documents server-side, creates a reverse index,
 or cascades source deletion.
+
+## Related item lists
+
+Enable **Use related items** (`useRelatedItems`, default `false`) to insert the built-in
+`RelatedItemList` block. It is independent of **Use item references**, component metadata, and
+**Available editor tools**. The toolbar, `/` menu, and block **+** menu offer **Related items** only
+when enabled. Disabling it preserves stored lists and their previews, while hiding list insertion
+and item editing. Related-item drawers are also unavailable in read-only and comparison views.
+
+Configure **Related item collections** (`relatedItemCollections`) with a non-empty JSON array.
+
+Use the code input's template action to insert its example configuration, then replace the
+collection and field names with your own. Each collection option has its own template; inserting one
+does not configure the other.
+
+```json
+[
+  {
+    "collection": "articles",
+    "displayField": "title",
+    "searchFields": ["title", "slug"],
+    "dataFields": ["slug", "summary"]
+  },
+  {
+    "collection": "programs",
+    "displayField": "name",
+    "dataFields": ["slug", "duration"]
+  }
+]
+```
+
+These settings are stored separately from `referenceCollections`; neither configuration falls back
+to the other. Each entry requires a unique `collection` and a `displayField`. `searchFields`
+defaults to `[displayField]`; `dataFields` defaults to `[]`. The same direct-field validation and
+author read permissions described for References apply, including rejection of relational fields,
+nested paths, and wildcards. Searches use the signed-in Studio user's permissions and exclude
+archived items.
+
+The drawer searches across these collections after a query is entered. When no items are selected,
+search guidance appears until results are shown. Select multiple results, drag selected rows to
+change order, and remove unwanted selections. Each source can occur once per list; different lists
+can select the same source. **Apply** requires at least one item and writes the complete ordered
+list in one undoable editor transaction. Cancel leaves the stored list unchanged. Use the block's
+**Edit items** button or **Settings** action to reopen the drawer; delete the block to remove the
+entire list.
+
+Lists store YAML properties in Markdown:
+
+```text
+::RelatedItemList
+---
+items:
+  - collection: articles
+    item: article-7
+    label: Becoming a teacher
+    data:
+      slug: becoming-a-teacher
+      summary: Explore the routes into teaching.
+  - collection: programs
+    item: 42
+    label: Teaching traineeship
+    data:
+      slug: teaching-traineeship
+      duration: 24
+---
+::
+```
+
+Every entry requires `collection`, string or finite-number `item`, string `label`, and
+JSON-compatible object `data`. Array order is display order. `label` copies the configured display
+field, and `data` copies the configured data fields when selected. Lists retain these snapshots
+until an author removes and selects an item again; `referenceSnapshotMode` does not apply, and list
+sources are not automatically checked or synchronized. Invalid stored lists remain intact and show a
+warning; repair them through the Markdown source before editing items.
+
+`RelatedItemList` is reserved and excluded from project component metadata. Consumers provide their
+own frontend `RelatedItemList` renderer accepting the ordered `items` prop. Rendering needs no
+source item requests because all configured values are embedded. No Directus relations or reverse
+index are created.
 
 ## Resizable Markdown images
 

@@ -22,6 +22,7 @@ const syntaxByTool: Record<string, string> = {
 	video: 'videos',
 	link: 'links',
 	reference: 'MDC item references',
+	'related-items': 'MDC related-item lists',
 	'horizontal-rule': 'horizontal rules',
 	'hard-break': 'hard breaks',
 	table: 'GitHub-style tables',
@@ -31,7 +32,7 @@ const syntaxByTool: Record<string, string> = {
 /**
  * Resolve authoring capabilities from field options, independently of legacy insertion tool IDs.
  * @param options Stored Markdown interface options.
- * @returns Tool syntax IDs plus the separately configured component and Reference capabilities.
+ * @returns Tool syntax IDs plus the separately configured component, Reference and related-item capabilities.
  */
 export function resolveEditorAiTools(options: Record<string, unknown>): string[] {
 	const configured = isArray(options.tools) ? options.tools.filter(isString) : []
@@ -39,8 +40,11 @@ export function resolveEditorAiTools(options: Record<string, unknown>): string[]
 		configured.length === 0 || configured.includes('all')
 			? Object.keys(syntaxByTool)
 			: configured
-	const enabled = tools.filter((tool) => tool !== 'component' && tool !== 'reference')
+	const enabled = tools.filter(
+		(tool) => tool !== 'component' && tool !== 'reference' && tool !== 'related-items',
+	)
 	if (options.useReferences === true) enabled.push('reference')
+	if (options.useRelatedItems === true) enabled.push('related-items')
 	const staticComponents = isArray(options.staticComponentMeta)
 		? options.staticComponentMeta
 		: isRecord(options.staticComponentMeta) && isArray(options.staticComponentMeta.components)
@@ -99,13 +103,17 @@ export function createSystemPrompt(
 			? `This editor instance allows new content using: ${syntax.join(', ')}. Do not introduce syntax outside this list unless the editing task explicitly requires preserving or modifying syntax already present in the input.`
 			: 'This editor instance has no optional authoring syntax enabled. Do not introduce new formatting or structural syntax unless the editing task explicitly requires modifying syntax already present in the input.'
 	const mdcGuidance = syntax.includes('Nuxt Content MDC components')
-		? `\n\nNuxt Content MDC inline components use :Component{prop="value"}. Block components use matching colon fences, for example ::Component{prop="value"} followed by content and a closing :: line. A block may instead contain YAML properties between --- delimiters. Named slots use #slot-name lines inside a block component. Property values may be strings, shorthand booleans, or dynamic JSON bindings. Preserve component names, colon-fence depth, properties, named slots, and nesting. Only use components listed in the supplied component reference when creating a new component; existing unknown components must be preserved.`
+		? `\n\nNuxt Content MDC inline components use :Component{prop="value"}. Block components use matching colon fences, for example ::Component{prop="value"} followed by content and a closing :: line. A block may instead contain YAML properties between --- delimiters. Named slots use #slot-name lines inside a block component. Property values may be strings, shorthand booleans, or dynamic JSON bindings. Preserve component names, colon-fence depth, properties, named slots, and nesting. Only use project components listed in the supplied component reference when creating a new project component; existing unknown components must be preserved.`
 		: ''
 
 	const outputContract =
 		scope === 'insert'
 			? `Generate Markdown to insert at the position marked ${EDITOR_AI_INSERTION_MARKER} in the supplied document. Return only the new content; do not repeat the marker or surrounding document.`
 			: 'Return only the replacement Markdown or text.'
+
+	const relatedItemGuidance = syntax.includes('MDC related-item lists')
+		? '\n\nRelatedItemList is a built-in MDC block: ::RelatedItemList followed by YAML properties between --- delimiters and a closing :: line. Its items array stores ordered snapshots, each with collection, string or numeric item, label, and object data. Preserve snapshots and array order unless the editing task explicitly changes them. Use only source snapshots supplied in the input; never invent item identifiers, labels, or data.'
+		: ''
 
 	return `You are an editing engine embedded in a Markdown editor.
 
@@ -117,7 +125,7 @@ ${outputContract} Do not wrap the result in code fences and do not include expla
 
 Preserve the natural language or languages used by the input or surrounding context unless the editing task explicitly requests another language.
 
-${authoringSyntax}${mdcGuidance}
+${authoringSyntax}${mdcGuidance}${relatedItemGuidance}
 
 Treat inline code and fenced code block contents as literal content. Do not rewrite code unless the editing task explicitly requires it.
 

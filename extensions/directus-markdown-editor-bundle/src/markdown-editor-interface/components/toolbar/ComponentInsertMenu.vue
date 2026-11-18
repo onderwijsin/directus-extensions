@@ -71,6 +71,7 @@ function choose(component: ComponentMetadata) {
 function editComponentFromNodeView(event: Event) {
 	if (props.disabled || !props.editor.isEditable) return
 	if (!(event instanceof CustomEvent) || !isString(event.detail?.name)) return
+	if (event.detail.name === 'RelatedItemList') return
 	exitSuggestion(props.editor.view)
 	const known = props.components.find((candidate) => candidate.name === event.detail.name)
 	const rawProps = isRecord(event.detail.props) ? event.detail.props : {}

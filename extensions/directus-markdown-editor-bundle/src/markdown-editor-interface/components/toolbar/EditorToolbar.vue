@@ -19,11 +19,13 @@ const props = defineProps<{
 	disabled?: boolean
 	fullscreen?: boolean
 	referencesEnabled?: boolean
+	relatedItemsEnabled?: boolean
 	componentsAvailable?: boolean
 }>()
 const emit = defineEmits<{
 	openLink: []
 	openReference: []
+	openRelatedItems: []
 	openImage: []
 	openMedia: []
 	openSource: []
@@ -102,6 +104,10 @@ function openLink() {
 
 function openReference() {
 	if (!isToolDisabled('reference')) emit('openReference')
+}
+
+function openRelatedItems() {
+	if (props.relatedItemsEnabled && !isToolDisabled('related-items')) emit('openRelatedItems')
 }
 
 function openImage() {
@@ -201,6 +207,18 @@ function tooltip(command: EditorCommand) {
 				aria-label="Insert reference"
 				@click="openReference"
 				><VIcon name="alternate_email"
+			/></VButton>
+			<VButton
+				v-if="relatedItemsEnabled"
+				icon
+				small
+				ghost
+				class="editor-toolbar__ghost-button"
+				:disabled="isToolDisabled('related-items')"
+				tooltip="Insert related items"
+				aria-label="Insert related items"
+				@click="openRelatedItems"
+				><VIcon name="account_tree"
 			/></VButton>
 			<VButton
 				v-if="imageEnabled"

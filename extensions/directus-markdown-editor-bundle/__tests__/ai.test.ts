@@ -371,10 +371,11 @@ describe('AI insertion capabilities', () => {
 			resolveEditorAiTools({
 				tools: ['paragraph'],
 				useReferences: true,
+				useRelatedItems: true,
 				useStaticComponentMeta: true,
 				staticComponentMeta: [{ name: 'Callout', nodeType: 'block' }],
 			}),
-		).toEqual(['paragraph', 'reference', 'component'])
+		).toEqual(['paragraph', 'reference', 'related-items', 'component'])
 		expect(resolveEditorAiTools({ tools: ['paragraph', 'component', 'reference'] })).toEqual([
 			'paragraph',
 		])
@@ -398,11 +399,26 @@ describe('AI insertion capabilities', () => {
 
 		expect(tools).not.toContain('component')
 		expect(tools).not.toContain('reference')
+		expect(tools).not.toContain('related-items')
 		expect(
 			resolveEditorAiTools({
 				tools: ['paragraph'],
 				metadataUrl: 'https://example.com/components.json',
 			}),
 		).toEqual(['paragraph', 'component'])
+	})
+})
+
+describe('RelatedItemList AI authoring', () => {
+	it('describes the enabled snapshot syntax and forbids fabricated source data', () => {
+		const prompt = createSystemPrompt(
+			resolveEditorAiTools({ tools: ['paragraph'], useRelatedItems: true }),
+		)
+		expect(prompt).toContain('MDC related-item lists')
+		expect(prompt).toContain('::RelatedItemList')
+		expect(prompt).toContain('never invent item identifiers, labels, or data')
+		expect(resolveEditorAiTools({ tools: ['paragraph', 'related-items'] })).toEqual([
+			'paragraph',
+		])
 	})
 })

@@ -1364,3 +1364,48 @@ describe('editor commands', () => {
 		editor.destroy()
 	})
 })
+
+describe('RelatedItemList capabilities', () => {
+	it('offers the built-in slash action independently of formatting and component metadata', () => {
+		const openRelatedItems = vi.fn()
+		let enabled = false
+		const actions = { openRelatedItems, canOpenRelatedItems: () => enabled }
+		expect(
+			createSlashItems([], actions, ['paragraph']).some(
+				(item) => item.id === 'related-items',
+			),
+		).toBe(false)
+		enabled = true
+		const item = createSlashItems([], actions, ['paragraph']).find(
+			(item) => item.id === 'related-items',
+		)
+		const editor = new Editor({ extensions: createEditorExtensions() })
+		try {
+			expect(item?.command(editor)).toBe(true)
+			expect(openRelatedItems).toHaveBeenCalledOnce()
+			enabled = false
+			expect(item?.command(editor)).toBe(false)
+		} finally {
+			editor.destroy()
+		}
+	})
+
+	it('reserves built-in metadata names and excludes stored lists from generic component reports', () => {
+		expect(
+			normalizeComponentMetadata([
+				{ name: 'RelatedItemList', nodeType: 'block' },
+				{ name: 'Reference', nodeType: 'inline' },
+			]),
+		).toEqual([])
+		const editor = new Editor({
+			extensions: createEditorExtensions(),
+			contentType: 'markdown',
+			content: '::RelatedItemList\n---\nitems: []\n---\n::',
+		})
+		try {
+			expect(scanComponentIntegrity(editor, [])).toEqual([])
+		} finally {
+			editor.destroy()
+		}
+	})
+})
