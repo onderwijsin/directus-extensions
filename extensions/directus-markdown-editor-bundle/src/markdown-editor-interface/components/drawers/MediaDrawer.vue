@@ -263,6 +263,7 @@ function remove() {
 					v-else
 					:preview-source="sanitizeImageUrl(source)"
 					:disabled="disabled"
+					from-url
 					@select="onFileSelect"
 					@clear="clearSource"
 				/>

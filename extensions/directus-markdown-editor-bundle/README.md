@@ -255,17 +255,18 @@ framework and accepts either an array or an object with a `components` array:
 
 ### Property fields
 
-| Field         | Required           | Contract                                                                                                                                                                                                            |
-| ------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                                                                                                                            |
-| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, `object`, or `array`. Unknown legacy values fall back to text.                                                                                                    |
-| `description` | no                 | Help text for the property.                                                                                                                                                                                         |
-| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                                                                                                                          |
-| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                                                                                                                             |
-| `values`      | no                 | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                                                                                                                     |
-| `properties`  | no                 | Child property map for an `object`, rendered as a labeled group. Children may themselves be objects or arrays.                                                                                                      |
-| `items`       | no                 | Item definition for an `array`. Object items render a reorderable repeater; string items without `values` render editable tags.                                                                                     |
-| `tags`        | no                 | JSDoc tags from component metadata, with optional `config`; `deprecated` adds a hint, while `specialInputType: image` and `specialInputType: url` select richer controls. The former `editor` tag remains readable. |
+| Field         | Required           | Contract                                                                                                                                                                                         |
+| ------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`        | only in array form | Property key in array form; optional editor-facing label in object form.                                                                                                                         |
+| `label`       | no                 | Drawer label. Defaults to the property's `name` or key.                                                                                                                                          |
+| `type`        | no                 | Editor input hint: `string`, `number`, `boolean`, `object`, or `array`. Unknown legacy values fall back to text.                                                                                 |
+| `description` | no                 | Help text shown above the control.                                                                                                                                                               |
+| `required`    | no                 | Prevents insertion until the author supplies a value; defaults to `false`.                                                                                                                       |
+| `default`     | no                 | Initial JSON-compatible value applied during insertion.                                                                                                                                          |
+| `values`      | no                 | Allowed string choices. On `string` this renders a select; on `array` it renders a multiselect.                                                                                                  |
+| `properties`  | no                 | Child property map for an `object`, rendered as a labeled group. Children may themselves be objects or arrays.                                                                                   |
+| `items`       | no                 | Item definition for an `array`. Object items render a reorderable repeater; string items without `values` render editable tags.                                                                  |
+| `tags`        | no                 | JSDoc tags from component metadata, with optional `config`. `deprecated` adds a hint. `specialInputType` supports `image`, `video`, `url`, and `icon`. The former `editor` tag remains readable. |
 
 The primitive controls preserve their corresponding values: `string` stores a string, `number`
 stores a number, `boolean` stores a boolean, and a primitive `array` stores a string array. A string
@@ -277,6 +278,18 @@ JSON-backed MDC attributes.
 
 Clearing text fields, including with Undo, keeps their drawers usable. Empty required fields
 continue to block Apply/Insert until completed.
+
+Set `label` and `description` directly on any component property, including nested properties. MDC
+stores the value under the property key.
+
+```json
+{
+  "type": "string",
+  "label": "Hero video",
+  "description": "The video shown in the hero section.",
+  "tags": [{ "name": "specialInputType", "text": "video" }]
+}
+```
 
 For example, a Hero can define `image` as
 `{ "type": "object", "properties": { "src": { "type": "string", "required": true, "tags": [{ "name": "specialInputType", "text": "image" }] } } }`
@@ -296,6 +309,11 @@ stored IDs remain unchanged. Use `@specialInputType url` for a string control th
 HTTP(S) URL with its protocol. Existing metadata with `@editor image` or `@editor url` still works;
 when both tags are supplied, `specialInputType` wins. Arbitrary JSDoc tags remain available, while
 the editor interprets only documented hints and `deprecated`.
+
+For a video asset property, use a `string` prop with `@specialInputType video` or the JSON tag
+`{ "name": "specialInputType", "text": "video" }`. The drawer accepts `video/*` uploads and video
+files from the Directus file library, with a removable playback preview. It stores the bare Directus
+file ID as a string. Resolve it to `/assets/{id}` in the consuming component.
 
 When a static value or metadata URL loads successfully, the editor treats that metadata as
 authoritative and checks components after hydration. Missing required properties, required
