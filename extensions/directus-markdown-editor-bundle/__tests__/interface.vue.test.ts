@@ -142,7 +142,13 @@ describe('object array input', () => {
 											type: 'array',
 											items: {
 												type: 'object',
-												properties: { label: { type: 'string' } },
+												properties: {
+													label: {
+														type: 'string',
+														name: 'Legacy label',
+														label: 'Child label',
+													},
+												},
 											},
 										},
 									},
@@ -180,6 +186,9 @@ describe('object array input', () => {
 		})
 		const nested = element.querySelector<HTMLInputElement>(
 			'#component-prop-root-groups-0-children-0-label',
+		)
+		expect(element.querySelector(`label[for="${nested?.id}"]`)?.textContent?.trim()).toBe(
+			'Child label',
 		)
 		expect(nested?.getAttribute('aria-invalid')).toBe('true')
 		const errorId = nested?.getAttribute('aria-describedby')
@@ -344,9 +353,10 @@ function registerDirectusPrimitives(app: ReturnType<typeof createApp>) {
 	app.component(
 		'VUpload',
 		defineComponent({
-			props: ['accept', 'filter'],
+			props: { accept: String, filter: Object, fromLibrary: Boolean, fromUrl: Boolean },
+			emits: ['input'],
 			template:
-				'<div class="v-upload-stub" :data-accept="accept" :data-filter="JSON.stringify(filter)" />',
+				'<button class="v-upload-stub" :data-accept="accept" :data-filter="JSON.stringify(filter)" :data-from-library="fromLibrary" :data-from-url="fromUrl" @click="$emit(\'input\', { id: \'video-id\', type: \'video/mp4\' })">Choose file</button>',
 		}),
 	)
 	app.component('VNotice', defineComponent({ template: '<div><slot /></div>' }))
@@ -617,7 +627,7 @@ describe('Markdown editor interface', () => {
 		expect(preview?.hasAttribute('controls')).toBe(true)
 		expect(preview?.getAttribute('preload')).toBe('metadata')
 		expect(element.querySelector('.upload-video')?.getAttribute('data-filter')).toBe(
-			'{"type":{"_contains":"video"}}',
+			'{"type":{"_starts_with":"video/"}}',
 		)
 		element.querySelector<HTMLButtonElement>('.upload-video')?.click()
 		await nextTick()
@@ -667,7 +677,66 @@ describe('Markdown editor interface', () => {
 
 		const upload = element.querySelector('.v-upload-stub')
 		expect(upload?.getAttribute('data-accept')).toBe('video/*')
-		expect(upload?.getAttribute('data-filter')).toBe('{"type":{"_contains":"video"}}')
+		expect(upload?.getAttribute('data-filter')).toBe('{"type":{"_starts_with":"video/"}}')
+		expect(upload?.getAttribute('data-from-url')).toBe('true')
+	})
+
+	it('selects a Directus video in a component drawer and stores its file ID in MDC', async () => {
+		const { element, input } = mountEditor('# Hello', false, undefined, {
+			useStaticComponentMeta: true,
+			staticComponentMeta: [
+				{
+					name: 'VideoCard',
+					nodeType: 'block',
+					props: {
+						video: {
+							type: 'string',
+							required: true,
+							label: 'Hero video',
+							description: 'De video die wordt getoond in het hero-element.',
+							tags: [{ name: 'specialInputType', text: 'video' }],
+						},
+					},
+				},
+			],
+		})
+		await nextTick()
+		await nextTick()
+		element.querySelector('[role="textbox"]')?.dispatchEvent(
+			new CustomEvent('markdown-editor-insert-component', {
+				detail: { name: 'VideoCard' },
+			}),
+		)
+		await nextTick()
+
+		const upload = element.querySelector<HTMLButtonElement>('#component-prop-video')
+		const insert = [...element.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Insert',
+		)
+		expect(element.querySelector(`label[for="${upload?.id}"]`)?.textContent).toContain(
+			'Hero video',
+		)
+		expect(upload?.parentElement?.previousElementSibling?.textContent).toBe(
+			'De video die wordt getoond in het hero-element.',
+		)
+		expect(upload?.getAttribute('data-accept')).toBe('video/*')
+		expect(upload?.getAttribute('data-filter')).toBe('{"type":{"_starts_with":"video/"}}')
+		expect(upload?.getAttribute('data-from-library')).toBe('true')
+		expect(upload?.getAttribute('data-from-url')).toBe('false')
+
+		upload?.click()
+		await nextTick()
+		expect(element.querySelector('aside video')?.getAttribute('src')).toBe('/assets/video-id')
+		element.querySelector<HTMLButtonElement>('[aria-label="Deselect video"]')?.click()
+		await nextTick()
+		expect(insert?.disabled).toBe(true)
+
+		upload?.click()
+		await nextTick()
+		insert?.click()
+		expect(input).toHaveBeenLastCalledWith(
+			expect.stringContaining('::VideoCard{video="video-id"}'),
+		)
 	})
 
 	it('persists the selected image asset path for tagged string properties', async () => {

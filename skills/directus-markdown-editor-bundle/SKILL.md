@@ -226,11 +226,6 @@ stored `src`, `allow` and `allowfullscreen` attributes to honor the selected con
 stored iframe directly contacts the provider; use a local placeholder until consent if required. URL
 validation does not verify whether a video exists or whether its owner allows embedding.
 
-For metadata image and URL controls, use `{ "name": "specialInputType", "text": "image" }` or
-`{ "name": "specialInputType", "text": "url" }` on a `string` property. The former `editor` tag
-remains readable, with `specialInputType` taking precedence. The default image storage format is now
-`/assets/{id}` for newly selected component images; existing ID values remain untouched.
-
 The endpoint reads the target field's `tools`, selected component metadata source, and
 `useReferences` options to construct the system prompt for that specific editor instance. AI may
 introduce only currently enabled authoring syntax, while existing syntax remains preservation-safe
@@ -352,6 +347,8 @@ or `{ "components": [...] }`.
 For a property definition:
 
 - `name` is required in array form and is an optional display label in object form;
+- `label` sets the drawer label for any property, including nested properties. It defaults to the
+  property's `name` or key. MDC stores the value under the property key.
 - `type` supports `string`, `number`, `boolean`, `object`, and `array`; unknown legacy values fall
   back to text;
 - a `string` with `values` renders a single select, while an `array` with `values` renders a
@@ -361,27 +358,34 @@ For a property definition:
   move, and confirmed remove controls;
 - an `array` without `values` or object `items` renders a free-form string tag input with draggable
   chips;
-- `description` is optional help text;
+- `description` displays optional help text above the control;
 - `required: true` blocks insertion while empty unless a default exists;
 - `default` may contain a JSON-compatible initial value; and
 - `values` is an optional array of string choices;
 - `tags: [{ "name": "specialInputType", "text": "image" }]` (the JSON form of
   `@specialInputType image`) keeps a prop typed and persisted as a `string` while rendering a
-  Directus image selector with a removable thumbnail; and
+  Directus image selector with a removable thumbnail.
+- `tags: [{ "name": "specialInputType", "text": "video" }]` (the JSON form of
+  `@specialInputType video`) renders a `video/*` upload and Directus file library selector with a
+  removable playback preview. It persists the bare file ID as a `string`. Resolve the ID to
+  `/assets/{id}` in the consuming component.
 - `tags: [{ "name": "specialInputType", "text": "url" }]` (the JSON form of `@specialInputType url`)
   keeps a prop typed and persisted as a `string` while requiring a valid HTTP(S) URL with its
   protocol.
 
+For example, a video property can use `"label": "Hero video"` and
+`"description": "The video shown in the hero section."` alongside
+`"tags": [{ "name": "specialInputType", "text": "video" }]`.
+
 Primitive controls persist their matching JSON value types. The image hint persists a selected
 Directus asset as an ID, `/assets/{id}` path, or absolute URL according to `assetStorageMode` (path
-by default), never as a file object. Hints are carried as JSDoc tags so the metadata remains
-compatible with `nuxt-component-meta`; arbitrary upstream tags and their optional `config` continue
-to pass through unchanged. `@specialInputType` is the control namespace; `image` and `url` have
-specialized controls. The `icon` hint renders an Iconify picker and reads its collection restriction
-from `config.collections`, for example `{ "collections": ["lucide"] }`. Older `@editor` tags remain
-readable, and `specialInputType` takes precedence if both are supplied. Nested required fields and
-URL hints participate in Apply/Insert validation. Object and object-array values persist as
-JSON-backed MDC attributes. Optional object fields may remain absent until edited.
+by default). Existing image values are preserved. Hints are carried as JSDoc tags so the metadata
+remains compatible with `nuxt-component-meta`; arbitrary upstream tags and their optional `config`
+continue to pass through unchanged. The `icon` hint renders an Iconify picker and reads its
+collection restriction from `config.collections`, for example `{ "collections": ["lucide"] }`. Older
+`@editor` tags remain readable, and `specialInputType` takes precedence if both are supplied. Nested
+required fields and URL hints participate in Apply/Insert validation. Object and object-array values
+persist as JSON-backed MDC attributes. Optional object fields may remain absent until edited.
 
 Clearing text fields, including with Undo, keeps their drawers usable. Empty required fields
 continue to block Apply/Insert until completed.

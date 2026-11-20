@@ -12,6 +12,7 @@ import {
 	componentPropIconCollections,
 	componentPropSpecialInputType,
 } from '../../component-meta/schema'
+import { directusAssetId, directusAssetUrl } from '../../editor/media'
 import BooleanInput from './BooleanInput.vue'
 import Field from './Field.vue'
 import ImageInput from './ImageInput.vue'
@@ -22,6 +23,7 @@ import SelectInput from './SelectInput.vue'
 import StringInput from './StringInput.vue'
 import TagsInput from './TagsInput.vue'
 import UrlInput from './UrlInput.vue'
+import VideoUploadField from './VideoUploadField.vue'
 
 const props = defineProps<{
 	name: string
@@ -34,7 +36,7 @@ const props = defineProps<{
 	useIconifyProxy?: boolean
 }>()
 const model = defineModel<unknown>({ required: true })
-const label = computed(() => props.definition.name ?? props.name)
+const label = computed(() => props.definition.label ?? props.definition.name ?? props.name)
 const specialInput = computed(() => componentPropSpecialInputType(props.definition))
 const textValue = computed(() =>
 	isString(model.value) ? model.value : model.value == null ? '' : String(model.value),
@@ -52,6 +54,25 @@ const objectArray = computed(() => (Array.isArray(model.value) ? model.value : [
  */
 function updateChild(name: string, value: unknown) {
 	model.value = { ...objectValue.value, [name]: value }
+}
+
+/**
+ * Store the selected Directus video file ID in the component draft.
+ * @param value Directus upload selection.
+ * @returns Nothing.
+ */
+function selectVideo(value: unknown) {
+	if (props.disabled) return
+	const id = directusAssetId(value)
+	if (id) model.value = id
+}
+
+/**
+ * Clear the selected video if the field is editable.
+ * @returns Nothing.
+ */
+function clearVideo() {
+	if (!props.disabled) model.value = ''
 }
 </script>
 
@@ -136,6 +157,13 @@ function updateChild(name: string, value: unknown) {
 				:storage-mode="assetStorageMode"
 				:base-url="assetBaseUrl"
 				@update:model-value="model = $event"
+			/>
+			<VideoUploadField
+				v-else-if="definition.type === 'string' && specialInput === 'video'"
+				v-bind="field"
+				:preview-source="isString(model) ? directusAssetUrl(model) : undefined"
+				@select="selectVideo"
+				@clear="clearVideo"
 			/>
 			<IconifyPicker
 				v-else-if="definition.type === 'string' && specialInput === 'icon'"

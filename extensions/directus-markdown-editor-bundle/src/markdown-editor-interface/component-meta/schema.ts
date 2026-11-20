@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 const PropFields = z.looseObject({
 	name: z.string().min(1).optional(),
+	label: z.string().optional(),
 	type: z.string().optional(),
 	description: z.string().optional(),
 	required: z.boolean().optional(),

@@ -2,6 +2,11 @@
 defineProps<{
 	previewSource?: string
 	disabled?: boolean
+	fromUrl?: boolean
+	id?: string
+	describedBy?: string
+	invalid?: boolean
+	required?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -30,12 +35,17 @@ const emit = defineEmits<{
 			</VButton>
 		</div>
 		<VUpload
+			:id="id"
+			aria-label="Select video"
+			:aria-describedby="describedBy"
+			:aria-invalid="invalid || undefined"
+			:aria-required="required || undefined"
 			:disabled="disabled"
 			:multiple="false"
 			from-library
-			from-url
+			:from-url="fromUrl"
 			accept="video/*"
-			:filter="{ type: { _contains: 'video' } }"
+			:filter="{ type: { _starts_with: 'video/' } }"
 			@input="emit('select', $event)"
 		/>
 	</div>
