@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+### Minor Changes
+
+- 1dfe8bb: Add an optional `label` field to MDC component property metadata to customize the drawer
+  label.
+- 1dfe8bb: Support `@specialInputType video` on MDC string props. Select or upload a Directus video
+  in the component drawer and store its file ID in Markdown.
+
 ## 0.8.0
 
 ### Minor Changes
