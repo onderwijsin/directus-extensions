@@ -59,6 +59,13 @@ const VIcon = defineComponent({
 	},
 })
 
+const VMenu = defineComponent({
+	setup(_props, { slots }) {
+		const toggle = vi.fn()
+		return () => h('div', slots.activator?.({ active: false, toggle }))
+	},
+})
+
 function mount(component: Component, props: Record<string, unknown> = {}) {
 	const element = document.createElement('div')
 	document.body.append(element)
@@ -66,6 +73,7 @@ function mount(component: Component, props: Record<string, unknown> = {}) {
 	app.component('v-input', VInput)
 	app.component('v-button', VButton)
 	app.component('v-icon', VIcon)
+	app.component('v-menu', VMenu)
 	app.mount(element)
 
 	return {

@@ -348,7 +348,12 @@ configuration. Invalid explicit values and invalid paths fail the mutation.
 ## `sluggernaut-link` display
 
 Both Sluggernaut interfaces recommend `Sluggernaut Link` in the Directus display picker. Use it as
-the display for a slug or permalink field.
+the display for a slug or permalink field. The value uses the full cell width until the
+right-aligned actions appear. They fade in on hover, appear on keyboard focus, and stay visible on
+touch-only devices.
+
+When the buttons need more room, a **Link actions** menu holds the available actions. Copy uses the
+full stored value.
 
 | Option | Default | Details                                                          |
 | ------ | ------- | ---------------------------------------------------------------- |
