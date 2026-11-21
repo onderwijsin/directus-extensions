@@ -437,8 +437,12 @@ Content-Type: application/json
 ## Link display
 
 Both Sluggernaut interfaces recommend `Sluggernaut Link` in the Directus display picker. Select it
-as the display for a slug or permalink field. It shows the stored value and provides copy. Configure
-`host` to enable Open:
+as the display for a slug or permalink field. The value uses the full cell width until the
+right-aligned actions appear. They fade in on hover, appear on keyboard focus, and stay visible on
+touch-only devices.
+
+When the buttons need more room, a **Link actions** menu holds the available actions. Copy uses the
+full stored value. Configure `host` to enable Open:
 
 ```text
 host: https://www.example.com
