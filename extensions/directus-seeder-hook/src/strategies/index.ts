@@ -12,6 +12,12 @@ import { toSeedRecord } from '../lib/seedItem'
 
 const primaryKeysSchema = z.array(z.union([z.string(), z.number()]))
 
+/** Selected deletions and the collection result they will update when executed. */
+export interface DeferredDeletion {
+	run: () => Promise<void>
+	result: SeedResult
+}
+
 /**
  * Create a seed result object.
  *
@@ -320,9 +326,13 @@ function createInsertUpdateStrategy(batchSize = 50): SeederStrategy {
  * Create a full-idempotent strategy.
  *
  * @param batchSize Batch size for operations
+ * @param deferDeletion Optional scheduler for the selected deletion batches
  * @returns Seeder strategy
  */
-function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
+function createFullIdempotentStrategy(
+	batchSize: number,
+	deferDeletion?: (deletion: DeferredDeletion) => void,
+): SeederStrategy {
 	return {
 		/**
 		 * Seeds one collection using the selected operation mode.
@@ -384,7 +394,8 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 				}
 
 				// Find and delete items that are not in the seed data
-				await performanceTracker.track(`  Delete extra items`, async () => {
+				const operation = deferDeletion ? '  Find extra items' : '  Delete extra items'
+				await performanceTracker.track(operation, async () => {
 					// Get all the IDs of the existing items that are not in the seed data
 					const allExistingItems = await serviceAdapter.getItems({
 						fields: [primaryKey],
@@ -397,7 +408,13 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 											// Bounded empty seeds need only the management selection; never rely on _nin: [].
 											...(seedDataIds.size === 0
 												? []
-												: [{ [primaryKey]: { _nin: [...seedDataIds] } }]),
+												: [
+														{
+															[primaryKey]: {
+																_nin: [...seedDataIds],
+															},
+														},
+													]),
 										],
 									},
 						limit: -1,
@@ -411,10 +428,13 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 						return item
 					})
 
-					if (idsToDelete.length > 0) {
-						// Delete items in batches
-						const deleteBatches = createBatches(idsToDelete, batchSize)
-
+					if (idsToDelete.length === 0) return
+					const deleteBatches = createBatches(idsToDelete, batchSize)
+					/**
+					 * Deletes the selected batches and records progress after each successful batch.
+					 * @returns A promise that resolves after all selected batches are deleted.
+					 */
+					const run = async () => {
 						for (const deleteBatch of deleteBatches) {
 							const deletedItems = await performanceTracker.track(
 								`Delete ${deleteBatch.length} items`,
@@ -426,6 +446,8 @@ function createFullIdempotentStrategy(batchSize = 50): SeederStrategy {
 							result.deleted += deletedItems.length
 						}
 					}
+					if (deferDeletion) deferDeletion({ run, result })
+					else await run()
 				})
 			})
 		},
@@ -454,9 +476,14 @@ function createBatches<T>(data: T[], batchSize: number): T[][] {
  *
  * @param operationMode Operation mode
  * @param batchSize Batch size for operations
+ * @param deferDeletion Optional scheduler for full-idempotent deletion batches
  * @returns Seeder strategy
  */
-export function createSeederStrategy(operationMode: string, batchSize = 50): SeederStrategy {
+export function createSeederStrategy(
+	operationMode: string,
+	batchSize = 50,
+	deferDeletion?: (deletion: DeferredDeletion) => void,
+): SeederStrategy {
 	if (operationMode === OperationMode.INSERT_MISSING) {
 		return createInsertMissingStrategy(batchSize)
 	}
@@ -466,7 +493,7 @@ export function createSeederStrategy(operationMode: string, batchSize = 50): See
 	}
 
 	if (operationMode === OperationMode.FULL_IDEMPOTENT) {
-		return createFullIdempotentStrategy(batchSize)
+		return createFullIdempotentStrategy(batchSize, deferDeletion)
 	}
 
 	throw new Error(`Unknown operation mode: ${String(operationMode)}`)

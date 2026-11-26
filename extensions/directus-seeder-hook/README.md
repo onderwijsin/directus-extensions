@@ -392,6 +392,22 @@ before any selected collection mutates. **Extraction filters and omitted fields 
 managed records from deletion.** A filtered export or environment transformation can omit records
 that full-idempotent later deletes.
 
+### System role deletion
+
+Full-idempotent system imports delete selected roles through Directus's `RolesService`. The Seeder
+keeps the configured order for reads and upserts and waits to delete roles until selected
+`directus_users` and `directus_access` with seed files have completed successfully. If either
+collection fails, the Seeder skips the pending role deletions even with
+`SEEDER_CONTINUE_ON_ERROR=true`. A skipped pending deletion or an error from Directus makes the
+import exit 1. Earlier successful writes can remain.
+
+Management limits the roles selected for deletion. Directus detaches child roles, suspends users
+assigned to the deleted roles and clears their role, and handles related records such as role-linked
+presets and policy assignments. These effects can reach records outside the Seeder's management and
+collection selection. Directus still refuses to remove the last active administrator, including
+during `--full-reset`. Seed the replacement admin's user and access changes in the same import when
+retiring a role used by the last active administrator.
+
 ### ID-range management
 
 ```json

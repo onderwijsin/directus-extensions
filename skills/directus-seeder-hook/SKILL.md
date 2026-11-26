@@ -62,6 +62,12 @@ Read **Primary keys and input preflight**, **System transformations and compatib
   protect omitted managed rows from deletion. Before relinquishing a relation-source ID, retain it
   while importing target `[]` and verify the clear. Review surviving target rows before removing IDs
   from manifest history. Imports leave manifests unchanged.
+- For system role deletion, management selects the roles to delete. Directus's `RolesService`
+  detaches child roles, suspends assigned users and clears their role, and handles related records
+  even outside management or collection selection. The Seeder waits for selected user and access
+  seed files to import successfully before deleting roles, including with continuation enabled.
+  Directus keeps its last-active-administrator check for full-idempotent imports and full resets.
+  Include the replacement administrator's user and access changes when retiring the old admin role.
 - Accept only after checking exit status, logs, and actual target rows, including system root-user
   credentials/status, policy TFA, Flow links, and file uploads where selected. Mutation failures
   exit 1 even with continuation enabled; earlier mutations are not rolled back. Diagnose partial
