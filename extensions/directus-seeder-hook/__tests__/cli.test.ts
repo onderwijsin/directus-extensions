@@ -85,6 +85,7 @@ function createProgram(env: Record<string, unknown> = {}) {
 	const createMany = vi.fn().mockResolvedValue([])
 	const upsertMany = vi.fn().mockResolvedValue([1])
 	const deleteMany = vi.fn().mockResolvedValue([])
+	const deleteRoles = vi.fn().mockResolvedValue([])
 	const clearCache = vi.fn().mockResolvedValue(undefined)
 	const readFiles = vi.fn<(...args: unknown[]) => Promise<unknown[]>>().mockResolvedValue([])
 	const uploadOne =
@@ -101,6 +102,9 @@ function createProgram(env: Record<string, unknown> = {}) {
 	})
 	const FilesService = vi.fn(function () {
 		return { readByQuery: readFiles, uploadOne }
+	})
+	const RolesService = vi.fn(function () {
+		return { deleteMany: deleteRoles }
 	})
 	const AssetsService = vi.fn(function () {
 		return { getAsset }
@@ -129,7 +133,7 @@ function createProgram(env: Record<string, unknown> = {}) {
 			...env,
 		},
 		logger,
-		services: { ItemsService, FilesService, AssetsService, UtilsService },
+		services: { ItemsService, FilesService, RolesService, AssetsService, UtilsService },
 		getSchema,
 		database,
 	}
@@ -147,6 +151,7 @@ function createProgram(env: Record<string, unknown> = {}) {
 		createMany,
 		upsertMany,
 		deleteMany,
+		deleteRoles,
 		ItemsService,
 		FilesService,
 		AssetsService,
@@ -196,6 +201,7 @@ function expectNoServiceCalls(service: ReturnType<typeof createProgram>) {
 		service.createMany,
 		service.upsertMany,
 		service.deleteMany,
+		service.deleteRoles,
 		service.uploadOne,
 		service.getAsset,
 		service.clearCache,
@@ -2667,11 +2673,12 @@ describe('seeder registration and CLI', () => {
 					filter: { id: { _nin: [] } },
 					limit: -1,
 				})
-				expect(service.deleteMany).toHaveBeenCalledExactlyOnceWith(['existing'])
+				expect(service.deleteRoles).toHaveBeenCalledExactlyOnceWith(['existing'])
 			} else {
 				expect(service.readByQuery).not.toHaveBeenCalled()
-				expect(service.deleteMany).not.toHaveBeenCalled()
+				expect(service.deleteRoles).not.toHaveBeenCalled()
 			}
+			expect(service.deleteMany).not.toHaveBeenCalled()
 			expect(warn).not.toHaveBeenCalled()
 			expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 		},
@@ -3078,19 +3085,50 @@ describe('seeder registration and CLI', () => {
 		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 	})
 
-	it('exits one after a continuing mutation error, clearing cache and seeding later collections', async () => {
-		const roles = [{ id: 'role', name: 'Role' }]
+	it('skips deferred role deletion after a user mutation fails even when later collections continue', async () => {
+		const users = [{ id: 'user' }]
 		const settings = [{ id: 1, project_name: 'Fixture' }]
-		await writeFile(path.join(directory, 'directus_roles.json'), JSON.stringify(roles))
+		await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+		await writeFile(path.join(directory, 'directus_roles.managed-ids.json'), '["retired-role"]')
+		await writeFile(path.join(directory, 'directus_users.json'), JSON.stringify(users))
+		await writeFile(path.join(directory, 'directus_users.managed-ids.json'), '["user"]')
 		await writeFile(path.join(directory, 'directus_settings.json'), JSON.stringify(settings))
-		const service = createProgram({ SEEDER_CONTINUE_ON_ERROR: true })
-		service.createMany.mockRejectedValueOnce(new Error('mutation failed'))
+		const service = createProgram({
+			SEEDER_ENABLE_FULL_IDEMPOTENT: true,
+			SEEDER_CONTINUE_ON_ERROR: true,
+		})
+		service.readByQuery.mockResolvedValueOnce([{ id: 'retired-role' }])
+		service.upsertMany.mockRejectedValueOnce(new Error('mutation failed'))
 		const errorLog = vi.spyOn(logger, 'error')
-		expect(await runCommand(service.program, 'system', '--mode', 'insert-missing')).toBe(1)
-		expect(service.createMany.mock.calls).toEqual([[roles], [settings]])
+		expect(await runCommand(service.program, 'system', '--yes')).toBe(1)
+		expect(service.deleteRoles).not.toHaveBeenCalled()
+		expect(service.upsertMany.mock.calls).toEqual([[users], [settings]])
 		expect(errorLog).toHaveBeenCalledWith(
-			'Error seeding collection directus_roles: mutation failed',
+			'Error seeding collection directus_roles: Skipped deferred role deletion because directus_users did not seed successfully',
 		)
+		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
+	})
+
+	it('reports a failed deferred role delete and stops later collections by default', async () => {
+		await writeFile(path.join(directory, 'directus_roles.json'), '[]')
+		await writeFile(path.join(directory, 'directus_roles.managed-ids.json'), '["retired-role"]')
+		await writeFile(path.join(directory, 'directus_users.json'), '[{"id":"user"}]')
+		await writeFile(path.join(directory, 'directus_users.managed-ids.json'), '["user"]')
+		await writeFile(path.join(directory, 'directus_settings.json'), '[{"id":1}]')
+		const service = createProgram({ SEEDER_ENABLE_FULL_IDEMPOTENT: true })
+		service.readByQuery.mockResolvedValueOnce([{ id: 'retired-role' }])
+		service.deleteRoles.mockRejectedValueOnce(new Error('Cannot remove the last admin user'))
+		const errorLog = vi.spyOn(logger, 'error')
+		const info = vi.spyOn(logger, 'info')
+
+		expect(await runCommand(service.program, 'system', '--yes')).toBe(1)
+		expect(service.upsertMany).toHaveBeenCalledExactlyOnceWith([{ id: 'user' }])
+		expect(service.upsertMany).toHaveBeenCalledBefore(service.deleteRoles)
+		expect(service.deleteRoles).toHaveBeenCalledExactlyOnceWith(['retired-role'])
+		expect(errorLog).toHaveBeenCalledWith(
+			'Error seeding collection directus_roles: Cannot remove the last admin user',
+		)
+		expect(info).not.toHaveBeenCalledWith(expect.stringContaining('Seeded directus_roles:'))
 		expect(service.clearCache).toHaveBeenCalledExactlyOnceWith({ system: true })
 	})
 

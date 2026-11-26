@@ -1,5 +1,6 @@
 import type { CollectionConfig } from '../seeders/config.schema'
 import type { ServiceAdapterContext } from '../services/ServiceAdapter'
+import type { DeferredDeletion } from '../strategies'
 import type { SeedResult } from '../strategies/SeederStrategy'
 import type { ResolvedCollectionManagement } from './collectionManagement'
 import type { SeederConfig } from './config'
@@ -8,6 +9,7 @@ import type { SeedData } from './seedDataParser'
 
 import { createFilesServiceAdapter } from '../services/FilesServiceAdapter'
 import { createItemsServiceAdapter } from '../services/ItemsServiceAdapter'
+import { createRolesServiceAdapter } from '../services/RolesServiceAdapter'
 import { createSeederStrategy } from '../strategies'
 import { validateManagedSeedData } from './collectionManagement'
 import { DataScope, OperationMode, selectCollections } from './config'
@@ -28,6 +30,24 @@ function getResolvedPrimaryKey(primaryKeys: Map<string, string>, collectionName:
 	if (primary === undefined)
 		throw new Error(`Missing resolved primary key for collection "${collectionName}"`)
 	return primary
+}
+
+/**
+ * Reports a completed collection, including any scheduled deletes that ran.
+ * @param logger - Directus logger.
+ * @param result - Final collection result.
+ * @returns Nothing.
+ */
+function logSeedResult(logger: ServiceAdapterContext['logger'], result: SeedResult): void {
+	const { collectionName, error, created, updated, deleted, skipped, duration } = result
+	if (error !== undefined) {
+		logger.error(`Error seeding collection ${collectionName}: ${error}`)
+		return
+	}
+	logger.info(
+		`Seeded ${collectionName}: ${created} created, ${updated} updated, ${deleted} deleted, ` +
+			`${skipped} skipped, ${duration.toFixed(2)} ms`,
+	)
 }
 
 /**
@@ -182,12 +202,63 @@ export async function seedCollections(
 		`Seeding ${collectionsToSeed.length} ${typeLabel}collections: ${collectionsToSeed.join(', ')}`,
 	)
 
+	const roleDeletionOrder = useSystemMetadata
+		? collectionsToSeed.filter((name) =>
+				['directus_roles', 'directus_users', 'directus_access'].includes(name),
+			)
+		: []
+	const roleDeleteDependencies = roleDeletionOrder.filter((name) => name !== 'directus_roles')
+	const deleteRolesAfter = roleDeletionOrder.at(-1)
+	let pendingRoleDeletion: DeferredDeletion | undefined
+
+	/**
+	 * Finishes the selected role deletions once the selected users and access succeeded.
+	 * @returns Whether the role result failed.
+	 */
+	const finishRoleDeletion = async (): Promise<boolean> => {
+		const deletion = pendingRoleDeletion
+		if (!deletion) return false
+		pendingRoleDeletion = undefined
+		const { run, result } = deletion
+		const incomplete = roleDeleteDependencies.find(
+			(name) =>
+				!results.some(
+					({ collectionName, error }) => collectionName === name && error === undefined,
+				),
+		)
+		if (incomplete) {
+			result.error = `Skipped deferred role deletion because ${incomplete} did not seed successfully`
+		} else {
+			const started = performance.now()
+			try {
+				await run()
+			} catch (error) {
+				result.error = error instanceof Error ? error.message : 'Unknown error'
+			}
+			result.duration += performance.now() - started
+		}
+		logSeedResult(logger, result)
+		return result.error !== undefined
+	}
+
 	// Seed each collection
 	for (const collectionName of collectionsToSeed) {
 		const collectionData = seedData[collectionName] ?? []
 		const collection = collectionConfigs.find((entry) => entry.collection === collectionName)
 		if (!collection) throw new Error(`Missing configuration for collection "${collectionName}"`)
-		const strategy = createSeederStrategy(collection.operationMode, config.batchSize)
+		const deletesSystemRoles =
+			useSystemMetadata &&
+			collectionName === 'directus_roles' &&
+			collection.operationMode === OperationMode.FULL_IDEMPOTENT
+		const strategy = createSeederStrategy(
+			collection.operationMode,
+			config.batchSize,
+			deletesSystemRoles
+				? (deletion) => {
+						pendingRoleDeletion = deletion
+					}
+				: undefined,
+		)
 
 		logger.debug(`Seeding collection: ${collectionName} (${collectionData.length} items)`)
 
@@ -197,7 +268,9 @@ export async function seedCollections(
 			const serviceAdapter =
 				collectionName === 'directus_files'
 					? await createFilesServiceAdapter(context)
-					: await createItemsServiceAdapter(collectionName, context)
+					: deletesSystemRoles
+						? await createRolesServiceAdapter(context)
+						: await createItemsServiceAdapter(collectionName, context)
 
 			// Seed the collection
 			result = await strategy.seedCollection(
@@ -224,20 +297,17 @@ export async function seedCollections(
 
 		results.push(result)
 
-		if (result.error !== undefined) {
-			logger.error(`Error seeding collection ${collectionName}: ${result.error}`)
-			if (!config.continueOnError) break
-		} else {
-			logger.info(
-				`Seeded ${collectionName}: ` +
-					`${result.created} created, ` +
-					`${result.updated} updated, ` +
-					`${result.deleted} deleted, ` +
-					`${result.skipped} skipped, ` +
-					`${result.duration.toFixed(2)} ms`,
-			)
-		}
+		if (pendingRoleDeletion?.result !== result) logSeedResult(logger, result)
+		if (result.error !== undefined && !config.continueOnError) break
+		if (
+			collectionName === deleteRolesAfter &&
+			(await finishRoleDeletion()) &&
+			!config.continueOnError
+		)
+			break
 	}
 
+	// Also report the skipped deletion if the import stopped before the dependencies completed.
+	await finishRoleDeletion()
 	return results
 }

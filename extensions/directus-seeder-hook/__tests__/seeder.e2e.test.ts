@@ -11,7 +11,9 @@ import {
 	createPolicy,
 	createPreset,
 	createRelation,
+	createRole,
 	createTranslation,
+	customEndpoint,
 	deleteCollection,
 	deleteItem,
 	deletePermission,
@@ -20,6 +22,7 @@ import {
 	deleteRole,
 	deleteTranslation,
 	deleteUser,
+	readMe,
 	readPermissions,
 	readItems,
 	readPresets,
@@ -1205,6 +1208,158 @@ describe('installed seeder CLI', () => {
 					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
 					directory,
 				])
+			}
+		}
+	})
+
+	it('replays an extracted admin handover before removing the outgoing role', async () => {
+		const root = await client.request(readMe({ fields: ['id', 'role', 'status'] }))
+		if (typeof root.role !== 'string' || root.status !== 'active')
+			throw new Error('Expected the active Directus root user to have a role')
+		const originalRole = root.role
+		// The outgoing role inherits admin access from the original role carried by the runner's JWT.
+		const outgoing = { id: randomUUID(), name: 'Seeder outgoing admin', parent: originalRole }
+		const incoming = { id: randomUUID(), name: 'Seeder incoming admin' }
+		const roleFilter = { id: { _in: [outgoing.id, incoming.id] } }
+		const directory = `/tmp/seeder-admin-handover-e2e-${randomUUID()}`
+		const environment = {
+			DEPLOYMENT_ENV: 'development',
+			SEEDER_CONFIG_PATH: `${directory}/config.json`,
+			SEEDER_SEEDS_DIR: `${directory}/seeds`,
+			SEEDER_ASSETS_DIR: `${directory}/assets`,
+			SEEDER_INCLUDE: 'directus_roles,directus_users,directus_access',
+			SEEDER_ENABLE_FULL_IDEMPOTENT: 'true',
+		}
+		const policy = await client.request(
+			createPolicy({
+				name: 'Seeder incoming admin policy',
+				admin_access: true,
+				app_access: true,
+			}),
+		)
+		const access = { id: randomUUID(), policy: policy.id, role: incoming.id }
+		try {
+			await inDirectus(
+				'const fs = require("node:fs"); const [root, config] = process.argv.slice(1); fs.mkdirSync(root); fs.writeFileSync(`${root}/config.json`, config)',
+				directory,
+				JSON.stringify({
+					system: {
+						collections: {
+							directus_roles: {
+								filter: roleFilter,
+								fields: ['id', 'name', 'parent'],
+							},
+							directus_users: {
+								filter: { id: { _eq: root.id } },
+								fields: ['id', 'role'],
+							},
+							directus_access: { filter: { id: { _eq: access.id } } },
+						},
+					},
+				}),
+			)
+			await client.request(createRole(outgoing))
+			await client.request(updateUser(root.id, { role: outgoing.id }))
+			await seed(environment, 'extract', '--json-only')
+
+			await client.request(createRole(incoming))
+			await client.request(
+				customEndpoint({ path: '/access', method: 'POST', body: JSON.stringify(access) }),
+			)
+			await client.request(updateUser(root.id, { role: incoming.id }))
+			await client.request(deleteRole(outgoing.id))
+			await seed(environment, 'extract', '--json-only')
+
+			// Recreate the previous target without changing the exported seed files.
+			await client.request(createRole(outgoing))
+			await client.request(updateUser(root.id, { role: outgoing.id }))
+			await client.request(deleteRole(incoming.id))
+			// The incoming role grants admin access only after its policy assignment is imported.
+			await seed(environment, 'system', '--yes')
+
+			expect(
+				await client.request(
+					readRoles({ filter: roleFilter, fields: ['id', 'name', 'parent'] }),
+				),
+			).toEqual([{ ...incoming, parent: null }])
+			expect(
+				await client.request(
+					customEndpoint({ path: `/access/${access.id}`, method: 'GET' }),
+				),
+			).toMatchObject(access)
+			expect(await client.request(readMe({ fields: ['id', 'role', 'status'] }))).toEqual({
+				id: root.id,
+				role: incoming.id,
+				status: 'active',
+			})
+		} finally {
+			try {
+				await client.request(
+					updateUser(root.id, { role: originalRole, status: root.status }),
+				)
+				for (const role of await client.request(readRoles({ filter: roleFilter })))
+					await client.request(deleteRole(role.id))
+				await client.request(deletePolicy(policy.id))
+			} finally {
+				await inDirectus(
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				)
+			}
+		}
+	})
+
+	it('detaches an unmanaged child and suspends users when removing a managed role', async () => {
+		const parentId = randomUUID()
+		const childId = randomUUID()
+		const child = { id: childId, name: 'Seeder unmanaged child', parent: parentId }
+		const roleFilter = { id: { _in: [parentId, childId] } }
+		const directory = `/tmp/seeder-managed-role-e2e-${randomUUID()}`
+		const user = await client.createEphemeralUser({
+			policies: [{ name: 'Seeder directly assigned policy', app_access: true }],
+		})
+		try {
+			await client.request(createRole({ id: parentId, name: 'Seeder managed parent' }))
+			await client.request(createRole(child))
+			await client.request(updateUser(user.id, { role: parentId }))
+			const { policies } = await client.request(readUser(user.id, { fields: ['policies'] }))
+			expect(policies).toHaveLength(1)
+
+			await inDirectus(
+				`const fs = require('node:fs');
+				const [root, parentId] = process.argv.slice(1);
+				fs.mkdirSync(root + '/system', { recursive: true });
+				fs.writeFileSync(root + '/system/directus_roles.json', '[]');
+				fs.writeFileSync(root + '/system/directus_roles.managed-ids.json', JSON.stringify([parentId]));`,
+				directory,
+				parentId,
+			)
+			await seed(
+				{ SEEDER_SEEDS_DIR: directory, SEEDER_ENABLE_FULL_IDEMPOTENT: 'true' },
+				'system',
+				'--yes',
+				'--include',
+				'directus_roles',
+			)
+
+			expect(
+				await client.request(
+					readRoles({ filter: roleFilter, fields: ['id', 'name', 'parent'] }),
+				),
+			).toEqual([{ ...child, parent: null }])
+			expect(
+				await client.request(readUser(user.id, { fields: ['role', 'status', 'policies'] })),
+			).toEqual({ role: null, status: 'suspended', policies })
+		} finally {
+			try {
+				await user.dispose()
+				for (const role of await client.request(readRoles({ filter: roleFilter })))
+					await client.request(deleteRole(role.id))
+			} finally {
+				await inDirectus(
+					'require("node:fs").rmSync(process.argv[1], { recursive: true, force: true })',
+					directory,
+				)
 			}
 		}
 	})
